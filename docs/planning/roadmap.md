@@ -138,6 +138,16 @@ Goal: the core an application stands on.
 | F11 | CLI | Global `anetos new`, `anetos dev` (watch, rebuild, restart, browser reload), `make:handler`, `make:model`, `make:migration`, `make:middleware`; app-binary command framework (`serve`, `run`, `migrate*`, `routes:list`, custom commands) |
 | F12 | Testing helpers | App bootstrap for tests, fluent HTTP test client, per-test DB transaction rollback |
 
+**Progress**
+
+| WP | Status |
+|---|---|
+| F1 Repository & tooling | ✅ Done 2026-09-30 |
+| F2 App kernel | ✅ Done 2026-09-30 |
+| F3 Configuration | ✅ Done 2026-09-30 |
+| F4 Runtime supervisor | ✅ Done 2026-09-30 |
+| F5–F12 | Not started (next: F5 HTTP layer) |
+
 **Planned patch:** **v0.1.x** adds **relations and eager loading** (has-one,
 has-many, belongs-to, many-to-many, `With(...)`). This is kept out of v0.1.0 so
 the core query builder settles first, but it **must ship before v0.2 starts**.
@@ -286,7 +296,7 @@ something, and we fix the API rather than add the hook.
 |---|---|---|
 | Q1 | Final name, org, domain | Before v0.3 (M1) |
 | Q2 | ~~License: MIT vs Apache-2.0~~ **Decided 2026-09-30: Apache-2.0**, for its explicit patent grant, patent retaliation clause, trademark clarification and contribution terms (design D16) | Decided |
-| Q3 | Minimum Go version: proposal is to follow Go's own support policy (the two latest releases) | At F1 |
+| Q3 | ~~Minimum Go version~~ **Proposed 2026-09-30:** the older of the two Go-supported releases; CI tests minimum + latest (design D18). Temporarily `go 1.24` until the build environment can download newer Go versions | Confirm when newer toolchains are available |
 | Q4 | Docs site generator (VitePress, Hugo, Starlight…) | At M2 |
 | Q5 | Which mail API driver is first-party first (Resend vs Postmark) | At B9 |
 | Q6 | ~~Public repo from day one, or private until v0.3?~~ **Decided 2026-09-30:** private until ready for public release (v0.3). A private repo can use the working codename; GitHub redirects renamed repos, and the module path is a find-and-replace while nobody depends on it | Decided |
@@ -298,3 +308,4 @@ something, and we fix the API rather than add the hook.
 | 2026-09-29 | Initial plan: v0.1–v0.4, Vite/Inertia moved to v0.4, v0.3 is the public MVP |
 | 2026-09-30 | Q6 decided: private repo until public release |
 | 2026-09-30 | Q2 decided: Apache-2.0 license |
+| 2026-09-30 | F1–F4 done; Q3 proposal recorded |
