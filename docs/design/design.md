@@ -1,0 +1,988 @@
+# Anetos — Design Document
+
+> **Working codename.** "Anetos", `anetos` and `anetos.dev/anetos` are
+> placeholders until the final name is chosen (roadmap Q1).
+>
+> **Code in this document is illustrative.** It shows the intended developer
+> experience, not final signatures. The source of truth for APIs is the code
+> and its godoc; this document records *intent and decisions*.
+
+| | |
+|---|---|
+| **Status** | Draft v0.1 (design phase) |
+| **Owner** | Samiul Hoque |
+| **Last updated** | 2026-09-29 |
+| **Related** | [Roadmap](../planning/roadmap.md) · [Documentation guide](../contributing/documentation-guide.md) · [ADRs](adr/) |
+
+## Contents
+
+1. [Summary](#1-summary)
+2. [Design principles](#2-design-principles)
+3. [Architecture overview](#3-architecture-overview)
+4. [Application lifecycle](#4-application-lifecycle)
+5. [Repository & module layout](#5-repository--module-layout)
+6. [Generated application layout](#6-generated-application-layout)
+7. [Configuration](#7-configuration)
+8. [HTTP layer](#8-http-layer)
+9. [Validation](#9-validation)
+10. [Data layer](#10-data-layer)
+11. [Migrations, seeders & factories](#11-migrations-seeders--factories)
+12. [Views & frontend](#12-views--frontend)
+13. [Runtime & concurrency](#13-runtime--concurrency)
+14. [Services, contracts & drivers](#14-services-contracts--drivers)
+15. [Authentication & authorization](#15-authentication--authorization)
+16. [Plugin system](#16-plugin-system)
+17. [CLI](#17-cli)
+18. [Testing](#18-testing)
+19. [Observability](#19-observability)
+20. [Security defaults](#20-security-defaults)
+21. [Build & deployment](#21-build--deployment)
+22. [Performance strategy](#22-performance-strategy)
+23. [Compatibility & versioning](#23-compatibility--versioning)
+24. [Decision log](#24-decision-log)
+25. [Open questions](#25-open-questions)
+
+---
+
+## 1. Summary
+
+Anetos is a batteries-included Go web framework. It aims for the developer
+experience Laravel is known for (scaffolding, a capable data layer, swappable
+drivers, queues, auth, an ecosystem of packages) while staying idiomatic Go:
+static types, explicit wiring, the standard `net/http`, and code generation in
+place of runtime reflection.
+
+Its defining feature is a **supervised runtime**. One application binary runs
+HTTP, queue workers, pub/sub listeners, event handlers and the scheduler as
+goroutines under one supervisor. They share configuration and resources and
+shut down together. The same binary can run a single role (`--only=http`)
+when you scale out.
+
+### Lessons carried over from Buffalo
+
+These come from building production apps with Buffalo. Each maps to a design
+response:
+
+| Buffalo pain point | Anetos response | Section |
+|---|---|---|
+| Pop/Fizz too primitive; raw SQL often needed | Relations, eager loading, scopes and soft deletes in the data layer, with raw SQL as a pleasant escape hatch | §10 |
+| Plush templates | templ: compiled, type-checked, IDE support | §12 |
+| Features outside the core (e.g. Google login) were a lot of work | Social login built in; plugin system for everything else | §15, §16 |
+| Goroutines and channels not used at the core; pub/sub needed a separate app | Supervised runtime with workers, listeners, events and scheduler | §13 |
+| Vue integration was difficult | Vite + Inertia starter kits (v0.4) | §12 |
+
+---
+
+## 2. Design principles
+
+Principles settle arguments. When two good options conflict, the higher
+principle wins.
+
+1. **Standard library first.** Every handler is ultimately an `http.Handler`.
+   Every middleware is `func(http.Handler) http.Handler`. Any Go middleware
+   works in Anetos, and any Anetos handler works outside it.
+2. **Explicit over magic.** No facades, no package-level mutable state, no
+   hidden global container. Dependencies arrive through constructors, the
+   `App`, or the request `Ctx`. If you can't *go to definition* on something,
+   it's too magic.
+3. **Let the types do the work.** Typed handlers, typed jobs, typed events and
+   typed config. Binding, validation and API docs come from types, not
+   strings.
+4. **Code generation over runtime reflection.** Reflection is allowed at
+   startup and registration time and must never run per request or per
+   message. Generated code is plain, readable Go, committed to the repo.
+5. **Batteries included, all swappable.** Every service is an interface
+   (contract) with drivers selected by config. Defaults work with zero setup.
+6. **Small core, modular drivers.** Heavy dependencies (cloud SDKs, broker
+   clients, DB drivers) live in separate Go modules so you only pull what you
+   use.
+7. **Concurrency is a first-class citizen.** Background work is a normal part
+   of an application, not a separate service.
+8. **One binary.** Views, assets, migrations and all roles in a single
+   deployable file.
+9. **Escape hatches everywhere.** Raw SQL, plain handlers, custom drivers and
+   plain Go. The framework never blocks you from dropping down a level.
+10. **Documentation is part of the feature.** An API that's hard to document
+    is hard to use; redesign it.
+
+---
+
+## 3. Architecture overview
+
+```mermaid
+flowchart TB
+    subgraph Binary["Application binary"]
+        CLI["App commands<br/>serve · run · work · listen · schedule · migrate · custom"]
+        subgraph Kernel["App kernel"]
+            Cfg["Config"]
+            Ctr["Service container"]
+            Plg["Plugins / providers"]
+        end
+        subgraph Runtime["Runtime supervisor"]
+            HTTP["HTTP server"]
+            WRK["Queue workers"]
+            LSN["Pub/sub listeners"]
+            SCH["Scheduler"]
+            BG["Supervised goroutines<br/>(app.Go)"]
+        end
+        subgraph Services["Services (contracts)"]
+            DB["DB"]; CA["Cache"]; QU["Queue"]; PS["PubSub"]
+            ML["Mail"]; ST["Storage"]; SE["Session"]; EV["Events"]; AU["Auth"]
+        end
+    end
+    Drivers["Driver modules<br/>postgres · mysql · sqlite · redis · gcp-pubsub · s3 · smtp · …"]
+    CLI --> Kernel --> Runtime
+    Runtime --> Services --> Drivers
+```
+
+**Layers, from the bottom up:**
+
+- **Drivers** implement contracts. Heavy ones are separate modules.
+- **Services** are the contracts the app uses (`db`, `cache`, `queue`,
+  `pubsub`, `mailer`, `storage`, `session`, `events`, `auth`).
+- **Kernel** loads config, builds the service container and registers
+  plugins.
+- **Runtime** supervises long-running *components* (HTTP, workers, listeners,
+  scheduler, ad-hoc goroutines).
+- **App commands** are the binary's CLI: choose which components to run, or
+  run one-off tasks (migrate, seed, custom commands).
+
+The **global `anetos` CLI** sits outside the binary. It creates projects,
+generates code, runs the dev loop and builds releases.
+
+---
+
+## 4. Application lifecycle
+
+```
+New → Register → Boot → Run → Shutdown
+```
+
+| Phase | What happens | Who participates |
+|---|---|---|
+| **New** | Load `.env` and typed config; create the logger | Kernel |
+| **Register** | Plugins and providers bind services and default config. No I/O. | Framework providers, plugins, app |
+| **Boot** | Open connections, register routes, workers, listeners, schedules and commands; validate everything (fail fast) | Same |
+| **Run** | Supervisor starts the selected components | Runtime |
+| **Shutdown** | On SIGINT/SIGTERM or fatal error, stop in reverse dependency order within a deadline | Runtime |
+
+A generated app's `main.go` stays short and readable. Wiring lives in
+ordinary Go files the developer owns:
+
+```go
+// main.go (illustrative)
+func main() {
+    app := anetos.New(config.Load())
+
+    app.Use(plugins.All()...)          // generated by `anetos add`
+    routes.Register(app)               // routes/web.go, routes/api.go
+    app.Worker("emails", jobs.SendWelcome{}, anetos.Concurrency(10))
+    app.Listen(pubsub.Topic("orders.created"), listeners.OrderCreated,
+        anetos.Concurrency(20), anetos.Retry(5))
+    app.Schedule(schedule.DailyAt("02:00"), tasks.PruneSessions)
+
+    app.Execute() // parses os.Args: serve | run | work | listen | schedule | migrate | …
+}
+```
+
+---
+
+## 5. Repository & module layout
+
+A multi-module monorepo. The **core module** has few dependencies; drivers and
+first-party plugins are **separate modules** with their own `go.mod`, tagged
+independently (e.g. `drivers/redis/v0.2.0`).
+
+```
+anetos.dev/anetos/            ← core module
+├── anetos.go            App, New, options (root package `anetos`)
+├── app/                 kernel: container, lifecycle, providers
+├── config/              .env loading, typed config
+├── supervisor/          runtime supervisor, components, roles, app.Go
+├── web/                 router, Ctx, handler forms, binding, responses, middleware
+├── validate/            rules, messages, error bags
+├── db/                  query builder, model runtime, dialect interface, tx
+│   └── migrate/         schema builder, runner
+├── view/                renderer interface, templ integration, helpers
+├── session/ cache/ queue/ pubsub/ events/ schedule/ mailer/ storage/ auth/ encryption/
+├── ext/                 public plugin API (package `ext`)
+├── cmd/                 app-binary command framework
+├── anetostest/          testing helpers and fakes
+├── internal/            everything not part of the public API
+├── cli/                 ← separate module: global `anetos` CLI (go install)
+├── drivers/             ← each a separate module
+│   ├── postgres/ mysql/ sqlite/
+│   ├── redis/           cache, session, queue, pubsub (Streams), locks
+│   ├── gcppubsub/
+│   ├── s3/
+│   └── …
+├── plugins/             ← first-party plugins, each a separate module
+│   ├── resend/ postmark/ …
+├── examples/            compiled examples used by the docs
+└── docs/
+```
+
+**Package naming.** No framework package shares a name with a standard
+library package, so users never need import aliases. That's why the HTTP
+package is **`web`** (not `http`), the runtime is **`supervisor`** (not
+`runtime`), mail is **`mailer`** (not `net/mail`'s `mail`), encryption is
+**`encryption`** (not `crypto`), password hashing is **`auth/password`** (not
+`hash`), and the plugin API is **`ext`** (not `plugin`). We don't provide a
+`log` package; we use `log/slog`.
+
+**Why the database drivers are modules too:** `pgx`, the MySQL driver and a
+SQLite implementation are each sizeable. A Postgres app shouldn't compile or
+download MySQL code.
+
+---
+
+## 6. Generated application layout
+
+What `anetos new blog` produces. It's familiar to Laravel developers without
+copying Laravel.
+
+```
+blog/
+├── main.go                  wiring (see §4)
+├── go.mod
+├── .env / .env.example
+├── config/                  typed config structs (app.go, database.go, mail.go, …)
+├── routes/                  web.go, api.go
+├── app/
+│   ├── handlers/            HTTP handlers
+│   ├── middleware/
+│   ├── models/              model structs (+ generated *_gen.go)
+│   ├── jobs/                queue jobs
+│   ├── events/              event types
+│   ├── listeners/           event and pub/sub listeners
+│   ├── mailers/             mailables
+│   ├── policies/            authorization policies
+│   └── tasks/               scheduled tasks
+├── database/
+│   ├── migrations/          Go migrations (embedded)
+│   ├── seeders/
+│   └── factories/
+├── views/                   templ components, layouts, pages
+├── public/                  static assets (embedded)
+├── plugins.go               generated by `anetos add` (do not edit by hand)
+└── storage/                 local files, logs (gitignored)
+```
+
+Everything under `app/`, `routes/` and `config/` is the developer's code.
+Generated files end in `_gen.go` or carry a `// Code generated … DO NOT EDIT.`
+header.
+
+---
+
+## 7. Configuration
+
+- `.env` holds per-environment values; typed Go structs define the shape.
+  No stringly-typed `config("app.name")` lookups in application code.
+- Loaded once at **New**; validated at **Boot**. Invalid config stops startup
+  with a clear message.
+- Real environment variables override `.env`. In production, `.env` is
+  optional and secrets come from the environment.
+
+```go
+// config/database.go (illustrative)
+type Database struct {
+    Driver string `env:"DB_DRIVER" default:"sqlite" validate:"oneof=sqlite postgres mysql"`
+    URL    string `env:"DB_URL"    default:"file:storage/app.db"`
+    MaxOpen int   `env:"DB_MAX_OPEN" default:"20"`
+}
+```
+
+Plugins contribute their own config structs, loaded from namespaced variables
+(e.g. `STRIPE_KEY`), with defaults supplied at **Register**.
+
+---
+
+## 8. HTTP layer
+
+### 8.1 Router
+
+- Built **on `net/http.ServeMux`** (method and wildcard patterns since Go
+  1.22), with a thin layer on top that adds groups, prefixes, per-group
+  middleware, **named routes** and **URL generation** (`web.URL("posts.show",
+  post.ID)`), plus a `routes:list` command.
+- If benchmarks show `ServeMux` is a bottleneck, the layer lets us swap in our
+  own radix tree without changing the user-facing API (decision D3).
+
+```go
+// routes/web.go (illustrative)
+func Register(app *anetos.App) {
+    r := app.Router()
+    r.Get("/", handlers.Home).Name("home")
+
+    r.Group("/posts", func(g *web.Group) {
+        g.Get("", web.H(handlers.Posts.Index)).Name("posts.index")
+        g.Get("/{id}", web.H(handlers.Posts.Show)).Name("posts.show")
+        g.Post("", web.H(handlers.Posts.Store)).Name("posts.store")
+    }).Use(auth.Required)
+}
+```
+
+### 8.2 Handler forms
+
+Three forms, all ending up as `http.Handler`:
+
+| Form | Signature | Use it for |
+|---|---|---|
+| Plain | `http.Handler` / `http.HandlerFunc` | Existing code, full control |
+| Context | `func(c *web.Ctx) error` | Most HTML pages |
+| Typed | `web.H(func(c *web.Ctx, in In) (Out, error))` | Forms and APIs: automatic binding, validation and response |
+
+Go methods can't have type parameters, so typed handlers go through the
+generic function `web.H`, which the router accepts as an ordinary handler.
+
+```go
+type StorePost struct {
+    Title string `form:"title" json:"title" validate:"required,max=200"`
+    Body  string `form:"body"  json:"body"  validate:"required"`
+}
+
+func (h *Posts) Store(c *web.Ctx, in StorePost) (web.Response, error) {
+    post, err := h.posts.Create(c, models.Post{Title: in.Title, Body: in.Body})
+    if err != nil {
+        return nil, err
+    }
+    return c.Redirect("posts.show", post.ID).With("status", "Post created"), nil
+}
+```
+
+### 8.3 `web.Ctx`
+
+A per-request value that wraps `http.ResponseWriter` and `*http.Request` and
+gives access to the app's services, session, auth user, validation errors and
+response helpers. It implements `context.Context` by delegating to the
+request's context, so it can be passed straight to the data layer, queue and
+other services. Ctx values are pooled and **must not be kept after the handler
+returns** (documented and checked in dev builds).
+
+### 8.4 Binding
+
+- Sources: path params, query, form (url-encoded and multipart), JSON body,
+  headers, selected with struct tags.
+- **Reflection happens once at route registration**: we compute a field plan
+  (offsets, decoders, validators) per input type. Per-request work runs that
+  precomputed plan. Code generation for binders is a later optimization if
+  benchmarks justify it.
+
+### 8.5 Responses & errors
+
+- A typed handler's return value is rendered by content negotiation: a struct
+  becomes JSON, a `templ.Component` becomes HTML, and `web.Response`
+  (redirect, file, stream, no-content) is sent as-is.
+- Errors: `web.Error(status, msg)` and typed errors (`ErrNotFound`,
+  validation errors). APIs get RFC 9457 *problem details*. HTML gets error
+  pages. **Dev mode** shows a rich error page with stack trace, request and
+  SQL log.
+
+### 8.6 Middleware
+
+The standard `func(http.Handler) http.Handler`. Built in: recover, request
+ID, access log, real IP, CORS, CSRF, sessions, auth, rate limit, timeout,
+compression, security headers, maintenance mode.
+
+---
+
+## 9. Validation
+
+- Tag rules with Laravel-familiar names (`required`, `email`, `min`, `max`,
+  `in`, `confirmed`, `unique:posts,slug`, `exists:users,id`). Rules that need
+  the database run through the request's DB handle.
+- Custom rules are plain Go functions registered by name. Struct-level rules
+  come from a `Validate(ctx) error` method on the input type.
+- Failures produce an **error bag**:
+  - HTML forms: redirect back with errors and **old input** in the session
+    flash. View helpers render them (Laravel's `$errors` / `old()`
+    experience).
+  - APIs: `422` with field-keyed messages.
+- Messages are overridable and translatable (basic i18n planned as a v0.2
+  stretch goal).
+
+---
+
+## 10. Data layer
+
+The part of the framework that matters most, and the riskiest.
+**Target:** Eloquent-level comfort for about 90% of queries, fully typed, with
+raw SQL as a first-class option for the remaining 10%.
+
+### 10.1 Models
+
+Models are plain structs. Embedding gives common behaviour; nothing is
+required.
+
+```go
+// app/models/post.go (illustrative)
+type Post struct {
+    db.Model                  // ID, CreatedAt, UpdatedAt
+    db.SoftDeletes            // DeletedAt + default scope
+    Title    string `db:"title"`
+    Body     string `db:"body"`
+    AuthorID int64  `db:"author_id"`
+
+    Author   *User      `rel:"belongs_to"`
+    Comments []Comment  `rel:"has_many"`
+}
+```
+
+`anetos gen` (run automatically by `anetos dev`) generates
+`post_gen.go` with **typed column references and relation handles**, so
+queries are checked by the compiler and your IDE can navigate them:
+
+```go
+posts, err := db.Query[models.Post](c).
+    Where(models.PostCols.AuthorID.Eq(user.ID)).
+    Where(models.PostCols.Title.Like("%go%")).
+    With(models.PostRels.Author, models.PostRels.Comments). // eager load, no N+1
+    OrderBy(models.PostCols.CreatedAt.Desc()).
+    Paginate(page, 20)
+```
+
+### 10.2 Capabilities
+
+| Capability | Design |
+|---|---|
+| CRUD | `db.Create`, `db.Update`, `db.Delete`, `db.Find[T]`, `First`, `Get`, `Count`, `Exists` |
+| Timestamps | Set automatically when `db.Model` is embedded |
+| Soft deletes | Default scope; `WithTrashed()`, `OnlyTrashed()`, `Restore`, `ForceDelete` |
+| Scopes | Plain functions: `func(q *db.Q[Post]) *db.Q[Post]`, applied with `.Scope(published)` |
+| Relations | has-one, has-many, belongs-to, many-to-many (pivot), loaded **explicitly** with `With(...)` or `db.Load(ctx, &post, rel)` |
+| Lazy loading | **Not supported by design.** Go has no property-access hooks, and hidden queries are the N+1 bug. Accessing an unloaded relation returns nil, and dev mode warns about it |
+| Hooks | Opt-in interfaces: `BeforeCreate(ctx) error`, `AfterSave(ctx) error`, … |
+| Transactions | `db.Tx(ctx, func(ctx context.Context) error {...})`. The transaction travels in the context, so nested calls join it |
+| Pagination | Offset (`Paginate`) and cursor (`CursorPaginate`), with links rendered by view helpers |
+| Aggregates | `Sum`, `Avg`, `Min`, `Max`, `GroupBy`, `Having` |
+| Raw SQL | `db.Raw[T](ctx, sql, args...)` scans into structs; named parameters supported; the escape hatch is pleasant, not punitive |
+| Upserts, bulk insert | Dialect-aware (`ON CONFLICT` / `ON DUPLICATE KEY`) |
+
+### 10.3 Dialects & connections
+
+- Built on `database/sql`. Dialects handle placeholders, quoting,
+  `RETURNING` vs `LastInsertId`, upsert syntax and schema-builder SQL.
+- Dialects in the first release: **PostgreSQL** (pgx), **MySQL/MariaDB**,
+  **SQLite**. The default dev driver is SQLite in **pure Go** (no CGO), so
+  cross-compilation and the single binary keep working (decision D10).
+- Multiple named connections; read/write splitting is in the backlog.
+- Dev mode logs every query with its duration, and warns about slow queries
+  and loops that look like N+1.
+
+### 10.4 Build vs. buy
+
+We build our own thin layer (decision D5) because relations, eager loading,
+typed columns, soft deletes and pagination have to feel like one designed
+thing, and existing Go ORMs each force trade-offs (GORM's heavy runtime
+reflection, `sqlc`'s SQL-first model, `ent`'s schema DSL). **Fallback:** if
+F7 stalls badly, an adapter over Bun behind the same public API. The public
+API is kept deliberately small to make that possible.
+
+---
+
+## 11. Migrations, seeders & factories
+
+```go
+// database/migrations/2026_10_01_120000_create_posts_table.go (illustrative)
+func init() { migrate.Register(createPosts{}) }
+
+type createPosts struct{}
+
+func (createPosts) Up(s *migrate.Schema) error {
+    return s.Create("posts", func(t *migrate.Table) {
+        t.ID()
+        t.String("title", 200)
+        t.Text("body")
+        t.ForeignID("author_id").References("users").OnDelete(migrate.Cascade)
+        t.Timestamps()
+        t.SoftDeletes()
+        t.Index("author_id", "created_at")
+    })
+}
+
+func (createPosts) Down(s *migrate.Schema) error { return s.Drop("posts") }
+```
+
+- Migrations are compiled into the binary; the app binary runs `migrate`,
+  `migrate:rollback`, `migrate:status`, and `migrate:fresh` (refused outside
+  dev).
+- `s.Exec(sql)` allows raw SQL migrations.
+- Plugin migrations are registered under the plugin's name and appear in
+  `migrate:status`.
+- Migrations run in a transaction on dialects that support transactional DDL.
+- **Seeders** are Go functions run with `db:seed`. **Factories** (generic,
+  `factory.New[Post](...)`) produce test and dev data.
+
+---
+
+## 12. Views & frontend
+
+### 12.1 Server-rendered (default, v0.1)
+
+- **templ** for all HTML: compiled, type-checked, component-based.
+  `anetos dev` runs `templ generate` in watch mode.
+- Views sit behind a small `view.Renderer` interface, so `html/template` or
+  others can be plugged in and we aren't locked to one project (risk
+  mitigation).
+- **View helpers**: `web.URL(name, params)`, CSRF field, `errors`, `old`,
+  flash messages, `asset()`, auth user, pagination links.
+- **htmx** ships with the default starter for interactivity without a build
+  step. Anetos detects htmx requests (`c.IsHTMX()`) and supports partial
+  rendering.
+
+### 12.2 SPA-style (v0.4)
+
+- **Vite integration**: in dev, proxy to the Vite server with HMR; in
+  production, read the Vite manifest and serve hashed assets **embedded in
+  the binary**.
+- **Inertia protocol adapter** (server side): `c.Inertia("Posts/Index",
+  props)`, shared props, partial reloads, validation errors mapped to Inertia's
+  error bag, redirect semantics. Inertia's own client adapters cover Vue,
+  React and Svelte.
+- `anetos new --stack=htmx|vue|react|svelte|api`.
+
+---
+
+## 13. Runtime & concurrency
+
+The feature that sets Anetos apart from other Go frameworks.
+
+### 13.1 Components & the supervisor
+
+Everything long-running is a **component**:
+
+```go
+type Component interface {
+    Name() string
+    Run(ctx context.Context) error // returns when ctx is cancelled or on fatal error
+}
+```
+
+The HTTP server, each worker pool, each listener, the scheduler and every
+`app.Go` goroutine is a component. The **supervisor**:
+
+- starts the components selected for this process's **roles**;
+- applies a **restart policy** per component (HTTP: fail the process; workers
+  and listeners: restart with backoff; `app.Go`: configurable);
+- recovers panics, logs them with stack traces and counts restarts;
+- exposes liveness and readiness state for health endpoints;
+- on shutdown, stops components **in order within a deadline**.
+
+### 13.2 Roles
+
+```bash
+./blog run                         # everything (dev, small deployments)
+./blog run --only=http             # web nodes
+./blog run --only=workers,listeners
+./blog serve | work | listen | schedule   # shortcuts
+```
+
+### 13.3 Graceful shutdown order
+
+1. Mark not-ready (load balancers stop routing new traffic).
+2. HTTP: stop accepting connections; finish in-flight requests.
+3. Listeners: stop pulling new messages; finish or nack in-flight ones.
+4. Workers: stop reserving jobs; finish in-flight jobs up to their timeout,
+   then release them back to the queue.
+5. Scheduler: don't start new runs; wait for running tasks.
+6. Flush logs and traces; close pools (DB, Redis).
+
+The deadline is configurable (default 30 s). Anything still running after it
+is logged by name.
+
+### 13.4 Queue & jobs
+
+```go
+// app/jobs/send_welcome.go (illustrative)
+type SendWelcome struct {
+    UserID int64 `json:"user_id"`
+}
+
+func (j SendWelcome) Handle(ctx context.Context, app *anetos.App) error {
+    user, err := db.Find[models.User](ctx, j.UserID)
+    if err != nil { return err }
+    return mailer.Send(ctx, mailers.Welcome{User: user})
+}
+
+// dispatching
+queue.Dispatch(c, jobs.SendWelcome{UserID: user.ID},
+    queue.OnQueue("emails"), queue.Delay(time.Minute))
+```
+
+- Jobs are typed structs, serialized as JSON with a type name. Types are
+  registered at boot (`app.Worker` registers them), with no runtime
+  reflection lookup per message beyond the registry map.
+- Retries with exponential backoff and jitter, max attempts, per-job
+  timeout, a failed-jobs store, `queue:failed` / `queue:retry` commands.
+- Drivers: **sync** (runs immediately; for tests/dev), **database**,
+  **Redis**. SQS, NATS and others come as plugins.
+- Delivery is **at-least-once**. Handlers must be idempotent, and the docs
+  say so prominently.
+
+### 13.5 Pub/sub listeners
+
+For consuming *external* streams, the case that needed a separate app with
+Buffalo:
+
+```go
+app.Listen(pubsub.Topic("orders.created"), listeners.OrderCreated,
+    anetos.Concurrency(20), anetos.Retry(5), anetos.DeadLetter("orders.dlq"))
+
+// app/listeners/order_created.go
+func OrderCreated(ctx context.Context, msg events.OrderCreated) error {
+    // typed message, decoded for you; return nil → ack, error → nack/retry
+}
+```
+
+- A `pubsub` contract with subscribe (and publish) plus drivers: **Redis
+  Streams** and **Google Pub/Sub** first (v0.2). NATS, Kafka and SQS come as
+  plugins.
+- Bounded concurrency per listener, ordered processing where the broker
+  supports ordering keys, and backpressure (stop pulling when the pool is
+  full).
+- The same at-least-once and idempotency caveat applies.
+
+### 13.6 Events (in-process)
+
+```go
+events.On(app, func(ctx context.Context, e events.UserRegistered) error { … })          // sync
+events.OnAsync(app, sendAnalytics, anetos.Concurrency(8))                                // goroutine pool
+events.OnQueued(app, sendWelcomeEmail)                                                   // durable via queue
+
+events.Emit(c, events.UserRegistered{UserID: user.ID})
+```
+
+- Typed with generics; dispatch goes through a registry built at boot.
+- **Async** handlers run in a bounded goroutine pool. They are **lost if the
+  process crashes**, so anything important should use **queued** handlers.
+  The docs make this trade-off explicit.
+
+### 13.7 Scheduler
+
+```go
+app.Schedule(schedule.Cron("*/5 * * * *"), tasks.SyncInventory)
+app.Schedule(schedule.DailyAt("02:00").Timezone("Asia/Dhaka"), tasks.PruneSessions,
+    schedule.WithoutOverlapping(), schedule.OnOneServer())
+```
+
+`WithoutOverlapping` and `OnOneServer` use cache locks, so running the
+scheduler on several instances is safe.
+
+### 13.8 Ad-hoc background work
+
+`app.Go(name, func(ctx context.Context) error)` starts a **supervised**
+goroutine: it recovers panics, is cancelled on shutdown, can be restarted, and
+appears in health output. This replaces bare `go func()` calls that leak or
+get killed mid-work on deploy.
+
+---
+
+## 14. Services, contracts & drivers
+
+Each service is an interface in the core module. Drivers are chosen in
+`.env`, and heavy drivers live in separate modules.
+
+| Service | Contract package | Core drivers | Driver modules / plugins | Version |
+|---|---|---|---|---|
+| Database | `db` | — | `drivers/postgres`, `drivers/mysql`, `drivers/sqlite` | v0.1 |
+| Session | `session` | cookie (encrypted) | database, `drivers/redis` | v0.1 / v0.2 |
+| Cache (+ locks) | `cache` | memory | database, `drivers/redis` | v0.2 |
+| Queue | `queue` | sync, database | `drivers/redis`; SQS, NATS (plugins) | v0.2 |
+| Pub/sub | `pubsub` | in-memory (tests/dev) | `drivers/redis` (Streams), `drivers/gcppubsub`; NATS, Kafka (plugins) | v0.2 |
+| Mail | `mailer` | SMTP, log (dev) | Resend / Postmark / SES / Mailgun (plugins) | v0.2 |
+| Storage | `storage` | local | `drivers/s3` (S3-compatible, incl. R2/MinIO); GCS, Azure (plugins) | v0.2 |
+| Password hashing | `auth/password` | argon2id, bcrypt | — | v0.2 |
+| Encryption | `encryption` | AES-GCM with `APP_KEY`, key rotation | — | v0.1 |
+| Rate limiting | `web/ratelimit` | memory | via cache driver | v0.2 |
+| Logging | `log/slog` (stdlib) | text, JSON handlers | OpenTelemetry bridge (module) | v0.1 |
+
+**Rule:** a driver belongs in the core module only if it uses nothing but the
+standard library (or a tiny, stable dependency). Everything else is a module.
+
+Switching the database is a config change plus an import:
+
+```env
+DB_DRIVER=postgres
+DB_URL=postgres://app:secret@localhost:5432/blog
+```
+
+The generated project imports the selected driver in `main.go`, and
+`anetos new --db=postgres` and `anetos add driver postgres` manage that
+import.
+
+---
+
+## 15. Authentication & authorization
+
+- **Password auth:** argon2id hashing, login and logout, remember-me,
+  session-fixation protection, login throttling, email verification,
+  password reset (signed, expiring tokens).
+- **API tokens:** personal access tokens with abilities (Sanctum-like),
+  stored hashed. First-party SPA auth uses sessions and cookies.
+- **Social login:** OAuth2 and OIDC via `golang.org/x/oauth2` plus OIDC
+  discovery, with built-in providers for **Google** and **GitHub** and a
+  **generic OIDC** provider for others. A single callback handler links or
+  creates users through an app-provided function.
+- **Authorization:** typed policies instead of string-based gates:
+
+```go
+func (PostPolicy) Update(ctx context.Context, u *models.User, p *models.Post) bool {
+    return p.AuthorID == u.ID
+}
+// in a handler:
+if err := authz.Authorize(c, policies.Post.Update, post); err != nil { return nil, err } // 403
+```
+
+- **Scaffolding:** `anetos make:auth` generates handlers, views, migrations
+  and routes **into the app**, where the developer owns them (the Breeze
+  approach). Security-critical pieces (hashing, token generation, session
+  handling, rate limiting) stay in the library so fixes reach everyone
+  through `go get -u`.
+
+---
+
+## 16. Plugin system
+
+The goal: a third-party package can plug routes, migrations, config,
+commands, workers, listeners, schedules, views and assets into an app **with
+one command**.
+
+### 16.1 Interface
+
+```go
+// package ext (illustrative)
+type Plugin interface {
+    Name() string                          // unique, used for namespacing
+    Register(r *Registrar) error           // bind services, declare config; no I/O
+    Boot(ctx context.Context, a *App) error // routes, workers, listeners, commands…
+}
+
+// Optional capabilities, discovered by interface assertion at boot:
+type HasMigrations interface { Migrations() fs.FS }
+type HasViews      interface { Views() fs.FS }
+type HasAssets     interface { Assets() fs.FS }
+type HasConfig     interface { Config() any }          // typed struct with env tags
+type HasCommands   interface { Commands() []cmd.Command }
+type Compat        interface { Requires() string }     // e.g. ">= v0.2.0, < v0.4.0"
+```
+
+The framework's own features (sessions, auth, queue…) are implemented as
+internal providers using the **same** mechanism, and first-party plugins use
+only the public API (roadmap §6).
+
+### 16.2 Installation
+
+Go compiles everything in; there's no runtime package discovery. So
+installation is **code generation**:
+
+```bash
+anetos add github.com/acme/anetos-stripe
+```
+
+1. `go get github.com/acme/anetos-stripe`
+2. Regenerate `plugins.go` (a generated list of `ext.Plugin` values
+   imported by `main.go`).
+3. Write a config stub (`config/stripe.go`) and add the plugin's env keys to
+   `.env.example`.
+4. Print next steps (e.g. "run `./blog migrate`"). Migrations never run
+   automatically.
+
+`anetos remove` reverses steps 1–3.
+
+### 16.3 Namespacing & safety
+
+- Routes mount under a prefix the app can override; route names are
+  prefixed (`stripe.webhook`).
+- Migrations are tracked per plugin; commands are prefixed (`stripe:sync`).
+- Version compatibility is checked at boot through `Requires()`, with a clear
+  error if it fails.
+- **Trust model:** plugins are compiled Go code with full privileges, with no
+  sandbox. The docs say so, and `anetos add` shows the module path and
+  version before installing.
+
+---
+
+## 17. CLI
+
+### 17.1 Global `anetos` (installed with `go install`)
+
+| Command | Purpose |
+|---|---|
+| `anetos new <name> [--db=…] [--stack=…]` | Create a project (v0.4 adds `--stack`) |
+| `anetos dev` | Watch → `templ generate` → `anetos gen` → build → restart → browser reload; stable port through a proxy |
+| `anetos make:<thing>` | handler, model, migration, middleware, job, event, listener, mail, policy, task, command, test, plugin |
+| `anetos gen` | Run code generators (models, relations) |
+| `anetos add` / `anetos remove` | Plugins and drivers |
+| `anetos build` | Production build: `-trimpath`, version via ldflags, `CGO_ENABLED=0` by default |
+| `anetos doctor` | Check the environment and project (Go version, `APP_KEY`, debug in prod, pending migrations) |
+| `anetos stub:publish` | Copy generator templates into the project for customization |
+
+Generators produce plain Go that the developer owns.
+
+### 17.2 App binary commands
+
+`serve`, `run [--only=…]`, `work`, `listen`, `schedule`, `migrate*`,
+`db:seed`, `routes:list`, `queue:failed`, `queue:retry`, `schedule:list`,
+`down` / `up` (maintenance), plus **custom commands**:
+
+```go
+app.Command("reports:send", "Email the weekly report", func(ctx context.Context, args cmd.Args) error { … })
+```
+
+---
+
+## 18. Testing
+
+The `anetostest` package gives testing the Laravel comfort:
+
+```go
+func TestCreatePost(t *testing.T) {
+    app := anetostest.New(t)          // boots app, isolated DB (tx rollback per test)
+    user := factory.Create[models.User](app)
+    mail := app.FakeMail()
+
+    app.ActingAs(user).
+        PostForm("/posts", url.Values{"title": {"Hello"}, "body": {"World"}}).
+        AssertRedirect("posts.show").
+        AssertSessionHas("status")
+
+    anetostest.AssertDatabaseHas[models.Post](t, app, models.PostCols.Title.Eq("Hello"))
+    mail.AssertNothingSent()
+}
+```
+
+- Fluent HTTP client and assertions; JSON path assertions for APIs.
+- DB isolation through a per-test transaction; SQLite in-memory for speed;
+  optional real Postgres or MySQL through the test helper.
+- Fakes for mail, queue, events, pub/sub, storage and **clock**
+  (`app.Freeze(time)`). Time is always read from an injectable clock inside
+  the framework.
+- Everything works with `go test`, `-race` and `t.Parallel()`.
+
+---
+
+## 19. Observability
+
+- Structured logging with `log/slog`. Request ID, route name, user ID and
+  job/message IDs are attached automatically.
+- OpenTelemetry tracing and metrics as an optional module: HTTP spans, DB
+  spans, job and listener spans with context propagation through queue
+  payloads.
+- Health endpoints (`/health/live`, `/health/ready`) fed by the supervisor
+  and service checks.
+- `pprof` available in dev, or behind an explicit flag and auth in
+  production.
+- A debug dashboard (Telescope-like) is in the backlog.
+
+---
+
+## 20. Security defaults
+
+Secure by default, opt-out only when you mean it:
+
+- CSRF protection on state-changing HTML routes; `SameSite=Lax`, `Secure`
+  and `HttpOnly` cookies; encrypted session cookies with key rotation.
+- argon2id password hashing; constant-time comparisons; signed URLs.
+- Security headers middleware on by default (HSTS in production, CSP helpers
+  for templ with nonces).
+- Every query parameterized; the raw SQL API has no string-interpolation
+  helpers.
+- templ escapes output by default.
+- Login and password-reset throttling built in.
+- `anetos doctor` and boot-time checks refuse to run production with
+  `APP_DEBUG=true` or a missing or weak `APP_KEY`.
+- govulncheck in CI; SECURITY.md with a disclosure process before v0.3.
+
+---
+
+## 21. Build & deployment
+
+- `anetos build` → one static binary (`CGO_ENABLED=0`) with migrations,
+  compiled templ views and `public/` assets embedded.
+- `anetos new` generates a multi-stage **Dockerfile** (distroless or scratch
+  runtime) and an example **systemd** unit.
+- Configuration comes entirely from the environment (12-factor); `.env` is
+  for dev.
+- Deployment guides (v0.3): single VPS (all roles in one process), Docker,
+  common PaaS, and scaling out by roles.
+
+---
+
+## 22. Performance strategy
+
+- **Budgets:** Anetos overhead compared with plain `net/http` for (a) hello
+  world, (b) a typed JSON handler with binding and validation, and (c) a
+  single-row DB read. Targets are set after the v0.1 baseline and tracked
+  from then on.
+- **Rules:** no per-request reflection; bind plans and route data
+  precomputed at boot; pooled `Ctx` and buffers; no allocations in the
+  router's hot path where avoidable.
+- **CI:** `go test -bench` on every PR against `main`, with a regression gate
+  (initially a warning, blocking from v0.3).
+- **Honesty:** published benchmarks include their method, hardware and code,
+  and compare fairly (the same work done in each framework).
+
+---
+
+## 23. Compatibility & versioning
+
+- **Go version:** support the Go releases the Go team supports (the latest
+  two). The core module's `go` directive is set at F1 and raised only with a
+  CHANGELOG note.
+- **SemVer**, with the pre-1.0 rules in the [roadmap](../planning/roadmap.md#versioning-rules).
+- **Deprecation (from v1.0):** deprecate in a minor release (`// Deprecated:`
+  plus a CHANGELOG entry) and remove no earlier than the next major.
+- **Multi-module tags:** core `vX.Y.Z`; modules `drivers/redis/vX.Y.Z` and so
+  on. Driver modules declare the minimum core version they need.
+- **Internal packages** keep the public API surface small. Anything not
+  intended for users goes under `internal/`.
+
+---
+
+## 24. Decision log
+
+Short record of design decisions. Significant or contested decisions get a
+full ADR in [`adr/`](adr/). Status: **Accepted**, **Proposed** (default
+unless new information arrives), **Open**, **Superseded**.
+
+| ID | Decision | Status | Notes |
+|---|---|---|---|
+| D1 | Working codename "Anetos"; final name before v0.3 | Accepted | Roadmap Q1 |
+| D2 | Everything is `net/http`-compatible; handlers are `http.Handler` | Accepted | Principle 1 |
+| D3 | Router on `http.ServeMux` + thin layer (groups, names, URL gen) | Proposed | Swap to a custom radix tree only if benchmarks demand it |
+| D4 | templ for views, behind a `view.Renderer` interface | Accepted | Buffalo/Plush lesson |
+| D5 | Own data layer on `database/sql` with generics + code generation | Accepted | Fallback: Bun adapter behind the same API |
+| D6 | Multi-module monorepo; heavy drivers in separate modules | Accepted | Keeps dependency trees small |
+| D7 | Supervised runtime; one binary with roles | Accepted | Core differentiator |
+| D8 | Plugins compiled in; installed by code generation (`anetos add`) | Accepted | No runtime discovery in Go |
+| D9 | Vite + Inertia starter kits in v0.4, not v0.3 | Accepted | v0.3 = public MVP |
+| D10 | Default dev DB: SQLite in pure Go (no CGO) | Proposed | Protects cross-compile and single-binary builds |
+| D11 | Logging via `log/slog`; no custom logger | Accepted | |
+| D12 | Reflection only at startup/registration, never per request | Accepted | Principle 4 |
+| D13 | No lazy loading of relations; explicit `With`/`Load` | Accepted | Prevents hidden N+1 |
+| D14 | No package name shadows the standard library (`web`, `supervisor`, `mailer`, `ext`, …) | Accepted | No import aliasing needed |
+| D15 | Typed handlers via generic `web.H(...)` adapter | Accepted | Go methods can't take type parameters |
+| D16 | License: Apache-2.0; `LICENSE` + `NOTICE` at repo root; SPDX header in every Go file | Accepted | Patent grant and contribution terms suit a framework seeking company adoption and outside contributors (roadmap Q2) |
+| D17 | At-least-once delivery for queue and pub/sub; idempotency documented | Accepted | |
+
+---
+
+## 25. Open questions
+
+| # | Question | Section | Decide by |
+|---|---|---|---|
+| O1 | Does `web.Ctx` implementing `context.Context` cause confusion (e.g. keeping it after the handler returns)? Alternative: `c.Context()` only | §8.3 | F5 |
+| O2 | Model code generation: triggered by `anetos dev` automatically or only explicitly? (Proposed: both) | §10.1 | F9 |
+| O3 | Job serialization: JSON only, or pluggable codecs (msgpack, protobuf)? | §13.4 | B5 |
+| O4 | Should async events share one global pool or have a pool per listener? | §13.6 | B6 |
+| O5 | Plugin config: generated Go struct in the app vs loaded from the plugin's own struct only | §16.2 | B11 |
+| O6 | Which pure-Go SQLite implementation (maturity and performance check) | §10.3 | F7 |
+
+---
+
+## Document history
+
+| Date | Change |
+|---|---|
+| 2026-09-29 | Initial draft |
+| 2026-09-30 | D16 accepted: Apache-2.0 |
