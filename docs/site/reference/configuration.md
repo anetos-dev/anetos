@@ -41,7 +41,7 @@ given. Unexported fields are ignored.
 | Go type | Accepted values |
 |---|---|
 | `string` | Anything |
-| `bool` | `true`/`false` (also `TRUE`, `True`, …), `1`/`0`, `t`/`f` |
+| `bool` | `true`/`false`, `1`/`0`, `t`/`f`, `yes`/`no`, `on`/`off` (any case) |
 | `int`, `int8` … `int64` | Base-10 integers within range |
 | `uint`, `uint8` … `uint64` | Base-10 non-negative integers within range |
 | `float32`, `float64` | Decimal numbers |
@@ -85,3 +85,36 @@ byte order mark and CRLF line endings are handled.
 
 `anetos.WithConfigDir(dir)` changes where the files are read from, and
 `anetos.WithSource(src)` replaces the whole mechanism (useful in tests).
+
+## HTTP server
+
+Read by `web.NewServer` (or `web.LoadConfig`) into `web.Config`.
+
+| Key | Type | Default | Description | Since |
+|---|---|---|---|---|
+| `HTTP_ADDR` | string | `:8080` | Listen address. `127.0.0.1:0` picks a free port (tests) | v0.1 |
+| `HTTP_READ_HEADER_TIMEOUT` | duration | `10s` | Time to read request headers (slowloris protection) | v0.1 |
+| `HTTP_READ_TIMEOUT` | duration | `30s` | Time to read the whole request | v0.1 |
+| `HTTP_WRITE_TIMEOUT` | duration | `30s` | Time to write the response | v0.1 |
+| `HTTP_IDLE_TIMEOUT` | duration | `2m` | Keep-alive idle time | v0.1 |
+| `HTTP_SHUTDOWN_GRACE` | duration | `15s` | On shutdown, how long in-flight requests may finish before their contexts are canceled and connections closed. Capped at half of `APP_SHUTDOWN_TIMEOUT`, so later stages keep time to drain | v0.1 |
+| `HTTP_REQUEST_TIMEOUT` | duration | `30s` | Deadline on each request's context; expiry gives 503. `0` disables | v0.1 |
+| `HTTP_MAX_BODY` | size | `10MB` | Maximum request body (`512KB`, `10MB`, `1GB`; units are powers of 1024); larger gives 413. `0` disables | v0.1 |
+| `HTTP_TRUSTED_PROXIES` | list of IPs/CIDRs | empty | Peers whose `X-Forwarded-For`/`X-Real-IP` are trusted for the client IP | v0.1 |
+| `HTTP_ACCESS_LOG` | bool | `true` | One log line per request | v0.1 |
+| `HTTP_HEALTH_ROUTES` | bool | `true` | Serve `GET /health/live` and `GET /health/ready` | v0.1 |
+| `HTTP_CORS_ORIGINS` | list | empty (CORS off) | Allowed origins; `*` for any; `https://*.example.com` for subdomains | v0.1 |
+| `HTTP_CORS_METHODS` | list | `GET,HEAD,POST,PUT,PATCH,DELETE` | Allowed methods for preflights | v0.1 |
+| `HTTP_CORS_HEADERS` | list | `Accept,Authorization,Content-Type,X-Requested-With,X-Request-ID` | Allowed request headers | v0.1 |
+| `HTTP_CORS_EXPOSE` | list | `X-Request-ID` | Response headers readable by browsers | v0.1 |
+| `HTTP_CORS_CREDENTIALS` | bool | `false` | Allow cookies; can't be combined with `*` | v0.1 |
+| `HTTP_CORS_MAX_AGE` | duration | `10m` | How long browsers cache preflights | v0.1 |
+
+Streaming responses (server-sent events, long polling) should set
+`HTTP_WRITE_TIMEOUT=0` and `HTTP_REQUEST_TIMEOUT=0` (or override them per
+route with `http.ResponseController`), and end the stream when
+`srv.Stopping()` is closed so shutdown doesn't wait for the grace period.
+
+HSTS (`Strict-Transport-Security`) is sent automatically when
+`APP_ENV=production`; serve production over HTTPS (usually at your proxy or
+load balancer).

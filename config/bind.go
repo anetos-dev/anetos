@@ -7,9 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"strconv"
 	"strings"
-	"time"
+
+	"anetos.dev/anetos/internal/convert"
 )
 
 // ErrMissing is wrapped by a [FieldError] when a required key is not set.
@@ -196,75 +196,36 @@ func bindNested(src Source, fv reflect.Value, prefix, path string, errs *[]error
 	return false
 }
 
-var (
-	durationType        = reflect.TypeFor[time.Duration]()
-	textUnmarshalerType = reflect.TypeFor[encoding.TextUnmarshaler]()
-)
-
 func setValue(fv reflect.Value, raw string) error {
-	if fv.CanAddr() && fv.Addr().Type().Implements(textUnmarshalerType) {
-		return fv.Addr().Interface().(encoding.TextUnmarshaler).UnmarshalText([]byte(raw))
-	}
-	if fv.Type() == durationType {
-		d, err := time.ParseDuration(raw)
-		if err != nil {
-			return fmt.Errorf("invalid duration %q (use values like 30s, 5m, 1h)", raw)
-		}
-		fv.SetInt(int64(d))
-		return nil
-	}
-
-	switch fv.Kind() {
-	case reflect.String:
-		fv.SetString(raw)
-	case reflect.Bool:
-		b, err := strconv.ParseBool(raw)
-		if err != nil {
-			return fmt.Errorf("invalid boolean %q (use true or false)", raw)
-		}
-		fv.SetBool(b)
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		n, err := strconv.ParseInt(raw, 10, fv.Type().Bits())
-		if err != nil {
-			return fmt.Errorf("invalid integer %q", raw)
-		}
-		fv.SetInt(n)
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		n, err := strconv.ParseUint(raw, 10, fv.Type().Bits())
-		if err != nil {
-			return fmt.Errorf("invalid unsigned integer %q", raw)
-		}
-		fv.SetUint(n)
-	case reflect.Float32, reflect.Float64:
-		f, err := strconv.ParseFloat(raw, fv.Type().Bits())
-		if err != nil {
-			return fmt.Errorf("invalid number %q", raw)
-		}
-		fv.SetFloat(f)
-	case reflect.Slice:
+	if fv.Kind() == reflect.Slice && !isTextUnmarshaler(fv.Type()) {
 		var parts []string
 		for p := range strings.SplitSeq(raw, ",") {
 			if p = strings.TrimSpace(p); p != "" {
 				parts = append(parts, p)
 			}
 		}
+		set, err := convert.For(fv.Type().Elem())
+		if err != nil {
+			return err
+		}
 		s := reflect.MakeSlice(fv.Type(), len(parts), len(parts))
 		for i, p := range parts {
-			if err := setValue(s.Index(i), p); err != nil {
+			if err := set(s.Index(i), p); err != nil {
 				return fmt.Errorf("item %d: %w", i, err)
 			}
 		}
 		fv.Set(s)
-	case reflect.Pointer:
-		elem := reflect.New(fv.Type().Elem())
-		if err := setValue(elem.Elem(), raw); err != nil {
-			return err
-		}
-		fv.Set(elem)
-	default:
-		return fmt.Errorf("unsupported field type %s", fv.Type())
+		return nil
 	}
-	return nil
+	set, err := convert.For(fv.Type())
+	if err != nil {
+		return err
+	}
+	return set(fv, raw)
+}
+
+func isTextUnmarshaler(t reflect.Type) bool {
+	return reflect.PointerTo(t).Implements(reflect.TypeFor[encoding.TextUnmarshaler]())
 }
 
 func validateTree(v reflect.Value, path string) error {

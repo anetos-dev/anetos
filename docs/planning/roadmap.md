@@ -146,7 +146,8 @@ Goal: the core an application stands on.
 | F2 App kernel | ✅ Done 2026-09-30 |
 | F3 Configuration | ✅ Done 2026-09-30 |
 | F4 Runtime supervisor | ✅ Done 2026-09-30 |
-| F5–F12 | Not started (next: F5 HTTP layer) |
+| F5 HTTP layer | ✅ Done 2026-09-30 |
+| F6–F12 | Not started (next: F6 validation) |
 
 **Planned patch:** **v0.1.x** adds **relations and eager loading** (has-one,
 has-many, belongs-to, many-to-many, `With(...)`). This is kept out of v0.1.0 so
@@ -310,3 +311,4 @@ something, and we fix the API rather than add the hook.
 | 2026-09-30 | Q2 decided: Apache-2.0 license |
 | 2026-09-30 | F1–F4 done; Q3 proposal recorded |
 | 2026-09-30 | Q3 decided: minimum Go 1.26 |
+| 2026-09-30 | F5 done |
