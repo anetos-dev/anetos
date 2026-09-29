@@ -4,11 +4,11 @@ GO       ?= go
 PKGS     ?= ./...
 COVEROUT ?= coverage.out
 
-.PHONY: all check fmt fmt-check vet lint test test-short cover bench vuln spdx tidy help
+.PHONY: all check fmt fmt-check vet lint test test-short cover bench vuln spdx docs-check tidy help
 
 all: check ## Run every check CI runs
 
-check: fmt-check spdx vet lint test ## fmt, SPDX headers, vet, lint, race tests
+check: fmt-check spdx docs-check vet lint test ## fmt, SPDX headers, doc snippets, vet, lint, race tests
 
 fmt: ## Format all Go code
 	gofmt -s -w .
@@ -23,10 +23,10 @@ lint: ## golangci-lint (install: https://golangci-lint.run)
 	golangci-lint run $(PKGS)
 
 test: ## Tests with the race detector
-	$(GO) test -race -count=1 $(PKGS)
+	$(GO) test -race -count=1 -timeout=5m $(PKGS)
 
 test-short: ## Fast tests, no race detector
-	$(GO) test -short -count=1 $(PKGS)
+	$(GO) test -short -count=1 -timeout=5m $(PKGS)
 
 cover: ## Coverage report (coverage.out + summary)
 	$(GO) test -race -count=1 -coverprofile=$(COVEROUT) $(PKGS)
@@ -40,6 +40,9 @@ vuln: ## govulncheck (install: go install golang.org/x/vuln/cmd/govulncheck@late
 
 spdx: ## Check SPDX license headers
 	@./scripts/check-spdx.sh
+
+docs-check: ## Check doc code blocks match their example regions
+	@$(GO) run ./internal/cmd/docsnippets
 
 tidy: ## go mod tidy
 	$(GO) mod tidy

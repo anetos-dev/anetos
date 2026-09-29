@@ -37,7 +37,8 @@ minimum and the latest Go release (design D18).
 ## Commands
 
 ```bash
-make check     # everything CI runs: gofmt, SPDX headers, vet, lint, race tests
+make check     # everything CI runs: gofmt, SPDX headers, doc snippets, vet, lint, race tests
+make docs-check  # doc code blocks match examples/ regions
 make test      # go test -race ./...
 make lint      # golangci-lint (v2 config in .golangci.yml)
 make cover     # coverage summary

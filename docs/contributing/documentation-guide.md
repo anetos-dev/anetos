@@ -208,9 +208,11 @@ Broken examples are the fastest way to lose trust.
    // endregion
    ```
 
-   An include tool that pulls regions into pages is planned with the docs
-   site (v0.3). Until then, copy the region and keep it identical; reviewers
-   check this.
+   Copy the region into the page and follow the block with a claim
+   paragraph such as ``(Copied from [`examples/x`](…), region `name`.)``, or
+   ``(Region `name`.)`` when the example file was already linked on the
+   page. `make docs-check` (part of `make check`) fails if a claimed block
+   differs from its region.
 2. **Illustrative snippets** that aren't compiled (design sketches, partial
    fragments) must say so in a comment: `// illustrative`.
 3. Code must be `gofmt`-formatted, use real package names, and have no `…`
