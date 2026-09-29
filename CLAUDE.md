@@ -11,6 +11,9 @@ framework. Read these before making changes:
 - `docs/design/design.md`: principles, architecture, decision log
 - `docs/contributing/documentation-guide.md`: documentation rules (mandatory)
 
+Minimum Go version: 1.26 (`go.mod`). Code must build and pass tests on the
+minimum and the latest Go release (design D18).
+
 ## Non-negotiable rules
 
 1. **Docs ship with code.** Every behaviour change updates godoc, user docs

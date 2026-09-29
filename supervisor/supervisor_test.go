@@ -328,17 +328,15 @@ func TestDynamicAdd(t *testing.T) {
 // Components finishing and new ones being added concurrently must never
 // close the internal done channel twice.
 func TestDynamicAddRace(t *testing.T) {
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		s := newTestSupervisor(time.Second)
 		mustAdd(t, s, Spec{Component: Func("first", func(context.Context) error { return nil })})
 		var wg sync.WaitGroup
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for j := 0; j < 20; j++ {
+		wg.Go(func() {
+			for j := range 20 {
 				_ = s.Add(Spec{Component: Func("dyn"+string(rune('a'+j)), func(context.Context) error { return nil })})
 			}
-		}()
+		})
 		if err := s.Run(context.Background()); err != nil {
 			t.Fatal(err)
 		}
@@ -505,9 +503,7 @@ func TestAddNeverAcceptsWorkThatIsCanceledBeforeStarting(t *testing.T) {
 		var canceledAtStart atomic.Int32
 		stop := make(chan struct{})
 		var wg sync.WaitGroup
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for i := 0; ; i++ {
 				select {
 				case <-stop:
@@ -521,7 +517,7 @@ func TestAddNeverAcceptsWorkThatIsCanceledBeforeStarting(t *testing.T) {
 					return nil
 				})})
 			}
-		}()
+		})
 		if err := s.Run(context.Background()); err != nil {
 			t.Fatal(err)
 		}

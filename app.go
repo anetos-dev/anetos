@@ -344,7 +344,7 @@ func (a *App) runHooks(budget time.Duration) error {
 
 	var errs []error
 	// Hooks may register more hooks; run those in later rounds.
-	for round := 0; round < 10; round++ {
+	for range 10 {
 		a.mu.Lock()
 		hooks := a.hooks
 		a.hooks = nil
@@ -352,8 +352,8 @@ func (a *App) runHooks(budget time.Duration) error {
 		if len(hooks) == 0 {
 			break
 		}
-		for i := len(hooks) - 1; i >= 0; i-- {
-			h := hooks[i]
+		for _, h := range slices.Backward(hooks) {
+
 			start := time.Now()
 			if err := runHook(ctx, h); err != nil {
 				a.log.Error("shutdown hook failed", "hook", h.name, "error", err)

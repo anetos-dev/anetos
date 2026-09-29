@@ -100,8 +100,7 @@ func TestBindReportsAllErrors(t *testing.T) {
 
 	var fieldErrs []*FieldError
 	for _, e := range err.(interface{ Unwrap() []error }).Unwrap() {
-		var fe *FieldError
-		if errors.As(e, &fe) {
+		if fe, ok := errors.AsType[*FieldError](e); ok {
 			fieldErrs = append(fieldErrs, fe)
 		}
 	}

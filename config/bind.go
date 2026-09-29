@@ -243,7 +243,7 @@ func setValue(fv reflect.Value, raw string) error {
 		fv.SetFloat(f)
 	case reflect.Slice:
 		var parts []string
-		for _, p := range strings.Split(raw, ",") {
+		for p := range strings.SplitSeq(raw, ",") {
 			if p = strings.TrimSpace(p); p != "" {
 				parts = append(parts, p)
 			}
@@ -290,7 +290,7 @@ func validateTree(v reflect.Value, path string) error {
 	if len(errs) > 0 {
 		return errors.Join(errs...)
 	}
-	if val, ok := v.Addr().Interface().(Validator); ok {
+	if val, ok := reflect.TypeAssert[Validator](v.Addr()); ok {
 		if err := val.Validate(); err != nil {
 			return fmt.Errorf("config: %s: %w", path, err)
 		}

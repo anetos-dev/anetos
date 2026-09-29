@@ -39,7 +39,7 @@ jobs:
           go-version: stable
       - uses: golangci/golangci-lint-action@v8
         with:
-          version: v2.5
+          version: v2.14
 
   vuln:
     runs-on: ubuntu-latest

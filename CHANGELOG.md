@@ -25,3 +25,8 @@ All notable changes to this project are documented here. The format follows
   `app.Run` with roles, `app.Close` for boot-only programs (F2).
 - Docs: configuration guide and reference, background tasks guide,
   application lifecycle and runtime supervisor concepts, `examples/lifecycle`.
+
+### Changed
+- Minimum Go version is now 1.26 (the older of the two supported releases);
+  code modernized for it (`errors.AsType`, `slices.Backward`,
+  `sync.WaitGroup.Go`, …) and the `modernize` linter enabled (design D18).

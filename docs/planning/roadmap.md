@@ -296,7 +296,7 @@ something, and we fix the API rather than add the hook.
 |---|---|---|
 | Q1 | Final name, org, domain | Before v0.3 (M1) |
 | Q2 | ~~License: MIT vs Apache-2.0~~ **Decided 2026-09-30: Apache-2.0**, for its explicit patent grant, patent retaliation clause, trademark clarification and contribution terms (design D16) | Decided |
-| Q3 | ~~Minimum Go version~~ **Proposed 2026-09-30:** the older of the two Go-supported releases; CI tests minimum + latest (design D18). Temporarily `go 1.24` until the build environment can download newer Go versions | Confirm when newer toolchains are available |
+| Q3 | ~~Minimum Go version~~ **Decided 2026-09-30:** the older of the two Go-supported releases, currently **Go 1.26**; CI tests minimum + latest (design D18) | Decided |
 | Q4 | Docs site generator (VitePress, Hugo, Starlight…) | At M2 |
 | Q5 | Which mail API driver is first-party first (Resend vs Postmark) | At B9 |
 | Q6 | ~~Public repo from day one, or private until v0.3?~~ **Decided 2026-09-30:** private until ready for public release (v0.3). A private repo can use the working codename; GitHub redirects renamed repos, and the module path is a find-and-replace while nobody depends on it | Decided |
@@ -309,3 +309,4 @@ something, and we fix the API rather than add the hook.
 | 2026-09-30 | Q6 decided: private repo until public release |
 | 2026-09-30 | Q2 decided: Apache-2.0 license |
 | 2026-09-30 | F1–F4 done; Q3 proposal recorded |
+| 2026-09-30 | Q3 decided: minimum Go 1.26 |

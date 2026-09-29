@@ -997,7 +997,7 @@ unless new information arrives), **Open**, **Superseded**.
 | D15 | Typed handlers via generic `web.H(...)` adapter | Accepted | Go methods can't take type parameters |
 | D16 | License: Apache-2.0; `LICENSE` + `NOTICE` at repo root; SPDX header in every Go file | Accepted | Patent grant and contribution terms suit a framework seeking company adoption and outside contributors (roadmap Q2) |
 | D17 | At-least-once delivery for queue and pub/sub; idempotency documented | Accepted | |
-| D18 | Minimum Go = older of the two Go-supported releases; CI tests minimum + latest | Proposed | Temporarily `go 1.24` until the build environment can download newer toolchains |
+| D18 | Minimum Go = older of the two Go-supported releases; CI tests minimum + latest | Accepted | `go 1.26` since 2026-09-30 (Go 1.26 and 1.27 supported); raise when Go 1.28 ships |
 | D19 | Kernel lives in the root package `anetos` (no `app/` package) | Accepted | `anetos.New`, `anetos.Provide` read naturally; avoids an extra import |
 | D20 | A config key set to the empty string counts as unset (default applies, `required` fails) | Accepted | Blank entries copied from `.env.example` shouldn't break int/duration parsing |
 | D21 | Shutdown stages: ingress → scheduler → listeners → workers → background, then hooks | Accepted | Producers stop before consumers so accepted work gets done |
@@ -1026,3 +1026,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-09-29 | Initial draft |
 | 2026-09-30 | D16 accepted: Apache-2.0 |
 | 2026-09-30 | F2–F4 implemented: §4, §5, §7, §13.3, §13.8, §23 updated; D18–D23 added |
+| 2026-09-30 | D18 accepted: minimum Go 1.26 |

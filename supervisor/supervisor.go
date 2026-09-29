@@ -331,8 +331,7 @@ func (s *Supervisor) supervise(ctx context.Context, e *entry) {
 		}
 
 		attrs := []any{"error", err}
-		var pe *PanicError
-		if errors.As(err, &pe) {
+		if pe, ok := errors.AsType[*PanicError](err); ok {
 			attrs = append(attrs, "stack", string(pe.Stack))
 		}
 		log.Error("component failed", attrs...)

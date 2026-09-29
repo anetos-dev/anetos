@@ -11,6 +11,7 @@ linters:
     - errorlint
     - gocritic
     - misspell
+    - modernize
     - nilerr
     - noctx
     - revive
