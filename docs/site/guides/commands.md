@@ -49,6 +49,7 @@ func main() {
 | `run [--only=role,…]` | Every app |
 | `serve`, `routes:list` | `web.NewServer` |
 | `migrate`, `migrate:rollback`, `migrate:reset`, `migrate:fresh`, `migrate:status`, `db:seed` | `migrate.ForApp` ([Migrations](migrations.md)) |
+| `cache:clear` | `cache.ForApp` ([Cache values](cache.md)) |
 
 ### 3. Add your own
 

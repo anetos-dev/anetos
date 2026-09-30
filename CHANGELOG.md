@@ -6,6 +6,31 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Cache (`cache` package): `cache.ForApp` picks a store with
+  `CACHE_STORE` (`memory`, `database`, or a driver's such as `redis`) and
+  adds the cache to the app's contexts; `Get[T]`, `Has`, `Set`, `Add`,
+  `Forget`, `Increment` (fixed-window counters), `Remember[T]` (one
+  computation per key in a process; falls back to computing when the
+  store fails) and `Flush`, with values encoded as JSON and keys prefixed
+  by `CACHE_PREFIX` (default `APP_NAME` + `:cache:`); the `cache:clear`
+  command (B1, design D88–D90).
+- Locks across instances: `cache.NewLock` (`TryAcquire`, `Acquire`,
+  `Release`, `Extend`), `cache.WithLock` and `cache.TryWithLock`
+  (`cache.ErrLockHeld`), owned by a random token and expiring after a ttl
+  (B1, design D91).
+- The memory store and the database store (`cache.Migrations` creates its
+  table, `CACHE_TABLE`); the `cache.Store` interface and the
+  `cache/cachetest` conformance suite for other stores, run by `db/dbtest`
+  on every database (B1, design D90).
+- `db.WithoutTx`: queries that leave the context's transaction, so their
+  writes stay after a rollback (B1, design D90).
+- `anetostest.New` gives each test app its own `CACHE_PREFIX` and clears
+  its cache items when the test ends (B1, design D92).
+- `examples/database` caches `GET /stats` and forgets it when posts
+  change; guide "Cache values", configuration reference sections for the
+  cache and Redis (B1).
+
 ## [0.1.1] - 2026-09-30
 
 Relations and eager loading (the v0.1.x patch, work package F13).

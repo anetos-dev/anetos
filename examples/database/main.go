@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Command database is a small blog API on Anetos's data layer: models,
-// CRUD, queries, pagination, transactions, raw SQL and database validation
-// rules. It uses SQLite, so it runs without a database server.
+// CRUD, queries, pagination, transactions, raw SQL, database validation
+// rules and a cache. It uses SQLite, so it runs without a database server.
 //
 //	export APP_ENV=development DB_DATABASE=blog.db HTTP_ADDR=:8080
 //	go run . migrate      # create the tables
@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"anetos.dev/anetos"
+	"anetos.dev/anetos/cache"
 	"anetos.dev/anetos/cmd"
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/db/migrate"
@@ -116,6 +117,13 @@ func (Blog) CreatePost(c *web.Ctx, in NewPost) (web.Responder, error) {
 	if err := db.Create(c, &p); err != nil {
 		return nil, err
 	}
+	// region: forget
+	// GET /stats counts the new post. The post is saved either way: a
+	// cache failure only delays that, so log it rather than fail.
+	if err := cache.Forget(c, "stats"); err != nil {
+		c.Logger().Warn("forget the cached stats", "error", err)
+	}
+	// endregion
 	return web.Created(p), nil
 }
 
@@ -155,6 +163,9 @@ func (Blog) DeletePost(c *web.Ctx, in PostID) (web.Responder, error) {
 	if err := db.Delete(c, &p); err != nil { // soft delete
 		return nil, err
 	}
+	if err := cache.Forget(c, "stats"); err != nil {
+		c.Logger().Warn("forget the cached stats", "error", err)
+	}
 	return web.NoContent(), nil
 }
 
@@ -179,12 +190,21 @@ type AuthorStats struct {
 	Views int64  `db:"views" json:"views"`
 }
 
-func (Blog) Stats(c *web.Ctx, _ struct{}) ([]AuthorStats, error) {
-	return db.Raw[AuthorStats](c, `
+func authorStats(ctx context.Context) ([]AuthorStats, error) {
+	return db.Raw[AuthorStats](ctx, `
 		SELECT a.name, COUNT(p.id) AS posts, COALESCE(SUM(p.views), 0) AS views
 		FROM authors a LEFT JOIN posts p ON p.author_id = a.id AND p.deleted_at IS NULL
 		GROUP BY a.id, a.name
 		ORDER BY views DESC`)
+}
+
+// endregion
+
+// region: remember
+// Stats serves the totals from the cache, computing them at most once a
+// minute (and after a post is created or deleted).
+func (Blog) Stats(c *web.Ctx, _ struct{}) ([]AuthorStats, error) {
+	return cache.Remember(c, "stats", time.Minute, authorStats)
 }
 
 // endregion
@@ -219,7 +239,7 @@ func addCommands(app *anetos.App) {
 }
 
 // setup connects to the database, builds the migration runner (the
-// migrate commands) and the server. Tests call it too.
+// migrate commands), the cache and the server. Tests call it too.
 func setup(app *anetos.App) (*web.Server, error) {
 	// region: connect
 	// DB_CONNECTION (default sqlite) picks one of the drivers passed here.
@@ -228,7 +248,14 @@ func setup(app *anetos.App) (*web.Server, error) {
 	}
 	// endregion
 	// region: runner
-	if _, err := migrate.ForApp(app, []*migrate.Set{Migrations}, migrate.WithSeeders(Seeders...)); err != nil {
+	if _, err := migrate.ForApp(app, []*migrate.Set{Migrations, cache.Migrations("")}, migrate.WithSeeders(Seeders...)); err != nil {
+		return nil, err
+	}
+	// endregion
+	// region: cache
+	// CACHE_STORE (default memory) picks the store; database uses the
+	// cache table from cache.Migrations.
+	if _, err := cache.ForApp(app); err != nil {
 		return nil, err
 	}
 	// endregion
@@ -254,6 +281,7 @@ func main() {
 	// go run . migrate         and migrate:rollback, migrate:status, migrate:fresh --seed, db:seed
 	// go run . routes:list     every route
 	// go run . blog:stats      a custom command (addCommands)
+	// go run . cache:clear     empty the cache
 	// go run . help            every command
 	app.Execute()
 	// endregion

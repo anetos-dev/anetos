@@ -105,15 +105,16 @@ refuses on every database.
 ### 3. Connect the runner
 
 ```go
-if _, err := migrate.ForApp(app, []*migrate.Set{Migrations}, migrate.WithSeeders(Seeders...)); err != nil {
+if _, err := migrate.ForApp(app, []*migrate.Set{Migrations, cache.Migrations("")}, migrate.WithSeeders(Seeders...)); err != nil {
 	return nil, err
 }
 ```
 
 (Copied from [`examples/database`](../../../examples/database/main.go), region `runner`.)
 
-Pass one set per source: your app's, and one for each plugin that ships
-migrations. They run in ID order across all sets.
+Pass one set per source: your app's, and one for each package or plugin
+that ships migrations (here `cache.Migrations`, the table of the
+database cache store). They run in ID order across all sets.
 
 ### 4. Run the commands
 
@@ -125,6 +126,7 @@ migrations. They run in ID order across all sets.
 // go run . migrate         and migrate:rollback, migrate:status, migrate:fresh --seed, db:seed
 // go run . routes:list     every route
 // go run . blog:stats      a custom command (addCommands)
+// go run . cache:clear     empty the cache
 // go run . help            every command
 app.Execute()
 ```

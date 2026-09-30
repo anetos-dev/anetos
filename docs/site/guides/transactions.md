@@ -64,6 +64,16 @@ db.AfterCommit(ctx, func(ctx context.Context) {
 Outside a transaction, the function runs immediately. If the (nested)
 transaction it was registered in rolls back, it never runs.
 
+Forget cached values the same way, so no request caches the old data
+again between the forget and the commit:
+
+```go
+// illustrative
+db.AfterCommit(ctx, func(ctx context.Context) {
+	_ = cache.Forget(ctx, "stats")
+})
+```
+
 ### 4. Lock rows you are about to change
 
 ```go
@@ -84,6 +94,26 @@ lock when they start.
 
 Use `db.TxWith(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable}, fn)`
 for another isolation level or a read-only transaction.
+
+### 5. Write outside the transaction
+
+A record that must stay even if the transaction rolls back, such as an
+audit entry for the attempt, is written with `db.WithoutTx(ctx)`, which
+uses another connection:
+
+```go
+// illustrative
+err := db.Tx(ctx, func(ctx context.Context) error {
+	if err := db.Create(db.WithoutTx(ctx), &Audit{Action: "refund", OrderID: order.ID}); err != nil {
+		return err
+	}
+	return refund(ctx, order)
+})
+```
+
+With SQLite, whose transactions take the database's write lock when
+they start, such a write waits for the transaction and fails after the
+busy timeout: don't use `WithoutTx` there.
 
 ## Complete example
 

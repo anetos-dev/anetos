@@ -175,3 +175,25 @@ Driver specifics:
   (`parseTime=true`, `loc=UTC`) and report matched rows for updates
   (`clientFoundRows=true`), also when `DB_URL` says otherwise; sessions use
   `time_zone='+00:00'` unless `DB_URL` sets it.
+
+## Cache
+
+Read by `cache.ForApp` (or `cache.LoadConfig`) into `cache.Config`.
+
+| Key | Type | Default | Description | Since |
+|---|---|---|---|---|
+| `CACHE_STORE` | `memory` \| `database` \| a driver's name (`redis`) | `memory` | Selects the store; `redis` needs `redis.CacheDriver()` passed to `cache.ForApp` | v0.2 |
+| `CACHE_PREFIX` | string | `APP_NAME` + `:cache:` | Starts every key, so apps (and other features in Redis) can share a store; `cache:clear` removes only these keys. `anetostest` sets one per test app | v0.2 |
+| `CACHE_TABLE` | string | `cache` | The database store's table (create it with `cache.Migrations`) | v0.2 |
+
+## Redis
+
+Read by `redis.Connect` (module `drivers/redis`, also used by
+`redis.CacheDriver()`) into `redis.Config`.
+
+| Key | Type | Default | Description | Since |
+|---|---|---|---|---|
+| `REDIS_URL` | URL | `redis://127.0.0.1:6379/0` | The server, with its user, password and database: `redis://:secret@cache.internal:6379/2`; `rediss://` for TLS. Options go in the query string (`?dial_timeout=3s`) | v0.2 |
+
+The server is pinged when the app boots, so the app and commands that
+boot it fail fast when Redis is unreachable.

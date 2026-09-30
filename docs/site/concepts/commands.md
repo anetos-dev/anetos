@@ -33,6 +33,7 @@ code that wires the part they belong to:
 | `run [--only=role,…]` (the default), `help` | Every app |
 | `serve`, `routes:list` | `web.NewServer` |
 | `migrate`, `migrate:rollback`, `migrate:reset`, `migrate:fresh`, `migrate:status`, `db:seed` | `migrate.ForApp` ([Migrations](migrations.md)) |
+| `cache:clear` | `cache.ForApp` ([Cache values](../guides/cache.md)) |
 | Your own | `app.Command` or `app.AddCommand` |
 
 So a binary only offers commands for what it actually set up: without

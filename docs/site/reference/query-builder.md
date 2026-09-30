@@ -115,6 +115,7 @@ without `?` is sent as written, so native `$1` works there; fragments
 | `db.AfterCommit(ctx, fn)` | Runs `fn` after the commit (or now, outside a transaction) |
 | `db.InTx(ctx)` | Whether `ctx` has a transaction |
 | `db.WithTx(ctx, tx)` | Queries on the returned context use a `*sql.Tx` you began (and commit) yourself |
+| `db.WithoutTx(ctx)` | Queries on the returned context leave the transaction: their writes stay after a rollback (SQLite: they wait for it) |
 | `q.WithContext(ctx)` | The query with another context, e.g. a base query run inside `Tx` |
 
 ## Errors

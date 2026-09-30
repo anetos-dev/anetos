@@ -110,6 +110,7 @@ Names may be `BlogPost`, `blog_post` or `blog-post`; files use snake case.
 | `serve` | `web.NewServer` | `run --only=http` |
 | `routes:list` | `web.NewServer` | Method, path and name of every route |
 | `migrate`, `migrate:rollback`, `migrate:reset`, `migrate:fresh`, `migrate:status`, `db:seed` | `migrate.ForApp` | See the [migrations reference](migrations.md#commands) |
+| `cache:clear` | `cache.ForApp` | Removes the app's cache items (keys with `CACHE_PREFIX`), locks included |
 | `help [command]`, `-h`, `--help` | every app | The command list, or a command's usage (`<command> -h` too, as the first argument); doesn't boot the app |
 
 | API | Does |

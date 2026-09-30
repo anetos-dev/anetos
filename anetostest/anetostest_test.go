@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"anetos.dev/anetos"
+	"anetos.dev/anetos/cache"
 	"anetos.dev/anetos/anetostest"
 	"anetos.dev/anetos/session"
 	"anetos.dev/anetos/web"
@@ -327,5 +328,30 @@ func TestHalfSwitchedDatabase(t *testing.T) {
 	})
 	if !strings.Contains(msg, "DB_URL but no DB_CONNECTION") {
 		t.Errorf("DB_URL message = %q", msg)
+	}
+}
+
+func TestCachePrefix(t *testing.T) {
+	var stores []*cache.Cache
+	withCache := func(app *anetos.App) (*web.Server, error) {
+		c, err := cache.ForApp(app)
+		stores = append(stores, c)
+		return nil, err
+	}
+	a := anetostest.New(t, withCache)
+	b := anetostest.New(t, withCache)
+	pa, pb := stores[0].Prefix(), stores[1].Prefix()
+	if !strings.HasPrefix(pa, "test-") || pa == pb {
+		t.Errorf("prefixes %q and %q", pa, pb)
+	}
+	if err := cache.Set(a.Context(), "k", 1, cache.Forever); err != nil {
+		t.Fatal(err)
+	}
+	if ok, _ := cache.Has(b.Context(), "k"); ok {
+		t.Error("another App sees the item")
+	}
+	c := anetostest.New(t, withCache, anetostest.Env(map[string]string{"CACHE_PREFIX": "mine:"}))
+	if p := stores[2].Prefix(); p != "mine:" || c == nil {
+		t.Errorf("Env's CACHE_PREFIX: %q", p)
 	}
 }

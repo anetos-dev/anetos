@@ -11,7 +11,7 @@
 |---|---|
 | **Status** | Draft v0.1 (design phase) |
 | **Owner** | Samiul Hoque |
-| **Last updated** | 2026-09-29 |
+| **Last updated** | 2026-09-30 |
 | **Related** | [Roadmap](../planning/roadmap.md) · [Documentation guide](../contributing/documentation-guide.md) · [ADRs](adr/) |
 
 ## Contents
@@ -227,7 +227,8 @@ anetos.dev/anetos/            ← core module
 ├── view/                Component interface, helpers, assets (F10); view/htmx: bundled htmx
 ├── session/             encrypted cookie sessions, flash, CSRF token (F10)
 ├── encryption/          AES-256-GCM with APP_KEY and key rotation (F10)
-├── cache/ queue/ pubsub/ events/ schedule/ mailer/ storage/ auth/
+├── cache/               cache, memory and database stores, locks (B1); cache/cachetest: store conformance suite
+├── queue/ pubsub/ events/ schedule/ mailer/ storage/ auth/
 ├── ext/                 public plugin API (package `ext`)
 ├── cmd/                 app-binary command types (F11); App.Execute dispatches
 ├── anetostest/          test app, browser-like client, assertions (F12); fakes arrive with their features
@@ -239,7 +240,7 @@ anetos.dev/anetos/            ← core module
 ├── cli/                 ← separate module: the `anetos` developer tool (cmd/anetos: new, dev, make:*, gen, key:generate)
 ├── drivers/             ← each a separate module
 │   ├── postgres/ mysql/ sqlite/   database/sql driver + DSN; dialects are in db/
-│   ├── redis/           cache, session, queue, pubsub (Streams), locks
+│   ├── redis/           shared client (redis.Connect) and cache store with locks (B1); later session, queue, pubsub (Streams)
 │   ├── gcppubsub/
 │   ├── s3/
 │   └── …
@@ -914,8 +915,9 @@ app.Schedule(schedule.DailyAt("02:00").Timezone("Asia/Dhaka"), tasks.PruneSessio
     schedule.WithoutOverlapping(), schedule.OnOneServer())
 ```
 
-`WithoutOverlapping` and `OnOneServer` use cache locks, so running the
-scheduler on several instances is safe.
+`WithoutOverlapping` and `OnOneServer` use cache locks (`cache.TryWithLock`,
+§14.1), so running the scheduler on several instances is safe with a
+shared store (database or Redis).
 
 ### 13.8 Ad-hoc background work
 
@@ -936,7 +938,7 @@ Each service is an interface in the core module. Drivers are chosen in
 |---|---|---|---|---|
 | Database | `db` | — | `drivers/postgres`, `drivers/mysql`, `drivers/sqlite` | v0.1 |
 | Session | `session` | cookie (encrypted) | database, `drivers/redis` | v0.1 / v0.2 |
-| Cache (+ locks) | `cache` | memory | database, `drivers/redis` | v0.2 |
+| Cache (+ locks) | `cache` | memory, database | `drivers/redis` | v0.2 (B1 done) |
 | Queue | `queue` | sync, database | `drivers/redis`; SQS, NATS (plugins) | v0.2 |
 | Pub/sub | `pubsub` | in-memory (tests/dev) | `drivers/redis` (Streams), `drivers/gcppubsub`; NATS, Kafka (plugins) | v0.2 |
 | Mail | `mailer` | SMTP, log (dev) | Resend / Postmark / SES / Mailgun (plugins) | v0.2 |
@@ -959,6 +961,49 @@ DB_URL=postgres://app:secret@localhost:5432/blog
 The generated project imports the selected driver in `main.go`, and
 `anetos new --db=postgres` and `anetos add driver postgres` manage that
 import.
+
+### 14.1 Cache
+
+```go
+c, err := cache.ForApp(app, redis.CacheDriver()) // CACHE_STORE: memory | database | redis
+stats, err := cache.Remember(ctx, "stats", time.Minute, computeStats)
+err = cache.TryWithLock(ctx, "reports:monthly", 10*time.Minute, buildReport)
+```
+
+- **Contract.** `cache.Store` is bytes in, bytes out: `Get`, `Set`, `Add`
+  (atomic add-if-absent), `Delete`, `Increment` (atomic; the ttl applies
+  when the counter is created), `DeleteIf`/`ExpireIf` (atomic
+  compare-and-delete/expire, for locks), `Flush(prefix)` and `Close`. A
+  ttl of 0 is forever. `cache/cachetest` is the conformance suite every
+  store runs (D88).
+- **Use.** Like `db`, the cache travels in the context: `cache.ForApp`
+  adds it to every context the app creates, and package functions
+  (`Get[T]`, `Set`, `Add`, `Has`, `Forget`, `Increment`, `Remember[T]`,
+  `Flush`) find it there (`cache.WithCache` for other contexts). Values are
+  JSON; keys are prefixed with `CACHE_PREFIX` (default `APP_NAME:cache:`,
+  so `cache:clear` doesn't touch sessions or queues sharing a Redis
+  database) and must be UTF-8 text without NUL, at most 250 bytes with it,
+  so every store accepts the same keys. Counters are canonical decimal
+  text; a non-integer or an overflow is an error (D88).
+- **Remember** runs the function once per key per process for concurrent
+  misses (a waiter whose leader's context ended computes itself; a panic
+  reaches waiters as an error), stores nothing on error, and treats the
+  cache as an optimization: a store error or a value that no longer
+  decodes is logged and the function runs (D89).
+- **Stores.** Memory (per process, lazy expiry plus a periodic sweep);
+  database (`cache.Migrations` table: key, value, expires_at in Unix ms
+  by the database server's clock; exact key comparison, `VARBINARY` on
+  MySQL; `Add` is an insert-or-nothing plus removal of an expired row,
+  `Increment` a row lock in a short transaction; deadlocks are retried;
+  own connections on PostgreSQL and MySQL, the context's transaction on
+  SQLite) (D90); Redis in `drivers/redis`, on the app's shared client from
+  `redis.Connect`, with `SET NX PX`, `MULTI` for counters, Lua scripts for
+  the owner-checked operations and `SCAN`+`UNLINK` for flushes (D92).
+- **Locks** are keys (`lock:<name>`) holding a random owner token, taken
+  with `Add` and a ttl, released and extended only by their owner through
+  `DeleteIf`/`ExpireIf`. `Acquire` polls with backoff until the context
+  ends; `WithLock` waits, `TryWithLock` returns `ErrLockHeld`. They are
+  leases, not fenced: work longer than the ttl must `Extend` (D91).
 
 ---
 
@@ -1330,6 +1375,11 @@ unless new information arrives), **Open**, **Superseded**.
 | D85 | Relation handles are typed values, `db.Rel[T, R]`, generated in `TRels` by `anetos gen` (or `db.RelOf[T, R]("Field")`, checked at first use, so package-level variables are safe; `Err()` checks early); `With` takes `db.Relation[T]`, and nesting, conditions and order are methods on the handle | Accepted | The compiler rejects a relation of another model; no dotted strings (`"comments.author"`); no work at package initialization (a `TableName` reading configuration would run too early) |
 | D86 | `WhereHas`/`WhereDoesntHave` are `EXISTS` subqueries (many-to-many through `IN (SELECT … FROM pivot)`), honoring the related model's soft deletes; a self-referencing relation aliases the inner table | Accepted | No duplicate rows and no `Distinct`; conditions use the related model's own column names |
 | D87 | Pivot writes are `Attach` (idempotent, also under concurrency, through the dialect's conflict clause on the pivot's unique key), `Detach` (by ids; none is a no-op), `DetachAll` and `Sync`, each in a transaction; no pivot columns or timestamps yet. N+1 detection is deferred to v0.2 (B13) | Accepted | Covers the common many-to-many needs; an empty id list from a request can't wipe links by accident; request-scoped query tracking belongs with the v0.2 observability work |
+| D88 | The cache store contract is bytes with a ttl (0 = forever) plus atomic `Add`, `Increment` (ttl only on creation; canonical decimal text; errors on non-integers and overflow) and owner-checked `DeleteIf`/`ExpireIf`; the typed API encodes values as JSON and finds the cache in the context, like `db`; keys carry `CACHE_PREFIX` (default `APP_NAME:cache:`), are UTF-8 without NUL and at most 250 bytes with it | Accepted | Small enough for any backend (memory, SQL, Redis, Memcached later) and all that locks and rate limits need; JSON is debuggable and survives restarts of mixed versions; fixed windows are what Redis `INCR`+`EXPIRE` gives; the prefix keeps `cache:clear` away from sessions and queues in a shared Redis |
+| D89 | `Remember` computes once per key per process for concurrent misses (no cross-instance stampede lock), stores nothing when the function fails, and falls back to computing (with a warning) when the store fails or a stored value no longer decodes | Accepted | A cache outage or a deploy that changes a cached type must not take pages down; a distributed lock per miss would cost more than most recomputations |
+| D90 | The database store uses its own connections on PostgreSQL and MySQL (a value cached or a lock taken inside a transaction stays after a rollback; `db.WithoutTx` makes that possible; it costs a second pool connection per transaction) but joins the context's transaction on SQLite, whose single writer would otherwise deadlock; keys compare exactly (MySQL `VARBINARY`: its text collations ignore case, accents or trailing spaces); expiry is Unix milliseconds on the database server's clock; `Add` is `INSERT … ON CONFLICT DO NOTHING` (MySQL `INSERT IGNORE`) plus deleting an expired row, `Increment` a `SELECT … FOR UPDATE` transaction; deadlocks and serialization failures are retried; expired rows are swept every few minutes after writes | Accepted | Locks must be visible to other instances at once and survive a rollback; on SQLite there is only one instance and one writer; one clock for every instance keeps leases exclusive; single statements and row locks stay correct under contention where compare-and-swap loops failed on MySQL |
+| D91 | Locks are leases: a key holding a random owner token with a ttl, taken with `Add`, released and extended only by the owner; `Acquire` polls with exponential backoff (25ms to 1s) until the context ends; `WithLock`/`TryWithLock` release with a non-canceled context; no fencing tokens | Accepted | Works on every store with the same contract; a crashed holder can't keep a lock forever; fencing needs cooperation from the protected resource, which the scheduler and typical jobs don't have |
+| D92 | Redis lives in `drivers/redis` (go-redis v9): `redis.Connect` makes one client per app from `REDIS_URL`, provides it, pings it at boot and closes it at shutdown, for the cache now and sessions, queues and pub/sub later; `anetostest` gives each test app its own `CACHE_PREFIX` and flushes it at the end | Accepted | A heavy dependency stays out of the core module; one connection pool per app; tests sharing a database or Redis cache can't see each other's items, even in parallel |
 
 ---
 
@@ -1365,3 +1415,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-09-30 | F12 implemented: §5, §11, §18 rewritten; D74–D79 added |
 | 2026-09-30 | v0.1 release checks: §7, §11, §12.1, §17.1, §18 corrected against the code; D80–D82 added |
 | 2026-09-30 | v0.1.1 relations: §10, §17.1 updated; D83–D87 added |
+| 2026-09-30 | B1 cache implemented: §5, §13.7, §14 updated, §14.1 added; D88–D92 added |

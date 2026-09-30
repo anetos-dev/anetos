@@ -24,8 +24,8 @@ type AuthorStats struct {
 	Views int64  `db:"views" json:"views"`
 }
 
-func (Blog) Stats(c *web.Ctx, _ struct{}) ([]AuthorStats, error) {
-	return db.Raw[AuthorStats](c, `
+func authorStats(ctx context.Context) ([]AuthorStats, error) {
+	return db.Raw[AuthorStats](ctx, `
 		SELECT a.name, COUNT(p.id) AS posts, COALESCE(SUM(p.views), 0) AS views
 		FROM authors a LEFT JOIN posts p ON p.author_id = a.id AND p.deleted_at IS NULL
 		GROUP BY a.id, a.name
@@ -83,7 +83,7 @@ query.
 
 ## Complete example
 
-`Stats` in [`examples/database`](../../../examples/database/main.go).
+`authorStats` in [`examples/database`](../../../examples/database/main.go), which the `GET /stats` handler caches ([Cache values](cache.md)).
 
 ## How it works
 

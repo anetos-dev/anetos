@@ -26,7 +26,9 @@ package anetostest
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -42,6 +44,7 @@ import (
 	"testing"
 
 	"anetos.dev/anetos"
+	"anetos.dev/anetos/cache"
 	"anetos.dev/anetos/config"
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/db/migrate"
@@ -101,8 +104,10 @@ func LogLevel(l slog.Level) Option { return func(o *options) { o.level = l } }
 // database and add the server and routes; nil for none), boots it and
 // prepares its database. It closes the app when the test ends.
 //
-// Settings, from highest priority: [Env] options; APP_ENV=testing and a
-// random APP_KEY; the process environment; the .env.testing file next to
+// Settings, from highest priority: [Env] options; APP_ENV=testing, a
+// random APP_KEY and a CACHE_PREFIX of the App's own (so tests sharing a
+// cache store don't see each other's items; New removes the App's items
+// when the test ends); the process environment; the .env.testing file next to
 // go.mod, if there is one (say, DB_DATABASE=blog_test); then
 // HTTP_ACCESS_LOG=false. The settings in .env are not used (New only
 // looks at its DB_CONNECTION, to stop a test that would use SQLite by
@@ -114,7 +119,7 @@ func New(t testing.TB, setup func(app *anetos.App) (*web.Server, error), opts ..
 	for _, opt := range opts {
 		opt(o)
 	}
-	forced := config.Map{"APP_ENV": "testing", "APP_KEY": encryption.GenerateKey()}
+	forced := config.Map{"APP_ENV": "testing", "APP_KEY": encryption.GenerateKey(), "CACHE_PREFIX": cachePrefix()}
 	defaults := config.Map{"HTTP_ACCESS_LOG": "false"}
 	file, err := moduleEnv(".env.testing")
 	if err != nil {
@@ -162,6 +167,15 @@ func New(t testing.TB, setup func(app *anetos.App) (*web.Server, error), opts ..
 	}
 	a.ctx = app.Context(ctx)
 	a.sessions, _ = anetos.Resolve[*session.Manager](app)
+	if c, err := anetos.Resolve[*cache.Cache](app); err == nil {
+		// A shared store (database, Redis) keeps items after the test,
+		// out of its transaction: remove them.
+		t.Cleanup(func() {
+			if err := c.Store().Flush(context.Background(), c.Prefix()); err != nil {
+				t.Errorf("anetostest: clear the cache: %v", err)
+			}
+		})
+	}
 
 	if o.migrate {
 		if runner, err := anetos.Resolve[*migrate.Runner](app); err == nil {
@@ -186,6 +200,14 @@ func New(t testing.TB, setup func(app *anetos.App) (*web.Server, error), opts ..
 		a.tx = true
 	}
 	return a
+}
+
+// cachePrefix returns a CACHE_PREFIX of its own for an App, so tests
+// sharing a cache store don't see each other's items.
+func cachePrefix() string {
+	b := make([]byte, 8)
+	_, _ = rand.Read(b)
+	return "test-" + hex.EncodeToString(b) + ":"
 }
 
 // inMemory reports whether d is an in-memory SQLite database: one

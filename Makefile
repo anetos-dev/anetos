@@ -26,7 +26,7 @@ vet: ## go vet
 lint: ## golangci-lint (install: https://golangci-lint.run)
 	@$(EACH) golangci-lint run ./... $(DONE)
 
-test: ## Tests with the race detector (set ANETOS_TEST_POSTGRES_URL / ANETOS_TEST_MYSQL_URL for those drivers)
+test: ## Tests with the race detector (set ANETOS_TEST_POSTGRES_URL / ANETOS_TEST_MYSQL_URL / ANETOS_TEST_REDIS_URL for those drivers)
 	@$(EACH) $(GO) test -race -count=1 -timeout=5m ./... $(DONE)
 
 test-short: ## Fast tests, no race detector

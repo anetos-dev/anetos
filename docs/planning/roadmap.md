@@ -8,7 +8,7 @@
 |---|---|
 | **Status** | Pre-alpha: planning and design |
 | **Owner** | Samiul Hoque |
-| **Last updated** | 2026-09-29 |
+| **Last updated** | 2026-09-30 |
 | **Related** | [Design document](../design/design.md) · [Documentation guide](../contributing/documentation-guide.md) |
 
 ---
@@ -197,9 +197,15 @@ detection moved to v0.2 (design D87).
 
 Goal: everything a real application needs beyond CRUD.
 
+**Progress**
+
+| WP | Status |
+|---|---|
+| B1 Cache | ✅ Done 2026-09-30 (memory, database and Redis stores; locks) |
+
 | WP | Work package | Notes |
 |---|---|---|
-| B1 | Cache | Contract + memory and Redis drivers; locks (used by the scheduler) |
+| B1 | Cache | Contract + memory, database and Redis (`drivers/redis`) stores; locks (used by the scheduler); `cache:clear` |
 | B2 | Sessions & rate limiting | DB and Redis session drivers; rate limiter middleware |
 | B3 | Authentication & authorization | Passwords (argon2id), login, logout, remember-me, email verification, password reset, API tokens, typed policies; `make:auth` scaffolding |
 | B4 | Social login | OAuth2/OIDC: Google, GitHub, generic OIDC |
@@ -351,3 +357,4 @@ something, and we fix the API rather than add the hook.
 | 2026-09-30 | v0.1 exit criteria checked; pagination links, `migrate --seed --force`, concept pages, benchmarks and doc-comment check added |
 | 2026-09-30 | v0.1.0 tagged |
 | 2026-09-30 | v0.1.1 (relations) done; N+1 detection moved to v0.2 |
+| 2026-09-30 | B1 (cache) done; database store added to its scope |

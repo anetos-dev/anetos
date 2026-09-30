@@ -11,7 +11,9 @@ import (
 	"time"
 
 	"anetos.dev/anetos"
+	"anetos.dev/anetos/cache"
 	"anetos.dev/anetos/config"
+	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/anetostest"
 )
 
@@ -75,6 +77,38 @@ func TestListAndShowPosts(t *testing.T) {
 	app.GetJSON("/stats").AssertOK().AssertJSONPath("0.posts", 5)
 }
 
+// region: test-cache
+func TestStatsCache(t *testing.T) {
+	app := anetostest.New(t, setup)
+	ada := anetostest.Create(app, Authors.With(func(a *Author) { a.Name = "Ada" }))
+	app.GetJSON("/stats").AssertJSONPath("0.posts", 0) // computed and cached
+
+	// A post written behind the handlers' back isn't counted yet...
+	anetostest.Create(app, Posts.With(func(p *Post) { p.AuthorID = ada.ID }))
+	app.GetJSON("/stats").AssertJSONPath("0.posts", 0)
+
+	// ...until a handler forgets the cached totals.
+	app.PostJSON("/posts", map[string]any{"author_id": ada.ID, "title": "Hello", "body": "First post"}).AssertCreated()
+	app.GetJSON("/stats").AssertJSONPath("0.posts", 2)
+}
+
+// endregion
+
+// TestDatabaseCache runs the stats cache on the database store.
+func TestDatabaseCache(t *testing.T) {
+	app := anetostest.New(t, setup, anetostest.Env(map[string]string{"CACHE_STORE": "database"}))
+	anetostest.Create(app, Authors)
+	app.GetJSON("/stats").AssertJSONPath("0.posts", 0)
+	c, err := anetos.Resolve[*cache.Cache](app.App)
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, err := db.RawFirst[int64](app.Context(), "SELECT COUNT(*) FROM cache WHERE key = ?", c.Prefix()+"stats")
+	if err != nil || n != 1 {
+		t.Errorf("cached rows: %d, %v", n, err)
+	}
+}
+
 // region: test-relations
 func TestAuthorsWithPublishedPosts(t *testing.T) {
 	app := anetostest.New(t, setup)
@@ -112,15 +146,15 @@ func TestCommands(t *testing.T) {
 			t.Fatalf("%v: exit %d: %s", args, code, errOut.String())
 		}
 	}
-	for _, args := range [][]string{{"migrate:fresh", "--seed"}, {"blog:stats"}, {"migrate:rollback"}, {"migrate"}, {"migrate:status"}, {"routes:list"}, {"help"}} {
+	for _, args := range [][]string{{"migrate:fresh", "--seed"}, {"blog:stats"}, {"migrate:rollback"}, {"migrate"}, {"migrate:status"}, {"routes:list"}, {"cache:clear"}, {"help"}} {
 		execute(args...)
 	}
-	for _, want := range []string{"Seeded:      posts", "2 authors, 2 posts", "GET     /posts/{id}", "migrate:rollback", "Run pending migrations"} {
+	for _, want := range []string{"Seeded:      posts", "2 authors, 2 posts", "GET     /posts/{id}", "migrate:rollback", "Run pending migrations", "Cleared the memory cache"} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("missing %q in output:\n%s", want, out.String())
 		}
 	}
-	if strings.Count(out.String(), "Ran ") != 3 {
+	if strings.Count(out.String(), "Ran ") != 4 {
 		t.Errorf("status:\n%s", out.String())
 	}
 }

@@ -48,7 +48,9 @@ migrations (when `setup` called `migrate.ForApp`) and closes it when the
 test ends. The settings, from highest priority:
 
 1. `anetostest.Env(map[string]string{…})` options;
-2. `APP_ENV=testing` and a random `APP_KEY`;
+2. `APP_ENV=testing`, a random `APP_KEY` and a `CACHE_PREFIX` of the
+   app's own, so tests sharing a cache store don't see each other's
+   items (they are removed when the test ends);
 3. the process environment;
 4. `.env.testing` next to `go.mod`, if there is one (for PostgreSQL or
    MySQL, all the `DB_*` settings: see

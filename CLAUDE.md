@@ -51,9 +51,10 @@ make help      # list targets
 
 The repository has several Go modules (the core, `drivers/*`, the `cli`
 developer tool, and examples that need drivers); make targets run in each. Driver modules
-depend on the core through a `replace ../..` directive. The PostgreSQL and
-MySQL conformance tests run when `ANETOS_TEST_POSTGRES_URL` and
-`ANETOS_TEST_MYSQL_URL` are set (CI sets both); otherwise they skip.
+depend on the core through a `replace ../..` directive. The PostgreSQL,
+MySQL and Redis conformance tests run when `ANETOS_TEST_POSTGRES_URL`,
+`ANETOS_TEST_MYSQL_URL` and `ANETOS_TEST_REDIS_URL` are set (CI sets
+them); otherwise they skip.
 
 Run `make check` before every commit.
 

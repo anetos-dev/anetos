@@ -29,7 +29,7 @@ Highest priority first. `.env` is never read.
 | Source | Holds |
 |---|---|
 | `anetostest.Env` | Whatever the test passes |
-| Forced | `APP_ENV=testing`, a random `APP_KEY` |
+| Forced | `APP_ENV=testing`, a random `APP_KEY`, a `CACHE_PREFIX` of the app's own (its items are removed when the test ends) |
 | Process environment | `DB_*` in CI, … |
 | `.env.testing` | Next to the test's `go.mod`; optional |
 | Defaults | `HTTP_ACCESS_LOG=false` |

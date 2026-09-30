@@ -158,6 +158,22 @@ func WithTx(ctx context.Context, tx *sql.Tx) (context.Context, error) {
 	return context.WithValue(ctx, txKey{d}, &txState{tx: tx}), nil
 }
 
+// WithoutTx returns ctx without its transaction on the database in ctx:
+// queries made with it use their own connections, and their writes stay
+// if the transaction rolls back. Use it for records that must outlive a
+// failed transaction, such as an audit log of the attempt. It needs a
+// second connection while the transaction holds one. Don't use it
+// with SQLite, whose transactions hold the write lock from the start: a
+// write made this way waits for the transaction and fails after the busy
+// timeout.
+func WithoutTx(ctx context.Context) context.Context {
+	d, err := From(ctx)
+	if err != nil || d.txIn(ctx) == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, txKey{d}, (*txState)(nil))
+}
+
 // InTx reports whether ctx has a transaction on its database.
 func InTx(ctx context.Context) bool {
 	d, err := From(ctx)
