@@ -31,8 +31,8 @@ func init() {
 
 var migrationTables = []string{"st_migrations", "st_m_notes", "st_m_items", "st_m_owners", "st_m_sql", "st_m_renamed", "st_m_extra"}
 
-// Item exercises every column type of the schema builder.
-type Item struct {
+// stItem exercises every column type of the schema builder.
+type stItem struct {
 	ID        int64             `db:"id,pk"`
 	OwnerID   *int64            `db:"owner_id"`
 	Code      string            `db:"code"`
@@ -52,16 +52,16 @@ type Item struct {
 }
 
 // TableName implements db.Tabler.
-func (Item) TableName() string { return "st_m_items" }
+func (stItem) TableName() string { return "st_m_items" }
 
-// Owner owns items.
-type Owner struct {
+// stOwner owns items.
+type stOwner struct {
 	ID   int64  `db:"id,pk"`
 	Name string `db:"name"`
 }
 
 // TableName implements db.Tabler.
-func (Owner) TableName() string { return "st_m_owners" }
+func (stOwner) TableName() string { return "st_m_owners" }
 
 func dropMigrationTables(t *testing.T, ctx context.Context) {
 	t.Helper()
@@ -116,14 +116,14 @@ func testSchemaBuilder(t *testing.T, ctx context.Context) {
 		t.Error("HasColumn(nope) = true")
 	}
 
-	owner := Owner{Name: "Ada"}
+	owner := stOwner{Name: "Ada"}
 	check(t, db.Create(ctx, &owner))
 	day := time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)
-	item := Item{OwnerID: &owner.ID, Code: "123e4567-e89b-12d3-a456-426614174000", Name: "Widget", Body: "b",
+	item := stItem{OwnerID: &owner.ID, Code: "123e4567-e89b-12d3-a456-426614174000", Name: "Widget", Body: "b",
 		Qty: 3, Big: 1 << 40, Small: 7, Active: true, Ratio: 0.25, Price: "19.99", Day: day,
 		Meta: map[string]string{"k": "v"}, Blob: []byte{0, 1, 2}, Ref: "r1"}
 	check(t, db.Create(ctx, &item))
-	got, err := db.Find[Item](ctx, item.ID)
+	got, err := db.Find[stItem](ctx, item.ID)
 	check(t, err)
 	if got.Code != item.Code || got.Name != "Widget" || got.Qty != 3 || got.Big != 1<<40 || got.Small != 7 ||
 		!got.Active || got.Ratio != 0.25 || got.Price != "19.99" || got.Day.Format(time.DateOnly) != "2026-03-15" ||
@@ -138,7 +138,7 @@ func testSchemaBuilder(t *testing.T, ctx context.Context) {
 	_, err = db.Exec(ctx, "INSERT INTO st_m_items (code, name, body, big, small, ratio, price, day) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
 		"223e4567-e89b-12d3-a456-426614174000", "Plain", "", 1, 1, 0, "1.00", day)
 	check(t, err)
-	plain, err := db.Query[Item](ctx).Where(db.C("name").Eq("Plain")).First()
+	plain, err := db.Query[stItem](ctx).Where(db.C("name").Eq("Plain")).First()
 	check(t, err)
 	if plain.Qty != 1 || !plain.Active || plain.Ref != "none" || plain.OwnerID != nil {
 		t.Errorf("defaults: %+v", plain)
@@ -152,7 +152,7 @@ func testSchemaBuilder(t *testing.T, ctx context.Context) {
 	}
 	// ON DELETE SET NULL.
 	check(t, db.Delete(ctx, &owner))
-	orphan, err := db.Find[Item](ctx, item.ID)
+	orphan, err := db.Find[stItem](ctx, item.ID)
 	check(t, err)
 	if orphan.OwnerID != nil {
 		t.Errorf("owner_id after the owner was deleted = %v", *orphan.OwnerID)
@@ -172,7 +172,7 @@ func testSchemaAlter(t *testing.T, ctx context.Context) {
 		t.ID()
 		t.String("title", 50)
 		t.String("legacy", 10).Nullable()
-		t.Integer("rank").Default(0)
+		t.Integer("priority").Default(0)
 	}))
 	_, err = db.Exec(ctx, "INSERT INTO st_m_notes (title) VALUES (?)", "first")
 	check(t, err)
@@ -180,7 +180,7 @@ func testSchemaAlter(t *testing.T, ctx context.Context) {
 		t.String("subtitle", 50).Nullable()
 		t.Integer("stars").Default(5)
 		t.RenameColumn("title", "heading")
-		t.Index("rank")
+		t.Index("priority")
 	}))
 	check(t, s.Alter("st_m_notes", func(t *migrate.Table) { t.DropColumn("legacy") }))
 	for col, want := range map[string]bool{"heading": true, "title": false, "subtitle": true, "legacy": false, "stars": true} {
@@ -193,12 +193,12 @@ func testSchemaAlter(t *testing.T, ctx context.Context) {
 	if stars != 5 {
 		t.Errorf("new column's default for an existing row = %d", stars)
 	}
-	check(t, s.Alter("st_m_notes", func(t *migrate.Table) { t.DropIndex("rank") }))
+	check(t, s.Alter("st_m_notes", func(t *migrate.Table) { t.DropIndex("priority") }))
 	if s.Dialect() != "sqlite" {
 		check(t, s.Alter("st_m_notes", func(t *migrate.Table) { t.String("heading", 200).Nullable().Change() }))
 		_, err = db.Exec(ctx, "INSERT INTO st_m_notes (heading) VALUES (?)", strings.Repeat("x", 150))
 		check(t, err)
-		_, err = db.Exec(ctx, "INSERT INTO st_m_notes (rank) VALUES (?)", 1)
+		_, err = db.Exec(ctx, "INSERT INTO st_m_notes (priority) VALUES (?)", 1)
 		check(t, err) // heading is nullable now
 	}
 	check(t, s.Rename("st_m_notes", "st_m_renamed"))
@@ -436,6 +436,9 @@ func testMigrationCommands(t *testing.T, ctx context.Context) {
 		t.Error("serve handled")
 	}
 	check(t, run(anetos.Development, "migrate:reset"))
+	if err := run(anetos.Production, "migrate", "--seed"); err == nil || !strings.Contains(err.Error(), "migrate --seed changes data") {
+		t.Errorf("migrate --seed in production without --force: %v", err)
+	}
 	check(t, run(anetos.Development, "migrate", "--seed"))
 	if !strings.Contains(out.String(), "Seeded:      owners") {
 		t.Errorf("migrate --seed:\n%s", out.String())

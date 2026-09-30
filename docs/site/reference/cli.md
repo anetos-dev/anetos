@@ -41,12 +41,15 @@ before `migrate`.
 | Path | Holds |
 |---|---|
 | `main.go` | `anetos.New`, `db.Connect`, `migrate.ForApp`, `web.NewServer`, `session.ForApp`, `routes.Register`, `app.Execute()`; `//go:generate` lines for templ and `anetos gen` |
-| `main_test.go` | A test requesting the home page |
+| `main_test.go` | A test requesting the home page with `anetostest` |
 | `.env`, `.env.example` | Settings; `.env` has a fresh `APP_KEY` (file mode 0600) and stays out of git |
+| `.env.testing` | PostgreSQL and MySQL projects: the test database's settings (`<name>_test`) |
+| `README.md`, `.gitignore` | How to run it; what stays out of git |
 | `routes/web.go` | Routes: assets, and the page group with sessions and CSRF |
 | `app/handlers/home.go` | The home page handler |
 | `app/models/` | Models (empty at first) |
 | `database/migrations/migrations.go` | The `All` migration set and `Seeders` |
+| `database/factories/factories.go` | The package for model factories (empty at first) |
 | `views/layout.templ`, `views/home.templ` | templ layout (flash messages, CSRF header for htmx) and home page |
 | `public/public.go`, `public/static/app.css` | `public.Assets`: the static files and htmx under `/assets` |
 

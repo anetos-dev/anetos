@@ -159,7 +159,34 @@ All notable changes to this project are documented here. The format follows
 - Docs: testing guide and reference; the guides' "Testing it" sections
   use `anetostest` (F12).
 
+- Pagination links for HTML lists: `web.PageURL(ctx, n)` (a relative
+  link to page n that keeps the other query parameters), a trailing `url.Values` argument to
+  `Router.URL`, `web.URL`, `RedirectRoute` and friends for query strings,
+  and `db.Page.HasPrev`; `view.OldChecked` for checkboxes after a failed
+  post; `db.Config` masks passwords when printed or logged (`String`,
+  `GoString`, `LogValue`); runnable godoc examples for `config`, `validate`, `view`,
+  `web` and `db/factory` (v0.1 checks, design D80).
+- `examples/forms` stores its notes in SQLite and shows a paginated list,
+  a seeder and a factory; `anetos new` projects get a `database/factories`
+  package (v0.1 checks).
+- `anetostest` stops a test whose settings name a database without
+  `DB_CONNECTION` while `.env` uses another database (it would otherwise
+  open SQLite instead; also for `DB_URL`) (v0.1 checks).
+- Baseline benchmarks against plain `net/http` (`bench/`, results in
+  `docs/benchmarks/`); `make api-docs` checks that every exported
+  identifier, struct field and interface method has a doc comment
+  (v0.1 checks, design D82).
+- Docs: concept pages for configuration, validation, migrations, code
+  generation, commands, server-rendered HTML and testing; switching a
+  project to PostgreSQL or MySQL; HTML pagination; factories in seeders
+  (v0.1 checks).
+
 ### Changed
+- `migrate --seed` needs `--force` in production, like `db:seed`;
+  `migrate` alone doesn't (v0.1 checks, design D81).
+- `db.Find` and other model queries reuse each model's quoted column list
+  (101 → 74 allocations for a `Find`) (v0.1 checks).
+- The conformance suite's fixture models are unexported (v0.1 checks).
 - `session.ForApp` and `migrate.ForApp` also provide the manager and the
   runner to the app's container (`anetos.Resolve`) (F12).
 - The examples' `setup` functions take only the app, like `anetos new`
@@ -188,5 +215,9 @@ All notable changes to this project are documented here. The format follows
   `sync.WaitGroup.Go`, …) and the `modernize` linter enabled (design D18).
 
 ### Fixed
+- `db.LoadConfig` with a prefix names the prefixed keys in its errors
+  (`ANALYTICS_DB_PORT`, not `DB_PORT`) (v0.1 checks).
+- The conformance suite used `rank`, a reserved word in MySQL 8, unquoted
+  in raw SQL; it fails on MySQL 8.0 but not on MariaDB (v0.1 checks).
 - `db.Pluck`, `db.Min` and `db.Max` on `*time.Time` columns return UTC
   times, and read SQLite's text times (F9).

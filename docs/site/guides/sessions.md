@@ -36,10 +36,10 @@ r := srv.Router()
 r.UseGlobal(web.MethodOverride) // forms can send PUT and DELETE with _method
 r.HandleStd(http.MethodGet, "/assets/{path...}", assets)
 
-h := Notes{store: NewStore()}
+var h Notes
 pages := r.Group("", sessions.Middleware, web.CSRF())
 pages.Get("/", func(c *web.Ctx) error { return c.RedirectRoute("notes.index") })
-pages.Get("/notes", h.Index).Name("notes.index")
+pages.Get("/notes", web.H(h.Index)).Name("notes.index")
 pages.Get("/notes/new", h.New).Name("notes.new")
 pages.Post("/notes", web.H(h.Create)).Name("notes.store")
 pages.Get("/notes/{id}/edit", web.H(h.Edit)).Name("notes.edit")
@@ -71,10 +71,12 @@ context, for code outside handlers.
 ### 3. Flash a message for the next page
 
 ```go
-func (h Notes) Create(c *web.Ctx, in NoteInput) (web.Responder, error) {
+func (Notes) Create(c *web.Ctx, in NoteInput) (web.Responder, error) {
 	// Invalid input never gets here: the browser is sent back to the form,
 	// which shows the errors and the submitted values.
-	h.store.Add(in.Title, in.Body)
+	if err := db.Create(c, &Note{Title: in.Title, Body: in.Body}); err != nil {
+		return nil, err
+	}
 	c.Session().Flash("status", "Note created.")
 	return web.RedirectRoute("notes.index"), nil
 }
@@ -157,7 +159,7 @@ and set values before a request with `app.WithSession(func(s
 | Symptom | Cause | Fix |
 |---|---|---|
 | `APP_KEY is not set` at startup | No key configured | `go tool anetos key:generate >> .env` |
-| Everyone was logged out after a deploy | `APP_KEY` changed | Keep the old key in `APP_PREVIOUS_KEYS`; use the same key on every instance |
+| Everyone was logged out after a deploy | `APP_KEY` changed; or `SESSION_COOKIE` or `SESSION_SECURE` changed, which renames the cookie | Keep the old key in `APP_PREVIOUS_KEYS`; use the same key and session settings on every instance |
 | The session is empty on every request in development | `SESSION_SECURE=true` over plain HTTP, or a custom dev hostname | Leave `SESSION_SECURE` unset in development, or use HTTPS |
 | `session too large for its cookie` in the logs | More than about 4 KB stored | Store less: IDs instead of records |
 | `web: no session for this request` | `c.Session()` on a route without the middleware | Add `sessions.Middleware` to the route's group |

@@ -27,6 +27,7 @@ import (
 // ctx is the request's context (a *web.Ctx when rendered by the web
 // package).
 type Component interface {
+	// Render writes the component's HTML to w.
 	Render(ctx context.Context, w io.Writer) error
 }
 

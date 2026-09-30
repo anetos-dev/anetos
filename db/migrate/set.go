@@ -15,7 +15,9 @@ import (
 // Migration changes the database schema in Up and undoes the change in
 // Down.
 type Migration interface {
+	// Up applies the change.
 	Up(s *Schema) error
+	// Down undoes it; return ErrIrreversible if it can't be undone.
 	Down(s *Schema) error
 }
 
@@ -24,6 +26,7 @@ type Migration interface {
 // migration made by [Func] with [NoTransaction] instead; SQL files start
 // with a "-- anetos:no-transaction" line.
 type WithoutTransaction interface {
+	// WithoutTransaction marks the migration; it is never called.
 	WithoutTransaction()
 }
 
@@ -215,6 +218,6 @@ func validID(id string) bool {
 //		return db.CreateMany(ctx, []models.User{…})
 //	}}
 type Seeder struct {
-	Name string
-	Run  func(ctx context.Context) error
+	Name string                          // for db:seed --seeder=name and the output
+	Run  func(ctx context.Context) error // fills the tables, in a transaction
 }

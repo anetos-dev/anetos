@@ -27,10 +27,11 @@ var (
 
 // PanicError is the failure recorded when a component panics.
 type PanicError struct {
-	Value any
-	Stack []byte
+	Value any    // the value passed to panic
+	Stack []byte // the goroutine's stack when it panicked
 }
 
+// Error implements the error interface.
 func (e *PanicError) Error() string { return fmt.Sprintf("panic: %v", e.Value) }
 
 // Options configures a [Supervisor].

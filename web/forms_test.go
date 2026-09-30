@@ -451,3 +451,24 @@ func TestBackBehindProxy(t *testing.T) {
 		t.Errorf("cross-site Referer: %q", res.header.Get("Location"))
 	}
 }
+
+func TestPageURL(t *testing.T) {
+	r := NewRouter()
+	var got []string
+	r.Get("/posts", func(c *Ctx) error {
+		got = append(got, PageURL(c, 3), PageURL(c.Request().Context(), 1))
+		return c.NoContent()
+	})
+	r.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/posts?q=go+tips&page=2&per_page=5&x=a;b&%70age=9", nil))
+	if want := "?q=go+tips&per_page=5&x=a;b&page=3"; len(got) != 2 || got[0] != want || got[1] != "?q=go+tips&per_page=5&x=a;b&page=1" {
+		t.Errorf("PageURL = %q", got)
+	}
+	got = nil
+	r.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/posts", nil))
+	if len(got) != 2 || got[0] != "?page=3" {
+		t.Errorf("PageURL without a query = %q", got)
+	}
+	if u := PageURL(context.Background(), 2); u != "?page=2" {
+		t.Errorf("outside a request: %q", u)
+	}
+}

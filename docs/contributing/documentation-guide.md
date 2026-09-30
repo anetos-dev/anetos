@@ -175,7 +175,9 @@ when the behaviour differs.
 ## 6. Godoc standards
 
 - **Every exported identifier** has a doc comment beginning with its name:
-  `// Dispatch sends a job to its queue…`
+  `// Dispatch sends a job to its queue…`. Exported struct fields and
+  interface methods too (a line comment after a field is enough);
+  `make api-docs` checks this in CI.
 - **Every package** has a `doc.go` with an overview: what the package is for,
   its main types, a minimal usage snippet, and links to the user guide.
 - **Document the contract, not the implementation:** parameters, return
@@ -350,3 +352,4 @@ sketches as illustrative; never invent APIs in docs that don't exist in code.
 | Date | Change |
 |---|---|
 | 2026-09-29 | Initial guide |
+| 2026-09-30 | §6: struct fields and interface methods need doc comments; `make api-docs` checks |

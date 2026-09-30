@@ -81,7 +81,7 @@ func TestErrorsAndOldAfterRedirect(t *testing.T) {
 	run(func(ctx context.Context) {
 		s := session.From(ctx)
 		s.FlashErrors(session.FieldError{Field: "title", Message: "Required."}, session.FieldError{Field: "body", Message: "Short."})
-		s.FlashInput(url.Values{"title": {"x"}})
+		s.FlashInput(url.Values{"title": {"x"}, "draft": {"on"}, "pinned": {"No"}, "custom": {"yes-please"}})
 	})
 	run(func(ctx context.Context) {
 		errs := view.Errors(ctx)
@@ -91,7 +91,16 @@ func TestErrorsAndOldAfterRedirect(t *testing.T) {
 		if view.Old(ctx, "title", "fallback") != "x" || view.Old(ctx, "body", "fallback") != "fallback" {
 			t.Error("Old")
 		}
+		// After a failed post, an absent checkbox was unchecked.
+		if !view.OldChecked(ctx, "draft", false) || view.OldChecked(ctx, "publish", true) ||
+			view.OldChecked(ctx, "pinned", true) || !view.OldChecked(ctx, "custom", false) {
+			t.Error("OldChecked after a post")
+		}
 	})
+	// Without old input, the saved value.
+	if !view.OldChecked(context.Background(), "publish", true) || view.OldChecked(session.NewContext(context.Background(), session.New()), "publish", false) {
+		t.Error("OldChecked fallback")
+	}
 }
 
 func TestTemplate(t *testing.T) {

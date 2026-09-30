@@ -46,6 +46,24 @@ var Seeders = []migrate.Seeder{
 `AuthorCols` holds the model's typed columns, written by
 [`anetos gen`](code-generation.md).
 
+For many rows, use a [factory](testing.md#4-make-rows-with-factories),
+the same one the tests use:
+
+```go
+// Seeders add sample notes: go run . db:seed
+var Seeders = []migrate.Seeder{
+	{Name: "notes", Run: func(ctx context.Context) error {
+		_, err := NoteFactory.CreateMany(ctx, 25) // see factories.go
+		return err
+	}},
+}
+```
+
+(Copied from [`examples/forms/models.go`](../../../examples/forms/models.go), region `seeders`.)
+
+In a project made with `anetos new`, factories go in `database/factories`
+and seeders in `database/migrations`.
+
 ### 2. Give them to the runner
 
 ```go
@@ -58,7 +76,7 @@ runner, err := migrate.ForApp(app, []*migrate.Set{Migrations}, migrate.WithSeede
 ```sh
 ./app db:seed                 # every seeder, in order
 ./app db:seed --seeder=posts  # one of them
-./app migrate:fresh --seed    # rebuild the database and seed it (development only)
+./app migrate:fresh --seed    # rebuild the database and seed it (development and testing only)
 ```
 
 In production, `db:seed` needs `--force`.
@@ -71,8 +89,7 @@ Order them so data exists before other data refers to it.
 
 > **Coming from Laravel?** A seeder is a `Seeder` class's `run` method,
 > and the list passed to the runner plays the role of `DatabaseSeeder`.
-> Model factories for generating fake rows arrive with the testing helpers
-> (roadmap F12).
+> Factories are values made with `factory.New` instead of classes.
 
 ## Testing it
 

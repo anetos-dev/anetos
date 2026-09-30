@@ -93,6 +93,35 @@ app.OnShutdown("analytics-db", func(context.Context) error { return analytics.Cl
 events, err := db.Query[Event](db.WithDB(ctx, analytics)).Get()
 ```
 
+### 5. Switch a project to PostgreSQL or MySQL
+
+A project made with `anetos new` uses SQLite unless you passed
+`--db postgres` or `--db mysql`. To switch later:
+
+1. Add the driver: `go get anetos.dev/anetos/drivers/postgres`,
+   and pass `postgres.Driver()` to `db.Connect` in `main.go` (keep
+   `sqlite.Driver()` too if you still want SQLite anywhere).
+2. Set `DB_CONNECTION=postgres` and the other `DB_*` settings in `.env`
+   (and `.env.example`), as in step 1.
+3. Create a test database and write `.env.testing` with **all** its
+   settings: tests don't read `.env`, so nothing is inherited from it.
+
+   ```sh
+   # .env.testing
+   DB_CONNECTION=postgres
+   DB_HOST=127.0.0.1
+   DB_DATABASE=blog_test
+   DB_USERNAME=blog
+   DB_PASSWORD=secret
+   ```
+
+   Without `DB_CONNECTION` there, tests would use SQLite; `anetostest`
+   stops them with a message when `.env` has another `DB_CONNECTION`.
+4. `go run . migrate`, then `go test ./...`.
+
+Migrations written with the schema builder run on every database; raw
+SQL in migrations may need changes.
+
 ## How it works
 
 A `*db.DB` wraps a `database/sql` pool and the database's dialect. Queries

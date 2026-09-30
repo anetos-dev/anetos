@@ -47,7 +47,7 @@ type Config struct {
 	// Domain and Path scope the cookie. SESSION_DOMAIN (default: the
 	// request's host only) and SESSION_PATH (default "/").
 	Domain string `env:"DOMAIN"`
-	Path   string `env:"PATH" default:"/"`
+	Path   string `env:"PATH" default:"/"` // see Domain
 
 	// Secure sends the cookie over HTTPS only. SESSION_SECURE; the default
 	// is true, except in the development and testing environments (with

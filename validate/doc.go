@@ -24,7 +24,7 @@
 // Rules run in order and stop at the first failure, so each field gets at
 // most one message. `validate:"-"` skips a field and its nested fields.
 //
-// Rules other than the "required" family skip empty fields, so optional
+// Rules other than the "required" family and "accepted" skip empty fields, so optional
 // fields only need rules for their format. Nil pointers, blank strings,
 // empty slices and maps, and zero structs (such as a zero time.Time) are
 // empty. Numbers and booleans are

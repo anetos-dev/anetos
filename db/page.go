@@ -15,15 +15,18 @@ import (
 // Page is one page of results from [Q.Paginate]. Its JSON form follows
 // Laravel's paginator: data, current_page, per_page, total, last_page.
 type Page[T any] struct {
-	Data        []T   `json:"data"`
-	CurrentPage int   `json:"current_page"`
-	PerPage     int   `json:"per_page"`
-	Total       int64 `json:"total"`
-	LastPage    int   `json:"last_page"`
+	Data        []T   `json:"data"`         // the page's rows; empty, not nil, past the end
+	CurrentPage int   `json:"current_page"` // 1-based
+	PerPage     int   `json:"per_page"`     // rows per page
+	Total       int64 `json:"total"`        // rows on all pages
+	LastPage    int   `json:"last_page"`    // number of the last page; 1 when there are no rows
 }
 
 // HasMore reports whether there are pages after this one.
 func (p Page[T]) HasMore() bool { return p.CurrentPage < p.LastPage }
+
+// HasPrev reports whether there are pages before this one.
+func (p Page[T]) HasPrev() bool { return p.CurrentPage > 1 }
 
 // DefaultPerPage is used when Paginate or CursorPaginate get perPage < 1.
 const DefaultPerPage = 15
@@ -57,8 +60,8 @@ func (q *Q[T]) Paginate(page, perPage int) (Page[T], error) {
 
 // CursorPage is one page of results from [Q.CursorPaginate].
 type CursorPage[T any] struct {
-	Data       []T    `json:"data"`
-	PerPage    int    `json:"per_page"`
+	Data       []T    `json:"data"`        // the page's rows
+	PerPage    int    `json:"per_page"`    // rows per page
 	NextCursor string `json:"next_cursor"` // "" on the last page
 	PrevCursor string `json:"prev_cursor"` // "" on the first page
 }

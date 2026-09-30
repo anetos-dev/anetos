@@ -17,6 +17,7 @@ import (
 // like a handler error: a 500 whose details stay out of the response, so a
 // failing database check doesn't leak its error text.
 type Validator interface {
+	// Validate checks the bound input; ctx is the request's.
 	Validate(ctx context.Context) error
 }
 
@@ -119,6 +120,7 @@ func isNil(v any) bool {
 // Responder writes a response. Return one from a typed handler to choose the
 // status, format or redirect.
 type Responder interface {
+	// Respond writes the response to c.
 	Respond(c *Ctx) error
 }
 

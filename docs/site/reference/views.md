@@ -16,7 +16,8 @@ helpers of package `web`. See [Render HTML with templ](../guides/views.md),
 |---|---|
 | `c.Render(status, component)` | Renders a component (templ or `view.Component`) into a buffer and writes it as `text/html; charset=utf-8`; a render error becomes an error response |
 | `web.View(component)` | Responder rendering the component with 200 |
-| `web.URL(ctx, name, args...)` | `(string, error)`: path of a named route, from any request context (use in components) |
+| `web.URL(ctx, name, args...)` | `(string, error)`: path of a named route, from any request context (use in components); a trailing `url.Values` argument becomes the query string |
+| `web.PageURL(ctx, page)` | A relative link (`?…&page=N`) to page N of the current list, keeping the request's other query parameters as written; `?page=N` outside a request |
 | `c.IsHTMX()` | Whether `HX-Request: true`; adds `Vary: HX-Request` |
 | `c.HTMX()` | `web.HTMX`: `Request`, `Boosted`, `HistoryRestore`, `Target`, `Trigger`, `TriggerName`, `CurrentURL`; adds `Vary: HX-Request` |
 | `c.Back()`, `web.Back()` | 303 to the `Referer` if it is on this site, else `/` |
@@ -27,7 +28,7 @@ helpers of package `web`. See [Render HTML with templ](../guides/views.md),
 
 | API | Does |
 |---|---|
-| `web.CSRF(opts...)` | Middleware: for POST, PUT, PATCH, DELETE, rejects cross-site requests (`web.ErrCrossOrigin`, 403) and requires the session token from `_token` or `X-CSRF-Token` (`web.ErrCSRF`, 403). Needs the session middleware first |
+| `web.CSRF(opts...)` | Middleware: for every method but GET, HEAD, OPTIONS and TRACE, rejects cross-site requests (`web.ErrCrossOrigin`, 403) and requires the session token from `_token` or `X-CSRF-Token` (`web.ErrCSRF`, 403). Needs the session middleware first |
 | `web.TrustedOrigins(origins...)` | CSRF option: allow these origins (`https://admin.example.com`) |
 | `web.MethodOverride` | Global middleware: a POST with `_method` of PUT, PATCH or DELETE (in a URL-encoded body of at most 10 MB, which is parsed into `r.PostForm` and restored, or in the query string) is routed with that method |
 
@@ -46,6 +47,7 @@ Form posts key errors by `form` name where it differs from the `json` name.
 | `view.MethodField(method)` | Component: `<input type="hidden" name="_method" value="PUT">`; PUT, PATCH or DELETE |
 | `view.Errors(ctx)` | `*validate.Errors` flashed by the previous request (never nil): `Has`, `Get`, `Keys`, `Len` |
 | `view.Old(ctx, field, fallback...)` | The value submitted for field by the previous request, else the fallback or `""` |
+| `view.OldChecked(ctx, field, fallback)` | For a checkbox: after a post that redirected back, whether field was sent (and not `0`, `false`, `off`); else fallback |
 | `view.Flash(ctx, key)` | The flashed string under key, or `""` |
 | `view.String(ctx, component)` | The rendered HTML, for tests and emails |
 | `view.Template(t, name, data)` | An `html/template` template as a component (without the request context: pass what it needs in data) |

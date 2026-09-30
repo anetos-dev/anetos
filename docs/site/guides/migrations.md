@@ -140,8 +140,10 @@ app.Execute()
 | `migrate:fresh [--seed]` | Drops **every table** and migrates from scratch; development and testing only |
 | `db:seed [--seeder=NAME]` | Runs seeders (see [Seed the database](seeders.md)) |
 
-In production, `migrate:rollback`, `migrate:reset` and `db:seed` also
-need `--force`. `migrate:fresh` refuses to run there at all. A flag a
+In production (any `APP_ENV` but `development`, `testing` and `staging`),
+`migrate:rollback`, `migrate:reset`, `db:seed` and `migrate --seed` also
+need `--force`; plain `migrate`, the normal deploy step, doesn't.
+`migrate:fresh` runs only in development and testing. A flag a
 command doesn't take is an error, and `-h` lists a command's flags.
 
 ### 5. Migrate when you deploy

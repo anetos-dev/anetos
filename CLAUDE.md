@@ -40,10 +40,11 @@ minimum and the latest Go release (design D18).
 ```bash
 make check     # everything CI runs: gofmt, SPDX headers, doc snippets, generated code, vet, lint, race tests
 make docs-check  # doc code blocks match examples/ regions
+make api-docs  # every exported identifier (fields, interface methods too) has a doc comment
 make test      # go test -race ./...
 make lint      # golangci-lint (v2 config in .golangci.yml)
 make cover     # coverage summary
-make bench     # benchmarks
+make bench     # benchmarks (bench/ compares with net/http; results in docs/benchmarks/)
 make vuln      # govulncheck
 make help      # list targets
 ```
@@ -56,8 +57,8 @@ MySQL conformance tests run when `ANETOS_TEST_POSTGRES_URL` and
 
 Run `make check` before every commit.
 
-After changing a model in `examples/database` or a `.templ` file in
-`examples/forms`, run `go generate ./...` there; after changing the generator's fixtures, run
+After changing a model in `examples/database` or `examples/forms`, or a
+`.templ` file in `examples/forms`, run `go generate ./...` there; after changing the generator's fixtures, run
 `go run ./cmd/anetos gen ./internal/modelgen/internal/...` in `cli/`.
 
 `cli/` tests create and build a project with `anetos new` (and download

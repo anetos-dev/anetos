@@ -30,18 +30,18 @@ import (
 	"anetos.dev/anetos/validate"
 )
 
-// Author is a model with timestamps and a unique email.
-type Author struct {
+// stAuthor is a model with timestamps and a unique email.
+type stAuthor struct {
 	db.Model
 	Name  string `db:"name" json:"name"`
 	Email string `db:"email" json:"email"`
 }
 
 // TableName implements db.Tabler.
-func (Author) TableName() string { return "st_authors" }
+func (stAuthor) TableName() string { return "st_authors" }
 
-// Post is a model with soft deletes, a JSON column and nullable fields.
-type Post struct {
+// stPost is a model with soft deletes, a JSON column and nullable fields.
+type stPost struct {
 	db.Model
 	db.SoftDeletes
 	AuthorID    int64             `db:"author_id"`
@@ -57,12 +57,12 @@ type Post struct {
 }
 
 // TableName implements db.Tabler.
-func (Post) TableName() string { return "st_posts" }
+func (stPost) TableName() string { return "st_posts" }
 
 var errRejected = errors.New("rejected by hook")
 
 // BeforeSave trims the title and rejects the title "reject".
-func (p *Post) BeforeSave(context.Context) error {
+func (p *stPost) BeforeSave(context.Context) error {
 	p.hookLog = append(p.hookLog, "beforeSave")
 	if p.Title == "reject" {
 		return errRejected
@@ -72,25 +72,25 @@ func (p *Post) BeforeSave(context.Context) error {
 }
 
 // AfterCreate records that it ran.
-func (p *Post) AfterCreate(context.Context) error {
+func (p *stPost) AfterCreate(context.Context) error {
 	p.hookLog = append(p.hookLog, "afterCreate")
 	return nil
 }
 
 // BeforeDelete records that it ran.
-func (p *Post) BeforeDelete(context.Context) error {
+func (p *stPost) BeforeDelete(context.Context) error {
 	p.hookLog = append(p.hookLog, "beforeDelete")
 	return nil
 }
 
-// Tag has a string primary key.
-type Tag struct {
+// stTag has a string primary key.
+type stTag struct {
 	Code  string `db:"code,pk"`
 	Label string `db:"label"`
 }
 
 // TableName implements db.Tabler.
-func (Tag) TableName() string { return "st_tags" }
+func (stTag) TableName() string { return "st_tags" }
 
 var (
 	title     = db.Col[string]("title")
@@ -217,22 +217,22 @@ func check(t *testing.T, err error) {
 	}
 }
 
-func seedAuthors(t *testing.T, ctx context.Context, names ...string) []Author {
+func seedAuthors(t *testing.T, ctx context.Context, names ...string) []stAuthor {
 	t.Helper()
-	out := make([]Author, len(names))
+	out := make([]stAuthor, len(names))
 	for i, n := range names {
-		out[i] = Author{Name: n, Email: strings.ToLower(n) + "@example.com"}
+		out[i] = stAuthor{Name: n, Email: strings.ToLower(n) + "@example.com"}
 		check(t, db.Create(ctx, &out[i]))
 	}
 	return out
 }
 
-func seedPosts(t *testing.T, ctx context.Context, n int) []Post {
+func seedPosts(t *testing.T, ctx context.Context, n int) []stPost {
 	t.Helper()
-	posts := make([]Post, n)
+	posts := make([]stPost, n)
 	base := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
 	for i := range posts {
-		posts[i] = Post{
+		posts[i] = stPost{
 			AuthorID:  int64(i%3 + 1),
 			Title:     fmt.Sprintf("post %02d", i),
 			Views:     i * 10,
@@ -247,12 +247,12 @@ func seedPosts(t *testing.T, ctx context.Context, n int) []Post {
 
 func testCRUD(t *testing.T, ctx context.Context) {
 	before := time.Now().Add(-time.Second)
-	a := Author{Name: "Ada", Email: "ada@example.com"}
+	a := stAuthor{Name: "Ada", Email: "ada@example.com"}
 	check(t, db.Create(ctx, &a))
 	if a.ID == 0 || a.CreatedAt.Before(before) || !a.CreatedAt.Equal(a.UpdatedAt) || a.CreatedAt.Location() != time.UTC {
 		t.Fatalf("after Create: %+v", a)
 	}
-	got, err := db.Find[Author](ctx, a.ID)
+	got, err := db.Find[stAuthor](ctx, a.ID)
 	check(t, err)
 	if got.Name != "Ada" || !got.CreatedAt.Equal(a.CreatedAt) || got.CreatedAt.Location() != time.UTC {
 		t.Errorf("Find = %+v, want %+v", got, a)
@@ -264,22 +264,22 @@ func testCRUD(t *testing.T, ctx context.Context) {
 	if !got.UpdatedAt.After(a.UpdatedAt) {
 		t.Errorf("updated_at not advanced: %v → %v", a.UpdatedAt, got.UpdatedAt)
 	}
-	again, err := db.Find[Author](ctx, a.ID)
+	again, err := db.Find[stAuthor](ctx, a.ID)
 	check(t, err)
 	if again.Name != "Ada Lovelace" || !again.CreatedAt.Equal(a.CreatedAt) || !again.UpdatedAt.Equal(got.UpdatedAt) {
 		t.Errorf("after Update: %+v", again)
 	}
 
-	b := Author{Name: "Bob", Email: "bob@example.com"}
+	b := stAuthor{Name: "Bob", Email: "bob@example.com"}
 	check(t, db.Save(ctx, &b)) // creates
 	b.Name = "Robert"
 	check(t, db.Save(ctx, &b)) // updates
-	if n, _ := db.Query[Author](ctx).Count(); n != 2 {
+	if n, _ := db.Query[stAuthor](ctx).Count(); n != 2 {
 		t.Errorf("count = %d", n)
 	}
 
 	check(t, db.Delete(ctx, &b))
-	if _, err := db.Find[Author](ctx, b.ID); !errors.Is(err, db.ErrNotFound) {
+	if _, err := db.Find[stAuthor](ctx, b.ID); !errors.Is(err, db.ErrNotFound) {
 		t.Errorf("after Delete: %v", err)
 	}
 	var sc interface{ HTTPStatus() int }
@@ -289,13 +289,13 @@ func testCRUD(t *testing.T, ctx context.Context) {
 	if err := db.Delete(ctx, &b); !errors.Is(err, db.ErrNotFound) {
 		t.Errorf("second Delete: %v", err)
 	}
-	if err := db.Update(ctx, &Author{}); err == nil {
+	if err := db.Update(ctx, &stAuthor{}); err == nil {
 		t.Error("Update with zero key succeeded")
 	}
 
-	tag := Tag{Code: "go", Label: "Go"}
+	tag := stTag{Code: "go", Label: "Go"}
 	check(t, db.Create(ctx, &tag))
-	tg, err := db.Find[Tag](ctx, "go")
+	tg, err := db.Find[stTag](ctx, "go")
 	check(t, err)
 	if tg != tag {
 		t.Errorf("tag = %+v", tg)
@@ -306,16 +306,16 @@ func testCRUD(t *testing.T, ctx context.Context) {
 }
 
 func testHooks(t *testing.T, ctx context.Context) {
-	p := Post{AuthorID: 1, Title: "  padded  "}
+	p := stPost{AuthorID: 1, Title: "  padded  "}
 	check(t, db.Create(ctx, &p))
 	if p.Title != "padded" || !slices.Equal(p.hookLog, []string{"beforeSave", "afterCreate"}) {
 		t.Errorf("hooks: %q %v", p.Title, p.hookLog)
 	}
-	bad := Post{AuthorID: 1, Title: "reject"}
+	bad := stPost{AuthorID: 1, Title: "reject"}
 	if err := db.Create(ctx, &bad); !errors.Is(err, errRejected) {
 		t.Errorf("rejecting hook: %v", err)
 	}
-	if n, _ := db.Query[Post](ctx).Count(); n != 1 {
+	if n, _ := db.Query[stPost](ctx).Count(); n != 1 {
 		t.Errorf("rejected row was written: %d rows", n)
 	}
 	p.hookLog = nil
@@ -332,41 +332,41 @@ func testSoftDeletes(t *testing.T, ctx context.Context) {
 	if !p.Trashed() || !slices.Contains(p.hookLog, "beforeDelete") {
 		t.Errorf("after soft delete: %+v", p)
 	}
-	if _, err := db.Find[Post](ctx, p.ID); !errors.Is(err, db.ErrNotFound) {
+	if _, err := db.Find[stPost](ctx, p.ID); !errors.Is(err, db.ErrNotFound) {
 		t.Errorf("Find soft-deleted: %v", err)
 	}
-	trashed, err := db.Query[Post](ctx).WithTrashed().Find(p.ID)
+	trashed, err := db.Query[stPost](ctx).WithTrashed().Find(p.ID)
 	check(t, err)
 	if trashed.DeletedAt == nil || !trashed.DeletedAt.Equal(*p.DeletedAt) {
 		t.Errorf("trashed row: %+v", trashed)
 	}
-	if n, _ := db.Query[Post](ctx).Count(); n != 3 {
+	if n, _ := db.Query[stPost](ctx).Count(); n != 3 {
 		t.Errorf("count without trashed = %d", n)
 	}
-	if n, _ := db.Query[Post](ctx).OnlyTrashed().Count(); n != 1 {
+	if n, _ := db.Query[stPost](ctx).OnlyTrashed().Count(); n != 1 {
 		t.Errorf("only trashed = %d", n)
 	}
 	check(t, db.Restore(ctx, &p))
 	if p.Trashed() {
 		t.Error("still trashed after Restore")
 	}
-	if _, err := db.Find[Post](ctx, p.ID); err != nil {
+	if _, err := db.Find[stPost](ctx, p.ID); err != nil {
 		t.Errorf("after Restore: %v", err)
 	}
 
-	n, err := db.Query[Post](ctx).Where(authorID.Eq(2)).Delete()
+	n, err := db.Query[stPost](ctx).Where(authorID.Eq(2)).Delete()
 	check(t, err)
 	if n != 1 {
 		t.Errorf("mass soft delete = %d", n)
 	}
-	n, err = db.Query[Post](ctx).Where(authorID.Eq(2)).Restore()
+	n, err = db.Query[stPost](ctx).Where(authorID.Eq(2)).Restore()
 	check(t, err)
 	if n != 1 {
 		t.Errorf("mass restore = %d", n)
 	}
 
 	check(t, db.ForceDelete(ctx, &p))
-	if _, err := db.Query[Post](ctx).WithTrashed().Find(p.ID); !errors.Is(err, db.ErrNotFound) {
+	if _, err := db.Query[stPost](ctx).WithTrashed().Find(p.ID); !errors.Is(err, db.ErrNotFound) {
 		t.Errorf("after ForceDelete: %v", err)
 	}
 }
@@ -374,9 +374,9 @@ func testSoftDeletes(t *testing.T, ctx context.Context) {
 func testQueries(t *testing.T, ctx context.Context) {
 	seedAuthors(t, ctx, "Ada", "Bob", "Cy")
 	seedPosts(t, ctx, 10)
-	q := db.Query[Post](ctx)
+	q := db.Query[stPost](ctx)
 
-	count := func(q *db.Q[Post]) int64 {
+	count := func(q *db.Q[stPost]) int64 {
 		t.Helper()
 		n, err := q.Count()
 		check(t, err)
@@ -384,7 +384,7 @@ func testQueries(t *testing.T, ctx context.Context) {
 	}
 	cases := []struct {
 		name string
-		q    *db.Q[Post]
+		q    *db.Q[stPost]
 		want int64
 	}{
 		{"eq", q.Where(authorID.Eq(1)), 4},
@@ -398,7 +398,7 @@ func testQueries(t *testing.T, ctx context.Context) {
 		{"not", q.Where(db.Not(published.Eq(true))), 5},
 		{"null", q.Where(db.C("body").IsNull()), 10},
 		{"raw", q.WhereRaw("views >= ? AND author_id = ?", 30, 1), 3},
-		{"scope", q.Scope(func(q *db.Q[Post]) *db.Q[Post] { return q.Where(published.Eq(true)) }), 5},
+		{"scope", q.Scope(func(q *db.Q[stPost]) *db.Q[stPost] { return q.Where(published.Eq(true)) }), 5},
 		{"distinct", q.Distinct(), 10},
 		{"limited", q.Limit(3), 3},
 		{"offset", q.Offset(8), 2},
@@ -464,7 +464,7 @@ func testQueries(t *testing.T, ctx context.Context) {
 	}
 
 	check(t, db.Tx(ctx, func(ctx context.Context) error {
-		p, err := db.Query[Post](ctx).Where(id.Eq(1)).ForUpdate().First()
+		p, err := db.Query[stPost](ctx).Where(id.Eq(1)).ForUpdate().First()
 		if err != nil {
 			return err
 		}
@@ -481,7 +481,7 @@ func testQueries(t *testing.T, ctx context.Context) {
 
 func testAggregates(t *testing.T, ctx context.Context) {
 	seedPosts(t, ctx, 5) // views 0..40, score 0..2
-	q := db.Query[Post](ctx)
+	q := db.Query[stPost](ctx)
 	sum, err := db.Sum(q, views)
 	check(t, err)
 	avg, err := db.Avg(q, views)
@@ -520,10 +520,10 @@ func testAggregates(t *testing.T, ctx context.Context) {
 
 func testPaginate(t *testing.T, ctx context.Context) {
 	seedPosts(t, ctx, 7)
-	q := db.Query[Post](ctx).OrderBy(id.Asc())
+	q := db.Query[stPost](ctx).OrderBy(id.Asc())
 	p, err := q.Paginate(2, 3)
 	check(t, err)
-	if p.Total != 7 || p.LastPage != 3 || p.CurrentPage != 2 || len(p.Data) != 3 || p.Data[0].Title != "post 03" || !p.HasMore() {
+	if p.Total != 7 || p.LastPage != 3 || p.CurrentPage != 2 || len(p.Data) != 3 || p.Data[0].Title != "post 03" || !p.HasMore() || !p.HasPrev() {
 		t.Errorf("page 2: %+v", p)
 	}
 	last, err := q.Paginate(3, 3)
@@ -538,7 +538,7 @@ func testPaginate(t *testing.T, ctx context.Context) {
 	}
 	def, err := q.Paginate(0, 0)
 	check(t, err)
-	if def.CurrentPage != 1 || def.PerPage != db.DefaultPerPage {
+	if def.CurrentPage != 1 || def.PerPage != db.DefaultPerPage || def.HasPrev() {
 		t.Errorf("defaults: %+v", def)
 	}
 	emptyQ, err := q.Where(views.Gt(1000)).Paginate(1, 3)
@@ -552,10 +552,10 @@ func testCursorPaginate(t *testing.T, ctx context.Context) {
 	posts := seedPosts(t, ctx, 10)
 	// Two posts share a view count, to exercise the primary-key tie-breaker.
 	mustExec(t, ctx, "UPDATE st_posts SET views = 40 WHERE id = ?", posts[5].ID)
-	q := db.Query[Post](ctx).OrderBy(views.Desc())
+	q := db.Query[stPost](ctx).OrderBy(views.Desc())
 
 	var titles []string
-	var pages []db.CursorPage[Post]
+	var pages []db.CursorPage[stPost]
 	cursor := ""
 	for range 10 {
 		page, err := q.CursorPaginate(cursor, 3)
@@ -602,16 +602,16 @@ func testCursorPaginate(t *testing.T, ctx context.Context) {
 	if _, err := q.OrderBy(db.OrderRaw("lower(title)")).CursorPaginate("", 3); err == nil {
 		t.Error("raw order accepted")
 	}
-	byTime, err := db.Query[Post](ctx).OrderBy(createdAt.Asc()).CursorPaginate("", 4)
+	byTime, err := db.Query[stPost](ctx).OrderBy(createdAt.Asc()).CursorPaginate("", 4)
 	check(t, err)
-	next, err := db.Query[Post](ctx).OrderBy(createdAt.Asc()).CursorPaginate(byTime.NextCursor, 4)
+	next, err := db.Query[stPost](ctx).OrderBy(createdAt.Asc()).CursorPaginate(byTime.NextCursor, 4)
 	check(t, err)
 	if len(next.Data) != 4 || next.Data[0].Title != "post 04" {
 		t.Errorf("time cursor: %v", titlesOf(next.Data))
 	}
 }
 
-func titlesOf(ps []Post) []string {
+func titlesOf(ps []stPost) []string {
 	out := make([]string, len(ps))
 	for i, p := range ps {
 		out[i] = p.Title
@@ -651,7 +651,7 @@ func testRaw(t *testing.T, ctx context.Context) {
 	}
 	// Struct fields that aren't selected keep their zero values; extra
 	// columns are ignored.
-	authors, err := db.Raw[Author](ctx, "SELECT id, name, 42 AS extra FROM st_authors ORDER BY id")
+	authors, err := db.Raw[stAuthor](ctx, "SELECT id, name, 42 AS extra FROM st_authors ORDER BY id")
 	check(t, err)
 	if len(authors) != 2 || authors[0].Name != "Ada" || authors[0].Email != "" {
 		t.Errorf("partial scan: %+v", authors)
@@ -675,7 +675,7 @@ func testRaw(t *testing.T, ctx context.Context) {
 func testTransactions(t *testing.T, ctx context.Context) {
 	count := func(ctx context.Context) int64 {
 		t.Helper()
-		n, err := db.Query[Author](ctx).Count()
+		n, err := db.Query[stAuthor](ctx).Count()
 		check(t, err)
 		return n
 	}
@@ -741,7 +741,7 @@ func testTransactions(t *testing.T, ctx context.Context) {
 	}
 
 	check(t, db.TxWith(ctx, &sql.TxOptions{ReadOnly: d(ctx).Dialect().Name() != "sqlite"}, func(ctx context.Context) error {
-		_, err := db.Query[Author](ctx).Get()
+		_, err := db.Query[stAuthor](ctx).Get()
 		return err
 	}))
 }
@@ -752,17 +752,17 @@ func d(ctx context.Context) *db.DB {
 }
 
 func testBulk(t *testing.T, ctx context.Context) {
-	authors := make([]Author, 50)
+	authors := make([]stAuthor, 50)
 	for i := range authors {
-		authors[i] = Author{Name: fmt.Sprint("a", i), Email: fmt.Sprintf("a%d@example.com", i)}
+		authors[i] = stAuthor{Name: fmt.Sprint("a", i), Email: fmt.Sprintf("a%d@example.com", i)}
 	}
 	check(t, db.CreateMany(ctx, authors))
-	if n, _ := db.Query[Author](ctx).Count(); n != 50 {
+	if n, _ := db.Query[stAuthor](ctx).Count(); n != 50 {
 		t.Errorf("count = %d", n)
 	}
 	if d(ctx).Dialect().Returning() {
 		for i, a := range authors {
-			got, err := db.Find[Author](ctx, a.ID)
+			got, err := db.Find[stAuthor](ctx, a.ID)
 			if err != nil || got.Name != a.Name {
 				t.Fatalf("row %d: id %d → %+v %v", i, a.ID, got, err)
 			}
@@ -772,13 +772,13 @@ func testBulk(t *testing.T, ctx context.Context) {
 		t.Error("timestamps not set")
 	}
 
-	tags := []Tag{{"go", "Go"}, {"sql", "SQL"}}
+	tags := []stTag{{"go", "Go"}, {"sql", "SQL"}}
 	check(t, db.CreateMany(ctx, tags))
-	check(t, db.Upsert(ctx, []Tag{{"go", "Golang"}, {"web", "Web"}}, []string{"code"}, "label"))
-	check(t, db.Upsert(ctx, []Tag{{"sql", "ignored"}}, []string{"code"}))
-	got, err := db.Query[Tag](ctx).OrderBy(db.C("code").Asc()).Get()
+	check(t, db.Upsert(ctx, []stTag{{"go", "Golang"}, {"web", "Web"}}, []string{"code"}, "label"))
+	check(t, db.Upsert(ctx, []stTag{{"sql", "ignored"}}, []string{"code"}))
+	got, err := db.Query[stTag](ctx).OrderBy(db.C("code").Asc()).Get()
 	check(t, err)
-	want := []Tag{{"go", "Golang"}, {"sql", "SQL"}, {"web", "Web"}}
+	want := []stTag{{"go", "Golang"}, {"sql", "SQL"}, {"web", "Web"}}
 	if !slices.Equal(got, want) {
 		t.Errorf("tags = %+v", got)
 	}
@@ -791,10 +791,10 @@ func testTypes(t *testing.T, ctx context.Context) {
 	body := "hello"
 	dhaka := time.FixedZone("BST", 6*3600)
 	pub := time.Date(2026, 9, 30, 18, 30, 15, 123456000, dhaka)
-	p := Post{AuthorID: 1, Title: "types", Body: &body, Score: 3.25, Published: true,
+	p := stPost{AuthorID: 1, Title: "types", Body: &body, Score: 3.25, Published: true,
 		Meta: map[string]string{"lang": "go"}, PublishedAt: &pub}
 	check(t, db.Create(ctx, &p))
-	got, err := db.Find[Post](ctx, p.ID)
+	got, err := db.Find[stPost](ctx, p.ID)
 	check(t, err)
 	if got.Body == nil || *got.Body != "hello" || got.Score != 3.25 || !got.Published || got.Meta["lang"] != "go" {
 		t.Errorf("round trip: %+v", got)
@@ -803,15 +803,15 @@ func testTypes(t *testing.T, ctx context.Context) {
 		t.Errorf("published_at = %v, want %v", got.PublishedAt, pub)
 	}
 	// Times compare correctly in queries whatever their zone.
-	n, err := db.Query[Post](ctx).Where(db.Col[time.Time]("published_at").Gt(pub.Add(-time.Second))).Count()
+	n, err := db.Query[stPost](ctx).Where(db.Col[time.Time]("published_at").Gt(pub.Add(-time.Second))).Count()
 	check(t, err)
 	if n != 1 {
 		t.Errorf("time comparison matched %d", n)
 	}
-	var empty Post
+	var empty stPost
 	empty.AuthorID, empty.Title = 1, "nulls"
 	check(t, db.Create(ctx, &empty))
-	e, err := db.Find[Post](ctx, empty.ID)
+	e, err := db.Find[stPost](ctx, empty.ID)
 	check(t, err)
 	if e.Body != nil || e.Meta != nil || e.PublishedAt != nil {
 		t.Errorf("nulls: %+v", e)
@@ -858,12 +858,12 @@ func testConcurrency(t *testing.T, ctx context.Context) {
 	errs := make(chan error, 20)
 	for i := range 20 {
 		wg.Go(func() {
-			a := Author{Name: fmt.Sprint("c", i), Email: fmt.Sprintf("c%d@example.com", i)}
+			a := stAuthor{Name: fmt.Sprint("c", i), Email: fmt.Sprintf("c%d@example.com", i)}
 			if err := db.Create(ctx, &a); err != nil {
 				errs <- err
 				return
 			}
-			if _, err := db.Find[Author](ctx, a.ID); err != nil {
+			if _, err := db.Find[stAuthor](ctx, a.ID); err != nil {
 				errs <- err
 			}
 		})
@@ -873,7 +873,7 @@ func testConcurrency(t *testing.T, ctx context.Context) {
 	for err := range errs {
 		t.Error(err)
 	}
-	if n, _ := db.Query[Author](ctx).Count(); n != 20 {
+	if n, _ := db.Query[stAuthor](ctx).Count(); n != 20 {
 		t.Errorf("count = %d", n)
 	}
 }
@@ -884,10 +884,10 @@ func testStaleUpdates(t *testing.T, ctx context.Context) {
 	check(t, db.Delete(ctx, &p))
 	stale.Title = "edited"
 	check(t, db.Update(ctx, &stale)) // updating a trashed row is allowed…
-	if _, err := db.Find[Post](ctx, p.ID); !errors.Is(err, db.ErrNotFound) {
+	if _, err := db.Find[stPost](ctx, p.ID); !errors.Is(err, db.ErrNotFound) {
 		t.Errorf("a stale Update undeleted the row: %v", err) // …but doesn't undelete it
 	}
-	missing := Author{Name: "x", Email: "x@example.com"}
+	missing := stAuthor{Name: "x", Email: "x@example.com"}
 	missing.ID = 999
 	if err := db.Update(ctx, &missing); !errors.Is(err, db.ErrNotFound) {
 		t.Errorf("Update of a missing row: %v", err)
@@ -897,7 +897,7 @@ func testStaleUpdates(t *testing.T, ctx context.Context) {
 	}
 	// An update that changes nothing still finds its row (MySQL reports
 	// matched rows).
-	tag := Tag{"go", "Go"}
+	tag := stTag{"go", "Go"}
 	check(t, db.Create(ctx, &tag))
 	check(t, db.Update(ctx, &tag))
 	check(t, db.Update(ctx, &tag))
@@ -909,7 +909,7 @@ func testTxRelease(t *testing.T, ctx context.Context) {
 	go func() {
 		defer close(done)
 		_ = db.Tx(ctx, func(ctx context.Context) error {
-			if err := db.Create(ctx, &Author{Name: "a", Email: "a@example.com"}); err != nil {
+			if err := db.Create(ctx, &stAuthor{Name: "a", Email: "a@example.com"}); err != nil {
 				return err
 			}
 			_ = db.Tx(ctx, func(context.Context) error {
@@ -923,13 +923,13 @@ func testTxRelease(t *testing.T, ctx context.Context) {
 	if n := d.SQL().Stats().InUse; n != 0 {
 		t.Errorf("%d connections still in use after Goexit", n)
 	}
-	if n, _ := db.Query[Author](ctx).Count(); n != 0 {
+	if n, _ := db.Query[stAuthor](ctx).Count(); n != 0 {
 		t.Errorf("Goexit didn't roll back: %d rows", n)
 	}
 
 	cctx, cancel := context.WithCancel(ctx)
 	err := db.Tx(cctx, func(ctx context.Context) error {
-		if err := db.Create(ctx, &Author{Name: "b", Email: "b@example.com"}); err != nil {
+		if err := db.Create(ctx, &stAuthor{Name: "b", Email: "b@example.com"}); err != nil {
 			return err
 		}
 		cancel()
@@ -940,9 +940,9 @@ func testTxRelease(t *testing.T, ctx context.Context) {
 	}
 
 	// A query built outside the transaction joins it with WithContext.
-	base := db.Query[Author](ctx)
+	base := db.Query[stAuthor](ctx)
 	check(t, db.Tx(ctx, func(txCtx context.Context) error {
-		if err := db.Create(txCtx, &Author{Name: "c", Email: "c@example.com"}); err != nil {
+		if err := db.Create(txCtx, &stAuthor{Name: "c", Email: "c@example.com"}); err != nil {
 			return err
 		}
 		if n, err := base.WithContext(txCtx).Count(); err != nil || n != 1 {
@@ -963,8 +963,8 @@ func testTxRelease(t *testing.T, ctx context.Context) {
 
 func testWriteRestrictions(t *testing.T, ctx context.Context) {
 	seedPosts(t, ctx, 6)
-	q := db.Query[Post](ctx)
-	for name, bad := range map[string]*db.Q[Post]{
+	q := db.Query[stPost](ctx)
+	for name, bad := range map[string]*db.Q[stPost]{
 		"having":   q.GroupBy("author_id").Having(db.SQL("1 = 0")),
 		"distinct": q.Distinct(),
 		"lock":     q.ForUpdate(),
@@ -995,7 +995,7 @@ func testWriteRestrictions(t *testing.T, ctx context.Context) {
 
 func testLimitedAggregates(t *testing.T, ctx context.Context) {
 	seedPosts(t, ctx, 5) // views 0, 10, 20, 30, 40
-	q := db.Query[Post](ctx).OrderBy(views.Desc())
+	q := db.Query[stPost](ctx).OrderBy(views.Desc())
 	all, err := db.Sum(q.Distinct(), views)
 	check(t, err)
 	if all != 100 {
@@ -1015,34 +1015,34 @@ func testLimitedAggregates(t *testing.T, ctx context.Context) {
 	}
 }
 
-// Note embeds *db.Model through a pointer.
-type Note struct {
+// stNote embeds *db.Model through a pointer.
+type stNote struct {
 	*db.Model
 	Text string `db:"text"`
 }
 
 // TableName implements db.Tabler.
-func (Note) TableName() string { return "st_notes" }
+func (stNote) TableName() string { return "st_notes" }
 
 func testEmbeddedPointer(t *testing.T, ctx context.Context) {
-	n := Note{Text: "hi"}
+	n := stNote{Text: "hi"}
 	check(t, db.Create(ctx, &n))
 	if n.Model == nil || n.ID == 0 || n.CreatedAt.IsZero() {
 		t.Fatalf("after Create: %+v", n.Model)
 	}
-	m := Note{Text: "saved"}
+	m := stNote{Text: "saved"}
 	check(t, db.Save(ctx, &m))
-	check(t, db.CreateMany(ctx, []Note{{Text: "a"}, {Text: "b"}}))
-	got, err := db.Find[Note](ctx, n.ID)
+	check(t, db.CreateMany(ctx, []stNote{{Text: "a"}, {Text: "b"}}))
+	got, err := db.Find[stNote](ctx, n.ID)
 	check(t, err)
 	if got.Text != "hi" || got.ID != n.ID {
 		t.Errorf("Find = %+v", got)
 	}
 }
 
-// Event has a column the database fills (DEFAULT CURRENT_TIMESTAMP) and a
+// stEvent has a column the database fills (DEFAULT CURRENT_TIMESTAMP) and a
 // timestamp column without time zone.
-type Event struct {
+type stEvent struct {
 	ID     int64      `db:"id,pk"`
 	Name   string     `db:"name"`
 	At     time.Time  `db:"at,readonly"`
@@ -1051,25 +1051,25 @@ type Event struct {
 }
 
 // TableName implements db.Tabler.
-func (Event) TableName() string { return "st_events" }
+func (stEvent) TableName() string { return "st_events" }
 
 func testDatabaseWrittenTimes(t *testing.T, ctx context.Context) {
 	for i := range 4 {
 		mustExec(t, ctx, "INSERT INTO st_events (name) VALUES (?)", fmt.Sprint("e", i))
 	}
-	first, err := db.Query[Event](ctx).OrderBy(id.Asc()).First()
+	first, err := db.Query[stEvent](ctx).OrderBy(id.Asc()).First()
 	check(t, err)
 	if first.At.IsZero() || first.At.Location() != time.UTC || time.Since(first.At).Abs() > time.Hour {
 		t.Errorf("database-written time = %v (should be UTC and about now)", first.At)
 	}
 	at := db.Col[time.Time]("at")
-	if n, _ := db.Query[Event](ctx).Where(at.Eq(first.At)).Count(); n == 0 {
+	if n, _ := db.Query[stEvent](ctx).Where(at.Eq(first.At)).Count(); n == 0 {
 		t.Error("a time read back doesn't equal itself in a query")
 	}
 	var names []string
 	cursor := ""
 	for range 5 {
-		page, err := db.Query[Event](ctx).OrderBy(at.Asc()).CursorPaginate(cursor, 2)
+		page, err := db.Query[stEvent](ctx).OrderBy(at.Asc()).CursorPaginate(cursor, 2)
 		check(t, err)
 		for _, e := range page.Data {
 			names = append(names, e.Name)
@@ -1085,9 +1085,9 @@ func testDatabaseWrittenTimes(t *testing.T, ctx context.Context) {
 	// A time in another zone is stored as the same instant, also in a
 	// column without time zone.
 	dhaka := time.Date(2026, 9, 30, 18, 0, 0, 0, time.FixedZone("BST", 6*3600))
-	e := Event{Name: "zoned", Logged: &dhaka}
+	e := stEvent{Name: "zoned", Logged: &dhaka}
 	check(t, db.Create(ctx, &e))
-	got, err := db.Find[Event](ctx, e.ID)
+	got, err := db.Find[stEvent](ctx, e.ID)
 	check(t, err)
 	if got.Logged == nil || !got.Logged.Equal(dhaka) {
 		t.Errorf("logged = %v, want %v", got.Logged, dhaka)
@@ -1095,9 +1095,9 @@ func testDatabaseWrittenTimes(t *testing.T, ctx context.Context) {
 
 	// Dates are times too: build them in UTC to keep the calendar day.
 	day := time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)
-	d := Event{Name: "dated", Day: &day}
+	d := stEvent{Name: "dated", Day: &day}
 	check(t, db.Create(ctx, &d))
-	gotDay, err := db.Find[Event](ctx, d.ID)
+	gotDay, err := db.Find[stEvent](ctx, d.ID)
 	check(t, err)
 	if gotDay.Day == nil || gotDay.Day.Format(time.DateOnly) != "2026-03-15" {
 		t.Errorf("day = %v", gotDay.Day)
@@ -1110,15 +1110,15 @@ func testSoftDeleteScopes(t *testing.T, ctx context.Context) {
 	check(t, db.Delete(ctx, &p))
 	original := *p.DeletedAt
 	time.Sleep(2 * time.Millisecond)
-	if n, err := db.Query[Post](ctx).OnlyTrashed().Delete(); err != nil || n != 0 {
+	if n, err := db.Query[stPost](ctx).OnlyTrashed().Delete(); err != nil || n != 0 {
 		t.Errorf("OnlyTrashed().Delete() = %d, %v", n, err)
 	}
-	if n, _ := db.Query[Post](ctx).Count(); n != 2 {
+	if n, _ := db.Query[stPost](ctx).Count(); n != 2 {
 		t.Errorf("live rows after OnlyTrashed().Delete() = %d", n)
 	}
-	_, err := db.Query[Post](ctx).WithTrashed().Delete()
+	_, err := db.Query[stPost](ctx).WithTrashed().Delete()
 	check(t, err)
-	again, err := db.Query[Post](ctx).WithTrashed().Find(p.ID)
+	again, err := db.Query[stPost](ctx).WithTrashed().Find(p.ID)
 	check(t, err)
 	if !again.DeletedAt.Equal(original) {
 		t.Errorf("mass Delete moved deleted_at from %v to %v", original, again.DeletedAt)
@@ -1126,7 +1126,7 @@ func testSoftDeleteScopes(t *testing.T, ctx context.Context) {
 	check(t, db.Restore(ctx, &posts[1]))
 	live := posts[2]
 	check(t, db.Restore(ctx, &live))
-	n, err := db.Query[Post](ctx).WithTrashed().Where(id.Eq(posts[0].ID)).Restore()
+	n, err := db.Query[stPost](ctx).WithTrashed().Where(id.Eq(posts[0].ID)).Restore()
 	check(t, err)
 	if n != 1 {
 		t.Errorf("Restore matched %d", n)
@@ -1140,7 +1140,7 @@ func testJSONColumns(t *testing.T, ctx context.Context) {
 	posts := seedPosts(t, ctx, 3)
 	meta := db.JSONCol[map[string]string]("meta")
 	id := db.Col[int64]("id")
-	q := db.Query[Post](ctx)
+	q := db.Query[stPost](ctx)
 	_, err := q.Where(id.Eq(posts[0].ID)).Update(meta.Set(map[string]string{"lang": "go"}))
 	check(t, err)
 	_, err = q.Where(id.Eq(posts[1].ID)).Update(meta.Set(nil))
@@ -1152,7 +1152,7 @@ func testJSONColumns(t *testing.T, ctx context.Context) {
 	}
 	n, err := q.Where(meta.IsNull()).Count()
 	check(t, err)
-	p, err := db.Find[Post](ctx, posts[0].ID)
+	p, err := db.Find[stPost](ctx, posts[0].ID)
 	check(t, err)
 	if n < 1 || p.Meta["lang"] != "go" {
 		t.Errorf("null count %d, meta %v", n, p.Meta)
@@ -1173,24 +1173,24 @@ func testNullableTimeColumns(t *testing.T, ctx context.Context) {
 	published := db.Col[*time.Time]("published_at")
 	id := db.Col[int64]("id")
 	when := time.Date(2026, 3, 4, 5, 6, 7, 0, time.UTC)
-	_, err := db.Query[Post](ctx).Where(id.Eq(posts[1].ID)).Update(published.Set(new(when)))
+	_, err := db.Query[stPost](ctx).Where(id.Eq(posts[1].ID)).Update(published.Set(new(when)))
 	check(t, err)
-	got, err := db.Pluck(db.Query[Post](ctx).OrderBy(id.Asc()), published)
+	got, err := db.Pluck(db.Query[stPost](ctx).OrderBy(id.Asc()), published)
 	check(t, err)
 	if len(got) != 3 || got[0] != nil || got[1] == nil || !got[1].Equal(when) || got[1].Location() != time.UTC {
 		t.Errorf("pluck = %v", got)
 	}
-	latest, err := db.Max(db.Query[Post](ctx), published)
+	latest, err := db.Max(db.Query[stPost](ctx), published)
 	check(t, err)
 	if latest == nil || !latest.Equal(when) || latest.Location() != time.UTC {
 		t.Errorf("max = %v", latest)
 	}
-	none, err := db.Max(db.Query[Post](ctx).Where(id.Eq(posts[0].ID)), published)
+	none, err := db.Max(db.Query[stPost](ctx).Where(id.Eq(posts[0].ID)), published)
 	check(t, err)
 	if none != nil {
 		t.Errorf("max of NULL = %v", none)
 	}
-	n, err := db.Query[Post](ctx).Where(published.Gte(new(when))).Count()
+	n, err := db.Query[stPost](ctx).Where(published.Gte(new(when))).Count()
 	check(t, err)
 	if n != 1 {
 		t.Errorf("count = %d", n)
@@ -1199,23 +1199,23 @@ func testNullableTimeColumns(t *testing.T, ctx context.Context) {
 
 // testFactories inserts rows made by a factory.
 func testFactories(t *testing.T, ctx context.Context) {
-	authors := factory.New(func(n int) Author {
-		return Author{Name: fmt.Sprintf("Author %d", n), Email: fmt.Sprintf("author%d@example.com", n)}
+	authors := factory.New(func(n int) stAuthor {
+		return stAuthor{Name: fmt.Sprintf("Author %d", n), Email: fmt.Sprintf("author%d@example.com", n)}
 	})
 	a, err := authors.Create(ctx)
 	check(t, err)
-	many, err := authors.With(func(x *Author) { x.Name = "Bulk" }).CreateMany(ctx, 3)
+	many, err := authors.With(func(x *stAuthor) { x.Name = "Bulk" }).CreateMany(ctx, 3)
 	check(t, err)
 	if a.ID == 0 || len(many) != 3 || many[2].ID == 0 || many[0].ID == many[1].ID || many[1].Name != "Bulk" {
 		t.Errorf("created %+v %+v", a, many)
 	}
-	n, err := db.Query[Author](ctx).Count()
+	n, err := db.Query[stAuthor](ctx).Count()
 	check(t, err)
 	if n != 4 {
 		t.Errorf("count = %d", n)
 	}
 	// A failing insert stops CreateMany.
-	dup := authors.With(func(x *Author) { x.Email = a.Email })
+	dup := authors.With(func(x *stAuthor) { x.Email = a.Email })
 	if got, err := dup.CreateMany(ctx, 2); err == nil || len(got) != 0 {
 		t.Errorf("duplicate email: %v %v", got, err)
 	}

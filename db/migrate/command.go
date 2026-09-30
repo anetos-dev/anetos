@@ -19,7 +19,7 @@ import (
 var Commands = []string{"migrate", "migrate:rollback", "migrate:reset", "migrate:fresh", "migrate:status", "db:seed"}
 
 var commandHelp = map[string][2]string{ // usage, description
-	"migrate":          {"[--seed]", "Run pending migrations (then the seeders)"},
+	"migrate":          {"[--seed [--force]]", "Run pending migrations (then the seeders)"},
 	"migrate:rollback": {"[--step=N] [--force]", "Roll back the last batch of migrations, or N batches"},
 	"migrate:reset":    {"[--force]", "Roll back every migration"},
 	"migrate:fresh":    {"[--seed]", "Drop all tables and migrate again (development and testing only)"},
@@ -65,7 +65,8 @@ func (r *Runner) AppCommands() []cmd.Command {
 //	migrate:status                 list migrations and whether they ran
 //	db:seed [--seeder=NAME]        run all seeders, or one
 //
-// In production, rollback, reset and db:seed also need --force. Flags a
+// In production (any APP_ENV but development, testing and staging),
+// rollback, reset, db:seed and migrate --seed also need --force. Flags a
 // command doesn't take are errors (wrapping cmd.ErrUsage); -h prints a
 // command's flags.
 //
@@ -84,6 +85,7 @@ func (r *Runner) Command(ctx context.Context, args []string, out io.Writer) (han
 	switch name {
 	case "migrate":
 		seed = fs.Bool("seed", false, "run seeders after migrating")
+		force = fs.Bool("force", false, "allow --seed in production")
 	case "migrate:rollback":
 		step = fs.Int("step", 1, "number of batches to roll back")
 		force = fs.Bool("force", false, "allow in production")
@@ -111,8 +113,12 @@ func (r *Runner) Command(ctx context.Context, args []string, out io.Writer) (han
 		return true, cmd.Usagef("%s: unexpected arguments %v", name, fs.Args())
 	}
 	production := r.env != anetos.Development && r.env != anetos.Testing && r.env != anetos.Staging
-	if force != nil && production && !*force {
-		return true, fmt.Errorf("%s changes data in production (APP_ENV=%s); run it with --force if you mean it", name, cmpEnv(r.env))
+	if force != nil && production && !*force && (name != "migrate" || *seed) {
+		what := name
+		if name == "migrate" {
+			what = "migrate --seed" // migrating alone is the normal deploy step
+		}
+		return true, fmt.Errorf("%s changes data in production (APP_ENV=%s); run it with --force if you mean it", what, cmpEnv(r.env))
 	}
 
 	var results []Result

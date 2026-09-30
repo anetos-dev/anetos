@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 
 	"anetos.dev/anetos/session"
@@ -40,6 +41,32 @@ func URL(ctx context.Context, name string, args ...any) (string, error) {
 		return "", fmt.Errorf("web: URL(%q) needs the context of a request served by a Router", name)
 	}
 	return (&Router{core: st.core}).URL(name, args...)
+}
+
+// PageURL returns a link to page n of the current list: the current
+// page's query string with its "page" parameter set to n, the other
+// parameters (a search, a filter, per_page) kept as they were. It is
+// relative ("?q=go&page=2"), so it works behind a path prefix or a proxy.
+//
+//	if posts.HasPrev() {
+//		<a href={ web.PageURL(ctx, posts.CurrentPage-1) }>Newer</a>
+//	}
+//
+// Outside a request served by a [Router], it returns "?page=N".
+func PageURL(ctx context.Context, page int) string {
+	var parts []string
+	if st := stateFrom(ctx); st != nil && st.url != nil && st.url.RawQuery != "" {
+		for p := range strings.SplitSeq(st.url.RawQuery, "&") {
+			k, _, _ := strings.Cut(p, "=")
+			if uk, err := url.QueryUnescape(k); err == nil {
+				k = uk
+			}
+			if k != "page" && p != "" {
+				parts = append(parts, p)
+			}
+		}
+	}
+	return "?" + strings.Join(append(parts, "page="+strconv.Itoa(page)), "&")
 }
 
 // WriteError sends err through the router's error handler, as if a
@@ -111,7 +138,8 @@ func TrustedOrigins(origins ...string) CSRFOption {
 }
 
 // CSRF protects the routes it wraps from cross-site request forgery. For
-// every POST, PUT, PATCH and DELETE it
+// every request that may change something (any method but GET, HEAD,
+// OPTIONS and TRACE: POST, PUT, PATCH, DELETE, …) it
 //
 //   - rejects requests the browser marks as coming from another site
 //     (Sec-Fetch-Site, or an Origin that isn't this host), with

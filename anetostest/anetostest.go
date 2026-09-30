@@ -104,9 +104,10 @@ func LogLevel(l slog.Level) Option { return func(o *options) { o.level = l } }
 // Settings, from highest priority: [Env] options; APP_ENV=testing and a
 // random APP_KEY; the process environment; the .env.testing file next to
 // go.mod, if there is one (say, DB_DATABASE=blog_test); then
-// HTTP_ACCESS_LOG=false. The .env file is not read. With SQLite and
-// neither DB_DATABASE nor DB_URL set (or set to ""), the database is in
-// memory, not database/app.db.
+// HTTP_ACCESS_LOG=false. The settings in .env are not used (New only
+// looks at its DB_CONNECTION, to stop a test that would use SQLite by
+// mistake). With SQLite and neither DB_DATABASE nor DB_URL set (or set to
+// ""), the database is in memory, not database/app.db.
 func New(t testing.TB, setup func(app *anetos.App) (*web.Server, error), opts ...Option) *App {
 	t.Helper()
 	o := &options{env: config.Map{}, migrate: true, transaction: true, level: slog.LevelInfo}
@@ -115,7 +116,7 @@ func New(t testing.TB, setup func(app *anetos.App) (*web.Server, error), opts ..
 	}
 	forced := config.Map{"APP_ENV": "testing", "APP_KEY": encryption.GenerateKey()}
 	defaults := config.Map{"HTTP_ACCESS_LOG": "false"}
-	file, err := testingEnv()
+	file, err := moduleEnv(".env.testing")
 	if err != nil {
 		t.Fatalf("anetostest: %v", err)
 	}
@@ -123,6 +124,7 @@ func New(t testing.TB, setup func(app *anetos.App) (*web.Server, error), opts ..
 	conn, _ := explicit.Lookup("DB_CONNECTION")
 	database, _ := explicit.Lookup("DB_DATABASE")
 	dbURL, _ := explicit.Lookup("DB_URL")
+	checkConnection(t, conn, database, dbURL)
 	memory := config.Map{}
 	if (conn == "" || conn == "sqlite") && database == "" && dbURL == "" {
 		// Not the default database/app.db, even when DB_DATABASE is set
@@ -234,8 +236,9 @@ func (a *App) Session() *session.Session {
 	return a.sessions.Load(a.cookieRequest())
 }
 
-// testingEnv reads the .env.testing file of the module the test is in.
-func testingEnv() (config.Map, error) {
+// moduleEnv reads a dotenv file (".env.testing") next to the go.mod of
+// the module the test is in; nil if there is none.
+func moduleEnv(file string) (config.Map, error) {
 	dir, err := os.Getwd()
 	if err != nil {
 		return nil, err
@@ -250,7 +253,7 @@ func testingEnv() (config.Map, error) {
 		}
 		dir = parent
 	}
-	name := filepath.Join(dir, ".env.testing")
+	name := filepath.Join(dir, file)
 	f, err := os.Open(name)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, nil
@@ -264,6 +267,29 @@ func testingEnv() (config.Map, error) {
 		return nil, fmt.Errorf("%s: %w", name, err)
 	}
 	return m, nil
+}
+
+// checkConnection fails a test that would use SQLite by accident: the test
+// settings name a database (DB_DATABASE or DB_URL) but no DB_CONNECTION,
+// so SQLite, the default, would open it, while the app's .env uses
+// another database.
+func checkConnection(t testing.TB, conn, database, dbURL string) {
+	t.Helper()
+	if conn != "" || (database == "" || database == ":memory:") && dbURL == "" {
+		return
+	}
+	setting := "DB_DATABASE=" + database
+	if database == "" || database == ":memory:" {
+		setting = "DB_URL"
+	}
+	dev, err := moduleEnv(".env")
+	if err != nil {
+		return // .env is the app's business; it isn't used here
+	}
+	if devConn, _ := dev.Lookup("DB_CONNECTION"); devConn != "" && devConn != "sqlite" {
+		t.Fatalf("anetostest: %s but no DB_CONNECTION in the test settings, so tests would use SQLite, "+
+			"while .env uses %s (tests don't use .env). Set DB_CONNECTION=%s in .env.testing, with the other DB_* settings.", setting, devConn, devConn)
+	}
 }
 
 var base = &url.URL{Scheme: "http", Host: "example.test", Path: "/"}

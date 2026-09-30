@@ -292,12 +292,7 @@ func (q *Q[T]) selectSQL(d Dialect, cols []string) *sqlBuilder {
 		b.write("DISTINCT ")
 	}
 	if cols == nil {
-		for i, c := range q.m.cols {
-			if i > 0 {
-				b.write(", ")
-			}
-			b.name(q.m.table + "." + c.name)
-		}
+		b.write(q.m.selectColumns(d))
 	} else {
 		for i, c := range cols {
 			if i > 0 {

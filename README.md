@@ -10,13 +10,15 @@ listeners and the scheduler run together in **one binary**.
 **Status:** pre-alpha. Every v0.1 work package exists: the kernel,
 configuration, runtime supervisor, HTTP layer, validation, data layer,
 migrations, model code generation, views, sessions, forms, the CLI and
-testing helpers; the v0.1.0 release checks come next. APIs will change.
+testing helpers, and the v0.1 exit criteria are met; tagging v0.1.0 is
+next. APIs will change.
 
 ## Documents
 
 - [Planning & roadmap](docs/planning/roadmap.md): vision, milestones v0.1–v0.4, work packages, risks
 - [Design document](docs/design/design.md): architecture, principles and decisions
 - [Documentation guide](docs/contributing/documentation-guide.md): how docs are written alongside code
+- [Benchmarks](docs/benchmarks/README.md): overhead compared with plain `net/http`
 
 ## Developer experience
 

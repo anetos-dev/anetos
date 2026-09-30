@@ -105,8 +105,10 @@ return c.RedirectRoute("notes.index")    // 303 See Other
 return web.RedirectRoute("notes.show", note.ID), nil // from a typed handler
 ```
 
-Arguments fill the wildcards in order and are path-escaped. A wrong name or
-argument count is an error. `r.MustURL` panics instead, which is useful for
+Arguments fill the wildcards in order and are path-escaped; a `url.Values`
+after them becomes the query string
+(`c.URL("notes.index", url.Values{"page": {"2"}})` is `"/notes?page=2"`).
+A wrong name or argument count is an error. `r.MustURL` panics instead, which is useful for
 fixed links at startup.
 
 ### 6. Add middleware

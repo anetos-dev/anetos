@@ -122,7 +122,7 @@ app, err := anetos.New(anetos.WithSource(config.Map{"APP_ENV": "testing"}))
 | `invalid duration "5"` | Durations need a unit | Use `5s`, `500ms`, `2m` |
 | `required but not set` although the key is in `.env` | The value is empty | Empty counts as unset; give it a value |
 | `APP_DEBUG=true is not allowed when APP_ENV=production` | Debug mode in production | Set `APP_ENV=development` locally |
-| A value from `.env` is ignored | The same variable is set in your shell or container | The process environment wins; unset it there |
+| A value from `.env` is ignored | The same variable is set in your shell or container, even to `""` | The process environment wins, and an empty value there hides `.env` (the default applies); unset it there |
 | Password with `$` is mangled | Written as `${...}` | Only `${NAME}` expands; use single quotes for literal values |
 
 ## Next steps

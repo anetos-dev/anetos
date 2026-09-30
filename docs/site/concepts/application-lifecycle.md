@@ -36,6 +36,7 @@ Boot itself and for shutdown hooks.
 A provider packages one piece of functionality:
 
 ```go
+// illustrative (from app.go)
 type Provider interface {
 	Name() string
 	Register(a *App) error

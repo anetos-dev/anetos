@@ -21,9 +21,9 @@ import (
 //
 //	app.Get("/posts").AssertOK().AssertSee("Hello")
 type Response struct {
-	StatusCode int
-	Header     http.Header
-	Body       []byte
+	StatusCode int           // the status code
+	Header     http.Header   // the response headers
+	Body       []byte        // the whole body
 	Request    *http.Request // the request that was sent
 	app        *App
 }

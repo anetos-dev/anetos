@@ -20,41 +20,49 @@ import (
 
 // BeforeCreateHook runs before a row is inserted.
 type BeforeCreateHook interface {
+	// BeforeCreate runs in the insert's context; an error stops the insert.
 	BeforeCreate(ctx context.Context) error
 }
 
 // AfterCreateHook runs after a row is inserted.
 type AfterCreateHook interface {
+	// AfterCreate runs after the insert; an error is returned by Create.
 	AfterCreate(ctx context.Context) error
 }
 
 // BeforeUpdateHook runs before a row is updated.
 type BeforeUpdateHook interface {
+	// BeforeUpdate runs in the update's context; an error stops the update.
 	BeforeUpdate(ctx context.Context) error
 }
 
 // AfterUpdateHook runs after a row is updated.
 type AfterUpdateHook interface {
+	// AfterUpdate runs after the update; an error is returned by Update.
 	AfterUpdate(ctx context.Context) error
 }
 
 // BeforeSaveHook runs before a row is inserted or updated.
 type BeforeSaveHook interface {
+	// BeforeSave runs before an insert or update; an error stops it.
 	BeforeSave(ctx context.Context) error
 }
 
 // AfterSaveHook runs after a row is inserted or updated.
 type AfterSaveHook interface {
+	// AfterSave runs after an insert or update; an error is returned.
 	AfterSave(ctx context.Context) error
 }
 
 // BeforeDeleteHook runs before a row is deleted or soft-deleted.
 type BeforeDeleteHook interface {
+	// BeforeDelete runs in the delete's context; an error stops the delete.
 	BeforeDelete(ctx context.Context) error
 }
 
 // AfterDeleteHook runs after a row is deleted or soft-deleted.
 type AfterDeleteHook interface {
+	// AfterDelete runs after the delete; an error is returned by Delete.
 	AfterDelete(ctx context.Context) error
 }
 

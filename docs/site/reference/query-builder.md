@@ -63,7 +63,7 @@ hand:
 | `All()` | `iter.Seq2[T, error]`, streaming rows |
 | `Count()` | `int64` |
 | `Exists()` | `bool` |
-| `Paginate(page, perPage)` | `db.Page[T]`: `data`, `current_page`, `per_page`, `total`, `last_page`; `HasMore()` |
+| `Paginate(page, perPage)` | `db.Page[T]`: `Data`, `CurrentPage`, `PerPage`, `Total`, `LastPage` (JSON: `data`, `current_page`, …); `HasPrev()`, `HasMore()`. A page below 1 is page 1; past the end, empty |
 | `CursorPaginate(cursor, perPage)` | `db.CursorPage[T]`: `data`, `per_page`, `next_cursor`, `prev_cursor`; `db.ErrInvalidCursor` (400) for malformed cursors |
 | `db.Pluck(q, col)` | `[]V`, one column (decoded from JSON for a `db.JSONCol`) |
 | `db.Sum(q, col)`, `db.Min`, `db.Max` | `V`; zero if no rows match. `Limit` and `Offset` are respected, `Distinct` is ignored (write `SUM(DISTINCT x)` with `db.Select`); with `GroupBy`, use `db.Select` |

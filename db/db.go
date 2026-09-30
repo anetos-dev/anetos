@@ -8,7 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/url"
+	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -25,16 +28,17 @@ type Config struct {
 	// URL is a complete connection string in the driver's format. When set,
 	// Host, Port, Database, Username and Password are ignored.
 	URL      string `env:"DB_URL"`
-	Host     string `env:"DB_HOST" default:"127.0.0.1"`
-	Port     int    `env:"DB_PORT"` // 0: the driver's default port
-	Database string `env:"DB_DATABASE"`
-	Username string `env:"DB_USERNAME"`
-	Password string `env:"DB_PASSWORD"`
+	Host     string `env:"DB_HOST" default:"127.0.0.1"` // server host (PostgreSQL, MySQL)
+	Port     int    `env:"DB_PORT"`                     // 0: the driver's default port
+	Database string `env:"DB_DATABASE"`                 // database name; for SQLite, the file (default database/app.db)
+	Username string `env:"DB_USERNAME"`                 // user to connect as
+	Password string `env:"DB_PASSWORD"`                 // that user's password
 
-	MaxOpenConns    int           `env:"DB_MAX_OPEN_CONNS" default:"25"`
-	MaxIdleConns    int           `env:"DB_MAX_IDLE_CONNS" default:"25"`
-	ConnMaxLifetime time.Duration `env:"DB_CONN_MAX_LIFETIME" default:"30m"`
-	ConnMaxIdleTime time.Duration `env:"DB_CONN_MAX_IDLE_TIME" default:"5m"`
+	// Pool settings, as for database/sql's DB.SetMaxOpenConns and friends.
+	MaxOpenConns    int           `env:"DB_MAX_OPEN_CONNS" default:"25"`     // connections open at most
+	MaxIdleConns    int           `env:"DB_MAX_IDLE_CONNS" default:"25"`     // idle connections kept
+	ConnMaxLifetime time.Duration `env:"DB_CONN_MAX_LIFETIME" default:"30m"` // a connection is closed after this long
+	ConnMaxIdleTime time.Duration `env:"DB_CONN_MAX_IDLE_TIME" default:"5m"` // an idle connection is closed after this long
 
 	// LogQueries logs every query with its duration at debug level. Unset
 	// means on in development and off elsewhere.
@@ -59,12 +63,206 @@ func (c Config) Validate() error {
 	return errors.Join(errs...)
 }
 
+// String describes the connection without secrets: the password, and
+// passwords inside URL, are masked, so a printed or logged Config leaks
+// nothing (fmt's %v, %+v and %#v, and slog through [Config.LogValue]).
+func (c Config) String() string {
+	logQueries := "unset"
+	if c.LogQueries != nil {
+		logQueries = strconv.FormatBool(*c.LogQueries)
+	}
+	return fmt.Sprintf("{Connection:%s URL:%s Host:%s Port:%d Database:%s Username:%s Password:%s "+
+		"MaxOpenConns:%d MaxIdleConns:%d ConnMaxLifetime:%s ConnMaxIdleTime:%s LogQueries:%s SlowQuery:%s}",
+		c.Connection, maskDSN(c.URL), c.Host, c.Port, c.Database, c.Username, mask(c.Password),
+		c.MaxOpenConns, c.MaxIdleConns, c.ConnMaxLifetime, c.ConnMaxIdleTime, logQueries, c.SlowQuery)
+}
+
+// GoString masks secrets for %#v too.
+func (c Config) GoString() string { return "db.Config" + c.String() }
+
+// LogValue logs the Config as [Config.String] does, for every slog
+// handler (JSON included).
+func (c Config) LogValue() slog.Value { return slog.StringValue(c.String()) }
+
+const masked = "xxxxx"
+
+func mask(s string) string {
+	if s == "" {
+		return ""
+	}
+	return masked
+}
+
+// secretKey reports whether a DSN parameter holds a secret.
+func secretKey(k string) bool {
+	k = strings.ToLower(k)
+	return strings.Contains(k, "pass") || strings.Contains(k, "secret") || strings.Contains(k, "token") || strings.Contains(k, "key")
+}
+
+// maskDSN masks the secrets of a connection string: the password of a URL
+// ("postgres://u:p@h/db") or of MySQL's form ("u:p@tcp(h)/db"), and
+// secret-looking parameters in a query string or in libpq's key=value form
+// ("host=h password='p'"). If anything that looks like a password is left,
+// it masks the whole string.
+func maskDSN(s string) string {
+	if s == "" {
+		return ""
+	}
+	var out string
+	switch {
+	case strings.Contains(s, "://"):
+		u, err := url.Parse(s)
+		if err != nil {
+			return masked
+		}
+		if _, ok := u.User.Password(); ok {
+			u.User = url.UserPassword(u.User.Username(), masked)
+		}
+		u.RawQuery = maskQuery(u.RawQuery)
+		out = u.String()
+	case keyValueDSN.MatchString(s):
+		out = maskKeyValues(s)
+	default: // MySQL's user:pass@proto(addr)/db?params, or a SQLite path?params
+		base, query, hasQuery := strings.Cut(s, "?")
+		if at := strings.LastIndex(base, "@"); at >= 0 {
+			if user, _, ok := strings.Cut(base[:at], ":"); ok {
+				base = user + ":" + masked + base[at:]
+			}
+		}
+		out = base
+		if hasQuery {
+			out += "?" + maskQuery(query)
+		}
+	}
+	// Belt and braces: if "pass" is still there other than in a masked
+	// parameter's name, keep nothing.
+	if strings.Contains(strings.ToLower(maskedParam.ReplaceAllString(out, "")), "pass") {
+		return masked
+	}
+	return out
+}
+
+var (
+	keyValueDSN = regexp.MustCompile(`^\s*[A-Za-z_]+\s*=`)                 // libpq's host=h user=u …
+	maskedParam = regexp.MustCompile(`(?i)[a-z0-9_]*\s*=\s*xxxxx|:xxxxx@`) // what maskDSN wrote
+)
+
+// maskQuery masks the values of secret parameters, keeping the order and
+// the rest of the query as written.
+func maskQuery(q string) string {
+	if q == "" {
+		return ""
+	}
+	parts := strings.Split(q, "&")
+	for i, p := range parts {
+		k, _, ok := strings.Cut(p, "=")
+		if uk, err := url.QueryUnescape(k); err == nil {
+			k = uk
+		}
+		if ok && secretKey(k) {
+			parts[i] = strings.SplitN(p, "=", 2)[0] + "=" + masked
+		}
+	}
+	return strings.Join(parts, "&")
+}
+
+// maskKeyValues masks secret values in libpq's key=value form, where
+// values may be quoted ('my secret') and "=" may have spaces around it.
+func maskKeyValues(s string) string {
+	var b strings.Builder
+	i := 0
+	for i < len(s) {
+		// Copy whitespace.
+		for i < len(s) && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n') {
+			b.WriteByte(s[i])
+			i++
+		}
+		// Key.
+		start := i
+		for i < len(s) && s[i] != '=' && s[i] != ' ' && s[i] != '\t' {
+			i++
+		}
+		key := s[start:i]
+		b.WriteString(key)
+		// Spaces and "=".
+		for i < len(s) && (s[i] == ' ' || s[i] == '\t') {
+			b.WriteByte(s[i])
+			i++
+		}
+		if i >= len(s) || s[i] != '=' {
+			continue
+		}
+		b.WriteByte('=')
+		i++
+		for i < len(s) && (s[i] == ' ' || s[i] == '\t') {
+			b.WriteByte(s[i])
+			i++
+		}
+		// Value: quoted with backslash escapes, or up to whitespace.
+		vstart := i
+		if i < len(s) && s[i] == '\'' {
+			i++
+			for i < len(s) && s[i] != '\'' {
+				if s[i] == '\\' {
+					i++
+				}
+				i++
+			}
+			i++ // closing quote
+		} else {
+			for i < len(s) && s[i] != ' ' && s[i] != '\t' && s[i] != '\n' {
+				i++
+			}
+		}
+		i = min(i, len(s))
+		if secretKey(key) {
+			b.WriteString(masked)
+		} else {
+			b.WriteString(s[vstart:i])
+		}
+	}
+	return b.String()
+}
+
 // LoadConfig reads a Config from src with every key prefixed by prefix, so
 // LoadConfig(src, "ANALYTICS_") reads ANALYTICS_DB_CONNECTION,
 // ANALYTICS_DB_HOST and so on. An empty prefix reads the DB_* keys.
 func LoadConfig(src config.Source, prefix string) (Config, error) {
-	return config.Get[Config](prefixed{src, prefix})
+	cfg, err := config.Get[Config](prefixed{src, prefix})
+	if err != nil && prefix != "" {
+		err = withPrefix(err, prefix)
+	}
+	return cfg, err
 }
+
+// withPrefix makes errors name the prefixed keys (ANALYTICS_DB_PORT, not
+// DB_PORT).
+func withPrefix(err error, prefix string) error {
+	if j, ok := err.(interface{ Unwrap() []error }); ok {
+		parts := j.Unwrap()
+		out := make([]error, len(parts))
+		for i, e := range parts {
+			out[i] = withPrefix(e, prefix)
+		}
+		return errors.Join(out...)
+	}
+	if fe, ok := err.(*config.FieldError); ok { //nolint:errorlint // Bind joins FieldErrors directly; only those are renamed
+		c := *fe
+		c.Key = prefix + c.Key
+		return &c
+	}
+	return prefixedError{err, prefix}
+}
+
+type prefixedError struct {
+	err    error
+	prefix string
+}
+
+func (e prefixedError) Error() string {
+	return strings.ReplaceAll(e.err.Error(), "DB_", e.prefix+"DB_")
+}
+func (e prefixedError) Unwrap() error { return e.err }
 
 type prefixed struct {
 	src    config.Source
@@ -77,7 +275,8 @@ func (p prefixed) Lookup(key string) (string, bool) { return p.src.Lookup(p.pref
 // provide one each: sqlite.Driver(), postgres.Driver(), mysql.Driver().
 type Driver struct {
 	// Name is the value of DB_CONNECTION that selects this driver.
-	Name    string
+	Name string
+	// Dialect writes the database's SQL.
 	Dialect Dialect
 	// Tune, if set, adjusts cfg before the pool is opened and configured,
 	// for settings a database needs (an in-memory SQLite database must use

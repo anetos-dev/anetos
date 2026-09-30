@@ -68,10 +68,68 @@ total, err := published.Count()
 page, err := db.Query[Post](ctx).Latest().Paginate(in.Page, 20)
 ```
 
-A `db.Page[T]` encodes like Laravel's paginator:
+Pages are 1-based; 0 or a negative page (a missing `?page=`) is the
+first page, and a page past the end is empty. `perPage` often comes from
+the request: bound it with `validate:"max:100"`. Order by a unique column
+last (`PostCols.ID.Desc()` after `Latest()`), or rows created in the same
+instant can move between pages.
+
+A `db.Page[T]` has `Data`, `CurrentPage`, `PerPage`, `Total` and
+`LastPage`, with `HasPrev()` and `HasMore()`. It encodes like Laravel's
+paginator, so an API handler returns it as it is:
 `{"data": […], "current_page": 2, "per_page": 20, "total": 57, "last_page": 3}`.
-Return it from a handler as it is. `perPage` often comes from the request:
-bound it with `validate:"max:100"`.
+
+For an HTML list, pass the page to the view (`ListNotes` binds
+``Page int `query:"page"` ``):
+
+```go
+func (Notes) Index(c *web.Ctx, in ListNotes) (web.Responder, error) {
+	// Newest first; the ID breaks ties between notes created in the same
+	// instant, so no note shows on two pages.
+	page, err := db.Query[Note](c).OrderBy(NoteCols.CreatedAt.Desc(), NoteCols.ID.Desc()).Paginate(in.Page, 10)
+	if err != nil {
+		return nil, err
+	}
+	return web.View(NotesPage(page)), nil
+}
+```
+
+(Copied from [`examples/forms`](../../../examples/forms/main.go), region `index`.)
+
+and link to the pages around it with `web.PageURL(ctx, n)`: a relative
+link (`?q=go&page=2`) that keeps the other query parameters (a search, a
+filter). Past the end, the "Newer" link goes back to the last page:
+
+```templ
+// NotesPage lists one page of notes, with links to the pages around it.
+templ NotesPage(page db.Page[Note]) {
+	@Layout("All notes") {
+		<h1>Notes</h1>
+		<p><a href={ web.URL(ctx, "notes.new") }>New note</a></p>
+		if page.Total == 0 {
+			<p>No notes yet.</p>
+		}
+		<ul class="notes">
+			for _, n := range page.Data {
+				@noteItem(n)
+			}
+		</ul>
+		<nav class="pages">
+			if page.HasPrev() {
+				<a href={ web.PageURL(ctx, min(page.CurrentPage-1, page.LastPage)) } rel="prev">Newer</a>
+			}
+			if page.LastPage > 1 {
+				<span>Page { page.CurrentPage } of { page.LastPage }</span>
+			}
+			if page.HasMore() {
+				<a href={ web.PageURL(ctx, page.CurrentPage+1) } rel="next">Older</a>
+			}
+		</nav>
+	}
+}
+```
+
+(Copied from [`examples/forms/notes.templ`](../../../examples/forms/notes.templ), region `list`.)
 
 For long lists and infinite scroll, cursor pagination stays fast at any
 depth and never repeats or skips rows as new ones arrive:

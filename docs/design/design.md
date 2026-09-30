@@ -302,7 +302,10 @@ header.
 
 - `.env` holds per-environment values; typed Go structs define the shape.
   No stringly-typed `config("app.name")` lookups in application code.
-- Loaded and validated once at **New**. Invalid config stops startup with a
+- Loaded and validated at startup: `AppConfig` in **New**, each package's
+  own settings (`HTTP_*`, `DB_*`, `SESSION_*`) when the app wires it
+  (`web.NewServer`, `db.Connect`, `session.ForApp`), all before `Run`.
+  Invalid config stops startup with a
   message listing **every** missing or invalid key.
 - Tags: `env:"KEY"` / `env:"KEY,required"`, `default:"…"`, and `prefix:"P_"`
   on nested structs. Rules tags can't express go in a `Validate() error`
@@ -311,23 +314,24 @@ header.
   optional and secrets come from the environment.
 
 ```go
-// config/database.go (illustrative)
-type Database struct {
-    Driver string `env:"DB_DRIVER" default:"sqlite"`
-    URL    string `env:"DB_URL"    default:"file:storage/app.db"`
-    MaxOpen int   `env:"DB_MAX_OPEN" default:"20"`
+// illustrative: an app's own settings
+type Billing struct {
+    StripeKey anetos.Secret `env:"STRIPE_KEY,required"`
+    Currency  string        `env:"BILLING_CURRENCY" default:"usd"`
 }
 
-func (d Database) Validate() error {
-    if !slices.Contains([]string{"sqlite", "postgres", "mysql"}, d.Driver) {
-        return fmt.Errorf("DB_DRIVER %q is not supported", d.Driver)
+func (b Billing) Validate() error {
+    if len(b.Currency) != 3 {
+        return fmt.Errorf("BILLING_CURRENCY %q must be a 3-letter code", b.Currency)
     }
     return nil
 }
+
+billing, err := config.Get[Billing](app.Source())
 ```
 
-Plugins contribute their own config structs, loaded from namespaced variables
-(e.g. `STRIPE_KEY`), with defaults supplied at **Register**.
+Plugins (B11) will contribute their own config structs the same way,
+loaded from namespaced variables (e.g. `STRIPE_KEY`).
 
 ---
 
@@ -697,10 +701,12 @@ func (createPosts) Down(s *migrate.Schema) error { return s.Drop("posts") }
   PostgreSQL and SQLite (MySQL commits DDL immediately); `WithoutTransaction`
   opts out. A PostgreSQL advisory lock or MySQL named lock serializes
   concurrent runs (D52).
-- **Commands:** `migrate`, `migrate:rollback --step`, `migrate:reset`,
-  `migrate:fresh --seed`, `migrate:status`, `db:seed --seeder`, provided by
-  `Runner.Command` until the app binary's command framework (F11) wraps
-  them. Rollback, reset and seed need `--force` in production.
+- **Commands:** `migrate [--seed]`, `migrate:rollback --step`,
+  `migrate:reset`, `migrate:fresh --seed`, `migrate:status`,
+  `db:seed --seeder`, registered on the app binary by `migrate.ForApp`
+  (F11). Rollback, reset, `db:seed` and `migrate --seed` need `--force` in
+  production (any `APP_ENV` but development, testing and staging);
+  `migrate:fresh` runs only in development and testing.
 - **Seeders** are named functions run in order, each in a transaction.
   **Factories** (`db/factory`, F12) make valid model values for tests and
   seeders: `factory.New(func(n int) Post {…})` with a sequence number,
@@ -741,11 +747,11 @@ Implemented in F10 (packages `view`, `session`, `encryption`; helpers in
   with a per-message HKDF key from `APP_KEY`, authenticated with the cookie
   name), holding values, flash data, the CSRF token, and flashed errors and
   input. Idle (`SESSION_LIFETIME`) and absolute (`SESSION_MAX_LIFETIME`,
-  7 days, restarted by `Regenerate`) expiry are enforced from timestamps
+  7 days, restarted by `Regenerate` and `Invalidate`) expiry are enforced from timestamps
   inside the cookie, since a cookie session can't be revoked on the server.
   A Secure cookie is named `__Host-…`. No cookie is set until something is
   stored; unchanged sessions are rewritten at most every tenth of
-  `SESSION_LIFETIME`; responses of requests with a session get
+  `SESSION_LIFETIME` (at least a minute apart); responses of requests with a session get
   `Cache-Control: private` and `Vary: Cookie`. About 4 KB: oversized old
   input is dropped first, then the save is skipped and logged. Server-side
   stores arrive with v0.2 drivers.
@@ -1052,7 +1058,8 @@ anetos.dev/anetos/cli/cmd/anetos`, run with `go tool anetos`), so
 a project pins its version in `go.mod`; `go install` works too (D62), and
 is how `anetos new` is run before a project exists. F9 shipped `gen`, F10
 `key:generate`, F11 `new`, `dev` and `make:handler|model|migration|middleware`
-(D69–D72). The other rows are planned.
+(D69–D72); `anetos version` prints the tool's version. The other rows are
+planned.
 
 | Command | Purpose |
 |---|---|
@@ -1121,7 +1128,6 @@ func TestCreatePost(t *testing.T) {
   Known differences from production (`AfterCommit`, statements after a
   PostgreSQL error, timeouts, MySQL DDL) are documented, with
   `WithoutTransaction()` as the way out.
-  `WithoutTransaction()` opts out for code needing commits.
 - **Client** (D76): requests go straight to the router (no network) and act
   like a browser: its own cookie jar (Path and expiry honored; Secure
   and Domain ignored, so `SESSION_SECURE` and `__Host-` cookies work over
@@ -1196,8 +1202,10 @@ Secure by default, opt-out only when you mean it:
 
 - **Budgets:** Anetos overhead compared with plain `net/http` for (a) hello
   world, (b) a typed JSON handler with binding and validation, and (c) a
-  single-row DB read. Targets are set after the v0.1 baseline and tracked
-  from then on.
+  single-row DB read. The v0.1 baseline is in `docs/benchmarks/` (code in
+  `bench/`): the router and typed handlers add about 0.3–1.3µs, the default
+  middleware about 3µs, and `db.Find` about 5µs over hand-written
+  `database/sql`. Targets are set from it and tracked from then on.
 - **Rules:** no per-request reflection; bind plans and route data
   precomputed at boot; pooled `Ctx` and buffers; no allocations in the
   router's hot path where avoidable.
@@ -1311,6 +1319,9 @@ unless new information arrives), **Open**, **Superseded**.
 | D77 | Factories are values (`factory.New(func(n int) T)`), with states as `With(func(*T))` returning a new factory, in `db/factory` so seeders can use them; related rows are made explicitly | Accepted | Typed, no reflection or registry; shared base factories can't be mutated by a test; relations stay explicit until relation handles (v0.1.x) |
 | D78 | Response assertions are chainable methods reporting with `t.Errorf`; database assertions and `Create` are generic functions (`AssertDatabaseHas[T](app, conds...)`) | Accepted | Go has no generic methods; `Errorf` shows every failed check of a request at once |
 | D79 | Fakes (clock, mail, queue, events, storage) ship with their features, not in F12 | Accepted | Nothing to fake in v0.1; each fake is designed with the API it replaces |
+| D80 | Pagination links come from `web.PageURL(ctx, n)` (the current URL with `page=n`, other query parameters kept), and a trailing `url.Values` argument gives named-route URLs a query string; no pagination component | Accepted | Found building the blog from the docs alone; keeps filters across pages; markup stays the app's |
+| D81 | `migrate --seed` needs `--force` in production like `db:seed`; plain `migrate` never does | Accepted | Seeding production by accident was possible; migrating on deploy must stay one command |
+| D82 | Every exported identifier of public packages, struct fields and interface methods included, has a doc comment, checked by `make api-docs` in CI | Accepted | The v0.1 exit criterion, kept true by a tool rather than review |
 
 ---
 
@@ -1344,3 +1355,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-09-30 | F10 implemented: §5, §8.6, §9, §12.1, §17.1, §20 updated; D63–D68 added; O7 resolved |
 | 2026-09-30 | F11 implemented: §4, §5, §6, §17 updated; D69–D73 added |
 | 2026-09-30 | F12 implemented: §5, §11, §18 rewritten; D74–D79 added |
+| 2026-09-30 | v0.1 release checks: §7, §11, §12.1, §17.1, §18 corrected against the code; D80–D82 added |

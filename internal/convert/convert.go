@@ -25,9 +25,9 @@ var (
 	textUnmarshalerType = reflect.TypeFor[encoding.TextUnmarshaler]()
 )
 
-// parseBool accepts strconv.ParseBool's forms plus "on"/"off" (what HTML
+// ParseBool accepts strconv.ParseBool's forms plus "on"/"off" (what HTML
 // checkboxes send) and "yes"/"no", in any case.
-func parseBool(raw string) (bool, error) {
+func ParseBool(raw string) (bool, error) {
 	switch strings.ToLower(raw) {
 	case "on", "yes":
 		return true, nil
@@ -72,7 +72,7 @@ func For(t reflect.Type) (Setter, error) {
 		return func(v reflect.Value, raw string) error { v.SetString(raw); return nil }, nil
 	case reflect.Bool:
 		return func(v reflect.Value, raw string) error {
-			b, err := parseBool(raw)
+			b, err := ParseBool(raw)
 			if err != nil {
 				return err
 			}

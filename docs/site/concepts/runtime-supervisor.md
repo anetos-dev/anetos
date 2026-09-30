@@ -15,6 +15,7 @@ happens when something fails, and how everything stops.
 Anything long-running is a **component**:
 
 ```go
+// illustrative (from supervisor/component.go)
 type Component interface {
 	Name() string
 	Run(ctx context.Context) error
@@ -33,12 +34,16 @@ Components declare **roles**. A process can run all of them or only some:
 ```bash
 ./blog run                            # everything: dev and small deployments
 ./blog run --only=http                # web machines
-./blog run --only=workers,listeners   # background machines
+./blog run --only=workers            # background machines
 ```
+
+In v0.1 the web server is the only built-in component with a role
+(`http`); queue workers and listeners bring theirs in v0.2. Your own
+components choose theirs with `anetos.Roles("workers")`.
 
 `run` is the binary's default command (`app.Execute`; see
 [Commands](../guides/commands.md)); in code, pass roles to
-`app.Run(ctx, "workers")`.
+`app.Run(ctx, "http")`.
 
 - Components **without** roles run in every process.
 - Asking for a role no component declares is an error, so typos in `--only`

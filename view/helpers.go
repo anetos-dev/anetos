@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strings"
 
+	"anetos.dev/anetos/internal/convert"
 	"anetos.dev/anetos/session"
 	"anetos.dev/anetos/validate"
 )
@@ -97,6 +98,32 @@ func Old(ctx context.Context, field string, fallback ...string) string {
 		return fallback[0]
 	}
 	return ""
+}
+
+// OldChecked reports whether a checkbox should be checked: after a post
+// that redirected back, whether it was submitted checked (a browser
+// sends nothing for an unchecked box; its first value is read as binding
+// reads it, so "0", "false", "off" and "no" are unchecked); otherwise
+// fallback, the saved value:
+//
+//	<input type="checkbox" name="publish" checked?={ view.OldChecked(ctx, "publish", post.Published) }/>
+//
+// It can't tell which form was posted: on a page with two forms, a failed
+// post of one makes the other's checkboxes unchecked. And a form whose
+// other fields are all passwords or tokens (which aren't kept) looks like
+// no post, so its checkboxes show fallback.
+func OldChecked(ctx context.Context, field string, fallback bool) bool {
+	if s := session.From(ctx); s != nil {
+		if old := s.OldInput(); len(old) > 0 {
+			v := old.Get(field)
+			if v == "" {
+				return false
+			}
+			b, err := convert.ParseBool(v)
+			return err != nil || b // a value that isn't a boolean ("publish") is checked
+		}
+	}
+	return fallback
 }
 
 // Flash returns the flashed string under key ("" if none):

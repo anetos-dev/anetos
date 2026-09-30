@@ -72,8 +72,15 @@ return s.Create("posts", func(t *migrate.Table) {
 })
 ```
 
-Then `go run . migrate`. See [Models](../guides/models.md) and
-[Migrations](../guides/migrations.md).
+Then regenerate the typed columns (`anetos dev` does it on save) and
+create the table:
+
+```sh
+go tool anetos gen ./app/models   # PostCols.Title, PostCols.Body, …
+go run . migrate
+```
+
+See [Models](../guides/models.md) and [Migrations](../guides/migrations.md).
 
 ### 4. Add a page
 
@@ -95,11 +102,26 @@ func (h Posts) Index(c *web.Ctx) error {
 }
 ```
 
+```templ
+// illustrative (views/posts.templ)
+templ PostsIndex(posts []models.Post) {
+	@Layout("Posts") {
+		<h1>Posts</h1>
+		for _, p := range posts {
+			<article><h2>{ p.Title }</h2><p>{ p.Body }</p></article>
+		}
+	}
+}
+```
+
 ```go
 // illustrative
 posts := handlers.Posts{}
 pages.Get("/posts", posts.Index).Name("posts.index")
 ```
+
+Pages of posts (`Paginate` and `web.PageURL`) are in
+[Query the database](../guides/queries.md#3-paginate).
 
 [Render HTML with templ](../guides/views.md) and
 [Handle HTML forms](../guides/forms.md) take it from there.

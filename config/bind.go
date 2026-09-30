@@ -19,6 +19,7 @@ var ErrMissing = errors.New("required but not set")
 // [Bind] calls Validate after all fields are populated, on nested structs
 // first and then on the outer struct.
 type Validator interface {
+	// Validate reports what is wrong with the values, or nil.
 	Validate() error
 }
 
@@ -26,13 +27,15 @@ type Validator interface {
 type FieldError struct {
 	Key   string // environment key, e.g. "DB_PORT"
 	Field string // Go field path, e.g. "Database.Port"
-	Err   error
+	Err   error  // what is wrong: ErrMissing, a parse error, …
 }
 
+// Error implements the error interface.
 func (e *FieldError) Error() string {
 	return fmt.Sprintf("config: %s (%s): %v", e.Key, e.Field, e.Err)
 }
 
+// Unwrap returns Err, for errors.Is and errors.As.
 func (e *FieldError) Unwrap() error { return e.Err }
 
 // Get returns a new T populated from src. See [Bind] for the rules.

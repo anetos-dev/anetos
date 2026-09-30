@@ -307,7 +307,7 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		hp = r.core.build()
 	}
 	if stateFrom(req.Context()) == nil {
-		req = req.WithContext(context.WithValue(req.Context(), stateKey{}, &requestState{core: r.core}))
+		req = req.WithContext(context.WithValue(req.Context(), stateKey{}, &requestState{core: r.core, url: req.URL}))
 	}
 	(*hp).ServeHTTP(w, req)
 }
@@ -416,9 +416,9 @@ func (rt *Route) RouteName() string {
 
 // RouteInfo describes a route, for listings such as `routes:list`.
 type RouteInfo struct {
-	Method  string
-	Pattern string
-	Name    string
+	Method  string // GET, POST, …; "" for any method
+	Pattern string // the path pattern, "/posts/{id}"
+	Name    string // the route's name, "" if unnamed
 }
 
 // Routes lists every registered route in registration order.
@@ -442,7 +442,10 @@ var ErrUnknownRoute = errors.New("web: unknown route name")
 //	u, _ := r.URL("comments.show", 42, 7) // "/posts/42/comments/7"
 //
 // A "{path...}" wildcard keeps its slashes. The number of args must match
-// the number of wildcards.
+// the number of wildcards; a [url.Values] after them becomes the query
+// string:
+//
+//	u, _ := r.URL("posts.index", url.Values{"page": {"2"}}) // "/posts?page=2"
 func (r *Router) URL(name string, args ...any) (string, error) {
 	r.core.mu.RLock()
 	rt, ok := r.core.names[name]
@@ -464,6 +467,12 @@ func (r *Router) MustURL(name string, args ...any) string {
 }
 
 func buildPath(pattern string, args []any) (string, error) {
+	var query url.Values
+	if n := len(args); n > 0 {
+		if q, ok := args[n-1].(url.Values); ok {
+			query, args = q, args[:n-1]
+		}
+	}
 	var b strings.Builder
 	used := 0
 	rest := pattern
@@ -486,6 +495,9 @@ func buildPath(pattern string, args []any) (string, error) {
 		if used >= len(args) {
 			return "", fmt.Errorf("web: pattern %q needs more arguments than the %d given", pattern, len(args))
 		}
+		if _, ok := args[used].(url.Values); ok {
+			return "", fmt.Errorf("web: pattern %q: a url.Values (the query) must be the last argument, after one per wildcard", pattern)
+		}
 		val := fmt.Sprint(args[used])
 		used++
 		if strings.HasSuffix(wild, "...") {
@@ -506,6 +518,10 @@ func buildPath(pattern string, args []any) (string, error) {
 	}
 	if used != len(args) {
 		return "", fmt.Errorf("web: pattern %q takes %d arguments, got %d", pattern, used, len(args))
+	}
+	if len(query) > 0 {
+		b.WriteByte('?')
+		b.WriteString(query.Encode())
 	}
 	return b.String(), nil
 }
@@ -537,6 +553,7 @@ func joinPath(prefix, p string) string {
 type requestState struct {
 	route *Route
 	core  *routerCore
+	url   *url.URL // the request's URL, for PageURL
 }
 
 type stateKey struct{}

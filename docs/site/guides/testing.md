@@ -50,7 +50,9 @@ test ends. The settings, from highest priority:
 1. `anetostest.Env(map[string]string{…})` options;
 2. `APP_ENV=testing` and a random `APP_KEY`;
 3. the process environment;
-4. `.env.testing` next to `go.mod`, if there is one;
+4. `.env.testing` next to `go.mod`, if there is one (for PostgreSQL or
+   MySQL, all the `DB_*` settings: see
+   [Switch a project to PostgreSQL or MySQL](database.md#5-switch-a-project-to-postgresql-or-mysql));
 5. `HTTP_ACCESS_LOG=false`.
 
 `.env` isn't read, and with SQLite and neither `DB_DATABASE` nor `DB_URL`
@@ -174,8 +176,14 @@ anetostest.CreateMany(app, published, 3)
 draft := Posts.Make() // a value, not saved
 ```
 
-Factories live in the `db/factory` package and work outside tests too:
-`Posts.CreateMany(ctx, 50)` in a seeder.
+Put factories where both tests and seeders can import them: projects made
+with `anetos new` have a `database/factories` package for them (the
+examples keep theirs in package `main`). A seeder calls
+`factories.Posts.CreateMany(ctx, 50)`; see [Seed the database](seeders.md).
+
+The sequence number counts up for the whole test binary and never
+resets, so a test's rows aren't numbered from 1: check the values
+`Create` and `CreateMany` return, not "Post 1".
 
 ### 5. Check the database
 
@@ -226,7 +234,10 @@ MySQL commits it on any schema change. Test those paths with
 `anetostest.WithoutTransaction()`.
 
 Requests go straight to the router, without a network: `httptest`
-requests to `http://example.test`, with a cookie jar. `app.Do(req)`
+requests to `http://example.test`, with a cookie jar. They carry no
+`Origin` or `Sec-Fetch-Site` header, like a client that isn't a browser,
+so `web.CSRF` checks only the token; its cross-origin check is covered by
+the framework's own tests. `app.Do(req)`
 sends a request you build, with extra headers:
 
 ```go

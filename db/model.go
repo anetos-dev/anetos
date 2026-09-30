@@ -22,21 +22,21 @@ import (
 //		Title string `db:"title" json:"title"`
 //	}
 type Model struct {
-	ID int64 `db:"id,pk" json:"id"`
+	ID int64 `db:"id,pk" json:"id"` // primary key, set by Create when zero
 	Timestamps
 }
 
 // Timestamps adds created_at and updated_at columns, set automatically by
 // Create, Update and mass updates.
 type Timestamps struct {
-	CreatedAt time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
+	CreatedAt time.Time `db:"created_at" json:"created_at"` // set by Create
+	UpdatedAt time.Time `db:"updated_at" json:"updated_at"` // set by Create, Update and mass updates
 }
 
 // SoftDeletes makes Delete set deleted_at instead of removing the row, and
 // hides deleted rows from queries unless WithTrashed or OnlyTrashed is used.
 type SoftDeletes struct {
-	DeletedAt *time.Time `db:"deleted_at" json:"deleted_at,omitempty"`
+	DeletedAt *time.Time `db:"deleted_at" json:"deleted_at,omitempty"` // nil unless deleted
 }
 
 // Trashed reports whether the row has been soft-deleted.
@@ -46,6 +46,7 @@ func (s SoftDeletes) Trashed() bool { return s.DeletedAt != nil }
 // snake_case plural of the type name (Post → posts, Category →
 // categories).
 type Tabler interface {
+	// TableName returns the table's name. It must not depend on the value.
 	TableName() string
 }
 
@@ -70,6 +71,33 @@ type meta struct {
 	createdAt int            // -1 if none
 	updatedAt int
 	deletedAt int // -1 unless SoftDeletes is embedded
+
+	selectList sync.Map // dialectKey → the quoted column list of SELECT
+}
+
+// selectColumns returns `"table"."a", "table"."b", …` for d, built once
+// per dialect.
+func (m *meta) selectColumns(d Dialect) string {
+	key := dialectKey{reflect.TypeOf(d), d.Name()}
+	if v, ok := m.selectList.Load(key); ok {
+		return v.(string)
+	}
+	var sb strings.Builder
+	for i, c := range m.cols {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(quoteName(d, m.table+"."+c.name))
+	}
+	v, _ := m.selectList.LoadOrStore(key, sb.String())
+	return v.(string)
+}
+
+// dialectKey identifies a dialect's quoting: its type and name, so two
+// dialects sharing a name don't share a cache entry.
+type dialectKey struct {
+	typ  reflect.Type
+	name string
 }
 
 var metas sync.Map // reflect.Type → *meta or error

@@ -124,7 +124,9 @@ func TestDevLoop(t *testing.T) {
 	}
 	waitFor := func(what string, ok func(int, string) bool) {
 		t.Helper()
-		deadline := time.Now().Add(60 * time.Second)
+		// Generous: under `make test` the first build competes with the other
+		// packages' builds and the end-to-end test's go commands.
+		deadline := time.Now().Add(3 * time.Minute)
 		for {
 			code, body := get()
 			if ok(code, body) {
@@ -154,7 +156,7 @@ func TestDevLoop(t *testing.T) {
 		}
 	}()
 	write(t, filepath.Join(dir, "main.go"), strings.Replace(app, "VERSION", "v2", 1))
-	deadline := time.After(60 * time.Second)
+	deadline := time.After(3 * time.Minute)
 	for got := false; !got; {
 		select {
 		case line := <-events:

@@ -31,8 +31,11 @@ import (
 //
 // The public plugin API (roadmap B11) builds on this interface.
 type Provider interface {
+	// Name identifies the provider in logs and errors.
 	Name() string
+	// Register adds the provider's services and commands to a.
 	Register(a *App) error
+	// Boot starts what the provider needs, when the app boots.
 	Boot(ctx context.Context, a *App) error
 }
 

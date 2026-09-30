@@ -3,25 +3,40 @@
 package main
 
 import (
+	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/view"
 	"anetos.dev/anetos/web"
 )
 
-// NotesPage lists the notes.
-templ NotesPage(notes []Note) {
+// region: list
+// NotesPage lists one page of notes, with links to the pages around it.
+templ NotesPage(page db.Page[Note]) {
 	@Layout("All notes") {
 		<h1>Notes</h1>
 		<p><a href={ web.URL(ctx, "notes.new") }>New note</a></p>
-		if len(notes) == 0 {
+		if page.Total == 0 {
 			<p>No notes yet.</p>
 		}
 		<ul class="notes">
-			for _, n := range notes {
+			for _, n := range page.Data {
 				@noteItem(n)
 			}
 		</ul>
+		<nav class="pages">
+			if page.HasPrev() {
+				<a href={ web.PageURL(ctx, min(page.CurrentPage-1, page.LastPage)) } rel="prev">Newer</a>
+			}
+			if page.LastPage > 1 {
+				<span>Page { page.CurrentPage } of { page.LastPage }</span>
+			}
+			if page.HasMore() {
+				<a href={ web.PageURL(ctx, page.CurrentPage+1) } rel="next">Older</a>
+			}
+		</nav>
 	}
 }
+
+// endregion
 
 // region: delete-button
 // noteItem is one note. Its delete form works without JavaScript

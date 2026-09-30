@@ -155,9 +155,9 @@ Goal: the core an application stands on.
 | F11 CLI | ✅ Done 2026-09-30 |
 | F12 Testing helpers | ✅ Done 2026-09-30 |
 
-All v0.1 work packages are done. Before tagging v0.1.0: check the exit
-criteria below (the benchmark baseline, the blog built from the docs
-alone, concept pages), then the v0.1.x relations patch.
+All v0.1 work packages are done, and the exit criteria were checked on
+2026-09-30 (see below). Next: tag v0.1.0, then the v0.1.x relations
+patch.
 
 **Planned patch:** **v0.1.x** adds **relations and eager loading** (has-one,
 has-many, belongs-to, many-to-many, `With(...)`) and the relation handles
@@ -174,6 +174,16 @@ Pop's weak relations were one of the main reasons for this project.
   typed JSON handler, single-row DB read).
 - Every exported identifier has a doc comment, and every component has a
   concept page.
+
+**Exit criteria check (2026-09-30)**
+
+| Criterion | Result |
+|---|---|
+| Blog from the docs alone | ✅ Built by a reader who used only `docs/site`, linked examples and `go doc`, in about 25 minutes, on SQLite and then PostgreSQL. No blockers; the gaps it found (HTML pagination links, switching databases, factory locations, checkboxes) are fixed in the docs and API (D80) |
+| CI green with `-race` | ✅ with a caveat: the repository has no remote yet, so GitHub Actions has never run. The CI steps pass locally on Go 1.26.8 and 1.27.1 against SQLite, PostgreSQL 16, MariaDB 10.11 and MySQL 8.0.46 (8.4, CI's version, couldn't be installed here). MySQL 8.0 caught a test bug MariaDB didn't |
+| Baseline benchmark | ✅ [docs/benchmarks/v0.1-baseline.md](../benchmarks/v0.1-baseline.md) |
+| Doc comments | ✅ enforced by `make api-docs` (D82), fields and interface methods included |
+| Concept pages | ✅ one per component: lifecycle, configuration, runtime supervisor, HTTP requests, validation, data layer, migrations, code generation, commands, server-rendered HTML, testing |
 
 ---
 
@@ -331,3 +341,4 @@ something, and we fix the API rather than add the hook.
 | 2026-09-30 | F10 done |
 | 2026-09-30 | F11 done |
 | 2026-09-30 | F12 done; all v0.1 work packages complete; fakes moved to the v0.2 features they fake |
+| 2026-09-30 | v0.1 exit criteria checked; pagination links, `migrate --seed --force`, concept pages, benchmarks and doc-comment check added |

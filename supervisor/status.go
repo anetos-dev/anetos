@@ -21,6 +21,7 @@ const (
 	StateStopped               // stopped by shutdown
 )
 
+// String returns the state's name, as in logs and status.
 func (s State) String() string {
 	switch s {
 	case StatePending:
@@ -43,11 +44,11 @@ func (s State) String() string {
 
 // ComponentStatus is a point-in-time snapshot of one component.
 type ComponentStatus struct {
-	Name      string
-	Roles     []string
-	Stage     Stage
-	Restart   Restart
-	State     State
+	Name      string    // the component's name
+	Roles     []string  // its roles
+	Stage     Stage     // its shutdown stage
+	Restart   Restart   // its restart policy
+	State     State     // what it is doing
 	Restarts  int       // restarts performed so far
 	LastError error     // most recent failure, if any
 	Since     time.Time // when State was entered

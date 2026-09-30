@@ -21,7 +21,7 @@ import (
 // Err holds an internal cause for logs; it is shown to clients only in debug
 // mode.
 type HTTPError struct {
-	Status  int
+	Status  int               // the HTTP status, 400–599
 	Message string            // client-safe; defaults to the status text
 	Fields  map[string]string // per-field problems, e.g. from binding or validation
 	Err     error             // internal cause
@@ -44,6 +44,7 @@ func (e *HTTPError) Wrap(err error) *HTTPError {
 	return e
 }
 
+// Error implements the error interface.
 func (e *HTTPError) Error() string {
 	msg := e.Message
 	if msg == "" {
@@ -55,6 +56,7 @@ func (e *HTTPError) Error() string {
 	return fmt.Sprintf("%d %s", e.Status, msg)
 }
 
+// Unwrap returns Err, for errors.Is and errors.As.
 func (e *HTTPError) Unwrap() error { return e.Err }
 
 // HTTPStatus implements [StatusCoder].
@@ -64,6 +66,7 @@ func (e *HTTPError) HTTPStatus() int { return e.Status }
 // status without depending on this package, for example a "not found" error
 // in a data layer returning 404.
 type StatusCoder interface {
+	// HTTPStatus returns the status, 400–599 (others are ignored).
 	HTTPStatus() int
 }
 
@@ -71,17 +74,19 @@ type StatusCoder interface {
 // field, such as *[validate.Errors]. The default error handler lists them in
 // the "errors" member of problem responses and in the HTML error page.
 type FieldErrorer interface {
+	// FieldErrors returns a message per field name.
 	FieldErrors() map[string]string
 }
 
 // PanicError is the error passed to the error handler when a handler panics.
 type PanicError struct {
-	Value any
-	Stack []byte
+	Value any    // the value passed to panic
+	Stack []byte // the handler goroutine's stack
 }
 
 func newPanicError(v any) *PanicError { return &PanicError{Value: v, Stack: debug.Stack()} }
 
+// Error implements the error interface.
 func (e *PanicError) Error() string { return fmt.Sprintf("panic: %v", e.Value) }
 
 // StatusOf returns the HTTP status for err: the status of an [HTTPError] or

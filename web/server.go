@@ -25,18 +25,18 @@ import (
 // Config configures the HTTP server. Environment keys use the HTTP_ prefix,
 // for example HTTP_ADDR; see docs/site/reference/configuration.md.
 type Config struct {
-	Addr              string          `env:"ADDR" default:":8080"`
-	ReadHeaderTimeout time.Duration   `env:"READ_HEADER_TIMEOUT" default:"10s"`
-	ReadTimeout       time.Duration   `env:"READ_TIMEOUT" default:"30s"`
-	WriteTimeout      time.Duration   `env:"WRITE_TIMEOUT" default:"30s"`
-	IdleTimeout       time.Duration   `env:"IDLE_TIMEOUT" default:"2m"`
-	ShutdownGrace     time.Duration   `env:"SHUTDOWN_GRACE" default:"15s"`  // wait for in-flight requests before canceling them; capped at half of APP_SHUTDOWN_TIMEOUT
-	RequestTimeout    time.Duration   `env:"REQUEST_TIMEOUT" default:"30s"` // context deadline per request; 0 disables
-	MaxBody           config.ByteSize `env:"MAX_BODY" default:"10MB"`       // 0 disables
-	TrustedProxies    []string        `env:"TRUSTED_PROXIES"`               // IPs or CIDRs whose forwarding headers are trusted
-	AccessLog         bool            `env:"ACCESS_LOG" default:"true"`
-	HealthRoutes      bool            `env:"HEALTH_ROUTES" default:"true"` // GET /health/live and /health/ready
-	CORS              CORSConfig      `prefix:"CORS_"`
+	Addr              string          `env:"ADDR" default:":8080"`              // address to listen on
+	ReadHeaderTimeout time.Duration   `env:"READ_HEADER_TIMEOUT" default:"10s"` // as http.Server's
+	ReadTimeout       time.Duration   `env:"READ_TIMEOUT" default:"30s"`        // as http.Server's
+	WriteTimeout      time.Duration   `env:"WRITE_TIMEOUT" default:"30s"`       // as http.Server's
+	IdleTimeout       time.Duration   `env:"IDLE_TIMEOUT" default:"2m"`         // as http.Server's
+	ShutdownGrace     time.Duration   `env:"SHUTDOWN_GRACE" default:"15s"`      // wait for in-flight requests before canceling them; capped at half of APP_SHUTDOWN_TIMEOUT
+	RequestTimeout    time.Duration   `env:"REQUEST_TIMEOUT" default:"30s"`     // context deadline per request; 0 disables
+	MaxBody           config.ByteSize `env:"MAX_BODY" default:"10MB"`           // 0 disables
+	TrustedProxies    []string        `env:"TRUSTED_PROXIES"`                   // IPs or CIDRs whose forwarding headers are trusted
+	AccessLog         bool            `env:"ACCESS_LOG" default:"true"`         // log every request (health checks at debug level)
+	HealthRoutes      bool            `env:"HEALTH_ROUTES" default:"true"`      // GET /health/live and /health/ready
+	CORS              CORSConfig      `prefix:"CORS_"`                          // HTTP_CORS_*
 }
 
 // Validate implements config.Validator.

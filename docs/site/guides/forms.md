@@ -30,10 +30,10 @@ r := srv.Router()
 r.UseGlobal(web.MethodOverride) // forms can send PUT and DELETE with _method
 r.HandleStd(http.MethodGet, "/assets/{path...}", assets)
 
-h := Notes{store: NewStore()}
+var h Notes
 pages := r.Group("", sessions.Middleware, web.CSRF())
 pages.Get("/", func(c *web.Ctx) error { return c.RedirectRoute("notes.index") })
-pages.Get("/notes", h.Index).Name("notes.index")
+pages.Get("/notes", web.H(h.Index)).Name("notes.index")
 pages.Get("/notes/new", h.New).Name("notes.new")
 pages.Post("/notes", web.H(h.Create)).Name("notes.store")
 pages.Get("/notes/{id}/edit", web.H(h.Edit)).Name("notes.edit")
@@ -43,7 +43,8 @@ pages.Delete("/notes/{id}", web.H(h.Delete)).Name("notes.delete")
 
 (Copied from [`examples/forms`](../../../examples/forms/main.go), region `routes`.)
 
-For every POST, PUT, PATCH and DELETE, `web.CSRF` rejects requests from
+For every POST, PUT, PATCH and DELETE (any method but GET, HEAD, OPTIONS
+and TRACE), `web.CSRF` rejects requests from
 other sites (using the browser's `Sec-Fetch-Site` and `Origin` headers)
 and requires the session's token, from the `_token` field or the
 `X-CSRF-Token` header. Failures are a **403** ("The page has expired.
@@ -102,10 +103,12 @@ templ fieldError(field string) {
 A typed handler with validation rules:
 
 ```go
-func (h Notes) Create(c *web.Ctx, in NoteInput) (web.Responder, error) {
+func (Notes) Create(c *web.Ctx, in NoteInput) (web.Responder, error) {
 	// Invalid input never gets here: the browser is sent back to the form,
 	// which shows the errors and the submitted values.
-	h.store.Add(in.Title, in.Body)
+	if err := db.Create(c, &Note{Title: in.Title, Body: in.Body}); err != nil {
+		return nil, err
+	}
 	c.Session().Flash("status", "Note created.")
 	return web.RedirectRoute("notes.index"), nil
 }
@@ -141,7 +144,9 @@ DELETE from a browser (a navigation, or `Accept: text/html`),
 `web.DefaultErrorHandler` flashes the field errors (in order) and
 `r.PostForm`, and redirects to the page the form was on (its `Referer`).
 On the next request `view.Errors` and `view.Old` read them from the
-session; after that they're gone.
+session; after that they're gone. A custom error handler
+(`web.WithErrorHandler`) keeps this only if it passes validation errors
+on to `web.DefaultErrorHandler`.
 
 htmx requests are the exception: they get the 422, because htmx swaps
 fragments rather than following the redirect to a page. Boosted forms
@@ -185,6 +190,8 @@ See [Test your app](testing.md#2-test-a-form).
 | 405 for a form with `_method=PUT` | `web.MethodOverride` not added, or added with `Use`; or a form with files | `r.UseGlobal(web.MethodOverride)`; for files, `action="/posts/1?_method=PUT"` |
 | Redirected to `/` after a failed post | The browser sent no `Referer` (a `Referrer-Policy` of `no-referrer`) | Keep the default policy (`strict-origin-when-cross-origin`) |
 | An htmx form gets a 422 page | htmx requests aren't redirected back | Use a regular or boosted form, or render the errors yourself |
+| curl or a script gets a 422 page instead of a redirect | It sends `Accept: */*`, so it isn't treated as a browser navigation | Send `Accept: text/html` to test the browser flow |
+| A checkbox is checked again after a failed post | `view.Old` can't tell an unchecked box (not sent) from no post | `checked?={ view.OldChecked(ctx, "publish", post.Published) }` |
 
 ## Next steps
 

@@ -69,3 +69,21 @@ func TestAssets(t *testing.T) {
 		}
 	}
 }
+
+// region: test-pagination
+func TestPagination(t *testing.T) {
+	app := anetostest.New(t, setup)
+	notes := anetostest.CreateMany(app, NoteFactory, 12) // 10 per page, newest first
+	item := func(i int) string { return "<strong>" + notes[i].Title + "</strong>" }
+
+	app.Get("/notes").
+		AssertOK().
+		AssertSee(item(11), item(2), "Page 1 of 2", `href="?page=2"`).
+		AssertDontSee(item(1), `rel="prev"`)
+	app.Get("/notes?page=2").
+		AssertSee(item(1), item(0), `href="?page=1"`).
+		AssertDontSee(item(2), `rel="next"`)
+	app.Get("/notes?page=9").AssertSee(`href="?page=2"`) // past the end: back to the last page
+}
+
+// endregion

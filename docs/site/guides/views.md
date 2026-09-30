@@ -85,6 +85,7 @@ typed handler:
 
 ```go
 // illustrative
+// PostID binds the {id} path parameter: ID int64 `path:"id"`.
 func (h Posts) Show(c *web.Ctx, in PostID) (web.Responder, error) {
 	p, err := db.Find[Post](c, in.ID)
 	if err != nil {
@@ -163,8 +164,14 @@ templ noteItem(n Note) {
 (Copied from [`examples/forms/notes.templ`](../../../examples/forms/notes.templ), region `delete-button`.)
 
 ```go
-func (h Notes) Delete(c *web.Ctx, in NoteID) (web.Responder, error) {
-	h.store.Delete(in.ID)
+func (Notes) Delete(c *web.Ctx, in NoteID) (web.Responder, error) {
+	n, err := db.Find[Note](c, in.ID)
+	if err != nil {
+		return nil, err
+	}
+	if err := db.Delete(c, &n); err != nil {
+		return nil, err
+	}
 	if c.IsHTMX() {
 		// htmx replaces the note's list item with this empty response.
 		return web.Text(http.StatusOK, ""), nil

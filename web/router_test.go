@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 )
@@ -164,6 +165,15 @@ func TestURLGeneration(t *testing.T) {
 	}
 	if u, _ := r.URL("files", "docs/my file.txt"); u != "/files/docs/my%20file.txt" {
 		t.Errorf("wildcard URL = %q", u)
+	}
+	if u, _ := r.URL("comments.show", 1, 2, url.Values{"sort": {"new"}, "q": {"a b&c"}}); u != "/posts/1/comments/2?q=a+b%26c&sort=new" {
+		t.Errorf("URL with query = %q", u)
+	}
+	if _, err := r.URL("comments.show", url.Values{"a": {"1"}}, 2, url.Values{}); err == nil {
+		t.Error("url.Values as a path value accepted")
+	}
+	if u, _ := r.URL("about", url.Values{}); u != "/about/" {
+		t.Errorf("empty query URL = %q", u)
 	}
 	if u, _ := r.URL("about"); u != "/about/" {
 		t.Errorf("trailing slash URL = %q", u)

@@ -125,16 +125,16 @@ func ForApp(app *anetos.App, sets []*Set, opts ...Option) (*Runner, error) {
 
 // Result is one migration applied or rolled back.
 type Result struct {
-	Source string
-	ID     string
-	Took   time.Duration
+	Source string        // the set's source ("app", a plugin's name)
+	ID     string        // the migration's ID, "2026_01_01_120000_create_posts"
+	Took   time.Duration // how long it ran
 }
 
 // Status is the state of one migration.
 type Status struct {
-	Source    string
-	ID        string
-	Applied   bool
+	Source    string    // the set's source
+	ID        string    // the migration's ID
+	Applied   bool      // whether it has run
 	Batch     int       // 0 if pending
 	AppliedAt time.Time // zero if pending
 	// Missing is set for a migration recorded as applied that no set

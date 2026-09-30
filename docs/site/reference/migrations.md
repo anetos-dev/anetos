@@ -140,11 +140,11 @@ Registered on the app by `migrate.ForApp`, so the binary runs them
 
 | Command | Flags | Production |
 |---|---|---|
-| `migrate` | `--seed` | Allowed |
+| `migrate` | `--seed`, `--force` | Allowed; `--seed` needs `--force` |
 | `migrate:status` | | Allowed |
 | `migrate:rollback` | `--step=N` (default 1) | Needs `--force` |
 | `migrate:reset` | | Needs `--force` |
-| `migrate:fresh` | `--seed` | Refused |
+| `migrate:fresh` | `--seed` | Refused (also in staging) |
 | `db:seed` | `--seeder=NAME` | Needs `--force` |
 
 On PostgreSQL and MySQL, runs are serialized with an advisory or named

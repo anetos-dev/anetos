@@ -56,8 +56,8 @@ type Session struct {
 
 // FieldError is a validation message for one form field.
 type FieldError struct {
-	Field   string `json:"f"`
-	Message string `json:"m"`
+	Field   string `json:"f"` // the form field's name
+	Message string `json:"m"` // the message to show
 }
 
 type ctxKey struct{}

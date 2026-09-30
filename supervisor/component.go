@@ -20,7 +20,9 @@ import (
 // normally; returning an error (or panicking) is a failure handled according
 // to the component's [Restart] policy.
 type Component interface {
+	// Name identifies the component in logs and status; unique per app.
 	Name() string
+	// Run does the work until ctx is canceled or the work is done.
 	Run(ctx context.Context) error
 }
 
@@ -28,6 +30,7 @@ type Component interface {
 // ready (for example, an HTTP server that must bind its port). Until Ready
 // returns true, [Supervisor.Ready] reports false.
 type Readier interface {
+	// Ready reports whether the component can take work.
 	Ready() bool
 }
 
@@ -64,6 +67,7 @@ const (
 	StopOnFailure
 )
 
+// String returns the policy's name, as in logs.
 func (r Restart) String() string {
 	switch r {
 	case RestartNever:
@@ -136,11 +140,16 @@ func (b Backoff) delay(n int) time.Duration {
 
 // Spec describes how a component is supervised.
 type Spec struct {
+	// Component is what runs.
 	Component Component
 	// Roles lists the roles this component belongs to (e.g. "http",
 	// "workers"). A component with no roles runs in every process.
-	Roles   []string
-	Stage   Stage
+	Roles []string
+	// Stage orders shutdown: lower stages stop first.
+	Stage Stage
+	// Restart says what happens when Run fails (returns an error or
+	// panics); a nil return is always done.
 	Restart Restart
+	// Backoff spaces restarts; the zero value uses the defaults.
 	Backoff Backoff
 }
