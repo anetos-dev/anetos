@@ -1,0 +1,15 @@
+# Changelog
+
+Changes to the `drivers/mysql` module. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are
+tagged `drivers/mysql/vX.Y.Z`. The framework's own changes are in the
+[root CHANGELOG](../../CHANGELOG.md).
+
+## [Unreleased]
+
+## [0.1.0] - 2026-09-30
+
+### Added
+- MySQL and MariaDB through go-sql-driver/mysql: DSN from `DB_*` or `DB_URL` with `parseTime`, UTC and found-rows settings, named-lock migrations; tested on MySQL 8.0 and MariaDB 10.11 (F7).
+- Runs the `db/dbtest` conformance suite, and a `anetostest` app test
+  (F7, F8, F12).

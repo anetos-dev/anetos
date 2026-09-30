@@ -6,6 +6,18 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-09-30
+
+The foundation: the app kernel, configuration, runtime supervisor, HTTP
+layer, validation, data layer with PostgreSQL, MySQL and SQLite drivers,
+migrations and seeders, model code generation, server-rendered views with
+sessions and forms, the `anetos` developer tool and app-binary commands,
+and testing helpers. This is a private pre-release: the modules still
+point at each other with `replace` directives, so `go install` from the
+module proxy arrives with the public release (roadmap M1b). The driver
+modules and the `cli` module are tagged `drivers/<name>/v0.1.0` and
+`cli/v0.1.0`.
+
 ### Added
 - Planning & roadmap, design document, documentation guide, ADR template.
 - Apache-2.0 `LICENSE` and `NOTICE`.

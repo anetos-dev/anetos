@@ -156,8 +156,10 @@ Goal: the core an application stands on.
 | F12 Testing helpers | ✅ Done 2026-09-30 |
 
 All v0.1 work packages are done, and the exit criteria were checked on
-2026-09-30 (see below). Next: tag v0.1.0, then the v0.1.x relations
-patch.
+2026-09-30 (see below). **v0.1.0 was tagged on 2026-09-30** (a private
+tag: `v0.1.0`, `cli/v0.1.0`, `drivers/{sqlite,postgres,mysql}/v0.1.0`;
+the modules still use `replace` directives until M1b). Next: the v0.1.x
+relations patch.
 
 **Planned patch:** **v0.1.x** adds **relations and eager loading** (has-one,
 has-many, belongs-to, many-to-many, `With(...)`) and the relation handles
@@ -342,3 +344,4 @@ something, and we fix the API rather than add the hook.
 | 2026-09-30 | F11 done |
 | 2026-09-30 | F12 done; all v0.1 work packages complete; fakes moved to the v0.2 features they fake |
 | 2026-09-30 | v0.1 exit criteria checked; pagination links, `migrate --seed --force`, concept pages, benchmarks and doc-comment check added |
+| 2026-09-30 | v0.1.0 tagged |
