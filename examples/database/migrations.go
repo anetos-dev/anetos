@@ -74,7 +74,7 @@ var Seeders = []migrate.Seeder{
 		})
 	}},
 	{Name: "posts", Run: func(ctx context.Context) error {
-		ada, err := db.Query[Author](ctx).Where(db.C("email").Eq("ada@example.com")).First()
+		ada, err := db.Query[Author](ctx).Where(AuthorCols.Email.Eq("ada@example.com")).First()
 		if err != nil {
 			return err
 		}

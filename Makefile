@@ -8,11 +8,11 @@ MODULES  ?= $(patsubst %/go.mod,%,$(shell find . -name go.mod -not -path './.git
 EACH      = for m in $(MODULES); do echo "== $$m"; (cd $$m &&
 DONE      = ) || exit 1; done
 
-.PHONY: all check fmt fmt-check vet lint test test-short cover bench vuln spdx docs-check tidy help
+.PHONY: all check fmt fmt-check vet lint test test-short cover bench vuln spdx docs-check gen-check tidy help
 
 all: check ## Run every check CI runs
 
-check: fmt-check spdx docs-check vet lint test ## fmt, SPDX headers, doc snippets, vet, lint, race tests
+check: fmt-check spdx docs-check gen-check vet lint test ## fmt, SPDX headers, doc snippets, generated code, vet, lint, race tests
 
 fmt: ## Format all Go code
 	gofmt -s -w .
@@ -46,6 +46,9 @@ spdx: ## Check SPDX license headers
 
 docs-check: ## Check doc code blocks match their example regions
 	@$(GO) run ./internal/cmd/docsnippets
+
+gen-check: ## Check generated model columns are up to date
+	@cd examples/database && $(GO) tool anetos gen -check
 
 tidy: ## go mod tidy
 	@$(EACH) $(GO) mod tidy $(DONE)

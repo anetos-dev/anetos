@@ -89,7 +89,18 @@ All notable changes to this project are documented here. The format follows
   `examples/database` uses migrations and seeders; `make docs-check`
   accepts links to example files other than `main.go` (F8).
 
+- `anetos gen` (new `cli` module, `go tool anetos gen`, F9): writes
+  `models_gen.go` with a typed column per field of every model
+  (`PostCols.Title`), using the runtime's column rules; `-check` for CI;
+  `//anetos:model` and `//anetos:skip` directives.
+- `db.JSONCol` (JSON-encoded arguments, decoded by `db.Pluck`),
+  `Column.Of` to qualify a column with a table, and `db.Columns[T]` (F9).
+- Docs: typed columns guide and `anetos gen` reference; the guides and
+  `examples/database` use generated columns (F9).
+
 ### Changed
+- Generated Go files (`// Code generated … DO NOT EDIT.`) are exempt from
+  the SPDX header check; `make check` also runs `gen-check` (F9).
 - Raw SQL without arguments is sent exactly as written (no `?`
   processing) (F8, design D56).
 - A plain error returned from an input's `Validate(ctx)` method is now a 500
@@ -102,3 +113,7 @@ All notable changes to this project are documented here. The format follows
 - Minimum Go version is now 1.26 (the older of the two supported releases);
   code modernized for it (`errors.AsType`, `slices.Backward`,
   `sync.WaitGroup.Go`, …) and the `modernize` linter enabled (design D18).
+
+### Fixed
+- `db.Pluck`, `db.Min` and `db.Max` on `*time.Time` columns return UTC
+  times, and read SQLite's text times (F9).

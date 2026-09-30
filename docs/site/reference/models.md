@@ -30,6 +30,8 @@ How the db package maps a struct to a table. See
 | Unexported field | Not a column |
 
 Two fields mapping to the same column is an error.
+`db.Columns[T]()` lists a model's columns in this order, and
+[`anetos gen`](anetos-gen.md) declares a typed column for each.
 
 ## Tables
 

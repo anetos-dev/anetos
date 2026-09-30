@@ -11,7 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unicode"
+
+	"anetos.dev/anetos/internal/naming"
 )
 
 // Model gives a struct an auto-increment ID and timestamps:
@@ -75,6 +76,7 @@ var metas sync.Map // reflect.Type → *meta or error
 
 var (
 	timeType        = reflect.TypeFor[time.Time]()
+	timePtrType     = reflect.TypeFor[*time.Time]()
 	timestampsType  = reflect.TypeFor[Timestamps]()
 	softDeletesType = reflect.TypeFor[SoftDeletes]()
 	scannerType     = reflect.TypeFor[sql.Scanner]()
@@ -218,6 +220,24 @@ func (m *meta) addFields(t reflect.Type, index []int, seen map[reflect.Type]bool
 	return nil
 }
 
+// Columns returns the column names of model T in field order, with the
+// columns of embedded structs where they are embedded. It is the list
+// `anetos gen` writes typed columns for, and handy for raw SQL:
+//
+//	cols, err := db.Columns[Post]()
+//	sql := "SELECT " + strings.Join(cols, ", ") + " FROM posts WHERE …"
+func Columns[T any]() ([]string, error) {
+	m, err := metaOf(reflect.TypeFor[T]())
+	if err != nil {
+		return nil, err
+	}
+	out := make([]string, len(m.cols))
+	for i, c := range m.cols {
+		out[i] = c.name
+	}
+	return out, nil
+}
+
 // isValueType reports whether a struct type is a single value (time,
 // sql.Null*, or anything that scans itself) rather than a set of columns.
 func isValueType(t reflect.Type) bool {
@@ -299,69 +319,15 @@ func fieldAlloc(v reflect.Value, index []int) reflect.Value {
 	return v
 }
 
-// snake converts a Go name to snake_case: AuthorID → author_id,
-// HTTPStatus → http_status, UserIDs → user_ids.
-func snake(s string) string {
-	runes := []rune(s)
-	var b strings.Builder
-	for i, r := range runes {
-		if unicode.IsUpper(r) && i > 0 {
-			prev := runes[i-1]
-			nextLower := i+1 < len(runes) && unicode.IsLower(runes[i+1])
-			// A plural "s" after an acronym (IDs, URLs) stays with it.
-			pluralAcronym := nextLower && runes[i+1] == 's' && (i+2 == len(runes) || unicode.IsUpper(runes[i+2]))
-			if unicode.IsLower(prev) || unicode.IsDigit(prev) || (unicode.IsUpper(prev) && nextLower && !pluralAcronym) {
-				b.WriteByte('_')
-			}
-		}
-		b.WriteRune(unicode.ToLower(r))
-	}
-	return b.String()
-}
+// snake and plural are shared with `anetos gen` so generated columns
+// always match the runtime's names.
+var (
+	snake  = naming.Snake
+	plural = naming.Plural
+)
 
 // Plural returns the plural the db package uses for table names: it
 // pluralizes the last word of a snake_case name (blog_post → blog_posts,
 // category → categories, person → people). The migrate package uses it to
 // guess referenced tables.
 func Plural(name string) string { return plural(name) }
-
-// plural returns the English plural of a snake_case table name, changing
-// only its last word: category → categories, box → boxes, person →
-// people. Use a TableName method for anything it gets wrong.
-func plural(s string) string {
-	head, word := "", s
-	if i := strings.LastIndexByte(s, '_'); i >= 0 {
-		head, word = s[:i+1], s[i+1:]
-	}
-	if p, ok := irregular[word]; ok {
-		return head + p
-	}
-	switch {
-	case word == "" || strings.HasSuffix(word, "s") && !strings.HasSuffix(word, "ss") &&
-		!strings.HasSuffix(word, "us") && !strings.HasSuffix(word, "is"):
-		return s // already plural (or ends in s like "news")
-	case strings.HasSuffix(word, "y") && len(word) > 1 && !strings.ContainsRune("aeiou", rune(word[len(word)-2])):
-		return head + word[:len(word)-1] + "ies"
-	case strings.HasSuffix(word, "is") && len(word) > 3: // axis → axes, analysis → analyses
-		return head + word[:len(word)-2] + "es"
-	case strings.HasSuffix(word, "ss"), strings.HasSuffix(word, "x"), strings.HasSuffix(word, "z"),
-		strings.HasSuffix(word, "ch"), strings.HasSuffix(word, "sh"), strings.HasSuffix(word, "us"):
-		return head + word + "es"
-	}
-	return head + word + "s"
-}
-
-var irregular = map[string]string{
-	"person": "people", "man": "men", "woman": "women", "child": "children",
-	"mouse": "mice", "goose": "geese", "foot": "feet", "tooth": "teeth",
-	"datum": "data", "medium": "media", "criterion": "criteria",
-	"analysis": "analyses", "index": "indices", "status": "statuses",
-	"quiz": "quizzes", "leaf": "leaves", "life": "lives", "knife": "knives",
-	"wife": "wives", "half": "halves", "info": "info", "equipment": "equipment",
-	"news": "news", "series": "series", "species": "species", "sheep": "sheep",
-	"fish": "fish", "deer": "deer", "data": "data", "metadata": "metadata",
-	"alias": "aliases", "canvas": "canvases", "gas": "gases", "lens": "lenses",
-	"hero": "heroes", "potato": "potatoes", "tomato": "tomatoes", "echo": "echoes",
-	"matrix": "matrices", "vertex": "vertices", "appendix": "appendices",
-	"axis": "axes", "this": "this",
-}

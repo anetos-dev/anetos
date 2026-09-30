@@ -45,7 +45,7 @@ func planFor(t reflect.Type, cols []string) (*scanPlan, error) {
 			return nil, fmt.Errorf("db: scanning into %s needs exactly one column, got %d (%s)", t, len(cols), strings.Join(cols, ", "))
 		}
 		p.value = true
-		p.valueTime = t == timeType
+		p.valueTime = t == timeType || t == timePtrType
 	} else {
 		m, err := metaOf(t)
 		if err != nil {
@@ -60,7 +60,7 @@ func planFor(t reflect.Type, cols []string) (*scanPlan, error) {
 			if ok {
 				c := m.cols[j]
 				p.dest[i] = scanTarget{index: c.index, json: c.json,
-					time: c.typ == timeType || c.typ == reflect.PointerTo(timeType)}
+					time: c.typ == timeType || c.typ == timePtrType}
 			}
 		}
 	}

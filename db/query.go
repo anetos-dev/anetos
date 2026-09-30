@@ -472,7 +472,7 @@ func scalar[V any](ctx context.Context, d *DB, c conn, b *sqlBuilder) (V, error)
 	defer rows.Close()
 	if rows.Next() {
 		var dest any = &out
-		if reflect.TypeFor[V]() == timeType && needsTimeFix(d.dialect) {
+		if vt := reflect.TypeFor[V](); (vt == timeType || vt == timePtrType) && needsTimeFix(d.dialect) {
 			dest = &timeScanner{reflect.ValueOf(&out.V).Elem()}
 		}
 		if err := rows.Scan(dest); err != nil {

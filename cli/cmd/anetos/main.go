@@ -1,0 +1,137 @@
+// SPDX-License-Identifier: Apache-2.0
+
+// Command anetos is Anetos's developer tool. Install it as a tool of your
+// module and run it with go tool:
+//
+//	go get -tool anetos.dev/anetos/cli/cmd/anetos@latest
+//	go tool anetos gen
+//
+// Commands:
+//
+//	gen [-check] [packages]   generate typed columns for models (default ./...)
+//	version                   print the version
+//
+// More commands (new, dev, make:*) arrive with roadmap F11.
+package main
+
+import (
+	"errors"
+	"flag"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"runtime/debug"
+	"strings"
+
+	"anetos.dev/anetos/cli/internal/modelgen"
+)
+
+func main() {
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+}
+
+const usage = `Usage: anetos <command> [arguments]
+
+Commands:
+  gen [-check] [packages]   generate typed columns for models (default ./...)
+  version                   print the version
+
+Run "anetos <command> -h" for a command's flags.
+`
+
+func run(args []string, stdout, stderr io.Writer) int {
+	if len(args) == 0 {
+		fmt.Fprint(stderr, usage)
+		return 2
+	}
+	switch args[0] {
+	case "gen":
+		return gen(args[1:], stdout, stderr)
+	case "version":
+		fmt.Fprintln(stdout, "anetos", version())
+		return 0
+	case "help", "-h", "-help", "--help":
+		fmt.Fprint(stdout, usage)
+		return 0
+	}
+	fmt.Fprintf(stderr, "anetos: unknown command %q\n\n%s", args[0], usage)
+	return 2
+}
+
+func gen(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("anetos gen", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	check := fs.Bool("check", false, "don't write; exit with status 1 if any generated file is out of date")
+	fs.Usage = func() {
+		fmt.Fprint(stderr, `Usage: anetos gen [-check] [packages]
+
+Writes models_gen.go in each package with models, declaring the typed
+columns of every model (PostCols for Post). A model is a struct that embeds
+db.Model, db.Timestamps or db.SoftDeletes, has a TableName method, or has a
+//anetos:model comment; //anetos:skip excludes one. Packages default to ./...
+
+Flags:
+`)
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		return 2
+	}
+	dir, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintln(stderr, "anetos gen:", err)
+		return 1
+	}
+	changes, err := modelgen.Generate(dir, fs.Args()...)
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	if *check {
+		for _, c := range changes {
+			fmt.Fprintf(stderr, "anetos gen: %s is out of date\n", rel(dir, c.Path))
+		}
+		if len(changes) > 0 {
+			fmt.Fprintln(stderr, "anetos gen: run `go tool anetos gen` and commit the result")
+			return 1
+		}
+		return 0
+	}
+	if err := modelgen.Apply(changes); err != nil {
+		fmt.Fprintln(stderr, "anetos gen:", err)
+		return 1
+	}
+	for _, c := range changes {
+		if c.Content == nil {
+			fmt.Fprintf(stdout, "removed %s (no models left)\n", rel(dir, c.Path))
+		} else {
+			fmt.Fprintf(stdout, "wrote %s (%s)\n", rel(dir, c.Path), strings.Join(c.Models, ", "))
+		}
+	}
+	return 0
+}
+
+func rel(dir, path string) string {
+	if r, err := filepath.Rel(dir, path); err == nil {
+		return r
+	}
+	return path
+}
+
+func version() string {
+	if bi, ok := debug.ReadBuildInfo(); ok {
+		for _, d := range bi.Deps {
+			if d.Path == "anetos.dev/anetos/cli" {
+				return d.Version
+			}
+		}
+		if bi.Main.Path == "anetos.dev/anetos/cli" {
+			return bi.Main.Version
+		}
+	}
+	return "(devel)"
+}

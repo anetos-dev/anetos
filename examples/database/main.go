@@ -53,14 +53,10 @@ type Post struct {
 	PublishedAt    *time.Time `db:"published_at" json:"published_at"` // nullable
 }
 
-// Typed columns for conditions and ordering. Model code generation
-// (roadmap F9) will write these for you.
-var (
-	authorID    = db.Col[int64]("author_id")
-	title       = db.Col[string]("title")
-	views       = db.Col[int]("views")
-	publishedAt = db.Col[*time.Time]("published_at")
-)
+// AuthorCols and PostCols, the typed columns of the models, are in
+// models_gen.go, written by `go tool anetos gen` (or go generate).
+//
+//go:generate go tool anetos gen
 
 // endregion
 
@@ -96,7 +92,6 @@ type PostID struct {
 	ID int64 `path:"id"`
 }
 
-// region: handlers
 // Blog holds the handlers. It needs no database field: queries find the
 // database in the request context.
 type Blog struct{}
@@ -121,22 +116,25 @@ func (Blog) CreatePost(c *web.Ctx, in NewPost) (web.Responder, error) {
 	return web.Created(p), nil
 }
 
+// region: list-posts
 func (Blog) ListPosts(c *web.Ctx, in ListPosts) (db.Page[Post], error) {
-	q := db.Query[Post](c).Where(publishedAt.NotNull())
+	q := db.Query[Post](c).Where(PostCols.PublishedAt.NotNull())
 	if in.Search != "" {
-		q = q.Where(title.Like("%" + in.Search + "%"))
+		q = q.Where(PostCols.Title.Like("%" + in.Search + "%"))
 	}
 	if in.Author != nil {
-		q = q.Where(authorID.Eq(*in.Author))
+		q = q.Where(PostCols.AuthorID.Eq(*in.Author))
 	}
 	return q.Latest().Paginate(in.Page, in.PerPage)
 }
+
+// endregion
 
 func (Blog) ShowPost(c *web.Ctx, in PostID) (Post, error) {
 	// Count the view and read the post in one transaction.
 	var p Post
 	err := db.Tx(c, func(ctx context.Context) error {
-		if _, err := db.Query[Post](ctx).Where(db.C("id").Eq(in.ID)).Update(views.SetRaw("views + 1")); err != nil {
+		if _, err := db.Query[Post](ctx).Where(PostCols.ID.Eq(in.ID)).Update(PostCols.Views.SetRaw("views + 1")); err != nil {
 			return err
 		}
 		var err error
@@ -156,8 +154,6 @@ func (Blog) DeletePost(c *web.Ctx, in PostID) (web.Responder, error) {
 	}
 	return web.NoContent(), nil
 }
-
-// endregion
 
 // region: raw
 // AuthorStats is one row of GET /stats.

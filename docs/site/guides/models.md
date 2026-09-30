@@ -37,14 +37,10 @@ type Post struct {
 	PublishedAt    *time.Time `db:"published_at" json:"published_at"` // nullable
 }
 
-// Typed columns for conditions and ordering. Model code generation
-// (roadmap F9) will write these for you.
-var (
-	authorID    = db.Col[int64]("author_id")
-	title       = db.Col[string]("title")
-	views       = db.Col[int]("views")
-	publishedAt = db.Col[*time.Time]("published_at")
-)
+// AuthorCols and PostCols, the typed columns of the models, are in
+// models_gen.go, written by `go tool anetos gen` (or go generate).
+//
+//go:generate go tool anetos gen
 ```
 
 (Copied from [`examples/database`](../../../examples/database/main.go), region `models`.)
@@ -63,6 +59,8 @@ var (
   another.
 - Use pointers (or `sql.Null[T]`) for nullable columns, and
   `db:"name,json"` to store a value as JSON.
+- `go tool anetos gen` writes the typed columns (`PostCols.Title`) that
+  queries use; see [Generate typed columns](code-generation.md).
 
 All the tag options and naming rules are in the
 [models reference](../reference/models.md).
@@ -152,6 +150,7 @@ directly.
 
 ## Next steps
 
+- [Generate typed columns](code-generation.md)
 - [Query data](queries.md)
 - [Transactions](transactions.md)
 - [Models reference](../reference/models.md)

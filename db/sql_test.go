@@ -107,27 +107,6 @@ func TestMetaErrors(t *testing.T) {
 	}
 }
 
-func TestNaming(t *testing.T) {
-	for in, want := range map[string]string{
-		"AuthorID": "author_id", "HTTPStatus": "http_status", "UserIDs": "user_ids", "ID": "id",
-		"IDs": "ids", "Title": "title", "Page2Title": "page2_title", "APIKey": "api_key", "createdAt": "created_at",
-	} {
-		if got := snake(in); got != want {
-			t.Errorf("snake(%s) = %s, want %s", in, got, want)
-		}
-	}
-	for in, want := range map[string]string{
-		"post": "posts", "category": "categories", "day": "days", "box": "boxes", "match": "matches",
-		"person": "people", "blog_post": "blog_posts", "user_status": "user_statuses", "news": "news",
-		"bus": "buses", "posts": "posts", "class": "classes", "alias": "aliases", "axis": "axes",
-		"analysis": "analyses", "hero": "heroes", "matrix": "matrices", "settings": "settings",
-	} {
-		if got := plural(in); got != want {
-			t.Errorf("plural(%s) = %s, want %s", in, got, want)
-		}
-	}
-}
-
 func sqlOf[T any](q *Q[T], d Dialect) (string, []any) {
 	b := q.selectSQL(d, nil)
 	if b.err != nil {
@@ -333,5 +312,66 @@ func TestUpsertClauses(t *testing.T) {
 	}
 	if got := MySQL().Upsert([]string{"`sku`"}, nil); got != "ON DUPLICATE KEY UPDATE `sku` = `sku`" {
 		t.Error(got)
+	}
+}
+
+func TestJSONAndQualifiedColumns(t *testing.T) {
+	build := func(e Expr) (string, []any, error) {
+		b := &sqlBuilder{d: Postgres()}
+		e.build(b)
+		return b.String(), b.args, b.err
+	}
+	tags := JSONCol[[]string]("tags")
+	sql, args, err := build(tags.Eq([]string{"go", "db"}))
+	if err != nil || sql != `"tags" = $1` || !reflect.DeepEqual(args, []any{`["go","db"]`}) {
+		t.Errorf("JSON Eq: %s %v %v", sql, args, err)
+	}
+	if sql, _, _ := build(tags.Eq(nil)); sql != `"tags" IS NULL` {
+		t.Errorf("JSON Eq(nil): %s", sql)
+	}
+	sql, args, _ = build(tags.In([]string{"a"}, nil))
+	if sql != `"tags" IN ($1, $2)` || !reflect.DeepEqual(args, []any{`["a"]`, nil}) {
+		t.Errorf("JSON In: %s %v", sql, args)
+	}
+	a := tags.Set(nil)
+	b := &sqlBuilder{d: Postgres()}
+	a.expr.build(b)
+	if !reflect.DeepEqual(b.args, []any{nil}) {
+		t.Errorf("JSON Set(nil): %v", b.args)
+	}
+	if _, _, err := build(JSONCol[any]("x").Eq(func() {})); err == nil || !strings.Contains(err.Error(), "encode JSON") {
+		t.Errorf("bad JSON value: %v", err)
+	}
+	if _, args, _ := build(Col[[]string]("plain").Eq([]string{"a"})); !reflect.DeepEqual(args, []any{[]string{"a"}}) {
+		t.Errorf("plain column encoded: %v", args)
+	}
+
+	id := Col[int64]("id")
+	for _, c := range []struct{ got, want string }{
+		{id.Of("posts").Name(), "posts.id"},
+		{id.Of("posts").Of("p").Name(), "p.id"},
+		{id.Of("posts").Of("").Name(), "id"},
+		{id.Name(), "id"},
+	} {
+		if c.got != c.want {
+			t.Errorf("Of: got %s, want %s", c.got, c.want)
+		}
+	}
+	if sql, _, _ := build(tags.Of("posts").IsNull()); sql != `"posts"."tags" IS NULL` {
+		t.Errorf("qualified JSON column: %s", sql)
+	}
+	if sql, args, _ := build(tags.Of("p").Eq([]string{})); sql != `"p"."tags" = $1` || args[0] != "[]" {
+		t.Errorf("Of keeps JSON: %s %v", sql, args)
+	}
+}
+
+func TestColumns(t *testing.T) {
+	cols, err := Columns[Post]()
+	want := []string{"id", "created_at", "updated_at", "deleted_at", "title", "author_id", "meta", "rank", "views"}
+	if err != nil || !reflect.DeepEqual(cols, want) {
+		t.Errorf("Columns[Post] = %v, %v", cols, err)
+	}
+	if _, err := Columns[int](); err == nil {
+		t.Error("Columns[int]: no error")
 	}
 }

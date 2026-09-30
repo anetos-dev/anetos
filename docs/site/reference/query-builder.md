@@ -38,8 +38,20 @@ Each method returns a new query; the original is unchanged.
 | `db.And(...)`, `db.Or(...)`, `db.Not(c)` | Grouped with parentheses; `And()` is true, `Or()` is false |
 | `db.SQL(sql, args...)` | Any SQL, with `?` or `:name` placeholders |
 
-`db.Col[T]("name")` makes a typed column (`"table.name"` qualifies it);
-`db.C("name")` an untyped one.
+## Columns
+
+`go tool anetos gen` declares `PostCols` with a typed column per field of
+model `Post` ([Generate typed columns](../guides/code-generation.md)). By
+hand:
+
+| Function or method | Makes |
+|---|---|
+| `db.Col[T]("name")` | A typed column; `"table.name"` qualifies it. `T` is the Go field's type (`*time.Time` for a nullable timestamp) |
+| `db.JSONCol[T]("name")` | A column stored as JSON: values passed to its methods are encoded as JSON (nil stays `NULL`), and `db.Pluck` decodes them |
+| `db.C("name")` | An untyped column (`Column[any]`) |
+| `col.Of("posts")` | The same column qualified with a table (`posts.name`); `Of("")` removes the qualifier |
+| `col.Name()` | The column name |
+| `db.Columns[T]()` | Model `T`'s column names in field order, or an error if `T` isn't a model struct |
 
 ## Reading
 
@@ -53,7 +65,7 @@ Each method returns a new query; the original is unchanged.
 | `Exists()` | `bool` |
 | `Paginate(page, perPage)` | `db.Page[T]`: `data`, `current_page`, `per_page`, `total`, `last_page`; `HasMore()` |
 | `CursorPaginate(cursor, perPage)` | `db.CursorPage[T]`: `data`, `per_page`, `next_cursor`, `prev_cursor`; `db.ErrInvalidCursor` (400) for malformed cursors |
-| `db.Pluck(q, col)` | `[]V`, one column |
+| `db.Pluck(q, col)` | `[]V`, one column (decoded from JSON for a `db.JSONCol`) |
 | `db.Sum(q, col)`, `db.Min`, `db.Max` | `V`; zero if no rows match. `Limit` and `Offset` are respected, `Distinct` is ignored (write `SUM(DISTINCT x)` with `db.Select`); with `GroupBy`, use `db.Select` |
 | `db.Avg(q, col)` | `float64` |
 | `db.Select[R](q, terms...)` | `[]R`, for custom SELECT terms (`"COUNT(*) AS posts"`) |

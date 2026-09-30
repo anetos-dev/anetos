@@ -48,7 +48,7 @@ jobs:
         with:
           go-version: ${{ matrix.go-version }}
           go-version-file: ${{ matrix.go-version-file }}
-      - run: make fmt-check spdx docs-check vet
+      - run: make fmt-check spdx docs-check gen-check vet
       - run: make test
 
   lint:

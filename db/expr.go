@@ -3,6 +3,7 @@
 package db
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -22,6 +23,13 @@ func (b *sqlBuilder) write(s string) { b.sb.WriteString(s) }
 func (b *sqlBuilder) name(n string) { b.sb.WriteString(quoteName(b.d, n)) }
 
 func (b *sqlBuilder) arg(v any) {
+	if j, ok := v.(jsonValue); ok {
+		text, err := json.Marshal(j.v)
+		if err != nil {
+			b.fail(fmt.Errorf("db: encode JSON argument: %w", err))
+		}
+		v = string(text)
+	}
 	b.args = append(b.args, v)
 	b.sb.WriteString(b.d.Placeholder(len(b.args)))
 }
@@ -68,41 +76,82 @@ type Expr interface {
 // Column is a typed reference to a column, used to build conditions,
 // orderings and assignments that the compiler checks:
 //
-//	var title = db.Col[string]("title")
-//	posts, err := db.Query[Post](ctx).Where(title.Like("%go%")).OrderBy(title.Asc()).Get()
+//	posts, err := db.Query[Post](ctx).
+//		Where(models.PostCols.Title.Like("%go%")).
+//		OrderBy(models.PostCols.Title.Asc()).
+//		Get()
 //
-// Model code generation (roadmap F9) will declare these for every model;
-// until then, declare the ones you use, or use [C] for an untyped column.
-type Column[T any] struct{ name string }
+// `anetos gen` declares the columns of every model (see the model code
+// generation guide). Declare others with [Col] or [JSONCol], or use [C]
+// for an untyped column. T is the type of the model field, so a nullable
+// column is a Column[*time.Time] and compares with new(t).
+type Column[T any] struct {
+	name string
+	json bool
+}
 
 // Col returns a column reference. name may be qualified: "posts.title".
-func Col[T any](name string) Column[T] { return Column[T]{name} }
+func Col[T any](name string) Column[T] { return Column[T]{name: name} }
+
+// JSONCol returns a reference to a column stored as JSON (a `db:",json"`
+// field): values given to its methods are encoded as JSON, and [Pluck]
+// decodes them.
+func JSONCol[T any](name string) Column[T] { return Column[T]{name: name, json: true} }
 
 // C returns an untyped column reference, for quick queries:
 //
 //	db.Query[Post](ctx).Where(db.C("author_id").Eq(id))
-func C(name string) Column[any] { return Column[any]{name} }
+func C(name string) Column[any] { return Column[any]{name: name} }
 
 // Name returns the column name.
 func (c Column[T]) Name() string { return c.name }
 
+// Of returns the column qualified with table (replacing any qualifier;
+// "" removes it), for queries with joins:
+//
+//	db.Query[Post](ctx).Join("JOIN authors ON authors.id = posts.author_id").
+//		Where(models.PostCols.ID.Of("posts").Gt(100))
+func (c Column[T]) Of(table string) Column[T] {
+	name := c.name
+	if i := strings.LastIndexByte(name, '.'); i >= 0 {
+		name = name[i+1:]
+	}
+	c.name = name
+	if table != "" {
+		c.name = table + "." + name
+	}
+	return c
+}
+
+// val returns the query argument for v: JSON columns encode it, and
+// keep nil as NULL.
+func (c Column[T]) val(v T) any {
+	if !c.json {
+		return v
+	}
+	if isNil(v) {
+		return nil
+	}
+	return jsonValue{v}
+}
+
 // Eq is column = v.
-func (c Column[T]) Eq(v T) Expr { return cmpExpr{c.name, "=", v} }
+func (c Column[T]) Eq(v T) Expr { return cmpExpr{c.name, "=", c.val(v)} }
 
 // Ne is column <> v.
-func (c Column[T]) Ne(v T) Expr { return cmpExpr{c.name, "<>", v} }
+func (c Column[T]) Ne(v T) Expr { return cmpExpr{c.name, "<>", c.val(v)} }
 
 // Gt is column > v.
-func (c Column[T]) Gt(v T) Expr { return cmpExpr{c.name, ">", v} }
+func (c Column[T]) Gt(v T) Expr { return cmpExpr{c.name, ">", c.val(v)} }
 
 // Gte is column >= v.
-func (c Column[T]) Gte(v T) Expr { return cmpExpr{c.name, ">=", v} }
+func (c Column[T]) Gte(v T) Expr { return cmpExpr{c.name, ">=", c.val(v)} }
 
 // Lt is column < v.
-func (c Column[T]) Lt(v T) Expr { return cmpExpr{c.name, "<", v} }
+func (c Column[T]) Lt(v T) Expr { return cmpExpr{c.name, "<", c.val(v)} }
 
 // Lte is column <= v.
-func (c Column[T]) Lte(v T) Expr { return cmpExpr{c.name, "<=", v} }
+func (c Column[T]) Lte(v T) Expr { return cmpExpr{c.name, "<=", c.val(v)} }
 
 // Like is column LIKE pattern. Case sensitivity follows the database
 // (PostgreSQL is case-sensitive; MySQL and SQLite usually aren't for ASCII).
@@ -112,13 +161,13 @@ func (c Column[T]) Like(pattern string) Expr { return cmpExpr{c.name, "LIKE", pa
 func (c Column[T]) NotLike(pattern string) Expr { return cmpExpr{c.name, "NOT LIKE", pattern} }
 
 // In is column IN (vs…). An empty list matches nothing.
-func (c Column[T]) In(vs ...T) Expr { return inExpr{c.name, toAny(vs), false} }
+func (c Column[T]) In(vs ...T) Expr { return inExpr{c.name, c.vals(vs), false} }
 
 // NotIn is column NOT IN (vs…). An empty list matches everything.
-func (c Column[T]) NotIn(vs ...T) Expr { return inExpr{c.name, toAny(vs), true} }
+func (c Column[T]) NotIn(vs ...T) Expr { return inExpr{c.name, c.vals(vs), true} }
 
 // Between is column BETWEEN lo AND hi (inclusive).
-func (c Column[T]) Between(lo, hi T) Expr { return betweenExpr{c.name, lo, hi} }
+func (c Column[T]) Between(lo, hi T) Expr { return betweenExpr{c.name, c.val(lo), c.val(hi)} }
 
 // IsNull is column IS NULL.
 func (c Column[T]) IsNull() Expr { return nullExpr{c.name, false} }
@@ -132,8 +181,9 @@ func (c Column[T]) Asc() Order { return Order{col: c.name} }
 // Desc orders by the column, descending.
 func (c Column[T]) Desc() Order { return Order{col: c.name, desc: true} }
 
-// Set assigns v to the column in [Q.Update].
-func (c Column[T]) Set(v T) Assignment { return Assignment{col: c.name, expr: valueExpr{v}} }
+// Set assigns v to the column in [Q.Update]. A nil pointer, map or slice
+// sets NULL.
+func (c Column[T]) Set(v T) Assignment { return Assignment{col: c.name, expr: valueExpr{c.val(v)}} }
 
 // SetRaw assigns a SQL expression (with ? placeholders) to the column:
 //
@@ -142,13 +192,16 @@ func (c Column[T]) SetRaw(sql string, args ...any) Assignment {
 	return Assignment{col: c.name, expr: SQL(sql, args...)}
 }
 
-func toAny[T any](vs []T) []any {
+func (c Column[T]) vals(vs []T) []any {
 	out := make([]any, len(vs))
 	for i, v := range vs {
-		out[i] = v
+		out[i] = c.val(v)
 	}
 	return out
 }
+
+// jsonValue is an argument encoded as JSON text when the query is built.
+type jsonValue struct{ v any }
 
 type cmpExpr struct {
 	col string

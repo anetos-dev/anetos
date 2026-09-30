@@ -133,7 +133,7 @@ func setTime(v reflect.Value, m *meta, col int, t time.Time, onlyIfZero bool) {
 	switch f.Type() {
 	case timeType:
 		f.Set(reflect.ValueOf(t))
-	case reflect.PointerTo(timeType):
+	case timePtrType:
 		f.Set(reflect.ValueOf(&t))
 	}
 }

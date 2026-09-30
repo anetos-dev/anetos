@@ -3,6 +3,7 @@
 package db
 
 import (
+	"database/sql"
 	"fmt"
 	"strings"
 )
@@ -57,7 +58,8 @@ func aggregate[V, T any](q *Q[T], fn, col string) (V, error) {
 	return scalar[V](q.ctx, d, c, b)
 }
 
-// Pluck returns the values of one column of the matching rows:
+// Pluck returns the values of one column of the matching rows. Columns
+// made with [JSONCol] are decoded from JSON.
 //
 //	emails, err := db.Pluck(db.Query[User](ctx).Where(active), db.Col[string]("email"))
 func Pluck[V, T any](q *Q[T], col Column[V]) ([]V, error) {
@@ -70,7 +72,31 @@ func Pluck[V, T any](q *Q[T], col Column[V]) ([]V, error) {
 		return nil, b.err
 	}
 	rows, err := d.query(q.ctx, c, b.String(), b.args)
+	if col.json {
+		return collectJSON[V](rows, err)
+	}
 	return collect[V](d, rows, err)
+}
+
+// collectJSON decodes every row's single JSON column into a []V; NULL is
+// V's zero value.
+func collectJSON[V any](rows *sql.Rows, err error) ([]V, error) {
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []V{}
+	for rows.Next() {
+		var v V
+		if err := rows.Scan(&jsonScanner{&v}); err != nil {
+			return nil, fmt.Errorf("db: scan: %w", err)
+		}
+		out = append(out, v)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return out, rows.Close()
 }
 
 // Select runs the query with the given SELECT terms (written in SQL) and

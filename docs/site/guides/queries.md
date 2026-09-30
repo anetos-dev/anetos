@@ -16,28 +16,23 @@ update or delete in bulk.
 
 ### 1. Build a query
 
-`db.Query[T](ctx)` starts a query on `T`'s table. Conditions use typed
-columns, so `views.Eq("ten")` doesn't compile:
+`db.Query[T](ctx)` starts a query on `T`'s table. Conditions use the
+typed columns that [`anetos gen`](code-generation.md) writes for each
+model, so `PostCols.Views.Eq("ten")` doesn't compile:
 
 ```go
 // illustrative
-var (
-	title = db.Col[string]("title")
-	views = db.Col[int]("views")
-)
-
 posts, err := db.Query[Post](ctx).
-	Where(title.Like("%go%"), views.Gte(100)).  // AND
-	Where(db.Or(authorID.Eq(1), authorID.Eq(2))).
-	OrderBy(views.Desc()).
+	Where(PostCols.Title.Like("%go%"), PostCols.Views.Gte(100)). // AND
+	Where(db.Or(PostCols.AuthorID.Eq(1), PostCols.AuthorID.Eq(2))).
+	OrderBy(PostCols.Views.Desc()).
 	Limit(20).
 	Get()
 ```
 
-Declare the columns you use once, next to the model, as
-[`examples/database`](../../../examples/database/main.go) does; model code
-generation (roadmap F9) will write them for you. For a quick query,
-`db.C("views")` is an untyped column.
+A column has its field's type: compare a nullable `*time.Time` column
+with `new(t)`. For a quick query, `db.C("views")` is an untyped column,
+and `db.Col[int]("views")` declares a typed one by hand.
 
 Columns have `Eq`, `Ne`, `Gt`, `Gte`, `Lt`, `Lte`, `In`, `NotIn`,
 `Between`, `Like`, `NotLike`, `IsNull` and `NotNull`. Combine conditions
@@ -49,7 +44,7 @@ keeps the context it was started with; `WithContext` changes it):
 
 ```go
 // illustrative
-published := db.Query[Post](ctx).Where(publishedAt.NotNull())
+published := db.Query[Post](ctx).Where(PostCols.PublishedAt.NotNull())
 latest, err := published.Latest().Limit(5).Get()
 total, err := published.Count()
 ```
@@ -83,7 +78,7 @@ depth and never repeats or skips rows as new ones arrive:
 
 ```go
 // illustrative
-page, err := db.Query[Post](ctx).OrderBy(createdAt.Desc()).CursorPaginate(in.Cursor, 20)
+page, err := db.Query[Post](ctx).OrderBy(PostCols.CreatedAt.Desc()).CursorPaginate(in.Cursor, 20)
 // page.NextCursor and page.PrevCursor go back to the client
 ```
 
@@ -104,17 +99,19 @@ stats, err := db.Select[authorStats](
 	"author_id", "COUNT(*) AS posts")
 ```
 
-For joins across several tables, [raw SQL](raw-sql.md) is often clearer.
+With a `Join`, qualify columns that both tables have:
+`PostCols.ID.Of("posts")` is `posts.id`. For joins across several tables,
+[raw SQL](raw-sql.md) is often clearer.
 
 ### 5. Update or delete many rows
 
 ```go
 // illustrative
-n, err := db.Query[Post](ctx).Where(authorID.Eq(id)).Update(
-	title.Set("[removed]"),
-	views.SetRaw("views + ?", 1))
+n, err := db.Query[Post](ctx).Where(PostCols.AuthorID.Eq(id)).Update(
+	PostCols.Title.Set("[removed]"),
+	PostCols.Views.SetRaw("views + ?", 1))
 
-n, err = db.Query[Post](ctx).Where(views.Eq(0)).Delete() // soft delete for SoftDeletes models
+n, err = db.Query[Post](ctx).Where(PostCols.Views.Eq(0)).Delete() // soft delete for SoftDeletes models
 ```
 
 Mass updates set `updated_at`; they don't run model hooks.
@@ -123,7 +120,7 @@ Mass updates set `updated_at`; they don't run model hooks.
 
 ```go
 // illustrative
-func Popular(q *db.Q[Post]) *db.Q[Post] { return q.Where(views.Gte(1000)) }
+func Popular(q *db.Q[Post]) *db.Q[Post] { return q.Where(PostCols.Views.Gte(1000)) }
 
 posts, err := db.Query[Post](ctx).Scope(Popular).Get()
 ```
@@ -141,7 +138,7 @@ SQL text. Soft-deleted rows are excluded unless you call `WithTrashed()`
 or `OnlyTrashed()`. Every method is listed in the
 [query builder reference](../reference/query-builder.md).
 
-> **Coming from Laravel?** `Where(title.Like(…))` is `where('title',
+> **Coming from Laravel?** `Where(PostCols.Title.Like(…))` is `where('title',
 > 'like', …)`, `Paginate` is `paginate`, and scopes are plain functions
 > instead of `scopeX` methods. There is no lazy loading; relations and
 > eager loading (`With`) arrive in v0.1.x.
