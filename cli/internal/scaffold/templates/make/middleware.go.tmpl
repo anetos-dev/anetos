@@ -1,0 +1,14 @@
+package middleware
+
+import "net/http"
+
+// [[.Type]] is HTTP middleware. Add it to a group in routes/web.go:
+//
+//	admin := r.Group("/admin", middleware.[[.Type]])
+func [[.Type]](next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Before the handler.
+		next.ServeHTTP(w, r)
+		// After the handler.
+	})
+}

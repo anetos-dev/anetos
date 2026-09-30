@@ -12,10 +12,39 @@ import (
 	"time"
 
 	"anetos.dev/anetos"
+	"anetos.dev/anetos/cmd"
 )
 
 // Commands lists the command names [Runner.Command] handles.
 var Commands = []string{"migrate", "migrate:rollback", "migrate:reset", "migrate:fresh", "migrate:status", "db:seed"}
+
+var commandHelp = map[string][2]string{ // usage, description
+	"migrate":          {"[--seed]", "Run pending migrations (then the seeders)"},
+	"migrate:rollback": {"[--step=N] [--force]", "Roll back the last batch of migrations, or N batches"},
+	"migrate:reset":    {"[--force]", "Roll back every migration"},
+	"migrate:fresh":    {"[--seed]", "Drop all tables and migrate again (development and testing only)"},
+	"migrate:status":   {"", "List migrations and whether they ran"},
+	"db:seed":          {"[--seeder=NAME] [--force]", "Run the seeders, or one"},
+}
+
+// AppCommands returns the migration commands as commands of the app
+// binary. [ForApp] registers them, so `./app migrate` works with
+// app.Execute.
+func (r *Runner) AppCommands() []cmd.Command {
+	out := make([]cmd.Command, 0, len(Commands))
+	for _, name := range Commands {
+		out = append(out, cmd.Command{
+			Name:        name,
+			Usage:       commandHelp[name][0],
+			Description: commandHelp[name][1],
+			Run: func(ctx context.Context, args *cmd.Args) error {
+				_, err := r.Command(ctx, append([]string{name}, args.Args...), args.Stdout)
+				return err
+			},
+		})
+	}
+	return out
+}
 
 // Command runs a migration command given as command-line arguments, such
 // as os.Args[1:], printing progress to out. It reports handled=false
@@ -37,17 +66,18 @@ var Commands = []string{"migrate", "migrate:rollback", "migrate:reset", "migrate
 //	db:seed [--seeder=NAME]        run all seeders, or one
 //
 // In production, rollback, reset and db:seed also need --force. Flags a
-// command doesn't take are errors; -h prints a command's flags.
+// command doesn't take are errors (wrapping cmd.ErrUsage); -h prints a
+// command's flags.
 //
-// The app binary's command framework (roadmap F11) will register these as
-// regular commands.
+// Apps using app.Execute don't need this: [ForApp] registers the commands
+// (see [Runner.AppCommands]).
 func (r *Runner) Command(ctx context.Context, args []string, out io.Writer) (handled bool, err error) {
 	if len(args) == 0 {
 		return false, nil
 	}
 	name := args[0]
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
-	fs.SetOutput(out)
+	fs.SetOutput(io.Discard)
 	var step *int
 	var force, seed *bool
 	var seeder *string
@@ -70,12 +100,15 @@ func (r *Runner) Command(ctx context.Context, args []string, out io.Writer) (han
 	}
 	if err := fs.Parse(args[1:]); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
+			fmt.Fprintf(out, "Usage: %s %s\n\n%s\n", name, commandHelp[name][0], commandHelp[name][1])
+			fs.SetOutput(out)
+			fs.PrintDefaults()
 			return true, nil
 		}
-		return true, err
+		return true, cmd.Usagef("%w", err)
 	}
 	if fs.NArg() > 0 {
-		return true, fmt.Errorf("%s: unexpected arguments %v", name, fs.Args())
+		return true, cmd.Usagef("%s: unexpected arguments %v", name, fs.Args())
 	}
 	production := r.env != anetos.Development && r.env != anetos.Testing && r.env != anetos.Staging
 	if force != nil && production && !*force {

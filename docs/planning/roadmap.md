@@ -152,7 +152,8 @@ Goal: the core an application stands on.
 | F8 Migrations & seeders | ✅ Done 2026-09-30 |
 | F9 Model code generation | ✅ Done 2026-09-30 |
 | F10 Views, sessions & forms | ✅ Done 2026-09-30 |
-| F11–F12 | Not started (next: F11 CLI) |
+| F11 CLI | ✅ Done 2026-09-30 |
+| F12 | Not started (next: F12 testing helpers) |
 
 **Planned patch:** **v0.1.x** adds **relations and eager loading** (has-one,
 has-many, belongs-to, many-to-many, `With(...)`) and the relation handles
@@ -211,6 +212,7 @@ first public release.**
 | WP | Work package | Notes |
 |---|---|---|
 | M1 | Identity | Final name, GitHub org, domain, logo/mascot; rename pass |
+| M1b | Release plumbing | Tag the modules independently; remove the `replace` directives from `cli`, the drivers and the examples' published `go.mod` files (a module with `replace` can't be `go install`ed), so `go install …/cli/cmd/anetos@latest` and `anetos new` without `--replace` work |
 | M2 | Docs site | Choose the generator, publish versioned docs, full tutorial, guides for every feature |
 | M3 | Reference example app | A realistic app with tests, used as living documentation |
 | M4 | OpenAPI | Spec generated from typed handlers; optional docs UI |
@@ -323,3 +325,4 @@ something, and we fix the API rather than add the hook.
 | 2026-09-30 | F8 done; factories moved to F12 |
 | 2026-09-30 | F9 done; relation handles moved to v0.1.x |
 | 2026-09-30 | F10 done |
+| 2026-09-30 | F11 done |

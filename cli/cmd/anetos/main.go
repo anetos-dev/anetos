@@ -8,22 +8,29 @@
 //
 // Commands:
 //
+//	new <directory>           create a project
+//	dev                       run the app with live reload
+//	make:handler <Name>       add a handler
+//	make:model <Name>         add a model (--migration: and its migration)
+//	make:migration <name>     add a migration
+//	make:middleware <Name>    add a middleware
 //	gen [-check] [packages]   generate typed columns for models (default ./...)
 //	key:generate              print a new APP_KEY line
 //	version                   print the version
-//
-// More commands (new, dev, make:*) arrive with roadmap F11.
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"runtime/debug"
 	"strings"
+	"syscall"
 
 	"anetos.dev/anetos/cli/internal/modelgen"
 	"anetos.dev/anetos/internal/appkey"
@@ -36,6 +43,12 @@ func main() {
 const usage = `Usage: anetos <command> [arguments]
 
 Commands:
+  new <directory>           create a project
+  dev                       run the app with live reload
+  make:handler <Name>       add a handler to app/handlers
+  make:model <Name>         add a model to app/models (--migration: and its migration)
+  make:migration <name>     add a migration to database/migrations
+  make:middleware <Name>    add a middleware to app/middleware
   gen [-check] [packages]   generate typed columns for models (default ./...)
   key:generate              print a new APP_KEY line (append it to .env)
   version                   print the version
@@ -51,6 +64,14 @@ func run(args []string, stdout, stderr io.Writer) int {
 	switch args[0] {
 	case "gen":
 		return gen(args[1:], stdout, stderr)
+	case "new":
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		return newProject(ctx, args[1:], stdout, stderr)
+	case "dev":
+		return dev(args[1:], stdout, stderr)
+	case "make:handler", "make:model", "make:migration", "make:middleware":
+		return makeCmd(args[0], args[1:], stdout, stderr)
 	case "key:generate":
 		if len(args) > 1 {
 			fmt.Fprintln(stderr, "Usage: anetos key:generate\n\nPrints APP_KEY=… with a new random key, for example: go tool anetos key:generate >> .env")

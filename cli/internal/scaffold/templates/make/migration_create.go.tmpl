@@ -1,0 +1,17 @@
+package migrations
+
+import "anetos.dev/anetos/db/migrate"
+
+func init() {
+	All.AddFunc("[[.ID]]",
+		func(s *migrate.Schema) error {
+			return s.Create("[[.Table]]", func(t *migrate.Table) {
+				t.ID()
+				t.Timestamps()
+			})
+		},
+		func(s *migrate.Schema) error {
+			return s.DropIfExists("[[.Table]]")
+		},
+	)
+}

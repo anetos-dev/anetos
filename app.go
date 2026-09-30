@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"anetos.dev/anetos/cmd"
 	"anetos.dev/anetos/config"
 	"anetos.dev/anetos/supervisor"
 )
@@ -56,6 +57,9 @@ type App struct {
 
 	valMu  sync.RWMutex
 	values []ctxValue
+
+	cmdMu    sync.Mutex
+	commands map[string]cmd.Command
 }
 
 type ctxValue struct{ key, val any }
@@ -151,13 +155,16 @@ func New(opts ...Option) (*App, error) {
 		log = newLogger(cfg, o.logOutput)
 	}
 
-	return &App{
+	a := &App{
 		cfg:      cfg,
 		src:      src,
 		log:      log,
 		sup:      supervisor.New(supervisor.Options{Logger: log, ShutdownTimeout: cfg.ShutdownTimeout - hookReserve(cfg.ShutdownTimeout)}),
 		services: map[reflect.Type]any{},
-	}, nil
+		commands: map[string]cmd.Command{},
+	}
+	a.addBuiltins()
+	return a, nil
 }
 
 // hookReserve is the part of the shutdown budget kept for shutdown hooks.
@@ -222,6 +229,14 @@ func (a *App) OnShutdown(name string, fn func(ctx context.Context) error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.hooks = append(a.hooks, hook{name: name, fn: fn})
+}
+
+// Booted reports whether Boot has started (or the app has run or
+// stopped): providers can no longer be added.
+func (a *App) Booted() bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.state != appNew
 }
 
 // Boot runs every provider's Register, then every provider's Boot. It is

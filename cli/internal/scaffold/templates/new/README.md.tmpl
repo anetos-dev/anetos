@@ -1,0 +1,22 @@
+# [[.Title]]
+
+A [Anetos](https://anetos.dev/anetos) application.
+
+```sh
+go run . migrate        # create the database tables
+go tool anetos dev      # run with live reload on http://localhost:8080
+go test ./...
+```
+
+| Directory | Holds |
+|---|---|
+| `app/handlers` | HTTP handlers (`go tool anetos make:handler Posts`) |
+| `app/models` | Models (`go tool anetos make:model Post --migration`) |
+| `app/middleware` | Middleware (`go tool anetos make:middleware Admin`) |
+| `database/migrations` | Migrations and seeders (`go tool anetos make:migration create_posts_table`) |
+| `routes` | Routes |
+| `views` | templ components (`go generate ./...` after editing, or `anetos dev`) |
+| `public/static` | Static files, served under `/assets` |
+
+Configuration is in `.env` (keep it out of git); `.env.example` lists the
+settings.

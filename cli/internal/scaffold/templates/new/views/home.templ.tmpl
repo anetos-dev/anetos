@@ -1,0 +1,14 @@
+package views
+
+// Home is the home page.
+templ Home() {
+	@Layout("Home") {
+		<h1>Welcome to [[.Title]]</h1>
+		<p>Edit <code>views/home.templ</code>; <code>go tool anetos dev</code> reloads the page.</p>
+		<ul>
+			<li><code>go tool anetos make:model Post --migration</code> adds a model and its migration.</li>
+			<li><code>go tool anetos make:handler Posts</code> adds a handler; route it in <code>routes/web.go</code>.</li>
+			<li><code>go run . migrate</code> applies the migrations; <code>go run . help</code> lists every command.</li>
+		</ul>
+	}
+}

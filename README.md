@@ -9,8 +9,8 @@ listeners and the scheduler run together in **one binary**.
 
 **Status:** pre-alpha, building v0.1. The kernel, configuration, runtime
 supervisor, HTTP layer, validation, data layer, migrations, model code
-generation, views, sessions and forms exist; the CLI and testing helpers
-are next. APIs will change.
+generation, views, sessions, forms and the CLI exist; testing helpers are
+next. APIs will change.
 
 ## Documents
 
@@ -18,15 +18,17 @@ are next. APIs will change.
 - [Design document](docs/design/design.md): architecture, principles and decisions
 - [Documentation guide](docs/contributing/documentation-guide.md): how docs are written alongside code
 
-## Planned developer experience
+## Developer experience
 
 ```bash
-anetos new blog && cd blog
-anetos dev                 # hot reload, SQLite by default
+anetos new blog && cd blog # templ views, sessions, CSRF, SQLite by default
+go run . migrate
+go tool anetos dev         # rebuild and reload on every change
 
-anetos build
-./blog run                 # web + workers + listeners + scheduler
+go build -o blog .
+./blog                     # everything: web now; workers and schedules in v0.2
 ./blog run --only=http     # or split by role when you scale
+./blog help                # migrate, routes:list, your own commands, …
 ```
 
 ## License

@@ -3,6 +3,7 @@
 package web_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -272,5 +273,41 @@ func TestShutdownBoundsLongRunningRequests(t *testing.T) {
 	// stream is canceled; the whole shutdown stays within the budget.
 	if d := time.Since(start); d < 400*time.Millisecond || d > time.Second {
 		t.Errorf("shutdown took %v, want about 500ms", d)
+	}
+}
+
+func TestServerCommands(t *testing.T) {
+	app := newApp(t, config.Map{"HTTP_ADDR": "127.0.0.1:0"})
+	srv, err := web.NewServer(app)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv.Router().Get("/posts/{id}", func(c *web.Ctx) error { return nil }).Name("posts.show")
+	srv.Router().Handle("", "/any", func(c *web.Ctx) error { return nil })
+	var out, errOut bytes.Buffer
+	if code := app.ExecuteArgs(t.Context(), []string{"routes:list"}, &out, &errOut); code != 0 {
+		t.Fatalf("exit %d: %s", code, errOut.String())
+	}
+	for _, want := range []string{"METHOD", "GET     /posts/{id}", "posts.show", "ANY     /any", "health.live"} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("missing %q in:\n%s", want, out.String())
+		}
+	}
+
+	// serve runs the http role until the context ends.
+	app2 := newApp(t, config.Map{"HTTP_ADDR": "127.0.0.1:0"})
+	srv2, err := web.NewServer(app2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan int)
+	go func() { done <- app2.ExecuteArgs(ctx, []string{"serve"}, &out, &errOut) }()
+	for !srv2.Ready() {
+		time.Sleep(10 * time.Millisecond)
+	}
+	cancel()
+	if code := <-done; code != 0 {
+		t.Errorf("serve: exit %d: %s", code, errOut.String())
 	}
 }

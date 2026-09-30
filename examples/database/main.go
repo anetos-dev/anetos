@@ -19,14 +19,12 @@ package main
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"log"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"anetos.dev/anetos"
+	"anetos.dev/anetos/cmd"
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/db/migrate"
 	"anetos.dev/anetos/drivers/sqlite"
@@ -183,11 +181,22 @@ func routes(r *web.Router) {
 	r.Get("/stats", web.H(b.Stats))
 }
 
-func main() {
-	if err := run(); err != nil {
-		log.Print(err)
-		os.Exit(1)
-	}
+// addCommands adds the app's own commands to the binary.
+func addCommands(app *anetos.App) {
+	// region: custom-command
+	app.Command("blog:stats", "Print how many authors and posts there are", func(ctx context.Context, args *cmd.Args) error {
+		authors, err := db.Query[Author](ctx).Count()
+		if err != nil {
+			return err
+		}
+		posts, err := db.Query[Post](ctx).Count()
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(args.Stdout, "%d authors, %d posts\n", authors, posts)
+		return nil
+	})
+	// endregion
 }
 
 // setup connects to the database, builds the migration runner and the
@@ -210,25 +219,24 @@ func setup(ctx context.Context, app *anetos.App) (*web.Server, *migrate.Runner, 
 		return nil, nil, err
 	}
 	routes(srv.Router())
+	addCommands(app)
 	return srv, runner, nil
 }
 
-func run() error {
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
+func main() {
 	app, err := anetos.New()
 	if err != nil {
-		return err
+		log.Fatal(err)
 	}
-	_, runner, err := setup(ctx, app)
-	if err != nil {
-		return err
+	if _, _, err := setup(context.Background(), app); err != nil {
+		log.Fatal(err)
 	}
 	// region: commands
-	// go run . migrate | migrate:rollback | migrate:status | migrate:fresh --seed | db:seed
-	if handled, err := runner.Command(ctx, os.Args[1:], os.Stdout); handled {
-		return errors.Join(err, app.Close())
-	}
+	// go run .                 run the app (the default command)
+	// go run . migrate         and migrate:rollback, migrate:status, migrate:fresh --seed, db:seed
+	// go run . routes:list     every route
+	// go run . blog:stats      a custom command (addCommands)
+	// go run . help            every command
+	app.Execute()
 	// endregion
-	return app.Run(ctx)
 }

@@ -40,8 +40,9 @@ func init() {
 (Copied from [`examples/database/migrations.go`](../../../examples/database/migrations.go), region `set`.)
 
 In a larger app, put the set in its own package (`database/migrations`)
-with one file per migration, each adding itself in `init`. The
-`make:migration` generator (roadmap F11) will write those files for you.
+with one file per migration, each adding itself in `init`, as projects
+made by `anetos new` do; `go tool anetos make:migration create_posts_table`
+writes such a file.
 
 ### 2. Write the migration
 
@@ -117,14 +118,16 @@ migrations. They run in ID order across all sets.
 
 ### 4. Run the commands
 
-Until the app binary's command framework arrives (roadmap F11), hand the
-command-line arguments to the runner before starting the app:
+`migrate.ForApp` registers the migration commands on the app, and
+`app.Execute()` runs the one named on the command line:
 
 ```go
-// go run . migrate | migrate:rollback | migrate:status | migrate:fresh --seed | db:seed
-if handled, err := runner.Command(ctx, os.Args[1:], os.Stdout); handled {
-	return errors.Join(err, app.Close())
-}
+// go run .                 run the app (the default command)
+// go run . migrate         and migrate:rollback, migrate:status, migrate:fresh --seed, db:seed
+// go run . routes:list     every route
+// go run . blog:stats      a custom command (addCommands)
+// go run . help            every command
+app.Execute()
 ```
 
 (Region `commands`.)

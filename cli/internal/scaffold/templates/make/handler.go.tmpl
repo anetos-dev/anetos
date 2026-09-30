@@ -1,0 +1,18 @@
+package handlers
+
+import (
+	"net/http"
+
+	"anetos.dev/anetos/web"
+)
+
+// [[.Type]] handles [[.Words]] requests. Route its methods in routes/web.go:
+//
+//	h := handlers.[[.Type]]{}
+//	pages.Get("/[[.Path]]", h.Index).Name("[[.Path]].index")
+type [[.Type]] struct{}
+
+// Index responds to GET /[[.Path]].
+func (h [[.Type]]) Index(c *web.Ctx) error {
+	return c.Text(http.StatusOK, "[[.Type]].Index")
+}

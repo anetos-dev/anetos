@@ -1,0 +1,31 @@
+package views
+
+import (
+	"anetos.dev/anetos/view"
+	"anetos.dev/anetos/web"
+
+	"[[.Module]]/public"
+)
+
+// Layout is the page shell. Pages pass their content as children.
+templ Layout(title string) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ title } · [[.Title]]</title>
+			<link rel="stylesheet" href={ public.Assets.URL("app.css") }/>
+			<script src={ public.Assets.URL("htmx.min.js") } defer></script>
+		</head>
+		<body hx-headers={ `{"X-CSRF-Token": "` + view.CSRFToken(ctx) + `"}` }>
+			<header><a href={ web.URL(ctx, "home") }>[[.Title]]</a></header>
+			if msg := view.Flash(ctx, "status"); msg != "" {
+				<p class="flash" role="status">{ msg }</p>
+			}
+			<main>
+				{ children... }
+			</main>
+		</body>
+	</html>
+}

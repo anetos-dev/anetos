@@ -97,7 +97,9 @@ func NewRunner(d *db.DB, sets []*Set, opts ...Option) (*Runner, error) {
 }
 
 // ForApp returns a runner for the app's database (from db.Connect) that
-// knows the app's environment and logs with its logger.
+// knows the app's environment and logs with its logger, and registers the
+// migration commands (migrate, migrate:rollback, …, db:seed) on the app,
+// for app.Execute. Call it once per app.
 func ForApp(app *anetos.App, sets []*Set, opts ...Option) (*Runner, error) {
 	d, err := anetos.Resolve[*db.DB](app)
 	if err != nil {
@@ -107,7 +109,16 @@ func ForApp(app *anetos.App, sets []*Set, opts ...Option) (*Runner, error) {
 		WithEnvironment(app.Config().Env),
 		WithLogger(app.Logger().With("component", "migrate")),
 	}, opts...)
-	return NewRunner(d, sets, opts...)
+	r, err := NewRunner(d, sets, opts...)
+	if err != nil {
+		return nil, err
+	}
+	for _, c := range r.AppCommands() {
+		if err := app.AddCommand(c); err != nil {
+			return nil, fmt.Errorf("migrate: %w", err)
+		}
+	}
+	return r, nil
 }
 
 // Result is one migration applied or rolled back.

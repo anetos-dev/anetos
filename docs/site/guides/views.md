@@ -26,8 +26,8 @@ go get -tool github.com/a-h/templ/cmd/templ@latest
 Components live in `.templ` files; `go tool templ generate` turns each
 into a `_templ.go` file that you commit. Add
 `//go:generate go tool templ generate` to one Go file so
-`go generate ./...` runs it. `anetos dev` (roadmap F11) will run it for
-you on every change.
+`go generate ./...` runs it, and `go tool anetos dev` runs it on every
+change.
 
 ### 2. Write a layout
 

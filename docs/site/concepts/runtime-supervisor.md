@@ -36,8 +36,9 @@ Components declare **roles**. A process can run all of them or only some:
 ./blog run --only=workers,listeners   # background machines
 ```
 
-(The `run --only` command arrives with the CLI, roadmap F11. Today, pass
-roles to `app.Run(ctx, "workers")`.)
+`run` is the binary's default command (`app.Execute`; see
+[Commands](../guides/commands.md)); in code, pass roles to
+`app.Run(ctx, "workers")`.
 
 - Components **without** roles run in every process.
 - Asking for a role no component declares is an error, so typos in `--only`

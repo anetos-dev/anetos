@@ -177,9 +177,12 @@ func (d *DB) Close() error { return d.sql.Close() }
 //
 // DB_CONNECTION picks one of the given drivers, so an app can use SQLite in
 // development and PostgreSQL in production with both compiled in. Connect
-// pings the database (failing fast if it is unreachable), adds the DB to
-// every context the app creates (see anetos.App.AddContextValue), provides
-// it as a *db.DB service, and closes it in a shutdown hook.
+// opens the connection pool, adds the DB to every context the app creates
+// (see anetos.App.AddContextValue), provides it as a *db.DB service, and
+// closes it in a shutdown hook. It pings the database when the app boots
+// (right away if it already has), so the app and every command that boots
+// it fail fast when the database is unreachable, while `help` doesn't need
+// one.
 //
 // Queries are logged at debug level in development unless DB_LOG_QUERIES
 // says otherwise.
@@ -204,10 +207,13 @@ func Connect(ctx context.Context, app *anetos.App, drivers ...Driver) (*DB, erro
 	if err != nil {
 		return nil, err
 	}
-	pingCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-	if err := d.Ping(pingCtx); err != nil {
-		return nil, errors.Join(fmt.Errorf("db: connect to %s: %w", cfg.Connection, err), d.Close())
+	check := &connCheck{d: d, name: cfg.Connection}
+	if app.Booted() {
+		if err := check.Boot(ctx, app); err != nil {
+			return nil, errors.Join(err, d.Close())
+		}
+	} else {
+		app.Use(check) // checked when the app boots, so help works without a database
 	}
 	app.AddContextValue(dbKey{}, d)
 	anetos.Provide(app, d)
@@ -234,4 +240,22 @@ func From(ctx context.Context) (*DB, error) {
 		return d, nil
 	}
 	return nil, ErrNoDB
+}
+
+// connCheck pings the database when the app boots, so a missing or
+// misconfigured database stops the app (or command) at startup.
+type connCheck struct {
+	d    *DB
+	name string
+}
+
+func (c *connCheck) Name() string               { return fmt.Sprintf("db.Connect(%s, %p)", c.name, c.d) }
+func (c *connCheck) Register(*anetos.App) error { return nil }
+func (c *connCheck) Boot(ctx context.Context, _ *anetos.App) error {
+	pingCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	if err := c.d.Ping(pingCtx); err != nil {
+		return fmt.Errorf("db: connect to %s: %w", c.name, err)
+	}
+	return nil
 }

@@ -5,6 +5,7 @@ package web
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"log/slog"
 	"net"
@@ -12,9 +13,11 @@ import (
 	"slices"
 	"sync"
 	"sync/atomic"
+	"text/tabwriter"
 	"time"
 
 	"anetos.dev/anetos"
+	"anetos.dev/anetos/cmd"
 	"anetos.dev/anetos/config"
 	"anetos.dev/anetos/supervisor"
 )
@@ -165,7 +168,56 @@ func NewServer(app *anetos.App, opts ...ServerOption) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
+	for _, c := range s.commands(app) {
+		if err := app.AddCommand(c); err != nil {
+			return nil, err
+		}
+	}
 	return s, nil
+}
+
+// commands are the binary commands the server adds: serve and routes:list.
+func (s *Server) commands(app *anetos.App) []cmd.Command {
+	return []cmd.Command{
+		{
+			Name:        "serve",
+			Description: "Run the HTTP server (components with the http role, and those without roles)",
+			ManagesApp:  true,
+			Run: func(ctx context.Context, args *cmd.Args) error {
+				fs := flag.NewFlagSet("serve", flag.ContinueOnError)
+				if err := args.Parse(fs); err != nil {
+					return err
+				}
+				if fs.NArg() > 0 {
+					return cmd.Usagef("unexpected argument %q", fs.Arg(0))
+				}
+				return app.Run(ctx, "http")
+			},
+		},
+		{
+			Name:        "routes:list",
+			Description: "List the HTTP routes",
+			Run: func(ctx context.Context, args *cmd.Args) error {
+				fs := flag.NewFlagSet("routes:list", flag.ContinueOnError)
+				if err := args.Parse(fs); err != nil {
+					return err
+				}
+				if fs.NArg() > 0 {
+					return cmd.Usagef("unexpected argument %q", fs.Arg(0))
+				}
+				tw := tabwriter.NewWriter(args.Stdout, 0, 0, 2, ' ', 0)
+				fmt.Fprintln(tw, "METHOD\tPATH\tNAME")
+				for _, rt := range s.router.Routes() {
+					m := rt.Method
+					if m == "" {
+						m = "ANY"
+					}
+					fmt.Fprintf(tw, "%s\t%s\t%s\n", m, rt.Pattern, rt.Name)
+				}
+				return tw.Flush()
+			},
+		},
+	}
 }
 
 // Router returns the server's router.

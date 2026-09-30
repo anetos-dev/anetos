@@ -118,7 +118,17 @@ func TestConnectErrors(t *testing.T) {
 	}
 	app = newApp(t, config.Map{"DB_DATABASE": t.TempDir()}, io.Discard) // a directory
 	if _, err := db.Connect(t.Context(), app, sqlite.Driver()); err == nil {
-		t.Error("unusable database accepted")
+		if err := app.Boot(t.Context()); err == nil || !strings.Contains(err.Error(), "db: connect to sqlite") {
+			t.Errorf("unusable database accepted: %v", err)
+		}
+	}
+	// After boot, Connect checks right away.
+	app = newApp(t, config.Map{"DB_DATABASE": t.TempDir()}, io.Discard)
+	if err := app.Boot(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Connect(t.Context(), app, sqlite.Driver()); err == nil {
+		t.Error("unusable database accepted after boot")
 	}
 	app = newApp(t, config.Map{"DB_MAX_OPEN_CONNS": "-1"}, io.Discard)
 	if _, err := db.Connect(t.Context(), app, sqlite.Driver()); err == nil {

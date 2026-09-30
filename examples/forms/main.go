@@ -16,14 +16,10 @@ package main
 //go:generate go tool templ generate
 
 import (
-	"context"
 	"embed"
 	"io/fs"
 	"log"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
 
 	"anetos.dev/anetos"
 	"anetos.dev/anetos/session"
@@ -153,21 +149,13 @@ func setup(app *anetos.App) (*web.Server, error) {
 	return srv, nil
 }
 
-func run() error {
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
+func main() {
 	app, err := anetos.New()
 	if err != nil {
-		return err
-	}
-	if _, err := setup(app); err != nil {
-		return err
-	}
-	return app.Run(ctx)
-}
-
-func main() {
-	if err := run(); err != nil {
 		log.Fatal(err)
 	}
+	if _, err := setup(app); err != nil {
+		log.Fatal(err)
+	}
+	app.Execute() // serves by default; also routes:list, help
 }

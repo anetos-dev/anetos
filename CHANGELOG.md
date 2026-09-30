@@ -122,7 +122,31 @@ All notable changes to this project are documented here. The format follows
   settings; `examples/forms` (templ, htmx); `make docs-check` checks templ
   blocks (F10).
 
+- App binary commands (F11): `app.Command`, `app.AddCommand`,
+  `app.Commands`, `app.Execute` and `app.ExecuteArgs` (package `cmd`:
+  `Command`, `Args.Parse`, `ErrUsage`, `Usagef`); built-in `run
+  [--only=roles]` (the default) and `help`; `web.NewServer` adds `serve` and
+  `routes:list`; `migrate.ForApp` adds the migration commands
+  (`Runner.AppCommands`).
+- `anetos new` (F11): creates a working project (templ layout and home
+  page, sessions, CSRF, migrations, assets with htmx, a test, `.env` with
+  a key) for SQLite, PostgreSQL or MySQL, and finishes it with the go
+  commands.
+- `anetos dev` (F11): rebuilds on changes (templ generate, anetos gen, go
+  build), restarts the app on a free port behind a proxy on a stable
+  address, reloads open pages, and shows build errors in the browser.
+- `anetos make:handler`, `make:model [--migration]`, `make:migration`,
+  `make:middleware` (F11).
+- Docs: getting-started tutorial, commands guide, `anetos` tool and app
+  commands reference; the examples use `app.Execute` (F11).
+
 ### Changed
+- Migration flag errors wrap `cmd.ErrUsage` (exit status 2 from the
+  binary) (F11).
+- `db.Connect` pings the database when the app boots (at once if it has
+  already booted) instead of immediately, so commands like `help` work
+  without a database; `App.Booted` reports whether boot has started (F11,
+  design D73).
 - `anetos.AppConfig` has `Key` and `PreviousKeys` (`anetos.Secret` values;
   a slice), so it is no longer comparable with `==` (F10).
 - Generated Go files (`// Code generated … DO NOT EDIT.`) are exempt from

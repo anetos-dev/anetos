@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -83,23 +84,33 @@ func TestBlog(t *testing.T) {
 	}
 }
 
-func TestMigrationCommands(t *testing.T) {
-	app, err := anetos.New(anetos.WithSource(config.Map{"DB_DATABASE": ":memory:", "APP_ENV": "development"}), anetos.WithLogOutput(io.Discard))
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, runner, err := setup(t.Context(), app)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = app.Close() })
+func TestCommands(t *testing.T) {
+	dbFile := filepath.Join(t.TempDir(), "blog.db")
 	var out strings.Builder
-	for _, args := range [][]string{{"migrate:fresh", "--seed"}, {"migrate:rollback"}, {"migrate"}, {"migrate:status"}} {
-		if handled, err := runner.Command(t.Context(), args, &out); !handled || err != nil {
-			t.Fatalf("%v: %v %v\n%s", args, handled, err, out.String())
+	// Each invocation is a new process in real life: a new app.
+	execute := func(args ...string) {
+		t.Helper()
+		app, err := anetos.New(anetos.WithSource(config.Map{"DB_DATABASE": dbFile, "APP_ENV": "development"}), anetos.WithLogOutput(io.Discard))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, _, err := setup(t.Context(), app); err != nil {
+			t.Fatal(err)
+		}
+		var errOut strings.Builder
+		if code := app.ExecuteArgs(t.Context(), args, &out, &errOut); code != 0 {
+			t.Fatalf("%v: exit %d: %s", args, code, errOut.String())
 		}
 	}
-	if !strings.Contains(out.String(), "Seeded:      posts") || strings.Count(out.String(), "Ran ") != 3 {
-		t.Errorf("output:\n%s", out.String())
+	for _, args := range [][]string{{"migrate:fresh", "--seed"}, {"blog:stats"}, {"migrate:rollback"}, {"migrate"}, {"migrate:status"}, {"routes:list"}, {"help"}} {
+		execute(args...)
+	}
+	for _, want := range []string{"Seeded:      posts", "2 authors, 2 posts", "GET     /posts/{id}", "migrate:rollback", "Run pending migrations"} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("missing %q in output:\n%s", want, out.String())
+		}
+	}
+	if strings.Count(out.String(), "Ran ") != 3 {
+		t.Errorf("status:\n%s", out.String())
 	}
 }

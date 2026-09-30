@@ -1,0 +1,14 @@
+package migrations
+
+import "anetos.dev/anetos/db/migrate"
+
+func init() {
+	All.AddFunc("[[.ID]]",
+		func(s *migrate.Schema) error {
+			return nil
+		},
+		func(s *migrate.Schema) error {
+			return nil
+		},
+	)
+}

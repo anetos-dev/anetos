@@ -130,9 +130,13 @@ are sorted as strings: start them with `YYYY_MM_DD_HHMMSS`.
 | `Fresh(ctx)` | Drops every table and view (PostgreSQL: also materialized views and enum types; extension objects stay), then `Up`; `migrate.ErrNotAllowed` outside development and testing. Procedures and functions are not dropped |
 | `Status(ctx)` | Every migration: applied (batch, time), pending, or missing |
 | `Seed(ctx, names...)` | Runs seeders, each in a transaction |
-| `Command(ctx, args, out)` | The commands below; `handled` is false for other arguments |
+| `Command(ctx, args, out)` | The commands below, for programs without `app.Execute`; `handled` is false for other arguments |
+| `AppCommands()` | The commands below as app binary commands; `migrate.ForApp` registers them |
 
 ## Commands
+
+Registered on the app by `migrate.ForApp`, so the binary runs them
+(`./app migrate`). Bad flags exit with status 2.
 
 | Command | Flags | Production |
 |---|---|---|

@@ -55,8 +55,9 @@ if _, err := db.Connect(ctx, app, sqlite.Driver()); err != nil {
 Pass every driver the app may use: `DB_CONNECTION` picks one, so you can
 develop on SQLite and deploy on PostgreSQL with the same binary.
 
-`db.Connect` pings the database, so a wrong password stops the app at
-startup instead of on the first request. It also:
+`db.Connect` pings the database when the app boots, so a wrong password
+stops the app (or a command such as `migrate`) at startup instead of on
+the first request, while `./app help` works without a database. It also:
 
 - adds the connection to every context the app creates (HTTP requests,
   `app.Go` tasks, components, shutdown hooks);

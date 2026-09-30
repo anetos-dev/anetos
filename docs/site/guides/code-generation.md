@@ -95,8 +95,8 @@ module, as [`examples/database`](../../../examples/database/main.go) does:
 //go:generate go tool anetos gen
 ```
 
-Regenerate after changing a model. `anetos dev` (roadmap F11) will do it
-for you on every rebuild.
+Regenerate after changing a model. `go tool anetos dev` does it for you
+on every rebuild, and `make:model` right away.
 
 ### 3. Query with the columns
 

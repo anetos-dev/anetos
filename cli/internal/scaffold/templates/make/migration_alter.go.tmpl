@@ -1,0 +1,24 @@
+package migrations
+
+import "anetos.dev/anetos/db/migrate"
+
+func init() {
+	All.AddFunc("[[.ID]]",
+		func(s *migrate.Schema) error {
+			// Change the table, for example:
+			//
+			//	return s.Alter("[[.Table]]", func(t *migrate.Table) {
+			//		t.String("column", 100).Nullable()
+			//	})
+			return nil
+		},
+		func(s *migrate.Schema) error {
+			// Undo the change:
+			//
+			//	return s.Alter("[[.Table]]", func(t *migrate.Table) {
+			//		t.DropColumn("column")
+			//	})
+			return nil
+		},
+	)
+}

@@ -59,3 +59,8 @@ Run `make check` before every commit.
 After changing a model in `examples/database` or a `.templ` file in
 `examples/forms`, run `go generate ./...` there; after changing the generator's fixtures, run
 `go run ./cmd/anetos gen ./internal/modelgen/internal/...` in `cli/`.
+
+`cli/` tests create and build a project with `anetos new` (and download
+templ if the module cache lacks it); `go test -short` skips them. When
+changing the project templates in `cli/internal/scaffold/templates`, run
+those tests.
