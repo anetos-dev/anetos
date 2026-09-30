@@ -134,9 +134,9 @@ you saved. See the [data layer concept](../concepts/data-layer.md).
 
 ## Testing it
 
-Use an in-memory SQLite database as shown in
-[Connect to a database](database.md#testing-it), then call the functions
-directly.
+Make rows with [factories](testing.md#4-make-rows-with-factories) in a
+`anetostest` app, call your functions with `app.Context()`, and check the
+table with `anetostest.AssertDatabaseHas[T]`.
 
 ## Common problems
 

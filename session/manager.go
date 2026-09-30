@@ -173,8 +173,9 @@ func NewManager(cfg Config, enc *encryption.Encrypter, opts ...Option) (*Manager
 func (m *Manager) CookieName() string { return m.name }
 
 // ForApp returns a Manager configured from the application's SESSION_*
-// settings and APP_KEY. Cookies are Secure by default, except in the
-// development and testing environments.
+// settings and APP_KEY, and provides it as a *session.Manager service.
+// Cookies are Secure by default, except in the development and testing
+// environments.
 func ForApp(app *anetos.App) (*Manager, error) {
 	cfg, err := LoadConfig(app.Source())
 	if err != nil {
@@ -189,7 +190,12 @@ func ForApp(app *anetos.App) (*Manager, error) {
 	if err != nil {
 		return nil, fmt.Errorf("session: %w", err)
 	}
-	return NewManager(cfg, enc, WithLogger(app.Logger()))
+	m, err := NewManager(cfg, enc, WithLogger(app.Logger()))
+	if err != nil {
+		return nil, err
+	}
+	anetos.Provide(app, m) // for anetostest, and code that needs it
+	return m, nil
 }
 
 // Config returns the manager's configuration.
@@ -466,7 +472,11 @@ func (m *Manager) encode(p *payload) (string, bool) {
 }
 
 func (m *Manager) setCookie(w http.ResponseWriter, value string, maxAge int) {
-	c := &http.Cookie{
+	w.Header().Add("Set-Cookie", m.cookie(value, maxAge).String())
+}
+
+func (m *Manager) cookie(value string, maxAge int) *http.Cookie {
+	return &http.Cookie{
 		Name:     m.name,
 		Value:    value,
 		Path:     m.cfg.Path,
@@ -476,5 +486,31 @@ func (m *Manager) setCookie(w http.ResponseWriter, value string, maxAge int) {
 		HttpOnly: true,
 		SameSite: m.sameSite,
 	}
-	w.Header().Add("Set-Cookie", c.String())
+}
+
+// Load returns the session r carries (an empty one if its cookie is
+// missing, invalid or expired), as the session middleware would give it
+// to the request's handler. Changes to it are not saved. Tests use it to
+// look at the session a response left.
+func (m *Manager) Load(r *http.Request) *Session { return m.load(r).s }
+
+// Edit changes the session r carries (starting one if there is none)
+// without counting as a request: fn sees the session as a handler would
+// (flashed values, [Session.Errors], [Session.Old]), and what was flashed
+// for the next request stays for it, as with [Session.Reflash]. It returns
+// the session cookie to send with later requests. Tests use it to prepare
+// a session, or to get a CSRF token (s.Token()).
+func (m *Manager) Edit(r *http.Request, fn func(s *Session)) (*http.Cookie, error) {
+	s := m.load(r).s
+	fn(s)
+	s.Reflash()
+	value, ok := m.encode(s.toPayload())
+	if !ok {
+		return nil, errors.New("session: session too large for its cookie (about 4 KB)")
+	}
+	maxAge := int(m.cfg.Lifetime / time.Second)
+	if m.cfg.ExpireOnClose {
+		maxAge = 0
+	}
+	return m.cookie(value, maxAge), nil
 }

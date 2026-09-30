@@ -45,8 +45,8 @@ settings. Every key is in the
 
 ```go
 // DB_CONNECTION (default sqlite) picks one of the drivers passed here.
-if _, err := db.Connect(ctx, app, sqlite.Driver()); err != nil {
-	return nil, nil, err
+if _, err := db.Connect(context.Background(), app, sqlite.Driver()); err != nil {
+	return nil, err
 }
 ```
 
@@ -110,29 +110,26 @@ in every environment.
 
 ## Testing it
 
-Use an in-memory SQLite database and put it in the test's context:
+`anetostest.New(t, setup)` boots the app with an in-memory SQLite
+database (or, with `DB_*` set, your test database inside a transaction
+rolled back at the end) and runs the migrations; pass `app.Context()` to
+code that queries. See [Test your app](testing.md#5-check-the-database).
+
+To test code without the app, open a database and put it in a context:
 
 ```go
 // illustrative
-func testDB(t *testing.T) context.Context {
-	d, err := db.Open(sqlite.Driver(), db.Config{Database: ":memory:"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { d.Close() })
-	ctx := db.WithDB(t.Context(), d)
-	if _, err := db.Exec(ctx, schema); err != nil {
-		t.Fatal(err)
-	}
-	return ctx
+d, err := db.Open(sqlite.Driver(), db.Config{Database: ":memory:"})
+if err != nil {
+	t.Fatal(err)
 }
+t.Cleanup(func() { d.Close() })
+ctx := db.WithDB(t.Context(), d)
 ```
 
 An in-memory database has a single connection, so a query that waits for
 a second one (on the outer context inside `db.Tx`, or inside an `All()`
 loop) blocks. A file in `t.TempDir()` behaves like production instead.
-Per-test transaction rollback and an app test helper arrive with the
-testing helpers (roadmap F12).
 
 ## Common problems
 

@@ -30,6 +30,15 @@ func TestConformance(t *testing.T) {
 	dbtest.Run(t, d)
 }
 
+// TestApp tests an app on the database with anetostest.
+func TestApp(t *testing.T) {
+	url := os.Getenv("ANETOS_TEST_MYSQL_URL")
+	if url == "" {
+		t.Skip("ANETOS_TEST_MYSQL_URL not set")
+	}
+	dbtest.RunApp(t, mysql.Driver(), map[string]string{"DB_CONNECTION": "mysql", "DB_URL": url})
+}
+
 func TestDSN(t *testing.T) {
 	got, err := mysql.DSN(db.Config{Host: "db", Database: "app", Username: "u", Password: "p@ss"})
 	if err != nil || !strings.HasPrefix(got, "u:p@ss@tcp(db:3306)/app?") || !strings.Contains(got, "parseTime=true") || !strings.Contains(got, "clientFoundRows=true") {

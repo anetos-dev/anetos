@@ -207,7 +207,7 @@ pages apart.
 ## Testing it
 
 Render a component to a string with `view.String(ctx, component)`, or
-request the page through the router with `httptest` as
+request the page with `anetostest` and check it with `AssertSee`, as
 [`examples/forms`](../../../examples/forms/main_test.go) does.
 
 ## Common problems

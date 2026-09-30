@@ -139,8 +139,31 @@ All notable changes to this project are documented here. The format follows
   `make:middleware` (F11).
 - Docs: getting-started tutorial, commands guide, `anetos` tool and app
   commands reference; the examples use `app.Execute` (F11).
+- Testing helpers (`anetostest`, F12): `anetostest.New(t, setup)` boots
+  the app with test settings (`.env.testing`, never `.env`), runs its
+  migrations and isolates the database (in-memory SQLite per test, or a
+  transaction rolled back per test with a savepoint per request); a
+  browser-like client (cookies, automatic CSRF token, `Referer`) with form
+  and JSON methods and `Do`; chainable assertions for status, redirects,
+  headers, text, JSON paths, validation errors and session values;
+  `AssertDatabaseHas[T]`, `AssertDatabaseMissing[T]`,
+  `AssertDatabaseCount[T]`, `AssertSoftDeleted[T]`, `Create`,
+  `CreateMany` (design D74–D79).
+- Model factories (`db/factory`, F12): `factory.New(func(n int) T)`,
+  `With`, `Make`, `MakeMany`, `Create`, `CreateMany`.
+- `session.Manager.Load` and `Edit` read and change the session a request
+  carries, for test clients (F12).
+- `dbtest.RunApp` tests a driver with a `anetostest` app (F12).
+- `anetos new` projects test with `anetostest`; PostgreSQL and MySQL
+  projects get a `.env.testing` for a `<name>_test` database (F12).
+- Docs: testing guide and reference; the guides' "Testing it" sections
+  use `anetostest` (F12).
 
 ### Changed
+- `session.ForApp` and `migrate.ForApp` also provide the manager and the
+  runner to the app's container (`anetos.Resolve`) (F12).
+- The examples' `setup` functions take only the app, like `anetos new`
+  projects' (F12).
 - Migration flag errors wrap `cmd.ErrUsage` (exit status 2 from the
   binary) (F11).
 - `db.Connect` pings the database when the app boots (at once if it has

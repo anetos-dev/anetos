@@ -199,28 +199,27 @@ func addCommands(app *anetos.App) {
 	// endregion
 }
 
-// setup connects to the database, builds the migration runner and the
-// server. Tests call it too.
-func setup(ctx context.Context, app *anetos.App) (*web.Server, *migrate.Runner, error) {
+// setup connects to the database, builds the migration runner (the
+// migrate commands) and the server. Tests call it too.
+func setup(app *anetos.App) (*web.Server, error) {
 	// region: connect
 	// DB_CONNECTION (default sqlite) picks one of the drivers passed here.
-	if _, err := db.Connect(ctx, app, sqlite.Driver()); err != nil {
-		return nil, nil, err
+	if _, err := db.Connect(context.Background(), app, sqlite.Driver()); err != nil {
+		return nil, err
 	}
 	// endregion
 	// region: runner
-	runner, err := migrate.ForApp(app, []*migrate.Set{Migrations}, migrate.WithSeeders(Seeders...))
-	if err != nil {
-		return nil, nil, err
+	if _, err := migrate.ForApp(app, []*migrate.Set{Migrations}, migrate.WithSeeders(Seeders...)); err != nil {
+		return nil, err
 	}
 	// endregion
 	srv, err := web.NewServer(app)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	routes(srv.Router())
 	addCommands(app)
-	return srv, runner, nil
+	return srv, nil
 }
 
 func main() {
@@ -228,7 +227,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if _, _, err := setup(context.Background(), app); err != nil {
+	if _, err := setup(app); err != nil {
 		log.Fatal(err)
 	}
 	// region: commands

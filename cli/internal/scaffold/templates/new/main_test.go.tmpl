@@ -1,43 +1,14 @@
 package main
 
 import (
-	"net/http"
-	"net/http/httptest"
-	"strings"
 	"testing"
 
-	"anetos.dev/anetos"
-	"anetos.dev/anetos/config"
-	"anetos.dev/anetos/encryption"
+	"anetos.dev/anetos/anetostest"
 )
 
+// anetostest.New boots the app with test settings (.env.testing, not
+// .env) and a migrated database, which the test leaves as it found it.
 func TestHome(t *testing.T) {
-	// Settings from .env and the environment, with a test key. The home
-	// page doesn't query the database, so none is needed.
-	env, err := config.Load(config.LoadOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	app, err := anetos.New(anetos.WithSource(config.Layers(config.Map{
-		"APP_ENV":   "testing",
-		"APP_KEY":   encryption.GenerateKey(),
-		"LOG_LEVEL": "error",
-[[- if eq .DB "sqlite"]]
-		"DB_DATABASE": ":memory:",
-[[- end]]
-	}, env)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	srv, err := setup(app)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = app.Close() })
-	req := httptest.NewRequestWithContext(app.Context(t.Context()), http.MethodGet, "/", nil)
-	rec := httptest.NewRecorder()
-	srv.Router().ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "[[.Title]]") {
-		t.Errorf("GET /: %d %s", rec.Code, rec.Body.String())
-	}
+	app := anetostest.New(t, setup)
+	app.Get("/").AssertOK().AssertSee("[[.Title]]")
 }

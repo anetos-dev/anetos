@@ -105,9 +105,8 @@ refuses on every database.
 ### 3. Connect the runner
 
 ```go
-runner, err := migrate.ForApp(app, []*migrate.Set{Migrations}, migrate.WithSeeders(Seeders...))
-if err != nil {
-	return nil, nil, err
+if _, err := migrate.ForApp(app, []*migrate.Set{Migrations}, migrate.WithSeeders(Seeders...)); err != nil {
+	return nil, err
 }
 ```
 
@@ -204,21 +203,19 @@ to the server.
 
 ## Testing it
 
-Run the migrations against an in-memory SQLite database at the start of a
-test:
+`anetostest.New(t, setup)` runs the migrations `migrate.ForApp`
+registered before each test (see [Test your app](testing.md)). To check
+that every `Down` works, roll back in a test, outside the test's
+transaction (MySQL commits on every schema change):
 
 ```go
 // illustrative
-d, _ := db.Open(sqlite.Driver(), db.Config{Database: ":memory:"})
-runner, _ := migrate.NewRunner(d, []*migrate.Set{migrations.All}, migrate.WithEnvironment(anetos.Testing))
-if _, err := runner.Up(t.Context()); err != nil {
+app := anetostest.New(t, setup, anetostest.WithoutTransaction())
+runner, _ := anetos.Resolve[*migrate.Runner](app.App)
+if _, err := runner.Reset(app.Context()); err != nil {
 	t.Fatal(err)
 }
-ctx := db.WithDB(t.Context(), d)
 ```
-
-Roll back in a test too (`runner.Reset`) to check that every `Down`
-works.
 
 ## Common problems
 

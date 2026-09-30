@@ -145,8 +145,9 @@ or `OnlyTrashed()`. Every method is listed in the
 
 ## Testing it
 
-Query an in-memory SQLite database seeded in the test, as in
-[Connect to a database](database.md#testing-it).
+Create the rows a query should (and shouldn't) find with
+[factories](testing.md#4-make-rows-with-factories), then run it on
+`app.Context()` of a `anetostest` app.
 
 ## Common problems
 

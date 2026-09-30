@@ -54,8 +54,7 @@ func TestNewProject(t *testing.T) {
 	goRun := func(args ...string) string {
 		t.Helper()
 		c := exec.Command("go", args...)
-		c.Dir = dir
-		c.Env = append(os.Environ(), "DB_DATABASE="+filepath.Join(dir, "app.db"))
+		c.Dir = dir // go test: anetostest uses an in-memory database
 		b, err := c.CombinedOutput()
 		if err != nil {
 			t.Fatalf("go %v: %v\n%s", args, err, b)

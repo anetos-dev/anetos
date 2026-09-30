@@ -47,6 +47,13 @@ func TestCreate(t *testing.T) {
 			if info, _ := os.Stat(filepath.Join(dir, ".env")); info.Mode().Perm() != 0o600 {
 				t.Errorf(".env mode %v", info.Mode())
 			}
+			if db == "sqlite" {
+				if slices.Contains(files, ".env.testing") {
+					t.Error("SQLite projects need no .env.testing (tests use an in-memory database)")
+				}
+			} else if env := read(t, filepath.Join(dir, ".env.testing")); !strings.Contains(env, "DB_DATABASE=my_blog_test\n") || !strings.Contains(env, "DB_CONNECTION="+db) {
+				t.Errorf(".env.testing:\n%s", env)
+			}
 			if ex := read(t, filepath.Join(dir, ".env.example")); strings.Contains(ex, "base64:") {
 				t.Error(".env.example has a key")
 			}

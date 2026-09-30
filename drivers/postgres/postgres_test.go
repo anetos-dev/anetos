@@ -29,6 +29,15 @@ func TestConformance(t *testing.T) {
 	dbtest.Run(t, d)
 }
 
+// TestApp tests an app on the database with anetostest.
+func TestApp(t *testing.T) {
+	url := os.Getenv("ANETOS_TEST_POSTGRES_URL")
+	if url == "" {
+		t.Skip("ANETOS_TEST_POSTGRES_URL not set")
+	}
+	dbtest.RunApp(t, postgres.Driver(), map[string]string{"DB_CONNECTION": "postgres", "DB_URL": url})
+}
+
 func TestDSN(t *testing.T) {
 	cases := []struct {
 		cfg  db.Config

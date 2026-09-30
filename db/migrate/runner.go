@@ -99,7 +99,8 @@ func NewRunner(d *db.DB, sets []*Set, opts ...Option) (*Runner, error) {
 // ForApp returns a runner for the app's database (from db.Connect) that
 // knows the app's environment and logs with its logger, and registers the
 // migration commands (migrate, migrate:rollback, …, db:seed) on the app,
-// for app.Execute. Call it once per app.
+// for app.Execute, and provides the runner as a *migrate.Runner service.
+// Call it once per app.
 func ForApp(app *anetos.App, sets []*Set, opts ...Option) (*Runner, error) {
 	d, err := anetos.Resolve[*db.DB](app)
 	if err != nil {
@@ -118,6 +119,7 @@ func ForApp(app *anetos.App, sets []*Set, opts ...Option) (*Runner, error) {
 			return nil, fmt.Errorf("migrate: %w", err)
 		}
 	}
+	anetos.Provide(app, r) // anetostest migrates with it
 	return r, nil
 }
 

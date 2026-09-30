@@ -222,6 +222,7 @@ anetos.dev/anetos/            ← core module
 ├── validate/            rules, messages, error bags
 ├── db/                  query builder, model runtime, dialects, tx, raw SQL
 │   ├── dbtest/          conformance suite every driver module runs
+│   ├── factory/         model factories for tests and seeders (F12)
 │   └── migrate/         schema builder, runner (F8)
 ├── view/                Component interface, helpers, assets (F10); view/htmx: bundled htmx
 ├── session/             encrypted cookie sessions, flash, CSRF token (F10)
@@ -229,7 +230,7 @@ anetos.dev/anetos/            ← core module
 ├── cache/ queue/ pubsub/ events/ schedule/ mailer/ storage/ auth/
 ├── ext/                 public plugin API (package `ext`)
 ├── cmd/                 app-binary command types (F11); App.Execute dispatches
-├── anetostest/          testing helpers and fakes
+├── anetostest/          test app, browser-like client, assertions (F12); fakes arrive with their features
 ├── internal/            everything not part of the public API
 │   ├── convert/         string → typed value conversion (config and web binding)
 │   ├── naming/          column and table naming rules (db and `anetos gen`)
@@ -701,8 +702,10 @@ func (createPosts) Down(s *migrate.Schema) error { return s.Drop("posts") }
   `Runner.Command` until the app binary's command framework (F11) wraps
   them. Rollback, reset and seed need `--force` in production.
 - **Seeders** are named functions run in order, each in a transaction.
-  **Factories** (generic, `factory.New[Post](...)`) for test and dev data
-  move to the testing helpers (F12).
+  **Factories** (`db/factory`, F12) make valid model values for tests and
+  seeders: `factory.New(func(n int) Post {…})` with a sequence number,
+  `With(func(*Post))` for states (a new factory each time), `Make`,
+  `Create(ctx)` through `db.Create` (D77).
 
 ---
 
@@ -1086,31 +1089,57 @@ migration commands.
 
 ## 18. Testing
 
-The `anetostest` package gives testing the Laravel comfort:
+The `anetostest` package (F12) gives testing the Laravel comfort:
 
 ```go
+// illustrative
 func TestCreatePost(t *testing.T) {
-    app := anetostest.New(t)          // boots app, isolated DB (tx rollback per test)
-    user := factory.Create[models.User](app)
-    mail := app.FakeMail()
+    app := anetostest.New(t, setup)   // the app's own setup; migrated, isolated DB
+    author := anetostest.Create(app, factories.Authors)
 
-    app.ActingAs(user).
-        PostForm("/posts", url.Values{"title": {"Hello"}, "body": {"World"}}).
-        AssertRedirect("posts.show").
-        AssertSessionHas("status")
+    app.Get("/posts/new")
+    app.PostForm("/posts", url.Values{"title": {"Hello"}, "author_id": {fmt.Sprint(author.ID)}}).
+        AssertRedirectRoute("posts.index").
+        AssertSessionHas("status", "Post created.")
 
-    anetostest.AssertDatabaseHas[models.Post](t, app, models.PostCols.Title.Eq("Hello"))
-    mail.AssertNothingSent()
+    anetostest.AssertDatabaseHas[models.Post](app, models.PostCols.Title.Eq("Hello"))
 }
 ```
 
-- Fluent HTTP client and assertions; JSON path assertions for APIs.
-- DB isolation through a per-test transaction; SQLite in-memory for speed;
-  optional real Postgres or MySQL through the test helper.
-- Fakes for mail, queue, events, pub/sub, storage and **clock**
-  (`app.Freeze(time)`). Time is always read from an injectable clock inside
-  the framework.
-- Everything works with `go test`, `-race` and `t.Parallel()`.
+- **Boot.** `anetostest.New(t, setup, opts...)` runs the function `main`
+  uses to wire the app, boots it, runs the migrations `migrate.ForApp`
+  registered, and closes it at the end of the test (D74). Settings:
+  options > `APP_ENV=testing` and a random `APP_KEY` > the environment >
+  `.env.testing` > test defaults; `.env` is never read, so tests can't
+  reach the development database. Logs go to `t.Log`.
+- **Database isolation** (D75): SQLite in memory (the default) gives each
+  test its own database; with a server or a SQLite file, each test runs in
+  a transaction rolled back at the end, and each request in a savepoint
+  so a failed statement doesn't poison PostgreSQL's transaction. Whether
+  the database is in memory is asked of SQLite after connecting, and an
+  unset or empty `DB_DATABASE` never falls back to `database/app.db`.
+  Known differences from production (`AfterCommit`, statements after a
+  PostgreSQL error, timeouts, MySQL DDL) are documented, with
+  `WithoutTransaction()` as the way out.
+  `WithoutTransaction()` opts out for code needing commits.
+- **Client** (D76): requests go straight to the router (no network) and act
+  like a browser: its own cookie jar (Path and expiry honored; Secure
+  and Domain ignored, so `SESSION_SECURE` and `__Host-` cookies work over
+  the in-process HTTP), the session's CSRF token added through
+  `session.Manager.Edit`, the last HTML page as `Referer` (so validation
+  redirects back). Chained assertions report with `t.Errorf`: status,
+  redirects (by path or route name), headers, text (as is or
+  HTML-escaped), JSON and JSON paths, validation errors (422 problem or
+  flashed), session values. `Follow()` loads a redirect.
+- **Data** (D77, D78): factories (`db/factory`) and generic database
+  assertions (`AssertDatabaseHas[T]`, `…Missing`, `…Count`,
+  `AssertSoftDeleted`) using the typed columns.
+- **Fakes** for mail, queue, events, pub/sub, storage and the **clock**
+  (`app.Freeze(time)`) arrive with those features in v0.2 (D79); time will
+  be read from an injectable clock inside the framework.
+- Everything works with `go test` and `-race`; `t.Parallel()` works with
+  in-memory SQLite and server databases (not a SQLite file, whose write
+  lock each test's transaction holds). One app per test or subtest.
 
 ---
 
@@ -1276,6 +1305,12 @@ unless new information arrives), **Open**, **Superseded**.
 | D71 | `anetos dev` polls for changes (no fsnotify), regenerates, rebuilds, restarts the app on a free port and serves it through a proxy on the stable address, with SSE live reload and error pages | Accepted | No extra dependency, same behaviour on every OS and editor; the browser never sees a refused connection during restarts |
 | D72 | `make:*` generators write new files from embedded templates and never overwrite; customizing templates (`stub:publish`) comes later | Accepted | Generated code is plain Go the developer owns |
 | D73 | `db.Connect` opens the pool at once but pings when the app boots (right away if already booted) | Accepted | Commands that don't boot (`help`) work without a database; everything that boots still fails fast |
+| D74 | `anetostest.New(t, setup)` builds the app with the app's own setup function (no test-only wiring) and finds what it needs (session manager, migration runner, database) in the container, which `session.ForApp` and `migrate.ForApp` now provide to; tests read `.env.testing`, never `.env` | Accepted | Tests exercise production wiring; a test can't migrate or wipe the development database by accident |
+| D75 | Test isolation: a fresh in-memory SQLite database per test by default; otherwise migrations plus a per-test transaction rolled back at the end, with a savepoint per request | Accepted | Fast and parallel on SQLite; one migrated database on a server with no cleanup code; savepoints keep a failed statement from aborting the rest of a PostgreSQL test |
+| D76 | The test client calls the router in-process and behaves like a browser (cookie jar, automatic CSRF token, `Referer`), rather than disabling CSRF in tests | Accepted | Tests go through the same middleware as users; forms tests need no token scraping |
+| D77 | Factories are values (`factory.New(func(n int) T)`), with states as `With(func(*T))` returning a new factory, in `db/factory` so seeders can use them; related rows are made explicitly | Accepted | Typed, no reflection or registry; shared base factories can't be mutated by a test; relations stay explicit until relation handles (v0.1.x) |
+| D78 | Response assertions are chainable methods reporting with `t.Errorf`; database assertions and `Create` are generic functions (`AssertDatabaseHas[T](app, conds...)`) | Accepted | Go has no generic methods; `Errorf` shows every failed check of a request at once |
+| D79 | Fakes (clock, mail, queue, events, storage) ship with their features, not in F12 | Accepted | Nothing to fake in v0.1; each fake is designed with the API it replaces |
 
 ---
 
@@ -1307,4 +1342,5 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-09-30 | F8 implemented: §11 rewritten; D51–D57 added; factories moved to F12 |
 | 2026-09-30 | F9 implemented: §5, §10.1, §17.1 updated; D42 updated; D58–D62 added; O2 resolved; relation handles moved to v0.1.x |
 | 2026-09-30 | F10 implemented: §5, §8.6, §9, §12.1, §17.1, §20 updated; D63–D68 added; O7 resolved |
-| 2026-09-30 | F11 implemented: §4, §5, §6, §17 updated; D69–D72 added |
+| 2026-09-30 | F11 implemented: §4, §5, §6, §17 updated; D69–D73 added |
+| 2026-09-30 | F12 implemented: §5, §11, §18 rewritten; D74–D79 added |

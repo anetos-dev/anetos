@@ -136,7 +136,7 @@ Goal: the core an application stands on.
 | F9 | Model code generation | `anetos gen`: typed column references generated from model structs, `-check` for CI. (Relation handles need relations: moved to v0.1.x.) |
 | F10 | Views, sessions & forms | templ integration, layouts, view helpers (route URLs, CSRF field, errors, old input, assets), cookie sessions, flash messages, CSRF, method override, bundled htmx; validation failures on HTML forms redirect back with the error bag and old input; `APP_KEY` and encryption |
 | F11 | CLI | Global `anetos new`, `anetos dev` (watch, rebuild, restart, browser reload), `make:handler`, `make:model`, `make:migration`, `make:middleware`; app-binary command framework (`serve`, `run`, `migrate*`, `routes:list`, custom commands) |
-| F12 | Testing helpers | App bootstrap for tests, fluent HTTP test client, per-test DB transaction rollback, model factories (`factory.New[T]`) |
+| F12 | Testing helpers | App bootstrap for tests, fluent HTTP test client, per-test DB transaction rollback, model factories (`factory.New`). (Clock, mail and queue fakes arrive with those features in v0.2.) |
 
 **Progress**
 
@@ -153,7 +153,11 @@ Goal: the core an application stands on.
 | F9 Model code generation | ✅ Done 2026-09-30 |
 | F10 Views, sessions & forms | ✅ Done 2026-09-30 |
 | F11 CLI | ✅ Done 2026-09-30 |
-| F12 | Not started (next: F12 testing helpers) |
+| F12 Testing helpers | ✅ Done 2026-09-30 |
+
+All v0.1 work packages are done. Before tagging v0.1.0: check the exit
+criteria below (the benchmark baseline, the blog built from the docs
+alone, concept pages), then the v0.1.x relations patch.
 
 **Planned patch:** **v0.1.x** adds **relations and eager loading** (has-one,
 has-many, belongs-to, many-to-many, `With(...)`) and the relation handles
@@ -326,3 +330,4 @@ something, and we fix the API rather than add the hook.
 | 2026-09-30 | F9 done; relation handles moved to v0.1.x |
 | 2026-09-30 | F10 done |
 | 2026-09-30 | F11 done |
+| 2026-09-30 | F12 done; all v0.1 work packages complete; fakes moved to the v0.2 features they fake |

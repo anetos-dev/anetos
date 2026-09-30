@@ -191,16 +191,18 @@ Two edge cases:
 
 ## Testing it
 
+Send requests to the app's router with `anetostest`:
+
 ```go
 // illustrative
-r := web.NewRouter()
-r.Post("/notes", web.H(notes.Store))
-req := httptest.NewRequest("POST", "/notes", strings.NewReader(`{"title":"Hi"}`))
-req.Header.Set("Content-Type", "application/json")
-rec := httptest.NewRecorder()
-r.ServeHTTP(rec, req)
-// assert rec.Code == 201 and decode rec.Body
+app := anetostest.New(t, setup)
+app.PostJSON("/notes", map[string]string{"title": "Hi"}).
+	AssertCreated().
+	AssertJSONPath("title", "Hi")
 ```
+
+See [Test your app](testing.md#3-test-a-json-api). A router alone works
+with `httptest` too: `r.ServeHTTP(rec, req)`.
 
 ## Common problems
 

@@ -559,3 +559,52 @@ func TestInvalidCookieLogged(t *testing.T) {
 		t.Errorf("logs: %s", c.logs)
 	}
 }
+
+func TestLoadAndEdit(t *testing.T) {
+	c := newClient(t, DefaultConfig())
+	// A request flashes a message and errors.
+	c.get(func(s *Session) {
+		s.Flash("status", "Saved.")
+		s.FlashErrors(FieldError{"title", "Required."})
+	})
+	req := func() *http.Request {
+		r := httptest.NewRequest(http.MethodGet, "/", nil)
+		r.AddCookie(&http.Cookie{Name: c.m.name, Value: c.cookie})
+		return r
+	}
+	// Editing (a test getting a CSRF token) doesn't use up the flash.
+	var tok string
+	ck, err := c.m.Edit(req(), func(s *Session) { tok = s.Token(); s.Put("seeded", true) })
+	if err != nil || ck.Name != c.m.name || !ck.HttpOnly {
+		t.Fatalf("Edit: %v %+v", err, ck)
+	}
+	c.cookie = ck.Value
+	s := c.m.Load(req())
+	if s.String("status") != "Saved." || len(s.Errors()) != 1 || !s.Has("seeded") || !s.VerifyToken(tok) {
+		t.Errorf("after Edit: status=%q errors=%v seeded=%v token=%v", s.String("status"), s.Errors(), s.Has("seeded"), s.VerifyToken(tok))
+	}
+	// fn sees the session as a handler would, and Put on a flashed key
+	// keeps it, as in a request.
+	var seen []FieldError
+	ck, err = c.m.Edit(req(), func(s *Session) { seen = s.Errors(); s.Put("status", "Kept.") })
+	if err != nil || len(seen) != 1 {
+		t.Fatalf("Edit saw errors %v: %v", seen, err)
+	}
+	c.cookie = ck.Value
+	c.get(func(*Session) {}) // a request uses up the flash
+	if s := c.m.Load(req()); s.String("status") != "Kept." || len(s.Errors()) != 0 {
+		t.Errorf("after a request: status=%q errors=%v", s.String("status"), s.Errors())
+	}
+	// Load doesn't save.
+	s.Put("unsaved", 1)
+	if c.m.Load(req()).Has("unsaved") {
+		t.Error("Load saved")
+	}
+	// Edit starts a session when there is none.
+	if ck, err := c.m.Edit(httptest.NewRequest(http.MethodGet, "/", nil), func(s *Session) { s.Put("a", 1) }); err != nil || ck.Value == "" {
+		t.Errorf("new session: %v", err)
+	}
+	if _, err := c.m.Edit(req(), func(s *Session) { s.Put("big", strings.Repeat("x", 5000)) }); err == nil {
+		t.Error("oversized Edit accepted")
+	}
+}

@@ -147,9 +147,10 @@ s := session.New()
 ctx := session.NewContext(context.Background(), s)
 ```
 
-To test across requests, send the cookie back, as
-[`examples/forms`](../../../examples/forms/main_test.go) does with a
-cookie jar (set `APP_KEY` in the test's configuration).
+Across requests, a `anetostest` app keeps the session cookie: check the
+session after a response with `res.AssertSessionHas("status", "Saved.")`,
+and set values before a request with `app.WithSession(func(s
+*session.Session) { … })`. See [Test your app](testing.md#2-test-a-form).
 
 ## Common problems
 

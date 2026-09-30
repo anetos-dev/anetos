@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"anetos.dev/anetos/db"
+	"anetos.dev/anetos/db/factory"
 	"anetos.dev/anetos/validate"
 )
 
@@ -173,6 +174,7 @@ func Run(t *testing.T, d *db.DB) {
 		{"SoftDeleteScopes", testSoftDeleteScopes},
 		{"JSONColumns", testJSONColumns},
 		{"NullableTimeColumns", testNullableTimeColumns},
+		{"Factories", testFactories},
 	}
 	for _, tt := range append(tests, extra...) {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1192,5 +1194,29 @@ func testNullableTimeColumns(t *testing.T, ctx context.Context) {
 	check(t, err)
 	if n != 1 {
 		t.Errorf("count = %d", n)
+	}
+}
+
+// testFactories inserts rows made by a factory.
+func testFactories(t *testing.T, ctx context.Context) {
+	authors := factory.New(func(n int) Author {
+		return Author{Name: fmt.Sprintf("Author %d", n), Email: fmt.Sprintf("author%d@example.com", n)}
+	})
+	a, err := authors.Create(ctx)
+	check(t, err)
+	many, err := authors.With(func(x *Author) { x.Name = "Bulk" }).CreateMany(ctx, 3)
+	check(t, err)
+	if a.ID == 0 || len(many) != 3 || many[2].ID == 0 || many[0].ID == many[1].ID || many[1].Name != "Bulk" {
+		t.Errorf("created %+v %+v", a, many)
+	}
+	n, err := db.Query[Author](ctx).Count()
+	check(t, err)
+	if n != 4 {
+		t.Errorf("count = %d", n)
+	}
+	// A failing insert stops CreateMany.
+	dup := authors.With(func(x *Author) { x.Email = a.Email })
+	if got, err := dup.CreateMany(ctx, 2); err == nil || len(got) != 0 {
+		t.Errorf("duplicate email: %v %v", got, err)
 	}
 }

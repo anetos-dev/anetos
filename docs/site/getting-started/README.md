@@ -112,6 +112,11 @@ go build -o bin/blog .
 ./bin/blog              # runs the app; ./bin/blog help lists the commands
 ```
 
+`main_test.go` requests the home page with
+[`anetostest`](../guides/testing.md), which boots the app with an
+in-memory database, like a browser would. Add a test for each page and
+form as you go.
+
 The binary embeds the views and static files. Set `APP_ENV=production`
 and the `APP_KEY` from your secrets in production, and run
 `./bin/blog migrate` before starting the new version.

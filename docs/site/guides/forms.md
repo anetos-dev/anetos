@@ -160,11 +160,18 @@ allows other origins of yours.
 
 ## Testing it
 
-Post forms through the router with a cookie jar: load the form page, read
-the `_token` value from it, and post it back, as
-[`examples/forms`](../../../examples/forms/main_test.go) does. A client
-that isn't a browser sends no `Sec-Fetch-Site` or `Origin`, so only the
-token is checked.
+`anetostest` posts forms like a browser: it keeps the session cookie,
+sends the CSRF token and the `Referer`, so a failed form redirects back:
+
+```go
+// illustrative
+app.Get("/notes/new")
+app.PostForm("/notes", url.Values{"title": {""}}).
+	AssertRedirect("/notes/new").
+	AssertValidationErrors("title")
+```
+
+See [Test your app](testing.md#2-test-a-form).
 
 ## Common problems
 

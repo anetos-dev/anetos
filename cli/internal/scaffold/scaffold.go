@@ -135,6 +135,11 @@ func Create(p Project) ([]string, error) {
 			rel = ".env"
 		case "env.example":
 			rel = ".env.example"
+		case "env.testing":
+			if p.DB == "sqlite" {
+				return nil // tests use an in-memory database
+			}
+			rel = ".env.testing"
 		case "gitignore":
 			rel = ".gitignore"
 		}
