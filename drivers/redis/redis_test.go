@@ -5,16 +5,22 @@ package redis_test
 import (
 	"context"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"anetos.dev/anetos"
 	"anetos.dev/anetos/cache"
 	"anetos.dev/anetos/cache/cachetest"
 	"anetos.dev/anetos/config"
 	"anetos.dev/anetos/drivers/redis"
+	"anetos.dev/anetos/encryption"
 	"anetos.dev/anetos/anetostest"
+	"anetos.dev/anetos/session"
 	"anetos.dev/anetos/web"
 	goredis "github.com/redis/go-redis/v9"
 )
@@ -144,5 +150,41 @@ func TestAnetostest(t *testing.T) {
 	defer client.Close()
 	if n, err := client.Exists(t.Context(), prefix+"k").Result(); err != nil || n != 0 {
 		t.Errorf("the test app's item is still there: %d, %v", n, err)
+	}
+}
+
+func TestSessionDriver(t *testing.T) {
+	url := redisURL(t)
+	prefix := "redistest-" + strconv.FormatInt(time.Now().UnixNano(), 36) + ":session:"
+	app := newApp(t, config.Map{"APP_KEY": encryption.GenerateKey(), "SESSION_DRIVER": "redis", "SESSION_PREFIX": prefix, "REDIS_URL": url})
+	m, err := session.ForApp(app, redis.SessionDriver())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := app.Boot(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	store, _ := m.Store()
+	t.Cleanup(func() { _ = store.Flush(context.WithoutCancel(t.Context()), prefix) })
+	ck, err := m.Edit(httptest.NewRequest(http.MethodGet, "/", nil), func(s *session.Session) { s.Put("user_id", 7) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	client, _ := redis.Connect(t.Context(), app)
+	var keys []string
+	it := client.Scan(t.Context(), 0, prefix+"*", 1000).Iterator()
+	for it.Next(t.Context()) {
+		keys = append(keys, it.Val())
+	}
+	if err := it.Err(); err != nil || len(keys) != 1 {
+		t.Fatalf("session keys: %v, %v", keys, err)
+	}
+	if ttl := client.PTTL(t.Context(), keys[0]).Val(); ttl <= 0 || ttl > 2*time.Hour {
+		t.Errorf("session ttl %v, want SESSION_LIFETIME", ttl)
+	}
+	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r.AddCookie(ck)
+	if v, _ := session.Value[int](m.Load(r), "user_id"); v != 7 {
+		t.Errorf("loaded user_id = %d", v)
 	}
 }

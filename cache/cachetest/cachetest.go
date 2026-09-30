@@ -45,6 +45,7 @@ func Run(t *testing.T, newStore func(t *testing.T) cache.Store) {
 		{"GetSet", testGetSet},
 		{"Expiry", testExpiry},
 		{"Add", testAdd},
+		{"Replace", testReplace},
 		{"Increment", testIncrement},
 		{"CompareAndDelete", testCompareAndDelete},
 		{"Flush", testFlush},
@@ -153,6 +154,36 @@ func testAdd(t *testing.T, ctx context.Context, s cache.Store, p string) {
 	check(t, err)
 	if v, _ := get(t, ctx, s, p+"e"); !ok || !ok2 || v != "new" {
 		t.Errorf("Add over an expired key: %v %v %q", ok, ok2, v)
+	}
+}
+
+func testReplace(t *testing.T, ctx context.Context, s cache.Store, p string) {
+	ok, err := s.Replace(ctx, p+"r", []byte("one"), cache.Forever)
+	check(t, err)
+	if ok {
+		t.Error("Replace of a missing key succeeded")
+	}
+	if _, found := get(t, ctx, s, p+"r"); found {
+		t.Error("Replace created a key")
+	}
+	check(t, s.Set(ctx, p+"r", []byte("one"), cache.Forever))
+	if ok, err := s.Replace(ctx, p+"r", []byte("two"), ttl); err != nil || !ok {
+		t.Fatalf("Replace = %v, %v", ok, err)
+	}
+	if v, _ := get(t, ctx, s, p+"r"); v != "two" {
+		t.Errorf("after Replace: %q", v)
+	}
+	time.Sleep(wait) // Replace set the ttl
+	if ok, _ := s.Replace(ctx, p+"r", []byte("three"), cache.Forever); ok {
+		t.Error("Replace of an expired key succeeded")
+	}
+	if _, found := get(t, ctx, s, p+"r"); found {
+		t.Error("Replace brought back an expired key")
+	}
+	// Replacing with the same value still counts as done.
+	check(t, s.Set(ctx, p+"same", []byte("v"), cache.Forever))
+	if ok, err := s.Replace(ctx, p+"same", []byte("v"), cache.Forever); err != nil || !ok {
+		t.Errorf("Replace with the same value = %v, %v", ok, err)
 	}
 }
 

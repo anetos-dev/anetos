@@ -100,6 +100,17 @@ func (s *MemoryStore) Add(_ context.Context, key string, value []byte, ttl time.
 	return true, nil
 }
 
+// Replace implements [Store].
+func (s *MemoryStore) Replace(_ context.Context, key string, value []byte, ttl time.Duration) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.lookup(key); !ok {
+		return false, nil
+	}
+	s.write(key, memItem{bytes.Clone(value), s.expiry(ttl)})
+	return true, nil
+}
+
 // Delete implements [Store].
 func (s *MemoryStore) Delete(_ context.Context, key string) error {
 	s.mu.Lock()

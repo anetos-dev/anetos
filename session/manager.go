@@ -6,6 +6,8 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,13 +16,19 @@ import (
 	"maps"
 	"net"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 	"unicode"
+	"unicode/utf8"
 
 	"anetos.dev/anetos"
+	"anetos.dev/anetos/cache"
 	"anetos.dev/anetos/config"
+	"anetos.dev/anetos/db"
+	"anetos.dev/anetos/db/migrate"
 	"anetos.dev/anetos/encryption"
+	"anetos.dev/anetos/internal/httperr"
 )
 
 // Config configures sessions. Environment keys use the SESSION_ prefix;
@@ -57,6 +65,19 @@ type Config struct {
 	// SameSite is lax, strict or none. SESSION_SAME_SITE, default lax.
 	// "none" requires Secure.
 	SameSite string `env:"SAME_SITE" default:"lax"`
+
+	// Driver is where sessions are kept: cookie (the whole session in the
+	// encrypted cookie), database, or a driver passed to ForApp (redis).
+	// SESSION_DRIVER, default cookie.
+	Driver string `env:"DRIVER" default:"cookie"`
+
+	// Table is the database driver's table. SESSION_TABLE, default
+	// sessions. Pass the same name to [Migrations].
+	Table string `env:"TABLE" default:"sessions"`
+
+	// Prefix starts the store keys of server-side sessions.
+	// SESSION_PREFIX, default APP_NAME followed by ":session:".
+	Prefix string `env:"PREFIX"`
 }
 
 // Validate implements config.Validator.
@@ -78,6 +99,12 @@ func (c Config) Validate() error {
 	}
 	if !strings.HasPrefix(c.Path, "/") || strings.ContainsFunc(c.Path, func(r rune) bool { return r == ';' || unicode.IsControl(r) }) {
 		errs = append(errs, fmt.Errorf("SESSION_PATH %q must start with / (and contain no ;)", c.Path))
+	}
+	if c.Driver == "" {
+		errs = append(errs, errors.New("SESSION_DRIVER must not be empty"))
+	}
+	if len(c.Prefix) > 100 || !utf8.ValidString(c.Prefix) || strings.ContainsRune(c.Prefix, 0) {
+		errs = append(errs, fmt.Errorf("SESSION_PREFIX %q must be text of at most 100 bytes", c.Prefix))
 	}
 	switch strings.ToLower(c.SameSite) {
 	case "lax", "strict":
@@ -123,6 +150,9 @@ type Manager struct {
 	secure   bool
 	sameSite http.SameSite
 	now      func() time.Time
+
+	store  cache.Store // nil: the cookie holds the session
+	prefix string      // of the store's keys
 }
 
 // Option configures [NewManager].
@@ -131,8 +161,17 @@ type Option func(*Manager)
 // WithLogger sets the logger for cookie problems. Default slog.Default().
 func WithLogger(l *slog.Logger) Option { return func(m *Manager) { m.log = l } }
 
+// WithStore keeps sessions in store, under keys starting with prefix
+// ("blog:session:"), instead of in the cookie: the cookie then holds only
+// the encrypted session ID. Any cache store works: the database store,
+// Redis, or the memory store (one process only; sessions end when it
+// stops).
+func WithStore(store cache.Store, prefix string) Option {
+	return func(m *Manager) { m.store, m.prefix = store, prefix }
+}
+
 // NewManager returns a Manager that stores sessions in cookies encrypted
-// by enc.
+// by enc, or with [WithStore], in a server-side store.
 func NewManager(cfg Config, enc *encryption.Encrypter, opts ...Option) (*Manager, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("session: invalid config: %w", err)
@@ -172,11 +211,51 @@ func NewManager(cfg Config, enc *encryption.Encrypter, opts ...Option) (*Manager
 // the Path "/".
 func (m *Manager) CookieName() string { return m.name }
 
+// Driver opens a server-side store for [ForApp]. The database driver is
+// built in; driver modules provide others (redis.SessionDriver()).
+type Driver struct {
+	// Name is the value of SESSION_DRIVER that selects the driver.
+	Name string
+	// Open returns the store for the app.
+	Open func(app *anetos.App, cfg Config) (cache.Store, error)
+}
+
+// DatabaseDriver keeps sessions in the app's database
+// (SESSION_DRIVER=database), in the table SESSION_TABLE created by
+// [Migrations]. Call db.Connect before session.ForApp.
+func DatabaseDriver() Driver {
+	return Driver{Name: "database", Open: func(app *anetos.App, cfg Config) (cache.Store, error) {
+		d, err := anetos.Resolve[*db.DB](app)
+		if err != nil {
+			return nil, errors.New("the database driver needs the app's database: call db.Connect before session.ForApp")
+		}
+		return cache.NewDatabaseStore(d, cfg.Table), nil
+	}}
+}
+
+// Migrations returns the migration creating the database driver's table
+// (default "sessions"), for migrate.ForApp:
+//
+//	migrate.ForApp(app, []*migrate.Set{migrations.All, session.Migrations("")})
+func Migrations(table string) *migrate.Set {
+	if table == "" {
+		table = "sessions"
+	}
+	s := migrate.NewSet("session")
+	s.AddFunc("2026_10_01_000100_create_"+table+"_table",
+		func(s *migrate.Schema) error { return cache.CreateTable(s, table) },
+		func(s *migrate.Schema) error { return s.Drop(table) })
+	return s
+}
+
 // ForApp returns a Manager configured from the application's SESSION_*
 // settings and APP_KEY, and provides it as a *session.Manager service.
 // Cookies are Secure by default, except in the development and testing
-// environments.
-func ForApp(app *anetos.App) (*Manager, error) {
+// environments. SESSION_DRIVER picks where sessions are kept: cookie and
+// database are built in; pass others, such as redis.SessionDriver().
+// Server-side sessions use keys starting with SESSION_PREFIX (default
+// APP_NAME and ":session:").
+func ForApp(app *anetos.App, drivers ...Driver) (*Manager, error) {
 	cfg, err := LoadConfig(app.Source())
 	if err != nil {
 		return nil, err
@@ -190,7 +269,28 @@ func ForApp(app *anetos.App) (*Manager, error) {
 	if err != nil {
 		return nil, fmt.Errorf("session: %w", err)
 	}
-	m, err := NewManager(cfg, enc, WithLogger(app.Logger()))
+	opts := []Option{WithLogger(app.Logger())}
+	if cfg.Driver != "cookie" {
+		all := append([]Driver{DatabaseDriver()}, drivers...)
+		i := slices.IndexFunc(all, func(d Driver) bool { return d.Name == cfg.Driver })
+		if i < 0 {
+			names := []string{"cookie"}
+			for _, d := range all {
+				names = append(names, d.Name)
+			}
+			return nil, fmt.Errorf("session: SESSION_DRIVER is %q, but the drivers are [%s]; pass its driver to session.ForApp (redis.SessionDriver() from drivers/redis)", cfg.Driver, strings.Join(names, ", "))
+		}
+		store, err := all[i].Open(app, cfg)
+		if err != nil {
+			return nil, fmt.Errorf("session: open the %s store: %w", cfg.Driver, err)
+		}
+		prefix := cfg.Prefix
+		if prefix == "" {
+			prefix = app.Config().Name + ":session:"
+		}
+		opts = append(opts, WithStore(store, prefix))
+	}
+	m, err := NewManager(cfg, enc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -200,6 +300,10 @@ func ForApp(app *anetos.App) (*Manager, error) {
 
 // Config returns the manager's configuration.
 func (m *Manager) Config() Config { return m.cfg }
+
+// Store returns the store of server-side sessions (nil for cookie
+// sessions) and the prefix of their keys.
+func (m *Manager) Store() (cache.Store, string) { return m.store, m.prefix }
 
 // Middleware loads the request's session from its cookie (or starts an
 // empty one), makes it available through [From], and saves it in the
@@ -214,8 +318,16 @@ func (m *Manager) Middleware(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r) // this manager already runs for the request
 			return
 		}
-		st := m.load(r)
-		sw := &saver{ResponseWriter: w, m: m, st: st}
+		st, err := m.load(r)
+		if err != nil {
+			// Serving the request with an empty session would log the
+			// visitor out, and saving it would overwrite theirs.
+			m.log.Error("session: the session store failed; answering 503", "error", err)
+			w.Header().Set("Retry-After", "5")
+			httperr.Write(w, r, &httperr.StatusError{Status: http.StatusServiceUnavailable, Err: fmt.Errorf("session: %w", err)})
+			return
+		}
+		sw := &saver{ResponseWriter: w, m: m, st: st, ctx: context.WithoutCancel(r.Context())}
 		ctx := context.WithValue(NewContext(r.Context(), st.s), managerKey{}, m)
 		next.ServeHTTP(sw, r.WithContext(ctx))
 		sw.save()
@@ -240,19 +352,27 @@ type payload struct {
 // state is a loaded session and what came in, to detect changes.
 type state struct {
 	s       *Session
+	id      string // the ID that came in (server-side sessions)
 	had     bool   // a valid cookie came in
 	loaded  []byte // its payload without Last, for change detection
 	last    time.Time
 	expired bool // a cookie came in but was invalid or expired
 }
 
-func (m *Manager) load(r *http.Request) *state {
+func (m *Manager) load(r *http.Request) (*state, error) {
 	now := m.now()
 	st := &state{}
 	if c, err := r.Cookie(m.name); err == nil && c.Value != "" {
-		p, why := m.decode(c.Value, now)
+		var p *payload
+		var why string
+		if m.store == nil {
+			p, why = m.decode(c.Value, now)
+		} else if p, why, err = m.fetch(r.Context(), c.Value, now); err != nil {
+			return nil, err
+		}
 		if p != nil {
 			st.s = fromPayload(p)
+			st.id = p.ID
 			st.had = true
 			st.last = time.Unix(p.Last, 0)
 			st.loaded = comparable(p)
@@ -266,7 +386,7 @@ func (m *Manager) load(r *http.Request) *state {
 		st.s.created = now
 	}
 	st.s.last = now
-	return st
+	return st, nil
 }
 
 // decode opens a cookie value, or says why it can't be used.
@@ -279,16 +399,58 @@ func (m *Manager) decode(value string, now time.Time) (*payload, string) {
 	if json.Unmarshal([]byte(plain), &p) != nil || p.V != 1 || p.ID == "" {
 		return nil, "cookie holds no session"
 	}
+	if why := m.expired(&p, now); why != "" {
+		return nil, why
+	}
+	return &p, ""
+}
+
+// fetch reads the session whose encrypted ID the cookie holds from the
+// store, or says why there is none.
+func (m *Manager) fetch(ctx context.Context, value string, now time.Time) (*payload, string, error) {
+	id, derr := m.enc.DecryptString(value, m.context)
+	if derr != nil {
+		// A bad cookie starts a new session; it isn't a failure.
+		return nil, "cookie can't be decrypted (tampered, or encrypted with a key that isn't configured)", nil //nolint:nilerr // see above
+	}
+	b, ok, err := m.store.Get(ctx, m.key(id))
+	if err != nil {
+		return nil, "", err
+	}
+	if !ok {
+		return nil, "session not in the store (expired or ended)", nil
+	}
+	plain, derr := m.enc.DecryptString(string(b), m.storeContext(m.key(id)))
+	var p payload
+	if derr != nil || json.Unmarshal([]byte(plain), &p) != nil || p.V != 1 {
+		return nil, "stored session is invalid (or encrypted with a key that isn't configured)", nil //nolint:nilerr // a bad entry starts a new session
+	}
+	p.ID = id
+	if why := m.expired(&p, now); why != "" {
+		return nil, why, nil
+	}
+	return &p, "", nil
+}
+
+// expired says why the session p can't be used at now, or "".
+func (m *Manager) expired(p *payload, now time.Time) string {
 	last, created := time.Unix(p.Last, 0), time.Unix(p.Created, 0)
 	switch {
 	case last.After(now.Add(time.Minute)) || created.After(now.Add(time.Minute)):
-		return nil, "session times are in the future"
+		return "session times are in the future"
 	case now.Sub(last) > m.cfg.Lifetime:
-		return nil, "session idle for longer than SESSION_LIFETIME"
+		return "session idle for longer than SESSION_LIFETIME"
 	case m.cfg.MaxLifetime > 0 && now.Sub(created) > m.cfg.MaxLifetime:
-		return nil, "session older than SESSION_MAX_LIFETIME"
+		return "session older than SESSION_MAX_LIFETIME"
 	}
-	return &p, ""
+	return ""
+}
+
+// key is the store key of the session id: a hash, so that reading the
+// store doesn't give anyone a usable session.
+func (m *Manager) key(id string) string {
+	sum := sha256.Sum256([]byte(id))
+	return m.prefix + base64.RawURLEncoding.EncodeToString(sum[:])
 }
 
 func fromPayload(p *payload) *Session {
@@ -344,11 +506,15 @@ func (p *payload) empty() bool {
 // 4096 bytes for name, value and attributes.
 const maxCookie = 3900
 
+// saveTimeout bounds a save to the store, which the response waits for.
+const saveTimeout = 10 * time.Second
+
 // saver saves the session when the response starts.
 type saver struct {
 	http.ResponseWriter
 	m     *Manager
 	st    *state
+	ctx   context.Context // for the store
 	saved bool
 }
 
@@ -402,10 +568,12 @@ func (w *saver) save() {
 		return
 	}
 	w.saved = true
-	w.m.save(w.ResponseWriter, w.st)
+	ctx, cancel := context.WithTimeout(w.ctx, saveTimeout)
+	defer cancel()
+	w.m.save(ctx, w.ResponseWriter, w.st)
 }
 
-func (m *Manager) save(w http.ResponseWriter, st *state) {
+func (m *Manager) save(ctx context.Context, w http.ResponseWriter, st *state) {
 	s := st.s
 	p := s.toPayload()
 	h := w.Header()
@@ -417,6 +585,9 @@ func (m *Manager) save(w http.ResponseWriter, st *state) {
 		addVary(h, "Cookie")
 	}
 	if p.empty() {
+		if m.store != nil && st.had {
+			m.revoke(ctx, st.id) // emptied or invalidated: ends every copy of the cookie
+		}
 		if st.had || st.expired {
 			m.setCookie(w, "", -1) // nothing left: remove the cookie
 		}
@@ -426,6 +597,21 @@ func (m *Manager) save(w http.ResponseWriter, st *state) {
 	if !changed && s.last.Sub(st.last) < m.refreshAfter() {
 		return
 	}
+	if m.store != nil {
+		value, ok, err := m.persist(ctx, st, p)
+		switch {
+		case err != nil:
+			m.log.Error("session: saving the session in the store failed; changes not saved", "error", err)
+		case !ok:
+			// Removed meanwhile by another request (a logout, or a login
+			// that regenerated it): don't bring it back, and leave the
+			// cookie that request set alone.
+			m.log.Debug("session: the session ended during the request; not saved")
+		default:
+			m.setCookie(w, value, m.maxAge())
+		}
+		return
+	}
 	value, ok := m.encode(p)
 	if !ok && len(p.Old) > 0 {
 		m.log.Warn("session: form input too large for the session cookie; not kept", "cookie", m.name)
@@ -433,15 +619,82 @@ func (m *Manager) save(w http.ResponseWriter, st *state) {
 		value, ok = m.encode(p)
 	}
 	if !ok {
-		m.log.Error("session: session too large for its cookie (about 4 KB); changes not saved. Store less, or store an ID and keep the data in the database",
+		m.log.Error("session: session too large for its cookie (about 4 KB); changes not saved. Store less, keep the data in the database, or use a server-side SESSION_DRIVER",
 			"cookie", m.name, "bytes", len(value))
 		return
 	}
-	maxAge := int(m.cfg.Lifetime / time.Second)
-	if m.cfg.ExpireOnClose {
-		maxAge = 0
+	m.setCookie(w, value, m.maxAge())
+}
+
+// Limits on what a server-side session holds: failed forms' input is
+// dropped past maxStoredInput, and larger sessions aren't saved, so no one
+// can fill the store through a form.
+const (
+	maxStoredInput = 64 << 10
+	maxStored      = 1 << 20
+)
+
+// persist writes p to the store and returns the cookie value for it. An
+// existing session (same ID as loaded) is only replaced, so one removed
+// meanwhile isn't written back (ok false); a new or regenerated one is
+// written, and then the session it replaces is removed.
+func (m *Manager) persist(ctx context.Context, st *state, p *payload) (value string, ok bool, err error) {
+	q := *p
+	q.ID = "" // the key identifies the session; the store doesn't hold the ID
+	b, err := json.Marshal(q)
+	if err != nil {
+		return "", false, err
 	}
-	m.setCookie(w, value, maxAge)
+	if len(b) > maxStoredInput && len(q.Old) > 0 {
+		if old, _ := json.Marshal(q.Old); len(old) > maxStoredInput {
+			m.log.Warn("session: form input too large to keep in the session; not kept")
+			q.Old = nil
+			if b, err = json.Marshal(q); err != nil {
+				return "", false, err
+			}
+		}
+	}
+	if len(b) > maxStored {
+		return "", false, fmt.Errorf("session too large (%d bytes, at most %d): store IDs, not records", len(b), maxStored)
+	}
+	key := m.key(p.ID)
+	enc := m.enc.EncryptString(string(b), m.storeContext(key))
+	regenerated := st.had && p.ID != st.id
+	if st.had && !regenerated {
+		if ok, err = m.store.Replace(ctx, key, []byte(enc), m.cfg.Lifetime); err != nil || !ok {
+			return "", false, err
+		}
+	} else if err = m.store.Set(ctx, key, []byte(enc), m.cfg.Lifetime); err != nil {
+		return "", false, err
+	}
+	if regenerated {
+		m.revoke(ctx, st.id)
+	}
+	return m.enc.EncryptString(p.ID, m.context), true, nil
+}
+
+// revoke removes the session id from the store, trying twice; a failure
+// is logged: copies of its cookie keep working until it expires.
+func (m *Manager) revoke(ctx context.Context, id string) {
+	err := m.store.Delete(ctx, m.key(id))
+	if err != nil {
+		err = m.store.Delete(ctx, m.key(id))
+	}
+	if err != nil {
+		m.log.Error("session: removing an ended session from the store failed; copies of its cookie work until it expires", "error", err)
+	}
+}
+
+// storeContext is the encryption context of the session stored under key:
+// an entry copied to another key doesn't decrypt.
+func (m *Manager) storeContext(key string) string { return m.context + "\x00store\x00" + key }
+
+// maxAge is the cookie's Max-Age.
+func (m *Manager) maxAge() int {
+	if m.cfg.ExpireOnClose {
+		return 0
+	}
+	return int(m.cfg.Lifetime / time.Second)
 }
 
 // addVary adds value to the Vary header unless it is there.
@@ -492,7 +745,15 @@ func (m *Manager) cookie(value string, maxAge int) *http.Cookie {
 // missing, invalid or expired), as the session middleware would give it
 // to the request's handler. Changes to it are not saved. Tests use it to
 // look at the session a response left.
-func (m *Manager) Load(r *http.Request) *Session { return m.load(r).s }
+func (m *Manager) Load(r *http.Request) *Session {
+	st, err := m.load(r)
+	if err != nil {
+		m.log.Error("session: the session store failed", "error", err)
+		s := New()
+		return s
+	}
+	return st.s
+}
 
 // Edit changes the session r carries (starting one if there is none)
 // without counting as a request: fn sees the session as a handler would
@@ -501,16 +762,27 @@ func (m *Manager) Load(r *http.Request) *Session { return m.load(r).s }
 // the session cookie to send with later requests. Tests use it to prepare
 // a session, or to get a CSRF token (s.Token()).
 func (m *Manager) Edit(r *http.Request, fn func(s *Session)) (*http.Cookie, error) {
-	s := m.load(r).s
+	st, err := m.load(r)
+	if err != nil {
+		return nil, fmt.Errorf("session: %w", err)
+	}
+	s := st.s
 	fn(s)
 	s.Reflash()
-	value, ok := m.encode(s.toPayload())
+	p := s.toPayload()
+	if m.store != nil {
+		value, ok, err := m.persist(r.Context(), st, p)
+		if err != nil {
+			return nil, fmt.Errorf("session: %w", err)
+		}
+		if !ok {
+			return nil, errors.New("session: the session ended while it was edited")
+		}
+		return m.cookie(value, m.maxAge()), nil
+	}
+	value, ok := m.encode(p)
 	if !ok {
 		return nil, errors.New("session: session too large for its cookie (about 4 KB)")
 	}
-	maxAge := int(m.cfg.Lifetime / time.Second)
-	if m.cfg.ExpireOnClose {
-		maxAge = 0
-	}
-	return m.cookie(value, maxAge), nil
+	return m.cookie(value, m.maxAge()), nil
 }

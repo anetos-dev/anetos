@@ -35,6 +35,10 @@ type Store interface {
 	// Add stores value under key only if the key is absent, atomically,
 	// and reports whether it did.
 	Add(ctx context.Context, key string, value []byte, ttl time.Duration) (bool, error)
+	// Replace stores value under key only if the key is there, atomically,
+	// and reports whether it did. Sessions are saved with it, so a session
+	// removed meanwhile (logged out) isn't written back.
+	Replace(ctx context.Context, key string, value []byte, ttl time.Duration) (bool, error)
 	// Delete removes key; a missing key is not an error.
 	Delete(ctx context.Context, key string) error
 	// Increment adds delta to the integer stored under key, atomically,

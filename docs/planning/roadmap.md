@@ -202,11 +202,12 @@ Goal: everything a real application needs beyond CRUD.
 | WP | Status |
 |---|---|
 | B1 Cache | ✅ Done 2026-09-30 (memory, database and Redis stores; locks) |
+| B2 Sessions & rate limiting | ✅ Done 2026-09-30 (database and Redis session drivers; `web/ratelimit`) |
 
 | WP | Work package | Notes |
 |---|---|---|
 | B1 | Cache | Contract + memory, database and Redis (`drivers/redis`) stores; locks (used by the scheduler); `cache:clear` |
-| B2 | Sessions & rate limiting | DB and Redis session drivers; rate limiter middleware |
+| B2 | Sessions & rate limiting | DB and Redis session drivers; rate limiter middleware and `Allow` for login throttling |
 | B3 | Authentication & authorization | Passwords (argon2id), login, logout, remember-me, email verification, password reset, API tokens, typed policies; `make:auth` scaffolding |
 | B4 | Social login | OAuth2/OIDC: Google, GitHub, generic OIDC |
 | B5 | Queue | Typed jobs, dispatch, delay, retries with backoff, timeouts, failed-jobs store and retry command; drivers: sync, database, Redis |
@@ -358,3 +359,4 @@ something, and we fix the API rather than add the hook.
 | 2026-09-30 | v0.1.0 tagged |
 | 2026-09-30 | v0.1.1 (relations) done; N+1 detection moved to v0.2 |
 | 2026-09-30 | B1 (cache) done; database store added to its scope |
+| 2026-09-30 | B2 (sessions and rate limiting) done |

@@ -136,9 +136,13 @@ Read by `session.ForApp` (or `session.LoadConfig`) into `session.Config`.
 | `SESSION_PATH` | string | `/` | Cookie path | v0.1 |
 | `SESSION_SECURE` | bool | `true`, except `development` and `testing` | Send the cookie over HTTPS only | v0.1 |
 | `SESSION_SAME_SITE` | `lax` \| `strict` \| `none` | `lax` | Cookie SameSite mode; `none` requires `SESSION_SECURE=true` | v0.1 |
+| `SESSION_DRIVER` | `cookie` \| `database` \| a driver's name (`redis`) | `cookie` | Where sessions are kept: the encrypted cookie, or a server-side store (the cookie then holds the encrypted session ID); `redis` needs `redis.SessionDriver()` passed to `session.ForApp` | v0.2 |
+| `SESSION_TABLE` | string | `sessions` | The database driver's table; pass the same name to `session.Migrations` | v0.2 |
+| `SESSION_PREFIX` | string | `APP_NAME` + `:session:` | Starts the store keys of server-side sessions. `anetostest` sets one per test app | v0.2 |
 
-The cookie is always `HttpOnly`. Its content is encrypted with `APP_KEY`
-and limited to about 4 KB.
+The cookie is always `HttpOnly`. Its content is encrypted with `APP_KEY`;
+with the cookie driver it holds the whole session, limited to about 4 KB.
+Server-side sessions are stored, encrypted, under keys starting with `SESSION_PREFIX`.
 
 ## Database
 
@@ -184,7 +188,7 @@ Read by `cache.ForApp` (or `cache.LoadConfig`) into `cache.Config`.
 |---|---|---|---|---|
 | `CACHE_STORE` | `memory` \| `database` \| a driver's name (`redis`) | `memory` | Selects the store; `redis` needs `redis.CacheDriver()` passed to `cache.ForApp` | v0.2 |
 | `CACHE_PREFIX` | string | `APP_NAME` + `:cache:` | Starts every key, so apps (and other features in Redis) can share a store; `cache:clear` removes only these keys. `anetostest` sets one per test app | v0.2 |
-| `CACHE_TABLE` | string | `cache` | The database store's table (create it with `cache.Migrations`) | v0.2 |
+| `CACHE_TABLE` | string | `cache` | The database store's table; pass the same name to `cache.Migrations` | v0.2 |
 
 ## Redis
 

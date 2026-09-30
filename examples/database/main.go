@@ -2,7 +2,8 @@
 
 // Command database is a small blog API on Anetos's data layer: models,
 // CRUD, queries, pagination, transactions, raw SQL, database validation
-// rules and a cache. It uses SQLite, so it runs without a database server.
+// rules, a cache and rate limiting. It uses SQLite, so it runs without a
+// database server.
 //
 //	export APP_ENV=development DB_DATABASE=blog.db HTTP_ADDR=:8080
 //	go run . migrate      # create the tables
@@ -30,6 +31,7 @@ import (
 	"anetos.dev/anetos/db/migrate"
 	"anetos.dev/anetos/drivers/sqlite"
 	"anetos.dev/anetos/web"
+	"anetos.dev/anetos/web/ratelimit"
 )
 
 // region: models
@@ -211,6 +213,10 @@ func (Blog) Stats(c *web.Ctx, _ struct{}) ([]AuthorStats, error) {
 
 func routes(r *web.Router) {
 	var b Blog
+	// region: ratelimit
+	// 120 requests a minute per client IP, counted in the app's cache.
+	r = r.Group("", ratelimit.Middleware("api", ratelimit.PerMinute(120)))
+	// endregion
 	r.Post("/authors", web.H(b.CreateAuthor))
 	r.Get("/authors", web.H(b.ListAuthors))
 	r.Post("/posts", web.H(b.CreatePost))

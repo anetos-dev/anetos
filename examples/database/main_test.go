@@ -4,6 +4,7 @@ package main
 
 import (
 	"io"
+	"net/http"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -107,6 +108,26 @@ func TestDatabaseCache(t *testing.T) {
 	if err != nil || n != 1 {
 		t.Errorf("cached rows: %d, %v", n, err)
 	}
+}
+
+// TestRateLimit checks that the API answers 429 past its limit.
+func TestRateLimit(t *testing.T) {
+	app := anetostest.New(t, setup)
+	for i := range 250 { // two windows' worth, in case a minute starts meanwhile
+		res := app.GetJSON("/stats")
+		if res.StatusCode == http.StatusTooManyRequests {
+			if i < 120 {
+				t.Errorf("limited after %d requests", i)
+			}
+			res.AssertHeader("X-RateLimit-Remaining", "0")
+			if res.Header.Get("Retry-After") == "" {
+				t.Error("no Retry-After")
+			}
+			return
+		}
+		res.AssertOK()
+	}
+	t.Error("never limited")
 }
 
 // region: test-relations

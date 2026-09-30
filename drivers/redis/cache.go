@@ -90,6 +90,11 @@ func (s *CacheStore) Add(ctx context.Context, key string, value []byte, ttl time
 	return s.client.SetNX(ctx, key, value, time.Duration(ms(ttl))*time.Millisecond).Result()
 }
 
+// Replace implements [cache.Store], with SET XX.
+func (s *CacheStore) Replace(ctx context.Context, key string, value []byte, ttl time.Duration) (bool, error) {
+	return s.client.SetXX(ctx, key, value, time.Duration(ms(ttl))*time.Millisecond).Result()
+}
+
 // Delete implements [cache.Store].
 func (s *CacheStore) Delete(ctx context.Context, key string) error {
 	return s.client.Del(ctx, key).Err()

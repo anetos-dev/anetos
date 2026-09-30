@@ -454,8 +454,8 @@ v0.2.
   production), `CORS` (refuses `*` with credentials), `BodyLimit`, `Timeout`.
   F10: `CSRF`, `MethodOverride`, and the session middleware (package
   `session`). Middleware reports errors through the router's error handler
-  with `web.WriteError`. Later: rate limiting and auth (v0.2), compression,
-  maintenance mode.
+  with `web.WriteError`. B2: `ratelimit.Middleware` (package
+  `web/ratelimit`, D94). Later: auth (v0.2), compression, maintenance mode.
 - `web.NewServer` adds the server as the `http` component (role `http`,
   `StageIngress`, `StopOnFailure`), plus `/health/live` and `/health/ready`
   (supervisor readiness).
@@ -757,8 +757,23 @@ Implemented in F10 (packages `view`, `session`, `encryption`; helpers in
   stored; unchanged sessions are rewritten at most every tenth of
   `SESSION_LIFETIME` (at least a minute apart); responses of requests with a session get
   `Cache-Control: private` and `Vary: Cookie`. About 4 KB: oversized old
-  input is dropped first, then the save is skipped and logged. Server-side
-  stores arrive with v0.2 drivers.
+  input is dropped first, then the save is skipped and logged.
+- **Server-side sessions** (B2, D93): `SESSION_DRIVER=database` (table from
+  `session.Migrations`) or `redis` (`drivers/redis`) keeps the session
+  payload, encrypted with `APP_KEY` and without the ID, in a `cache.Store`
+  under `SESSION_PREFIX` (default `APP_NAME:session:`) plus the SHA-256 of
+  the session ID, for `SESSION_LIFETIME`; the cookie holds only the
+  encrypted ID. The idle and absolute checks still use the payload's
+  timestamps. An existing session is saved with `Replace`, so one ended
+  meanwhile stays ended; a new or regenerated one with `Set`, after which
+  the old entry is deleted, so `Regenerate` and `Invalidate` revoke every
+  copy of the cookie (a late request whose `Replace` fails leaves the
+  cookie alone). Entries are encrypted with the key in the context, so a
+  value copied to another key doesn't load. Failed-form input over 64 KB is dropped; sessions
+  over 1 MB aren't saved. A store read failure answers 503 through the
+  router's error handler (via `internal/httperr`, which `web` wires up); a
+  write failure is logged. Concurrent requests of one session are
+  last-write-wins.
 - **CSRF** (D65): `web.CSRF` combines Go's `http.CrossOriginProtection`
   (Sec-Fetch-Site / Origin) with a session token (masked per render against
   BREACH) from `_token` or `X-CSRF-Token`; 403 on failure.
@@ -937,7 +952,7 @@ Each service is an interface in the core module. Drivers are chosen in
 | Service | Contract package | Core drivers | Driver modules / plugins | Version |
 |---|---|---|---|---|
 | Database | `db` | — | `drivers/postgres`, `drivers/mysql`, `drivers/sqlite` | v0.1 |
-| Session | `session` | cookie (encrypted) | database, `drivers/redis` | v0.1 / v0.2 |
+| Session | `session` | cookie (encrypted), database | `drivers/redis` | v0.1 / v0.2 (B2 done) |
 | Cache (+ locks) | `cache` | memory, database | `drivers/redis` | v0.2 (B1 done) |
 | Queue | `queue` | sync, database | `drivers/redis`; SQS, NATS (plugins) | v0.2 |
 | Pub/sub | `pubsub` | in-memory (tests/dev) | `drivers/redis` (Streams), `drivers/gcppubsub`; NATS, Kafka (plugins) | v0.2 |
@@ -945,7 +960,7 @@ Each service is an interface in the core module. Drivers are chosen in
 | Storage | `storage` | local | `drivers/s3` (S3-compatible, incl. R2/MinIO); GCS, Azure (plugins) | v0.2 |
 | Password hashing | `auth/password` | argon2id, bcrypt | — | v0.2 |
 | Encryption | `encryption` | AES-GCM with `APP_KEY`, key rotation | — | v0.1 |
-| Rate limiting | `web/ratelimit` | memory | via cache driver | v0.2 |
+| Rate limiting | `web/ratelimit` | on the app's cache | (the cache's stores) | v0.2 (B2 done) |
 | Logging | `log/slog` (stdlib) | text, JSON handlers | OpenTelemetry bridge (module) | v0.1 |
 
 **Rule:** a driver belongs in the core module only if it uses nothing but the
@@ -971,7 +986,7 @@ err = cache.TryWithLock(ctx, "reports:monthly", 10*time.Minute, buildReport)
 ```
 
 - **Contract.** `cache.Store` is bytes in, bytes out: `Get`, `Set`, `Add`
-  (atomic add-if-absent), `Delete`, `Increment` (atomic; the ttl applies
+  (atomic add-if-absent), `Replace` (atomic set-if-present, B2), `Delete`, `Increment` (atomic; the ttl applies
   when the counter is created), `DeleteIf`/`ExpireIf` (atomic
   compare-and-delete/expire, for locks), `Flush(prefix)` and `Close`. A
   ttl of 0 is forever. `cache/cachetest` is the conformance suite every
@@ -1375,11 +1390,14 @@ unless new information arrives), **Open**, **Superseded**.
 | D85 | Relation handles are typed values, `db.Rel[T, R]`, generated in `TRels` by `anetos gen` (or `db.RelOf[T, R]("Field")`, checked at first use, so package-level variables are safe; `Err()` checks early); `With` takes `db.Relation[T]`, and nesting, conditions and order are methods on the handle | Accepted | The compiler rejects a relation of another model; no dotted strings (`"comments.author"`); no work at package initialization (a `TableName` reading configuration would run too early) |
 | D86 | `WhereHas`/`WhereDoesntHave` are `EXISTS` subqueries (many-to-many through `IN (SELECT … FROM pivot)`), honoring the related model's soft deletes; a self-referencing relation aliases the inner table | Accepted | No duplicate rows and no `Distinct`; conditions use the related model's own column names |
 | D87 | Pivot writes are `Attach` (idempotent, also under concurrency, through the dialect's conflict clause on the pivot's unique key), `Detach` (by ids; none is a no-op), `DetachAll` and `Sync`, each in a transaction; no pivot columns or timestamps yet. N+1 detection is deferred to v0.2 (B13) | Accepted | Covers the common many-to-many needs; an empty id list from a request can't wipe links by accident; request-scoped query tracking belongs with the v0.2 observability work |
-| D88 | The cache store contract is bytes with a ttl (0 = forever) plus atomic `Add`, `Increment` (ttl only on creation; canonical decimal text; errors on non-integers and overflow) and owner-checked `DeleteIf`/`ExpireIf`; the typed API encodes values as JSON and finds the cache in the context, like `db`; keys carry `CACHE_PREFIX` (default `APP_NAME:cache:`), are UTF-8 without NUL and at most 250 bytes with it | Accepted | Small enough for any backend (memory, SQL, Redis, Memcached later) and all that locks and rate limits need; JSON is debuggable and survives restarts of mixed versions; fixed windows are what Redis `INCR`+`EXPIRE` gives; the prefix keeps `cache:clear` away from sessions and queues in a shared Redis |
+| D88 | The cache store contract is bytes with a ttl (0 = forever) plus atomic `Add`, `Replace` (added in B2 for sessions), `Increment` (ttl only on creation; canonical decimal text; errors on non-integers and overflow) and owner-checked `DeleteIf`/`ExpireIf`; the typed API encodes values as JSON and finds the cache in the context, like `db`; keys carry `CACHE_PREFIX` (default `APP_NAME:cache:`), are UTF-8 without NUL and at most 250 bytes with it | Accepted | Small enough for any backend (memory, SQL, Redis, Memcached later) and all that locks and rate limits need; JSON is debuggable and survives restarts of mixed versions; fixed windows are what Redis `INCR`+`EXPIRE` gives; the prefix keeps `cache:clear` away from sessions and queues in a shared Redis |
 | D89 | `Remember` computes once per key per process for concurrent misses (no cross-instance stampede lock), stores nothing when the function fails, and falls back to computing (with a warning) when the store fails or a stored value no longer decodes | Accepted | A cache outage or a deploy that changes a cached type must not take pages down; a distributed lock per miss would cost more than most recomputations |
 | D90 | The database store uses its own connections on PostgreSQL and MySQL (a value cached or a lock taken inside a transaction stays after a rollback; `db.WithoutTx` makes that possible; it costs a second pool connection per transaction) but joins the context's transaction on SQLite, whose single writer would otherwise deadlock; keys compare exactly (MySQL `VARBINARY`: its text collations ignore case, accents or trailing spaces); expiry is Unix milliseconds on the database server's clock; `Add` is `INSERT … ON CONFLICT DO NOTHING` (MySQL `INSERT IGNORE`) plus deleting an expired row, `Increment` a `SELECT … FOR UPDATE` transaction; deadlocks and serialization failures are retried; expired rows are swept every few minutes after writes | Accepted | Locks must be visible to other instances at once and survive a rollback; on SQLite there is only one instance and one writer; one clock for every instance keeps leases exclusive; single statements and row locks stay correct under contention where compare-and-swap loops failed on MySQL |
 | D91 | Locks are leases: a key holding a random owner token with a ttl, taken with `Add`, released and extended only by the owner; `Acquire` polls with exponential backoff (25ms to 1s) until the context ends; `WithLock`/`TryWithLock` release with a non-canceled context; no fencing tokens | Accepted | Works on every store with the same contract; a crashed holder can't keep a lock forever; fencing needs cooperation from the protected resource, which the scheduler and typical jobs don't have |
 | D92 | Redis lives in `drivers/redis` (go-redis v9): `redis.Connect` makes one client per app from `REDIS_URL`, provides it, pings it at boot and closes it at shutdown, for the cache now and sessions, queues and pub/sub later; `anetostest` gives each test app its own `CACHE_PREFIX` and flushes it at the end | Accepted | A heavy dependency stays out of the core module; one connection pool per app; tests sharing a database or Redis cache can't see each other's items, even in parallel |
+| D93 | Server-side sessions reuse the cache store contract: `SESSION_DRIVER` picks `cookie` (default), `database` or a passed driver; the cookie holds the encrypted session ID, the store holds the payload (encrypted, with its timestamps, without the ID) under a hash of the ID and `SESSION_PREFIX`; existing sessions are saved with `Replace` so a concurrent logout can't be undone; new IDs are written before the old entry is deleted; stored input is capped (64 KB, sessions 1 MB); a store read failure is a 503, a write failure is logged; no locking between concurrent requests | Accepted | One store implementation per backend for cache and sessions; revocable logins without a 4 KB limit; a leaked store or backup holds no usable session and no readable data; a failed write never loses the current session; forms can't fill the store; serving an empty session during an outage would log users out and overwrite their sessions; per-session locks cost more than rare lost writes |
+| D94 | Rate limits (`web/ratelimit`) are fixed windows aligned to the clock, one atomic `cache.Increment` per limit per request, counted shortest window first and stopping at the first limit exceeded; keys hash the middleware name (or `Allow`), the key's kind and the client IP (IPv6 per /64) or `By` key; over a limit is 429 through the error handler with `Retry-After` and `X-RateLimit-*` headers; a cache failure fails the request; `Allow`/`Clear` serve login-style throttling | Accepted | Works on every cache store and across instances with a shared one; one round trip per limit; a /64 is what one IPv6 client controls; a limiter that silently switches off during an outage would make brute-force protection unreliable |
+| D95 | `anetos new` projects call `cache.ForApp` and migrate the cache and sessions tables, so switching `CACHE_STORE` or `SESSION_DRIVER` to `database` is a setting, not a code change (renaming the tables with `CACHE_TABLE`/`SESSION_TABLE` also means passing the names to `Migrations`) | Accepted | Laravel creates both tables by default; the tables are small and unused until selected |
 
 ---
 
@@ -1416,3 +1434,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-09-30 | v0.1 release checks: §7, §11, §12.1, §17.1, §18 corrected against the code; D80–D82 added |
 | 2026-09-30 | v0.1.1 relations: §10, §17.1 updated; D83–D87 added |
 | 2026-09-30 | B1 cache implemented: §5, §13.7, §14 updated, §14.1 added; D88–D92 added |
+| 2026-09-30 | B2 sessions and rate limiting implemented: §8.6, §12.1, §14 updated; D93–D95 added |

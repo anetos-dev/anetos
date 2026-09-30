@@ -144,6 +144,7 @@ if n > 5 {
 }
 ```
 
+For request limits, [Rate limiting](rate-limiting.md) builds on this.
 Pass a negative delta to decrement. Read a counter with
 `cache.Get[int64]`. Incrementing a key that holds something other than
 an integer, or past the range of `int64`, is an error.
@@ -264,5 +265,6 @@ prefix.
 ## Next steps
 
 - [Configuration reference: cache](../reference/configuration.md#cache)
+- [Rate limiting](rate-limiting.md)
 - [Background tasks](background-tasks.md)
 - [Transactions](transactions.md)

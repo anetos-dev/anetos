@@ -105,9 +105,9 @@ func LogLevel(l slog.Level) Option { return func(o *options) { o.level = l } }
 // prepares its database. It closes the app when the test ends.
 //
 // Settings, from highest priority: [Env] options; APP_ENV=testing, a
-// random APP_KEY and a CACHE_PREFIX of the App's own (so tests sharing a
-// cache store don't see each other's items; New removes the App's items
-// when the test ends); the process environment; the .env.testing file next to
+// random APP_KEY, and a CACHE_PREFIX and SESSION_PREFIX of the App's own
+// (so tests sharing a store don't see each other's items; New removes the
+// App's items and sessions when the test ends); the process environment; the .env.testing file next to
 // go.mod, if there is one (say, DB_DATABASE=blog_test); then
 // HTTP_ACCESS_LOG=false. The settings in .env are not used (New only
 // looks at its DB_CONNECTION, to stop a test that would use SQLite by
@@ -119,7 +119,8 @@ func New(t testing.TB, setup func(app *anetos.App) (*web.Server, error), opts ..
 	for _, opt := range opts {
 		opt(o)
 	}
-	forced := config.Map{"APP_ENV": "testing", "APP_KEY": encryption.GenerateKey(), "CACHE_PREFIX": cachePrefix()}
+	prefix := testPrefix()
+	forced := config.Map{"APP_ENV": "testing", "APP_KEY": encryption.GenerateKey(), "CACHE_PREFIX": prefix + "cache:", "SESSION_PREFIX": prefix + "session:"}
 	defaults := config.Map{"HTTP_ACCESS_LOG": "false"}
 	file, err := moduleEnv(".env.testing")
 	if err != nil {
@@ -167,14 +168,23 @@ func New(t testing.TB, setup func(app *anetos.App) (*web.Server, error), opts ..
 	}
 	a.ctx = app.Context(ctx)
 	a.sessions, _ = anetos.Resolve[*session.Manager](app)
+	// A shared store (database, Redis) keeps items and sessions after the
+	// test, out of its transaction: remove them.
 	if c, err := anetos.Resolve[*cache.Cache](app); err == nil {
-		// A shared store (database, Redis) keeps items after the test,
-		// out of its transaction: remove them.
 		t.Cleanup(func() {
 			if err := c.Store().Flush(context.Background(), c.Prefix()); err != nil {
 				t.Errorf("anetostest: clear the cache: %v", err)
 			}
 		})
+	}
+	if a.sessions != nil {
+		if store, prefix := a.sessions.Store(); store != nil {
+			t.Cleanup(func() {
+				if err := store.Flush(context.Background(), prefix); err != nil {
+					t.Errorf("anetostest: clear the sessions: %v", err)
+				}
+			})
+		}
 	}
 
 	if o.migrate {
@@ -202,9 +212,10 @@ func New(t testing.TB, setup func(app *anetos.App) (*web.Server, error), opts ..
 	return a
 }
 
-// cachePrefix returns a CACHE_PREFIX of its own for an App, so tests
-// sharing a cache store don't see each other's items.
-func cachePrefix() string {
+// testPrefix returns a key prefix of its own for an App (for
+// CACHE_PREFIX and SESSION_PREFIX), so tests sharing a store don't see
+// each other's items.
+func testPrefix() string {
 	b := make([]byte, 8)
 	_, _ = rand.Read(b)
 	return "test-" + hex.EncodeToString(b) + ":"
@@ -318,7 +329,9 @@ var base = &url.URL{Scheme: "http", Host: "example.test", Path: "/"}
 
 // cookieRequest is a request carrying the jar's cookies.
 func (a *App) cookieRequest() *http.Request {
-	r, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, base.String(), nil)
+	// The test's context: server-side sessions on SQLite join its
+	// transaction, as the app's requests do.
+	r, _ := http.NewRequestWithContext(a.ctx, http.MethodGet, base.String(), nil)
 	for _, c := range a.jar.forPath("") { // whatever the session cookie's path
 		r.AddCookie(c)
 	}

@@ -14,5 +14,7 @@ tagged `drivers/redis/vX.Y.Z`. The framework's own changes are in the
   `redis.NewCacheStore` (also for cluster, failover and ring clients):
   counters in `MULTI` transactions, owner-checked lock operations in Lua
   scripts, and `cache:clear` through `SCAN` and `UNLINK` (B1).
+- `redis.SessionDriver()`: sessions in Redis (`SESSION_DRIVER=redis`), on
+  the app's shared client (B2).
 - Runs the `cache/cachetest` conformance suite against the server in
   `ANETOS_TEST_REDIS_URL` (B1).

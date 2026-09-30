@@ -10,6 +10,7 @@ import (
 	"log"
 
 	"anetos.dev/anetos"
+	"anetos.dev/anetos/cache"
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/db/migrate"
 	"anetos.dev/anetos/drivers/[[.DB]]"
@@ -34,12 +35,19 @@ func main() {
 	app.Execute() // run (default), serve, migrate, routes:list, help, …
 }
 
-// setup connects the database and adds the web server and the routes.
+// setup connects the database and adds the migrations, the cache, the web
+// server and the routes.
 func setup(app *anetos.App) (*web.Server, error) {
 	if _, err := db.Connect(context.Background(), app, [[.DB]].Driver()); err != nil {
 		return nil, err
 	}
-	if _, err := migrate.ForApp(app, []*migrate.Set{migrations.All}, migrate.WithSeeders(migrations.Seeders...)); err != nil {
+	// The cache and sessions tables serve CACHE_STORE=database and
+	// SESSION_DRIVER=database.
+	sets := []*migrate.Set{migrations.All, cache.Migrations(""), session.Migrations("")}
+	if _, err := migrate.ForApp(app, sets, migrate.WithSeeders(migrations.Seeders...)); err != nil {
+		return nil, err
+	}
+	if _, err := cache.ForApp(app); err != nil {
 		return nil, err
 	}
 	srv, err := web.NewServer(app)

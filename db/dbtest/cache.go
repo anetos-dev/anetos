@@ -5,6 +5,8 @@ package dbtest
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -12,10 +14,12 @@ import (
 	"anetos.dev/anetos/cache/cachetest"
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/db/migrate"
+	"anetos.dev/anetos/encryption"
+	"anetos.dev/anetos/session"
 )
 
 func init() {
-	extra = append(extra, test{"CacheStore", testCacheStore}, test{"WithoutTx", testWithoutTx})
+	extra = append(extra, test{"CacheStore", testCacheStore}, test{"WithoutTx", testWithoutTx}, test{"SessionStore", testSessionStore})
 }
 
 // testCacheStore runs the cache store conformance suite on the database
@@ -88,5 +92,37 @@ func testWithoutTx(t *testing.T, ctx context.Context) {
 	}
 	if db.WithoutTx(ctx) != ctx {
 		t.Error("WithoutTx changed a context with no transaction")
+	}
+}
+
+// testSessionStore keeps sessions in the table session.Migrations
+// creates.
+func testSessionStore(t *testing.T, ctx context.Context) {
+	r, err := migrate.NewRunner(d(ctx), []*migrate.Set{session.Migrations("st_sessions")}, migrate.WithTable("st_session_migrations"))
+	check(t, err)
+	_, err = r.Up(ctx)
+	check(t, err)
+	t.Cleanup(func() {
+		ctx := context.WithoutCancel(ctx)
+		_, _ = db.Exec(ctx, "DROP TABLE IF EXISTS st_sessions")
+		_, _ = db.Exec(ctx, "DROP TABLE IF EXISTS st_session_migrations")
+	})
+	k, err := encryption.ParseKey(encryption.GenerateKey())
+	check(t, err)
+	enc, err := encryption.New(k)
+	check(t, err)
+	m, err := session.NewManager(session.DefaultConfig(), enc, session.WithStore(cache.NewDatabaseStore(d(ctx), "st_sessions"), "t:session:"))
+	check(t, err)
+	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/", nil)
+	ck, err := m.Edit(req, func(s *session.Session) { s.Put("user_id", 7) })
+	check(t, err)
+	n, err := db.RawFirst[int64](ctx, "SELECT COUNT(*) FROM st_sessions")
+	check(t, err)
+	if n != 1 {
+		t.Errorf("%d stored sessions", n)
+	}
+	req.AddCookie(ck)
+	if v, _ := session.Value[int](m.Load(req), "user_id"); v != 7 {
+		t.Errorf("loaded user_id = %d", v)
 	}
 }

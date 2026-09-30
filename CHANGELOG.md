@@ -30,6 +30,34 @@ All notable changes to this project are documented here. The format follows
 - `examples/database` caches `GET /stats` and forgets it when posts
   change; guide "Cache values", configuration reference sections for the
   cache and Redis (B1).
+- Server-side sessions: `SESSION_DRIVER` (`cookie`, the default, or
+  `database`; `redis` from `drivers/redis`) with `session.Driver`,
+  `session.DatabaseDriver`, `session.Migrations` (`SESSION_TABLE`) and
+  `session.WithStore` for any `cache.Store`, `SESSION_PREFIX` and
+  `Manager.Store`. The cookie then holds only the encrypted session ID;
+  the store holds the session encrypted, under a hash of the ID;
+  `Regenerate` and `Invalidate` remove the old session, revoking every
+  copy of its cookie, and a request still running with it can't bring it
+  back; up to 1 MB per session (B2, design D93).
+- `cache.Store` has `Replace` (set only if present), implemented by every
+  store and checked by `cachetest` (B2, design D88).
+- Rate limiting (`web/ratelimit`): `ratelimit.Middleware(name, limits...)`
+  with `PerSecond`, `PerMinute`, `PerHour`, `PerDay`, `Per` and `By`
+  (default key: client IP, IPv6 per /64), counted shortest window first
+  without counting blocked requests against longer windows, 429 with
+  `Retry-After` and `X-RateLimit-*` headers; `ratelimit.Allow` and
+  `ratelimit.Clear` for actions such as logins; keys stored as hashes;
+  counted with the app's cache (B2, design D94).
+- `cache.CreateTable`, the table of a `cache.DatabaseStore`, for other
+  packages' migrations (B2).
+- `anetos new` projects set up the cache and include the cache and
+  sessions tables (B2, design D95).
+- `anetostest.New` also gives each test app its own `SESSION_PREFIX`,
+  removes its server-side sessions when the test ends, and runs session
+  helpers (`WithSession`, `AssertSessionHas`) in the test's context (B2).
+- `examples/database` rate-limits its API; `examples/forms` has the
+  sessions table and a test with `SESSION_DRIVER=database`; guide "Rate
+  limiting", sessions guide step "Keep sessions on the server" (B2).
 
 ## [0.1.1] - 2026-09-30
 

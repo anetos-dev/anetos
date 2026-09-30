@@ -16,9 +16,14 @@ import (
 	"time"
 
 	"anetos.dev/anetos"
+	"anetos.dev/anetos/cache"
 	"anetos.dev/anetos/config"
 	"anetos.dev/anetos/encryption"
 )
+
+// useStore makes newClient's managers keep sessions in a memory store;
+// TestStore sets it to run the other tests that way.
+var useStore bool
 
 type client struct {
 	t      *testing.T
@@ -33,7 +38,11 @@ func newClient(t *testing.T, cfg Config) *client {
 	k, _ := encryption.ParseKey(encryption.GenerateKey())
 	enc, _ := encryption.New(k)
 	logs := &bytes.Buffer{}
-	m, err := NewManager(cfg, enc, WithLogger(slog.New(slog.NewTextHandler(logs, nil))))
+	opts := []Option{WithLogger(slog.New(slog.NewTextHandler(logs, nil)))}
+	if useStore {
+		opts = append(opts, WithStore(cache.NewMemoryStore(), "t:session:"))
+	}
+	m, err := NewManager(cfg, enc, opts...)
 	if err != nil {
 		t.Fatal(err)
 	}

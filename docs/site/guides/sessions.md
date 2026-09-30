@@ -96,13 +96,51 @@ s.Regenerate()  // after login: new session ID and CSRF token
 s.Invalidate()  // on logout: everything removed, new ID
 ```
 
-Authentication (v0.2) calls these for you. `Invalidate` empties the
-session in this browser. Because the session lives in the cookie, a copy
-of an earlier cookie (stolen, or saved before logout) keeps working until
-it expires: after `SESSION_LIFETIME` without use, and in any case
-`SESSION_MAX_LIFETIME` (7 days by default) after it started or was last
-regenerated. Server-side stores, which can revoke sessions, arrive in
-v0.2.
+Call `Regenerate` yourself at login until authentication (B3, later in
+v0.2) does it for you. With a server-side driver it matters more: a
+session cookie planted in a victim's browser before they sign in would
+otherwise share their signed-in session. With the default cookie
+driver, `Invalidate` empties the session in this browser only: the session
+lives in the cookie, so a copy of an earlier cookie (stolen, or saved
+before logout) keeps working until it expires, after `SESSION_LIFETIME`
+without use and in any case `SESSION_MAX_LIFETIME` (7 days by default)
+after it started or was last regenerated. With a server-side driver (next
+step), `Invalidate` and `Regenerate` remove the old session from the
+store, so every copy of the old cookie stops working, and a request that
+was still running with the old session (a slow form post with a stolen
+cookie) doesn't bring it back when it ends.
+
+### 5. Keep sessions on the server
+
+Set `SESSION_DRIVER` to keep sessions in the database or Redis instead of
+the cookie. The cookie then holds only the encrypted session ID: sessions
+can be revoked, and hold more than 4 KB.
+
+For the database, add the sessions table to the migrations and run
+`migrate`:
+
+```go
+// session.Migrations creates the sessions table, for SESSION_DRIVER=database.
+if _, err := migrate.ForApp(app, []*migrate.Set{Migrations, session.Migrations("")}, migrate.WithSeeders(Seeders...)); err != nil {
+	return nil, err
+}
+```
+
+(Copied from [`examples/forms`](../../../examples/forms/main.go), region `runner`.)
+
+```env
+SESSION_DRIVER=database
+```
+
+For Redis, add the `drivers/redis` module and pass its driver
+(`REDIS_URL` says where the server is):
+
+```go
+// illustrative
+sessions, err := session.ForApp(app, redis.SessionDriver()) // SESSION_DRIVER=redis
+```
+
+Changing the driver ends every current session: visitors sign in again.
 
 ### Rotate the key
 
@@ -133,11 +171,31 @@ started (streaming) aren't saved.
 Browsers limit cookies to about 4 KB. Store IDs, not records. If a failed
 form's input doesn't fit, it is dropped (the errors are kept) and a warning
 is logged; a session that doesn't fit isn't saved and an error is logged.
-Server-side stores (database, Redis) arrive in v0.2.
+
+With a server-side driver, the cookie holds the session ID, encrypted
+like a cookie session. The store holds the session encrypted with
+`APP_KEY`, under a hash of the ID and without the ID itself, so reading
+the store (or a database backup) gives no one a usable session or its
+contents. It expires after `SESSION_LIFETIME` without use. Keys start
+with `SESSION_PREFIX` (default `APP_NAME:session:`), which `cache:clear`
+leaves alone unless `CACHE_PREFIX` is set to a start of it. A saved
+session is only replaced while it exists: a session ended meanwhile (by a
+logout) stays ended.
+
+A server-side session keeps a failed form's input up to 64 KB (larger
+input is dropped, the errors are kept) and holds at most 1 MB; a larger
+session isn't saved and an error is logged. If the store can't be read,
+the request gets 503 Service Unavailable (through the app's error pages)
+rather than an empty session, which would log the visitor out; if it
+can't be written, the response goes out and an error is logged. If
+removing a session at logout fails, it is logged, and copies of its cookie
+keep working until it expires. Two requests of one visitor running at the
+same time each save their own changes: the last one wins.
 
 > **Coming from Laravel?** `session()->put/get/flash/regenerate/invalidate`
 > map to `Put`, `Get`/`Value`, `Flash`, `Regenerate` and `Invalidate`;
-> this is Laravel's `cookie` session driver with an encrypted cookie.
+> The default is Laravel's `cookie` session driver with an encrypted
+> cookie; `database` and `redis` match Laravel's drivers of those names.
 
 ## Testing it
 
@@ -163,6 +221,9 @@ and set values before a request with `app.WithSession(func(s
 | The session is empty on every request in development | `SESSION_SECURE=true` over plain HTTP, or a custom dev hostname | Leave `SESSION_SECURE` unset in development, or use HTTPS |
 | `session too large for its cookie` in the logs | More than about 4 KB stored | Store less: IDs instead of records |
 | `web: no session for this request` | `c.Session()` on a route without the middleware | Add `sessions.Middleware` to the route's group |
+| Every page answers 503, with `the session store failed` in the logs | The database or Redis server isn't reachable | Check the server; `SESSION_DRIVER=cookie` needs none |
+| `SESSION_DRIVER is "redis", but the drivers are [cookie, database]` | The Redis driver wasn't passed | `session.ForApp(app, redis.SessionDriver())` |
+| `no such table: sessions` | The sessions migration didn't run | Add `session.Migrations("")` to the runner and run `migrate` |
 
 ## Next steps
 

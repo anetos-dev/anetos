@@ -158,9 +158,12 @@ func setup(app *anetos.App) (*web.Server, error) {
 	if _, err := db.Connect(context.Background(), app, sqlite.Driver()); err != nil {
 		return nil, err
 	}
-	if _, err := migrate.ForApp(app, []*migrate.Set{Migrations}, migrate.WithSeeders(Seeders...)); err != nil {
+	// region: runner
+	// session.Migrations creates the sessions table, for SESSION_DRIVER=database.
+	if _, err := migrate.ForApp(app, []*migrate.Set{Migrations, session.Migrations("")}, migrate.WithSeeders(Seeders...)); err != nil {
 		return nil, err
 	}
+	// endregion
 	srv, err := web.NewServer(app)
 	if err != nil {
 		return nil, err

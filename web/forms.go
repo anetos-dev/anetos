@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 
+	"anetos.dev/anetos/internal/httperr"
 	"anetos.dev/anetos/session"
 	"anetos.dev/anetos/validate"
 )
@@ -68,6 +69,10 @@ func PageURL(ctx context.Context, page int) string {
 	}
 	return "?" + strings.Join(append(parts, "page="+strconv.Itoa(page)), "&")
 }
+
+// Middleware of packages web imports (session) fails requests through
+// WriteError too.
+func init() { httperr.Write = WriteError }
 
 // WriteError sends err through the router's error handler, as if a
 // handler had returned it. Middleware uses it to fail a request with the

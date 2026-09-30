@@ -6,9 +6,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"path/filepath"
 	"testing"
 
+	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/anetostest"
+	"anetos.dev/anetos/session"
 )
 
 // region: test-forms
@@ -67,6 +70,32 @@ func TestAssets(t *testing.T) {
 		if res := app.Get(assets.URL(name)).AssertOK(); len(res.Body) == 0 {
 			t.Errorf("%s: empty", name)
 		}
+	}
+}
+
+// TestDatabaseSessions runs a form post with sessions in the database: in
+// memory, and in a file, where the test runs in a transaction.
+func TestDatabaseSessions(t *testing.T) {
+	for name, file := range map[string]string{"memory": "", "file": filepath.Join(t.TempDir(), "app.db")} {
+		t.Run(name, func(t *testing.T) {
+			app := anetostest.New(t, setup, anetostest.Env(map[string]string{"SESSION_DRIVER": "database", "DB_DATABASE": file}))
+			app.WithSession(func(s *session.Session) { s.Put("theme", "dark") })
+			app.Get("/notes/new").AssertOK()
+			app.PostForm("/notes", url.Values{"title": {"Groceries"}, "body": {""}}).
+				AssertRedirect("/notes/new").
+				AssertValidationErrors("body").
+				Follow().
+				AssertSee(`value="Groceries"`, "The body field is required.")
+			app.PostForm("/notes", url.Values{"title": {"Groceries"}, "body": {"Milk"}}).
+				AssertSessionHas("status", "Note created.").
+				AssertSessionHas("theme", "dark").
+				Follow().
+				AssertSee("Note created.")
+			n, err := db.RawFirst[int64](app.Context(), "SELECT COUNT(*) FROM sessions")
+			if err != nil || n != 1 {
+				t.Errorf("stored sessions: %d, %v", n, err)
+			}
+		})
 	}
 }
 

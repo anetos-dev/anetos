@@ -60,9 +60,8 @@ func DatabaseDriver() Driver {
 }
 
 // Migrations returns the migration creating the database store's table
-// (default "cache"): key (the primary key, up to 255 characters), value
-// and expires_at (Unix milliseconds, NULL for never). Pass it to
-// migrate.ForApp with the app's own:
+// (default "cache") with [CreateTable]. Pass it to migrate.ForApp with the
+// app's own:
 //
 //	migrate.ForApp(app, []*migrate.Set{migrations.All, cache.Migrations("")})
 func Migrations(table string) *migrate.Set {
@@ -71,24 +70,30 @@ func Migrations(table string) *migrate.Set {
 	}
 	s := migrate.NewSet("cache")
 	s.AddFunc("2026_10_01_000000_create_"+table+"_table",
-		func(s *migrate.Schema) error {
-			if s.Dialect() == "mysql" {
-				// Keys compare byte for byte, as in the other stores: text
-				// collations ignore case, accents or trailing spaces.
-				q := func(n string) string { return "`" + strings.ReplaceAll(n, "`", "``") + "`" }
-				return s.Exec("CREATE TABLE " + q(table) + " (`key` VARBINARY(255) NOT NULL PRIMARY KEY, " +
-					"`value` LONGBLOB NOT NULL, `expires_at` BIGINT NULL, INDEX " + q(table+"_expires_at_index") + " (`expires_at`))")
-			}
-			return s.Create(table, func(t *migrate.Table) {
-				t.String("key", 255)
-				t.Binary("value")
-				t.BigInteger("expires_at").Nullable()
-				t.Primary("key")
-				t.Index("expires_at")
-			})
-		},
+		func(s *migrate.Schema) error { return CreateTable(s, table) },
 		func(s *migrate.Schema) error { return s.Drop(table) })
 	return s
+}
+
+// CreateTable creates a table for a [DatabaseStore]: key (the primary
+// key, up to 255 characters, compared exactly), value and expires_at
+// (Unix milliseconds, NULL for never). Other packages that keep items in
+// a DatabaseStore (session) use it in their migrations.
+func CreateTable(s *migrate.Schema, table string) error {
+	if s.Dialect() == "mysql" {
+		// Keys compare byte for byte, as in the other stores: text
+		// collations ignore case, accents or trailing spaces.
+		q := func(n string) string { return "`" + strings.ReplaceAll(n, "`", "``") + "`" }
+		return s.Exec("CREATE TABLE " + q(table) + " (`key` VARBINARY(255) NOT NULL PRIMARY KEY, " +
+			"`value` LONGBLOB NOT NULL, `expires_at` BIGINT NULL, INDEX " + q(table+"_expires_at_index") + " (`expires_at`))")
+	}
+	return s.Create(table, func(t *migrate.Table) {
+		t.String("key", 255)
+		t.Binary("value")
+		t.BigInteger("expires_at").Nullable()
+		t.Primary("key")
+		t.Index("expires_at")
+	})
 }
 
 // q quotes a name.
@@ -246,6 +251,15 @@ func (s *DatabaseStore) Add(ctx context.Context, key string, value []byte, ttl t
 		}
 	}
 	return false, nil // each time, someone else replaced the expired key first
+}
+
+// Replace implements [Store].
+func (s *DatabaseStore) Replace(ctx context.Context, key string, value []byte, ttl time.Duration) (bool, error) {
+	ctx = s.conn(ctx)
+	exp, args := s.expiry(ttl)
+	n, err := s.exec(ctx, "UPDATE "+s.q(s.table)+" SET "+s.q("value")+" = ?, "+s.q("expires_at")+" = "+exp+" WHERE "+s.q("key")+" = ? AND "+s.live(),
+		append(append([]any{nonNil(value)}, args...), key)...)
+	return n == 1, err
 }
 
 // Delete implements [Store].

@@ -67,8 +67,9 @@ Form posts key errors by `form` name where it differs from the `json` name.
 
 | API | Does |
 |---|---|
-| `session.ForApp(app)` | Manager from `SESSION_*` and `APP_KEY` ([settings](configuration.md#sessions)) |
-| `session.NewManager(cfg, enc, opts...)` | Manager from a `session.Config` and an `*encryption.Encrypter`; `session.WithLogger` |
+| `session.ForApp(app, drivers...)` | Manager from `SESSION_*` and `APP_KEY` ([settings](configuration.md#sessions)); `SESSION_DRIVER` picks cookie, database or a passed driver (`redis.SessionDriver()`) |
+| `session.Migrations(table)` | The database driver's table, for `migrate.ForApp` |
+| `session.NewManager(cfg, enc, opts...)` | Manager from a `session.Config` and an `*encryption.Encrypter`; `session.WithLogger`, `session.WithStore(store, prefix)` (any `cache.Store`) |
 | `m.Middleware` | Loads the session into the request context and saves it when the response starts; adds `Cache-Control: private` (if unset) and `Vary: Cookie` for requests with a session. Does nothing if the same manager already runs for the request |
 | `m.CookieName()` | `SESSION_COOKIE`, with the `__Host-` prefix when Secure, without Domain, with Path `/` |
 | `session.From(ctx)` | The session, or nil |

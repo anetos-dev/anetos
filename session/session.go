@@ -14,9 +14,12 @@
 //	s.Put("theme", "dark")
 //	s.Flash("status", "Post saved.")
 //
-// The cookie holds the whole session, encrypted and authenticated with
-// APP_KEY, so there is nothing to store on the server; it is limited to
-// about 4 KB. Sessions end after SESSION_LIFETIME without a request.
+// By default the cookie holds the whole session, encrypted and
+// authenticated with APP_KEY, so there is nothing to store on the server;
+// it is limited to about 4 KB. With SESSION_DRIVER=database (or redis, from
+// drivers/redis) the session is kept in a store and the cookie holds its
+// encrypted ID, so sessions can be revoked. Sessions end after
+// SESSION_LIFETIME without a request.
 package session
 
 import (
@@ -206,7 +209,8 @@ func (s *Session) Clear() {
 
 // Regenerate gives the session a new ID and CSRF token, keeping its
 // values, and restarts its maximum lifetime. Call it when the user logs
-// in, so an identifier or token seen before can't be reused.
+// in, so an identifier or token seen before can't be reused (with a
+// server-side store, the session under the old ID is removed).
 func (s *Session) Regenerate() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -218,10 +222,11 @@ func (s *Session) Regenerate() {
 }
 
 // Invalidate removes everything and starts a new session: call it when the
-// user logs out. It clears the session in this browser only: the session
-// lives in the cookie, so a copy of an earlier cookie stays valid until it
-// expires (SESSION_LIFETIME idle, SESSION_MAX_LIFETIME in all).
-// Server-side stores (v0.2) can revoke sessions.
+// user logs out. With a server-side store, the old session is removed
+// from it, so no copy of the old cookie works any more. With cookie
+// sessions it clears the session in this browser only: a copy of an
+// earlier cookie stays valid until it expires (SESSION_LIFETIME idle,
+// SESSION_MAX_LIFETIME in all).
 func (s *Session) Invalidate() {
 	s.Clear()
 	s.mu.Lock()
