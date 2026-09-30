@@ -28,10 +28,11 @@ func render(c *web.Ctx, name string, data map[string]any) error {
 	return c.Render(http.StatusOK, view.Template(pages, name, data))
 }
 
-// page is a handler showing a page without data of its own.
-func page(name string) func(c *web.Ctx) error {
+// page is a handler showing a page with the query's token (reset links)
+// and the sign-in providers.
+func (h Accounts) page(name string) func(c *web.Ctx) error {
 	return func(c *web.Ctx) error {
-		return render(c, name, map[string]any{"Token": c.Request().URL.Query().Get("token")})
+		return render(c, name, map[string]any{"Token": c.Request().URL.Query().Get("token"), "Providers": h.social.Providers()})
 	}
 }
 
@@ -79,6 +80,8 @@ var pages = template.Must(template.New("").Funcs(template.FuncMap{"field": field
 <label><input type="checkbox" name="remember" value="1"> Remember me</label>
 <button>Log in</button>
 </form>
+{{template "error" (field . "social")}}
+{{range .Providers}}<p><a href="/auth/{{.}}/redirect">Sign in with {{.}}</a></p>{{end}}
 <p><a href="/forgot-password">Forgot your password?</a> · <a href="/register">Register</a></p></body></html>{{end}}
 
 {{define "forgot"}}{{template "top" "Forgot password"}}

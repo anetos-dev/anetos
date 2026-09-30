@@ -100,14 +100,16 @@ pages.Get("/", func(c *web.Ctx) error { return c.Redirect(http.StatusSeeOther, "
 pages.Get("/verify-email", web.H(h.VerifyEmail))
 
 guests := pages.Group("", a.Guest) // signed-in users go to AUTH_HOME_URL
-guests.Get("/register", page("register"))
+guests.Get("/register", h.page("register"))
 guests.Post("/register", web.H(h.Register))
-guests.Get("/login", page("login"))
+guests.Get("/login", h.page("login"))
 guests.Post("/login", web.H(h.Login))
-guests.Get("/forgot-password", page("forgot"))
+guests.Get("/forgot-password", h.page("forgot"))
 guests.With(ratelimit.Middleware("forgot-password", ratelimit.PerMinute(5))).Post("/forgot-password", web.H(h.SendReset))
-guests.Get("/reset-password", page("reset"))
+guests.Get("/reset-password", h.page("reset"))
 guests.Post("/reset-password", web.H(h.Reset))
+guests.Get("/auth/{provider}/redirect", s.Redirect) // "Sign in with …" links here
+guests.Get("/auth/{provider}/callback", s.Callback)
 
 members := pages.Group("", a.Require) // guests go to AUTH_LOGIN_URL
 members.Get("/dashboard", h.Dashboard)
@@ -427,7 +429,8 @@ the user's other sessions are signed out once.
 > `a.Login`, `a.Logout`, `auth.User` and `a.Require`/`a.Guest`. Sanctum's
 > personal access tokens and `tokenCan` map to `a.CreateToken` and
 > `auth.TokenCan`. Breeze-style scaffolding (`make:auth`) comes later in
-> v0.2; until then, start from `examples/auth`.
+> v0.2; until then, start from `examples/auth`. Socialite is
+> [Social login](social-login.md).
 
 ## Common problems
 
@@ -445,5 +448,6 @@ the user's other sessions are signed out once.
 ## Next steps
 
 - [Authorization](authorization.md)
+- [Social login](social-login.md)
 - [Rate limiting](rate-limiting.md)
 - [Sessions and flash messages](sessions.md)

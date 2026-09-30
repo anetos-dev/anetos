@@ -5,7 +5,7 @@ since: v0.2.0
 
 # Authentication reference
 
-Packages `auth` and `auth/password`. How-to: [Authentication](../guides/authentication.md),
+Packages `auth`, `auth/password` and `auth/social`. How-to: [Authentication](../guides/authentication.md),
 [Authorization](../guides/authorization.md). Settings: [configuration reference](configuration.md#authentication).
 
 ## Setup
@@ -33,6 +33,7 @@ Packages `auth` and `auth/password`. How-to: [Authentication](../guides/authenti
 |---|---|
 | `a.Attempt(ctx, login, password, remember)` | Checks the password and signs in; `auth.ErrInvalidCredentials` (401), `*auth.ThrottledError` (429) past `AUTH_THROTTLE` attempts a minute per login or account and IP, or `AUTH_THROTTLE_IP` failures per IP |
 | `a.Login(ctx, u, remember)` | Signs `u` in: new session ID; with `remember`, the remember-me cookie |
+| `a.CanRemember()` | Whether "remember me" is available (`Users.RememberToken` set) |
 | `a.Logout(ctx)` | Empties the session, removes the cookie, replaces the remember token |
 | `auth.User[U](ctx)` | The signed-in user, and whether there is one |
 | `auth.Current[U](ctx)` | The signed-in user, `auth.ErrUnauthenticated`, or the load error |
@@ -69,3 +70,19 @@ Packages `auth` and `auth/password`. How-to: [Authentication](../guides/authenti
 | `password.IsBcrypt(hash)` | Whether the hash is bcrypt, which checks only a password's first 72 bytes |
 | `password.Dummy(pw)` | Spends the time of a check, for unknown users |
 | `password.VerifyContext(ctx, pw, hash)`, `password.DummyContext(ctx, pw)` | The same, giving up with ctx's error while waiting for a free slot (a few hashes are computed at once) |
+
+## Social login
+
+| API | Does |
+|---|---|
+| `social.Google()`, `social.GitHub()`, `social.GitHubAt(web, api)`, `social.OIDC(name, issuer)` | Providers; their `Scopes` and other fields can be changed |
+| `social.Configured(app, providers...)` | The providers whose `SOCIAL_<NAME>_CLIENT_ID` and `_CLIENT_SECRET` are set |
+| `social.ForApp(app, a, resolve, providers, opts...)` | `*social.Social[U]`; needs `APP_URL` (https in production); with no providers, its routes answer 404; `social.WithHTTPClient`, `social.WithLogger`, `social.WithCallbackPath` |
+| `social.New(a, resolve, baseURL, creds, providers, opts...)` | Without an app |
+| `s.Redirect`, `s.Callback` | Handlers for `/auth/{provider}/redirect` (`?remember=1`) and `/auth/{provider}/callback` |
+| `s.Providers()`, `s.CallbackURL(name)` | Provider names, in the order given; a provider's callback URL to register |
+| `social.Resolver[U]`, `social.Profile` | `func(ctx, Profile) (U, error)`: finds or creates the user; the profile has `Provider`, `Subject`, `Email`, `EmailVerified`, `Name`, `AvatarURL`, `Token` |
+| `social.ErrNoAccount{Message}` | Refuses a sign-in with a message on the login page (`social` field) |
+| `social.Migrations()` | The `social_accounts` table |
+| `social.FindLink(ctx, p)`, `social.Link(ctx, p, userID)`, `social.Links(ctx, userID)`, `social.Unlink(ctx, userID, provider)` | Links between provider accounts and users |
+

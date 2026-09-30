@@ -27,6 +27,7 @@ import (
 	"anetos.dev/anetos"
 	"anetos.dev/anetos/auth"
 	"anetos.dev/anetos/auth/password"
+	"anetos.dev/anetos/auth/social"
 	"anetos.dev/anetos/cache"
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/db/migrate"
@@ -45,7 +46,8 @@ var sendLink = func(c *web.Ctx, to, subject, link string) {
 
 // Accounts holds the handlers.
 type Accounts struct {
-	auth *auth.Auth[*User]
+	auth   *auth.Auth[*User]
+	social *social.Social[*User]
 }
 
 // RegisterInput is the registration form.
@@ -283,7 +285,7 @@ func setup(app *anetos.App) (*web.Server, error) {
 	if _, err := db.Connect(context.Background(), app, sqlite.Driver()); err != nil {
 		return nil, err
 	}
-	sets := []*migrate.Set{Migrations, auth.Migrations(), cache.Migrations(""), session.Migrations("")}
+	sets := []*migrate.Set{Migrations, auth.Migrations(), social.Migrations(), cache.Migrations(""), session.Migrations("")}
 	if _, err := migrate.ForApp(app, sets); err != nil {
 		return nil, err
 	}
@@ -300,30 +302,47 @@ func setup(app *anetos.App) (*web.Server, error) {
 		return nil, err
 	}
 	// endregion
+	// region: social-setup
+	// Providers with SOCIAL_<NAME>_CLIENT_ID and _CLIENT_SECRET set; their
+	// callbacks are APP_URL/auth/<name>/callback.
+	s, err := social.ForApp(app, a, findOrCreate, social.Configured(app, socialProviders...), socialOptions...)
+	if err != nil {
+		return nil, err
+	}
+	// endregion
 	srv, err := web.NewServer(app)
 	if err != nil {
 		return nil, err
 	}
-	routes(srv.Router(), sessions, a)
+	routes(srv.Router(), sessions, a, s)
 	return srv, nil
 }
 
-func routes(r *web.Router, sessions *session.Manager, a *auth.Auth[*User]) {
-	h := Accounts{auth: a}
+// socialProviders are the providers users may sign in with; tests
+// replace them, and socialOptions, with a fake provider.
+var (
+	socialProviders = []social.Provider{social.Google(), social.GitHub()}
+	socialOptions   []social.Option
+)
+
+func routes(r *web.Router, sessions *session.Manager, a *auth.Auth[*User], s *social.Social[*User]) {
+	h := Accounts{auth: a, social: s}
 	// region: routes
 	pages := r.Group("", sessions.Middleware, web.CSRF(), a.Middleware)
 	pages.Get("/", func(c *web.Ctx) error { return c.Redirect(http.StatusSeeOther, "/dashboard") })
 	pages.Get("/verify-email", web.H(h.VerifyEmail))
 
 	guests := pages.Group("", a.Guest) // signed-in users go to AUTH_HOME_URL
-	guests.Get("/register", page("register"))
+	guests.Get("/register", h.page("register"))
 	guests.Post("/register", web.H(h.Register))
-	guests.Get("/login", page("login"))
+	guests.Get("/login", h.page("login"))
 	guests.Post("/login", web.H(h.Login))
-	guests.Get("/forgot-password", page("forgot"))
+	guests.Get("/forgot-password", h.page("forgot"))
 	guests.With(ratelimit.Middleware("forgot-password", ratelimit.PerMinute(5))).Post("/forgot-password", web.H(h.SendReset))
-	guests.Get("/reset-password", page("reset"))
+	guests.Get("/reset-password", h.page("reset"))
 	guests.Post("/reset-password", web.H(h.Reset))
+	guests.Get("/auth/{provider}/redirect", s.Redirect) // "Sign in with …" links here
+	guests.Get("/auth/{provider}/callback", s.Callback)
 
 	members := pages.Group("", a.Require) // guests go to AUTH_LOGIN_URL
 	members.Get("/dashboard", h.Dashboard)

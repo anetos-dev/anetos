@@ -78,6 +78,18 @@ All notable changes to this project are documented here. The format follows
   `golang.org/x/crypto` (B3, design D96).
 - `web.WantsJSON(r)` for middleware; `ratelimit.Check` (without
   counting) and `ratelimit.Hit` (B3).
+- Social login (`auth/social`): Google, GitHub (`GitHubAt` for
+  Enterprise) and any OpenID Connect provider (`social.OIDC`, with
+  discovery); `social.ForApp` and `social.Configured`
+  (`SOCIAL_<NAME>_CLIENT_ID`/`_CLIENT_SECRET`), `s.Redirect` and
+  `s.Callback` (state, PKCE and nonce; ID token issuer, audience, expiry
+  and nonce checked); an app `Resolver` finds or creates the user;
+  `social_accounts` links with `FindLink`, `Link`, `Links`, `Unlink`;
+  the core module now requires `golang.org/x/oauth2` (B4, design
+  D101–D103).
+- `APP_URL`, the app's public URL; `a.CanRemember()` (B4).
+- `examples/auth` signs in with configured providers (a fake OpenID
+  Connect provider in its tests); guide "Social login" (B4).
 - `examples/auth`: registration, login, remember me, logout, email
   verification, password reset, API tokens and policies; guides
   "Authentication" and "Authorization", concept page and reference (B3).

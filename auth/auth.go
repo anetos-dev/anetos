@@ -220,6 +220,10 @@ type appAuth struct{}
 // Config returns the configuration.
 func (a *Auth[U]) Config() Config { return a.cfg }
 
+// CanRemember reports whether "remember me" is available: Users has
+// RememberToken and SetRememberToken.
+func (a *Auth[U]) CanRemember() bool { return a.users.RememberToken != nil }
+
 // Errors. Each has an HTTP status, so a handler can return it.
 var (
 	// ErrNoUser is what Users functions return when there is no such

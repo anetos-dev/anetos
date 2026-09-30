@@ -228,7 +228,7 @@ anetos.dev/anetos/            ← core module
 ├── session/             encrypted cookie sessions, flash, CSRF token (F10)
 ├── encryption/          AES-256-GCM with APP_KEY and key rotation (F10)
 ├── cache/               cache, memory and database stores, locks (B1); cache/cachetest: store conformance suite
-├── auth/                login, remember me, API tokens, reset/verification tokens, policies (B3); auth/password: argon2id
+├── auth/                login, remember me, API tokens, reset/verification tokens, policies (B3); auth/password: argon2id; auth/social: OAuth/OIDC sign-in (B4)
 ├── queue/ pubsub/ events/ schedule/ mailer/ storage/
 ├── ext/                 public plugin API (package `ext`)
 ├── cmd/                 app-binary command types (F11); App.Execute dispatches
@@ -314,6 +314,9 @@ header.
   method. A key set to the empty string counts as unset (D20).
 - Real environment variables override `.env`. In production, `.env` is
   optional and secrets come from the environment.
+- `APP_URL` (B4) is the app's public base URL, for absolute links that
+  leave the app (OAuth callbacks, mail); nothing derives it from the
+  request's Host (D103).
 
 ```go
 // illustrative: an app's own settings
@@ -1025,9 +1028,9 @@ err = cache.TryWithLock(ctx, "reports:monthly", 10*time.Minute, buildReport)
 
 ## 15. Authentication & authorization
 
-Implemented in B3 (packages `auth` and `auth/password`), except
-scaffolding and the mail parts of verification and reset (B14, after
-mail) and social login (B4).
+Implemented in B3 (packages `auth` and `auth/password`) and B4
+(`auth/social`), except scaffolding and the mail parts of verification
+and reset (B14, after mail).
 
 ```go
 a, err := auth.ForApp(app, users) // users: auth.Users[*models.User]{ByID, ByLogin, …}
@@ -1061,10 +1064,21 @@ if err := auth.Authorize(c, policies.Post.Update, &post); err != nil { return ni
 - **API tokens:** personal access tokens with abilities (Sanctum-like),
   `<id>|<secret>`, SHA-256 of the secret stored in `api_tokens`; Bearer
   middleware; session users pass `TokenCan` (D99).
-- **Social login** (B4): OAuth2 and OIDC via `golang.org/x/oauth2` plus
-  OIDC discovery, with built-in providers for **Google** and **GitHub** and
-  a **generic OIDC** provider for others; it will sign users in with
-  `a.Login`.
+- **Social login** (B4, package `auth/social`): the authorization-code
+  flow via `golang.org/x/oauth2` with state, PKCE (S256) and, for OpenID
+  Connect, a nonce, kept in the session for ten minutes and used once.
+  Built-in **Google** and **GitHub** (profile and primary verified
+  address from the API) and **generic OIDC** (endpoints from discovery).
+  ID tokens are checked for issuer, audience (and `azp`), expiry and
+  nonce (and `azp` when present), not signature: they come from the token
+  endpoint over TLS (OIDC Core 3.1.3.7), so every provider URL must be
+  https and redirects to anything else are refused (D101). Discovery runs
+  once in the background, with a 30-second backoff after a failure. An app
+  `Resolver` maps a profile to its user; `social_accounts` links accounts
+  to users, and email is used only when verified on both sides (D102).
+  Credentials come from `SOCIAL_<NAME>_*`, callbacks from the new
+  `APP_URL` (D103). Failures return to the login page with a `social`
+  field error; success signs in with `a.Login`.
 - **Authorization:** typed policies, `func(ctx, U, T) bool`, checked by
   generic `auth.Authorize` (and `AuthorizeUser`, `Allows`); errors carry
   401/403 (D100).
@@ -1428,6 +1442,9 @@ unless new information arrives), **Open**, **Superseded**.
 | D98 | "Remember me" stores a random token with the user (a column) and puts it, encrypted with the ID and password fingerprint, in a second cookie; logout rotates it | Accepted | Laravel's model, revocable per user without a sessions table; the fingerprint ends remembered logins on password change |
 | D99 | API tokens are `<id>\|<secret>` with a SHA-256 hash of a 240-bit secret in `api_tokens`, abilities as JSON, optional expiry, last use written at most once a minute; session-authenticated requests pass every ability | Accepted | Sanctum's design; a fast hash suffices for random secrets; lookups by primary key; bounded writes |
 | D100 | Authorization is typed policies (`func(ctx, U, T) bool`) checked by generic functions returning errors with 401/403; no string gates or registry | Accepted | The compiler checks user and subject types; handlers return the error as is; nothing to register |
+| D101 | Social login verifies ID tokens by issuer, audience, expiry and nonce but not by signature, because they are received from the token endpoint over TLS (OIDC Core 3.1.3.7); all endpoints must be https; state and PKCE protect the flow | Accepted | No JOSE/JWKS dependency or key-rotation handling in the core; the spec allows it for the code flow; PKCE and nonce stop code injection and replay |
+| D102 | Social login doesn't create or link users itself: an app `Resolver` does, with `social_accounts` helpers; the guide and example link by provider account, and by email only when both the provider and the app verified it | Accepted | Account models differ per app; linking by unverified email allows pre-registration takeovers |
+| D103 | `APP_URL` (the public base URL) joins the app config; social login needs it for redirect URIs, and mail links will | Accepted | Deriving URLs from the request's Host is unreliable behind proxies and spoofable |
 
 ---
 
@@ -1466,3 +1483,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-09-30 | B1 cache implemented: §5, §13.7, §14 updated, §14.1 added; D88–D92 added |
 | 2026-09-30 | B2 sessions and rate limiting implemented: §8.6, §12.1, §14 updated; D93–D95 added |
 | 2026-09-30 | B3 authentication and authorization implemented: §5, §14, §15 updated; D96–D100 added; scaffolding moved to B14 |
+| 2026-10-01 | B4 social login implemented: §5, §7 (APP_URL), §15 updated; D101–D103 added |

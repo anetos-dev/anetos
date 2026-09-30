@@ -34,6 +34,12 @@ API clients don't use cookies: they send `Authorization: Bearer
 <id>|<secret>`. The database holds only a SHA-256 hash of the secret,
 with the token's abilities and expiry.
 
+Social login signs users in with an account elsewhere: the app sends
+the browser to the provider with a one-time state and a PKCE challenge,
+checks what comes back, and asks your code which user the account
+belongs to (links are kept in `social_accounts`), then signs that user in
+like a password login.
+
 ## What is stored, and what isn't
 
 Password-reset and email-verification links carry tokens that are
@@ -59,6 +65,6 @@ types match, and there are no ability names to misspell.
 
 ## Related
 
-- [Authentication](../guides/authentication.md), [Authorization](../guides/authorization.md)
+- [Authentication](../guides/authentication.md), [Authorization](../guides/authorization.md), [Social login](../guides/social-login.md)
 - [Authentication reference](../reference/auth.md)
 - [Sessions and flash messages](../guides/sessions.md)

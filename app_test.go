@@ -85,6 +85,21 @@ func TestDebugForbiddenInProduction(t *testing.T) {
 	}
 }
 
+func TestAppURL(t *testing.T) {
+	for _, ok := range []string{"https://example.com", "http://localhost:8080", "https://example.com/"} {
+		if app, err := anetos.New(quiet(), anetos.WithSource(config.Map{"APP_URL": ok})); err != nil {
+			t.Errorf("APP_URL %q: %v", ok, err)
+		} else if app.Config().URL != ok {
+			t.Errorf("URL = %q", app.Config().URL)
+		}
+	}
+	for _, bad := range []string{"example.com", "ftp://example.com", "https://example.com/app", "https://example.com?x=1", "https://", "https://u:p@example.com"} {
+		if _, err := anetos.New(quiet(), anetos.WithSource(config.Map{"APP_URL": bad})); err == nil || !strings.Contains(err.Error(), "APP_URL") {
+			t.Errorf("APP_URL %q: %v", bad, err)
+		}
+	}
+}
+
 func TestWithAppConfigIsValidated(t *testing.T) {
 	cfg := anetos.DefaultAppConfig()
 	cfg.ShutdownTimeout = 0

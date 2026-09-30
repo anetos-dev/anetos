@@ -4,11 +4,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"strings"
 	"time"
 
 	"anetos.dev/anetos/auth"
+	"anetos.dev/anetos/auth/social"
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/db/migrate"
 )
@@ -65,6 +67,56 @@ var users = auth.Users[*User]{
 		_, err := db.Query[User](ctx).Where(colID.Eq(u.ID)).Update(colPassword.Set(hash))
 		return err
 	},
+}
+
+// endregion
+
+// region: social
+// findOrCreate returns the user of a provider account: the one it is
+// linked to; else the user with its verified email address (who then
+// signs in with either); else a new user. An address the provider hasn't
+// verified can't be trusted to find anyone, and nor can one the user
+// hasn't verified here: someone could have registered it first, with a
+// password, to take over the account of whoever signs in with it later.
+func findOrCreate(ctx context.Context, p social.Profile) (*User, error) {
+	id, linked, err := social.FindLink(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+	if linked {
+		u, err := users.ByID(ctx, id)
+		if !errors.Is(err, db.ErrNotFound) {
+			return u, err
+		}
+		// The user was deleted: forget the link and start again.
+		if err := social.Unlink(ctx, id, p.Provider); err != nil {
+			return nil, err
+		}
+	}
+	if p.Email == "" || !p.EmailVerified {
+		return nil, &social.ErrNoAccount{Message: "Your " + p.Provider + " account has no verified email address."}
+	}
+	var u *User
+	err = db.Tx(ctx, func(ctx context.Context) error { // the user and the link, or neither
+		u, err = users.ByLogin(ctx, p.Email)
+		if errors.Is(err, db.ErrNotFound) {
+			now := time.Now().UTC()
+			name := p.Name
+			if name == "" {
+				name = p.Email
+			}
+			u = &User{Name: name, Email: strings.ToLower(p.Email), EmailVerifiedAt: &now} // no password
+			err = db.Create(ctx, u)
+		}
+		if err != nil {
+			return err
+		}
+		if u.EmailVerifiedAt == nil {
+			return &social.ErrNoAccount{Message: "An account with this email address exists. Log in with your password and verify the address, then sign in with " + p.Provider + "."}
+		}
+		return social.Link(ctx, p, u.AuthID())
+	})
+	return u, err
 }
 
 // endregion

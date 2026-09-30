@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"time"
 
 	"anetos.dev/anetos/internal/appkey"
@@ -51,6 +52,11 @@ type AppConfig struct {
 	// Env is the deployment environment. APP_ENV, default "production", so a
 	// missing setting fails safe.
 	Env Environment `env:"APP_ENV" default:"production"`
+
+	// URL is the app's public base URL ("https://example.com"), for links
+	// that leave the app: OAuth callbacks, and later links in emails.
+	// APP_URL; empty until set, and the features that need it say so.
+	URL string `env:"APP_URL"`
 
 	// Debug enables diagnostics that must never reach production users.
 	// APP_DEBUG, default false. Not allowed together with APP_ENV=production.
@@ -108,6 +114,11 @@ func (c AppConfig) Validate() error {
 	}
 	if c.Env.IsProduction() && c.Debug {
 		errs = append(errs, errors.New("APP_DEBUG=true is not allowed when APP_ENV=production"))
+	}
+	if c.URL != "" {
+		if u, err := url.Parse(c.URL); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil || (u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.Fragment != "" {
+			errs = append(errs, fmt.Errorf("APP_URL %q must be an http or https URL without a path (https://example.com)", c.URL))
+		}
 	}
 	if c.ShutdownTimeout <= 0 {
 		errs = append(errs, errors.New("APP_SHUTDOWN_TIMEOUT must be positive"))

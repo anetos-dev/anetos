@@ -13,6 +13,7 @@ Read by `anetos.New` into `anetos.AppConfig`.
 |---|---|---|---|---|
 | `APP_NAME` | string | `anetos` | Application name, added to every log line as `app` | v0.1 |
 | `APP_ENV` | `development` \| `testing` \| `staging` \| `production` | `production` | Deployment environment; also selects `.env.<APP_ENV>` | v0.1 |
+| `APP_URL` | URL | empty | The app's public URL (`https://example.com`, no path), for links that leave the app: OAuth callbacks (social login) | v0.2 |
 | `APP_DEBUG` | bool | `false` | Enables debugging aids. **Rejected when `APP_ENV=production`** | v0.1 |
 | `APP_SHUTDOWN_TIMEOUT` | duration | `30s` | Total graceful-shutdown budget: components first, then shutdown hooks. Hooks always keep the smaller of 5s and a fifth of it. Keep it at or below your platform's grace period (Kubernetes default: 30s) | v0.1 |
 | `APP_KEY` | `base64:…` (32 bytes) | empty | Encrypts and authenticates session cookies. Required by sessions, which fail at startup without it. Generate one with `go tool anetos key:generate`. Keep it secret | v0.1 |
@@ -218,3 +219,18 @@ Read by `auth.ForApp` (or `auth.LoadConfig`) into `auth.Config`.
 
 The remember-me cookie is `HttpOnly`, `SameSite=Lax` and Secure like the
 session cookie; a Secure one is named `__Host-anetos_remember`.
+
+## Social login
+
+Read by `social.ForApp` and `social.Configured`, for each provider name
+(`GOOGLE`, `GITHUB`, or the upper-cased name given to `social.OIDC`, with
+`-` as `_`).
+
+| Key | Type | Default | Description | Since |
+|---|---|---|---|---|
+| `SOCIAL_<NAME>_CLIENT_ID` | string | empty | The client ID of the app registered with the provider | v0.2 |
+| `SOCIAL_<NAME>_CLIENT_SECRET` | string | empty | Its client secret | v0.2 |
+
+Callback URLs are `APP_URL` followed by `/auth/<name>/callback`
+(`social.WithCallbackPath` changes the path).
+

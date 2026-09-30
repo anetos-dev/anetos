@@ -204,6 +204,7 @@ Goal: everything a real application needs beyond CRUD.
 | B1 Cache | ✅ Done 2026-09-30 (memory, database and Redis stores; locks) |
 | B2 Sessions & rate limiting | ✅ Done 2026-09-30 (database and Redis session drivers; `web/ratelimit`) |
 | B3 Authentication & authorization | ✅ Done 2026-09-30 (library: login, remember me, throttling, reset and verification tokens, API tokens, policies; scaffolding moved to B14) |
+| B4 Social login | ✅ Done 2026-10-01 (Google, GitHub, generic OIDC; `social_accounts` links; `APP_URL`) |
 
 | WP | Work package | Notes |
 |---|---|---|
@@ -363,3 +364,4 @@ something, and we fix the API rather than add the hook.
 | 2026-09-30 | B1 (cache) done; database store added to its scope |
 | 2026-09-30 | B2 (sessions and rate limiting) done |
 | 2026-09-30 | B3 (authentication library) done; `make:auth` and emailed links split into B14, after mail (B9) |
+| 2026-10-01 | B4 (social login) done |
