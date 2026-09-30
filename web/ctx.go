@@ -98,6 +98,10 @@ func (c *Ctx) URL(name string, args ...any) (string, error) { return c.router.UR
 // responses use it to choose between JSON and an HTML page.
 func (c *Ctx) WantsJSON() bool { return wantsJSON(c.r) }
 
+// WantsJSON reports whether the client of r prefers a JSON response, as
+// [Ctx.WantsJSON] does, for middleware.
+func WantsJSON(r *http.Request) bool { return wantsJSON(r) }
+
 func wantsJSON(r *http.Request) bool {
 	if accept := r.Header.Get("Accept"); accept != "" {
 		jsonQ, htmlQ := acceptQuality(accept)

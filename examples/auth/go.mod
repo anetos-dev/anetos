@@ -1,10 +1,10 @@
-module anetos.dev/anetos/drivers/sqlite
+module anetos.dev/anetos/examples/auth
 
 go 1.26.0
 
 require (
 	anetos.dev/anetos v0.0.0-00010101000000-000000000000
-	modernc.org/sqlite v1.60.1
+	anetos.dev/anetos/drivers/sqlite v0.0.0-00010101000000-000000000000
 )
 
 require (
@@ -18,6 +18,10 @@ require (
 	modernc.org/libc v1.77.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect
+	modernc.org/sqlite v1.60.1 // indirect
 )
 
-replace anetos.dev/anetos => ../..
+replace (
+	anetos.dev/anetos => ../..
+	anetos.dev/anetos/drivers/sqlite => ../../drivers/sqlite
+)

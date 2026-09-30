@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"anetos.dev/anetos/cli/internal/testmod"
 )
 
 func runCmd(t *testing.T, args ...string) (int, string, string) {
@@ -48,8 +50,13 @@ func TestGenWritesAndChecks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	goMod, goSum, err := testmod.Files(core)
+	if err != nil {
+		t.Fatal(err)
+	}
 	files := map[string]string{
-		"go.mod": "module example.com/app\n\ngo 1.26\n\nrequire anetos.dev/anetos v0.0.0\n\nreplace anetos.dev/anetos => " + core + "\n",
+		"go.mod": goMod,
+		"go.sum": goSum,
 		"models/post.go": "package models\n\nimport \"anetos.dev/anetos/db\"\n\n" +
 			"type Post struct {\n\tdb.Model\n\tTitle string\n}\n",
 	}

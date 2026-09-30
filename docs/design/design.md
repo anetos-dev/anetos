@@ -228,7 +228,8 @@ anetos.dev/anetos/            ← core module
 ├── session/             encrypted cookie sessions, flash, CSRF token (F10)
 ├── encryption/          AES-256-GCM with APP_KEY and key rotation (F10)
 ├── cache/               cache, memory and database stores, locks (B1); cache/cachetest: store conformance suite
-├── queue/ pubsub/ events/ schedule/ mailer/ storage/ auth/
+├── auth/                login, remember me, API tokens, reset/verification tokens, policies (B3); auth/password: argon2id
+├── queue/ pubsub/ events/ schedule/ mailer/ storage/
 ├── ext/                 public plugin API (package `ext`)
 ├── cmd/                 app-binary command types (F11); App.Execute dispatches
 ├── anetostest/          test app, browser-like client, assertions (F12); fakes arrive with their features
@@ -958,7 +959,7 @@ Each service is an interface in the core module. Drivers are chosen in
 | Pub/sub | `pubsub` | in-memory (tests/dev) | `drivers/redis` (Streams), `drivers/gcppubsub`; NATS, Kafka (plugins) | v0.2 |
 | Mail | `mailer` | SMTP, log (dev) | Resend / Postmark / SES / Mailgun (plugins) | v0.2 |
 | Storage | `storage` | local | `drivers/s3` (S3-compatible, incl. R2/MinIO); GCS, Azure (plugins) | v0.2 |
-| Password hashing | `auth/password` | argon2id, bcrypt | — | v0.2 |
+| Password hashing | `auth/password` | argon2id, bcrypt | — | v0.2 (B3 done) |
 | Encryption | `encryption` | AES-GCM with `APP_KEY`, key rotation | — | v0.1 |
 | Rate limiting | `web/ratelimit` | on the app's cache | (the cache's stores) | v0.2 (B2 done) |
 | Logging | `log/slog` (stdlib) | text, JSON handlers | OpenTelemetry bridge (module) | v0.1 |
@@ -1024,30 +1025,54 @@ err = cache.TryWithLock(ctx, "reports:monthly", 10*time.Minute, buildReport)
 
 ## 15. Authentication & authorization
 
-- **Password auth:** argon2id hashing, login and logout, remember-me,
-  session-fixation protection, login throttling, email verification,
-  password reset (signed, expiring tokens).
-- **API tokens:** personal access tokens with abilities (Sanctum-like),
-  stored hashed. First-party SPA auth uses sessions and cookies.
-- **Social login:** OAuth2 and OIDC via `golang.org/x/oauth2` plus OIDC
-  discovery, with built-in providers for **Google** and **GitHub** and a
-  **generic OIDC** provider for others. A single callback handler links or
-  creates users through an app-provided function.
-- **Authorization:** typed policies instead of string-based gates:
+Implemented in B3 (packages `auth` and `auth/password`), except
+scaffolding and the mail parts of verification and reset (B14, after
+mail) and social login (B4).
 
 ```go
-func (PostPolicy) Update(ctx context.Context, u *models.User, p *models.Post) bool {
-    return p.AuthorID == u.ID
-}
-// in a handler:
-if err := authz.Authorize(c, policies.Post.Update, post); err != nil { return nil, err } // 403
+a, err := auth.ForApp(app, users) // users: auth.Users[*models.User]{ByID, ByLogin, …}
+pages := r.Group("", sessions.Middleware, web.CSRF(), a.Middleware)
+pages.Group("", a.Require).Get("/dashboard", h.Dashboard)
+u, err := a.Attempt(c, in.Email, in.Password, in.Remember)
+if err := auth.Authorize(c, policies.Post.Update, &post); err != nil { return nil, err } // 401/403
 ```
 
-- **Scaffolding:** `anetos make:auth` generates handlers, views, migrations
-  and routes **into the app**, where the developer owns them (the Breeze
-  approach). Security-critical pieces (hashing, token generation, session
-  handling, rate limiting) stay in the library so fixes reach everyone
-  through `go get -u`.
+- **Users** are the app's type, implementing `AuthID()` and
+  `AuthPassword()`; `auth.Users[U]` is a struct of functions (find by ID
+  and login; optionally store remember tokens and upgraded hashes), so
+  the app keeps its model and queries (D96).
+- **Sessions:** the session holds the user ID and a fingerprint of the
+  password hash (a password change signs out other sessions). `Login`
+  regenerates the session ID; `Logout` invalidates it. The user loads
+  lazily, once per request (D96).
+- **Password auth:** argon2id (OWASP parameters, at most GOMAXPROCS
+  computations at once) via `golang.org/x/crypto`, bcrypt verified for
+  migrated users; weaker hashes upgraded after login; `Attempt` throttles
+  per login and IP and per account and IP (`AUTH_THROTTLE`), and failures
+  per IP (`AUTH_THROTTLE_IP`), through `ratelimit` (cache), and spends a
+  dummy hash for unknown and passwordless users (D96).
+- **Remember me:** an encrypted cookie with the user ID, a remember token
+  stored with the user, the password fingerprint and an expiry; `Logout`
+  rotates the token (D98). One Auth per app (fixed session keys and
+  cookie).
+- **Reset and verification tokens** are encrypted (not stored), with an
+  expiry; reset tokens include the password fingerprint, so they're
+  single-use (D97).
+- **API tokens:** personal access tokens with abilities (Sanctum-like),
+  `<id>|<secret>`, SHA-256 of the secret stored in `api_tokens`; Bearer
+  middleware; session users pass `TokenCan` (D99).
+- **Social login** (B4): OAuth2 and OIDC via `golang.org/x/oauth2` plus
+  OIDC discovery, with built-in providers for **Google** and **GitHub** and
+  a **generic OIDC** provider for others; it will sign users in with
+  `a.Login`.
+- **Authorization:** typed policies, `func(ctx, U, T) bool`, checked by
+  generic `auth.Authorize` (and `AuthorizeUser`, `Allows`); errors carry
+  401/403 (D100).
+- **Scaffolding** (B14): `anetos make:auth` generates handlers, views,
+  migrations and routes **into the app**, where the developer owns them
+  (the Breeze approach), from `examples/auth`. Security-critical pieces
+  (hashing, tokens, session handling, throttling) stay in the library so
+  fixes reach everyone through `go get -u`.
 
 ---
 
@@ -1398,6 +1423,11 @@ unless new information arrives), **Open**, **Superseded**.
 | D93 | Server-side sessions reuse the cache store contract: `SESSION_DRIVER` picks `cookie` (default), `database` or a passed driver; the cookie holds the encrypted session ID, the store holds the payload (encrypted, with its timestamps, without the ID) under a hash of the ID and `SESSION_PREFIX`; existing sessions are saved with `Replace` so a concurrent logout can't be undone; new IDs are written before the old entry is deleted; stored input is capped (64 KB, sessions 1 MB); a store read failure is a 503, a write failure is logged; no locking between concurrent requests | Accepted | One store implementation per backend for cache and sessions; revocable logins without a 4 KB limit; a leaked store or backup holds no usable session and no readable data; a failed write never loses the current session; forms can't fill the store; serving an empty session during an outage would log users out and overwrite their sessions; per-session locks cost more than rare lost writes |
 | D94 | Rate limits (`web/ratelimit`) are fixed windows aligned to the clock, one atomic `cache.Increment` per limit per request, counted shortest window first and stopping at the first limit exceeded; keys hash the middleware name (or `Allow`), the key's kind and the client IP (IPv6 per /64) or `By` key; over a limit is 429 through the error handler with `Retry-After` and `X-RateLimit-*` headers; a cache failure fails the request; `Allow`/`Clear` serve login-style throttling | Accepted | Works on every cache store and across instances with a shared one; one round trip per limit; a /64 is what one IPv6 client controls; a limiter that silently switches off during an outage would make brute-force protection unreliable |
 | D95 | `anetos new` projects call `cache.ForApp` and migrate the cache and sessions tables, so switching `CACHE_STORE` or `SESSION_DRIVER` to `database` is a setting, not a code change (renaming the tables with `CACHE_TABLE`/`SESSION_TABLE` also means passing the names to `Migrations`) | Accepted | Laravel creates both tables by default; the tables are small and unused until selected |
+| D96 | Auth works with the app's own user type through `Authenticatable` (two methods) and `auth.Users[U]` (functions to find users and store tokens), generic over U; the session holds the ID and a password fingerprint; the user loads lazily; the core module depends on `golang.org/x/crypto` for argon2id and bcrypt | Accepted | No base model or table schema imposed; typed `auth.User[*models.User]`; a password change ends other sessions (Laravel's AuthenticateSession, built in); x/crypto is maintained by the Go team, and password hashing must be in the core for scaffolded apps |
+| D97 | Password-reset and email-verification tokens are encrypted with `APP_KEY` (ID, expiry; resets add the password fingerprint) instead of stored | Accepted | Nothing to store, clean up or index; reset tokens become single-use by construction; rotating APP_KEY invalidates them, as expected |
+| D98 | "Remember me" stores a random token with the user (a column) and puts it, encrypted with the ID and password fingerprint, in a second cookie; logout rotates it | Accepted | Laravel's model, revocable per user without a sessions table; the fingerprint ends remembered logins on password change |
+| D99 | API tokens are `<id>\|<secret>` with a SHA-256 hash of a 240-bit secret in `api_tokens`, abilities as JSON, optional expiry, last use written at most once a minute; session-authenticated requests pass every ability | Accepted | Sanctum's design; a fast hash suffices for random secrets; lookups by primary key; bounded writes |
+| D100 | Authorization is typed policies (`func(ctx, U, T) bool`) checked by generic functions returning errors with 401/403; no string gates or registry | Accepted | The compiler checks user and subject types; handlers return the error as is; nothing to register |
 
 ---
 
@@ -1435,3 +1465,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-09-30 | v0.1.1 relations: §10, §17.1 updated; D83–D87 added |
 | 2026-09-30 | B1 cache implemented: §5, §13.7, §14 updated, §14.1 added; D88–D92 added |
 | 2026-09-30 | B2 sessions and rate limiting implemented: §8.6, §12.1, §14 updated; D93–D95 added |
+| 2026-09-30 | B3 authentication and authorization implemented: §5, §14, §15 updated; D96–D100 added; scaffolding moved to B14 |

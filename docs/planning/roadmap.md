@@ -203,12 +203,13 @@ Goal: everything a real application needs beyond CRUD.
 |---|---|
 | B1 Cache | ✅ Done 2026-09-30 (memory, database and Redis stores; locks) |
 | B2 Sessions & rate limiting | ✅ Done 2026-09-30 (database and Redis session drivers; `web/ratelimit`) |
+| B3 Authentication & authorization | ✅ Done 2026-09-30 (library: login, remember me, throttling, reset and verification tokens, API tokens, policies; scaffolding moved to B14) |
 
 | WP | Work package | Notes |
 |---|---|---|
 | B1 | Cache | Contract + memory, database and Redis (`drivers/redis`) stores; locks (used by the scheduler); `cache:clear` |
 | B2 | Sessions & rate limiting | DB and Redis session drivers; rate limiter middleware and `Allow` for login throttling |
-| B3 | Authentication & authorization | Passwords (argon2id), login, logout, remember-me, email verification, password reset, API tokens, typed policies; `make:auth` scaffolding |
+| B3 | Authentication & authorization | Passwords (argon2id), login, logout, remember-me, email verification and password reset tokens, API tokens, typed policies |
 | B4 | Social login | OAuth2/OIDC: Google, GitHub, generic OIDC |
 | B5 | Queue | Typed jobs, dispatch, delay, retries with backoff, timeouts, failed-jobs store and retry command; drivers: sync, database, Redis |
 | B6 | Events | In-process typed events: sync, async (bounded pool), queued (durable) |
@@ -219,6 +220,7 @@ Goal: everything a real application needs beyond CRUD.
 | B11 | Plugin system (public) | Stable `Plugin` interface, `anetos add` / `anetos remove`, namespacing, compatibility checks; at least one first-party plugin built **only** through the public API |
 | B12 | Test fakes | Mail, queue, events, storage and clock fakes with assertions |
 | B13 | N+1 detection | In development, warn when a request runs the same query shape many times (request-scoped query tracking); from v0.1.1 |
+| B14 | Auth scaffolding | `anetos make:auth` generates registration, login, logout, email verification, password reset and API token pages into the app, from `examples/auth`; sends verification and reset links with mail (after B9) |
 
 **Stretch:** basic i18n for validation and auth messages.
 
@@ -360,3 +362,4 @@ something, and we fix the API rather than add the hook.
 | 2026-09-30 | v0.1.1 (relations) done; N+1 detection moved to v0.2 |
 | 2026-09-30 | B1 (cache) done; database store added to its scope |
 | 2026-09-30 | B2 (sessions and rate limiting) done |
+| 2026-09-30 | B3 (authentication library) done; `make:auth` and emailed links split into B14, after mail (B9) |

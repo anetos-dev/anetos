@@ -229,3 +229,23 @@ func TestAllowKeys(t *testing.T) {
 		}
 	}
 }
+
+func TestCheck(t *testing.T) {
+	fixedClock(t)
+	ctx := withCache(cache.NewMemoryStore())
+	l := PerMinute(2)
+	if res, err := Check(ctx, "k", l); err != nil || !res.Allowed || res.Remaining != 2 {
+		t.Fatalf("fresh: %+v %v", res, err)
+	}
+	for range 2 {
+		if _, err := Hit(ctx, "k", l); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if res, _ := Check(ctx, "k", l); res.Allowed || res.Remaining != 0 {
+		t.Errorf("after two hits: %+v", res)
+	}
+	if res, _ := Check(ctx, "k", l); res.Remaining != 0 {
+		t.Error("Check counted a hit")
+	}
+}

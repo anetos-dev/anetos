@@ -96,10 +96,11 @@ s.Regenerate()  // after login: new session ID and CSRF token
 s.Invalidate()  // on logout: everything removed, new ID
 ```
 
-Call `Regenerate` yourself at login until authentication (B3, later in
-v0.2) does it for you. With a server-side driver it matters more: a
-session cookie planted in a victim's browser before they sign in would
-otherwise share their signed-in session. With the default cookie
+[Authentication](authentication.md) calls these for you (`a.Login` and
+`a.Logout`); call them yourself if you sign users in another way. With a
+server-side driver it matters more: a session cookie planted in a
+victim's browser before they sign in would otherwise share their
+signed-in session. With the default cookie
 driver, `Invalidate` empties the session in this browser only: the session
 lives in the cookie, so a copy of an earlier cookie (stolen, or saved
 before logout) keeps working until it expires, after `SESSION_LIFETIME`
@@ -227,5 +228,6 @@ and set values before a request with `app.WithSession(func(s
 
 ## Next steps
 
+- [Authentication](authentication.md)
 - [Handle HTML forms](forms.md)
 - [Views, sessions and forms reference](../reference/views.md)

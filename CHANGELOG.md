@@ -55,6 +55,32 @@ All notable changes to this project are documented here. The format follows
 - `anetostest.New` also gives each test app its own `SESSION_PREFIX`,
   removes its server-side sessions when the test ends, and runs session
   helpers (`WithSession`, `AssertSessionHas`) in the test's context (B2).
+- Authentication (`auth`): `auth.Authenticatable` and `auth.Users[U]`
+  describe the app's users; `auth.ForApp`, `a.Middleware`, `a.Require`,
+  `a.Guest`, `a.Attempt` (argon2id check, login throttling per login and
+  IP, hash upgrades), `a.Login` (new session ID, remember-me cookie),
+  `a.Logout` (signs out remembered browsers), `auth.User`,
+  `auth.Current`, `auth.Check`, `auth.Intended`; a password change signs
+  out other sessions; throttling per login, per account and per IP;
+  `AUTH_*` settings (B3, design D96–D98).
+- Password-reset and email-verification tokens, encrypted rather than
+  stored; a reset token stops working once the password changes (B3,
+  design D97).
+- API tokens: `auth.Migrations` (`api_tokens`), `a.CreateToken`,
+  `a.Tokens`, `a.RevokeToken`, `a.RevokeAllTokens`, `a.TokenMiddleware` (Bearer),
+  `auth.CurrentToken`, `auth.TokenCan`; secrets stored as SHA-256 hashes
+  (B3, design D99).
+- Typed policies: `auth.Authorize`, `auth.AuthorizeUser`, `auth.Allows`,
+  `auth.AllowsUser` (401/403 errors) (B3, design D100).
+- `auth/password`: argon2id `Hash`, `Verify` (argon2id and bcrypt; a
+  bounded number at once), `NeedsRehash` (weaker hashes), `Defaults`,
+  `IsBcrypt`, `Dummy`; the core module now requires
+  `golang.org/x/crypto` (B3, design D96).
+- `web.WantsJSON(r)` for middleware; `ratelimit.Check` (without
+  counting) and `ratelimit.Hit` (B3).
+- `examples/auth`: registration, login, remember me, logout, email
+  verification, password reset, API tokens and policies; guides
+  "Authentication" and "Authorization", concept page and reference (B3).
 - `examples/database` rate-limits its API; `examples/forms` has the
   sessions table and a test with `SESSION_DRIVER=database`; guide "Rate
   limiting", sessions guide step "Keep sessions on the server" (B2).

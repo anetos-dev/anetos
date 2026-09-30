@@ -201,3 +201,20 @@ Read by `redis.Connect` (module `drivers/redis`, also used by
 
 The server is pinged when the app boots, so the app and commands that
 boot it fail fast when Redis is unreachable.
+
+## Authentication
+
+Read by `auth.ForApp` (or `auth.LoadConfig`) into `auth.Config`.
+
+| Key | Type | Default | Description | Since |
+|---|---|---|---|---|
+| `AUTH_LOGIN_URL` | path | `/login` | Where `Require` sends guests asking for a page | v0.2 |
+| `AUTH_HOME_URL` | path | `/` | Where `Guest` sends signed-in users | v0.2 |
+| `AUTH_REMEMBER_LIFETIME` | duration | `720h` | How long "remember me" lasts | v0.2 |
+| `AUTH_THROTTLE` | int | `5` | Login attempts allowed per minute for one login, or one account, from one IP address (cleared by a success) | v0.2 |
+| `AUTH_THROTTLE_IP` | int | `50` | Failed logins allowed per minute from one IP address (IPv6: its /64), whatever the login | v0.2 |
+| `AUTH_RESET_TTL` | duration | `60m` | How long a password-reset token works | v0.2 |
+| `AUTH_VERIFY_TTL` | duration | `24h` | How long an email-verification token works | v0.2 |
+
+The remember-me cookie is `HttpOnly`, `SameSite=Lax` and Secure like the
+session cookie; a Secure one is named `__Host-anetos_remember`.

@@ -96,6 +96,10 @@ if !res.Allowed {
 _ = ratelimit.Clear(c, key, limit)
 ```
 
+To count only some attempts (failures), check first with
+`ratelimit.Check`, which doesn't count, and count with `ratelimit.Hit`
+when the attempt fails.
+
 ### 4. Test
 
 Each `anetostest` app has its own cache, so tests don't share counts. To

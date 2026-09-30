@@ -9,6 +9,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"anetos.dev/anetos/cli/internal/testmod"
 )
 
 // module writes a temporary module requiring the core module from this
@@ -20,7 +22,10 @@ func module(t *testing.T, files map[string]string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	files["go.mod"] = "module example.com/app\n\ngo 1.26\n\nrequire anetos.dev/anetos v0.0.0\n\nreplace anetos.dev/anetos => " + core + "\n"
+	files["go.mod"], files["go.sum"], err = testmod.Files(core)
+	if err != nil {
+		t.Fatal(err)
+	}
 	for name, src := range files {
 		write(t, filepath.Join(dir, name), src)
 	}

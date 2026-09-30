@@ -122,6 +122,25 @@ func allow(ctx context.Context, key string, l Limit, at time.Time) (Result, erro
 	}, nil
 }
 
+// Check reports how key stands against l without counting a hit: whether
+// another hit would be allowed, and how many remain. Use it with [Hit] to
+// count only some attempts (failed logins), checking first.
+func Check(ctx context.Context, key string, l Limit) (Result, error) {
+	at := now()
+	k, reset, err := storeKey("allow\x00"+key, l, at)
+	if err != nil {
+		return Result{}, err
+	}
+	n, _, err := cache.Get[int64](ctx, k)
+	if err != nil {
+		return Result{}, err
+	}
+	return Result{Allowed: n < int64(l.Max), Limit: l.Max, Remaining: int(max(int64(l.Max)-n, 0)), Reset: reset}, nil
+}
+
+// Hit counts a hit for key against l, like [Allow].
+func Hit(ctx context.Context, key string, l Limit) (Result, error) { return Allow(ctx, key, l) }
+
 // Clear forgets the hits counted for key against l in the current window:
 // after a successful login, say.
 func Clear(ctx context.Context, key string, l Limit) error {
