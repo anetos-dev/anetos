@@ -73,7 +73,8 @@ type rowScanner struct {
 	plan     *scanPlan
 	dest     []any
 	discard  any
-	fixTimes bool // see needsTimeFix
+	fixTimes bool         // see needsTimeFix
+	extra    map[int]*any // result columns that aren't fields, read by the caller
 }
 
 func newRowScanner(d *DB, t reflect.Type, rows *sql.Rows) (*rowScanner, error) {
@@ -100,6 +101,9 @@ func (s *rowScanner) scan(rows *sql.Rows, v reflect.Value) error {
 			switch {
 			case t.index == nil:
 				s.dest[i] = &s.discard
+				if p, ok := s.extra[i]; ok {
+					s.dest[i] = p
+				}
 			case t.json:
 				s.dest[i] = &jsonScanner{fieldAlloc(v, t.index).Addr().Interface()}
 			case t.time && s.fixTimes:

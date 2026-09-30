@@ -136,6 +136,16 @@ func TestErrors(t *testing.T) {
 			"both come from fields named Name"},
 		{"name taken", map[string]string{"models/m.go": head +
 			"type P struct{ db.Model }\n\nvar PCols = 1\n"}, "PCols is already declared"},
+		{"relations name taken", map[string]string{"models/m.go": head +
+			"type C struct{ db.Model; PID int64 }\n\ntype P struct {\n\tdb.Model\n\tCs []C `rel:\"has_many\"`\n}\n\nvar PRels = 1\n"}, "PRels is already declared"},
+		{"unknown relation", map[string]string{"models/m.go": head +
+			"type P struct {\n\tdb.Model\n\tParent *P `rel:\"parent\"`\n}\n"}, `unknown relation "parent"`},
+		{"relation option", map[string]string{"models/m.go": head +
+			"type P struct {\n\tdb.Model\n\tChildren []P `rel:\"has_many,foo=bar\"`\n}\n"}, `bad has_many option "foo=bar"`},
+		{"relation shape", map[string]string{"models/m.go": head +
+			"type P struct {\n\tdb.Model\n\tChildren *P `rel:\"has_many\"`\n}\n"}, "a has_many relation is a slice of models"},
+		{"relation and column", map[string]string{"models/m.go": head +
+			"type P struct {\n\tdb.Model\n\tParent *P `db:\"parent\" rel:\"belongs_to\"`\n}\n"}, "a db tag and a rel tag"},
 		{"unknown directive", map[string]string{"models/m.go": head +
 			"//anetos:modle\ntype P struct{ db.Model }\n"}, "unknown directive //anetos:modle"},
 		{"not a struct", map[string]string{"models/m.go": head +
@@ -275,4 +285,45 @@ func TestTestFilesAndLineEndings(t *testing.T) {
 	if _, err := Generate(dir); err == nil || !strings.Contains(err.Error(), "PCols is already declared") {
 		t.Errorf("error = %v", err)
 	}
+}
+
+func TestRelationsAcrossPackages(t *testing.T) {
+	dir := module(t, map[string]string{
+		"models/m.go": `package models
+
+import (
+	"anetos.dev/anetos/db"
+	"example.com/app/users"
+)
+
+type Post struct {
+	db.Model
+	UserID   int64
+	User     *users.User ` + "`rel:\"belongs_to\"`" + `
+	Comments []Comment   ` + "`rel:\"has_many,fk=post_id\"`" + `
+}
+
+type Comment struct {
+	db.Model
+	PostID int64
+}
+`,
+		"users/users.go": "package users\n\nimport \"anetos.dev/anetos/db\"\n\n//anetos:skip\ntype User struct{ db.Model }\n",
+	})
+	changes := generate(t, dir, "./models")
+	if len(changes) != 1 {
+		t.Fatalf("changes = %+v", changes)
+	}
+	src := string(changes[0].Content)
+	for _, want := range []string{`"example.com/app/users"`, "User     db.Rel[Post, users.User]",
+		`Comments: db.RelOf[Post, Comment]("Comments")`} {
+		if !strings.Contains(src, want) {
+			t.Errorf("missing %q in:\n%s", want, src)
+		}
+	}
+	if strings.Contains(src, "CommentRels") {
+		t.Errorf("relations generated for a model without any:\n%s", src)
+	}
+	check(t, Apply(changes))
+	vet(t, dir)
 }

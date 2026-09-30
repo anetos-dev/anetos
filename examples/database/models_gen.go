@@ -23,6 +23,13 @@ var AuthorCols = struct {
 	Email:     db.Col[string]("email"),
 }
 
+// AuthorRels are the relations of [Author], for With, Load and WhereHas.
+var AuthorRels = struct {
+	Posts db.Rel[Author, Post]
+}{
+	Posts: db.RelOf[Author, Post]("Posts"),
+}
+
 // PostCols are the columns of [Post].
 var PostCols = struct {
 	ID          db.Column[int64]
@@ -46,4 +53,11 @@ var PostCols = struct {
 	Tags:        db.JSONCol[[]string]("tags"),
 	Views:       db.Col[int]("views"),
 	PublishedAt: db.Col[*time.Time]("published_at"),
+}
+
+// PostRels are the relations of [Post], for With, Load and WhereHas.
+var PostRels = struct {
+	Author db.Rel[Post, Author]
+}{
+	Author: db.RelOf[Post, Author]("Author"),
 }

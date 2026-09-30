@@ -165,6 +165,7 @@ func candidates(dir string, patterns []string) (roots []string, overlay map[stri
 type model struct {
 	name string
 	cols []column
+	rels []relation
 }
 
 func generatePackage(pkg *packages.Package) (*Change, error) {
@@ -297,7 +298,7 @@ func findModels(pkg *packages.Package, gen string) ([]model, error) {
 					typeErrs = true
 					continue
 				}
-				all = append(all, found{pos, model{ts.Name.Name, cols}})
+				all = append(all, found{pos, model{ts.Name.Name, cols, w.rels}})
 			}
 		}
 	}
@@ -357,6 +358,9 @@ func hasInvalid(st *types.Struct) bool {
 // varName is the name of the generated variable: PostCols, or postCols
 // for an unexported model.
 func varName(model string) string { return model + "Cols" }
+
+// relsName is the name of a model's relation handles.
+func relsName(model string) string { return model + "Rels" }
 
 // colsInvalid reports whether a column's type (possibly from an embedded
 // struct) failed to type-check.

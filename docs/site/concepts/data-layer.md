@@ -84,8 +84,9 @@ UTC to keep their calendar day.
 ## What it deliberately doesn't do
 
 - **No lazy loading.** Go can't intercept field access, and hidden queries
-  are how N+1 bugs happen. Relations and explicit eager loading
-  (`With(...)`) arrive in v0.1.x.
+  are how N+1 bugs happen. Relations load only when asked, with `With`
+  or `db.Load`, one query per relation whatever the number of rows
+  ([Relations and eager loading](../guides/relations.md)).
 - **No dirty tracking.** `db.Update` writes every column; mass updates set
   exactly the columns you name.
 - **No magic zero values.** A NULL in a non-pointer field is an error, not

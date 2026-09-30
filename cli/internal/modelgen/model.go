@@ -7,6 +7,7 @@ import (
 	"go/token"
 	"go/types"
 	"reflect"
+	"slices"
 	"strings"
 
 	"anetos.dev/anetos/internal/naming"
@@ -36,6 +37,22 @@ type walker struct {
 	cols        []column
 	byName      map[string]bool
 	pk          bool
+	rels        []relation
+}
+
+// relation is a relation field (rel tag), as the db package sees it.
+type relation struct {
+	goName  string
+	related types.Type // the model it holds (pointed-to or element type)
+	pos     token.Pos
+}
+
+// relOpts are the options of each relation kind, as in db/relation.go.
+var relOpts = map[string][]string{
+	"belongs_to":   {"fk", "references"},
+	"has_one":      {"fk", "local"},
+	"has_many":     {"fk", "local"},
+	"many_to_many": {"pivot", "fk", "related_fk"},
 }
 
 func (w *walker) errorf(pos token.Pos, format string, args ...any) error {
@@ -58,6 +75,11 @@ func (w *walker) columns(st *types.Struct) ([]column, error) {
 		}
 		goNames[c.goName] = c.name
 		if err := w.nameable(c.typ, c.pos, c.goName); err != nil {
+			return nil, err
+		}
+	}
+	for _, r := range w.rels {
+		if err := w.nameable(r.related, r.pos, r.goName); err != nil {
 			return nil, err
 		}
 	}
@@ -97,6 +119,55 @@ func (w *walker) fields(st *types.Struct, t types.Type, seen map[types.Type]bool
 			}
 		}
 		if !f.Exported() {
+			continue
+		}
+		if rel, ok := reflect.StructTag(st.Tag(i)).Lookup("rel"); ok {
+			if hasTag {
+				return w.errorf(f.Pos(), "field %s has a db tag and a rel tag; a field is a column or a relation", f.Name())
+			}
+			kind, rest, _ := strings.Cut(rel, ",")
+			kind = strings.TrimSpace(kind)
+			opts, known := relOpts[kind]
+			if !known {
+				return w.errorf(f.Pos(), "field %s: unknown relation %q (known: belongs_to, has_one, has_many, many_to_many)", f.Name(), kind)
+			}
+			for o := range strings.SplitSeq(rest, ",") {
+				if o = strings.TrimSpace(o); o == "" {
+					continue
+				}
+				k, v, _ := strings.Cut(o, "=")
+				if !slices.Contains(opts, strings.TrimSpace(k)) || strings.TrimSpace(v) == "" {
+					return w.errorf(f.Pos(), "field %s: bad %s option %q (known: %s, as name=value)", f.Name(), kind, o, strings.Join(opts, ", "))
+				}
+			}
+			var elem types.Type
+			switch t := under(ft).(type) {
+			case *types.Pointer:
+				if kind == "belongs_to" || kind == "has_one" {
+					elem = t.Elem()
+				}
+			case *types.Slice:
+				if kind == "has_many" || kind == "many_to_many" {
+					elem = t.Elem()
+				}
+			}
+			isStruct := false
+			if elem != nil {
+				_, isStruct = under(elem).(*types.Struct)
+			}
+			if !isStruct {
+				want := "a pointer to a model"
+				if kind == "has_many" || kind == "many_to_many" {
+					want = "a slice of models"
+				}
+				return w.errorf(f.Pos(), "field %s: a %s relation is %s", f.Name(), kind, want)
+			}
+			for _, r := range w.rels {
+				if r.goName == f.Name() {
+					return w.errorf(f.Pos(), "two relation fields named %s", f.Name())
+				}
+			}
+			w.rels = append(w.rels, relation{goName: f.Name(), related: elem, pos: f.Pos()})
 			continue
 		}
 		if !hasTag && !isColumnType(ft) {

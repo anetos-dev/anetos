@@ -137,6 +137,7 @@ Goal: the core an application stands on.
 | F10 | Views, sessions & forms | templ integration, layouts, view helpers (route URLs, CSRF field, errors, old input, assets), cookie sessions, flash messages, CSRF, method override, bundled htmx; validation failures on HTML forms redirect back with the error bag and old input; `APP_KEY` and encryption |
 | F11 | CLI | Global `anetos new`, `anetos dev` (watch, rebuild, restart, browser reload), `make:handler`, `make:model`, `make:migration`, `make:middleware`; app-binary command framework (`serve`, `run`, `migrate*`, `routes:list`, custom commands) |
 | F12 | Testing helpers | App bootstrap for tests, fluent HTTP test client, per-test DB transaction rollback, model factories (`factory.New`). (Clock, mail and queue fakes arrive with those features in v0.2.) |
+| F13 | Relations (v0.1.1) | has-one, has-many, belongs-to, many-to-many, eager loading with `With`, `Load`, `WhereHas`, pivot writes, generated relation handles |
 
 **Progress**
 
@@ -154,18 +155,21 @@ Goal: the core an application stands on.
 | F10 Views, sessions & forms | ✅ Done 2026-09-30 |
 | F11 CLI | ✅ Done 2026-09-30 |
 | F12 Testing helpers | ✅ Done 2026-09-30 |
+| F13 Relations (v0.1.1) | ✅ Done 2026-09-30 |
 
 All v0.1 work packages are done, and the exit criteria were checked on
 2026-09-30 (see below). **v0.1.0 was tagged on 2026-09-30** (a private
 tag: `v0.1.0`, `cli/v0.1.0`, `drivers/{sqlite,postgres,mysql}/v0.1.0`;
-the modules still use `replace` directives until M1b). Next: the v0.1.x
-relations patch.
+the modules still use `replace` directives until M1b). **v0.1.1**, the
+relations patch below, followed the same day. Next: v0.2.
 
-**Planned patch:** **v0.1.x** adds **relations and eager loading** (has-one,
-has-many, belongs-to, many-to-many, `With(...)`) and the relation handles
-`anetos gen` writes for them (`PostRels.Author`). This is kept out of v0.1.0 so
-the core query builder settles first, but it **must ship before v0.2 starts**.
-Pop's weak relations were one of the main reasons for this project.
+**Patch v0.1.1, work package F13 (✅ done 2026-09-30):** **relations and eager loading**
+(has-one, has-many, belongs-to, many-to-many, `With(...)`, `db.Load`,
+`WhereHas`, `Attach`/`Detach`/`DetachAll`/`Sync`) and the relation handles `anetos gen`
+writes for them (`PostRels.Author`). This was kept out of v0.1.0 so the
+core query builder settled first, and had to ship before v0.2 starts. Pop's
+weak relations were one of the main reasons for this project. N+1
+detection moved to v0.2 (design D87).
 
 **Exit criteria**
 
@@ -207,6 +211,7 @@ Goal: everything a real application needs beyond CRUD.
 | B10 | Storage | Contract + local driver, S3-compatible driver module |
 | B11 | Plugin system (public) | Stable `Plugin` interface, `anetos add` / `anetos remove`, namespacing, compatibility checks; at least one first-party plugin built **only** through the public API |
 | B12 | Test fakes | Mail, queue, events, storage and clock fakes with assertions |
+| B13 | N+1 detection | In development, warn when a request runs the same query shape many times (request-scoped query tracking); from v0.1.1 |
 
 **Stretch:** basic i18n for validation and auth messages.
 
@@ -345,3 +350,4 @@ something, and we fix the API rather than add the hook.
 | 2026-09-30 | F12 done; all v0.1 work packages complete; fakes moved to the v0.2 features they fake |
 | 2026-09-30 | v0.1 exit criteria checked; pagination links, `migrate --seed --force`, concept pages, benchmarks and doc-comment check added |
 | 2026-09-30 | v0.1.0 tagged |
+| 2026-09-30 | v0.1.1 (relations) done; N+1 detection moved to v0.2 |

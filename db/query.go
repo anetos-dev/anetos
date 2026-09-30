@@ -39,6 +39,7 @@ type Q[T any] struct {
 	trashed  trashed
 	distinct bool
 	lock     lock
+	with     []relSpec // relations to load
 }
 
 type trashed int
@@ -77,6 +78,7 @@ func (q *Q[T]) clone() *Q[T] {
 	c.orders = slices.Clip(c.orders)
 	c.groups = slices.Clip(c.groups)
 	c.havings = slices.Clip(c.havings)
+	c.with = slices.Clip(c.with)
 	return &c
 }
 
@@ -354,8 +356,17 @@ func (q *Q[T]) rows(cols []string) (*DB, *sql.Rows, error) {
 // Get returns every matching row. It returns an empty (non-nil) slice if
 // there are none.
 func (q *Q[T]) Get() ([]T, error) {
+	if len(q.with) > 0 {
+		if err := checkSpecs(q.with...); err != nil {
+			return nil, err
+		}
+	}
 	d, rows, err := q.rows(nil)
-	return collect[T](d, rows, err)
+	out, err := collect[T](d, rows, err)
+	if err == nil && len(q.with) > 0 && len(out) > 0 {
+		err = loadRelations(q.ctx, q.m, reflect.ValueOf(out), q.with)
+	}
+	return out, err
 }
 
 // All streams the matching rows, for results too large to hold at once:
@@ -372,6 +383,10 @@ func (q *Q[T]) Get() ([]T, error) {
 func (q *Q[T]) All() iter.Seq2[T, error] {
 	return func(yield func(T, error) bool) {
 		var zero T
+		if len(q.with) > 0 {
+			yield(zero, errors.New("db: All can't load relations (With); use Get or Paginate, or LoadMany on batches"))
+			return
+		}
 		d, rows, err := q.rows(nil)
 		if err != nil {
 			yield(zero, err)

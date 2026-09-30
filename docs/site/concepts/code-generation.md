@@ -119,8 +119,9 @@ build.
 - **No scanning code.** The `db` package scans with its cached metadata.
 - **No migrations.** Tables come from migrations you write with the
   schema builder; `anetos make:migration` gives you a starting file.
-- **No relation handles yet.** `PostRels` for eager loading is planned
-  with relations in v0.1.x.
+- **No loading code.** `PostRels` holds one handle per relation field
+  (`db.RelOf[Post, User]("Author")`); `With` and `db.Load` do the loading
+  at runtime.
 
 > **Coming from Laravel?** Eloquent resolves `where('title', …)` by
 > string at runtime. Here the names are generated Go values, so a typo

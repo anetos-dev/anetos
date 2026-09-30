@@ -42,8 +42,9 @@ type Post struct {
 	PublishedAt *time.Time        `db:"published_at"`
 	Checked     time.Time         // time.Time is a value
 	IP          netip.Addr        // an untagged struct that doesn't scan: not a column
-	Author      *Author           // relation: not a column
-	Comments    []Comment         // relation: not a column
+	Author      *Author           `rel:"belongs_to"`          // a relation: not a column
+	Comments    []Comment         `rel:"has_many,fk=post_id"` // a relation
+	Editor      *Author           // an untagged struct pointer: neither column nor relation
 	Ignored     string            `db:"-"`
 	secret      string            // unexported: not a column
 }
@@ -53,6 +54,7 @@ type Comment struct {
 	ID     string `db:"id,pk"`
 	PostID int64
 	Body   string
+	Post   *Post `rel:"belongs_to"`
 }
 
 // TableName implements db.Tabler.

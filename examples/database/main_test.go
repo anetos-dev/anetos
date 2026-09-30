@@ -64,7 +64,8 @@ func TestListAndShowPosts(t *testing.T) {
 	id := page.Data[0].ID
 	path := "/posts/" + strconv.FormatInt(id, 10)
 	app.GetJSON(path)
-	app.GetJSON(path).AssertOK().AssertJSONPath("views", 2).AssertJSONPath("tags", []string{"go"})
+	app.GetJSON(path).AssertOK().AssertJSONPath("views", 2).AssertJSONPath("tags", []string{"go"}).
+		AssertJSONPath("author.name", ada.Name) // loaded with PostRels.Author
 
 	app.DeleteJSON(path).AssertNoContent()
 	app.GetJSON(path).AssertNotFound()
@@ -73,6 +74,25 @@ func TestListAndShowPosts(t *testing.T) {
 
 	app.GetJSON("/stats").AssertOK().AssertJSONPath("0.posts", 5)
 }
+
+// region: test-relations
+func TestAuthorsWithPublishedPosts(t *testing.T) {
+	app := anetostest.New(t, setup)
+	now := time.Now().UTC()
+	ada := anetostest.Create(app, Authors.With(func(a *Author) { a.Name = "Ada" }))
+	grace := anetostest.Create(app, Authors.With(func(a *Author) { a.Name = "Grace" }))
+	anetostest.Create(app, Posts.With(func(p *Post) { p.AuthorID, p.Title, p.PublishedAt = ada.ID, "Published", &now }))
+	anetostest.Create(app, Posts.With(func(p *Post) { p.AuthorID, p.Title = ada.ID, "Draft" }))
+	anetostest.Create(app, Posts.With(func(p *Post) { p.AuthorID = grace.ID })) // Grace has drafts only
+
+	app.GetJSON("/authors").
+		AssertOK().
+		AssertJSONPath("0.name", "Ada").
+		AssertJSONPath("0.posts.0.title", "Published").
+		AssertDontSee("Grace", "Draft")
+}
+
+// endregion
 
 func TestCommands(t *testing.T) {
 	dbFile := filepath.Join(t.TempDir(), "blog.db")

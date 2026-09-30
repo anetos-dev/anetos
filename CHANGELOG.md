@@ -6,6 +6,36 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-30
+
+Relations and eager loading (the v0.1.x patch, work package F13).
+
+### Added
+- Relations (`db`): fields with a `rel` tag, `belongs_to` and `has_one`
+  (`*R`), `has_many` and `many_to_many` (`[]R`), with conventional keys and
+  pivot names and `fk`, `references`, `local`, `pivot` and `related_fk`
+  options; typed handles `db.Rel[T, R]` (`db.RelOf`, checked at first
+  use) with `With` (nested), `Where`, `OrderBy`, `WithTrashed`, `Name` and
+  `Err` (F13, design D83–D85).
+- Eager loading: `q.With(rels...)` for `Get`, `First`, `Find`,
+  `Paginate` and `CursorPaginate`, and `db.Load`/`db.LoadMany` for rows you
+  have: one query per relation and 1,000 parents, keys checked before the
+  main query runs (F13, design D84).
+- `q.WhereHas` and `q.WhereDoesntHave` (`EXISTS` subqueries), and
+  `db.Attach`, `db.Detach`, `db.DetachAll` and `db.Sync` for many-to-many
+  pivots; `Attach` is safe to repeat and to run concurrently (F13, design
+  D86, D87).
+- `anetos gen` writes `<Model>Rels`, one handle per relation field, and
+  reports bad `rel` tags (F13).
+- `examples/database` loads each post's author and lists authors with
+  published posts; guide "Relations and eager loading", models reference
+  section (F13).
+
+### Changed
+- A field with a `rel` tag and a `db` tag is an error; a `rel` tag with an
+  unknown kind, an unknown option or the wrong field type is an error when
+  the model is first used (F13).
+
 ## [0.1.0] - 2026-09-30
 
 The foundation: the app kernel, configuration, runtime supervisor, HTTP

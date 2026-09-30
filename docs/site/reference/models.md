@@ -25,7 +25,8 @@ How the db package maps a struct to a table. See
 |---|---|
 | Exported field with a `db` tag | The tag's name |
 | Exported field without a tag | snake_case of the field name: `AuthorID` → `author_id`, `HTTPStatus` → `http_status`, `UserIDs` → `user_ids` |
-| Untagged struct, pointer-to-struct or slice-of-struct field | Not a column (reserved for relations, roadmap v0.1.x). Types that scan themselves (`time.Time`, `sql.Null[T]`, anything implementing `sql.Scanner`) are columns |
+| Field with a `rel` tag | A relation, not a column (see [Relations](#relations)) |
+| Untagged struct, pointer-to-struct or slice-of-struct field | Not a column. Types that scan themselves (`time.Time`, `sql.Null[T]`, anything implementing `sql.Scanner`) are columns |
 | Embedded struct without a `db` name | Its fields are flattened into the model (`db.Model`, `db.Timestamps`, your own mixins). Embedded pointers are allocated when scanning |
 | Unexported field | Not a column |
 
@@ -91,6 +92,38 @@ Methods on the model's pointer type, all `func(ctx context.Context) error`:
 
 A hook's error stops the operation and is returned. Mass updates and
 deletes on a query, `Restore` and `Upsert` run no hooks.
+
+## Relations
+
+Since v0.1.1. A relation field has a `rel` tag, `rel:"kind"` or
+`rel:"kind,option=value,…"`, and no `db` tag. See
+[Relations and eager loading](../guides/relations.md).
+
+| Kind | Field type | Keys | Options (defaults) |
+|---|---|---|---|
+| `belongs_to` | `*R` | This model's `fk` → R's `references` | `fk` (the field's name in snake_case + `_id`), `references` (R's primary key) |
+| `has_one` | `*R` | R's `fk` → this model's `local` | `fk` (this type's name in snake_case + `_id`), `local` (the primary key) |
+| `has_many` | `[]R` | R's `fk` → this model's `local` | as `has_one` |
+| `many_to_many` | `[]R` | `pivot`.`fk` → this model's primary key, `pivot`.`related_fk` → R's primary key | `pivot` (both type names in snake_case, sorted, joined with `_`), `fk` (this type + `_id`), `related_fk` (R's type + `_id`) |
+
+| API | Does |
+|---|---|
+| `db.RelOf[T, R](field)` | `db.Rel[T, R]`, the handle of a relation field (`anetos gen` writes them in `TRels`). Nothing is checked until use; `Err()` reports a wrong field or type, a bad tag or missing key columns, as queries do before running |
+| `rel.With(nested...)` | Also load relations of the related rows |
+| `rel.Where(conds...)`, `rel.OrderBy(orders...)` | Conditions and order of the relation's query (default order: R's primary key; a `has_one` gets the first row). Many-to-many queries join the pivot: qualify columns it also has |
+| `rel.WithTrashed()` | Include soft-deleted related rows |
+| `q.With(rels...)` | Load relations of the query's rows: one query per relation (keys in chunks of 1,000) in `Get`, `First`, `Find`, `Paginate` and `CursorPaginate`; `All` returns an error |
+| `db.Load(ctx, &row, rels...)`, `db.LoadMany(ctx, rows, rels...)` | The same for rows you have; loading again replaces the fields |
+| `q.WhereHas(rel, conds...)`, `q.WhereDoesntHave(rel, conds...)` | `EXISTS` / `NOT EXISTS` subquery on the related rows (soft-deleted ones excluded unless `rel.WithTrashed()`); no nested relations |
+| `db.Attach(ctx, &row, rel, ids...)` | Insert the missing pivot rows (`many_to_many` only); needs a primary key or unique index on the two pivot columns |
+| `db.Detach(ctx, &row, rel, ids...)` | Delete those pivot rows; no ids: nothing |
+| `db.DetachAll(ctx, &row, rel)` | Delete all of the row's pivot rows |
+| `db.Sync(ctx, &row, rel, ids...)` | Make the pivot rows exactly ids |
+
+A loaded pointer relation with no match is `nil`; a loaded slice relation
+with none is empty, not `nil`. Parents with the same key share one loaded
+`*R` (and the same slice contents, clipped so appending to one doesn't
+change another). Passing one relation twice to `With` is an error.
 
 ## Functions
 

@@ -68,6 +68,15 @@ var PostCols = struct {
 	Checked:     db.Col[time.Time]("checked"),
 }
 
+// PostRels are the relations of [Post], for With, Load and WhereHas.
+var PostRels = struct {
+	Author   db.Rel[Post, Author]
+	Comments db.Rel[Post, Comment]
+}{
+	Author:   db.RelOf[Post, Author]("Author"),
+	Comments: db.RelOf[Post, Comment]("Comments"),
+}
+
 // CommentCols are the columns of [Comment].
 var CommentCols = struct {
 	ID     db.Column[string]
@@ -77,6 +86,13 @@ var CommentCols = struct {
 	ID:     db.Col[string]("id"),
 	PostID: db.Col[int64]("post_id"),
 	Body:   db.Col[string]("body"),
+}
+
+// CommentRels are the relations of [Comment], for With, Load and WhereHas.
+var CommentRels = struct {
+	Post db.Rel[Comment, Post]
+}{
+	Post: db.RelOf[Comment, Post]("Post"),
 }
 
 // InvoiceCols are the columns of [Invoice].

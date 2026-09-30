@@ -65,7 +65,8 @@ var NameCols = struct {
 | `PublishedAt *time.Time` | `db.Column[*time.Time]` (compare with `new(t)`, set `NULL` with `nil`) |
 | `Tags []string \`db:"tags,json"\`` | `db.Column[[]string]` made with `db.JSONCol` |
 | Fields of embedded structs (`db.Model`: `ID`, `CreatedAt`, `UpdatedAt`) | Flattened in place, like the runtime |
-| `Author *User`, `Comments []Comment` (untagged structs) | Nothing: reserved for relations |
+| `Author *User \`rel:"belongs_to"\``, `Comments []Comment \`rel:"has_many"\`` | A relation handle in `PostRels`: `Author db.Rel[Post, User]`, made with `db.RelOf[Post, User]("Author")` |
+| Untagged struct, pointer-to-struct and slice-of-struct fields | Nothing |
 | `db:"-"` and unexported fields | Nothing |
 
 The column rules are the `db` package's
@@ -96,7 +97,10 @@ any of its files (in-package tests and other platforms' files included).
 | `unknown db tag option "x" (known: pk, json, readonly)` | A typo in a `db` tag |
 | `more than one pk field` | Composite keys aren't supported by models |
 | `columns "a" and "b" both come from fields named X` | Two fields (one embedded) share a Go name; rename one |
-| `XCols is already declared` | The package declares the name anetos gen needs |
+| `XCols is already declared`, `XRels is already declared` | The package declares a name anetos gen needs |
+| `unknown relation "x"`, `bad has_many option "x"` | A typo in a `rel` tag |
+| `a has_many relation is a slice of models`, `… a pointer to a model` | The field's type doesn't fit the relation kind |
+| `field X has a db tag and a rel tag` | A field is a column or a relation, not both |
 | `field X has …, which package … can't name` | An embedded struct from another package has a field of an unexported type, a type from an `internal` package yours can't import, or an anonymous struct with unexported fields; tag it `db:"-"` or change the embedded struct |
 | `models in files with build constraints aren't supported`, `embeds X, declared in a file with build constraints` | The model, or a struct of the package it embeds, is in a `_linux.go`-style file or one with a `//go:build` line: the generated file would differ per platform |
 | `embeds itself` | A struct embeds itself through a pointer |

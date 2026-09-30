@@ -49,7 +49,36 @@ func check[M any](t *testing.T, cols any) {
 	}
 }
 
+// checkRels compares generated relation handles with model M's rel-tagged
+// fields: one handle per field, in order, each usable.
+func checkRels[M any](t *testing.T, rels any) {
+	t.Helper()
+	mt := reflect.TypeFor[M]()
+	var want []string
+	for f := range mt.Fields() {
+		if _, ok := f.Tag.Lookup("rel"); ok {
+			want = append(want, f.Name)
+		}
+	}
+	var got []string
+	for _, fv := range reflect.ValueOf(rels).Fields() {
+		h := fv.Interface().(interface {
+			Name() string
+			Err() error
+		})
+		got = append(got, h.Name())
+		if err := h.Err(); err != nil {
+			t.Errorf("%s: %v", h.Name(), err)
+		}
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("%s: generated relations %v, rel-tagged fields %v", mt, got, want)
+	}
+}
+
 func TestGeneratedMatchesRuntime(t *testing.T) {
+	checkRels[Post](t, PostRels)
+	checkRels[Comment](t, CommentRels)
 	check[Author](t, AuthorCols)
 	check[Post](t, PostCols)
 	check[Comment](t, CommentCols)

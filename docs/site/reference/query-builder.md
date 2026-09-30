@@ -24,6 +24,8 @@ Each method returns a new query; the original is unchanged.
 | `Distinct()` | `SELECT DISTINCT` |
 | `Scope(fns...)` | Applies `func(*db.Q[T]) *db.Q[T]` modifiers |
 | `WithTrashed()`, `OnlyTrashed()` | Include / only soft-deleted rows |
+| `WhereHas(rel, conds...)`, `WhereDoesntHave(rel, conds...)` | `EXISTS (…)` / `NOT EXISTS (…)` on a relation's rows ([relations](models.md#relations)) |
+| `With(rels...)` | Loads relations of the rows, one query per relation ([relations](models.md#relations)) |
 | `ForUpdate()`, `ForShare()` | Row locks until the transaction ends (nothing on SQLite) |
 
 ## Conditions

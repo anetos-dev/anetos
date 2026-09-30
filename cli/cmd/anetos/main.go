@@ -101,7 +101,8 @@ func gen(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprint(stderr, `Usage: anetos gen [-check] [packages]
 
 Writes models_gen.go in each package with models, declaring the typed
-columns of every model (PostCols for Post). A model is a struct that embeds
+columns of every model (PostCols for Post) and the handles of its relation
+fields (PostRels, for fields with a rel tag). A model is a struct that embeds
 db.Model, db.Timestamps or db.SoftDeletes, has a TableName method, or has a
 //anetos:model comment; //anetos:skip excludes one. Packages default to ./...
 

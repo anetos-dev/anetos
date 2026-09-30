@@ -198,8 +198,8 @@ or `OnlyTrashed()`. Every method is listed in the
 
 > **Coming from Laravel?** `Where(PostCols.Title.Like(…))` is `where('title',
 > 'like', …)`, `Paginate` is `paginate`, and scopes are plain functions
-> instead of `scopeX` methods. There is no lazy loading; relations and
-> eager loading (`With`) arrive in v0.1.x.
+> instead of `scopeX` methods. There is no lazy loading: load relations
+> with `With` ([Relations and eager loading](relations.md)).
 
 ## Testing it
 

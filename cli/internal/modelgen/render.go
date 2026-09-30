@@ -91,16 +91,20 @@ func render(pkg *packages.Package, models []model) ([]byte, error) {
 		im.taken[name] = true
 	}
 	for _, m := range models {
-		v := varName(m.name)
-		if obj := scope.Lookup(v); obj != nil {
-			return nil, fmt.Errorf("%s: %s is already declared, so anetos gen can't declare the columns of %s; rename it, or mark %s //anetos:skip",
-				pkg.Fset.Position(obj.Pos()), v, m.name, m.name)
+		for _, v := range []string{varName(m.name), relsName(m.name)} {
+			if v == relsName(m.name) && len(m.rels) == 0 {
+				continue
+			}
+			if obj := scope.Lookup(v); obj != nil {
+				return nil, fmt.Errorf("%s: %s is already declared, so anetos gen can't declare it for %s; rename it, or mark %s //anetos:skip",
+					pkg.Fset.Position(obj.Pos()), v, m.name, m.name)
+			}
+			if pos, ok := testNames[v]; ok {
+				return nil, fmt.Errorf("%s: %s is already declared, so anetos gen can't declare it for %s; rename it, or mark %s //anetos:skip",
+					pos, v, m.name, m.name)
+			}
+			im.taken[v] = true
 		}
-		if pos, ok := testNames[v]; ok {
-			return nil, fmt.Errorf("%s: %s is already declared, so anetos gen can't declare the columns of %s; rename it, or mark %s //anetos:skip",
-				pos, v, m.name, m.name)
-		}
-		im.taken[v] = true
 	}
 	dbName := im.qualifier(types.NewPackage(dbPath, "db"))
 
@@ -120,6 +124,21 @@ func render(pkg *packages.Package, models []model) ([]byte, error) {
 				ctor = "JSONCol"
 			}
 			fmt.Fprintf(&body, "\t%s: %s.%s[%s](%s),\n", c.goName, dbName, ctor, typs[i], strconv.Quote(c.name))
+		}
+		body.WriteString("}\n")
+		if len(m.rels) == 0 {
+			continue
+		}
+		r := relsName(m.name)
+		fmt.Fprintf(&body, "\n// %s are the relations of [%s], for With, Load and WhereHas.\nvar %s = struct {\n", r, m.name, r)
+		rtyps := make([]string, len(m.rels))
+		for i, rel := range m.rels {
+			rtyps[i] = types.TypeString(rel.related, im.qualifier)
+			fmt.Fprintf(&body, "\t%s %s.Rel[%s, %s]\n", rel.goName, dbName, m.name, rtyps[i])
+		}
+		body.WriteString("}{\n")
+		for i, rel := range m.rels {
+			fmt.Fprintf(&body, "\t%s: %s.RelOf[%s, %s](%s),\n", rel.goName, dbName, m.name, rtyps[i], strconv.Quote(rel.goName))
 		}
 		body.WriteString("}\n")
 	}

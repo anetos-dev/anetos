@@ -23,6 +23,8 @@ type Author struct {
 	db.Model        // id, created_at, updated_at
 	Name     string `db:"name" json:"name"`
 	Email    string `db:"email" json:"email"`
+
+	Posts []Post `rel:"has_many" json:"posts,omitzero"` // posts.author_id; loaded with With or Load
 }
 
 // Post is a blog post. Deleting one only marks it deleted.
@@ -35,10 +37,13 @@ type Post struct {
 	Tags           []string   `db:"tags,json" json:"tags"` // stored as JSON text
 	Views          int        `db:"views" json:"views"`
 	PublishedAt    *time.Time `db:"published_at" json:"published_at"` // nullable
+
+	Author *Author `rel:"belongs_to" json:"author,omitzero"` // by AuthorID
 }
 
-// AuthorCols and PostCols, the typed columns of the models, are in
-// models_gen.go, written by `go tool anetos gen` (or go generate).
+// AuthorCols and PostCols, the typed columns of the models, and
+// AuthorRels and PostRels, their relations, are in models_gen.go, written
+// by `go tool anetos gen` (or go generate).
 //
 //go:generate go tool anetos gen
 ```
@@ -51,9 +56,9 @@ type Post struct {
 - `db.SoftDeletes` adds `deleted_at`: deleting sets it, and queries skip
   those rows.
 - Columns are the `db` tags; untagged fields use their snake_case names
-  (`AuthorID` → `author_id`). Struct, pointer-to-struct and slice-of-struct
-  fields without a tag are skipped, because they are reserved for
-  relations.
+  (`AuthorID` → `author_id`). Fields with a `rel` tag are
+  [relations](relations.md), not columns; other struct, pointer-to-struct
+  and slice-of-struct fields without a tag are skipped.
 - The table is the snake_case plural of the type name (`Post` → `posts`,
   `Category` → `categories`). Add a `TableName() string` method to choose
   another.

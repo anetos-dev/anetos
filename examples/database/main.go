@@ -37,6 +37,8 @@ type Author struct {
 	db.Model        // id, created_at, updated_at
 	Name     string `db:"name" json:"name"`
 	Email    string `db:"email" json:"email"`
+
+	Posts []Post `rel:"has_many" json:"posts,omitzero"` // posts.author_id; loaded with With or Load
 }
 
 // Post is a blog post. Deleting one only marks it deleted.
@@ -49,10 +51,13 @@ type Post struct {
 	Tags           []string   `db:"tags,json" json:"tags"` // stored as JSON text
 	Views          int        `db:"views" json:"views"`
 	PublishedAt    *time.Time `db:"published_at" json:"published_at"` // nullable
+
+	Author *Author `rel:"belongs_to" json:"author,omitzero"` // by AuthorID
 }
 
-// AuthorCols and PostCols, the typed columns of the models, are in
-// models_gen.go, written by `go tool anetos gen` (or go generate).
+// AuthorCols and PostCols, the typed columns of the models, and
+// AuthorRels and PostRels, their relations, are in models_gen.go, written
+// by `go tool anetos gen` (or go generate).
 //
 //go:generate go tool anetos gen
 
@@ -123,7 +128,7 @@ func (Blog) ListPosts(c *web.Ctx, in ListPosts) (db.Page[Post], error) {
 	if in.Author != nil {
 		q = q.Where(PostCols.AuthorID.Eq(*in.Author))
 	}
-	return q.Latest().Paginate(in.Page, in.PerPage)
+	return q.With(PostRels.Author).Latest().Paginate(in.Page, in.PerPage) // one query for all the authors
 }
 
 // endregion
@@ -136,7 +141,7 @@ func (Blog) ShowPost(c *web.Ctx, in PostID) (Post, error) {
 			return err
 		}
 		var err error
-		p, err = db.Find[Post](ctx, in.ID)
+		p, err = db.Query[Post](ctx).With(PostRels.Author).Find(in.ID)
 		return err // ErrNotFound becomes a 404
 	})
 	return p, err
@@ -152,6 +157,19 @@ func (Blog) DeletePost(c *web.Ctx, in PostID) (web.Responder, error) {
 	}
 	return web.NoContent(), nil
 }
+
+// region: where-has
+// ListAuthors returns the authors with a published post, with those posts.
+func (Blog) ListAuthors(c *web.Ctx, _ struct{}) ([]Author, error) {
+	published := PostCols.PublishedAt.NotNull()
+	return db.Query[Author](c).
+		WhereHas(AuthorRels.Posts, published).
+		With(AuthorRels.Posts.Where(published).OrderBy(PostCols.PublishedAt.Desc())).
+		OrderBy(AuthorCols.Name.Asc()).
+		Get()
+}
+
+// endregion
 
 // region: raw
 // AuthorStats is one row of GET /stats.
@@ -174,6 +192,7 @@ func (Blog) Stats(c *web.Ctx, _ struct{}) ([]AuthorStats, error) {
 func routes(r *web.Router) {
 	var b Blog
 	r.Post("/authors", web.H(b.CreateAuthor))
+	r.Get("/authors", web.H(b.ListAuthors))
 	r.Post("/posts", web.H(b.CreatePost))
 	r.Get("/posts", web.H(b.ListPosts))
 	r.Get("/posts/{id}", web.H(b.ShowPost))

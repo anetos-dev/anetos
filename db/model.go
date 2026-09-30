@@ -70,7 +70,8 @@ type meta struct {
 	autoPK    bool           // integer primary key, generated when zero
 	createdAt int            // -1 if none
 	updatedAt int
-	deletedAt int // -1 unless SoftDeletes is embedded
+	deletedAt int                 // -1 unless SoftDeletes is embedded
+	rels      map[string]*relMeta // relation fields by Go name
 
 	selectList sync.Map // dialectKey → the quoted column list of SELECT
 }
@@ -135,7 +136,7 @@ func buildMeta(t reflect.Type) (*meta, error) {
 	if t.Kind() != reflect.Struct || isValueType(t) {
 		return nil, fmt.Errorf("db: %s is not a model struct", t)
 	}
-	m := &meta{typ: t, pk: -1, createdAt: -1, updatedAt: -1, deletedAt: -1, byName: map[string]int{}}
+	m := &meta{typ: t, pk: -1, createdAt: -1, updatedAt: -1, deletedAt: -1, byName: map[string]int{}, rels: map[string]*relMeta{}}
 	if tb, ok := reflect.TypeAssert[Tabler](reflect.New(t)); ok {
 		m.table = tb.TableName()
 	} else {
@@ -203,6 +204,20 @@ func (m *meta) addFields(t reflect.Type, index []int, seen map[reflect.Type]bool
 			continue
 		}
 		if !sf.IsExported() {
+			continue
+		}
+		if rel, ok := sf.Tag.Lookup("rel"); ok {
+			if hasTag {
+				return fmt.Errorf("db: %s.%s: a field has a db tag or a rel tag, not both", m.typ, sf.Name)
+			}
+			r, err := parseRel(m.typ, sf, idx, rel)
+			if err != nil {
+				return err
+			}
+			if _, dup := m.rels[sf.Name]; dup {
+				return fmt.Errorf("db: %s: two relation fields named %s", m.typ, sf.Name)
+			}
+			m.rels[sf.Name] = r
 			continue
 		}
 		if !hasTag && !isColumnType(ft) {

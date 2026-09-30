@@ -548,8 +548,8 @@ works on any struct (job payloads, CLI input).
 The part of the framework that matters most, and the riskiest.
 **Target:** Eloquent-level comfort for about 90% of queries, fully typed, with
 raw SQL as a first-class option for the remaining 10%. The core (F7) is
-package `db`; relations and eager loading follow in v0.1.x, model code
-generation in F9.
+package `db`; model code generation came in F9, relations and eager
+loading in v0.1.1.
 
 ### 10.1 Models
 
@@ -566,8 +566,9 @@ type Post struct {
     AuthorID int64            // untagged: column author_id
     Meta     map[string]any `db:"meta,json"`
 
-    Author   *User     `rel:"belongs_to"` // v0.1.x; untagged structs are never columns
+    Author   *User     `rel:"belongs_to"` // v0.1.1; untagged structs are never columns
     Comments []Comment `rel:"has_many"`
+    Tags     []Tag     `rel:"many_to_many"` // pivot post_tag
 }
 ```
 
@@ -585,11 +586,11 @@ Queries use **typed columns**, so conditions are checked by the compiler.
 `anetos gen` (F9) writes them: for each model `Post`, a `models_gen.go`
 declares `PostCols`, one `db.Column[T]` per column, with `T` the field's
 type (D58–D62). They can also be declared by hand (`db.Col[int]("views")`)
-or left untyped (`db.C("views")`). Relation handles (`PostRels`) join them
-in v0.1.x, with relations:
+or left untyped (`db.C("views")`). Relation handles (`PostRels`, v0.1.1)
+join them:
 
 ```go
-// illustrative (PostRels and With arrive in v0.1.x)
+// illustrative
 posts, err := db.Query[models.Post](c).
     Where(models.PostCols.AuthorID.Eq(user.ID)).
     Where(models.PostCols.Title.Like("%go%")).
@@ -607,7 +608,7 @@ posts, err := db.Query[models.Post](c).
 | Soft deletes | Default scope; `WithTrashed()`, `OnlyTrashed()`, `Restore`, `ForceDelete` | F7 |
 | Scopes | Plain functions: `func(q *db.Q[Post]) *db.Q[Post]`, applied with `.Scope(published)` | F7 |
 | Conditions | Typed columns (`Eq`, `In`, `Between`, `Like`, `IsNull`…), `And`/`Or`/`Not`, `db.SQL` fragments; `Eq(nil)` is `IS NULL` | F7 |
-| Relations | has-one, has-many, belongs-to, many-to-many (pivot), loaded **explicitly** with `With(...)` or `db.Load(ctx, &post, rel)` | v0.1.x |
+| Relations | has-one, has-many, belongs-to, many-to-many (pivot) declared with `rel` tags (D83); loaded **explicitly** with `With(...)`, `db.Load` or `db.LoadMany`, one query per relation (D84), nested and constrained through typed handles (D85); `WhereHas`/`WhereDoesntHave` (D86); `Attach`/`Detach`/`DetachAll`/`Sync` for pivots (D87) | v0.1.1 (F13) |
 | Lazy loading | **Not supported by design.** Go has no property-access hooks, and hidden queries are the N+1 bug | — |
 | Hooks | Opt-in interfaces on the pointer type: `BeforeSave`, `BeforeCreate`, `AfterCreate`, `BeforeUpdate`, `AfterUpdate`, `AfterSave`, `BeforeDelete`, `AfterDelete`. Not run by mass writes | F7 |
 | Transactions | `db.Tx(ctx, fn)`: the transaction travels in the context, so nested calls join it; nested `Tx` uses savepoints; `db.AfterCommit`; `ForUpdate`/`ForShare` | F7 |
@@ -639,8 +640,10 @@ posts, err := db.Query[models.Post](c).
 - Queries are **immutable** builders (D41) and **times are UTC** on write
   and read (D43). NULL into a non-pointer field is an error (D44).
 - Query log at debug level in development (`DB_LOG_QUERIES`), slow-query
-  warnings everywhere (`DB_SLOW_QUERY`). N+1 detection comes with
-  relations.
+  warnings everywhere (`DB_SLOW_QUERY`). Relations can't cause hidden
+  N+1 queries (no lazy loading); detecting hand-written ones (the same
+  query repeated within a request) needs request-scoped query tracking and
+  is deferred to v0.2 (D87).
 
 ### 10.4 Build vs. buy
 
@@ -1066,7 +1069,7 @@ planned.
 | `anetos new <dir> [--module=…] [--db=…] [--stack=…]` | Create a project (F11; v0.4 adds `--stack`) |
 | `anetos dev` | Watch (polling) → `templ generate` → `anetos gen` → build → restart on a free port → browser reload; stable address through a proxy that shows build errors (F11) |
 | `anetos make:<thing>` | handler, model (`--migration`), migration, middleware (F11); job, event, listener, mail, policy, task, command, test, plugin (later) |
-| `anetos gen` | Run code generators: typed model columns (F9), relation handles (v0.1.x). `-check` for CI |
+| `anetos gen` | Run code generators: typed model columns (F9), relation handles (v0.1.1). `-check` for CI |
 | `anetos key:generate` | Print a new `APP_KEY` line (F10) |
 | `anetos add` / `anetos remove` | Plugins and drivers |
 | `anetos build` | Production build: `-trimpath`, version via ldflags, `CGO_ENABLED=0` by default |
@@ -1322,6 +1325,11 @@ unless new information arrives), **Open**, **Superseded**.
 | D80 | Pagination links come from `web.PageURL(ctx, n)` (the current URL with `page=n`, other query parameters kept), and a trailing `url.Values` argument gives named-route URLs a query string; no pagination component | Accepted | Found building the blog from the docs alone; keeps filters across pages; markup stays the app's |
 | D81 | `migrate --seed` needs `--force` in production like `db:seed`; plain `migrate` never does | Accepted | Seeding production by accident was possible; migrating on deploy must stay one command |
 | D82 | Every exported identifier of public packages, struct fields and interface methods included, has a doc comment, checked by `make api-docs` in CI | Accepted | The v0.1 exit criterion, kept true by a tool rather than review |
+| D83 | Relations are fields with a `rel` tag (`belongs_to`, `has_one` as `*R`; `has_many`, `many_to_many` as `[]R`), with Laravel's key and pivot naming conventions and `fk`/`references`/`local`/`pivot`/`related_fk` options; keys are resolved on first use | Accepted | Declared where the data is, typed by the field; lazy resolution allows cycles (Post ↔ Comment); conventions Laravel users know |
+| D84 | Eager loading runs one query per relation (and nesting level) and chunk of 1,000 parent keys, `WHERE key IN (…)` (many-to-many: related rows joined with the pivot), so each parent's rows come from one ordered query; primary-key order unless ordered; a loaded empty slice is `[]`, a missing pointer `nil`; parents sharing a key share one `*R`; relation keys are checked before the main query; `All` refuses `With`; a relation given twice is an error | Accepted | Predictable query count whatever the row count; stays under every database's parameter limit; stable output across databases |
+| D85 | Relation handles are typed values, `db.Rel[T, R]`, generated in `TRels` by `anetos gen` (or `db.RelOf[T, R]("Field")`, checked at first use, so package-level variables are safe; `Err()` checks early); `With` takes `db.Relation[T]`, and nesting, conditions and order are methods on the handle | Accepted | The compiler rejects a relation of another model; no dotted strings (`"comments.author"`); no work at package initialization (a `TableName` reading configuration would run too early) |
+| D86 | `WhereHas`/`WhereDoesntHave` are `EXISTS` subqueries (many-to-many through `IN (SELECT … FROM pivot)`), honoring the related model's soft deletes; a self-referencing relation aliases the inner table | Accepted | No duplicate rows and no `Distinct`; conditions use the related model's own column names |
+| D87 | Pivot writes are `Attach` (idempotent, also under concurrency, through the dialect's conflict clause on the pivot's unique key), `Detach` (by ids; none is a no-op), `DetachAll` and `Sync`, each in a transaction; no pivot columns or timestamps yet. N+1 detection is deferred to v0.2 (B13) | Accepted | Covers the common many-to-many needs; an empty id list from a request can't wipe links by accident; request-scoped query tracking belongs with the v0.2 observability work |
 
 ---
 
@@ -1356,3 +1364,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-09-30 | F11 implemented: §4, §5, §6, §17 updated; D69–D73 added |
 | 2026-09-30 | F12 implemented: §5, §11, §18 rewritten; D74–D79 added |
 | 2026-09-30 | v0.1 release checks: §7, §11, §12.1, §17.1, §18 corrected against the code; D80–D82 added |
+| 2026-09-30 | v0.1.1 relations: §10, §17.1 updated; D83–D87 added |
