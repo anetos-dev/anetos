@@ -9,6 +9,7 @@
 // Commands:
 //
 //	gen [-check] [packages]   generate typed columns for models (default ./...)
+//	key:generate              print a new APP_KEY line
 //	version                   print the version
 //
 // More commands (new, dev, make:*) arrive with roadmap F11.
@@ -25,6 +26,7 @@ import (
 	"strings"
 
 	"anetos.dev/anetos/cli/internal/modelgen"
+	"anetos.dev/anetos/internal/appkey"
 )
 
 func main() {
@@ -35,6 +37,7 @@ const usage = `Usage: anetos <command> [arguments]
 
 Commands:
   gen [-check] [packages]   generate typed columns for models (default ./...)
+  key:generate              print a new APP_KEY line (append it to .env)
   version                   print the version
 
 Run "anetos <command> -h" for a command's flags.
@@ -48,6 +51,16 @@ func run(args []string, stdout, stderr io.Writer) int {
 	switch args[0] {
 	case "gen":
 		return gen(args[1:], stdout, stderr)
+	case "key:generate":
+		if len(args) > 1 {
+			fmt.Fprintln(stderr, "Usage: anetos key:generate\n\nPrints APP_KEY=… with a new random key, for example: go tool anetos key:generate >> .env")
+			if args[1] == "-h" || args[1] == "-help" || args[1] == "--help" {
+				return 0
+			}
+			return 2
+		}
+		fmt.Fprintln(stdout, "APP_KEY="+appkey.Generate())
+		return 0
 	case "version":
 		fmt.Fprintln(stdout, "anetos", version())
 		return 0

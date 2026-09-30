@@ -111,7 +111,10 @@ const statusClientClosed = 499
 // response has already started (then it only logs).
 //
 // Clients that want JSON (see [Ctx.WantsJSON]) get RFC 9457 problem details;
-// others get an HTML page. Messages of 5xx errors are replaced by the
+// others get an HTML page. A browser's form post that fails validation
+// (422, or 400 with field errors) on a route with a session is redirected
+// back instead, with the errors and the submitted input flashed for the
+// form to show (see the view package's Errors and Old). Messages of 5xx errors are replaced by the
 // generic status text unless the router is in debug mode, so internal
 // details never leak in production. In debug mode, HTML errors show the
 // error chain, stack trace (for panics) and request details.
@@ -140,6 +143,9 @@ func DefaultErrorHandler(c *Ctx, err error) {
 	}
 
 	if c.w.started() {
+		return
+	}
+	if redirectBack(c, err, status) {
 		return
 	}
 

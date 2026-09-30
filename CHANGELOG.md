@@ -98,7 +98,33 @@ All notable changes to this project are documented here. The format follows
 - Docs: typed columns guide and `anetos gen` reference; the guides and
   `examples/database` use generated columns (F9).
 
+- Views (`view` package, F10): `view.Component` (templ components work as
+  they are), `c.Render` and `web.View` with buffered rendering, helpers
+  `CSRFField`, `CSRFToken`, `MethodField`, `Errors`, `Old`, `Flash`,
+  `String`, `Template` (html/template); `view.Assets` for static files with
+  content-hash URLs; bundled htmx 2.0.11 (`view/htmx`); `web.URL(ctx, …)`,
+  `c.IsHTMX()`, `c.HTMX()`.
+- Sessions (`session` package, F10): encrypted cookie sessions (`__Host-`
+  names when Secure) with idle and absolute expiry,
+  `Put`/`Get`/`Value`/`Flash`/`Keep`/`Reflash`, `Regenerate`, `Invalidate`,
+  masked CSRF tokens, flashed form errors and input, `Cache-Control:
+  private` for responses with a session; `SESSION_*` settings.
+- Forms (F10): `web.CSRF` (cross-origin checks plus session token),
+  `web.MethodOverride`, `c.Back()`/`web.Back()`, `c.Session()`,
+  `web.WriteError` for middleware; browser form posts that fail validation
+  redirect back with errors and old input; form posts key errors by `form`
+  name (design D68).
+- Encryption (`encryption` package, F10): AES-256-GCM with per-message keys,
+  `APP_KEY` and `APP_PREVIOUS_KEYS` rotation, `GenerateKey`; `anetos
+  key:generate`; `anetos.Secret` for values that must not be printed or
+  logged.
+- Docs: views, sessions and forms guides and reference; session and key
+  settings; `examples/forms` (templ, htmx); `make docs-check` checks templ
+  blocks (F10).
+
 ### Changed
+- `anetos.AppConfig` has `Key` and `PreviousKeys` (`anetos.Secret` values;
+  a slice), so it is no longer comparable with `==` (F10).
 - Generated Go files (`// Code generated … DO NOT EDIT.`) are exempt from
   the SPDX header check; `make check` also runs `gen-check` (F9).
 - Raw SQL without arguments is sent exactly as written (no `?`

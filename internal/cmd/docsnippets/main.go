@@ -5,7 +5,8 @@
 // right after the block that starts with "(Copied from [`examples/x`](…),
 // region `name`.)" or, for a file already named on the page, "(Region
 // `name`.)". The example is examples/x/main.go, or the file itself when the
-// link names a .go file (examples/x/migrations.go).
+// link names a .go or .templ file (examples/x/migrations.go). Go and templ
+// code blocks are checked.
 // Indentation common to every line is ignored on both sides, so a region
 // inside a function body can be shown unindented.
 // See docs/contributing/documentation-guide.md §7. Run it with `make docs-check`.
@@ -69,7 +70,7 @@ func checkDoc(root, path, doc string) (problems []string, checked int) {
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		switch {
-		case !inBlock && strings.HasPrefix(trimmed, "```go"):
+		case !inBlock && (strings.HasPrefix(trimmed, "```go") || strings.HasPrefix(trimmed, "```templ")):
 			inBlock, block = true, nil
 			continue
 		case inBlock && strings.HasPrefix(trimmed, "```"):
@@ -106,7 +107,7 @@ func checkDoc(root, path, doc string) (problems []string, checked int) {
 		regions, ok := regionsCache[lastExample]
 		if !ok {
 			file := filepath.Join(root, "examples", lastExample)
-			if !strings.HasSuffix(lastExample, ".go") {
+			if !strings.HasSuffix(lastExample, ".go") && !strings.HasSuffix(lastExample, ".templ") {
 				file = filepath.Join(file, "main.go")
 			}
 			src, err := os.ReadFile(file)

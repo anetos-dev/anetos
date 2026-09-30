@@ -134,7 +134,7 @@ Goal: the core an application stands on.
 | F7 | Data layer core | Connections and dialects (Postgres, MySQL, SQLite), generic query builder, model runtime (CRUD, timestamps, soft deletes), transactions, raw SQL scanning into structs, pagination, `unique`/`exists` validation rules |
 | F8 | Migrations & seeders | Go schema builder, runner, embedding, `migrate`, `migrate:rollback`, `migrate:status`, `migrate:fresh` (dev only), seeders. (Commands run through `Runner.Command` until F11 registers them.) |
 | F9 | Model code generation | `anetos gen`: typed column references generated from model structs, `-check` for CI. (Relation handles need relations: moved to v0.1.x.) |
-| F10 | Views, sessions & forms | templ integration, layouts, view helpers (route URLs, CSRF field, errors, old input, assets), cookie sessions, flash messages, CSRF, bundled htmx; validation failures on HTML forms redirect back with the error bag and old input |
+| F10 | Views, sessions & forms | templ integration, layouts, view helpers (route URLs, CSRF field, errors, old input, assets), cookie sessions, flash messages, CSRF, method override, bundled htmx; validation failures on HTML forms redirect back with the error bag and old input; `APP_KEY` and encryption |
 | F11 | CLI | Global `anetos new`, `anetos dev` (watch, rebuild, restart, browser reload), `make:handler`, `make:model`, `make:migration`, `make:middleware`; app-binary command framework (`serve`, `run`, `migrate*`, `routes:list`, custom commands) |
 | F12 | Testing helpers | App bootstrap for tests, fluent HTTP test client, per-test DB transaction rollback, model factories (`factory.New[T]`) |
 
@@ -151,7 +151,8 @@ Goal: the core an application stands on.
 | F7 Data layer core | ✅ Done 2026-09-30 (SQLite, PostgreSQL 16 and MariaDB 10.11 tested locally; MySQL 8.4 in CI) |
 | F8 Migrations & seeders | ✅ Done 2026-09-30 |
 | F9 Model code generation | ✅ Done 2026-09-30 |
-| F10–F12 | Not started (next: F10 views, sessions & forms) |
+| F10 Views, sessions & forms | ✅ Done 2026-09-30 |
+| F11–F12 | Not started (next: F11 CLI) |
 
 **Planned patch:** **v0.1.x** adds **relations and eager loading** (has-one,
 has-many, belongs-to, many-to-many, `With(...)`) and the relation handles
@@ -321,3 +322,4 @@ something, and we fix the API rather than add the hook.
 | 2026-09-30 | F7 done |
 | 2026-09-30 | F8 done; factories moved to F12 |
 | 2026-09-30 | F9 done; relation handles moved to v0.1.x |
+| 2026-09-30 | F10 done |

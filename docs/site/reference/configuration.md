@@ -15,11 +15,14 @@ Read by `anetos.New` into `anetos.AppConfig`.
 | `APP_ENV` | `development` \| `testing` \| `staging` \| `production` | `production` | Deployment environment; also selects `.env.<APP_ENV>` | v0.1 |
 | `APP_DEBUG` | bool | `false` | Enables debugging aids. **Rejected when `APP_ENV=production`** | v0.1 |
 | `APP_SHUTDOWN_TIMEOUT` | duration | `30s` | Total graceful-shutdown budget: components first, then shutdown hooks. Hooks always keep the smaller of 5s and a fifth of it. Keep it at or below your platform's grace period (Kubernetes default: 30s) | v0.1 |
+| `APP_KEY` | `base64:…` (32 bytes) | empty | Encrypts and authenticates session cookies. Required by sessions, which fail at startup without it. Generate one with `go tool anetos key:generate`. Keep it secret | v0.1 |
+| `APP_PREVIOUS_KEYS` | list of keys | empty | Old keys that still decrypt, so `APP_KEY` can be rotated without logging everyone out | v0.1 |
 | `LOG_LEVEL` | `debug` \| `info` \| `warn` \| `error` | `info` | Minimum log level | v0.1 |
 | `LOG_FORMAT` | `text` \| `json` \| empty | empty | Log format; empty means JSON in production, text elsewhere | v0.1 |
 
 `APP_ENV` defaults to `production` so that a missing setting fails safe
-(debug off, JSON logs).
+(debug off, JSON logs). The keys have type `anetos.Secret`, which prints,
+logs and encodes as `[redacted]`; use `string(cfg.Key)` for the value.
 
 ## Struct tags
 
@@ -118,6 +121,24 @@ route with `http.ResponseController`), and end the stream when
 HSTS (`Strict-Transport-Security`) is sent automatically when
 `APP_ENV=production`; serve production over HTTPS (usually at your proxy or
 load balancer).
+
+## Sessions
+
+Read by `session.ForApp` (or `session.LoadConfig`) into `session.Config`.
+
+| Key | Type | Default | Description | Since |
+|---|---|---|---|---|
+| `SESSION_COOKIE` | string | `anetos_session` | Cookie name. A Secure cookie without `SESSION_DOMAIN` and with path `/` gets the `__Host-` prefix. A name you give with `__Host-` or `__Secure-` must meet the browser's rules for it | v0.1 |
+| `SESSION_LIFETIME` | duration | `2h` | The session ends after this long without a request (at least `1m`) | v0.1 |
+| `SESSION_MAX_LIFETIME` | duration | `168h` | The session ends this long after it started or was regenerated (login), however active. `0` disables | v0.1 |
+| `SESSION_EXPIRE_ON_CLOSE` | bool | `false` | Browser-session cookie: dropped when the browser closes | v0.1 |
+| `SESSION_DOMAIN` | string | empty (this host only) | Cookie domain; set it to share the session with subdomains | v0.1 |
+| `SESSION_PATH` | string | `/` | Cookie path | v0.1 |
+| `SESSION_SECURE` | bool | `true`, except `development` and `testing` | Send the cookie over HTTPS only | v0.1 |
+| `SESSION_SAME_SITE` | `lax` \| `strict` \| `none` | `lax` | Cookie SameSite mode; `none` requires `SESSION_SECURE=true` | v0.1 |
+
+The cookie is always `HttpOnly`. Its content is encrypted with `APP_KEY`
+and limited to about 4 KB.
 
 ## Database
 

@@ -2,3 +2,6 @@ Anetos (working codename; final name to be decided)
 Copyright 2026 Samiul Hoque
 
 This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This product bundles htmx 2.0.11 (https://htmx.org) in view/htmx,
+distributed under the Zero-Clause BSD license (view/htmx/LICENSE).

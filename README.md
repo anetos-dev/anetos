@@ -8,9 +8,9 @@ runtime magic, and a supervised runtime where HTTP, queue workers, pub/sub
 listeners and the scheduler run together in **one binary**.
 
 **Status:** pre-alpha, building v0.1. The kernel, configuration, runtime
-supervisor, HTTP layer, validation, data layer, migrations and model code
-generation exist; views, the CLI and testing helpers are next. APIs will
-change.
+supervisor, HTTP layer, validation, data layer, migrations, model code
+generation, views, sessions and forms exist; the CLI and testing helpers
+are next. APIs will change.
 
 ## Documents
 

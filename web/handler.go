@@ -75,12 +75,12 @@ func H[In, Out any](fn func(c *Ctx, in In) (Out, error)) HandlerFunc {
 		}
 		if rules != nil {
 			if err := rules.Validate(c, &in); err != nil {
-				return err
+				return plan.formErrors(c, err)
 			}
 		}
 		if v, ok := any(&in).(Validator); ok {
 			if err := v.Validate(c); err != nil {
-				return err
+				return plan.formErrors(c, err)
 			}
 		}
 		out, err := fn(c, in)

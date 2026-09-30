@@ -5,12 +5,14 @@ package anetos_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -36,7 +38,7 @@ func TestNewDefaults(t *testing.T) {
 	app := newApp(t, config.Map{})
 	cfg := app.Config()
 	want := anetos.DefaultAppConfig()
-	if cfg != want {
+	if !reflect.DeepEqual(cfg, want) {
 		t.Errorf("config = %+v, want %+v", cfg, want)
 	}
 	if !cfg.Env.IsProduction() {
@@ -560,5 +562,39 @@ func TestContextValuesLatestWins(t *testing.T) {
 	app.AddContextValue(ctxKey("db"), "second")
 	if got := app.Context(context.Background()).Value(ctxKey("db")); got != "second" {
 		t.Errorf("value = %v, want the latest", got)
+	}
+}
+
+func TestAppKeys(t *testing.T) {
+	good := "base64:" + strings.Repeat("A", 43) // 32 zero bytes
+	app := newApp(t, config.Map{"APP_KEY": good, "APP_PREVIOUS_KEYS": good + "=," + good})
+	cfg := app.Config()
+	if string(cfg.Key) != good || len(cfg.PreviousKeys) != 2 {
+		t.Errorf("keys = %q %q", string(cfg.Key), cfg.PreviousKeys)
+	}
+	var js bytes.Buffer
+	slog.New(slog.NewJSONHandler(&js, nil)).Info("config", "cfg", cfg, "key", cfg.Key)
+	b, _ := json.Marshal(cfg)
+	for name, out := range map[string]string{
+		"%v": fmt.Sprintf("%v", cfg), "%+v": fmt.Sprintf("%+v", cfg), "%#v": fmt.Sprintf("%#v", cfg),
+		"json": string(b), "slog": js.String(),
+	} {
+		if strings.Contains(out, "AAAA") || !strings.Contains(out, "[redacted]") {
+			t.Errorf("%s leaks or hides nothing: %s", name, out)
+		}
+	}
+	if anetos.Secret("").String() != "" {
+		t.Error("empty secret")
+	}
+	for _, bad := range []config.Map{
+		{"APP_KEY": "secret"},
+		{"APP_KEY": "base64:AAAA"},
+		{"APP_KEY": "base64:!!!"},
+		{"APP_PREVIOUS_KEYS": "nope"},
+	} {
+		_, err := anetos.New(anetos.WithSource(bad))
+		if err == nil || !strings.Contains(err.Error(), "APP_") {
+			t.Errorf("%v: error %v", bad, err)
+		}
 	}
 }

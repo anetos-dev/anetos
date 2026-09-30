@@ -219,14 +219,17 @@ anetos.dev/anetos/            ← core module
 ├── db/                  query builder, model runtime, dialects, tx, raw SQL
 │   ├── dbtest/          conformance suite every driver module runs
 │   └── migrate/         schema builder, runner (F8)
-├── view/                renderer interface, templ integration, helpers
-├── session/ cache/ queue/ pubsub/ events/ schedule/ mailer/ storage/ auth/ encryption/
+├── view/                Component interface, helpers, assets (F10); view/htmx: bundled htmx
+├── session/             encrypted cookie sessions, flash, CSRF token (F10)
+├── encryption/          AES-256-GCM with APP_KEY and key rotation (F10)
+├── cache/ queue/ pubsub/ events/ schedule/ mailer/ storage/ auth/
 ├── ext/                 public plugin API (package `ext`)
 ├── cmd/                 app-binary command framework
 ├── anetostest/          testing helpers and fakes
 ├── internal/            everything not part of the public API
 │   ├── convert/         string → typed value conversion (config and web binding)
 │   ├── naming/          column and table naming rules (db and `anetos gen`)
+│   ├── appkey/          APP_KEY parsing and generation (kernel, encryption, cli)
 │   └── cmd/docsnippets/ checks doc code blocks against example regions
 ├── cli/                 ← separate module: the `anetos` developer tool (cmd/anetos; `anetos gen` since F9)
 ├── drivers/             ← each a separate module
@@ -442,7 +445,9 @@ v0.2.
   `RequestIDs`, `RealIP` (forwarding headers trusted only from
   `HTTP_TRUSTED_PROXIES`), `AccessLog`, `SecureHeaders` (HSTS in
   production), `CORS` (refuses `*` with credentials), `BodyLimit`, `Timeout`.
-  Later: CSRF and sessions (F10), rate limiting and auth (v0.2), compression,
+  F10: `CSRF`, `MethodOverride`, and the session middleware (package
+  `session`). Middleware reports errors through the router's error handler
+  with `web.WriteError`. Later: rate limiting and auth (v0.2), compression,
   maintenance mode.
 - `web.NewServer` adds the server as the `http` component (role `http`,
   `StageIngress`, `StopOnFailure`), plus `/health/live` and `/health/ready`
@@ -524,10 +529,11 @@ works on any struct (job payloads, CLI input).
   `ValidationMessages() map[string]string` keyed by `key.rule` or `rule`.
   Templates use `{label}`, `{0}`…, `{list}`. Translation arrives with i18n
   (v0.2 stretch).
-- **Later:** database rules `unique`/`exists` run through the request's DB
-  handle (F7). HTML form failures redirect back with the error bag and
-  **old input** in the session flash, rendered by view helpers (F10).
-  Laravel's `$errors` / `old()` experience.
+- **HTML forms** (F10): a browser's form post that fails validation (422,
+  or 400 with field errors) on a route with a session is redirected back
+  with the errors and **old input** flashed; `view.Errors` and `view.Old`
+  render them (Laravel's `$errors` / `old()`). Form posts key errors by
+  `form` name where it differs from the json name (D68, resolving O7).
 
 ---
 
@@ -702,16 +708,50 @@ func (createPosts) Down(s *migrate.Schema) error { return s.Drop("posts") }
 
 ### 12.1 Server-rendered (default, v0.1)
 
-- **templ** for all HTML: compiled, type-checked, component-based.
-  `anetos dev` runs `templ generate` in watch mode.
-- Views sit behind a small `view.Renderer` interface, so `html/template` or
-  others can be plugged in and we aren't locked to one project (risk
-  mitigation).
-- **View helpers**: `web.URL(name, params)`, CSRF field, `errors`, `old`,
-  flash messages, `asset()`, auth user, pagination links.
-- **htmx** ships with the default starter for interactivity without a build
-  step. Anetos detects htmx requests (`c.IsHTMX()`) and supports partial
-  rendering.
+Implemented in F10 (packages `view`, `session`, `encryption`; helpers in
+`web`).
+
+- **templ** for all HTML: compiled, type-checked, component-based. Apps add
+  it as a Go tool; `anetos dev` (F11) will run `templ generate` on change.
+- **`view.Component`** (D63) is `Render(ctx, io.Writer) error`, which templ
+  components already implement, so the core doesn't depend on templ and
+  other engines plug in (`view.Template` adapts `html/template`).
+  `c.Render(status, comp)` renders into a pooled buffer with the `*web.Ctx`
+  as context (a render error becomes an error page) and `web.View` is the
+  responder. Layouts are templ components with `{ children... }`.
+- **View helpers** read the request context: `web.URL(ctx, name, args...)`
+  (route paths, `(string, error)`, which templ accepts),
+  `view.CSRFField`, `view.CSRFToken`, `view.MethodField`, `view.Errors`,
+  `view.Old`, `view.Flash`. Auth user and pagination links come with auth
+  (v0.2) and later.
+- **Assets** (D66): `view.NewAssets(prefix, fsys...)` hashes files once at
+  startup; `assets.URL(name)` adds `?v=<hash>`, and requests with the current
+  hash are cacheable for a year. The app declares its `*view.Assets` and
+  templates use it directly (no context lookup).
+- **htmx** 2.0.11 is bundled (`view/htmx`, 0BSD) and served through
+  `view.NewAssets(…, htmx.FS)`. `c.IsHTMX()` (adds `Vary: HX-Request`) and
+  `c.HTMX()` support partial rendering; the layout passes the CSRF token in
+  `hx-headers`.
+- **Sessions** (D64): the whole session is an encrypted cookie (AES-256-GCM
+  with a per-message HKDF key from `APP_KEY`, authenticated with the cookie
+  name), holding values, flash data, the CSRF token, and flashed errors and
+  input. Idle (`SESSION_LIFETIME`) and absolute (`SESSION_MAX_LIFETIME`,
+  7 days, restarted by `Regenerate`) expiry are enforced from timestamps
+  inside the cookie, since a cookie session can't be revoked on the server.
+  A Secure cookie is named `__Host-…`. No cookie is set until something is
+  stored; unchanged sessions are rewritten at most every tenth of
+  `SESSION_LIFETIME`; responses of requests with a session get
+  `Cache-Control: private` and `Vary: Cookie`. About 4 KB: oversized old
+  input is dropped first, then the save is skipped and logged. Server-side
+  stores arrive with v0.2 drivers.
+- **CSRF** (D65): `web.CSRF` combines Go's `http.CrossOriginProtection`
+  (Sec-Fetch-Site / Origin) with a session token (masked per render against
+  BREACH) from `_token` or `X-CSRF-Token`; 403 on failure.
+  `web.MethodOverride` routes `_method` posts as PUT/PATCH/DELETE, reading
+  URL-encoded bodies (restored for handlers) or the query string, never
+  multipart bodies.
+- **Redirect back** goes to the same-origin `Referer` (else `/`); the
+  session doesn't track pages. htmx requests get the 422 unless boosted.
 
 ### 12.2 SPA-style (v0.4)
 
@@ -1005,7 +1045,7 @@ anetos add github.com/acme/anetos-stripe
 Installed per project as a Go tool (`go get -tool
 anetos.dev/anetos/cli/cmd/anetos`, run with `go tool anetos`), so
 a project pins its version in `go.mod`; `go install` works too (D62). F9
-ships `gen`; the rest arrives with F11.
+ships `gen`, F10 `key:generate`; the rest arrives with F11.
 
 | Command | Purpose |
 |---|---|
@@ -1013,6 +1053,7 @@ ships `gen`; the rest arrives with F11.
 | `anetos dev` | Watch → `templ generate` → `anetos gen` → build → restart → browser reload; stable port through a proxy |
 | `anetos make:<thing>` | handler, model, migration, middleware, job, event, listener, mail, policy, task, command, test, plugin |
 | `anetos gen` | Run code generators: typed model columns (F9), relation handles (v0.1.x). `-check` for CI |
+| `anetos key:generate` | Print a new `APP_KEY` line (F10) |
 | `anetos add` / `anetos remove` | Plugins and drivers |
 | `anetos build` | Production build: `-trimpath`, version via ldflags, `CGO_ENABLED=0` by default |
 | `anetos doctor` | Check the environment and project (Go version, `APP_KEY`, debug in prod, pending migrations) |
@@ -1081,8 +1122,9 @@ func TestCreatePost(t *testing.T) {
 
 Secure by default, opt-out only when you mean it:
 
-- CSRF protection on state-changing HTML routes; `SameSite=Lax`, `Secure`
-  and `HttpOnly` cookies; encrypted session cookies with key rotation.
+- CSRF protection on state-changing HTML routes (origin checks plus a
+  masked session token, D65); `SameSite=Lax`, `Secure` (outside development)
+  and `HttpOnly` cookies; encrypted session cookies with key rotation (D64).
 - argon2id password hashing; constant-time comparisons; signed URLs.
 - Security headers middleware on by default (HSTS in production, CSP helpers
   for templ with nonces).
@@ -1090,8 +1132,9 @@ Secure by default, opt-out only when you mean it:
   helpers.
 - templ escapes output by default.
 - Login and password-reset throttling built in.
-- `anetos doctor` and boot-time checks refuse to run production with
-  `APP_DEBUG=true` or a missing or weak `APP_KEY`.
+- Boot-time checks refuse `APP_DEBUG=true` in production and a malformed
+  `APP_KEY`; features that need the key refuse to start without it (D67).
+  `anetos doctor` (F11) reports both.
 - govulncheck in CI; SECURITY.md with a disclosure process before v0.3.
 
 ---
@@ -1211,6 +1254,12 @@ unless new information arrives), **Open**, **Superseded**.
 | D60 | Output is one `models_gen.go` per package declaring `<Model>Cols`, an anonymous struct of `db.Column[FieldType]`; the column type is the field's type, pointers included | Accepted | Godoc and go-to-definition show every column; `Set(nil)` and `Pluck` work for nullable columns (compare with `new(v)`). Only files carrying the generator's header are replaced or removed |
 | D61 | JSON fields get `db.JSONCol` (values encoded as JSON, `Pluck` decodes); `Column.Of(table)` qualifies a column; `db.Columns[T]` lists a model's columns | Accepted | Generated columns must work for every kind of field, including in joins |
 | D62 | The developer tool is a Go tool dependency (`go get -tool`, `go tool anetos`); generated files are exempt from the SPDX header | Accepted | Each project pins the generator version it builds with; generated code belongs to the app, not to the framework's license |
+| D63 | `view.Component` is `Render(ctx, io.Writer) error`, matching `templ.Component`; `web` renders any component, buffered | Accepted | templ works with no dependency in the core; html/template and others plug in; failed renders never send half a page |
+| D64 | Sessions are encrypted cookies in v0.1 (AES-256-GCM, per-message HKDF keys from `APP_KEY`, a session-specific context with the cookie name as associated data), with idle and absolute expiry inside the payload, `__Host-` names when Secure, and lazy cookie creation | Accepted | No server state to run, nothing readable or forgeable by clients, no nonce-reuse limit per key; absolute expiry bounds replay since cookies can't be revoked; server-side stores come with v0.2 drivers |
+| D65 | CSRF = `http.CrossOriginProtection` plus a masked session token; failures are 403 (not Laravel's 419) | Accepted | Browser-provided origin checks stop cross-site posts; the token covers browsers without those headers; standard status codes |
+| D66 | Static assets are served by a `view.Assets` the app declares, with content-hash URLs; htmx is bundled as `htmx.FS` | Accepted | Explicit (no context lookup), cacheable forever, no build step for the default stack |
+| D67 | `APP_KEY` is required only by features that use it, which fail at startup with a generated suggestion; a set key must be 32 bytes of base64; `APP_PREVIOUS_KEYS` rotates keys; keys are `anetos.Secret` values that print, log and encode as `[redacted]` | Accepted | Apps without sessions don't need a key; a missing or malformed key is found at boot, not at the first request |
+| D68 | Validation failures of browser form posts on routes with sessions redirect back with flashed errors and input; form posts key errors by `form` name | Accepted | Laravel's form experience; resolves O7 |
 
 ---
 
@@ -1224,7 +1273,7 @@ unless new information arrives), **Open**, **Superseded**.
 | O4 | Should async events share one global pool or have a pool per listener? | §13.6 | B6 |
 | O5 | Plugin config: generated Go struct in the app vs loaded from the plugin's own struct only | §16.2 | B11 |
 | O6 | ~~Which pure-Go SQLite implementation?~~ Resolved: modernc.org/sqlite (D38) | §10.3 | Done |
-| O7 | Error keys use the json name even for form posts; should HTML forms key errors by the `form` name when it differs? | §9 | F10 |
+| O7 | ~~Error keys use the json name even for form posts; should HTML forms key errors by the `form` name when it differs?~~ Resolved: yes, for form posts (D68) | §9 | Done |
 
 ---
 
@@ -1241,3 +1290,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-09-30 | F7 implemented: §5 and §10 rewritten; D5, D10 updated; D38–D50 added; O6 resolved |
 | 2026-09-30 | F8 implemented: §11 rewritten; D51–D57 added; factories moved to F12 |
 | 2026-09-30 | F9 implemented: §5, §10.1, §17.1 updated; D42 updated; D58–D62 added; O2 resolved; relation handles moved to v0.1.x |
+| 2026-09-30 | F10 implemented: §5, §8.6, §9, §12.1, §17.1, §20 updated; D63–D68 added; O7 resolved |

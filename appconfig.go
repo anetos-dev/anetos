@@ -3,10 +3,13 @@
 package anetos
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"time"
+
+	"anetos.dev/anetos/internal/appkey"
 )
 
 // Environment names the deployment environment (APP_ENV).
@@ -60,6 +63,18 @@ type AppConfig struct {
 	// Set it at or below your platform's grace period.
 	ShutdownTimeout time.Duration `env:"APP_SHUTDOWN_TIMEOUT" default:"30s"`
 
+	// Key encrypts and authenticates session cookies and other data: 32
+	// random bytes written as "base64:…". APP_KEY. Required by the features
+	// that use it (sessions), which fail at startup without it. Keep it
+	// secret; changing it logs everyone out unless the old key is kept in
+	// APP_PREVIOUS_KEYS.
+	Key Secret `env:"APP_KEY"`
+
+	// PreviousKeys still decrypt data written with them, so keys can be
+	// rotated without logging everyone out. APP_PREVIOUS_KEYS,
+	// comma-separated.
+	PreviousKeys []Secret `env:"APP_PREVIOUS_KEYS"`
+
 	// Log configures the default logger. LOG_* variables.
 	Log LogConfig `prefix:"LOG_"`
 }
@@ -97,6 +112,16 @@ func (c AppConfig) Validate() error {
 	if c.ShutdownTimeout <= 0 {
 		errs = append(errs, errors.New("APP_SHUTDOWN_TIMEOUT must be positive"))
 	}
+	if c.Key != "" {
+		if _, err := appkey.Parse(string(c.Key)); err != nil {
+			errs = append(errs, fmt.Errorf("APP_KEY: %w", err))
+		}
+	}
+	for i, k := range c.PreviousKeys {
+		if _, err := appkey.Parse(string(k)); err != nil {
+			errs = append(errs, fmt.Errorf("APP_PREVIOUS_KEYS[%d]: %w", i, err))
+		}
+	}
 	switch c.Log.Format {
 	case "", "text", "json":
 	default:
@@ -104,3 +129,26 @@ func (c AppConfig) Validate() error {
 	}
 	return errors.Join(errs...)
 }
+
+// Secret is a configuration value that must never be printed or logged,
+// such as APP_KEY. Its String, GoString, MarshalJSON and LogValue methods
+// all hide it, so fmt, encoding/json and log/slog show "[redacted]".
+// Convert it to a string to use it: string(cfg.Key).
+type Secret string
+
+// String returns "[redacted]", or "" for an empty secret.
+func (s Secret) String() string {
+	if s == "" {
+		return ""
+	}
+	return "[redacted]"
+}
+
+// GoString hides the secret from %#v.
+func (s Secret) GoString() string { return fmt.Sprintf("anetos.Secret(%q)", s.String()) }
+
+// MarshalJSON hides the secret from encoding/json.
+func (s Secret) MarshalJSON() ([]byte, error) { return json.Marshal(s.String()) }
+
+// LogValue hides the secret from log/slog.
+func (s Secret) LogValue() slog.Value { return slog.StringValue(s.String()) }

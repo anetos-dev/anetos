@@ -307,7 +307,7 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		hp = r.core.build()
 	}
 	if stateFrom(req.Context()) == nil {
-		req = req.WithContext(context.WithValue(req.Context(), stateKey{}, &requestState{}))
+		req = req.WithContext(context.WithValue(req.Context(), stateKey{}, &requestState{core: r.core}))
 	}
 	(*hp).ServeHTTP(w, req)
 }
@@ -536,6 +536,7 @@ func joinPath(prefix, p string) string {
 // (such as the access log), which runs before routing.
 type requestState struct {
 	route *Route
+	core  *routerCore
 }
 
 type stateKey struct{}

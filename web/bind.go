@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"anetos.dev/anetos/internal/convert"
+	"anetos.dev/anetos/validate"
 )
 
 // MaxMultipartMemory is how much of a multipart form is held in memory
@@ -49,9 +50,10 @@ type fieldPlan struct {
 type bindPlan struct {
 	typ       reflect.Type
 	fields    []fieldPlan
-	ordered   []*fieldPlan // form fields first, then path/query/header
-	bodyField bool         // has form fields or JSON-decodable fields
-	nonBody   [][]int      // path/query/header-only fields, cleared after JSON decoding
+	ordered   []*fieldPlan      // form fields first, then path/query/header
+	bodyField bool              // has form fields or JSON-decodable fields
+	nonBody   [][]int           // path/query/header-only fields, cleared after JSON decoding
+	formKeys  map[string]string // validation key (json name) → form name, where they differ
 }
 
 var (
@@ -114,6 +116,14 @@ func (p *bindPlan) addFields(t reflect.Type, index []int) error {
 			}
 			if err := p.addField(t, sf, idx, s, name); err != nil {
 				return err
+			}
+		}
+		if form := sf.Tag.Get("form"); form != "" && form != "-" {
+			if key := jsonName(sf); key != "" && key != form {
+				if p.formKeys == nil {
+					p.formKeys = map[string]string{}
+				}
+				p.formKeys[key] = form
 			}
 		}
 		if explicit && !hasTag(sf, "form") {
@@ -417,4 +427,26 @@ func jsonKind(t reflect.Type) string {
 		return "object"
 	}
 	return t.String()
+}
+
+// formErrors keys validation errors of a form post by form field name, so
+// the form can show each message next to its input (a field's error key
+// is otherwise its JSON name).
+func (p *bindPlan) formErrors(c *Ctx, err error) error {
+	if len(p.formKeys) == 0 || !isForm(c.r) {
+		return err
+	}
+	ve, ok := err.(*validate.Errors) //nolint:errorlint // only an unwrapped *Errors is replaced; wrapped ones are left as they are
+	if !ok {
+		return err
+	}
+	renamed := &validate.Errors{}
+	for _, k := range ve.Keys() {
+		key := k
+		if to, ok := p.formKeys[k]; ok {
+			key = to
+		}
+		renamed.Add(key, ve.Get(k))
+	}
+	return renamed
 }

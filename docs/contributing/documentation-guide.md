@@ -213,7 +213,8 @@ Broken examples are the fastest way to lose trust.
    paragraph such as ``(Copied from [`examples/x`](…), region `name`.)``, or
    ``(Region `name`.)`` when the example file was already linked on the
    page. The link may name a file other than `main.go`
-   (``[`examples/x/migrations.go`](…)``). `make docs-check` (part of
+   (``[`examples/x/migrations.go`](…)``), including a `.templ` file, whose
+   regions are shown in `templ` code blocks. `make docs-check` (part of
    `make check`) fails if a claimed block differs from its region. Indentation shared by every line is ignored, so
    a region inside a function body can be shown unindented.
 2. **Illustrative snippets** that aren't compiled (design sketches, partial

@@ -1,0 +1,363 @@
+// SPDX-License-Identifier: Apache-2.0
+
+package web
+
+import (
+	"bytes"
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"mime"
+	"net/http"
+	"net/url"
+	"slices"
+	"strings"
+
+	"anetos.dev/anetos/session"
+	"anetos.dev/anetos/validate"
+)
+
+// Session returns the request's session. It panics if the session
+// middleware doesn't run for the route, which is a wiring mistake; use
+// session.From to check.
+func (c *Ctx) Session() *session.Session {
+	s := session.From(c)
+	if s == nil {
+		panic("web: no session for this request; add the session middleware (session.ForApp(app) … .Middleware) to the route's group")
+	}
+	return s
+}
+
+// URL returns the path of the named route, like [Router.URL], for any
+// context of a request served by a [Router]. Components use it to link to
+// routes:
+//
+//	<a href={ web.URL(ctx, "posts.show", post.ID) }>
+func URL(ctx context.Context, name string, args ...any) (string, error) {
+	st := stateFrom(ctx)
+	if st == nil || st.core == nil {
+		return "", fmt.Errorf("web: URL(%q) needs the context of a request served by a Router", name)
+	}
+	return (&Router{core: st.core}).URL(name, args...)
+}
+
+// WriteError sends err through the router's error handler, as if a
+// handler had returned it. Middleware uses it to fail a request with the
+// application's error pages. Outside a Router, it writes a plain-text
+// error.
+func WriteError(w http.ResponseWriter, r *http.Request, err error) {
+	st := stateFrom(r.Context())
+	if st == nil || st.core == nil {
+		status := StatusOf(err)
+		http.Error(w, http.StatusText(status), status)
+		return
+	}
+	c := &Ctx{w: wrapWriter(w), r: r, router: &Router{core: st.core}}
+	st.core.errorHandler(c, err)
+}
+
+// Back redirects (303 See Other) to the previous page: the Referer if it
+// is on this site, else "/". Browsers send the Referer unless the page's
+// Referrer-Policy is no-referrer.
+func (c *Ctx) Back() error { return c.Redirect(http.StatusSeeOther, backURL(c.r)) }
+
+// Back responds with a redirect to the previous page (see [Ctx.Back]).
+func Back() Responder { return ResponderFunc(func(c *Ctx) error { return c.Back() }) }
+
+func backURL(r *http.Request) string {
+	ref, err := url.Parse(r.Referer())
+	// The Referer is on this site if its host is the request's, or if the
+	// browser says the request came from this origin (behind a proxy that
+	// rewrites Host).
+	if err == nil && ref.Host != "" && (strings.EqualFold(ref.Host, r.Host) || r.Header.Get("Sec-Fetch-Site") == "same-origin") {
+		if u := ref.RequestURI(); localPath(u) {
+			return u
+		}
+	}
+	return "/"
+}
+
+// localPath reports whether u is a path on this site: it must not be read
+// as another host ("//evil.example", "/\evil.example").
+func localPath(u string) bool {
+	return strings.HasPrefix(u, "/") && !strings.HasPrefix(u, "//") && !strings.HasPrefix(u, `/\`)
+}
+
+// ---- CSRF ----
+
+// ErrCSRF is the error [CSRF] reports for a request without a valid token:
+// 403 with a message asking to reload the page.
+var ErrCSRF = &HTTPError{Status: http.StatusForbidden, Message: "The page has expired. Reload it and try again."}
+
+// ErrCrossOrigin is the error [CSRF] reports for a request sent by a page
+// of another site.
+var ErrCrossOrigin = &HTTPError{Status: http.StatusForbidden, Message: "Cross-origin request rejected."}
+
+// CSRFOption configures [CSRF].
+type CSRFOption func(*http.CrossOriginProtection) error
+
+// TrustedOrigins lets pages on the given origins ("https://admin.example.com")
+// send cross-origin requests.
+func TrustedOrigins(origins ...string) CSRFOption {
+	return func(p *http.CrossOriginProtection) error {
+		for _, o := range origins {
+			if err := p.AddTrustedOrigin(o); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+}
+
+// CSRF protects the routes it wraps from cross-site request forgery. For
+// every POST, PUT, PATCH and DELETE it
+//
+//   - rejects requests the browser marks as coming from another site
+//     (Sec-Fetch-Site, or an Origin that isn't this host), with
+//     [ErrCrossOrigin], and
+//   - requires the session's token, from the "_token" form field
+//     (view.CSRFField) or the X-CSRF-Token header (view.CSRFToken), with
+//     [ErrCSRF].
+//
+// It needs the session middleware to run first. Use it for routes that
+// serve browsers; APIs authenticated by tokens in headers don't need it.
+// CSRF panics if an option is invalid.
+func CSRF(opts ...CSRFOption) Middleware {
+	cop := http.NewCrossOriginProtection()
+	for _, opt := range opts {
+		if err := opt(cop); err != nil {
+			panic(fmt.Sprintf("web: CSRF: %v", err))
+		}
+	}
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.Method {
+			case http.MethodGet, http.MethodHead, http.MethodOptions, http.MethodTrace:
+				next.ServeHTTP(w, r)
+				return
+			}
+			if err := cop.Check(r); err != nil {
+				WriteError(w, r, ErrCrossOrigin)
+				return
+			}
+			s := session.From(r.Context())
+			if s == nil {
+				WriteError(w, r, errors.New("web: CSRF needs the session middleware to run before it"))
+				return
+			}
+			token := r.Header.Get("X-CSRF-Token")
+			if token == "" && isForm(r) {
+				var err error
+				if token, err = formToken(r); err != nil {
+					WriteError(w, r, err)
+					return
+				}
+				defer removeFiles(r)
+			}
+			if !s.VerifyToken(token) {
+				WriteError(w, r, ErrCSRF)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// MethodOverride lets HTML forms send PUT, PATCH and DELETE: a POST whose
+// "_method" field (view.MethodField) or query parameter says so is routed
+// with that method. Add it with UseGlobal, so it runs before routing:
+//
+//	r.UseGlobal(web.MethodOverride)
+//
+// URL-encoded bodies are read to find the field and then restored, so
+// handlers still see the raw body. Multipart bodies (forms with files) are
+// not read: put _method in the form's action URL instead
+// (action="/posts/1?_method=PUT").
+func MethodOverride(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			next.ServeHTTP(w, r)
+			return
+		}
+		method := r.URL.Query().Get("_method")
+		if method == "" && isURLEncoded(r) {
+			if err := readURLEncoded(r); err != nil {
+				WriteError(w, r, err)
+				return
+			}
+			method = r.PostForm.Get("_method")
+		}
+		switch m := strings.ToUpper(method); m {
+		case http.MethodPut, http.MethodPatch, http.MethodDelete:
+			r = r.WithContext(r.Context())
+			r.Method = m
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// maxURLEncoded is the most of a URL-encoded body read into memory, as in
+// net/http's ParseForm.
+const maxURLEncoded = 10 << 20
+
+// readURLEncoded parses a URL-encoded body into r.PostForm and r.Form, for
+// any method (net/http's ParseForm ignores DELETE bodies), and puts the
+// body back so handlers can still read it raw.
+func readURLEncoded(r *http.Request) error {
+	if r.PostForm != nil {
+		return nil
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, maxURLEncoded+1))
+	if err != nil {
+		return bodyError(err)
+	}
+	if len(body) > maxURLEncoded {
+		return Errorf(http.StatusRequestEntityTooLarge, "form body is larger than %d bytes", maxURLEncoded)
+	}
+	r.Body = io.NopCloser(bytes.NewReader(body))
+	vals, err := url.ParseQuery(string(body))
+	if err != nil {
+		return bodyError(err)
+	}
+	r.PostForm = vals
+	form := url.Values{}
+	for k, vs := range vals {
+		form[k] = append(form[k], vs...)
+	}
+	for k, vs := range r.URL.Query() {
+		form[k] = append(form[k], vs...)
+	}
+	r.Form = form
+	return nil
+}
+
+// formToken reads the "_token" field of a form body.
+func formToken(r *http.Request) (string, error) {
+	if isURLEncoded(r) {
+		if err := readURLEncoded(r); err != nil {
+			return "", err
+		}
+		return r.PostForm.Get("_token"), nil
+	}
+	if err := r.ParseMultipartForm(MaxMultipartMemory); err != nil {
+		return "", bodyError(err)
+	}
+	if v := r.MultipartForm.Value["_token"]; len(v) > 0 {
+		return v[0], nil
+	}
+	return "", nil
+}
+
+func isURLEncoded(r *http.Request) bool {
+	mt, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	return mt == "application/x-www-form-urlencoded" && r.Body != nil
+}
+
+func isForm(r *http.Request) bool {
+	mt, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	return mt == "application/x-www-form-urlencoded" || mt == "multipart/form-data"
+}
+
+func bodyError(err error) error {
+	if mbe, ok := errors.AsType[*http.MaxBytesError](err); ok {
+		return Errorf(http.StatusRequestEntityTooLarge, "request body is larger than %d bytes", mbe.Limit)
+	}
+	return Error(http.StatusBadRequest, "malformed form data").Wrap(err)
+}
+
+// removeFiles deletes the temporary files of a parsed multipart form; the
+// server only removes those of the request it created.
+func removeFiles(r *http.Request) {
+	if r.MultipartForm != nil {
+		_ = r.MultipartForm.RemoveAll()
+	}
+}
+
+// ---- Redirecting back with errors ----
+
+// redirectBack handles a failed form post from a browser: with a session,
+// the field errors and the submitted input are flashed and the browser is
+// sent back to the form. It reports whether it responded. htmx requests
+// get the 422, except boosted ones (hx-boost), which are page navigations.
+func redirectBack(c *Ctx, err error, status int) bool {
+	switch {
+	case status != http.StatusUnprocessableEntity && status != http.StatusBadRequest,
+		!acceptsHTML(c.r), c.WantsJSON(), c.w.started(),
+		c.r.Header.Get("HX-Request") != "" && c.r.Header.Get("HX-Boosted") != "true",
+		c.r.Method == http.MethodGet, c.r.Method == http.MethodHead:
+		return false
+	}
+	s := session.From(c)
+	if s == nil {
+		return false
+	}
+	fields := orderedFieldErrors(err)
+	if len(fields) == 0 {
+		return false
+	}
+	s.FlashErrors(fields...)
+	if c.r.PostForm != nil {
+		s.FlashInput(c.r.PostForm)
+	}
+	c.Logger().Debug("form invalid; redirecting back", "path", c.r.URL.Path, "fields", len(fields))
+	return c.Back() == nil
+}
+
+// orderedFieldErrors returns the field messages of err in order: the order
+// of a *validate.Errors, else sorted by field.
+func orderedFieldErrors(err error) []session.FieldError {
+	var msgs map[string]string
+	if he, ok := errors.AsType[*HTTPError](err); ok && len(he.Fields) > 0 {
+		msgs = he.Fields
+	} else if fe := FieldErrorer(nil); errors.As(err, &fe) {
+		msgs = fe.FieldErrors()
+	}
+	if len(msgs) == 0 {
+		return nil
+	}
+	var keys []string
+	if ve, ok := errors.AsType[*validate.Errors](err); ok && sameKeys(ve, msgs) {
+		keys = ve.Keys()
+	} else {
+		for k := range msgs {
+			keys = append(keys, k)
+		}
+		slices.Sort(keys)
+	}
+	out := make([]session.FieldError, 0, len(keys))
+	for _, k := range keys {
+		out = append(out, session.FieldError{Field: k, Message: msgs[k]})
+	}
+	return out
+}
+
+func sameKeys(ve *validate.Errors, msgs map[string]string) bool {
+	if ve.Len() != len(msgs) {
+		return false
+	}
+	for k := range msgs {
+		if !ve.Has(k) {
+			return false
+		}
+	}
+	return true
+}
+
+// acceptsHTML reports whether the client is a browser expecting a page: a
+// navigation, or an Accept header listing text/html.
+func acceptsHTML(r *http.Request) bool {
+	return r.Header.Get("Sec-Fetch-Mode") == "navigate" || strings.Contains(r.Header.Get("Accept"), "text/html")
+}
+
+// addVary adds value to the Vary header unless it is there.
+func addVary(h http.Header, value string) {
+	for _, v := range h.Values("Vary") {
+		for f := range strings.SplitSeq(v, ",") {
+			if strings.EqualFold(strings.TrimSpace(f), value) {
+				return
+			}
+		}
+	}
+	h.Add("Vary", value)
+}

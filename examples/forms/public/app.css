@@ -1,0 +1,10 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+.flash { background: #e6f4ea; border: 1px solid #a8d5b5; padding: .5rem .75rem; border-radius: 4px; }
+.error { color: #b00020; margin: .25rem 0 0; }
+.errors { background: #fdecee; border: 1px solid #f5b5bf; padding: .5rem .75rem; border-radius: 4px; }
+label { display: block; margin-top: 1rem; font-weight: 600; }
+input[type=text], textarea { width: 100%; padding: .4rem; box-sizing: border-box; }
+ul.notes { list-style: none; padding: 0; }
+ul.notes li { border-bottom: 1px solid #ddd; padding: .75rem 0; display: flex; justify-content: space-between; gap: 1rem; }
+form.inline { display: inline; }

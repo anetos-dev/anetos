@@ -56,6 +56,6 @@ MySQL conformance tests run when `ANETOS_TEST_POSTGRES_URL` and
 
 Run `make check` before every commit.
 
-After changing a model in `examples/database`, run `go generate ./...`
-there; after changing the generator's fixtures, run
+After changing a model in `examples/database` or a `.templ` file in
+`examples/forms`, run `go generate ./...` there; after changing the generator's fixtures, run
 `go run ./cmd/anetos gen ./internal/modelgen/internal/...` in `cli/`.

@@ -1,0 +1,83 @@
+// SPDX-License-Identifier: Apache-2.0
+
+package main
+
+import (
+	"anetos.dev/anetos/view"
+	"anetos.dev/anetos/web"
+)
+
+// NotesPage lists the notes.
+templ NotesPage(notes []Note) {
+	@Layout("All notes") {
+		<h1>Notes</h1>
+		<p><a href={ web.URL(ctx, "notes.new") }>New note</a></p>
+		if len(notes) == 0 {
+			<p>No notes yet.</p>
+		}
+		<ul class="notes">
+			for _, n := range notes {
+				@noteItem(n)
+			}
+		</ul>
+	}
+}
+
+// region: delete-button
+// noteItem is one note. Its delete form works without JavaScript
+// (POST with _method=DELETE); with htmx it sends DELETE and removes the
+// item in place.
+templ noteItem(n Note) {
+	<li>
+		<div>
+			<strong>{ n.Title }</strong>
+			<p>{ n.Body }</p>
+		</div>
+		<div>
+			<a href={ web.URL(ctx, "notes.edit", n.ID) }>Edit</a>
+			<form class="inline" method="post" action={ web.URL(ctx, "notes.delete", n.ID) }
+				hx-delete={ web.URL(ctx, "notes.delete", n.ID) } hx-target="closest li" hx-swap="outerHTML"
+				hx-confirm="Delete this note?">
+				@view.CSRFField(ctx)
+				@view.MethodField("DELETE")
+				<button type="submit">Delete</button>
+			</form>
+		</div>
+	</li>
+}
+
+// endregion
+
+// region: form
+// NoteFormPage creates a note, or edits one when n.ID is set. After a
+// failed post, view.Old refills the fields and view.Errors has the messages.
+templ NoteFormPage(n Note) {
+	@Layout(formTitle(n)) {
+		<h1>{ formTitle(n) }</h1>
+		if errs := view.Errors(ctx); errs.Len() > 0 {
+			<div class="errors" role="alert">Please fix the errors below.</div>
+		}
+		<form method="post" action={ formAction(ctx, n) }>
+			@view.CSRFField(ctx)
+			if n.ID != 0 {
+				@view.MethodField("PUT")
+			}
+			<label for="title">Title</label>
+			<input type="text" id="title" name="title" value={ view.Old(ctx, "title", n.Title) }/>
+			@fieldError("title")
+			<label for="body">Body</label>
+			<textarea id="body" name="body" rows="6">{ view.Old(ctx, "body", n.Body) }</textarea>
+			@fieldError("body")
+			<p><button type="submit">Save</button></p>
+		</form>
+	}
+}
+
+// fieldError shows the validation message for a field, if any.
+templ fieldError(field string) {
+	if msg := view.Errors(ctx).Get(field); msg != "" {
+		<p class="error">{ msg }</p>
+	}
+}
+
+// endregion

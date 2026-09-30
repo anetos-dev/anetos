@@ -57,6 +57,10 @@ the handler doesn't run and the client gets a **422**:
 }
 ```
 
+A browser posting an HTML form gets no 422: on routes with sessions, it
+is redirected back to the form, and the page shows the messages and the
+submitted values ([Handle HTML forms](forms.md)).
+
 Rules run in order and stop at the first failure, so each field gets one
 message. Every rule is listed in the
 [rules reference](../reference/validation-rules.md).
@@ -82,7 +86,9 @@ checkbox that must be ticked, use `accepted`.
 Messages use the field's key (its `json` name, else its `form`, `query`,
 `path` or `header` name), turned into words: `first_name` becomes "first
 name". Set a `label` tag to choose the words, as `Website` does above ("The
-web site field must be a valid URL.").
+web site field must be a valid URL."). When an HTML form posts the input,
+errors are keyed by the `form` name if it differs from the `json` name, so
+each message matches its input.
 
 Nested structs, slices and maps of structs are validated too. Their errors
 use dotted keys: `address.city`, `items.0.name`. Embedded structs are
@@ -238,5 +244,6 @@ func TestSignUpRules(t *testing.T) {
 
 ## Next steps
 
+- [Handle HTML forms](forms.md)
 - [Validation rules reference](../reference/validation-rules.md)
 - [Handlers and requests](handlers.md)
