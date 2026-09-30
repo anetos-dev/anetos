@@ -640,9 +640,11 @@ without needing it.
 
 ## 11. Migrations, seeders & factories
 
+Package `db/migrate` (F8).
+
 ```go
-// database/migrations/2026_10_01_120000_create_posts_table.go (illustrative)
-func init() { migrate.Register(createPosts{}) }
+// database/migrations/2026_10_01_120000_create_posts.go (illustrative)
+func init() { All.Add("2026_10_01_120000_create_posts", createPosts{}) }
 
 type createPosts struct{}
 
@@ -651,7 +653,7 @@ func (createPosts) Up(s *migrate.Schema) error {
         t.ID()
         t.String("title", 200)
         t.Text("body")
-        t.ForeignID("author_id").References("users").OnDelete(migrate.Cascade)
+        t.ForeignID("author_id").Constrained().CascadeOnDelete()
         t.Timestamps()
         t.SoftDeletes()
         t.Index("author_id", "created_at")
@@ -661,15 +663,35 @@ func (createPosts) Up(s *migrate.Schema) error {
 func (createPosts) Down(s *migrate.Schema) error { return s.Drop("posts") }
 ```
 
-- Migrations are compiled into the binary; the app binary runs `migrate`,
-  `migrate:rollback`, `migrate:status`, and `migrate:fresh` (refused outside
-  dev).
-- `s.Exec(sql)` allows raw SQL migrations.
-- Plugin migrations are registered under the plugin's name and appear in
-  `migrate:status`.
-- Migrations run in a transaction on dialects that support transactional DDL.
-- **Seeders** are Go functions run with `db:seed`. **Factories** (generic,
-  `factory.New[Post](...)`) produce test and dev data.
+- **Sets, not a global registry** (D51): migrations are added to a
+  `migrate.Set` owned by the app (`All = migrate.NewSet("app")`) or by a
+  plugin (its own set, named after it). IDs are explicit strings starting
+  with a timestamp; all sets run in ID order. `set.AddFS` adds embedded
+  `ID.up.sql`/`ID.down.sql` files.
+- **Compiled into the binary:** a deploy ships exactly the migrations its
+  code expects.
+- **Schema builder:** portable column types, modifiers, indexes and
+  foreign keys named like Laravel's, `Alter` with `Change`, and raw SQL
+  via `s.Exec` (split into statements) and `s.Dialect()`. `t.ID()`,
+  `t.Timestamps()` and `t.SoftDeletes()` match `db.Model`,
+  `db.Timestamps` and `db.SoftDeletes`; timestamps default to the current
+  time so SQL inserts get them too. Operations SQLite can't do are
+  errors, not silent no-ops.
+- **Runner:** records applied migrations with their source and **batch**
+  in the `migrations` table. `Up` applies pending ones as one batch,
+  `Rollback(n)` undoes the last n batches, `Reset`, `Status` (applied,
+  pending, missing), `Fresh` (drop every table; development and testing
+  only, D53), `Seed`. Each migration runs in its own transaction on
+  PostgreSQL and SQLite (MySQL commits DDL immediately); `WithoutTransaction`
+  opts out. A PostgreSQL advisory lock or MySQL named lock serializes
+  concurrent runs (D52).
+- **Commands:** `migrate`, `migrate:rollback --step`, `migrate:reset`,
+  `migrate:fresh --seed`, `migrate:status`, `db:seed --seeder`, provided by
+  `Runner.Command` until the app binary's command framework (F11) wraps
+  them. Rollback, reset and seed need `--force` in production.
+- **Seeders** are named functions run in order, each in a transaction.
+  **Factories** (generic, `factory.New[Post](...)`) for test and dev data
+  move to the testing helpers (F12).
 
 ---
 
@@ -1169,6 +1191,13 @@ unless new information arrives), **Open**, **Superseded**.
 | D48 | Multi-module repo without `go.work`; driver modules use `replace ../..`; make targets loop over modules | Accepted | `replace` in non-main modules is ignored by consumers, so published modules are unaffected |
 | D49 | Mass `Update`/`Delete` accept only `Where` (refuse `Join`, `OrderBy`, `Limit`, `Offset`, `GroupBy`, `Having`, `Distinct`, locks) | Accepted | Those forms differ or don't exist across dialects (MySQL also rejects `LIMIT` and same-table subqueries in them); `db.Exec` covers the rest |
 | D50 | MySQL connections use `clientFoundRows=true` | Accepted | Rows *matched*, as on PostgreSQL and SQLite, so `Update` can report `ErrNotFound` and mass updates count alike everywhere |
+| D51 | Migrations live in `migrate.Set`s owned by the app or a plugin, with explicit timestamped IDs; no global registry | Accepted | Supersedes the `migrate.Register` sketch. Principle 2; plugins ship their own set, which the status shows as its source |
+| D52 | Migration runs are serialized with a PostgreSQL advisory lock / MySQL `GET_LOCK` named per database (SQLite: in-process only); the lock needs a second connection, so a pool of 1 is refused | Accepted | Instances starting together during a deploy can't apply a migration twice |
+| D53 | `migrate:fresh` only runs in development and testing; rollback, reset and seed need `--force` in production | Accepted | Destroying data takes a deliberate step |
+| D54 | Timestamps from the schema builder default to the current time; decimals scan into strings (TEXT on SQLite) | Accepted | Rows inserted by SQL get timestamps; decimals stay exact on every database |
+| D55 | SQLite migrations run with foreign keys off on a dedicated connection, checked by `PRAGMA foreign_key_check` before commit | Accepted | The table-rebuild recipe SQLite needs can't cascade-delete child rows |
+| D56 | Raw SQL without arguments is sent exactly as written | Accepted | Operators like jsonb `?` in migrations and SQL files need no escaping; `??` only matters with arguments |
+| D57 | The schema builder refuses non-portable requests up front (NOT NULL column added without default, `DEFAULT NULL` on NOT NULL, schema-qualified names) and shortens identifiers over 63 bytes with a hash | Accepted | A migration that passes on SQLite in development must not fail on PostgreSQL in production |
 
 ---
 
@@ -1197,3 +1226,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-09-30 | F5 implemented: §5, §8 rewritten; D3 accepted; D24–D30 added; O1 resolved |
 | 2026-09-30 | F6 implemented: §9 rewritten; principle 4 and D12 clarified; D31–D37 added; O7 opened |
 | 2026-09-30 | F7 implemented: §5 and §10 rewritten; D5, D10 updated; D38–D50 added; O6 resolved |
+| 2026-09-30 | F8 implemented: §11 rewritten; D51–D57 added; factories moved to F12 |

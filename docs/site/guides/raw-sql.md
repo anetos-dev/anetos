@@ -57,11 +57,12 @@ n, err := db.RawFirst[int64](ctx,
 	db.Named{"author": id, "since": since})
 ```
 
-`?` inside quotes and comments is left alone. On PostgreSQL, write `??`
-for a literal `?`, such as the JSON operators (`tags ??| array['go']`).
-A whole query without `?` is sent unchanged, so native `$1` placeholders
-work too; SQL fragments in the query builder (`db.SQL`, `WhereRaw`) must
-use `?`.
+`?` inside quotes and comments is left alone. SQL without arguments is
+sent exactly as written. With arguments on PostgreSQL, write `??` for a
+literal `?`, such as the JSON operators (`tags ??| array['go']`). A whole
+query without `?` is also sent unchanged, so native `$1` placeholders
+work; SQL fragments in the query builder (`db.SQL`, `WhereRaw`) must use
+`?`.
 
 ### 3. Read one row or one value
 

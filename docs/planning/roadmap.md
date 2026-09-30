@@ -132,11 +132,11 @@ Goal: the core an application stands on.
 | F5 | HTTP layer | Router on `net/http` with groups, named routes and URL generation; `web.Ctx`; three handler forms (plain, `func(*Ctx) error`, typed); binding; responses; error handling; dev error page; core middleware |
 | F6 | Validation | Rule tags, custom rules, messages, 422 JSON for APIs. (Error bags and old input for HTML forms need sessions: moved to F10. Database rules `unique`/`exists`: F7.) |
 | F7 | Data layer core | Connections and dialects (Postgres, MySQL, SQLite), generic query builder, model runtime (CRUD, timestamps, soft deletes), transactions, raw SQL scanning into structs, pagination, `unique`/`exists` validation rules |
-| F8 | Migrations & seeders | Go schema builder, runner, embedding, `migrate`, `migrate:rollback`, `migrate:status`, `migrate:fresh` (dev only), seeders |
+| F8 | Migrations & seeders | Go schema builder, runner, embedding, `migrate`, `migrate:rollback`, `migrate:status`, `migrate:fresh` (dev only), seeders. (Commands run through `Runner.Command` until F11 registers them.) |
 | F9 | Model code generation | Typed column references and relation helpers generated from model structs |
 | F10 | Views, sessions & forms | templ integration, layouts, view helpers (route URLs, CSRF field, errors, old input, assets), cookie sessions, flash messages, CSRF, bundled htmx; validation failures on HTML forms redirect back with the error bag and old input |
 | F11 | CLI | Global `anetos new`, `anetos dev` (watch, rebuild, restart, browser reload), `make:handler`, `make:model`, `make:migration`, `make:middleware`; app-binary command framework (`serve`, `run`, `migrate*`, `routes:list`, custom commands) |
-| F12 | Testing helpers | App bootstrap for tests, fluent HTTP test client, per-test DB transaction rollback |
+| F12 | Testing helpers | App bootstrap for tests, fluent HTTP test client, per-test DB transaction rollback, model factories (`factory.New[T]`) |
 
 **Progress**
 
@@ -149,7 +149,8 @@ Goal: the core an application stands on.
 | F5 HTTP layer | ✅ Done 2026-09-30 |
 | F6 Validation | ✅ Done 2026-09-30 |
 | F7 Data layer core | ✅ Done 2026-09-30 (SQLite, PostgreSQL 16 and MariaDB 10.11 tested locally; MySQL 8.4 in CI) |
-| F8–F12 | Not started (next: F8 migrations & seeders) |
+| F8 Migrations & seeders | ✅ Done 2026-09-30 |
+| F9–F12 | Not started (next: F9 model code generation) |
 
 **Planned patch:** **v0.1.x** adds **relations and eager loading** (has-one,
 has-many, belongs-to, many-to-many, `With(...)`). This is kept out of v0.1.0 so
@@ -316,3 +317,4 @@ something, and we fix the API rather than add the hook.
 | 2026-09-30 | F5 done |
 | 2026-09-30 | F6 done; HTML error bags and old input moved to F10, `unique`/`exists` rules to F7 |
 | 2026-09-30 | F7 done |
+| 2026-09-30 | F8 done; factories moved to F12 |

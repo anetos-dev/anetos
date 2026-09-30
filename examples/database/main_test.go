@@ -18,8 +18,11 @@ func TestBlog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv, err := setup(t.Context(), app)
+	srv, runner, err := setup(t.Context(), app)
 	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Up(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = app.Close() })
@@ -77,5 +80,26 @@ func TestBlog(t *testing.T) {
 	code, body = call("GET", "/stats", "")
 	if code != 200 || !strings.Contains(body, `"posts":2`) {
 		t.Errorf("stats: %d %s", code, body)
+	}
+}
+
+func TestMigrationCommands(t *testing.T) {
+	app, err := anetos.New(anetos.WithSource(config.Map{"DB_DATABASE": ":memory:", "APP_ENV": "development"}), anetos.WithLogOutput(io.Discard))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, runner, err := setup(t.Context(), app)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = app.Close() })
+	var out strings.Builder
+	for _, args := range [][]string{{"migrate:fresh", "--seed"}, {"migrate:rollback"}, {"migrate"}, {"migrate:status"}} {
+		if handled, err := runner.Command(t.Context(), args, &out); !handled || err != nil {
+			t.Fatalf("%v: %v %v\n%s", args, handled, err, out.String())
+		}
+	}
+	if !strings.Contains(out.String(), "Seeded:      posts") || strings.Count(out.String(), "Ran ") != 3 {
+		t.Errorf("output:\n%s", out.String())
 	}
 }

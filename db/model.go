@@ -319,6 +319,12 @@ func snake(s string) string {
 	return b.String()
 }
 
+// Plural returns the plural the db package uses for table names: it
+// pluralizes the last word of a snake_case name (blog_post → blog_posts,
+// category → categories, person → people). The migrate package uses it to
+// guess referenced tables.
+func Plural(name string) string { return plural(name) }
+
 // plural returns the English plural of a snake_case table name, changing
 // only its last word: category → categories, box → boxes, person →
 // people. Use a TableName method for anything it gets wrong.

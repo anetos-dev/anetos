@@ -76,7 +76,22 @@ All notable changes to this project are documented here. The format follows
   layer concept; models and query builder references; DB_* configuration;
   `examples/database` (F7).
 
+- Migrations (`db/migrate` package, F8): schema builder (portable column
+  types, modifiers, indexes, foreign keys, `Alter` with rename, drop and
+  `Change`, raw SQL), migration sets with Go and embedded SQL migrations,
+  a runner with batches, rollback, reset, fresh (development only),
+  status, per-migration transactions and cross-process locking, seeders,
+  and the `migrate`, `migrate:rollback`, `migrate:reset`, `migrate:fresh`,
+  `migrate:status` and `db:seed` commands via `Runner.Command`.
+- `db.Plural`, the table-name pluralizer, and `db.WithTx` to share a
+  `*sql.Tx` you manage (F8).
+- Docs: migrations and seeders guides, migrations reference;
+  `examples/database` uses migrations and seeders; `make docs-check`
+  accepts links to example files other than `main.go` (F8).
+
 ### Changed
+- Raw SQL without arguments is sent exactly as written (no `?`
+  processing) (F8, design D56).
 - A plain error returned from an input's `Validate(ctx)` method is now a 500
   (its text is not sent to clients); use `validate.Fail` for messages (F6,
   design D37).

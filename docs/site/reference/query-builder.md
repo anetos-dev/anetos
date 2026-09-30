@@ -87,7 +87,8 @@ those, write the statement with `db.Exec`.
 | `db.Exec(ctx, sql, args...)` | `sql.Result` |
 
 Placeholders: `?` everywhere (`??` for a literal `?` on PostgreSQL), or
-`:name` with one `db.Named` argument. A whole `Raw` or `Exec` query
+`:name` with one `db.Named` argument. SQL without arguments is sent as
+written. A whole `Raw` or `Exec` query
 without `?` is sent as written, so native `$1` works there; fragments
 (`db.SQL`, `WhereRaw`, `SetRaw`, `Join`) must use `?`.
 
@@ -99,6 +100,7 @@ without `?` is sent as written, so native `$1` works there; fragments
 | `db.TxWith(ctx, opts, fn)` | With `*sql.TxOptions` |
 | `db.AfterCommit(ctx, fn)` | Runs `fn` after the commit (or now, outside a transaction) |
 | `db.InTx(ctx)` | Whether `ctx` has a transaction |
+| `db.WithTx(ctx, tx)` | Queries on the returned context use a `*sql.Tx` you began (and commit) yourself |
 | `q.WithContext(ctx)` | The query with another context, e.g. a base query run inside `Tx` |
 
 ## Errors

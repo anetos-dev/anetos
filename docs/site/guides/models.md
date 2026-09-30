@@ -10,8 +10,8 @@ timestamps, soft deletes and hooks.
 
 ## Before you start
 
-[Connect to a database](database.md). Create the tables with SQL for now;
-migrations arrive with roadmap F8.
+[Connect to a database](database.md) and create the tables with
+[migrations](migrations.md).
 
 ## Steps
 

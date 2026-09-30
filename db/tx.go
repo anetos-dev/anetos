@@ -144,6 +144,20 @@ func AfterCommit(ctx context.Context, fn func(ctx context.Context)) {
 	fn(ctx)
 }
 
+// WithTx returns ctx with tx, a transaction on the database in ctx that
+// the caller began and will commit or roll back itself. Queries made with
+// the returned context run in tx, and [Tx] on it uses savepoints. Use it
+// to share a transaction with code that works with *sql.Tx directly.
+// [AfterCommit] callbacks registered on the returned context never run,
+// since the db package doesn't see the commit.
+func WithTx(ctx context.Context, tx *sql.Tx) (context.Context, error) {
+	d, err := From(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return context.WithValue(ctx, txKey{d}, &txState{tx: tx}), nil
+}
+
 // InTx reports whether ctx has a transaction on its database.
 func InTx(ctx context.Context) bool {
 	d, err := From(ctx)

@@ -46,7 +46,7 @@ settings. Every key is in the
 ```go
 // DB_CONNECTION (default sqlite) picks one of the drivers passed here.
 if _, err := db.Connect(ctx, app, sqlite.Driver()); err != nil {
-	return nil, err
+	return nil, nil, err
 }
 ```
 
@@ -144,5 +144,6 @@ testing helpers (roadmap F12).
 
 ## Next steps
 
+- [Migrations](migrations.md)
 - [Define models and save data](models.md)
 - [Query data](queries.md)

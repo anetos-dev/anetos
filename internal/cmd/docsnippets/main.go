@@ -4,7 +4,8 @@
 // copied from an example match that region exactly. A claim is a paragraph
 // right after the block that starts with "(Copied from [`examples/x`](…),
 // region `name`.)" or, for a file already named on the page, "(Region
-// `name`.)".
+// `name`.)". The example is examples/x/main.go, or the file itself when the
+// link names a .go file (examples/x/migrations.go).
 // Indentation common to every line is ignored on both sides, so a region
 // inside a function body can be shown unindented.
 // See docs/contributing/documentation-guide.md §7. Run it with `make docs-check`.
@@ -104,7 +105,11 @@ func checkDoc(root, path, doc string) (problems []string, checked int) {
 		}
 		regions, ok := regionsCache[lastExample]
 		if !ok {
-			src, err := os.ReadFile(filepath.Join(root, "examples", lastExample, "main.go"))
+			file := filepath.Join(root, "examples", lastExample)
+			if !strings.HasSuffix(lastExample, ".go") {
+				file = filepath.Join(file, "main.go")
+			}
+			src, err := os.ReadFile(file)
 			if err != nil {
 				problems = append(problems, fmt.Sprintf("%s:%d: %v", path, i+1, err))
 				continue

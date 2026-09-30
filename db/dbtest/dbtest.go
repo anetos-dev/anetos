@@ -140,30 +140,17 @@ var tables = []string{"st_authors", "st_posts", "st_tags", "st_notes", "st_event
 // sqlite.
 func Run(t *testing.T, d *db.DB) {
 	t.Helper()
-	ddl, ok := schemas[d.Dialect().Name()]
-	if !ok {
+	if _, ok := schemas[d.Dialect().Name()]; !ok {
 		t.Fatalf("dbtest: no schema for dialect %q", d.Dialect().Name())
 	}
 	ctx := db.WithDB(t.Context(), d)
-	reset := func(t *testing.T) {
-		t.Helper()
-		for _, table := range tables {
-			mustExec(t, ctx, "DROP TABLE IF EXISTS "+table)
-		}
-		for _, stmt := range ddl {
-			mustExec(t, ctx, stmt)
-		}
-	}
 	t.Cleanup(func() {
-		for _, table := range tables {
+		for _, table := range slices.Concat(tables, migrationTables) {
 			_, _ = db.Exec(context.WithoutCancel(ctx), "DROP TABLE IF EXISTS "+table)
 		}
 	})
 
-	tests := []struct {
-		name string
-		fn   func(*testing.T, context.Context)
-	}{
+	tests := []test{
 		{"CRUD", testCRUD},
 		{"Hooks", testHooks},
 		{"SoftDeletes", testSoftDeletes},
@@ -185,11 +172,30 @@ func Run(t *testing.T, d *db.DB) {
 		{"DatabaseWrittenTimes", testDatabaseWrittenTimes},
 		{"SoftDeleteScopes", testSoftDeleteScopes},
 	}
-	for _, tt := range tests {
+	for _, tt := range append(tests, extra...) {
 		t.Run(tt.name, func(t *testing.T) {
-			reset(t)
+			recreate(t, ctx)
 			tt.fn(t, ctx)
 		})
+	}
+}
+
+type test struct {
+	name string
+	fn   func(*testing.T, context.Context)
+}
+
+// extra holds tests added by other files of this package.
+var extra []test
+
+// recreate drops and creates the suite's tables.
+func recreate(t *testing.T, ctx context.Context) {
+	t.Helper()
+	for _, table := range tables {
+		mustExec(t, ctx, "DROP TABLE IF EXISTS "+table)
+	}
+	for _, stmt := range schemas[d(ctx).Dialect().Name()] {
+		mustExec(t, ctx, stmt)
 	}
 }
 

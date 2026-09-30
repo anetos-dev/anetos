@@ -78,7 +78,8 @@ type Named map[string]any
 
 // rebind rewrites raw SQL written with ? (or :name with a single Named
 // argument) into the dialect's placeholders. ?? stands for a literal ?
-// (for PostgreSQL's JSON operators), and :: is left alone. Quoted strings,
+// (for PostgreSQL's JSON operators), and :: is left alone. SQL without
+// arguments is returned unchanged. Quoted strings,
 // quoted identifiers and comments are skipped. SQL without ? or :name is
 // returned unchanged, so native placeholders like $1 still work.
 func rebind(d Dialect, query string, args []any) (string, []any, error) {
@@ -88,6 +89,11 @@ func rebind(d Dialect, query string, args []any) (string, []any, error) {
 
 // rebindCount is rebind that also reports how many placeholders it found.
 func rebindCount(d Dialect, query string, args []any) (string, []any, int, error) {
+	if len(args) == 0 {
+		// Nothing to bind: send the SQL as written, so operators like
+		// PostgreSQL's jsonb ? need no escaping.
+		return query, args, 0, nil
+	}
 	var named Named
 	if len(args) == 1 {
 		named, _ = args[0].(Named)

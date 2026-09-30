@@ -4,19 +4,22 @@
 // CRUD, queries, pagination, transactions, raw SQL and database validation
 // rules. It uses SQLite, so it runs without a database server.
 //
-//	APP_ENV=development DB_DATABASE=blog.db HTTP_ADDR=:8080 go run .
+//	export APP_ENV=development DB_DATABASE=blog.db HTTP_ADDR=:8080
+//	go run . migrate      # create the tables
+//	go run . db:seed      # optional sample data
+//	go run .              # serve
 //
 //	curl -s localhost:8080/authors -H 'Content-Type: application/json' -d '{"name":"Ada","email":"ada@example.com"}'
 //	curl -s localhost:8080/posts -H 'Content-Type: application/json' -d '{"author_id":1,"title":"Hello","body":"First post"}'
 //	curl -s 'localhost:8080/posts?page=1&per_page=10'
 //	curl -s localhost:8080/stats
 //
-// Tables are created at startup with SQL until migrations arrive (roadmap
-// F8).
+// The tables are created by the migrations in migrations.go.
 package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"os"
 	"os/signal"
@@ -25,6 +28,7 @@ import (
 
 	"anetos.dev/anetos"
 	"anetos.dev/anetos/db"
+	"anetos.dev/anetos/db/migrate"
 	"anetos.dev/anetos/drivers/sqlite"
 	"anetos.dev/anetos/web"
 )
@@ -183,27 +187,6 @@ func routes(r *web.Router) {
 	r.Get("/stats", web.H(b.Stats))
 }
 
-const schema = `
-CREATE TABLE IF NOT EXISTS authors (
-	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	name TEXT NOT NULL,
-	email TEXT NOT NULL UNIQUE,
-	created_at DATETIME NOT NULL,
-	updated_at DATETIME NOT NULL
-);
-CREATE TABLE IF NOT EXISTS posts (
-	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	author_id INTEGER NOT NULL REFERENCES authors(id),
-	title TEXT NOT NULL,
-	body TEXT NOT NULL,
-	tags TEXT,
-	views INTEGER NOT NULL DEFAULT 0,
-	published_at DATETIME,
-	created_at DATETIME NOT NULL,
-	updated_at DATETIME NOT NULL,
-	deleted_at DATETIME
-);`
-
 func main() {
 	if err := run(); err != nil {
 		log.Print(err)
@@ -211,24 +194,27 @@ func main() {
 	}
 }
 
-// setup connects to the database, creates the tables and builds the
+// setup connects to the database, builds the migration runner and the
 // server. Tests call it too.
-func setup(ctx context.Context, app *anetos.App) (*web.Server, error) {
+func setup(ctx context.Context, app *anetos.App) (*web.Server, *migrate.Runner, error) {
 	// region: connect
 	// DB_CONNECTION (default sqlite) picks one of the drivers passed here.
 	if _, err := db.Connect(ctx, app, sqlite.Driver()); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	// endregion
-	if _, err := db.Exec(app.Context(ctx), schema); err != nil {
-		return nil, err
+	// region: runner
+	runner, err := migrate.ForApp(app, []*migrate.Set{Migrations}, migrate.WithSeeders(Seeders...))
+	if err != nil {
+		return nil, nil, err
 	}
+	// endregion
 	srv, err := web.NewServer(app)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	routes(srv.Router())
-	return srv, nil
+	return srv, runner, nil
 }
 
 func run() error {
@@ -238,8 +224,15 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	if _, err := setup(ctx, app); err != nil {
+	_, runner, err := setup(ctx, app)
+	if err != nil {
 		return err
 	}
+	// region: commands
+	// go run . migrate | migrate:rollback | migrate:status | migrate:fresh --seed | db:seed
+	if handled, err := runner.Command(ctx, os.Args[1:], os.Stdout); handled {
+		return errors.Join(err, app.Close())
+	}
+	// endregion
 	return app.Run(ctx)
 }

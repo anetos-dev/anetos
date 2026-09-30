@@ -103,7 +103,7 @@ UTC to keep their calendar day.
 
 ## Related
 
-- [Connect to a database](../guides/database.md)
+- [Connect to a database](../guides/database.md), [Migrations](../guides/migrations.md)
 - [Define models and save data](../guides/models.md)
 - [Query data](../guides/queries.md)
 - [Transactions](../guides/transactions.md)
