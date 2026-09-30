@@ -53,7 +53,12 @@ type App struct {
 	state     appState
 	providers []Provider
 	hooks     []hook
+
+	valMu  sync.RWMutex
+	values []ctxValue
 }
+
+type ctxValue struct{ key, val any }
 
 type appState int
 
@@ -278,6 +283,41 @@ func (a *App) Close() error {
 	return a.runHooks(a.cfg.ShutdownTimeout)
 }
 
+// AddContextValue makes val available under key (as with
+// context.WithValue) in every context the app hands out: providers' Boot,
+// components and app.Go tasks, HTTP requests, shutdown hooks, and contexts
+// passed through [App.Context]. Services use it so request and job code can
+// reach them from a plain context.Context; the db package, for example,
+// adds the database connection. Call it during Register; a value added in
+// Boot reaches components, requests and hooks, but not the Boot contexts of
+// providers that already ran.
+func (a *App) AddContextValue(key, val any) {
+	a.valMu.Lock()
+	defer a.valMu.Unlock()
+	a.values = append(a.values, ctxValue{key, val})
+}
+
+// Context returns parent with the values added by [App.AddContextValue],
+// except those whose key parent already has a value for. Use it for
+// contexts the app didn't create, such as in tests or one-off commands:
+//
+//	ctx := app.Context(context.Background())
+func (a *App) Context(parent context.Context) context.Context {
+	a.valMu.RLock()
+	defer a.valMu.RUnlock()
+	seen := make(map[any]bool, len(a.values))
+	for _, v := range slices.Backward(a.values) { // the latest value per key wins
+		if seen[v.key] {
+			continue
+		}
+		seen[v.key] = true
+		if parent.Value(v.key) == nil { // values already in parent win
+			parent = context.WithValue(parent, v.key, v.val)
+		}
+	}
+	return parent
+}
+
 func (a *App) boot(ctx context.Context, providers []Provider) error {
 	seen := map[string]bool{}
 	for _, p := range providers {
@@ -292,7 +332,7 @@ func (a *App) boot(ctx context.Context, providers []Provider) error {
 		}
 	}
 	for _, p := range providers {
-		if err := p.Boot(ctx, a); err != nil {
+		if err := p.Boot(a.Context(ctx), a); err != nil {
 			return fmt.Errorf("anetos: provider %q: boot: %w", p.Name(), err)
 		}
 	}
@@ -325,7 +365,7 @@ func (a *App) Run(ctx context.Context, roles ...string) error {
 	a.state = appRunning
 	a.mu.Unlock()
 
-	runErr := a.sup.Run(ctx, roles...)
+	runErr := a.sup.Run(a.Context(ctx), roles...)
 
 	a.mu.Lock()
 	a.state = appStopped
@@ -339,7 +379,7 @@ func (a *App) Run(ctx context.Context, roles ...string) error {
 }
 
 func (a *App) runHooks(budget time.Duration) error {
-	ctx, cancel := context.WithTimeout(context.Background(), budget)
+	ctx, cancel := context.WithTimeout(a.Context(context.Background()), budget)
 	defer cancel()
 
 	var errs []error

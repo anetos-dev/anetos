@@ -314,6 +314,7 @@ Use these terms consistently in code, docs and discussion.
 | **Handler** | An HTTP handler in one of the three forms (plain, context, typed) |
 | **Model** | A struct mapped to a database table |
 | **Scope** | A reusable query modifier function |
+| **Dialect** | The SQL flavor of a database (placeholders, quoting, upserts); paired with a `database/sql` driver in a db driver module |
 | **Rule** | A named validation check in a `validate` tag, e.g. `required` or `max:200`. Custom rules are registered with `validate.Register` |
 
 ---

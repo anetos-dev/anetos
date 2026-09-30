@@ -118,3 +118,39 @@ route with `http.ResponseController`), and end the stream when
 HSTS (`Strict-Transport-Security`) is sent automatically when
 `APP_ENV=production`; serve production over HTTPS (usually at your proxy or
 load balancer).
+
+## Database
+
+Read by `db.Connect` (or `db.LoadConfig(src, prefix)`, which reads the same
+keys with a prefix, e.g. `ANALYTICS_DB_HOST`) into `db.Config`.
+
+| Key | Type | Default | Description | Since |
+|---|---|---|---|---|
+| `DB_CONNECTION` | `sqlite` \| `postgres` \| `mysql` | `sqlite` | Selects one of the drivers passed to `db.Connect` | v0.1 |
+| `DB_URL` | string | empty | Complete connection string in the driver's format; when set, the five keys below are ignored. Use it for TLS and driver options | v0.1 |
+| `DB_HOST` | string | `127.0.0.1` | Server host (PostgreSQL, MySQL) | v0.1 |
+| `DB_PORT` | int | driver default (5432, 3306) | Server port | v0.1 |
+| `DB_DATABASE` | string | empty; SQLite: `database/app.db` | Database name, or the SQLite file (`:memory:` for an in-memory database) | v0.1 |
+| `DB_USERNAME` | string | empty | User | v0.1 |
+| `DB_PASSWORD` | string | empty | Password | v0.1 |
+| `DB_MAX_OPEN_CONNS` | int | `25` | Maximum open connections (in-memory SQLite always uses 1) | v0.1 |
+| `DB_MAX_IDLE_CONNS` | int | `25` | Maximum idle connections kept for reuse | v0.1 |
+| `DB_CONN_MAX_LIFETIME` | duration | `30m` | Connections are replaced after this long | v0.1 |
+| `DB_CONN_MAX_IDLE_TIME` | duration | `5m` | Idle connections are closed after this long | v0.1 |
+| `DB_LOG_QUERIES` | bool | on when `APP_ENV=development` | Log every query, with its arguments and duration, at debug level | v0.1 |
+| `DB_SLOW_QUERY` | duration | `500ms` | Log queries taking at least this long as warnings (without arguments). `0` disables | v0.1 |
+
+Driver specifics:
+
+- **SQLite** connections use WAL journaling, a 5s busy timeout, foreign
+  keys and immediate transactions. The file's directory is created if
+  missing.
+- **SQLite** stores times as UTC text in the format of its own
+  `CURRENT_TIMESTAMP` (`2026-09-30 12:00:00.5`), so column defaults and
+  values written by the app compare correctly.
+- **PostgreSQL** sessions use the UTC time zone unless `DB_URL` sets
+  `timezone`.
+- **MySQL** connections always read times as UTC `time.Time`
+  (`parseTime=true`, `loc=UTC`) and report matched rows for updates
+  (`clientFoundRows=true`), also when `DB_URL` says otherwise; sessions use
+  `time_zone='+00:00'` unless `DB_URL` sets it.

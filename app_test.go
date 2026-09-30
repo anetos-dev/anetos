@@ -495,3 +495,70 @@ func TestHooksGetReservedBudget(t *testing.T) {
 		t.Errorf("shutdown took %v, want within the 500ms budget (+ grace)", total)
 	}
 }
+
+type ctxKey string
+
+type valueProvider struct{ bootSaw any }
+
+func (*valueProvider) Name() string { return "values" }
+func (*valueProvider) Register(a *anetos.App) error {
+	a.AddContextValue(ctxKey("svc"), "database")
+	return nil
+}
+func (p *valueProvider) Boot(ctx context.Context, a *anetos.App) error {
+	p.bootSaw = ctx.Value(ctxKey("svc"))
+	return nil
+}
+
+func TestContextValues(t *testing.T) {
+	app := newApp(t, config.Map{})
+	p := &valueProvider{}
+	app.Use(p)
+	seen := make(chan any, 1)
+	if err := app.Go("task", func(ctx context.Context) error {
+		seen <- ctx.Value(ctxKey("svc"))
+		<-ctx.Done()
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var hookSaw any
+	app.OnShutdown("check", func(ctx context.Context) error {
+		hookSaw = ctx.Value(ctxKey("svc"))
+		return nil
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- app.Run(ctx) }()
+	if got := <-seen; got != "database" {
+		t.Errorf("component saw %v", got)
+	}
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if p.bootSaw != "database" || hookSaw != "database" {
+		t.Errorf("boot saw %v, hook saw %v", p.bootSaw, hookSaw)
+	}
+	if got := app.Context(context.Background()).Value(ctxKey("svc")); got != "database" {
+		t.Errorf("App.Context: %v", got)
+	}
+}
+
+func TestContextValuesDontOverride(t *testing.T) {
+	app := newApp(t, config.Map{})
+	app.AddContextValue(ctxKey("db"), "app")
+	ctx := context.WithValue(context.Background(), ctxKey("db"), "mine")
+	if got := app.Context(ctx).Value(ctxKey("db")); got != "mine" {
+		t.Errorf("value = %v, want the parent's", got)
+	}
+}
+
+func TestContextValuesLatestWins(t *testing.T) {
+	app := newApp(t, config.Map{})
+	app.AddContextValue(ctxKey("db"), "first")
+	app.AddContextValue(ctxKey("db"), "second")
+	if got := app.Context(context.Background()).Value(ctxKey("db")); got != "second" {
+		t.Errorf("value = %v, want the latest", got)
+	}
+}

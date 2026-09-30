@@ -66,6 +66,19 @@ posts := handlers.NewPosts(db)         // plain Go from here on
 Resolving from the container on every request works, but it hides
 dependencies and costs a map lookup each time.
 
+## Context values
+
+A few services are needed by nearly every function that has a context: the
+database connection is the main one. `app.AddContextValue(key, value)`
+(called while providers register or boot) adds a value to every context
+the app hands out: providers' Boot, components and `app.Go` tasks, HTTP
+requests, and shutdown hooks. `app.Context(ctx)` adds the same values to a
+context the app didn't create, such as in a CLI command or a test.
+
+`db.Connect` uses this, which is why `db.Query[Post](c)` works in a handler
+with nothing but the request context. Keep it for such cross-cutting
+services; ordinary dependencies still belong in constructors.
+
 ## Failures during startup
 
 - `New` returns an error that lists **every** invalid or missing setting.

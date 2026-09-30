@@ -208,8 +208,8 @@ rules (which open the upload); messages are built only when a rule fails.
 > input struct is your Form Request. Differences: rules live on the struct,
 > not in a `rules()` array; `nullable`, `bail` and `sometimes` aren't needed
 > (the startup error says why); `min`/`max` on uploads count files, and
-> file size uses `max_size:2MB`; database rules (`unique`, `exists`) arrive
-> with the data layer.
+> file size uses `max_size:2MB`; `unique` and `exists` come from the db
+> package (see the [rules reference](../reference/validation-rules.md#database-rules)).
 
 ## Testing it
 

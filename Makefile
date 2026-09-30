@@ -1,8 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 GO       ?= go
-PKGS     ?= ./...
 COVEROUT ?= coverage.out
+# Every module in the repository: the core, driver modules, and examples
+# that need drivers. Targets run in each one.
+MODULES  ?= $(patsubst %/go.mod,%,$(shell find . -name go.mod -not -path './.git/*' | sort))
+EACH      = for m in $(MODULES); do echo "== $$m"; (cd $$m &&
+DONE      = ) || exit 1; done
 
 .PHONY: all check fmt fmt-check vet lint test test-short cover bench vuln spdx docs-check tidy help
 
@@ -17,26 +21,25 @@ fmt-check: ## Fail if any file needs gofmt
 	@out=$$(gofmt -s -l .); if [ -n "$$out" ]; then echo "gofmt needed:"; echo "$$out"; exit 1; fi
 
 vet: ## go vet
-	$(GO) vet $(PKGS)
+	@$(EACH) $(GO) vet ./... $(DONE)
 
 lint: ## golangci-lint (install: https://golangci-lint.run)
-	golangci-lint run $(PKGS)
+	@$(EACH) golangci-lint run ./... $(DONE)
 
-test: ## Tests with the race detector
-	$(GO) test -race -count=1 -timeout=5m $(PKGS)
+test: ## Tests with the race detector (set ANETOS_TEST_POSTGRES_URL / ANETOS_TEST_MYSQL_URL for those drivers)
+	@$(EACH) $(GO) test -race -count=1 -timeout=5m ./... $(DONE)
 
 test-short: ## Fast tests, no race detector
-	$(GO) test -short -count=1 -timeout=5m $(PKGS)
+	@$(EACH) $(GO) test -short -count=1 -timeout=5m ./... $(DONE)
 
-cover: ## Coverage report (coverage.out + summary)
-	$(GO) test -race -count=1 -coverprofile=$(COVEROUT) $(PKGS)
-	$(GO) tool cover -func=$(COVEROUT) | tail -n 1
+cover: ## Coverage summary per module (driver modules report db package coverage)
+	@$(EACH) $(GO) test -count=1 -coverpkg=./...,anetos.dev/anetos/db/... -coverprofile=$(COVEROUT) ./... >/dev/null && $(GO) tool cover -func=$(COVEROUT) | tail -n 1 $(DONE)
 
 bench: ## Benchmarks
-	$(GO) test -run='^$$' -bench=. -benchmem $(PKGS)
+	@$(EACH) $(GO) test -run='^$$' -bench=. -benchmem ./... $(DONE)
 
 vuln: ## govulncheck (install: go install golang.org/x/vuln/cmd/govulncheck@latest)
-	govulncheck $(PKGS)
+	@$(EACH) govulncheck ./... $(DONE)
 
 spdx: ## Check SPDX license headers
 	@./scripts/check-spdx.sh
@@ -45,7 +48,7 @@ docs-check: ## Check doc code blocks match their example regions
 	@$(GO) run ./internal/cmd/docsnippets
 
 tidy: ## go mod tidy
-	$(GO) mod tidy
+	@$(EACH) $(GO) mod tidy $(DONE)
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-12s %s\n", $$1, $$2}'

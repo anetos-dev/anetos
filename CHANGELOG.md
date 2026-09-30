@@ -56,11 +56,34 @@ All notable changes to this project are documented here. The format follows
 - Docs: validation guide, validation rules reference, `examples/validation`;
   `make docs-check` ignores indentation shared by a whole snippet (F6).
 
+- Data layer (`db` package, F7): `db.Connect` (DB_* config, driver chosen
+  by `DB_CONNECTION`, ping at startup, DB in every app context), models as
+  structs with `db.Model`, `db.Timestamps`, `db.SoftDeletes`, JSON and
+  read-only columns and hooks; `Create`, `CreateMany`, `Update`, `Save`,
+  `Delete`, `ForceDelete`, `Restore`, `Upsert`, `Find`; immutable typed
+  query builder (`db.Query[T]`, `db.Col[T]`, `And`/`Or`/`Not`, `db.SQL`,
+  joins, grouping, scopes, row locks) with `Get`, `First`, `All`
+  iterator, `Count`, `Exists`, aggregates, `Pluck`, `Select`, offset and
+  cursor pagination, mass updates and deletes; transactions carried in the
+  context with savepoints and `AfterCommit`; `db.Raw`/`RawFirst`/`Exec`
+  with `?` rebinding and `db.Named`; query and slow-query logging;
+  `unique` and `exists` validation rules; `db/dbtest` conformance suite.
+- Driver modules `drivers/sqlite` (pure Go, modernc.org/sqlite),
+  `drivers/postgres` (pgx) and `drivers/mysql` (MySQL and MariaDB) (F7).
+- `App.AddContextValue` and `App.Context`: values in every context the app
+  creates (F7).
+- Docs: database, models, queries, transactions and raw SQL guides; data
+  layer concept; models and query builder references; DB_* configuration;
+  `examples/database` (F7).
+
 ### Changed
 - A plain error returned from an input's `Validate(ctx)` method is now a 500
   (its text is not sent to clients); use `validate.Fail` for messages (F6,
   design D37).
 - Booleans in configuration also accept `yes`/`no` and `on`/`off`.
+- The repository is now several Go modules (core, `drivers/*`,
+  `examples/database`); make targets and CI run in each, with PostgreSQL
+  and MySQL services for the driver tests (F7).
 - Minimum Go version is now 1.26 (the older of the two supported releases);
   code modernized for it (`errors.AsType`, `slices.Backward`,
   `sync.WaitGroup.Go`, …) and the `modernize` linter enabled (design D18).

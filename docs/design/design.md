@@ -216,8 +216,9 @@ anetos.dev/anetos/            ← core module
 ├── supervisor/          runtime supervisor, components, roles, app.Go
 ├── web/                 router, Ctx, handler forms, binding, responses, middleware, server
 ├── validate/            rules, messages, error bags
-├── db/                  query builder, model runtime, dialect interface, tx
-│   └── migrate/         schema builder, runner
+├── db/                  query builder, model runtime, dialects, tx, raw SQL
+│   ├── dbtest/          conformance suite every driver module runs
+│   └── migrate/         schema builder, runner (F8)
 ├── view/                renderer interface, templ integration, helpers
 ├── session/ cache/ queue/ pubsub/ events/ schedule/ mailer/ storage/ auth/ encryption/
 ├── ext/                 public plugin API (package `ext`)
@@ -228,7 +229,7 @@ anetos.dev/anetos/            ← core module
 │   └── cmd/docsnippets/ checks doc code blocks against example regions
 ├── cli/                 ← separate module: global `anetos` CLI (go install)
 ├── drivers/             ← each a separate module
-│   ├── postgres/ mysql/ sqlite/
+│   ├── postgres/ mysql/ sqlite/   database/sql driver + DSN; dialects are in db/
 │   ├── redis/           cache, session, queue, pubsub (Streams), locks
 │   ├── gcppubsub/
 │   ├── s3/
@@ -533,7 +534,9 @@ works on any struct (job payloads, CLI input).
 
 The part of the framework that matters most, and the riskiest.
 **Target:** Eloquent-level comfort for about 90% of queries, fully typed, with
-raw SQL as a first-class option for the remaining 10%.
+raw SQL as a first-class option for the remaining 10%. The core (F7) is
+package `db`; relations and eager loading follow in v0.1.x, model code
+generation in F9.
 
 ### 10.1 Models
 
@@ -541,24 +544,37 @@ Models are plain structs. Embedding gives common behaviour; nothing is
 required.
 
 ```go
-// app/models/post.go (illustrative)
+// illustrative
 type Post struct {
-    db.Model                  // ID, CreatedAt, UpdatedAt
-    db.SoftDeletes            // DeletedAt + default scope
+    db.Model                  // id, created_at, updated_at
+    db.SoftDeletes            // deleted_at + default scope
     Title    string `db:"title"`
     Body     string `db:"body"`
-    AuthorID int64  `db:"author_id"`
+    AuthorID int64            // untagged: column author_id
+    Meta     map[string]any `db:"meta,json"`
 
-    Author   *User      `rel:"belongs_to"`
-    Comments []Comment  `rel:"has_many"`
+    Author   *User     `rel:"belongs_to"` // v0.1.x; untagged structs are never columns
+    Comments []Comment `rel:"has_many"`
 }
 ```
 
-`anetos gen` (run automatically by `anetos dev`) generates
-`post_gen.go` with **typed column references and relation handles**, so
-queries are checked by the compiler and your IDE can navigate them:
+- Columns are `db` tags or snake_case field names; options `pk`, `json`,
+  `readonly`. Untagged struct, pointer-to-struct and slice-of-struct
+  fields are reserved for relations.
+- Tables are the snake_case plural of the type name, or `TableName()`.
+- Timestamps and soft deletes are enabled **only by embedding**
+  `db.Timestamps`/`db.Model` and `db.SoftDeletes` (D46), not by column-name
+  convention.
+- Metadata is computed once per type and cached (D12); scanning uses a
+  plan cached per (type, result columns).
+
+Queries use **typed columns**, so conditions are checked by the compiler.
+In F7 they are declared by hand (`var views = db.Col[int]("views")`) or
+untyped (`db.C("views")`); `anetos gen` (F9, run by `anetos dev`) will
+generate them with relation handles:
 
 ```go
+// illustrative (F9 + v0.1.x)
 posts, err := db.Query[models.Post](c).
     Where(models.PostCols.AuthorID.Eq(user.ID)).
     Where(models.PostCols.Title.Like("%go%")).
@@ -569,31 +585,46 @@ posts, err := db.Query[models.Post](c).
 
 ### 10.2 Capabilities
 
-| Capability | Design |
-|---|---|
-| CRUD | `db.Create`, `db.Update`, `db.Delete`, `db.Find[T]`, `First`, `Get`, `Count`, `Exists` |
-| Timestamps | Set automatically when `db.Model` is embedded |
-| Soft deletes | Default scope; `WithTrashed()`, `OnlyTrashed()`, `Restore`, `ForceDelete` |
-| Scopes | Plain functions: `func(q *db.Q[Post]) *db.Q[Post]`, applied with `.Scope(published)` |
-| Relations | has-one, has-many, belongs-to, many-to-many (pivot), loaded **explicitly** with `With(...)` or `db.Load(ctx, &post, rel)` |
-| Lazy loading | **Not supported by design.** Go has no property-access hooks, and hidden queries are the N+1 bug. Accessing an unloaded relation returns nil, and dev mode warns about it |
-| Hooks | Opt-in interfaces: `BeforeCreate(ctx) error`, `AfterSave(ctx) error`, … |
-| Transactions | `db.Tx(ctx, func(ctx context.Context) error {...})`. The transaction travels in the context, so nested calls join it |
-| Pagination | Offset (`Paginate`) and cursor (`CursorPaginate`), with links rendered by view helpers |
-| Aggregates | `Sum`, `Avg`, `Min`, `Max`, `GroupBy`, `Having` |
-| Raw SQL | `db.Raw[T](ctx, sql, args...)` scans into structs; named parameters supported; the escape hatch is pleasant, not punitive |
-| Upserts, bulk insert | Dialect-aware (`ON CONFLICT` / `ON DUPLICATE KEY`) |
+| Capability | Design | Status |
+|---|---|---|
+| CRUD | `db.Create`, `db.Update`, `db.Save`, `db.Delete`, `db.Find[T]`; `Get`, `First`, `Count`, `Exists`, streaming `All()` (`iter.Seq2`) | F7 |
+| Timestamps | Set automatically (UTC, µs) when `db.Timestamps`/`db.Model` is embedded, including mass updates | F7 |
+| Soft deletes | Default scope; `WithTrashed()`, `OnlyTrashed()`, `Restore`, `ForceDelete` | F7 |
+| Scopes | Plain functions: `func(q *db.Q[Post]) *db.Q[Post]`, applied with `.Scope(published)` | F7 |
+| Conditions | Typed columns (`Eq`, `In`, `Between`, `Like`, `IsNull`…), `And`/`Or`/`Not`, `db.SQL` fragments; `Eq(nil)` is `IS NULL` | F7 |
+| Relations | has-one, has-many, belongs-to, many-to-many (pivot), loaded **explicitly** with `With(...)` or `db.Load(ctx, &post, rel)` | v0.1.x |
+| Lazy loading | **Not supported by design.** Go has no property-access hooks, and hidden queries are the N+1 bug | — |
+| Hooks | Opt-in interfaces on the pointer type: `BeforeSave`, `BeforeCreate`, `AfterCreate`, `BeforeUpdate`, `AfterUpdate`, `AfterSave`, `BeforeDelete`, `AfterDelete`. Not run by mass writes | F7 |
+| Transactions | `db.Tx(ctx, fn)`: the transaction travels in the context, so nested calls join it; nested `Tx` uses savepoints; `db.AfterCommit`; `ForUpdate`/`ForShare` | F7 |
+| Pagination | Offset (`Paginate`, Laravel-compatible JSON) and cursor (`CursorPaginate`, keyset with next/prev cursors) | F7 |
+| Aggregates | `db.Sum`, `Avg`, `Min`, `Max`, `Pluck`; `GroupBy`, `Having`, `db.Select[R]` for grouped rows | F7 |
+| Raw SQL | `db.Raw[T]`, `db.RawFirst[T]`, `db.Exec`; `?` everywhere (rebound per dialect, `??` escapes), `:name` with `db.Named` | F7 |
+| Upserts, bulk insert | `db.Upsert` (`ON CONFLICT` / `ON DUPLICATE KEY`), `db.CreateMany` in batches; generated keys set where `RETURNING` exists | F7 |
+| Validation | `unique` and `exists` rules registered by importing `db` | F7 |
+| Mass writes | `q.Update(col.Set(v))`, `q.Delete()`; refuse `Join`/`OrderBy`/`Limit` (D49) | F7 |
 
-### 10.3 Dialects & connections
+### 10.3 Dialects, drivers & connections
 
-- Built on `database/sql`. Dialects handle placeholders, quoting,
-  `RETURNING` vs `LastInsertId`, upsert syntax and schema-builder SQL.
-- Dialects in the first release: **PostgreSQL** (pgx), **MySQL/MariaDB**,
-  **SQLite**. The default dev driver is SQLite in **pure Go** (no CGO), so
-  cross-compilation and the single binary keep working (decision D10).
-- Multiple named connections; read/write splitting is in the backlog.
-- Dev mode logs every query with its duration, and warns about slow queries
-  and loops that look like N+1.
+- Built on `database/sql`. A **dialect** (in core `db`) handles
+  placeholders, quoting, `RETURNING` vs `LastInsertId`, upsert syntax,
+  `LIMIT` forms, row locks and argument conversion. **Driver modules**
+  (`drivers/postgres` with pgx, `drivers/mysql` with go-sql-driver,
+  `drivers/sqlite` with modernc.org/sqlite) pair a dialect with a
+  `database/sql` driver and build connection strings (D40). The
+  `db/dbtest` conformance suite runs against each in CI.
+- The default dev driver is SQLite in **pure Go** (modernc.org/sqlite, D10,
+  D38): WAL, busy timeout, foreign keys, immediate transactions.
+- **The connection travels in the context** (D39): `db.Connect(ctx, app,
+  drivers...)` reads `DB_*`, picks the driver named by `DB_CONNECTION`,
+  pings (fail fast), adds the DB to every context the app creates
+  (`App.AddContextValue`), provides `*db.DB`, and closes it at shutdown.
+  Extra connections: `db.LoadConfig(src, "PREFIX_")` + `db.Open` +
+  `db.WithDB(ctx, d)`. Read/write splitting stays in the backlog.
+- Queries are **immutable** builders (D41) and **times are UTC** on write
+  and read (D43). NULL into a non-pointer field is an error (D44).
+- Query log at debug level in development (`DB_LOG_QUERIES`), slow-query
+  warnings everywhere (`DB_SLOW_QUERY`). N+1 detection comes with
+  relations.
 
 ### 10.4 Build vs. buy
 
@@ -601,8 +632,9 @@ We build our own thin layer (decision D5) because relations, eager loading,
 typed columns, soft deletes and pagination have to feel like one designed
 thing, and existing Go ORMs each force trade-offs (GORM's heavy runtime
 reflection, `sqlc`'s SQL-first model, `ent`'s schema DSL). **Fallback:** if
-F7 stalls badly, an adapter over Bun behind the same public API. The public
-API is kept deliberately small to make that possible.
+the layer stalls badly, an adapter over Bun behind the same public API. The
+public API is kept deliberately small to make that possible. F7 landed
+without needing it.
 
 ---
 
@@ -1091,12 +1123,12 @@ unless new information arrives), **Open**, **Superseded**.
 | D2 | Everything is `net/http`-compatible; handlers are `http.Handler` | Accepted | Principle 1 |
 | D3 | Router on `http.ServeMux` + thin layer (groups, names, URL gen) | Accepted | Implemented in F5; overhead ≈5 allocs vs raw ServeMux. Swap to a radix tree only if benchmarks ever demand it |
 | D4 | templ for views, behind a `view.Renderer` interface | Accepted | Buffalo/Plush lesson |
-| D5 | Own data layer on `database/sql` with generics + code generation | Accepted | Fallback: Bun adapter behind the same API |
+| D5 | Own data layer on `database/sql` with generics + code generation | Accepted | Core implemented in F7. Fallback: Bun adapter behind the same API |
 | D6 | Multi-module monorepo; heavy drivers in separate modules | Accepted | Keeps dependency trees small |
 | D7 | Supervised runtime; one binary with roles | Accepted | Core differentiator |
 | D8 | Plugins compiled in; installed by code generation (`anetos add`) | Accepted | No runtime discovery in Go |
 | D9 | Vite + Inertia starter kits in v0.4, not v0.3 | Accepted | v0.3 = public MVP |
-| D10 | Default dev DB: SQLite in pure Go (no CGO) | Proposed | Protects cross-compile and single-binary builds |
+| D10 | Default dev DB: SQLite in pure Go (no CGO) | Accepted | Protects cross-compile and single-binary builds; implementation D38 |
 | D11 | Logging via `log/slog`; no custom logger | Accepted | |
 | D12 | Reflection only at startup/registration, never per request | Accepted | Principle 4. Clarified in F6: type inspection and tag parsing happen once; per request, precomputed plans read and set fields by index (bind and validation plans) |
 | D13 | No lazy loading of relations; explicit `With`/`Load` | Accepted | Prevents hidden N+1 |
@@ -1124,6 +1156,19 @@ unless new information arrives), **Open**, **Superseded**.
 | D35 | HTML error bags/old input deferred to F10, `unique`/`exists` to F7 | Accepted | They need sessions and the DB layer; the F6 API (`*validate.Errors`, `FieldErrorer`) is what they build on |
 | D36 | Validation resolves fields like `encoding/json` (flattening, shadowing, nil embedded pointers count as empty) | Accepted | Rules apply to the fields a client can actually send; a nil embedded pointer can't skip `required` |
 | D37 | A plain error from `Validate(ctx)` is a 500, not a 422 | Accepted | Supersedes the F5 behaviour. Messages for clients go through `validate.Fail`/`*validate.Errors`; internal failures stay internal (§20) |
+| D38 | SQLite driver: modernc.org/sqlite | Accepted | Resolves O6. Pure Go (C translated to Go), the most widely used and longest-maintained option; ncruces/go-sqlite3 (WebAssembly on wazero) was the alternative. Swappable behind `db.Driver` |
+| D39 | The database handle travels in the context; `db.Connect` adds it app-wide via `App.AddContextValue` | Accepted | `db.Query[T](ctx)` works anywhere a context does, and transactions join through the same context. Explicit alternative for other DBs: `db.WithDB` |
+| D40 | Dialects live in core `db`; driver modules only pair a dialect with a `database/sql` driver; `db/dbtest` conformance suite per driver | Accepted | SQL generation is tested without databases; heavy drivers stay out of the core module (D6) |
+| D41 | Query builders are immutable (each method returns a new `Q`) | Accepted | Shared base queries can't leak conditions into each other; the copy cost is small next to a round trip |
+| D42 | Typed columns (`db.Col[T]`) are the condition API; F9 generates them | Accepted | Compiler-checked conditions from day one; hand-written until codegen |
+| D43 | Times are written and read in UTC with µs precision; time arguments converted to UTC; driver sessions in UTC; SQLite text in `CURRENT_TIMESTAMP` format | Accepted | Values round-trip exactly and compare alike on every database, including against column defaults and `timestamp` without time zone |
+| D44 | NULL into a non-pointer field is an error | Accepted | Silent zero values hide data problems; the error names the fix (pointer or `sql.Null[T]`) |
+| D45 | Raw SQL uses `?` on every database (rebound per dialect, `??` escape) or `:name` with `db.Named` | Accepted | One way to write parameters; quoted text (including PostgreSQL `E''` strings), comments (nested on PostgreSQL, `#` on MySQL) are skipped; a whole query without `?` passes through unchanged, fragments must use `?` |
+| D46 | Timestamps and soft deletes only via embedded `db.Timestamps`/`db.Model`/`db.SoftDeletes` | Accepted | Explicit (principle 2); a plain `created_at` column isn't silently managed |
+| D47 | SQL fragment constructor is `db.SQL`; `db.Raw[T]` is the raw query function | Accepted | Go has no overloading; the query function is the more common call |
+| D48 | Multi-module repo without `go.work`; driver modules use `replace ../..`; make targets loop over modules | Accepted | `replace` in non-main modules is ignored by consumers, so published modules are unaffected |
+| D49 | Mass `Update`/`Delete` accept only `Where` (refuse `Join`, `OrderBy`, `Limit`, `Offset`, `GroupBy`, `Having`, `Distinct`, locks) | Accepted | Those forms differ or don't exist across dialects (MySQL also rejects `LIMIT` and same-table subqueries in them); `db.Exec` covers the rest |
+| D50 | MySQL connections use `clientFoundRows=true` | Accepted | Rows *matched*, as on PostgreSQL and SQLite, so `Update` can report `ErrNotFound` and mass updates count alike everywhere |
 
 ---
 
@@ -1136,7 +1181,7 @@ unless new information arrives), **Open**, **Superseded**.
 | O3 | Job serialization: JSON only, or pluggable codecs (msgpack, protobuf)? | §13.4 | B5 |
 | O4 | Should async events share one global pool or have a pool per listener? | §13.6 | B6 |
 | O5 | Plugin config: generated Go struct in the app vs loaded from the plugin's own struct only | §16.2 | B11 |
-| O6 | Which pure-Go SQLite implementation (maturity and performance check) | §10.3 | F7 |
+| O6 | ~~Which pure-Go SQLite implementation?~~ Resolved: modernc.org/sqlite (D38) | §10.3 | Done |
 | O7 | Error keys use the json name even for form posts; should HTML forms key errors by the `form` name when it differs? | §9 | F10 |
 
 ---
@@ -1151,3 +1196,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-09-30 | D18 accepted: minimum Go 1.26 |
 | 2026-09-30 | F5 implemented: §5, §8 rewritten; D3 accepted; D24–D30 added; O1 resolved |
 | 2026-09-30 | F6 implemented: §9 rewritten; principle 4 and D12 clarified; D31–D37 added; O7 opened |
+| 2026-09-30 | F7 implemented: §5 and §10 rewritten; D5, D10 updated; D38–D50 added; O6 resolved |

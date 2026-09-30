@@ -18,3 +18,8 @@ coverage.*
 
 # Files saved by the Claude desktop app
 /Claude outputs/
+
+# SQLite databases
+*.db
+*.db-shm
+*.db-wal

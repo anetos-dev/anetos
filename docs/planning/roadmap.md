@@ -148,7 +148,8 @@ Goal: the core an application stands on.
 | F4 Runtime supervisor | ✅ Done 2026-09-30 |
 | F5 HTTP layer | ✅ Done 2026-09-30 |
 | F6 Validation | ✅ Done 2026-09-30 |
-| F7–F12 | Not started (next: F7 data layer core) |
+| F7 Data layer core | ✅ Done 2026-09-30 (SQLite, PostgreSQL 16 and MariaDB 10.11 tested locally; MySQL 8.4 in CI) |
+| F8–F12 | Not started (next: F8 migrations & seeders) |
 
 **Planned patch:** **v0.1.x** adds **relations and eager loading** (has-one,
 has-many, belongs-to, many-to-many, `With(...)`). This is kept out of v0.1.0 so
@@ -314,3 +315,4 @@ something, and we fix the API rather than add the hook.
 | 2026-09-30 | Q3 decided: minimum Go 1.26 |
 | 2026-09-30 | F5 done |
 | 2026-09-30 | F6 done; HTML error bags and old input moved to F10, `unique`/`exists` rules to F7 |
+| 2026-09-30 | F7 done |

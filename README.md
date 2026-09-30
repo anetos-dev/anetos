@@ -7,7 +7,9 @@ built the Go way: typed, `net/http`-compatible, code generation instead of
 runtime magic, and a supervised runtime where HTTP, queue workers, pub/sub
 listeners and the scheduler run together in **one binary**.
 
-**Status:** pre-alpha, in planning and design. Nothing is usable yet.
+**Status:** pre-alpha, building v0.1. The kernel, configuration, runtime
+supervisor, HTTP layer, validation and data layer exist; migrations, views,
+the CLI and testing helpers are next. APIs will change.
 
 ## Documents
 

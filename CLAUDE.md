@@ -47,4 +47,10 @@ make vuln      # govulncheck
 make help      # list targets
 ```
 
+The repository has several Go modules (the core, `drivers/*`, and
+examples that need drivers); make targets run in each. Driver modules
+depend on the core through a `replace ../..` directive. The PostgreSQL and
+MySQL conformance tests run when `ANETOS_TEST_POSTGRES_URL` and
+`ANETOS_TEST_MYSQL_URL` are set (CI sets both); otherwise they skip.
+
 Run `make check` before every commit.

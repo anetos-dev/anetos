@@ -21,13 +21,34 @@ jobs:
             go-version-file: go.mod
           - name: latest Go
             go-version: stable
+    # Databases for the driver modules' conformance tests.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: secret
+          POSTGRES_DB: anetos_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: secret
+          MYSQL_DATABASE: anetos_test
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd "mysqladmin ping -psecret" --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      ANETOS_TEST_POSTGRES_URL: postgres://postgres:secret@127.0.0.1:5432/anetos_test
+      ANETOS_TEST_MYSQL_URL: root:secret@tcp(127.0.0.1:3306)/anetos_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
           go-version-file: ${{ matrix.go-version-file }}
-      - run: make fmt-check spdx vet
+      - run: make fmt-check spdx docs-check vet
       - run: make test
 
   lint:
@@ -40,6 +61,8 @@ jobs:
       - uses: golangci/golangci-lint-action@v8
         with:
           version: v2.14
+          install-only: true
+      - run: make lint
 
   vuln:
     runs-on: ubuntu-latest
@@ -49,4 +72,4 @@ jobs:
         with:
           go-version: stable
       - run: go install golang.org/x/vuln/cmd/govulncheck@latest
-      - run: govulncheck ./...
+      - run: make vuln
