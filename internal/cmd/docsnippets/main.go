@@ -5,6 +5,8 @@
 // right after the block that starts with "(Copied from [`examples/x`](…),
 // region `name`.)" or, for a file already named on the page, "(Region
 // `name`.)".
+// Indentation common to every line is ignored on both sides, so a region
+// inside a function body can be shown unindented.
 // See docs/contributing/documentation-guide.md §7. Run it with `make docs-check`.
 package main
 
@@ -109,7 +111,7 @@ func checkDoc(root, path, doc string) (problems []string, checked int) {
 			}
 			regions = map[string]string{}
 			for _, r := range regionDef.FindAllStringSubmatch(string(src), -1) {
-				regions[r[1]] = strings.TrimRight(r[2], "\n")
+				regions[r[1]] = dedent(strings.TrimRight(r[2], "\n"))
 			}
 			regionsCache[lastExample] = regions
 		}
@@ -117,11 +119,37 @@ func checkDoc(root, path, doc string) (problems []string, checked int) {
 		switch {
 		case !ok:
 			problems = append(problems, fmt.Sprintf("%s:%d: examples/%s has no region %q", path, i+1, lastExample, m[1]))
-		case strings.TrimRight(lastBlock, "\n") != want:
+		case dedent(strings.TrimRight(lastBlock, "\n")) != want:
 			problems = append(problems, fmt.Sprintf("%s:%d: code block differs from examples/%s region %q", path, i+1, lastExample, m[1]))
 		default:
 			checked++
 		}
 	}
 	return problems, checked
+}
+
+// dedent removes the indentation common to all non-blank lines, so a region
+// inside a function body can be shown without its leading tabs.
+func dedent(s string) string {
+	lines := strings.Split(s, "\n")
+	prefix := ""
+	first := true
+	for _, l := range lines {
+		if strings.TrimSpace(l) == "" {
+			continue
+		}
+		indent := l[:len(l)-len(strings.TrimLeft(l, " \t"))]
+		switch {
+		case first:
+			prefix, first = indent, false
+		default:
+			for !strings.HasPrefix(indent, prefix) {
+				prefix = prefix[:len(prefix)-1]
+			}
+		}
+	}
+	for i, l := range lines {
+		lines[i] = strings.TrimPrefix(l, prefix)
+	}
+	return strings.Join(lines, "\n")
 }

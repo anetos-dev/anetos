@@ -38,7 +38,9 @@ rejected at startup, because JSON decoding could fill it from the body.
    data is a 400.
 2. Query, header and path values, overwriting the corresponding fields
    (also for a field tagged with both `form` and `path`: the path wins).
-3. `Validate(ctx context.Context) error`, if the input type implements it.
+3. The `validate` tag rules ([rules reference](validation-rules.md)); failures
+   stop here with a 422.
+4. `Validate(ctx context.Context) error`, if the input type implements it.
 
 ## Field types
 
@@ -66,13 +68,15 @@ so optional inputs stay unset instead of failing to parse.
 | Malformed JSON or form | 400 |
 | Content type other than JSON or form, with a body | 415 |
 | Body larger than `HTTP_MAX_BODY` | 413 |
-| `Validate` returns a plain error | 422, message = error text |
-| `Validate` returns a context cancellation or deadline error | Handled like a handler error: 503 for deadlines; nothing sent if the client left |
+| A `validate` tag rule fails | 422, with `errors` per field |
+| `Validate` returns `validate.Fail(…)` or a `*validate.Errors` | 422, with `errors` per field |
 | `Validate` returns a `*web.HTTPError` or an error with `HTTPStatus() int` | That status |
+| `Validate` returns any other error | Handled like a handler error: 500 without details (503 for deadlines; nothing sent if the client left) |
 
 ## Startup checks
 
 `web.H` panics when it is called (at route registration) if the input type
 is not a struct, a tag is empty (`query:""`), a field type is unsupported,
-a `path` field is a slice, a file field lacks a `form` tag, or an embedded
-pointer struct has source tags.
+a `path` field is a slice, a file field lacks a `form` tag, an embedded
+pointer struct has source tags, or a `validate` tag is invalid (see the
+[rules reference](validation-rules.md)).

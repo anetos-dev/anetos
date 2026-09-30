@@ -15,6 +15,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"anetos.dev/anetos/validate"
 )
 
 type pagination struct {
@@ -173,7 +175,9 @@ type signup struct {
 func (s signup) Validate(context.Context) error {
 	switch s.Email {
 	case "":
-		return errors.New("email is required")
+		return validate.Fail("email", "email is required")
+	case "db@example.com":
+		return errors.New("connection refused to 10.0.0.7")
 	case "taken@example.com":
 		return Error(http.StatusConflict, "email already registered")
 	}
@@ -192,6 +196,9 @@ func TestValidatorHook(t *testing.T) {
 	}
 	if got := post(`{}`); got.status != 422 || !strings.Contains(got.body, "email is required") || called {
 		t.Errorf("422: %d %s called=%v", got.status, got.body, called)
+	}
+	if got := post(`{"email":"db@example.com"}`); got.status != 500 || strings.Contains(got.body, "10.0.0.7") {
+		t.Errorf("plain error from Validate: %d %s", got.status, got.body)
 	}
 	if got := post(`{"email":"taken@example.com"}`); got.status != 409 {
 		t.Errorf("HTTPError from Validate: %d", got.status)

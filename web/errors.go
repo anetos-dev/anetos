@@ -67,6 +67,13 @@ type StatusCoder interface {
 	HTTPStatus() int
 }
 
+// FieldErrorer is implemented by errors that carry one message per request
+// field, such as *[validate.Errors]. The default error handler lists them in
+// the "errors" member of problem responses and in the HTML error page.
+type FieldErrorer interface {
+	FieldErrors() map[string]string
+}
+
 // PanicError is the error passed to the error handler when a handler panics.
 type PanicError struct {
 	Value any
@@ -178,9 +185,17 @@ func newProblem(c *Ctx, err error, status int) *problem {
 	if p.Title == "" {
 		p.Title = fmt.Sprintf("Error %d", status)
 	}
-	if he, ok := errors.AsType[*HTTPError](err); ok && (status < 500 || c.router.core.debug) {
-		p.Detail = he.Message
-		p.Errors = he.Fields
+	if status < 500 || c.router.core.debug {
+		he, isHTTPError := errors.AsType[*HTTPError](err)
+		if isHTTPError {
+			p.Detail, p.Errors = he.Message, he.Fields
+		}
+		if fe := FieldErrorer(nil); p.Errors == nil && errors.As(err, &fe) {
+			p.Errors = fe.FieldErrors()
+			if !isHTTPError {
+				p.Detail = "The given data was invalid."
+			}
+		}
 	}
 	if c.router.core.debug {
 		d := &problemDebug{Error: err.Error()}

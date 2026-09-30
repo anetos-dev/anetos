@@ -15,7 +15,7 @@ flowchart TB
     M -->|match| R["Route middleware<br/>(Use / Group / With)"]
     M -->|no match| F["404 / 405 / OPTIONS"]
     R --> H["Adapter: build Ctx, recover panics"]
-    H --> B["web.H: bind → Validate → your handler"]
+    H --> B["web.H: bind → validate rules → Validate → your handler"]
     B --> O["Responder / JSON"]
     B -->|error| E["Error handler<br/>problem JSON or HTML page"]
     F --> E
@@ -63,8 +63,10 @@ automatic `OPTIONS` responses.
 
 The router builds a `*web.Ctx`, which is also a `context.Context`, and runs
 your handler. `web.H` handlers first **bind** the input (body, then query,
-header and path) and run **Validate**. The bind plan is computed at startup,
-so each request only copies values; there is no type inspection per request.
+header and path), then check its **validation rules** and run its
+**Validate** method. The bind and validation plans are computed at startup,
+so each request only copies and checks values; tags are never parsed per
+request.
 
 ## 5. Response or error
 

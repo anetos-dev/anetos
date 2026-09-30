@@ -130,11 +130,11 @@ Goal: the core an application stands on.
 | F3 | Configuration | `.env` loading, typed config structs, environments, fail-fast validation at boot |
 | F4 | Runtime supervisor | Components (`Run(ctx) error`), roles (`run --only=…`), restart policies, graceful shutdown ordering, supervised `app.Go` |
 | F5 | HTTP layer | Router on `net/http` with groups, named routes and URL generation; `web.Ctx`; three handler forms (plain, `func(*Ctx) error`, typed); binding; responses; error handling; dev error page; core middleware |
-| F6 | Validation | Rule tags, custom rules, messages, error bags, old input for HTML forms, 422 JSON for APIs |
-| F7 | Data layer core | Connections and dialects (Postgres, MySQL, SQLite), generic query builder, model runtime (CRUD, timestamps, soft deletes), transactions, raw SQL scanning into structs, pagination |
+| F6 | Validation | Rule tags, custom rules, messages, 422 JSON for APIs. (Error bags and old input for HTML forms need sessions: moved to F10. Database rules `unique`/`exists`: F7.) |
+| F7 | Data layer core | Connections and dialects (Postgres, MySQL, SQLite), generic query builder, model runtime (CRUD, timestamps, soft deletes), transactions, raw SQL scanning into structs, pagination, `unique`/`exists` validation rules |
 | F8 | Migrations & seeders | Go schema builder, runner, embedding, `migrate`, `migrate:rollback`, `migrate:status`, `migrate:fresh` (dev only), seeders |
 | F9 | Model code generation | Typed column references and relation helpers generated from model structs |
-| F10 | Views, sessions & forms | templ integration, layouts, view helpers (route URLs, CSRF field, errors, old input, assets), cookie sessions, flash messages, CSRF, bundled htmx |
+| F10 | Views, sessions & forms | templ integration, layouts, view helpers (route URLs, CSRF field, errors, old input, assets), cookie sessions, flash messages, CSRF, bundled htmx; validation failures on HTML forms redirect back with the error bag and old input |
 | F11 | CLI | Global `anetos new`, `anetos dev` (watch, rebuild, restart, browser reload), `make:handler`, `make:model`, `make:migration`, `make:middleware`; app-binary command framework (`serve`, `run`, `migrate*`, `routes:list`, custom commands) |
 | F12 | Testing helpers | App bootstrap for tests, fluent HTTP test client, per-test DB transaction rollback |
 
@@ -147,7 +147,8 @@ Goal: the core an application stands on.
 | F3 Configuration | ✅ Done 2026-09-30 |
 | F4 Runtime supervisor | ✅ Done 2026-09-30 |
 | F5 HTTP layer | ✅ Done 2026-09-30 |
-| F6–F12 | Not started (next: F6 validation) |
+| F6 Validation | ✅ Done 2026-09-30 |
+| F7–F12 | Not started (next: F7 data layer core) |
 
 **Planned patch:** **v0.1.x** adds **relations and eager loading** (has-one,
 has-many, belongs-to, many-to-many, `With(...)`). This is kept out of v0.1.0 so
@@ -312,3 +313,4 @@ something, and we fix the API rather than add the hook.
 | 2026-09-30 | F1–F4 done; Q3 proposal recorded |
 | 2026-09-30 | Q3 decided: minimum Go 1.26 |
 | 2026-09-30 | F5 done |
+| 2026-09-30 | F6 done; HTML error bags and old input moved to F10, `unique`/`exists` rules to F7 |

@@ -212,7 +212,8 @@ Broken examples are the fastest way to lose trust.
    paragraph such as ``(Copied from [`examples/x`](…), region `name`.)``, or
    ``(Region `name`.)`` when the example file was already linked on the
    page. `make docs-check` (part of `make check`) fails if a claimed block
-   differs from its region.
+   differs from its region. Indentation shared by every line is ignored, so
+   a region inside a function body can be shown unindented.
 2. **Illustrative snippets** that aren't compiled (design sketches, partial
    fragments) must say so in a comment: `// illustrative`.
 3. Code must be `gofmt`-formatted, use real package names, and have no `…`
@@ -313,6 +314,7 @@ Use these terms consistently in code, docs and discussion.
 | **Handler** | An HTTP handler in one of the three forms (plain, context, typed) |
 | **Model** | A struct mapped to a database table |
 | **Scope** | A reusable query modifier function |
+| **Rule** | A named validation check in a `validate` tag, e.g. `required` or `max:200`. Custom rules are registered with `validate.Register` |
 
 ---
 

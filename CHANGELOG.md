@@ -42,8 +42,24 @@ All notable changes to this project are documented here. The format follows
   regions (F1 follow-up).
 - Docs: routing and handlers guides, HTTP request lifecycle concept, binding
   reference, HTTP configuration reference, `examples/notes`.
+- Validation (`validate` package, F6): Laravel-style `validate` tags
+  (`required|email|max:200`) compiled once per type; presence, size, string
+  format, choice, comparison, date and file rules (content-sniffed
+  `mimetypes` and `image`); nested structs, slices and maps with dotted
+  keys; labels and per-struct message overrides; custom rules with
+  `validate.Register`; `validate.Struct` for use outside HTTP;
+  `*validate.Errors` (422, one message per field) and `validate.Fail`. No
+  allocations for valid input with built-in rules.
+- `web.H` runs validation rules after binding and before the `Validate`
+  method; tag mistakes panic at registration. `web.FieldErrorer` lets any
+  error fill the `errors` member of problem responses (F6).
+- Docs: validation guide, validation rules reference, `examples/validation`;
+  `make docs-check` ignores indentation shared by a whole snippet (F6).
 
 ### Changed
+- A plain error returned from an input's `Validate(ctx)` method is now a 500
+  (its text is not sent to clients); use `validate.Fail` for messages (F6,
+  design D37).
 - Booleans in configuration also accept `yes`/`no` and `on`/`off`.
 - Minimum Go version is now 1.26 (the older of the two supported releases);
   code modernized for it (`errors.AsType`, `slices.Backward`,

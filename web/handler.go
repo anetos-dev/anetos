@@ -4,16 +4,18 @@ package web
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"reflect"
+
+	"anetos.dev/anetos/validate"
 )
 
 // Validator is implemented by input types that check themselves after
-// binding. A returned error that is not an [HTTPError] or [StatusCoder]
-// becomes a 422 Unprocessable Entity whose message is the error text, so
-// write messages for the client. (Tag-based validation arrives with the
-// validate package, roadmap F6.)
+// binding and after their `validate` tag rules pass. Report problems with
+// [validate.Fail] or a *[validate.Errors], which become a 422 response with
+// a message per field, or with an [HTTPError]. Any other error is treated
+// like a handler error: a 500 whose details stay out of the response, so a
+// failing database check doesn't leak its error text.
 type Validator interface {
 	Validate(ctx context.Context) error
 }
@@ -42,28 +44,43 @@ type Validator interface {
 //     []*multipart.FileHeader.
 //   - Then `query`, `header` and `path` tags, which the body can never set.
 //
-// Conversion failures produce a 400 response listing each bad field. If In
-// implements [Validator], Validate runs next.
+// Conversion failures produce a 400 response listing each bad field. Then
+// the `validate` tag rules run (see the validate package); failures produce a
+// 422 response with a message per field. If they pass and In implements
+// [Validator], Validate runs last.
 //
 // The result is written by its [Responder] method if Out implements it, and
 // as JSON with status 200 otherwise; a nil Responder writes 204 No Content.
 // If fn wrote the response itself, the result is ignored.
 //
-// H inspects In once, when it is called; it panics if In is not a struct or
-// has a field type it can't bind, so mistakes show up at startup.
+// H inspects In once, when it is called; it panics if In is not a struct,
+// has a field type it can't bind, or has an invalid validate tag, so
+// mistakes show up at startup.
 func H[In, Out any](fn func(c *Ctx, in In) (Out, error)) HandlerFunc {
 	plan, err := newBindPlan(reflect.TypeFor[In]())
 	if err != nil {
 		panic(err)
+	}
+	rules, err := validate.Compile(reflect.TypeFor[In]())
+	if err != nil {
+		panic(err)
+	}
+	if rules.Empty() {
+		rules = nil
 	}
 	return func(c *Ctx) error {
 		var in In
 		if err := plan.bind(c, reflect.ValueOf(&in)); err != nil {
 			return err
 		}
+		if rules != nil {
+			if err := rules.Validate(c, &in); err != nil {
+				return err
+			}
+		}
 		if v, ok := any(&in).(Validator); ok {
 			if err := v.Validate(c); err != nil {
-				return asUnprocessable(err)
+				return err
 			}
 		}
 		out, err := fn(c, in)
@@ -72,14 +89,6 @@ func H[In, Out any](fn func(c *Ctx, in In) (Out, error)) HandlerFunc {
 		}
 		return respond(c, out)
 	}
-}
-
-func asUnprocessable(err error) error {
-	var sc StatusCoder
-	if errors.As(err, &sc) || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-		return err
-	}
-	return &HTTPError{Status: http.StatusUnprocessableEntity, Message: err.Error(), Err: err}
 }
 
 func respond(c *Ctx, out any) error {

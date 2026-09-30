@@ -6,7 +6,8 @@
 //
 //	APP_ENV=development HTTP_ADDR=:8080 go run ./examples/notes
 //
-//	curl -s localhost:8080/notes -H 'Content-Type: application/json' -d '{"title":"Hello","body":"First note"}'
+//	curl -s localhost:8080/notes -H 'Content-Type: application/json' -d '{"title":"Hello","body":"First note","tags":["intro"]}'
+//	curl -s localhost:8080/notes -H 'Content-Type: application/json' -d '{"title":"","tags":["a","a"]}'   # 422
 //	curl -s localhost:8080/notes?limit=10
 //	curl -s localhost:8080/notes/1
 //	curl -s -X DELETE localhost:8080/notes/1
@@ -14,7 +15,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"log"
 	"net/http"
 	"os"
@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"anetos.dev/anetos"
+	"anetos.dev/anetos/validate"
 	"anetos.dev/anetos/web"
 )
 
@@ -35,27 +36,29 @@ type Note struct {
 	ID        int       `json:"id"`
 	Title     string    `json:"title"`
 	Body      string    `json:"body"`
+	Tags      []string  `json:"tags,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// CreateNote is the input for POST /notes. It binds from JSON or a form.
+// CreateNote is the input for POST /notes. It binds from JSON or a form,
+// and the validate rules run before the handler.
 type CreateNote struct {
-	Title string `json:"title"`
-	Body  string `json:"body"`
+	Title string   `json:"title" validate:"required|max:200"`
+	Body  string   `json:"body" validate:"max:10000"`
+	Tags  []string `json:"tags" validate:"max:5|distinct|alpha_dash"`
 }
 
-// Validate runs after binding; its message is returned to the client with
-// status 422.
+// Validate runs after the tag rules pass, for checks tags can't express.
 func (in CreateNote) Validate(context.Context) error {
-	if strings.TrimSpace(in.Title) == "" {
-		return errors.New("title is required")
+	if strings.EqualFold(strings.TrimSpace(in.Title), "untitled") {
+		return validate.Fail("title", "Please give the note a real title.")
 	}
 	return nil
 }
 
 // ListNotes reads its input from the query string.
 type ListNotes struct {
-	Limit int `query:"limit"`
+	Limit int `query:"limit" validate:"min:0|max:100"`
 }
 
 // NoteID reads the {id} path parameter.
@@ -97,7 +100,7 @@ func (h *Notes) Show(c *web.Ctx, in NoteID) (Note, error) {
 func (h *Notes) Store(c *web.Ctx, in CreateNote) (web.Responder, error) {
 	h.mu.Lock()
 	h.nextID++
-	n := Note{ID: h.nextID, Title: in.Title, Body: in.Body, CreatedAt: time.Now().UTC()}
+	n := Note{ID: h.nextID, Title: in.Title, Body: in.Body, Tags: in.Tags, CreatedAt: time.Now().UTC()}
 	h.notes = append(h.notes, n)
 	h.mu.Unlock()
 

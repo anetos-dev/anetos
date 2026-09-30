@@ -24,27 +24,29 @@ type Note struct {
 	ID        int       `json:"id"`
 	Title     string    `json:"title"`
 	Body      string    `json:"body"`
+	Tags      []string  `json:"tags,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// CreateNote is the input for POST /notes. It binds from JSON or a form.
+// CreateNote is the input for POST /notes. It binds from JSON or a form,
+// and the validate rules run before the handler.
 type CreateNote struct {
-	Title string `json:"title"`
-	Body  string `json:"body"`
+	Title string   `json:"title" validate:"required|max:200"`
+	Body  string   `json:"body" validate:"max:10000"`
+	Tags  []string `json:"tags" validate:"max:5|distinct|alpha_dash"`
 }
 
-// Validate runs after binding; its message is returned to the client with
-// status 422.
+// Validate runs after the tag rules pass, for checks tags can't express.
 func (in CreateNote) Validate(context.Context) error {
-	if strings.TrimSpace(in.Title) == "" {
-		return errors.New("title is required")
+	if strings.EqualFold(strings.TrimSpace(in.Title), "untitled") {
+		return validate.Fail("title", "Please give the note a real title.")
 	}
 	return nil
 }
 
 // ListNotes reads its input from the query string.
 type ListNotes struct {
-	Limit int `query:"limit"`
+	Limit int `query:"limit" validate:"min:0|max:100"`
 }
 
 // NoteID reads the {id} path parameter.
@@ -63,6 +65,7 @@ type NoteID struct {
 | `query:"page"` | Query string (`[]T` collects repeated values) |
 | `path:"id"` | Path wildcard `{id}` |
 | `header:"X-Token"` | Request header |
+| `validate:"required\|max:200"` | Not a source: [validation rules](validation.md) checked after binding |
 
 Values are converted to the field's type: strings, numbers, booleans,
 `time.Duration`, `time.Time` (RFC 3339), pointers, and any type with an
@@ -96,7 +99,8 @@ api.Post("", web.H(notes.Store)).Name("store")
 ```
 
 `web.H` inspects the input type **once, at startup**. It panics then if the
-type can't be bound, so a mistake never waits for the first request.
+type can't be bound or a `validate` tag is wrong (an unknown rule, a bad
+parameter), so a mistake never waits for the first request.
 
 ### 3. Choose the response
 
@@ -138,12 +142,17 @@ Return an error and let the framework respond:
     "type": "about:blank",
     "title": "Unprocessable Entity",
     "status": 422,
-    "detail": "title is required",
+    "detail": "The given data was invalid.",
+    "errors": {
+      "title": "The title field is required."
+    },
     "request_id": "dikxmvlw5ml243cr"
   }
   ```
 
-  Binding errors add an `errors` object keyed by field name.
+  Binding and validation errors fill the `errors` object, keyed by field
+  name. Your own errors can do the same by implementing
+  `FieldErrors() map[string]string` (`web.FieldErrorer`).
 - **Browsers** get an HTML error page. With `APP_DEBUG=true` it shows the
   error chain, the stack trace for panics, and request details (with
   `Authorization` and `Cookie` headers redacted).
@@ -170,12 +179,15 @@ Two edge cases:
    these tags can **never** be set from the body, so a client can't override
    `{id}` by sending `"ID": 999` in JSON.
 3. Conversion failures give **400** with each bad field listed.
-4. If the input has `Validate(ctx) error`, it runs. A plain error becomes
-   **422** with its message; an `HTTPError` keeps its own status.
+4. The `validate` tag rules run. Failures give **422** with a message per
+   field. See [Validation](validation.md).
+5. If they pass and the input has `Validate(ctx) error`, it runs.
+   `validate.Fail(field, message)` (or a `*validate.Errors`) gives **422**,
+   an `HTTPError` keeps its own status, and any other error is a **500**.
 
 > **Coming from Laravel?** The input struct plays the role of a Form Request:
-> it declares the input and validates it before your handler runs.
-> Tag-based rules like `required|email` arrive with validation (roadmap F6).
+> it declares the input, its rules (`required|email`) and extra checks, and
+> is validated before your handler runs.
 
 ## Testing it
 
@@ -196,11 +208,13 @@ r.ServeHTTP(rec, req)
 |---|---|---|
 | Panic at startup: `input type … must be a struct` | `web.H` handler takes a non-struct | Wrap inputs in a struct |
 | Panic at startup: `unsupported field type` | e.g. a `map` field with a `query` tag | Use supported types or read `c.Request()` yourself |
+| Panic at startup: `validate: … unknown rule` | A typo in a `validate` tag, or a custom rule registered after the route | Check the [rules reference](../reference/validation-rules.md); register custom rules in `init` |
 | Field stays empty for JSON | The field has a `path`/`query`/`header` tag, or its JSON name differs | Check tags; body can't fill those fields |
 | `415 Unsupported Media Type` | Missing or wrong `Content-Type` | Send `application/json` or a form content type |
 | 500 with no details | Production mode hides internal errors | Check the log line with the same `request_id`, or set `APP_DEBUG=true` locally |
 
 ## Next steps
 
+- [Validation](validation.md)
 - [Binding reference](../reference/binding.md)
 - [HTTP request lifecycle](../concepts/http-request-lifecycle.md)

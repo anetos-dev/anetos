@@ -88,9 +88,11 @@ principle wins.
 3. **Let the types do the work.** Typed handlers, typed jobs, typed events and
    typed config. Binding, validation and API docs come from types, not
    strings.
-4. **Code generation over runtime reflection.** Reflection is allowed at
-   startup and registration time and must never run per request or per
-   message. Generated code is plain, readable Go, committed to the repo.
+4. **Code generation over runtime reflection.** Reflection that inspects
+   types (walking fields, parsing tags) is allowed at startup and
+   registration time and must never run per request or per message; per
+   request, only precomputed plans run. Generated code is plain, readable
+   Go, committed to the repo.
 5. **Batteries included, all swappable.** Every service is an interface
    (contract) with drivers selected by config. Defaults work with zero setup.
 6. **Small core, modular drivers.** Heavy dependencies (cloud SDKs, broker
@@ -411,9 +413,8 @@ v0.2.
 - Friendly form semantics: empty values count as absent for non-strings;
   booleans accept `on`/`off` and `yes`/`no`.
 - Failures: 400 with per-field messages, 413 for oversized bodies, 415 for
-  unsupported content types, 400 for trailing JSON data. A `Validate(ctx)
-  error` method on the input runs after binding (422 for plain errors); tag
-  rules come with F6.
+  unsupported content types, 400 for trailing JSON data. Validation follows
+  (§9): tag rules, then a `Validate(ctx) error` method.
 
 ### 8.5 Errors
 
@@ -453,18 +454,78 @@ v0.2.
 
 ## 9. Validation
 
-- Tag rules with Laravel-familiar names (`required`, `email`, `min`, `max`,
-  `in`, `confirmed`, `unique:posts,slug`, `exists:users,id`). Rules that need
-  the database run through the request's DB handle.
-- Custom rules are plain Go functions registered by name. Struct-level rules
-  come from a `Validate(ctx) error` method on the input type.
-- Failures produce an **error bag**:
-  - HTML forms: redirect back with errors and **old input** in the session
-    flash. View helpers render them (Laravel's `$errors` / `old()`
-    experience).
-  - APIs: `422` with field-keyed messages.
-- Messages are overridable and translatable (basic i18n planned as a v0.2
-  stretch goal).
+Package `validate` (F6). `web.H` runs it automatically; `validate.Struct`
+works on any struct (job payloads, CLI input).
+
+- **Tag syntax is Laravel's** (D31): `validate:"required|max:200|in:a,b"`.
+  Rules are separated by `|`, parameters follow `:` and are comma-separated.
+  Rule names and default messages follow Laravel ("The email field must be a
+  valid email address."). A `label` tag changes the field name in messages;
+  otherwise it is derived from the request key (`first_name` → "first
+  name").
+- **Compiled once** (D12): the first use of a type parses its tags into a
+  cached `Plan` of compiled checks; nested types without rules are pruned.
+  Unknown rules (with hints for Laravel rules that aren't needed, like
+  `nullable`), bad parameters, rules on the wrong kind of field, references
+  to missing fields, undetectable media types and unknown message keys are
+  errors then, so `web.H` panics at registration. Per request only the plan
+  runs: precomputed field indexes and closures, keys built only on failure,
+  and no allocation for valid input with the built-in rules (maps of
+  structs and file rules excepted; enforced by a test).
+- **Fields follow `encoding/json`** (D36): embedded structs and pointers to
+  structs without a json name are flattened, a shadowed field is ignored,
+  and a field inside a nil embedded pointer counts as empty (so `required`
+  still fails). Rules that could never apply as written (on a field json
+  drops as ambiguous, or two fields reporting under one key) are startup
+  errors. Keys are the json name, then `form`/`query`/`path`/`header`,
+  then the Go name.
+- **Empty fields** (D32): only the `required` family and `accepted` run on
+  an empty field (nil pointer, blank string, empty slice or map, zero
+  struct or array such as a time or UUID); other rules pass, so optional
+  fields need no extra marker. Element-wise rules skip empty elements.
+  Numbers and booleans are never empty; pointers express "not sent".
+  `required` additionally rejects zero numbers and `false` in non-pointer
+  fields.
+- **Rule set:** presence (`required`, `required_if`, `required_unless`,
+  `required_with`, `required_without`, `accepted`), size (`min`, `max`,
+  `size`, `between`, measured by kind), string formats (`email`, `url`,
+  `uuid`, `alpha…`, `numeric`, `ip`, `date`, …, applied element-wise to
+  `[]string`), choice (`in`, `not_in`, `distinct`), comparison (`same`,
+  `different`, `confirmed`, `after`/`before` with `now` or a field) and files
+  (`max_size`, `mimetypes` and `image` by content sniffing, `extensions`).
+  Safety defaults: `url` allows only http and https unless schemes are
+  listed, `ip` rejects zones, `image` excludes SVG. Numbers compare exactly
+  (integers never go through float64). The full list is in the
+  [rules reference](../site/reference/validation-rules.md).
+- **Nesting:** struct fields, slices and string-keyed maps of structs are
+  validated recursively with dotted keys (`items.0.name`). Recursive types
+  are supported; cyclic data returns an error after 10,000 struct levels
+  (`encoding/json`'s limit) instead of overflowing the stack.
+- **Custom rules** (D33): `validate.Register(name, message, fn)` from an
+  `init` function, like `sql.Register`. A rule gets the field's key, label,
+  dereferenced value, parameters and parent struct, plus the request
+  context. Returning an error aborts validation (500), distinct from a
+  failed check (422).
+- **Order in `web.H`** (D34): bind (400 on conversion errors) → tag rules
+  (422, handler not called) → `Validate(ctx) error` method, only if the tags
+  passed → handler. Checks that need the database or several fields go in
+  the method or the handler and report with `validate.Fail(field, msg)` or
+  a `*validate.Errors`. Any other error from `Validate` is a 500 (D37), so
+  a failing database check never leaks its text as a "validation message".
+- **Result:** `*validate.Errors`, one message per field in field order
+  (first failing rule wins). It implements `HTTPStatus() int` (422) and
+  `FieldErrors() map[string]string`; any error implementing the latter
+  (`web.FieldErrorer`) fills the `errors` member of problem JSON and the
+  HTML error page, also when wrapped in an `HTTPError` without `Fields`.
+  `*validate.Errors` marshals to a JSON object in field order.
+- **Messages:** English defaults; a struct can override templates with
+  `ValidationMessages() map[string]string` keyed by `key.rule` or `rule`.
+  Templates use `{label}`, `{0}`…, `{list}`. Translation arrives with i18n
+  (v0.2 stretch).
+- **Later:** database rules `unique`/`exists` run through the request's DB
+  handle (F7). HTML form failures redirect back with the error bag and
+  **old input** in the session flash, rendered by view helpers (F10).
+  Laravel's `$errors` / `old()` experience.
 
 ---
 
@@ -1037,7 +1098,7 @@ unless new information arrives), **Open**, **Superseded**.
 | D9 | Vite + Inertia starter kits in v0.4, not v0.3 | Accepted | v0.3 = public MVP |
 | D10 | Default dev DB: SQLite in pure Go (no CGO) | Proposed | Protects cross-compile and single-binary builds |
 | D11 | Logging via `log/slog`; no custom logger | Accepted | |
-| D12 | Reflection only at startup/registration, never per request | Accepted | Principle 4 |
+| D12 | Reflection only at startup/registration, never per request | Accepted | Principle 4. Clarified in F6: type inspection and tag parsing happen once; per request, precomputed plans read and set fields by index (bind and validation plans) |
 | D13 | No lazy loading of relations; explicit `With`/`Load` | Accepted | Prevents hidden N+1 |
 | D14 | No package name shadows the standard library (`web`, `supervisor`, `mailer`, `ext`, …) | Accepted | No import aliasing needed |
 | D15 | Typed handlers via generic `web.H(...)` adapter | Accepted | Go methods can't take type parameters |
@@ -1056,6 +1117,13 @@ unless new information arrives), **Open**, **Superseded**.
 | D28 | Errors: problem JSON or HTML by negotiation; 5xx details only in debug; abort the connection if the response already started | Accepted | Safe defaults; no truncated "successful" responses |
 | D29 | Binding precedence: body < query/header/path; body can never set URL/header fields; files never from JSON; embedded pointer structs with source tags rejected | Accepted | Prevents parameter tampering through the body |
 | D30 | HTTP shutdown grace capped at half of `APP_SHUTDOWN_TIMEOUT`, then requests are canceled | Accepted | A stuck request can't starve workers and hooks of shutdown time |
+| D31 | Validation tags use Laravel syntax: `required\|max:200\|in:a,b` | Accepted | Familiar to the target audience (roadmap §4); commas stay free for parameters. go-playground-style tags (`required,email`) fail at startup as malformed, never silently |
+| D32 | Only `required*` and `accepted` run on empty fields; numbers and booleans are never empty | Accepted | Optional fields need no `omitempty`/`nullable` marker; pointers say "not sent" (§9) |
+| D33 | Custom rules live in a package-level registry filled from `init` (`validate.Register`) | Accepted | Exception to principle 2, like `database/sql` drivers: tags can only reference rules by name. Write-once at init; duplicates and built-in names panic |
+| D34 | `web.H` order: bind → tag rules → `Validate(ctx)` (only if tags pass) → handler | Accepted | The method can rely on well-formed input; one 422 shape for both via `*validate.Errors` |
+| D35 | HTML error bags/old input deferred to F10, `unique`/`exists` to F7 | Accepted | They need sessions and the DB layer; the F6 API (`*validate.Errors`, `FieldErrorer`) is what they build on |
+| D36 | Validation resolves fields like `encoding/json` (flattening, shadowing, nil embedded pointers count as empty) | Accepted | Rules apply to the fields a client can actually send; a nil embedded pointer can't skip `required` |
+| D37 | A plain error from `Validate(ctx)` is a 500, not a 422 | Accepted | Supersedes the F5 behaviour. Messages for clients go through `validate.Fail`/`*validate.Errors`; internal failures stay internal (§20) |
 
 ---
 
@@ -1069,6 +1137,7 @@ unless new information arrives), **Open**, **Superseded**.
 | O4 | Should async events share one global pool or have a pool per listener? | §13.6 | B6 |
 | O5 | Plugin config: generated Go struct in the app vs loaded from the plugin's own struct only | §16.2 | B11 |
 | O6 | Which pure-Go SQLite implementation (maturity and performance check) | §10.3 | F7 |
+| O7 | Error keys use the json name even for form posts; should HTML forms key errors by the `form` name when it differs? | §9 | F10 |
 
 ---
 
@@ -1081,3 +1150,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-09-30 | F2–F4 implemented: §4, §5, §7, §13.3, §13.8, §23 updated; D18–D23 added |
 | 2026-09-30 | D18 accepted: minimum Go 1.26 |
 | 2026-09-30 | F5 implemented: §5, §8 rewritten; D3 accepted; D24–D30 added; O1 resolved |
+| 2026-09-30 | F6 implemented: §9 rewritten; principle 4 and D12 clarified; D31–D37 added; O7 opened |
