@@ -158,6 +158,19 @@ All notable changes to this project are documented here. The format follows
   removes its Redis streams (B7).
 - `examples/pubsub`: a billing service listening to `orders.created`,
   with a dead-letter topic; guide "Pub/sub listeners" (B7).
+- Scheduler (`schedule` package): `schedule.ForApp` (or `schedule.New`
+  and `Run`) runs named tasks, `func(ctx) error`, on schedules: `Cron`
+  expressions (five fields, names, macros) and `EveryMinute`, `Every`,
+  `Hourly`, `HourlyAt`, `Daily`, `DailyAt`, `WeeklyOn`, `MonthlyOn`, in
+  `SCHEDULE_TIMEZONE` (default UTC) or `.In(tz)`; task options
+  `WithoutOverlapping` and `OnOneServer` (cache locks) and `Timeout`;
+  `schedule.Dispatch` for queue jobs; a component with the role
+  `scheduler`; the `schedule:list` and `schedule:run` commands (B8,
+  design D116–D119).
+- `anetos new` projects set up the scheduler, with a `schedules` function
+  for the tasks (B8).
+- `examples/queue` prunes its audit log every night and dispatches an
+  hourly sales report job; guide "Scheduling" (B8).
 
 ### Changed
 - `anetostest` runs `db.AfterCommit` callbacks registered in a test's

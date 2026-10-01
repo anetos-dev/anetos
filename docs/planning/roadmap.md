@@ -208,6 +208,7 @@ Goal: everything a real application needs beyond CRUD.
 | B5 Queue | ✅ Done 2026-10-01 (sync, memory, database and Redis drivers; workers; failed-job commands; `db.WithTestTx`) |
 | B6 Events | ✅ Done 2026-10-01 (sync, async and queued listeners; `queue.RegisterFunc`) |
 | B7 Pub/sub listeners | ✅ Done 2026-10-01 (memory, Redis Streams and Google Pub/Sub brokers; typed listeners, retries, dead letters; ordering keys deferred) |
+| B8 Scheduler | ✅ Done 2026-10-01 (cron and fluent schedules with time zones; `WithoutOverlapping`, `OnOneServer`, `Timeout`; `schedule:list`, `schedule:run`; in new projects) |
 
 | WP | Work package | Notes |
 |---|---|---|
@@ -371,3 +372,4 @@ something, and we fix the API rather than add the hook.
 | 2026-10-01 | B5 (queue) done; memory driver added to its scope |
 | 2026-10-01 | B6 (events) done; function jobs added to the queue |
 | 2026-10-01 | B7 (pub/sub listeners) done; ordering keys deferred to the backlog |
+| 2026-10-01 | B8 (scheduler) done |

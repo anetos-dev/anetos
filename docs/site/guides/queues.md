@@ -368,6 +368,8 @@ server's clock for delays and leases.
 
 - [Run background tasks](background-tasks.md) for work that isn't a job:
   pollers and heartbeats.
+- [Scheduling](scheduling.md): dispatch a job every hour or night with
+  `schedule.Dispatch`.
 - [Runtime supervisor](../concepts/runtime-supervisor.md): roles, stages
   and shutdown.
 

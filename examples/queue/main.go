@@ -6,14 +6,17 @@
 // OrderPlaced event, whose listeners write the audit log, count sales
 // and email a receipt. Jobs are kept where
 // QUEUE_DRIVER says: sync (run at once), memory, database (SQLite here)
-// or redis (REDIS_URL).
+// or redis (REDIS_URL). A scheduler prunes the audit log every night and
+// dispatches an hourly sales report; its locks are in the cache
+// (CACHE_STORE: memory, database or redis).
 //
 //	go tool anetos key:generate >> .env   # APP_KEY, once
 //	export APP_ENV=development HTTP_ADDR=:8080 QUEUE_DRIVER=database
 //	go run . migrate
-//	go run .                              # the server and the workers
+//	go run .                              # the server, the workers and the scheduler
 //	curl -d '{"item":"Book","cents":1500}' localhost:8080/orders
 //	go run . queue:failed                 # jobs that failed for good
+//	go run . schedule:list                # the scheduled tasks
 package main
 
 import (
@@ -23,12 +26,14 @@ import (
 	"time"
 
 	"anetos.dev/anetos"
+	"anetos.dev/anetos/cache"
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/db/migrate"
 	"anetos.dev/anetos/drivers/redis"
 	"anetos.dev/anetos/drivers/sqlite"
 	"anetos.dev/anetos/events"
 	"anetos.dev/anetos/queue"
+	"anetos.dev/anetos/schedule"
 	"anetos.dev/anetos/web"
 )
 
@@ -40,7 +45,7 @@ func main() {
 	if _, err := setup(app); err != nil {
 		log.Fatal(err)
 	}
-	app.Execute() // run: the HTTP server and the workers; run --only=workers: the workers
+	app.Execute() // run: the HTTP server, the workers and the scheduler; run --only=workers: the workers
 }
 
 // newGateway returns the payment gateway; tests replace it.
@@ -50,7 +55,7 @@ func setup(app *anetos.App) (*web.Server, error) {
 	if _, err := db.Connect(context.Background(), app, sqlite.Driver()); err != nil {
 		return nil, err
 	}
-	if _, err := migrate.ForApp(app, []*migrate.Set{Migrations, queue.Migrations("", "")}); err != nil {
+	if _, err := migrate.ForApp(app, []*migrate.Set{Migrations, queue.Migrations("", ""), cache.Migrations("")}); err != nil {
 		return nil, err
 	}
 	app.AddContextValue(gatewayKey{}, newGateway()) // jobs and handlers find it in their context
@@ -79,6 +84,28 @@ func setup(app *anetos.App) (*web.Server, error) {
 		return nil, err
 	}
 	if err := events.OnQueued(bus, emailReceipt, events.Job(queue.Tries(10))); err != nil {
+		return nil, err
+	}
+	// endregion
+	// region: schedule-setup
+	// The scheduler's locks (WithoutOverlapping, OnOneServer) are in the
+	// cache: with several instances, use a store they share.
+	if _, err := cache.ForApp(app, redis.CacheDriver()); err != nil { // CACHE_STORE: memory, database or redis
+		return nil, err
+	}
+	s, err := schedule.ForApp(app) // SCHEDULE_TIMEZONE, default UTC
+	if err != nil {
+		return nil, err
+	}
+	if err := s.Add(schedule.DailyAt("03:00"), "prune-audit-log", pruneAuditLog,
+		schedule.WithoutOverlapping(), schedule.OnOneServer(), schedule.Timeout(10*time.Minute)); err != nil {
+		return nil, err
+	}
+	// Hourly, the scheduler dispatches a job; a worker runs it.
+	if err := queue.Register[SalesReport](q, queue.Tries(3)); err != nil {
+		return nil, err
+	}
+	if err := s.Add(schedule.Hourly(), "sales-report", schedule.Dispatch(SalesReport{}), schedule.OnOneServer()); err != nil {
 		return nil, err
 	}
 	// endregion

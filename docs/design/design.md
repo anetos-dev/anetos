@@ -196,7 +196,8 @@ func main() {
     q.Work(queue.Queues("emails"), queue.Concurrency(10))
     ps, _ := pubsub.ForApp(app, redis.PubSubDriver()) // PUBSUB_DRIVER (B7)
     pubsub.Listen(ps, "orders.created", listeners.OrderCreated, pubsub.Concurrency(20))
-    app.Schedule(schedule.DailyAt("02:00"), tasks.PruneSessions)
+    s, _ := schedule.ForApp(app)      // SCHEDULE_TIMEZONE (B8)
+    s.Add(schedule.DailyAt("02:00"), "prune-sessions", tasks.PruneSessions, schedule.OnOneServer())
 
     app.Execute() // parses os.Args: run (default) | serve | migrate | routes:list | … (F11)
 }
@@ -204,8 +205,8 @@ func main() {
 
 F11 implemented `app.Execute` and the generated `main.go` (with a
 `setup` function the project's test reuses), and B5 the queue's workers
-(§13.4) and B7 the pub/sub listeners (§13.5); `app.Use(plugins.All()...)`
-and schedules arrive later in v0.2.
+(§13.4), B7 the pub/sub listeners (§13.5) and B8 the scheduler (§13.7);
+`app.Use(plugins.All()...)` arrives later in v0.2.
 
 ---
 
@@ -235,7 +236,8 @@ anetos.dev/anetos/            ← core module
 ├── queue/               jobs, workers, sync/memory/database stores, failed jobs (B5); queue/queuetest: store conformance suite
 ├── events/              typed in-process events: sync, async (bounded pools), queued listeners (B6)
 ├── pubsub/              topics, subscriptions, typed listeners, memory broker (B7); pubsub/pubsubtest: broker conformance suite
-├── schedule/ mailer/ storage/
+├── schedule/            cron and fluent schedules, the scheduler component, overlap and single-instance locks (B8)
+├── mailer/ storage/
 ├── ext/                 public plugin API (package `ext`)
 ├── cmd/                 app-binary command types (F11); App.Execute dispatches
 ├── anetostest/          test app, browser-like client, assertions (F12); fakes arrive with their features
@@ -850,7 +852,8 @@ rule is **producers of work stop before its consumers** (D21):
 1. Mark not-ready (load balancers stop routing new traffic).
 2. `StageIngress` (HTTP): stop accepting connections; finish in-flight
    requests.
-3. `StageScheduler`: don't start new runs; wait for running tasks.
+3. `StageScheduler`: don't start new runs; give running tasks half of
+   the budget, then cancel them (D119).
 4. `StageListeners`: stop pulling new messages; finish or nack in-flight ones.
 5. `StageWorkers`: stop reserving jobs; give in-flight jobs (including
    ones produced in steps 2–4) the shutdown grace period (half of the
@@ -996,14 +999,32 @@ events.Emit(ctx, OrderPlaced{OrderID: o.ID})
 ### 13.7 Scheduler
 
 ```go
-app.Schedule(schedule.Cron("*/5 * * * *"), tasks.SyncInventory)
-app.Schedule(schedule.DailyAt("02:00").Timezone("Asia/Dhaka"), tasks.PruneSessions,
-    schedule.WithoutOverlapping(), schedule.OnOneServer())
+s, err := schedule.ForApp(app) // SCHEDULE_TIMEZONE, default UTC
+err = s.Add(schedule.Cron("*/5 * * * *"), "sync-inventory", tasks.SyncInventory)
+err = s.Add(schedule.DailyAt("02:00").In("Asia/Dhaka"), "prune-sessions", tasks.PruneSessions,
+    schedule.WithoutOverlapping(), schedule.OnOneServer(), schedule.Timeout(10*time.Minute))
+err = s.Add(schedule.Hourly(), "sales-report", schedule.Dispatch(jobs.SalesReport{}))
 ```
 
-`WithoutOverlapping` and `OnOneServer` use cache locks (`cache.TryWithLock`,
-§14.1), so running the scheduler on several instances is safe with a
-shared store (database or Redis).
+*(Implemented in B8: package `schedule`.)*
+
+- Schedules are five-field cron expressions (numbers, ranges, lists,
+  steps, names, macros) parsed by the framework, to the minute, with
+  helpers (`EveryMinute`, `Every`, `Hourly`, `DailyAt`, `WeeklyOn`,
+  `MonthlyOn`); each has a time zone (`In`, or `SCHEDULE_TIMEZONE`).
+  Clock changes follow the wall clock: skipped times don't run, repeated
+  ones run twice (D116).
+- Tasks are named `func(ctx) error`; failures are logged, not retried;
+  `schedule.Dispatch` turns a queue job into a task for retries. The
+  scheduler is one component (role `scheduler`, `StageScheduler`), added
+  once it has tasks; each due run starts in its own goroutine. Missed
+  runs are skipped; a late wake-up runs each task once (D117).
+- `WithoutOverlapping` and `OnOneServer` use cache locks (§14.1): a lock
+  per task while it runs (a lease it extends), and one per run (task and
+  minute, kept an hour), so running the scheduler on several instances is safe with a
+  shared store (database or Redis) (D118).
+- `schedule:list` shows tasks and their next runs; `schedule:run <task>`
+  runs one now. At shutdown runs get half the budget (D119).
 
 ### 13.8 Ad-hoc background work
 
@@ -1248,9 +1269,11 @@ Generators produce plain Go that the developer owns.
 
 Implemented in F11 (package `cmd`, `App.Execute`; D69): `run [--only=…]`
 (the default), `serve`, `routes:list`, `migrate*`, `db:seed`, `help`,
-plus **custom commands**. Later: `work`, `listen`, `schedule`,
-`queue:failed`, `queue:retry`, `schedule:list`, `down` / `up`
-(maintenance).
+plus **custom commands**. Features add theirs: `cache:clear` (B1),
+`queue:failed`, `queue:retry`, `queue:forget`, `queue:flush`,
+`queue:clear` (B5), `pubsub:publish` (B7), `schedule:list`,
+`schedule:run` (B8). Later: the shortcuts `work`, `listen`, `schedule`,
+and `down` / `up` (maintenance).
 
 ```go
 // illustrative
@@ -1531,6 +1554,10 @@ unless new information arrives), **Open**, **Superseded**.
 | D113 | Subscriptions default to `<topic>.<APP_NAME>` and are prepared when the app boots (a provider), or when `Listen` runs after boot; Redis groups start at the stream's end; Google subscriptions must exist unless `PUBSUB_GCP_CREATE` (without it Prepare makes no API call, so least-privilege accounts work); Google IDs escape unsupported characters as `%XX` and are validated; topics have no prefix by default (`PUBSUB_PREFIX` exists for isolation, and tests) | Accepted | Each service gets every message and scales by running more processes; messages published between deploy and the first listener aren't lost; production infra (IAM, retention, dead-letter policies) belongs to infra tools, not app boot |
 | D114 | Retries and dead letters are the framework's: a failed message is redelivered after `Backoff` (10s doubling to 10m, jitter) until `MaxAttempts` (default unlimited), then published to `DeadLetter` with `anetos.*` attributes and acked, or dropped and logged without one (the dead-letter publish is retried for 10s before the message is nacked); `Permanent` errors (any error with `Permanent() bool`, so `queue.Permanent` too) and undecodable bodies skip the retries; `MaxAttempts` without delivery counts is logged once; `PubSub.Run` restarts failed listeners like the supervisor; messages stopped at shutdown are redelivered whatever MaxAttempts says | Accepted | Uniform across brokers; unlimited by default never drops data silently; Google's own retry policy and dead-letter policy apply where the framework can't (no delays; attempts only with a policy), documented |
 | D115 | Redis Streams: a failed message stays pending, its retry time in a per-group sorted set and its idle time set (`XCLAIM … IDLE … JUSTID`) so it can be claimed then (or after the ack timeout, to be put back to sleep if not due); claims use `XAUTOCLAIM … JUSTID`, and only due messages are claimed again without JUSTID, which counts the delivery; abandoned ones after the ack timeout (listener timeout + 30s); `Attempt` is the group's delivery count; streams are capped at about `PUBSUB_REDIS_MAXLEN`; consumers without pending messages are removed when they stop | Accepted | Backoffs of any length with exact delivery counts (waiting isn't a delivery); due retries are found in the sorted set directly, so many waiting messages don't delay them; each claim decision is one Lua script (remove a due retry time and claim; deliver a message without one only if this consumer owns it), so consumers sharing a group never both deliver a retry; retry times follow the server's clock; at-least-once survives crashed consumers; trimming bounds memory, at the documented cost of messages a slow group hasn't read |
+| D116 | Cron expressions are parsed by the framework (five fields, minute resolution, names, macros; day of month and day of week OR-ed when both are restricted, as in cron); a schedule's time zone is its own (`In`) or `SCHEDULE_TIMEZONE` (default UTC); times are matched on the wall clock, so a time a clock change skips doesn't run that day and one it repeats runs twice (a day whose midnight is skipped starts after the change); `*` fields (`*/n` too) count as unrestricted; the search looks 401 years ahead (the Gregorian cycle), so an expression that never matches is an error when added | Accepted | No dependency for ~150 lines; cron syntax is what developers know, the helpers cover the common cases readably; wall-clock matching is predictable and documented, while cron's special DST rules surprise; UTC by default avoids DST entirely |
+| D117 | The scheduler is one supervised component (role `scheduler`, `StageScheduler`, restarted on failure), added when the app boots if it has tasks; tasks are named `func(ctx) error` with the app's values; it sleeps until the earliest next run and starts due runs in goroutines; missed runs (no scheduler running) are skipped and a late wake-up runs each task once; failures and panics are logged, never retried (`schedule.Dispatch` dispatches a queue job instead); `schedule:run` runs a task now | Accepted | No crontab or per-minute process (Laravel's `schedule:run`); one binary scales with `--only=scheduler`; catching up after downtime would run bursts of stale work; retries belong to the queue, which already has them; names make logs, locks and commands stable |
+| D118 | `OnOneServer` takes a cache lock per run, `schedule:<task>:<UTC minute>`, for an hour, never released; `WithoutOverlapping` takes `schedule:<task>:running` for the run, a 3-minute lease extended every minute while it goes, released when it ends; both need `cache.ForApp` (checked at boot, and by `Add` after it) and the memory store logs a warning for `OnOneServer`; skipped overlapping runs are logged as warnings | Accepted | Instances agree on a run by its scheduled minute, even with clock skew under an hour; keeping the run's lock stops a slow instance from running it again; a heartbeat lease is held exactly as long as the run lives (a fixed ttl either blocks the task for hours after a crash or lets a slow run overlap); locks are cache leases (D91), so any shared store works |
+| D119 | At shutdown the scheduler stops starting runs and gives running ones half of `APP_SHUTDOWN_TIMEOUT` (capped by `Supervisor.ShutdownDeadline` minus 2s; `WithShutdownGrace` without an app), then cancels their contexts and waits | Accepted | Same rule as the HTTP server and queue workers (D107); the stages share one deadline, so time a slow task uses is time listeners and workers don't get: long work belongs in a job (`schedule.Dispatch`) |
 
 ---
 
@@ -1573,3 +1600,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-01 | B5 queue implemented: §4, §5, §13.4, §14, §18 updated; D104–D108 added; O3 resolved |
 | 2026-10-01 | B6 events implemented: §5, §13.4, §13.6 updated; D109–D111 added; O4 resolved |
 | 2026-10-01 | B7 pub/sub listeners implemented: §4, §5, §13.5, §14, §18 updated; D112–D115 added |
+| 2026-10-01 | B8 scheduler implemented: §4, §5, §13.3, §13.7, §17.2 updated; D116–D119 added |

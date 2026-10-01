@@ -52,6 +52,7 @@ func main() {
 | `cache:clear` | `cache.ForApp` ([Cache values](cache.md)) |
 | `queue:failed`, `queue:retry`, `queue:forget`, `queue:flush`, `queue:clear` | `queue.ForApp` ([Queues](queues.md)) |
 | `pubsub:publish` | `pubsub.ForApp` ([Pub/sub listeners](pubsub.md)) |
+| `schedule:list`, `schedule:run` | `schedule.ForApp` ([Scheduling](scheduling.md)) |
 
 ### 3. Add your own
 

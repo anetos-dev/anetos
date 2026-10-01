@@ -13,6 +13,7 @@ import (
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/events"
 	"anetos.dev/anetos/queue"
+	"anetos.dev/anetos/schedule"
 	"anetos.dev/anetos/anetostest"
 )
 
@@ -146,6 +147,38 @@ func TestOrderEvents(t *testing.T) {
 		t.Errorf("sales: %d orders, want %d", orders, ordersBefore+1)
 	}
 	app.Get("/stats").AssertOK()
+}
+
+// endregion
+
+// region: test-schedule
+// RunTask runs a task now, as `go run . schedule:run <task>` does.
+func TestScheduledTasks(t *testing.T) {
+	fakeGateway(t, &FakeGateway{})
+	app := anetostest.New(t, setup, anetostest.Env(map[string]string{"QUEUE_DRIVER": "sync"}))
+	old := &AuditEntry{OrderID: 1, Message: "placed: Kettle"}
+	if err := db.Create(app.Context(), old); err != nil {
+		t.Fatal(err)
+	}
+	_, err := db.Query[AuditEntry](app.Context()).Where(colID.Eq(old.ID)).Update(colCreatedAt.Set(time.Now().AddDate(0, 0, -100)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	recent := placeOrder(t, app, "Mug", 900)
+
+	s := anetos.MustResolve[*schedule.Scheduler](app.App)
+	if err := s.RunTask(app.Context(), "prune-audit-log"); err != nil {
+		t.Fatal(err)
+	}
+	anetostest.AssertDatabaseMissing[AuditEntry](app, colID.Eq(old.ID))
+	anetostest.AssertDatabaseHas[AuditEntry](app, db.Col[int64]("order_id").Eq(recent))
+
+	if err := s.RunTask(app.Context(), "sales-report"); err != nil { // the sync queue runs the job at once
+		t.Fatal(err)
+	}
+	if r := salesReports.Sent(); len(r) == 0 || r[len(r)-1] != "Sales report: orders paid in the last hour: 1" {
+		t.Errorf("reports: %q", r)
+	}
 }
 
 // endregion

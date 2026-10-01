@@ -12,7 +12,8 @@ kernel, configuration, runtime supervisor, HTTP layer, validation, data
 layer, migrations, model code generation, views, sessions, forms, the CLI
 and testing helpers; v0.1.1 added relations. v0.2 is in progress: the
 cache, server-side sessions and rate limiting, authentication, social
-login, queues, events and pub/sub listeners are done. APIs will change.
+login, queues, events, pub/sub listeners and the scheduler are done. APIs
+will change.
 
 ## Documents
 
@@ -29,7 +30,7 @@ go run . migrate
 go tool anetos dev         # rebuild and reload on every change
 
 go build -o blog .
-./blog                     # everything: web and queue workers (schedules later in v0.2)
+./blog                     # everything: web, queue workers and the scheduler
 ./blog run --only=http     # or split by role when you scale
 ./blog run --only=workers
 ./blog help                # migrate, routes:list, your own commands, …

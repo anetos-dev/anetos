@@ -126,6 +126,8 @@ for _, st := range app.Supervisor().Status() {
 
 ## Next steps
 
+- [Scheduling](scheduling.md) for work that runs at set times (every
+  night, every hour) rather than all the time.
 - [Runtime supervisor](../concepts/runtime-supervisor.md): roles, policies,
   staged shutdown
 - [Application lifecycle](../concepts/application-lifecycle.md)

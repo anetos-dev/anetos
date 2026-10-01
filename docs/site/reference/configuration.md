@@ -221,6 +221,15 @@ and by the drivers. See [Pub/sub listeners](../guides/pubsub.md).
 | `PUBSUB_GCP_PROJECT` | string | none (required with `gcp`) | The Google Cloud project's ID | v0.2 |
 | `PUBSUB_GCP_CREATE` | bool | `false` | Create missing Google topics and subscriptions (development, the emulator) | v0.2 |
 
+## Scheduler
+
+Read by `schedule.ForApp` (or `schedule.LoadConfig`) into
+`schedule.Config`. See [Scheduling](../guides/scheduling.md).
+
+| Key | Type | Default | Description | Since |
+|---|---|---|---|---|
+| `SCHEDULE_TIMEZONE` | IANA time zone (`Asia/Dhaka`) | `UTC` | The time zone of schedules without `.In(tz)`. Times that clock changes skip don't run that day; times they repeat run twice (see [Scheduling](../guides/scheduling.md#2-add-it-to-the-scheduler)) | v0.2 |
+
 ## Redis
 
 Read by `redis.Connect` (module `drivers/redis`, also used by
