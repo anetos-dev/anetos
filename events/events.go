@@ -534,6 +534,11 @@ func (b *Bus) work(l *listener) {
 func (b *Bus) handle(l *listener, e any) {
 	ctx, cancel := context.WithTimeout(b.context(), l.timeout)
 	defer cancel()
+	if b.app != nil {
+		var end func()
+		ctx, end = b.app.StartUnit(ctx, anetos.Unit{Kind: "listener", Name: l.name})
+		defer end()
+	}
 	log := b.log.With("listener", l.name, "event", reflect.TypeOf(e).String())
 	defer func() {
 		if v := recover(); v != nil {

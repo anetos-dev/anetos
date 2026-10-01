@@ -11,6 +11,7 @@ import (
 	"io"
 	"log/slog"
 	"maps"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -372,6 +373,14 @@ func TestForApp(t *testing.T) {
 		t.Errorf("unknown driver: %v", err)
 	}
 	app := newApp(t, nil)
+	var unitMu sync.Mutex
+	var units []string
+	app.AroundUnits(func(ctx context.Context, u anetos.Unit) (context.Context, func()) {
+		unitMu.Lock()
+		defer unitMu.Unlock()
+		units = append(units, u.Kind+" "+u.Name)
+		return ctx, nil
+	})
 	p, err := pubsub.ForApp(app)
 	check(t, err)
 	if anetos.MustResolve[*pubsub.PubSub](app) != p {
@@ -398,6 +407,11 @@ func TestForApp(t *testing.T) {
 	eventually(t, "the late listener", func() bool { return r2.count("late") == 1 })
 	cancel()
 	check(t, <-done)
+	unitMu.Lock()
+	if !slices.ContainsFunc(units, func(u string) bool { return strings.HasPrefix(u, "message orders.created (") }) {
+		t.Errorf("units %v", units)
+	}
+	unitMu.Unlock()
 
 	// ForApp after boot prepares each listener's subscription itself.
 	app3 := newApp(t, nil)

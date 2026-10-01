@@ -73,6 +73,9 @@ func ruleColumn(f validate.Field) string {
 }
 
 func rowExists(ctx context.Context, table string, conds []Expr) (bool, error) {
+	// A rule on a slice's elements runs once per element, before the
+	// handler: not something the app can batch.
+	ctx = Untracked(ctx)
 	d, c, err := handle(ctx)
 	if err != nil {
 		return false, err

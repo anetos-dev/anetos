@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"anetos.dev/anetos"
 	"anetos.dev/anetos/queue"
 )
 
@@ -102,5 +103,22 @@ func TestObserveFailedDispatch(t *testing.T) {
 	check(t, q2.Dispatch(context.Background(), noted{N: 5}, queue.OnDispatched(func(_ context.Context, d queue.Dispatched) { got = d })))
 	if got.Job == "" || string(got.Data) != `{"N":5}` {
 		t.Errorf("OnDispatched got %+v", got)
+	}
+}
+
+// Each job run is a unit of work.
+func TestJobUnits(t *testing.T) {
+	app := newApp(t, nil) // QUEUE_DRIVER defaults to sync
+	var units []anetos.Unit
+	app.AroundUnits(func(ctx context.Context, u anetos.Unit) (context.Context, func()) {
+		units = append(units, u)
+		return ctx, nil
+	})
+	q, err := queue.ForApp(app)
+	check(t, err)
+	check(t, queue.Register[noted](q, queue.Name("noted")))
+	check(t, queue.Dispatch(app.Context(context.Background()), noted{}))
+	if len(units) != 1 || units[0] != (anetos.Unit{Kind: "job", Name: "noted"}) {
+		t.Errorf("units %+v", units)
 	}
 }

@@ -211,6 +211,15 @@ F11 implemented `app.Execute` and the generated `main.go` (with a
 B9 the mailer (§14.2), B10 storage (§14.3);
 `app.Use(plugins.All()...)` arrives later in v0.2.
 
+**Units of work** (B13, D141). A request, a queue job, an async or
+queued event listener's handling, a pub/sub message and a scheduled
+task are each a *unit of work* (`anetos.Unit{Kind, Name}`). The
+packages that run them call `app.StartUnit(ctx, unit)`, which runs the
+functions added with `app.AroundUnits(fn)`: each may wrap the unit's
+context and be told when it ends. `db.Connect` uses it for
+repeated-query detection (§10.3); tracing and per-unit metrics can use
+it later. With no functions, `StartUnit` returns the context unchanged.
+
 ---
 
 ## 5. Repository & module layout
@@ -660,9 +669,13 @@ posts, err := db.Query[models.Post](c).
   and read (D43). NULL into a non-pointer field is an error (D44).
 - Query log at debug level in development (`DB_LOG_QUERIES`), slow-query
   warnings everywhere (`DB_SLOW_QUERY`). Relations can't cause hidden
-  N+1 queries (no lazy loading); detecting hand-written ones (the same
-  query repeated within a request) needs request-scoped query tracking and
-  is deferred to v0.2 (D87).
+  N+1 queries (no lazy loading); hand-written ones are detected (B13,
+  D142–D144): `db.Connect` tracks every unit of work (§4) when
+  `DB_REPEATED_QUERIES` is set (default 5 in development and testing, off
+  elsewhere), counts each query's SQL text in the unit, and when the unit
+  ends logs a warning for each one run at least that many times, with
+  the first frame of app code that ran it; `anetostest` records them
+  (`app.AssertNoRepeatedQueries()`).
 
 ### 10.4 Build vs. buy
 
@@ -1743,6 +1756,10 @@ unless new information arrives), **Open**, **Superseded**.
 | D138 | Assertions are generic functions over the recorded values with a match func (`AssertDispatched[J](app, match)`, `Jobs[J]`, `AssertEmitted[E]`, `AssertMailSent[M]`, `AssertMailQueued[M]`, `AssertPublished[T](app, topic, match)`), decoding jobs and messages from their JSON; failures list what was recorded | Accepted | Typed (design principle 3) without reflection-based matchers; Go methods can't have type parameters, so they are functions taking the app |
 | D139 | Mail and storage get no fake switch: tests already force `MAIL_DRIVER=memory` and `STORAGE_DRIVER=memory`; the mailer's records say sent (`Send`, once the transport took it) or queued (`Queue`, once dispatched), and `app.Disk(name)` asserts on files | Accepted | Nothing leaves the process in tests already; what was missing was typed checks |
 | D140 | `anetostest`'s clock: `Freeze(t)` (zero: now) truncates to microseconds, what databases store, so times read back compare equal; `Travel(d)` moves a frozen or a running clock; the test client's cookie jar reads the app's clock | Accepted | A frozen time equals the stored timestamps; cookies and server-side lifetimes expire together |
+| D141 | Units of work are a kernel concept: `anetos.Unit{Kind, Name}`, `App.AroundUnits(fn)`, `App.HasAroundUnits()` (so callers skip building a unit's name when nobody listens) and `App.StartUnit(ctx, u)`, called by the server (a global middleware), queue jobs (workers and the sync driver), async listeners, pub/sub listeners and scheduled tasks; queued listeners are jobs | Accepted | One hook covers every way an app does work, so request-scoped features (N+1 detection, later tracing) aren't web-only and packages don't import each other |
+| D142 | Repeated-query detection counts queries by their SQL text (placeholders, so one shape whatever the arguments) per unit and DB, reports at the unit's end each query run at least `DB_REPEATED_QUERIES` times (default 5 in development and testing, off elsewhere; 0 off, else ≥ 2) as a warning and to `DB.OnRepeatedQuery` functions | Accepted | The query builder writes a shape the same way every time; a threshold of 5 keeps a handful of deliberate repeats (two `Find`s) quiet; counting is a map lookup, and nothing at all when off |
+| D143 | The report names the caller: when a count reaches the threshold, the stack is read once and the first frame whose module (from the binary's build information) is neither the framework's (the core and `drivers/…` modules) nor the standard library's (no module) is kept as `dir/file.go:line`; package main, examples and `plugins/` count as app code; without build information, a name list decides | Accepted | Says where the loop is without paying for a stack per query |
+| D144 | The framework's database stores (cache, queue, sessions) and validation rules' queries use `db.Untracked(ctx)`, which apps can use too; an operation the db package splits into chunks (`With` over more than 1,000 keys, large `CreateMany`, pivot writes) counts each statement once; a nested unit counts its own queries, afresh even inside `Untracked` or a chunked operation; code outside a unit can call `DB.Track`; `anetostest` records reports (`RepeatedQueries`, `AssertNoRepeatedQueries`) | Accepted | A cache read per key, a rule per slice element or a job per item is by design or not the app's to batch, and the framework's own batching isn't an N+1; tests turn the warning into a check |
 
 ---
 
@@ -1790,3 +1807,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-01 | B10 storage implemented: §4, §5, §14, §18 updated, §14.3 added; D124–D128 added; anetostest's APP_URL default is its own site |
 | 2026-10-01 | B11 plugin system implemented: §5, §6, §7, §16 rewritten, §17 updated; D129–D135 added; D23 superseded; O5 resolved; `drivers/postmark` moved to `plugins/postmark` |
 | 2026-10-01 | B12 test fakes implemented: §5, §18 updated; D136–D140 added |
+| 2026-10-02 | B13 N+1 detection implemented: §4 (units of work), §10.3 updated; D141–D144 added |

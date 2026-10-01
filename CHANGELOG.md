@@ -235,6 +235,16 @@ All notable changes to this project are documented here. The format follows
   at the end of `setup` (B11).
 - `examples/queue` uses the Postmark plugin and skips receipts to
   suppressed addresses; guides "Use plugins" and "Write a plugin" (B11).
+- Units of work: `anetos.Unit`, `App.AroundUnits`, `App.HasAroundUnits` and `App.StartUnit`,
+  called for each request, queue job, async listener, pub/sub message
+  and scheduled task (B13, design D141).
+- Repeated-query (N+1) detection: `DB_REPEATED_QUERIES` (default 5 in
+  development and testing, off elsewhere) logs a warning when a unit of
+  work runs the same query that many times, with the app's line that ran
+  it; `db.RepeatedQuery`, `DB.Track`, `DB.OnRepeatedQuery`,
+  `db.WithRepeatedQueries`, `db.Untracked`; `anetostest`'s
+  `app.RepeatedQueries()` and `app.AssertNoRepeatedQueries()`; guide
+  "Find N+1 queries" (B13, design D142–D144).
 - The app's clock: `anetos.Now(ctx)`, `App.Now`, `App.SetClock` and
   `anetos.WithClock`. Model timestamps, session lifetimes, auth tokens,
   `APP_KEY`-signed temporary URLs, memory cache expiry, rate-limit

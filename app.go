@@ -65,6 +65,8 @@ type App struct {
 	commands map[string]cmd.Command
 
 	clock clock // Now
+
+	unitFuncs // AroundUnits
 }
 
 type ctxValue struct{ key, val any }

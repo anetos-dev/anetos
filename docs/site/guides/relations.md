@@ -199,7 +199,8 @@ published posts (`GET /authors`).
 
 Relations are loaded **only when you ask**: there is no lazy loading, so
 reading `post.Author` never runs a query behind your back, and the N+1
-pattern (one query per row) has to be written out to happen. `With`
+pattern (one query per row) has to be written out to happen, and then
+it is [reported](n-plus-one.md) in development and tests. `With`
 collects the keys of the rows it got, runs one `WHERE key IN (…)` query per
 relation (in chunks of 1,000 keys), and hands out the results; a
 many-to-many relation reads the pivot table first. Rows that belong to the
@@ -243,6 +244,10 @@ func TestAuthorsWithPublishedPosts(t *testing.T) {
 
 (Copied from [`examples/database/main_test.go`](../../../examples/database/main_test.go), region `test-relations`.)
 
+To check that a page loads its relations without an N+1, call
+`app.AssertNoRepeatedQueries()` after its requests: see
+[Find N+1 queries](n-plus-one.md#3-keep-it-fixed-with-a-test).
+
 ## Common problems
 
 | Symptom | Cause | Fix |
@@ -255,6 +260,7 @@ func TestAuthorsWithPublishedPosts(t *testing.T) {
 | Changing `post.Author` changes other posts' authors | Posts by one author share the loaded `*Author` | Copy the value before changing it |
 | An API returns `"author": null` for unloaded rows | The field isn't loaded | Load it, or add `omitzero` to its json tag |
 | `relation … is loaded twice` | The same relation passed twice to `With` | Pass it once, with all its nested relations |
+| A `repeated query: an N+1?` warning | A query in a loop, one per row | Load the relation with `With` or `db.LoadMany`: [Find N+1 queries](n-plus-one.md) |
 | `both pivot columns are "user_id"` | A many-to-many from a model to itself | Name them: `rel:"many_to_many,pivot=friendships,fk=user_id,related_fk=friend_id"` |
 | An `ON CONFLICT` error from `Attach` (no matching unique constraint) | The pivot table has no primary key or unique index on its two columns | Add one in a migration |
 | MySQL error 1093 from `Update` or `Delete` with `WhereHas` | MySQL can't read a table it writes in a subquery (a relation to the same table) | Select the keys first, then update `WhereIn` them |

@@ -243,6 +243,7 @@ const maxParams = 30000
 // insert writes rows with one INSERT per batch. With conflict columns it
 // upserts instead and doesn't read back keys.
 func insert(ctx context.Context, d *DB, c conn, m *meta, rows []reflect.Value, conflict, update []string) error {
+	ctx = inBatch(ctx) // its chunks count as one query for repeated-query detection
 	cols := m.insertable(rows[0])
 	for _, r := range rows[1:] {
 		if len(m.insertable(r)) != len(cols) {

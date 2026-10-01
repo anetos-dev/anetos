@@ -131,7 +131,9 @@ if the context carries one (see [Transactions](transactions.md)). The
 
 In development, every query is logged at debug level with its duration.
 Queries slower than `DB_SLOW_QUERY` (default 500ms) are logged as warnings
-in every environment.
+in every environment. In development and tests, a request (or job, …)
+that runs the same query five times or more is logged as a warning: see
+[Find N+1 queries](n-plus-one.md).
 
 > **Coming from Laravel?** `DB_CONNECTION`, `DB_HOST` and friends mean what
 > they mean in Laravel's `.env`. There is no `config/database.php`: extra

@@ -16,6 +16,7 @@ import (
 	"anetos.dev/anetos/config"
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/anetostest"
+	"anetos.dev/anetos/web"
 )
 
 // region: test-api
@@ -198,6 +199,42 @@ func TestTimestamps(t *testing.T) {
 	app.Delete("/posts/" + strconv.FormatInt(p.ID, 10)).AssertNoContent()
 	later := now.Add(time.Hour)
 	anetostest.AssertSoftDeleted[Post](app, PostCols.ID.Eq(p.ID), PostCols.DeletedAt.Eq(&later))
+}
+
+// endregion
+
+// region: test-n-plus-one
+// The posts page loads the authors with one query (With), so no request
+// repeats a query. The handler below is the N+1 that avoids, a query per
+// post: anetostest reports it, with the line it runs from.
+func TestNoNPlusOne(t *testing.T) {
+	app := anetostest.New(t, setup)
+	ada := anetostest.Create(app, Authors)
+	now := time.Now().UTC()
+	anetostest.CreateMany(app, Posts.With(func(p *Post) { p.AuthorID, p.PublishedAt = ada.ID, &now }), 6)
+
+	app.GetJSON("/posts").AssertOK()
+	app.AssertNoRepeatedQueries()
+
+	app.Router().Get("/slow-posts", func(c *web.Ctx) error {
+		posts, err := db.Query[Post](c).Get()
+		if err != nil {
+			return err
+		}
+		for i := range posts {
+			author, err := db.Find[Author](c, posts[i].AuthorID) // one query per post
+			if err != nil {
+				return err
+			}
+			posts[i].Author = &author
+		}
+		return c.JSON(http.StatusOK, posts)
+	})
+	app.GetJSON("/slow-posts").AssertOK()
+	if q := app.RepeatedQueries(); len(q) != 1 || q[0].Count != 6 || q[0].Unit.Name != "GET /slow-posts" ||
+		!strings.HasPrefix(q[0].Caller, "database/main_test.go:") {
+		t.Errorf("repeated queries: %v", q)
+	}
 }
 
 // endregion

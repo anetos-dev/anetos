@@ -429,8 +429,16 @@ func TestForApp(t *testing.T) {
 	if strings.Contains(out, "m0s") {
 		t.Errorf("schedule:list shows seconds:\n%s", out)
 	}
+	var units []string
+	app.AroundUnits(func(ctx context.Context, u anetos.Unit) (context.Context, func()) {
+		units = append(units, u.Kind+" "+u.Name)
+		return ctx, nil
+	})
 	before := reports.Load()
 	out, err = run("schedule:run", "daily-report")
+	if len(units) == 0 || units[0] != "task daily-report" { // then its job (sync driver)
+		t.Errorf("units %v", units)
+	}
 	if err != nil || !strings.HasPrefix(out, "Ran daily-report in") || reports.Load() != before+1 {
 		t.Errorf("schedule:run = %q, %v; %d reports", out, err, reports.Load()-before)
 	}

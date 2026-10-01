@@ -13,7 +13,8 @@ layer, migrations, model code generation, views, sessions, forms, the CLI
 and testing helpers; v0.1.1 added relations. v0.2 is in progress: the
 cache, server-side sessions and rate limiting, authentication, social
 login, queues, events, pub/sub listeners, the scheduler, mail, file
-storage, plugins (`anetos add`) and test fakes are done. APIs will change.
+storage, plugins (`anetos add`), test fakes and N+1 detection are
+done. APIs will change.
 
 ## Documents
 

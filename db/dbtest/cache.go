@@ -5,11 +5,13 @@ package dbtest
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	"anetos.dev/anetos"
 	"anetos.dev/anetos/cache"
 	"anetos.dev/anetos/cache/cachetest"
 	"anetos.dev/anetos/db"
@@ -58,6 +60,20 @@ func testCacheStore(t *testing.T, ctx context.Context) {
 		t.Errorf("after the rollback, the item is there: %v", ok)
 	}
 	check(t, store.Flush(ctx, "tx:"))
+
+	// The store's queries aren't repeated queries: a read per key is by
+	// design.
+	tracked := db.New(d(ctx).SQL(), d(ctx).Dialect(), db.WithRepeatedQueries(2))
+	tracked.OnRepeatedQuery(func(_ context.Context, r db.RepeatedQuery) { t.Errorf("reported: %s", r) })
+	tctx, end := tracked.Track(db.WithDB(ctx, tracked), anetos.Unit{Kind: "request", Name: "GET /"})
+	ts := cache.NewDatabaseStore(tracked, "st_cache")
+	for i := range 3 {
+		check(t, ts.Set(tctx, fmt.Sprint("k", i), []byte("v"), time.Minute))
+		_, _, err := ts.Get(tctx, fmt.Sprint("k", i))
+		check(t, err)
+	}
+	end()
+	check(t, store.Flush(ctx, ""))
 
 	// The migration rolls back.
 	_, err = r.Reset(ctx)

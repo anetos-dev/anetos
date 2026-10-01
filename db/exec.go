@@ -34,6 +34,7 @@ func handle(ctx context.Context) (*DB, conn, error) {
 
 func (d *DB) exec(ctx context.Context, c conn, query string, args []any) (sql.Result, error) {
 	args = d.convertArgs(args)
+	d.count(ctx, query)
 	start := time.Now()
 	res, err := c.ExecContext(ctx, query, args...)
 	d.logQuery(ctx, query, args, start, err)
@@ -42,6 +43,7 @@ func (d *DB) exec(ctx context.Context, c conn, query string, args []any) (sql.Re
 
 func (d *DB) query(ctx context.Context, c conn, query string, args []any) (*sql.Rows, error) {
 	args = d.convertArgs(args)
+	d.count(ctx, query)
 	start := time.Now()
 	rows, err := c.QueryContext(ctx, query, args...)
 	d.logQuery(ctx, query, args, start, err)

@@ -354,6 +354,11 @@ func (s *Scheduler) runTask(ctx context.Context, t *task) (err error) {
 		ctx, cancel = context.WithTimeout(ctx, t.timeout)
 		defer cancel()
 	}
+	if s.app != nil {
+		var end func()
+		ctx, end = s.app.StartUnit(ctx, anetos.Unit{Kind: "task", Name: t.name})
+		defer end()
+	}
 	defer func() {
 		if v := recover(); v != nil {
 			err = &panicError{value: v, stack: debug.Stack()}

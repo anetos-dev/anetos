@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -319,6 +320,14 @@ func TestForApp(t *testing.T) {
 		anetos.WithLogOutput(io.Discard))
 	check(t, err)
 	app.AddContextValue(ctxKey{}, "app")
+	var unitMu sync.Mutex
+	var units []string
+	app.AroundUnits(func(ctx context.Context, u anetos.Unit) (context.Context, func()) {
+		unitMu.Lock()
+		defer unitMu.Unlock()
+		units = append(units, u.Kind+" "+u.Name)
+		return ctx, nil
+	})
 	_, err = queue.ForApp(app)
 	check(t, err)
 	b, err := events.ForApp(app)
@@ -350,6 +359,11 @@ func TestForApp(t *testing.T) {
 	check(t, app.Close())
 	if async.Load() != "app" {
 		t.Errorf("after Close, the async listener got %v", async.Load())
+	}
+	unitMu.Lock()
+	defer unitMu.Unlock()
+	if !slices.Contains(units, "job event:q") || !slices.ContainsFunc(units, func(u string) bool { return strings.HasPrefix(u, "listener ") }) {
+		t.Errorf("units %v", units)
 	}
 }
 

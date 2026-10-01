@@ -516,6 +516,7 @@ func setField(v reflect.Value, index []int, x reflect.Value) {
 // keys, with the spec's conditions and order. The keys are parent keys,
 // so every parent's rows come from one query, in order.
 func loadWhereIn(ctx context.Context, rm *meta, col int, s relSpec, keys []any) (reflect.Value, error) {
+	ctx = inBatch(ctx) // its chunks count as one query for repeated-query detection
 	out := reflect.MakeSlice(reflect.SliceOf(rm.typ), 0, len(keys))
 	for chunk := range slices.Chunk(keys, loadChunk) {
 		q := relatedQuery(ctx, rm, s)
@@ -549,6 +550,7 @@ const pivotKeyColumn = "anetos_pivot_key"
 // with its pivot rows, one query per chunk of parent keys (so each
 // parent's rows come in order), and the parent key of each row.
 func loadPivoted(ctx context.Context, r *relMeta, s relSpec, keys []any) (reflect.Value, []any, error) {
+	ctx = inBatch(ctx) // its chunks count as one query for repeated-query detection
 	out := reflect.MakeSlice(reflect.SliceOf(r.rm.typ), 0, len(keys))
 	var parents []any
 	d, c, err := handle(ctx)
@@ -806,6 +808,7 @@ func Sync[T, R any](ctx context.Context, row *T, rel Rel[T, R], ids ...any) erro
 }
 
 func pivotWrite[T any](ctx context.Context, row *T, s relSpec, op string, ids []any) error {
+	ctx = inBatch(ctx) // its chunks count as one query for repeated-query detection
 	if s.err != nil {
 		return s.err
 	}

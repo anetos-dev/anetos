@@ -605,6 +605,11 @@ func (q *Queue) runSync(ctx context.Context, jt *jobType, id, queue string, data
 func (q *Queue) call(ctx context.Context, job Job, info Info, timeout time.Duration) (err error) {
 	ctx, cancel := context.WithTimeout(context.WithValue(ctx, infoKey{}, info), timeout)
 	defer cancel()
+	if q.app != nil {
+		var end func()
+		ctx, end = q.app.StartUnit(ctx, anetos.Unit{Kind: "job", Name: info.Job})
+		defer end()
+	}
 	defer func() {
 		if v := recover(); v != nil {
 			q.log.ErrorContext(ctx, "queue: job panicked", "job", info.Job, "id", info.ID, "panic", v, "stack", string(debug.Stack()))

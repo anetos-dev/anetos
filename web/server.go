@@ -137,7 +137,7 @@ func NewServer(app *anetos.App, opts ...ServerOption) (*Server, error) {
 	s := &Server{cfg: cfg, app: app, log: app.Logger(), stopping: make(chan struct{})}
 	s.router = NewRouter(WithApp(app))
 
-	global := []Middleware{Recover(s.log), RequestIDs, RealIP(trusted)}
+	global := []Middleware{Recover(s.log), RequestIDs, RealIP(trusted), units(app)}
 	if cfg.AccessLog {
 		global = append(global, AccessLog(s.log))
 	}
@@ -315,4 +315,23 @@ func (s *Server) Run(ctx context.Context) error {
 		return serr
 	}
 	return err
+}
+
+// units makes each request a unit of work of the app (anetos.App.StartUnit),
+// such as db.Connect's repeated-query detection.
+func units(app *anetos.App) Middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !app.HasAroundUnits() {
+				next.ServeHTTP(w, r)
+				return
+			}
+			ctx, end := app.StartUnit(r.Context(), anetos.Unit{Kind: "request", Name: r.Method + " " + r.URL.Path})
+			defer end()
+			if ctx != r.Context() {
+				r = r.WithContext(ctx)
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }

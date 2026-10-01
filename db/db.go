@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"anetos.dev/anetos"
@@ -46,6 +47,10 @@ type Config struct {
 	// SlowQuery logs queries that take at least this long as warnings.
 	// Zero disables it.
 	SlowQuery time.Duration `env:"DB_SLOW_QUERY" default:"500ms"`
+	// RepeatedQueries logs a warning when a unit of work (a request, a
+	// job…) runs the same query this many times or more: an N+1. Unset
+	// means 5 in development and testing, off elsewhere; 0 disables it.
+	RepeatedQueries *int `env:"DB_REPEATED_QUERIES"`
 }
 
 // Validate implements config.Validator.
@@ -60,6 +65,9 @@ func (c Config) Validate() error {
 	if c.SlowQuery < 0 {
 		errs = append(errs, errors.New("DB_SLOW_QUERY can't be negative"))
 	}
+	if c.RepeatedQueries != nil && (*c.RepeatedQueries < 0 || *c.RepeatedQueries == 1) {
+		errs = append(errs, errors.New("DB_REPEATED_QUERIES must be 0 (off) or at least 2"))
+	}
 	return errors.Join(errs...)
 }
 
@@ -71,10 +79,14 @@ func (c Config) String() string {
 	if c.LogQueries != nil {
 		logQueries = strconv.FormatBool(*c.LogQueries)
 	}
+	repeated := "unset"
+	if c.RepeatedQueries != nil {
+		repeated = strconv.Itoa(*c.RepeatedQueries)
+	}
 	return fmt.Sprintf("{Connection:%s URL:%s Host:%s Port:%d Database:%s Username:%s Password:%s "+
-		"MaxOpenConns:%d MaxIdleConns:%d ConnMaxLifetime:%s ConnMaxIdleTime:%s LogQueries:%s SlowQuery:%s}",
+		"MaxOpenConns:%d MaxIdleConns:%d ConnMaxLifetime:%s ConnMaxIdleTime:%s LogQueries:%s SlowQuery:%s RepeatedQueries:%s}",
 		c.Connection, maskDSN(c.URL), c.Host, c.Port, c.Database, c.Username, mask(c.Password),
-		c.MaxOpenConns, c.MaxIdleConns, c.ConnMaxLifetime, c.ConnMaxIdleTime, logQueries, c.SlowQuery)
+		c.MaxOpenConns, c.MaxIdleConns, c.ConnMaxLifetime, c.ConnMaxIdleTime, logQueries, c.SlowQuery, repeated)
 }
 
 // GoString masks secrets for %#v too.
@@ -297,6 +309,10 @@ type DB struct {
 	log     *slog.Logger
 	logAll  bool
 	slow    time.Duration
+
+	repeated     int // WithRepeatedQueries
+	repMu        sync.RWMutex
+	repObservers []func(context.Context, RepeatedQuery)
 }
 
 // Option configures a [DB] created with [Open] or [New].
@@ -343,6 +359,9 @@ func Open(drv Driver, cfg Config, opts ...Option) (*DB, error) {
 	opts = append([]Option{WithSlowQuery(cfg.SlowQuery)}, opts...)
 	if cfg.LogQueries != nil {
 		opts = append(opts, WithQueryLog(*cfg.LogQueries))
+	}
+	if cfg.RepeatedQueries != nil {
+		opts = append(opts, WithRepeatedQueries(*cfg.RepeatedQueries))
 	}
 	return New(sqlDB, drv.Dialect, opts...), nil
 }
@@ -398,9 +417,17 @@ func Connect(ctx context.Context, app *anetos.App, drivers ...Driver) (*DB, erro
 		}
 		return nil, fmt.Errorf("db: DB_CONNECTION is %q, but the drivers passed to Connect are [%s]; import the driver module and pass its Driver()", cfg.Connection, strings.Join(names, ", "))
 	}
+	repeated := 0
+	if env := app.Config().Env; env.IsDevelopment() || env.IsTesting() {
+		repeated = 5
+	}
+	if cfg.RepeatedQueries != nil {
+		repeated = *cfg.RepeatedQueries
+	}
 	opts := []Option{
 		WithLogger(app.Logger().With("component", "db")),
 		WithQueryLog(app.Config().Env.IsDevelopment()),
+		WithRepeatedQueries(repeated),
 	}
 	d, err := Open(drivers[i], cfg, opts...)
 	if err != nil {
@@ -413,6 +440,9 @@ func Connect(ctx context.Context, app *anetos.App, drivers ...Driver) (*DB, erro
 		}
 	} else {
 		app.Use(check) // checked when the app boots, so help works without a database
+	}
+	if repeated >= 2 {
+		app.AroundUnits(d.Track) // requests, jobs, listeners, tasks
 	}
 	app.AddContextValue(dbKey{}, d)
 	anetos.Provide(app, d)

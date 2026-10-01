@@ -145,6 +145,13 @@ recorded.
 The emails the transport got (queued ones the queue ran included) stay
 available from the mailer: `anetos.MustResolve[*mailer.Mailer](app.App).Transport().(*mailer.MemoryTransport).Sent()`.
 
+## Repeated queries (`anetostest`)
+
+| API | Does |
+|---|---|
+| `app.RepeatedQueries()` | `[]db.RepeatedQuery` (`Unit`, `SQL`, `Count`, `Caller`; `String()`): the queries a request, job, listener or task of the test ran `DB_REPEATED_QUERIES` times or more (5 by default in tests), oldest first. Also logged as warnings |
+| `app.AssertNoRepeatedQueries()` | None: no N+1. See [Find N+1 queries](../guides/n-plus-one.md) |
+
 ## Files (`anetostest`)
 
 | API | Does |

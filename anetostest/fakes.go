@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"anetos.dev/anetos"
+	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/events"
 	"anetos.dev/anetos/mailer"
 	"anetos.dev/anetos/pubsub"
@@ -53,6 +54,7 @@ type recorder struct {
 	events   []any
 	mail     []mailer.Record
 	messages []pubsub.Published
+	repeated []db.RepeatedQuery
 }
 
 // record observes the app's services, and fakes those the options say.
@@ -91,6 +93,13 @@ func (a *App) record(o *options) {
 		}
 	case o.fakeEvents:
 		a.t.Fatalf("anetostest: FakeEvents: the app has no event bus (events.ForApp in setup)")
+	}
+	if d, err := anetos.Resolve[*db.DB](app); err == nil {
+		d.OnRepeatedQuery(func(_ context.Context, q db.RepeatedQuery) {
+			r.mu.Lock()
+			defer r.mu.Unlock()
+			r.repeated = append(r.repeated, q)
+		})
 	}
 	if m, err := anetos.Resolve[*mailer.Mailer](app); err == nil {
 		m.Observe(func(_ context.Context, rec mailer.Record) {
@@ -426,6 +435,31 @@ func AssertNotPublished[T any](a *App, topic string, match func(T) bool) {
 	if n := countMatch(vs, match); n > 0 {
 		a.t.Errorf("anetostest: %d message(s)%s were published to %s", n, matching(match), topic)
 	}
+}
+
+// --- Repeated queries
+
+// RepeatedQueries returns the queries a request (or job, listener…) of
+// the test ran repeatedly (DB_REPEATED_QUERIES times or more, default 5
+// in tests), oldest first: each is an N+1 to fix. They are also logged as
+// warnings.
+func (a *App) RepeatedQueries() []db.RepeatedQuery {
+	a.rec.mu.Lock()
+	defer a.rec.mu.Unlock()
+	return slices.Clone(a.rec.repeated)
+}
+
+// AssertNoRepeatedQueries checks that no request (or job, listener…) of
+// the test ran a query repeatedly: no N+1.
+//
+//	app.GetJSON("/posts?with=author").AssertOK()
+//	app.AssertNoRepeatedQueries()
+func (a *App) AssertNoRepeatedQueries() *App {
+	a.t.Helper()
+	for _, q := range a.RepeatedQueries() {
+		a.t.Errorf("anetostest: %s", q)
+	}
+	return a
 }
 
 // --- helpers

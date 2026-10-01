@@ -16,6 +16,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"anetos.dev/anetos"
 	"anetos.dev/anetos/supervisor"
 )
 
@@ -176,6 +177,11 @@ func (l *listener) deadLetter(base context.Context, out Outgoing) error {
 func (l *listener) callSafe(ctx context.Context, m *Message) (err error) {
 	ctx, cancel := context.WithTimeout(context.WithValue(ctx, msgKey{}, m), l.o.timeout)
 	defer cancel()
+	if l.p.app != nil && l.p.app.HasAroundUnits() {
+		var end func()
+		ctx, end = l.p.app.StartUnit(ctx, anetos.Unit{Kind: "message", Name: l.sub.Topic + " (" + l.sub.Name + ")"})
+		defer end()
+	}
 	defer func() {
 		if v := recover(); v != nil {
 			l.p.log.ErrorContext(ctx, "pubsub: listener panicked", "topic", l.sub.Topic, "message", m.ID, "panic", v, "stack", string(debug.Stack()))

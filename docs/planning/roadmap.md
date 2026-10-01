@@ -213,6 +213,7 @@ Goal: everything a real application needs beyond CRUD.
 | B10 Storage | ✅ Done 2026-10-01 (local, memory and S3-compatible disks; named disks; signed temporary URLs and a file handler) |
 | B11 Plugin system | ✅ Done 2026-10-01 (package `ext`, `ext.Load`, `anetos add` / `anetos remove`, enforced namespaces, `Requires()` checks; `plugins/postmark` adds settings, a migration, a route, a job and commands through the public API) |
 | B12 Test fakes | ✅ Done 2026-10-01 (recording of jobs, events, mail and pub/sub messages with typed assertions; queue, event and pub/sub fakes; disk assertions; the app clock with `Freeze`/`Travel`) |
+| B13 N+1 detection | ✅ Done 2026-10-02 (units of work in the kernel; repeated-query warnings with the caller, in development and tests by default, for requests, jobs, listeners, messages and tasks; `anetostest` assertions) |
 
 | WP | Work package | Notes |
 |---|---|---|
@@ -381,3 +382,4 @@ something, and we fix the API rather than add the hook.
 | 2026-10-01 | B10 (storage) done |
 | 2026-10-01 | B11 (plugin system) done; Postmark moved from `drivers/postmark` to `plugins/postmark`, the first first-party plugin |
 | 2026-10-01 | B12 (test fakes) done; pub/sub recording and a fake added to its scope; the app clock (`anetos.Now`) |
+| 2026-10-02 | B13 (N+1 detection) done; jobs, listeners, messages and tasks tracked too, through units of work |

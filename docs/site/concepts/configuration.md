@@ -115,6 +115,7 @@ setting gets the strictest behavior.
 | HSTS header | Production only |
 | Secure session cookies, when `SESSION_SECURE` is unset | Off in development and testing |
 | Query log, when `DB_LOG_QUERIES` is unset | On in development only |
+| Repeated-query (N+1) warnings, when `DB_REPEATED_QUERIES` is unset | On in development and testing |
 | `migrate:fresh` | Development and testing only |
 
 ## Design notes
