@@ -1216,8 +1216,8 @@ r.HandleStd(http.MethodGet, "/files/{path...}", st.Default().Handler())
 ## 15. Authentication & authorization
 
 Implemented in B3 (packages `auth` and `auth/password`) and B4
-(`auth/social`), except scaffolding and the mail parts of verification
-and reset (B14, after mail).
+(`auth/social`); scaffolding, with the verification and reset emails,
+in B14.
 
 ```go
 a, err := auth.ForApp(app, users) // users: auth.Users[*models.User]{ByID, ByLogin, …}
@@ -1269,11 +1269,19 @@ if err := auth.Authorize(c, policies.Post.Update, &post); err != nil { return ni
 - **Authorization:** typed policies, `func(ctx, U, T) bool`, checked by
   generic `auth.Authorize` (and `AuthorizeUser`, `Allows`); errors carry
   401/403 (D100).
-- **Scaffolding** (B14): `anetos make:auth` generates handlers, views,
-  migrations and routes **into the app**, where the developer owns them
-  (the Breeze approach), from `examples/auth`. Security-critical pieces
-  (hashing, tokens, session handling, throttling) stay in the library so
-  fixes reach everyone through `go get -u`.
+- **Scaffolding** (B14, D145–D147): `anetos make:auth` generates the
+  `User` model (with `models.Users`), `handlers.Accounts`, templ pages
+  and emails (`app/mailers`), `routes.Auth`, the users migration,
+  `setupAuth` (the `api_tokens` set via `Runner.Add`, `auth.ForApp`, the
+  routes) and `auth_test.go` **into the app**, where the developer owns
+  them (the Breeze approach), adapted from `examples/auth` to a
+  `anetos new` project. It writes nothing over existing files, adds one
+  `setupAuth` call after `routes.Register` in `setup` (or prints it), and
+  runs `go mod tidy`, `anetos gen` and `templ generate`. Verification and
+  reset links go out with `mailer.Queue`, absolute on `APP_URL`.
+  Security-critical pieces (hashing, tokens, session handling,
+  throttling) stay in the library so fixes reach everyone through
+  `go get -u`.
 
 ---
 
@@ -1415,7 +1423,7 @@ planned.
 |---|---|
 | `anetos new <dir> [--module=…] [--db=…] [--stack=…]` | Create a project (F11; v0.4 adds `--stack`) |
 | `anetos dev` | Watch (polling) → `templ generate` → `anetos gen` → build → restart on a free port → browser reload; stable address through a proxy that shows build errors (F11) |
-| `anetos make:<thing>` | handler, model (`--migration`), migration, middleware (F11); job, event, listener, mail, policy, task, command, test, plugin (later) |
+| `anetos make:<thing>` | handler, model (`--migration`), migration, middleware (F11); auth (B14, §15); job, event, listener, mail, policy, task, command, test, plugin (later) |
 | `anetos gen` | Run code generators: typed model columns (F9), relation handles (v0.1.1). `-check` for CI |
 | `anetos key:generate` | Print a new `APP_KEY` line (F10) |
 | `anetos add <module>[@version]` / `anetos remove <module>` | Install or uninstall a plugin: `go get`, `plugins.go`, a build check, `.env.example` (B11, §16.3) |
@@ -1760,6 +1768,9 @@ unless new information arrives), **Open**, **Superseded**.
 | D142 | Repeated-query detection counts queries by their SQL text (placeholders, so one shape whatever the arguments) per unit and DB, reports at the unit's end each query run at least `DB_REPEATED_QUERIES` times (default 5 in development and testing, off elsewhere; 0 off, else ≥ 2) as a warning and to `DB.OnRepeatedQuery` functions | Accepted | The query builder writes a shape the same way every time; a threshold of 5 keeps a handful of deliberate repeats (two `Find`s) quiet; counting is a map lookup, and nothing at all when off |
 | D143 | The report names the caller: when a count reaches the threshold, the stack is read once and the first frame whose module (from the binary's build information) is neither the framework's (the core and `drivers/…` modules) nor the standard library's (no module) is kept as `dir/file.go:line`; package main, examples and `plugins/` count as app code; without build information, a name list decides | Accepted | Says where the loop is without paying for a stack per query |
 | D144 | The framework's database stores (cache, queue, sessions) and validation rules' queries use `db.Untracked(ctx)`, which apps can use too; an operation the db package splits into chunks (`With` over more than 1,000 keys, large `CreateMany`, pivot writes) counts each statement once; a nested unit counts its own queries, afresh even inside `Untracked` or a chunked operation; code outside a unit can call `DB.Track`; `anetostest` records reports (`RepeatedQueries`, `AssertNoRepeatedQueries`) | Accepted | A cache read per key, a rule per slice element or a job per item is by design or not the app's to batch, and the framework's own batching isn't an N+1; tests turn the warning into a check |
+| D145 | `make:auth` writes complete, owned files (model, handlers, pages, emails, routes, migration, `setupAuth`, tests) into a `anetos new` project; it refuses when a file exists or a name they declare is taken in its package (parsed), removes what it wrote if a write fails, and checks the project builds; the one edit of an existing file is a `setupAuth` call inserted after the `routes.Register(srv.Router(), sessions)` statement of `func setup` (found with go/ast), else printed | Accepted | Breeze's ownership model without silently rewriting the developer's code; a fresh project works with one command |
+| D146 | The generated code is tested by the CLI's own test: a new project gets `make:auth`, builds, migrates and passes the generated `auth_test.go`; `examples/auth` stays the library-level example the Authentication guide follows | Accepted | Templates can't drift into code that doesn't compile or work; the guide's code stays region-checked |
+| D147 | Generated accounts send the verification and reset links with `mailer.Queue` (rendered now, sent by a worker; synchronous in tests), as absolute URLs on `APP_URL` (`mailer.URL`), to the address alone; registration creates the user and queues the email in one transaction (`queue.AfterCommit`); reset links are limited per address and resent verification links per account, besides per IP; `examples/auth` sends with `mailer.Send` and logs a failed verification email | Accepted | A slow or failing mail server doesn't slow or fail registration and reset requests (the queue retries); links work from any mail client |
 
 ---
 
@@ -1808,3 +1819,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-01 | B11 plugin system implemented: §5, §6, §7, §16 rewritten, §17 updated; D129–D135 added; D23 superseded; O5 resolved; `drivers/postmark` moved to `plugins/postmark` |
 | 2026-10-01 | B12 test fakes implemented: §5, §18 updated; D136–D140 added |
 | 2026-10-02 | B13 N+1 detection implemented: §4 (units of work), §10.3 updated; D141–D144 added |
+| 2026-10-02 | B14 auth scaffolding implemented: §15, §17.1 updated; D145–D147 added |

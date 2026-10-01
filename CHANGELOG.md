@@ -235,6 +235,12 @@ All notable changes to this project are documented here. The format follows
   at the end of `setup` (B11).
 - `examples/queue` uses the Postmark plugin and skips receipts to
   suppressed addresses; guides "Use plugins" and "Write a plugin" (B11).
+- `anetos make:auth`: writes accounts into a `anetos new` project
+  (registration, login with "remember me" and throttling, logout, email
+  verification, password reset, API tokens): the `User` model, handlers,
+  templ pages, verification and reset emails, routes, the users
+  migration, `setupAuth` and tests, and wires `setupAuth` into `setup`;
+  guide "Add accounts with make:auth" (B14, design D145–D147).
 - Units of work: `anetos.Unit`, `App.AroundUnits`, `App.HasAroundUnits` and `App.StartUnit`,
   called for each request, queue job, async listener, pub/sub message
   and scheduled task (B13, design D141).
@@ -277,6 +283,8 @@ All notable changes to this project are documented here. The format follows
   email" (B9).
 
 ### Changed
+- `examples/auth` emails its verification and reset links with the
+  mailer instead of logging them (B14).
 - `pubsub.Publish` copies a byte-slice message, so the caller may reuse
   its buffer (B12).
 - `ratelimit.Result.RetryAfter` counts from the time of the hit, on the

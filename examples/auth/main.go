@@ -2,9 +2,9 @@
 
 // Command auth is a small app with accounts: registration, login with
 // "remember me" and login throttling, logout, email verification,
-// password reset, API tokens and typed policies, over SQLite. Links that
-// would be emailed (verification, password reset) are logged until
-// Anetos has mail (v0.2, B9).
+// password reset, API tokens and typed policies, over SQLite. The
+// verification and reset links are emailed (MAIL_DRIVER=log writes them
+// to the log). anetos make:auth writes this kind of code into an app.
 //
 //	go tool anetos key:generate >> .env   # APP_KEY, once
 //	export APP_ENV=development HTTP_ADDR=:8080
@@ -18,7 +18,6 @@ import (
 	"context"
 	"errors"
 	"log"
-	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -32,16 +31,30 @@ import (
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/db/migrate"
 	"anetos.dev/anetos/drivers/sqlite"
+	"anetos.dev/anetos/mailer"
 	"anetos.dev/anetos/session"
 	"anetos.dev/anetos/validate"
 	"anetos.dev/anetos/web"
 	"anetos.dev/anetos/web/ratelimit"
 )
 
-// sendLink delivers a link by email. Until Anetos has mail it logs it;
-// tests replace it to follow the links.
-var sendLink = func(c *web.Ctx, to, subject, link string) {
-	c.Logger().Info("email", slog.String("to", to), slog.String("subject", subject), slog.String("link", link))
+// LinkMail is an email with a link: verification, password reset.
+type LinkMail struct {
+	To, Subject, URL string
+}
+
+// Build implements mailer.Mailable: a text email.
+func (m LinkMail) Build(context.Context) (*mailer.Message, error) {
+	return &mailer.Message{To: []mailer.Address{{Address: m.To}}, Subject: m.Subject, Text: m.Subject + ":\n\n" + m.URL + "\n"}, nil
+}
+
+// sendLink emails a link to path on the app's public URL (APP_URL).
+func sendLink(c *web.Ctx, to, subject, path string) error {
+	link, err := mailer.URL(c, path)
+	if err != nil {
+		return err
+	}
+	return mailer.Send(c, LinkMail{To: to, Subject: subject, URL: link})
 }
 
 // Accounts holds the handlers.
@@ -76,7 +89,11 @@ func (h Accounts) Register(c *web.Ctx, in RegisterInput) (web.Responder, error) 
 	if err := db.Create(c, u); err != nil {
 		return nil, err
 	}
-	sendLink(c, u.Email, "Verify your email address", "/verify-email?token="+url.QueryEscape(h.auth.VerificationToken(u, u.Email)))
+	// The account exists now: a mail server that fails doesn't undo it
+	// (an app with a queue sends with mailer.Queue, which retries).
+	if err := sendLink(c, u.Email, "Verify your email address", "/verify-email?token="+url.QueryEscape(h.auth.VerificationToken(u, u.Email))); err != nil {
+		c.Logger().Error("send the verification link", "error", err)
+	}
 	if err := h.auth.Login(c, u, false); err != nil {
 		return nil, err
 	}
@@ -156,7 +173,9 @@ func (h Accounts) SendReset(c *web.Ctx, in ForgotInput) (web.Responder, error) {
 	u, err := users.ByLogin(c, in.Email)
 	switch {
 	case err == nil:
-		sendLink(c, u.Email, "Reset your password", "/reset-password?token="+url.QueryEscape(h.auth.PasswordResetToken(u)))
+		if err := sendLink(c, u.Email, "Reset your password", "/reset-password?token="+url.QueryEscape(h.auth.PasswordResetToken(u))); err != nil {
+			return nil, err
+		}
 	case !errors.Is(err, db.ErrNotFound):
 		return nil, err
 	}
@@ -294,6 +313,9 @@ func setup(app *anetos.App) (*web.Server, error) {
 	}
 	sessions, err := session.ForApp(app)
 	if err != nil {
+		return nil, err
+	}
+	if _, err := mailer.ForApp(app); err != nil { // MAIL_DRIVER: log in development
 		return nil, err
 	}
 	// region: setup

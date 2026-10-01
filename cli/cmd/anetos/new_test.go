@@ -50,6 +50,14 @@ func TestNewProject(t *testing.T) {
 	if code, _, _ := runCmd(t, "make:handler", "Posts"); code != 1 {
 		t.Error("make:handler overwrote a file")
 	}
+	// Accounts: the generated code builds, and its tests (auth_test.go)
+	// pass with the rest below.
+	if code, out, errOut := runCmd(t, "make:auth"); code != 0 || !strings.Contains(out, "updated main.go: setup calls setupAuth") {
+		t.Fatalf("make:auth: %d\n%s\n%s", code, out, errOut)
+	}
+	if code, _, errOut := runCmd(t, "make:auth"); code != 1 || !strings.Contains(errOut, "exists") {
+		t.Errorf("make:auth twice: %d %s", code, errOut)
+	}
 
 	goRun := func(args ...string) string {
 		t.Helper()
@@ -127,7 +135,8 @@ func TestNewProject(t *testing.T) {
 		}
 		return string(b)
 	}
-	if out := app("migrate"); !strings.Contains(out, "create_posts_table") || !strings.Contains(out, "create_postmark_suppressions") {
+	if out := app("migrate"); !strings.Contains(out, "create_posts_table") || !strings.Contains(out, "create_postmark_suppressions") ||
+		!strings.Contains(out, "create_users_table") || !strings.Contains(out, "create_api_tokens_table") {
 		t.Errorf("migrate:\n%s", out)
 	}
 	if out := app("routes:list"); !regexp.MustCompile(`GET\s+/\s+home`).MatchString(out) {
@@ -164,4 +173,33 @@ func read(t *testing.T, path string) string {
 		t.Fatal(err)
 	}
 	return string(b)
+}
+
+// make:auth's code compiles in PostgreSQL and MySQL projects too (their
+// tests need a server, so they only build here).
+func TestMakeAuthServerDatabases(t *testing.T) {
+	if testing.Short() {
+		t.Skip("creates and builds projects")
+	}
+	repo, err := filepath.Abs("../../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range []string{"postgres", "mysql"} {
+		t.Run(d, func(t *testing.T) {
+			dir := filepath.Join(t.TempDir(), "shop-"+d)
+			if code, out, errOut := runCmd(t, "new", dir, "--module", "example.com/my.shop-"+d, "--db", d, "--replace", repo); code != 0 {
+				t.Fatalf("new: %d\n%s\n%s", code, out, errOut)
+			}
+			t.Chdir(dir)
+			if code, out, errOut := runCmd(t, "make:auth"); code != 0 {
+				t.Fatalf("make:auth: %d\n%s\n%s", code, out, errOut)
+			}
+			c := exec.Command("go", "vet", "./...")
+			c.Dir = dir
+			if b, err := c.CombinedOutput(); err != nil {
+				t.Fatalf("go vet: %v\n%s", err, b)
+			}
+		})
+	}
 }

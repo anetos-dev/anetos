@@ -82,7 +82,8 @@ page until the next change. On Linux the app is stopped even if
 
 ## `anetos make:*`
 
-Run anywhere in a project. Existing files are never overwritten.
+Run anywhere in a project. Existing files are never overwritten
+(`make:auth` adds one call to `setup` in `main.go`).
 
 | Command | Writes |
 |---|---|
@@ -90,6 +91,7 @@ Run anywhere in a project. Existing files are never overwritten.
 | `make:model <Name> [--migration]` | `app/models/<name>.go`: a model embedding `db.Model`, then its typed columns (`anetos gen`); with `--migration`, also `create_<table>_table` |
 | `make:migration <name>` | `database/migrations/<YYYY_MM_DD_HHMMSS>_<name>.go`: `create_posts_table` creates a table; `add_x_to_posts_table` (the last `to`, `from`, `in` or `on`) gets commented `Alter` code for that table; other names get empty functions. The timestamp is always after the newest migration's, so migrations made in the same second keep their order |
 | `make:middleware <Name>` | `app/middleware/<name>.go`: a `func(http.Handler) http.Handler` |
+| `make:auth` | Accounts: `app/models/user.go` (`User`, `models.Users`), `app/handlers/auth.go` (`handlers.Accounts`), `app/mailers/auth.go` and `views/auth_mail.templ` (verification and reset emails), `views/auth.templ` (pages), `routes/auth.go` (`routes.Auth`), `auth.go` (`setupAuth`), `auth_test.go`, and a `create_users_table` migration; then `go mod tidy`, `anetos gen`, `templ generate` and `go build ./...`, and a `setupAuth` call in `setup` after its `routes.Register(srv.Router(), sessions)` statement (else it prints the call to add). Writes nothing if one of the files or a `create_users_table` migration exists, or a name the files declare is taken in its package; removes what it wrote if a write fails. See [Add accounts with make:auth](../guides/accounts.md) |
 
 Names may be `BlogPost`, `blog_post` or `blog-post`; files use snake case.
 

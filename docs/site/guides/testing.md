@@ -332,12 +332,11 @@ Travel past an expiry instead of waiting for it:
 ```go
 // The reset link works for AUTH_RESET_TTL (60 minutes): travel past it.
 func TestResetLinkExpires(t *testing.T) {
-	links := mailbox(t)
 	app := anetostest.New(t, setup)
 	createUser(t, app, "Ada", "ada@example.com", false)
 	app.Get("/forgot-password")
 	app.PostForm("/forgot-password", url.Values{"email": {"ada@example.com"}})
-	q, _ := url.ParseQuery(links["Reset your password"][len("/reset-password?"):])
+	q, _ := url.ParseQuery(emailedLink(t, app, "Reset your password")[len("/reset-password?"):])
 
 	app.Travel(61 * time.Minute)
 	app.Get("/reset-password?" + q.Encode())

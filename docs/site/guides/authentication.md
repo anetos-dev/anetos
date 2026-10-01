@@ -8,6 +8,9 @@ since: v0.2.0
 Let people register, log in (with "remember me"), log out, verify their
 email address and reset a forgotten password, and give API clients
 tokens. The complete app is [`examples/auth`](../../../examples/auth).
+In a `anetos new` project, `go tool anetos make:auth` writes all of this
+into your app: see [Add accounts with make:auth](accounts.md). This
+guide is the `auth` package underneath, step by step.
 
 ## Before you start
 
@@ -162,7 +165,11 @@ func (h Accounts) Register(c *web.Ctx, in RegisterInput) (web.Responder, error) 
 	if err := db.Create(c, u); err != nil {
 		return nil, err
 	}
-	sendLink(c, u.Email, "Verify your email address", "/verify-email?token="+url.QueryEscape(h.auth.VerificationToken(u, u.Email)))
+	// The account exists now: a mail server that fails doesn't undo it
+	// (an app with a queue sends with mailer.Queue, which retries).
+	if err := sendLink(c, u.Email, "Verify your email address", "/verify-email?token="+url.QueryEscape(h.auth.VerificationToken(u, u.Email))); err != nil {
+		c.Logger().Error("send the verification link", "error", err)
+	}
 	if err := h.auth.Login(c, u, false); err != nil {
 		return nil, err
 	}
@@ -240,8 +247,9 @@ func (h Accounts) VerifyEmail(c *web.Ctx, in TokenQuery) (web.Responder, error) 
 
 (Copied from [`examples/auth`](../../../examples/auth/main.go), region `verify`.)
 
-Until Anetos has mail (v0.2), send the link with your own code; the
-example logs it.
+`sendLink` emails the link with the [mailer](mail.md), as an absolute URL
+on `APP_URL` (`mailer.URL`); in tests, `anetostest` records the email,
+and the test follows its link.
 
 ### 6. Reset forgotten passwords
 
@@ -250,7 +258,9 @@ func (h Accounts) SendReset(c *web.Ctx, in ForgotInput) (web.Responder, error) {
 	u, err := users.ByLogin(c, in.Email)
 	switch {
 	case err == nil:
-		sendLink(c, u.Email, "Reset your password", "/reset-password?token="+url.QueryEscape(h.auth.PasswordResetToken(u)))
+		if err := sendLink(c, u.Email, "Reset your password", "/reset-password?token="+url.QueryEscape(h.auth.PasswordResetToken(u))); err != nil {
+			return nil, err
+		}
 	case !errors.Is(err, db.ErrNotFound):
 		return nil, err
 	}
@@ -351,7 +361,6 @@ front end) may do anything. `a.Tokens` lists a user's tokens and
 
 ```go
 func TestRegisterAndLogin(t *testing.T) {
-	links := mailbox(t)
 	app := anetostest.New(t, setup)
 
 	app.Get("/register").AssertOK()
@@ -362,7 +371,7 @@ func TestRegisterAndLogin(t *testing.T) {
 		AssertSee("Hello, Ada", "Please verify your email address")
 
 	// The emailed link verifies the address.
-	app.Get(links["Verify your email address"]).AssertRedirect("/dashboard").Follow().
+	app.Get(emailedLink(t, app, "Verify your email address")).AssertRedirect("/dashboard").Follow().
 		AssertSee("Your email address is verified.").
 		AssertDontSee("Please verify")
 
@@ -428,8 +437,8 @@ the user's other sessions are signed out once.
 > `auth()->user()` and the `auth`/`guest` middleware map to `a.Attempt`,
 > `a.Login`, `a.Logout`, `auth.User` and `a.Require`/`a.Guest`. Sanctum's
 > personal access tokens and `tokenCan` map to `a.CreateToken` and
-> `auth.TokenCan`. Breeze-style scaffolding (`make:auth`) comes later in
-> v0.2; until then, start from `examples/auth`. Socialite is
+> `auth.TokenCan`. Breeze is `anetos make:auth`
+> ([Add accounts with make:auth](accounts.md)). Socialite is
 > [Social login](social-login.md).
 
 ## Common problems

@@ -5,6 +5,7 @@ package main
 import (
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -12,16 +13,24 @@ import (
 	"anetos.dev/anetos/auth/password"
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/anetostest"
-	"anetos.dev/anetos/web"
 )
 
-// mailbox catches the links the app sends.
-func mailbox(t *testing.T) map[string]string {
-	links := map[string]string{}
-	old := sendLink
-	sendLink = func(_ *web.Ctx, _, subject, link string) { links[subject] = link }
-	t.Cleanup(func() { sendLink = old })
-	return links
+// emailedLink returns the path of the last link emailed with subject:
+// anetostest records the app's emails.
+func emailedLink(t *testing.T, app *anetostest.App, subject string) string {
+	t.Helper()
+	sent := anetostest.Mailables[LinkMail](app)
+	for _, m := range slices.Backward(sent) {
+		if m.Subject == subject {
+			u, err := url.Parse(m.URL)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return u.RequestURI()
+		}
+	}
+	t.Fatalf("no email %q", subject)
+	return ""
 }
 
 func createUser(t *testing.T, app *anetostest.App, name, email string, admin bool) *User {
@@ -39,7 +48,6 @@ func createUser(t *testing.T, app *anetostest.App, name, email string, admin boo
 
 // region: test-auth
 func TestRegisterAndLogin(t *testing.T) {
-	links := mailbox(t)
 	app := anetostest.New(t, setup)
 
 	app.Get("/register").AssertOK()
@@ -50,7 +58,7 @@ func TestRegisterAndLogin(t *testing.T) {
 		AssertSee("Hello, Ada", "Please verify your email address")
 
 	// The emailed link verifies the address.
-	app.Get(links["Verify your email address"]).AssertRedirect("/dashboard").Follow().
+	app.Get(emailedLink(t, app, "Verify your email address")).AssertRedirect("/dashboard").Follow().
 		AssertSee("Your email address is verified.").
 		AssertDontSee("Please verify")
 
@@ -79,19 +87,16 @@ func TestRegisterValidation(t *testing.T) {
 }
 
 func TestPasswordReset(t *testing.T) {
-	links := mailbox(t)
 	app := anetostest.New(t, setup)
 	createUser(t, app, "Ada", "ada@example.com", false)
 
 	app.Get("/forgot-password").AssertOK()
 	app.PostForm("/forgot-password", url.Values{"email": {"nobody@example.com"}}).AssertRedirect("/login")
-	if len(links) != 0 {
-		t.Fatal("a link was sent for an unknown address")
-	}
+	anetostest.AssertMailNotSent[LinkMail](app, nil) // no account, no email, same answer
 	app.PostForm("/forgot-password", url.Values{"email": {"ada@example.com"}}).
 		AssertRedirect("/login").
 		AssertSessionHas("status", "If that address has an account, we've emailed it a link.")
-	link := links["Reset your password"]
+	link := emailedLink(t, app, "Reset your password")
 	token, _ := url.ParseQuery(link[len("/reset-password?"):])
 
 	app.Get(link).AssertOK()
@@ -105,7 +110,6 @@ func TestPasswordReset(t *testing.T) {
 }
 
 func TestResetRevokesTokens(t *testing.T) {
-	links := mailbox(t)
 	app := anetostest.New(t, setup)
 	createUser(t, app, "Ada", "ada@example.com", false)
 	app.Get("/login")
@@ -116,7 +120,7 @@ func TestResetRevokesTokens(t *testing.T) {
 
 	app.Get("/forgot-password")
 	app.PostForm("/forgot-password", url.Values{"email": {"ada@example.com"}})
-	link := links["Reset your password"]
+	link := emailedLink(t, app, "Reset your password")
 	q, _ := url.ParseQuery(link[len("/reset-password?"):])
 	app.Get(link)
 	app.PostForm("/reset-password", url.Values{"token": {q.Get("token")}, "password": {"new password"}, "password_confirmation": {"new password"}}).
@@ -180,12 +184,11 @@ func TestPolicies(t *testing.T) {
 // region: test-clock
 // The reset link works for AUTH_RESET_TTL (60 minutes): travel past it.
 func TestResetLinkExpires(t *testing.T) {
-	links := mailbox(t)
 	app := anetostest.New(t, setup)
 	createUser(t, app, "Ada", "ada@example.com", false)
 	app.Get("/forgot-password")
 	app.PostForm("/forgot-password", url.Values{"email": {"ada@example.com"}})
-	q, _ := url.ParseQuery(links["Reset your password"][len("/reset-password?"):])
+	q, _ := url.ParseQuery(emailedLink(t, app, "Reset your password")[len("/reset-password?"):])
 
 	app.Travel(61 * time.Minute)
 	app.Get("/reset-password?" + q.Encode())

@@ -1,0 +1,31 @@
+package main
+
+import (
+	"anetos.dev/anetos"
+	"anetos.dev/anetos/auth"
+	"anetos.dev/anetos/db/migrate"
+	"anetos.dev/anetos/session"
+	"anetos.dev/anetos/web"
+
+	"[[.Module]]/app/models"
+	"[[.Module]]/routes"
+)
+
+// setupAuth adds accounts (anetos make:auth): the api_tokens table's
+// migration, package auth with the app's users (AUTH_* settings), and the
+// account routes. setup calls it after the routes.
+func setupAuth(app *anetos.App, r *web.Router, sessions *session.Manager) (*auth.Auth[*models.User], error) {
+	runner, err := anetos.Resolve[*migrate.Runner](app)
+	if err != nil {
+		return nil, err
+	}
+	if err := runner.Add(auth.Migrations()); err != nil {
+		return nil, err
+	}
+	a, err := auth.ForApp(app, models.Users)
+	if err != nil {
+		return nil, err
+	}
+	routes.Auth(r, sessions, a)
+	return a, nil
+}

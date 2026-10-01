@@ -22,6 +22,9 @@ go test ./...
 Configuration is in `.env` (keep it out of git); `.env.example` lists the
 settings.
 
+Add user accounts (registration, login, email verification, password
+reset, API tokens) with `go tool anetos make:auth`, then `go run . migrate`.
+
 Add plugins with `go tool anetos add <module>` (and remove them with
 `go tool anetos remove <module>`): `plugins.go` lists them, and `main.go`
 loads them. See [Use plugins](https://anetos.dev/anetos/blob/main/docs/site/guides/plugins.md).

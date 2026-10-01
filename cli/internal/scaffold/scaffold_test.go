@@ -184,3 +184,102 @@ func TestCreateHereWithQuotedReplace(t *testing.T) {
 		t.Errorf(".env:\n%s", env)
 	}
 }
+
+func TestMakeAuth(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "shop")
+	if _, err := Create(Project{Dir: dir, Module: "example.com/shop", DB: "sqlite", Replace: "../../.."}); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2030, 1, 2, 3, 4, 5, 0, time.UTC)
+	res, err := MakeAuth(dir, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"app/models/user.go", "app/handlers/auth.go", "app/mailers/auth.go", "views/auth.templ",
+		"views/auth_mail.templ", "routes/auth.go", "auth.go", "auth_test.go", "database/migrations/2030_01_02_030405_create_users_table.go"} {
+		if !slices.Contains(res.Created, want) {
+			t.Errorf("missing %s in %v", want, res.Created)
+		}
+	}
+	if !res.Wired || !strings.Contains(read(t, filepath.Join(dir, "main.go")), "routes.Register(srv.Router(), sessions)\n"+authCall) {
+		t.Errorf("main.go not wired:\n%s", read(t, filepath.Join(dir, "main.go")))
+	}
+	if h := read(t, filepath.Join(dir, "app/handlers/auth.go")); !strings.Contains(h, `"example.com/shop/app/models"`) {
+		t.Errorf("handlers' imports:\n%s", h)
+	}
+	// Nothing is overwritten.
+	if _, err := MakeAuth(dir, now); err == nil || !strings.Contains(err.Error(), "create_users_table.go exists") {
+		t.Errorf("twice: %v", err)
+	}
+	if err := os.Remove(filepath.Join(dir, "database/migrations/2030_01_02_030405_create_users_table.go")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := MakeAuth(dir, now); err == nil || !strings.Contains(err.Error(), "app/models/user.go exists") {
+		t.Errorf("with a user.go: %v", err)
+	}
+	// A main.go without the routes.Register call isn't changed.
+	other := filepath.Join(t.TempDir(), "other")
+	if _, err := Create(Project{Dir: other, Module: "example.com/other", DB: "sqlite", Replace: "../../.."}); err != nil {
+		t.Fatal(err)
+	}
+	main := strings.Replace(read(t, filepath.Join(other, "main.go")), "routes.Register(srv.Router(), sessions)", "routes.Register(srv.Router(), sessions) // mine", 1)
+	main = strings.Replace(main, "routes.Register(", "myRoutes(", 1)
+	if err := os.WriteFile(filepath.Join(other, "main.go"), []byte(main), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if res, err := MakeAuth(other, now); err != nil || res.Wired || read(t, filepath.Join(other, "main.go")) != main {
+		t.Errorf("unwired: %+v, %v", res, err)
+	}
+	// Not a anetos new project.
+	if _, err := MakeAuth(t.TempDir(), now); err == nil {
+		t.Error("an empty directory: no error")
+	}
+
+	fresh := func() string {
+		dir := filepath.Join(t.TempDir(), "p")
+		if _, err := Create(Project{Dir: dir, Module: "example.com/p", DB: "sqlite", Replace: "../../.."}); err != nil {
+			t.Fatal(err)
+		}
+		return dir
+	}
+	write := func(dir, name, src string) {
+		if err := os.WriteFile(filepath.Join(dir, filepath.FromSlash(name)), []byte(src), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// A name the files declare is taken.
+	p := fresh()
+	write(p, "app/models/account.go", "package models\n\ntype User struct{}\n")
+	if _, err := MakeAuth(p, now); err == nil || !strings.Contains(err.Error(), "app/models already declares User") {
+		t.Errorf("User taken: %v", err)
+	}
+	write(p, "app/models/account.go", "package models\n")
+	write(p, "views/pages.templ", "package views\n\ntempl Login() {\n}\n")
+	if _, err := MakeAuth(p, now); err == nil || !strings.Contains(err.Error(), "views already declares Login") {
+		t.Errorf("Login taken: %v", err)
+	}
+	// A failed write leaves nothing behind.
+	p = fresh()
+	write(p, "app/mailers", "not a directory")
+	if res, err := MakeAuth(p, now); err == nil || len(res.Created) != 0 {
+		t.Errorf("failed write: %+v, %v", res, err)
+	}
+	if _, err := os.Stat(filepath.Join(p, "app/models/user.go")); !os.IsNotExist(err) {
+		t.Errorf("user.go left behind: %v", err)
+	}
+	// A comment isn't a call; a routes.Register moved out of setup isn't
+	// wired into.
+	p = fresh()
+	main = strings.Replace(read(t, filepath.Join(p, "main.go")), "func setup(", "// TODO: setupAuth(app)\nfunc setup(", 1)
+	write(p, "main.go", main)
+	if res, err := MakeAuth(p, now); err != nil || !res.Wired || strings.Count(read(t, filepath.Join(p, "main.go")), "setupAuth(app, srv.Router(), sessions)") != 1 {
+		t.Errorf("with a comment: %+v, %v", res, err)
+	}
+	p = fresh()
+	main = strings.Replace(read(t, filepath.Join(p, "main.go")), "\troutes.Register(srv.Router(), sessions)\n", "\tif err := register(srv, sessions); err != nil {\n\t\treturn nil, err\n\t}\n", 1)
+	main += "\nfunc register(srv *web.Server, sessions *session.Manager) error {\n\troutes.Register(srv.Router(), sessions)\n\treturn nil\n}\n"
+	write(p, "main.go", main)
+	if res, err := MakeAuth(p, now); err != nil || res.Wired || read(t, filepath.Join(p, "main.go")) != main {
+		t.Errorf("routes in a helper: %+v, %v", res, err)
+	}
+}
