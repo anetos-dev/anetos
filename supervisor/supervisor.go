@@ -248,6 +248,19 @@ func (s *Supervisor) ShutdownStarted() time.Time {
 	return s.stopAt
 }
 
+// ShutdownDeadline returns when the components' shutdown budget
+// (Options.ShutdownTimeout) runs out, or the zero time if shutdown hasn't
+// begun. Components that need time to stop, such as queue workers letting
+// jobs finish, can plan with it.
+func (s *Supervisor) ShutdownDeadline() time.Time {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.stopAt.IsZero() {
+		return time.Time{}
+	}
+	return s.stopAt.Add(s.opts.ShutdownTimeout)
+}
+
 func rolesAttr(roles []string) string {
 	if len(roles) == 0 {
 		return "all"

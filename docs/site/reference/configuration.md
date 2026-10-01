@@ -191,10 +191,28 @@ Read by `cache.ForApp` (or `cache.LoadConfig`) into `cache.Config`.
 | `CACHE_PREFIX` | string | `APP_NAME` + `:cache:` | Starts every key, so apps (and other features in Redis) can share a store; `cache:clear` removes only these keys. `anetostest` sets one per test app | v0.2 |
 | `CACHE_TABLE` | string | `cache` | The database store's table; pass the same name to `cache.Migrations` | v0.2 |
 
+## Queue
+
+Read by `queue.ForApp` (or `queue.LoadConfig`) into `queue.Config`. See
+[Queues](../guides/queues.md).
+
+| Key | Type | Default | Description | Since |
+|---|---|---|---|---|
+| `QUEUE_DRIVER` | `sync` \| `memory` \| `database` \| a driver's name (`redis`) | `sync` | Where jobs are kept; `sync` runs each job when it is dispatched. `redis` needs `redis.QueueDriver()` passed to `queue.ForApp` | v0.2 |
+| `QUEUE_DEFAULT` | queue name | `default` | The queue of jobs dispatched without `queue.OnQueue`, and of workers without `queue.Queues`. Lower-case letters, digits and `. _ : -`, up to 100 | v0.2 |
+| `QUEUE_TRIES` | int ≥ 1 | `3` | Attempts per job, unless its type sets `queue.Tries` | v0.2 |
+| `QUEUE_TIMEOUT` | duration | `1m` | How long an attempt may run, unless its type sets `queue.Timeout` | v0.2 |
+| `QUEUE_BACKOFF` | duration | `10s` | The wait before the first retry, doubling for each later one, unless the type sets `queue.Backoff` | v0.2 |
+| `QUEUE_BACKOFF_MAX` | duration | `10m` | Caps the doubling | v0.2 |
+| `QUEUE_POLL` | duration | `1s` | How long an idle worker waits before looking for jobs again | v0.2 |
+| `QUEUE_TABLE`, `QUEUE_FAILED_TABLE` | string | `jobs`, `failed_jobs` | The database driver's tables; pass the same names to `queue.Migrations` | v0.2 |
+| `QUEUE_PREFIX` | string | `APP_NAME` + `:queue:` | Starts the Redis driver's keys (Redis 5 or later). In a Redis Cluster, put a hash tag in it (`{blog}:queue:`). `anetostest` sets one per test app | v0.2 |
+
 ## Redis
 
 Read by `redis.Connect` (module `drivers/redis`, also used by
-`redis.CacheDriver()`) into `redis.Config`.
+`redis.CacheDriver()`, `redis.SessionDriver()` and `redis.QueueDriver()`)
+into `redis.Config`.
 
 | Key | Type | Default | Description | Since |
 |---|---|---|---|---|

@@ -205,6 +205,7 @@ Goal: everything a real application needs beyond CRUD.
 | B2 Sessions & rate limiting | ✅ Done 2026-09-30 (database and Redis session drivers; `web/ratelimit`) |
 | B3 Authentication & authorization | ✅ Done 2026-09-30 (library: login, remember me, throttling, reset and verification tokens, API tokens, policies; scaffolding moved to B14) |
 | B4 Social login | ✅ Done 2026-10-01 (Google, GitHub, generic OIDC; `social_accounts` links; `APP_URL`) |
+| B5 Queue | ✅ Done 2026-10-01 (sync, memory, database and Redis drivers; workers; failed-job commands; `db.WithTestTx`) |
 
 | WP | Work package | Notes |
 |---|---|---|
@@ -212,7 +213,7 @@ Goal: everything a real application needs beyond CRUD.
 | B2 | Sessions & rate limiting | DB and Redis session drivers; rate limiter middleware and `Allow` for login throttling |
 | B3 | Authentication & authorization | Passwords (argon2id), login, logout, remember-me, email verification and password reset tokens, API tokens, typed policies |
 | B4 | Social login | OAuth2/OIDC: Google, GitHub, generic OIDC |
-| B5 | Queue | Typed jobs, dispatch, delay, retries with backoff, timeouts, failed-jobs store and retry command; drivers: sync, database, Redis |
+| B5 | Queue | Typed jobs, dispatch, delay, retries with backoff, timeouts, failed-jobs store and retry command; drivers: sync, memory, database, Redis |
 | B6 | Events | In-process typed events: sync, async (bounded pool), queued (durable) |
 | B7 | Pub/sub listeners | `app.Listen` abstraction, typed decode, concurrency, ack/nack, retries, DLQ where supported; drivers: Redis Streams, Google Pub/Sub |
 | B8 | Scheduler | Cron and fluent schedules, overlap prevention, single-instance execution through cache locks |
@@ -365,3 +366,4 @@ something, and we fix the API rather than add the hook.
 | 2026-09-30 | B2 (sessions and rate limiting) done |
 | 2026-09-30 | B3 (authentication library) done; `make:auth` and emailed links split into B14, after mail (B9) |
 | 2026-10-01 | B4 (social login) done |
+| 2026-10-01 | B5 (queue) done; memory driver added to its scope |

@@ -569,6 +569,14 @@ func TestShutdownTimeoutListsOnlyStuckComponents(t *testing.T) {
 	}
 	if st := s.ShutdownStarted(); st.IsZero() {
 		t.Error("ShutdownStarted is zero after shutdown")
+	} else if d := s.ShutdownDeadline(); !d.Equal(st.Add(50 * time.Millisecond)) {
+		t.Errorf("ShutdownDeadline = %v, want ShutdownStarted + 50ms", d)
+	}
+}
+
+func TestShutdownDeadlineBeforeShutdown(t *testing.T) {
+	if d := newTestSupervisor(time.Second).ShutdownDeadline(); !d.IsZero() {
+		t.Errorf("ShutdownDeadline = %v before shutdown, want zero", d)
 	}
 }
 

@@ -10,8 +10,9 @@ listeners and the scheduler run together in **one binary**.
 **Status:** pre-alpha. v0.1.0, the foundation, is tagged (privately): the
 kernel, configuration, runtime supervisor, HTTP layer, validation, data
 layer, migrations, model code generation, views, sessions, forms, the CLI
-and testing helpers. Next: relations and eager loading (v0.1.x), then
-v0.2. APIs will change.
+and testing helpers; v0.1.1 added relations. v0.2 is in progress: the
+cache, server-side sessions and rate limiting, authentication, social login
+and queues are done. APIs will change.
 
 ## Documents
 
@@ -28,8 +29,9 @@ go run . migrate
 go tool anetos dev         # rebuild and reload on every change
 
 go build -o blog .
-./blog                     # everything: web now; workers and schedules in v0.2
+./blog                     # everything: web and queue workers (schedules later in v0.2)
 ./blog run --only=http     # or split by role when you scale
+./blog run --only=workers
 ./blog help                # migrate, routes:list, your own commands, …
 ```
 

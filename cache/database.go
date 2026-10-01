@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/rand/v2"
 	"strconv"
 	"strings"
 	"sync"
@@ -15,6 +14,7 @@ import (
 	"anetos.dev/anetos"
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/db/migrate"
+	"anetos.dev/anetos/internal/dbutil"
 )
 
 // DatabaseStore keeps items in a table of the app's database, so every
@@ -113,7 +113,7 @@ func (s *DatabaseStore) conn(ctx context.Context) context.Context {
 
 func (s *DatabaseStore) exec(ctx context.Context, query string, args ...any) (int64, error) {
 	var n int64
-	err := retry(ctx, func() error {
+	err := dbutil.Retry(ctx, func() error {
 		res, err := db.Exec(ctx, query, args...)
 		if err != nil {
 			return err
@@ -124,52 +124,8 @@ func (s *DatabaseStore) exec(ctx context.Context, query string, args ...any) (in
 	return n, err
 }
 
-// retry runs fn again when the database chose it as a deadlock victim
-// (MySQL's gap locks make that possible between concurrent inserts and
-// deletes of one key) or failed it for serialization, a few times.
-func retry(ctx context.Context, fn func() error) error {
-	var err error
-	for i := range 10 {
-		if err = fn(); err == nil || !transient(err) {
-			return err
-		}
-		t := time.NewTimer(time.Duration(1+rand.IntN(5<<i)) * time.Millisecond)
-		select {
-		case <-ctx.Done():
-			t.Stop()
-			return err
-		case <-t.C:
-		}
-	}
-	return err
-}
-
-// transient reports whether err is a deadlock or serialization failure
-// (SQLSTATE 40001 or 40P01, MySQL error 1213).
-func transient(err error) bool {
-	msg := err.Error()
-	for _, s := range []string{"SQLSTATE 40001", "SQLSTATE 40P01", "Error 1213 (40001)"} {
-		if strings.Contains(msg, s) {
-			return true
-		}
-	}
-	return false
-}
-
 // now is the database server's time in Unix milliseconds, in SQL.
-func (s *DatabaseStore) now() string {
-	switch s.d.Dialect().Name() {
-	case "postgres":
-		// statement_timestamp, unlike clock_timestamp, lets the planner
-		// use the expires_at index.
-		return "CAST(EXTRACT(EPOCH FROM statement_timestamp()) * 1000 AS BIGINT)"
-	case "mysql":
-		// UTC_TIMESTAMP doesn't depend on the session's time zone.
-		return "CAST(TIMESTAMPDIFF(MICROSECOND, '1970-01-01 00:00:00', UTC_TIMESTAMP(6)) DIV 1000 AS SIGNED)"
-	default:
-		return "CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)"
-	}
-}
+func (s *DatabaseStore) now() string { return dbutil.NowMillis(s.d.Dialect().Name()) }
 
 // expiry returns the SQL for the expiry after ttl, and its arguments.
 func (s *DatabaseStore) expiry(ttl time.Duration) (string, []any) {
@@ -275,7 +231,7 @@ func (s *DatabaseStore) Increment(ctx context.Context, key string, delta int64, 
 	for range 100 {
 		var n int64
 		found := false
-		err := retry(ctx, func() error {
+		err := dbutil.Retry(ctx, func() error {
 			return db.Tx(ctx, func(ctx context.Context) error {
 				found = false
 				old, err := db.RawFirst[[]byte](ctx, "SELECT "+s.q("value")+" FROM "+s.q(s.table)+

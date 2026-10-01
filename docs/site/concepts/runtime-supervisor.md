@@ -37,9 +37,10 @@ Components declare **roles**. A process can run all of them or only some:
 ./blog run --only=workers            # background machines
 ```
 
-In v0.1 the web server is the only built-in component with a role
-(`http`); queue workers and listeners bring theirs in v0.2. Your own
-components choose theirs with `anetos.Roles("workers")`.
+The built-in components with roles are the web server (`http`) and the
+queue's workers (`workers`, from `q.Work`; see [Queues](../guides/queues.md)).
+Pub/sub listeners bring theirs later in v0.2. Your own components choose
+theirs with `anetos.Roles("workers")`.
 
 `run` is the binary's default command (`app.Execute`; see
 [Commands](../guides/commands.md)); in code, pass roles to
@@ -101,6 +102,9 @@ immediately canceled.
   and every component that implements `Ready() bool` is ready. Such a
   component that is waiting to restart or has failed counts as not ready.
   It will back the planned readiness endpoint.
+- `app.Supervisor().ShutdownDeadline()` is when the components' share of
+  `APP_SHUTDOWN_TIMEOUT` runs out, once shutdown has begun: queue workers
+  use it to stop their jobs in time.
 - `app.Supervisor().Status()` lists each component's state (`pending`,
   `starting`, `running`, `backoff`, `done`, `failed`, `stopped`), restart
   count and last error.

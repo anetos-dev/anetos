@@ -29,8 +29,8 @@ when the test ends. There is no test-only wiring: `session.ForApp` and
 `anetostest` finds them there.
 
 Settings come from these sources, highest priority first: `anetostest.Env`
-options; `APP_ENV=testing`, a random `APP_KEY`, and a `CACHE_PREFIX` and
-`SESSION_PREFIX` of the app's own; the process
+options; `APP_ENV=testing`, a random `APP_KEY`, and a `CACHE_PREFIX`,
+`SESSION_PREFIX` and `QUEUE_PREFIX` of the app's own; the process
 environment; `.env.testing` next to `go.mod`; then `HTTP_ACCESS_LOG=false`.
 Settings in `.env` are never used. With SQLite and no `DB_DATABASE` or
 `DB_URL`, the database is `:memory:`, never the default `database/app.db`.
@@ -100,8 +100,13 @@ binary: check the rows `Create` returns, not "Post 1".
 
 ## Where tests differ from production
 
-- **`db.AfterCommit`** callbacks never run inside the test's transaction.
-  With in-memory SQLite there is none, so they run at once.
+- **`db.AfterCommit`** callbacks run as if the test's transaction weren't
+  there: at once when registered directly in it, and when a `db.Tx`
+  inside it commits (a request's, say). With in-memory SQLite there is no
+  test transaction, so this is how they always work.
+- **Queue workers** use their own connections, so they don't see the
+  test's rows. With `QUEUE_DRIVER=sync` (the default) jobs run at once,
+  in the request; to run workers, use `WithoutTransaction()`.
 - **PostgreSQL errors inside a request.** The savepoint only helps between
   requests. A handler that catches a failed statement and keeps querying
   fails in a test, where production would carry on.
@@ -121,8 +126,9 @@ app := anetostest.New(t, setup, anetostest.WithoutTransaction())
 t.Cleanup(func() { _, _ = db.Exec(app.Context(), "DELETE FROM notes") })
 ```
 
-Fakes for the clock, mail, queues and events arrive with those features
-in v0.2.
+Fakes for the clock, mail, queues and events arrive in v0.2 (roadmap
+B12). Until then, test jobs with the sync driver; see
+[Queues](../guides/queues.md#5-test).
 
 > **Coming from Laravel?** `anetostest.New` is a `TestCase` using
 > `RefreshDatabase`: a fresh in-memory database, or migrations plus a

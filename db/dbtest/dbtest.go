@@ -167,6 +167,7 @@ func Run(t *testing.T, d *db.DB) {
 		{"Concurrency", testConcurrency},
 		{"StaleUpdates", testStaleUpdates},
 		{"TxRelease", testTxRelease},
+		{"TestTx", testTestTx},
 		{"WriteRestrictions", testWriteRestrictions},
 		{"LimitedAggregates", testLimitedAggregates},
 		{"EmbeddedPointer", testEmbeddedPointer},
@@ -670,6 +671,63 @@ func testRaw(t *testing.T, ctx context.Context) {
 	if n, _ := res.RowsAffected(); n != 2 {
 		t.Errorf("Exec affected %d", n)
 	}
+}
+
+// testTestTx checks db.WithTestTx: AfterCommit callbacks run as if the
+// test's transaction weren't there.
+func testTestTx(t *testing.T, ctx context.Context) {
+	tx, err := d(ctx).SQL().BeginTx(ctx, nil)
+	check(t, err)
+	defer func() { _ = tx.Rollback() }()
+	tctx, err := db.WithTestTx(ctx, tx)
+	check(t, err)
+	if !db.InTx(tctx) {
+		t.Fatal("InTx = false in the test's transaction")
+	}
+	var ran []string
+	db.AfterCommit(tctx, func(context.Context) { ran = append(ran, "direct") })
+	if !slices.Equal(ran, []string{"direct"}) {
+		t.Errorf("directly in the test's transaction: %v, want it run at once", ran)
+	}
+	check(t, db.Tx(tctx, func(ctx context.Context) error {
+		seedAuthors(t, ctx, "Ada")
+		db.AfterCommit(ctx, func(ctx context.Context) {
+			// It sees what the transaction wrote: the test's world.
+			n, err := db.Query[stAuthor](ctx).Count()
+			check(t, err)
+			ran = append(ran, fmt.Sprintf("outer:%d", n))
+		})
+		check(t, db.Tx(ctx, func(ctx context.Context) error {
+			db.AfterCommit(ctx, func(context.Context) { ran = append(ran, "nested") })
+			return nil
+		}))
+		_ = db.Tx(ctx, func(ctx context.Context) error {
+			db.AfterCommit(ctx, func(context.Context) { ran = append(ran, "rolled back") })
+			return errors.New("no")
+		})
+		if len(ran) != 1 {
+			t.Errorf("callbacks ran before the commit: %v", ran)
+		}
+		return nil
+	}))
+	if !slices.Equal(ran, []string{"direct", "outer:1", "nested"}) {
+		t.Errorf("after the commit: %v", ran)
+	}
+	_ = db.Tx(tctx, func(ctx context.Context) error {
+		db.AfterCommit(ctx, func(context.Context) { t.Error("AfterCommit ran after a rollback") })
+		return errors.New("no")
+	})
+	// A transaction of WithTx never commits as far as db knows.
+	_ = tx.Rollback() // SQLite in memory: one connection
+	tx2, err := d(ctx).SQL().BeginTx(ctx, nil)
+	check(t, err)
+	defer func() { _ = tx2.Rollback() }()
+	wctx, err := db.WithTx(ctx, tx2)
+	check(t, err)
+	check(t, db.Tx(wctx, func(ctx context.Context) error {
+		db.AfterCommit(ctx, func(context.Context) { t.Error("AfterCommit ran in a WithTx transaction") })
+		return nil
+	}))
 }
 
 func testTransactions(t *testing.T, ctx context.Context) {

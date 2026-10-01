@@ -16,5 +16,9 @@ tagged `drivers/redis/vX.Y.Z`. The framework's own changes are in the
   scripts, and `cache:clear` through `SCAN` and `UNLINK` (B1).
 - `redis.SessionDriver()`: sessions in Redis (`SESSION_DRIVER=redis`), on
   the app's shared client (B2).
-- Runs the `cache/cachetest` conformance suite against the server in
-  `ANETOS_TEST_REDIS_URL` (B1).
+- `redis.QueueDriver()` and `redis.NewQueueStore`: queued jobs in Redis
+  (`QUEUE_DRIVER=redis`, keys under `QUEUE_PREFIX`): a sorted set per
+  queue, a hash per job, every change in a Lua script on the server's
+  clock; failed jobs; `Purge` for test cleanup (B5).
+- Runs the `cache/cachetest` (B1) and `queue/queuetest` (B5) conformance
+  suites against the server in `ANETOS_TEST_REDIS_URL`.

@@ -98,7 +98,7 @@ err := app.Go("export-"+job.ID, func(ctx context.Context) error {
 
 > **Warning:** Tasks started this way are **not durable**. If the process
 > crashes or is killed, they are lost. For work that must survive a restart,
-> use a queue job (roadmap B5).
+> use a [queue job](queues.md).
 
 ## Testing it
 

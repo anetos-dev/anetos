@@ -191,7 +191,9 @@ func main() {
         log.Fatal(err)
     }
     routes.Register(srv.Router())      // routes/web.go, routes/api.go
-    app.Worker("emails", jobs.SendWelcome{}, anetos.Concurrency(10))
+    q, _ := queue.ForApp(app)          // QUEUE_DRIVER (B5)
+    queue.Register[jobs.SendWelcome](q)
+    q.Work(queue.Queues("emails"), queue.Concurrency(10))
     app.Listen(pubsub.Topic("orders.created"), listeners.OrderCreated,
         anetos.Concurrency(20), anetos.Retry(5))
     app.Schedule(schedule.DailyAt("02:00"), tasks.PruneSessions)
@@ -201,8 +203,9 @@ func main() {
 ```
 
 F11 implemented `app.Execute` and the generated `main.go` (with a
-`setup` function the project's test reuses); `app.Use(plugins.All()...)`,
-workers, listeners and schedules arrive in v0.2.
+`setup` function the project's test reuses), and B5 the queue's workers
+(§13.4); `app.Use(plugins.All()...)`, listeners and schedules arrive
+later in v0.2.
 
 ---
 
@@ -229,19 +232,21 @@ anetos.dev/anetos/            ← core module
 ├── encryption/          AES-256-GCM with APP_KEY and key rotation (F10)
 ├── cache/               cache, memory and database stores, locks (B1); cache/cachetest: store conformance suite
 ├── auth/                login, remember me, API tokens, reset/verification tokens, policies (B3); auth/password: argon2id; auth/social: OAuth/OIDC sign-in (B4)
-├── queue/ pubsub/ events/ schedule/ mailer/ storage/
+├── queue/               jobs, workers, sync/memory/database stores, failed jobs (B5); queue/queuetest: store conformance suite
+├── pubsub/ events/ schedule/ mailer/ storage/
 ├── ext/                 public plugin API (package `ext`)
 ├── cmd/                 app-binary command types (F11); App.Execute dispatches
 ├── anetostest/          test app, browser-like client, assertions (F12); fakes arrive with their features
 ├── internal/            everything not part of the public API
 │   ├── convert/         string → typed value conversion (config and web binding)
+│   ├── dbutil/          the database server's clock and deadlock retries in SQL (cache, queue)
 │   ├── naming/          column and table naming rules (db and `anetos gen`)
 │   ├── appkey/          APP_KEY parsing and generation (kernel, encryption, cli)
 │   └── cmd/docsnippets/ checks doc code blocks against example regions
 ├── cli/                 ← separate module: the `anetos` developer tool (cmd/anetos: new, dev, make:*, gen, key:generate)
 ├── drivers/             ← each a separate module
 │   ├── postgres/ mysql/ sqlite/   database/sql driver + DSN; dialects are in db/
-│   ├── redis/           shared client (redis.Connect) and cache store with locks (B1); later session, queue, pubsub (Streams)
+│   ├── redis/           shared client (redis.Connect), cache store with locks (B1), sessions (B2), queue (B5); later pubsub (Streams)
 │   ├── gcppubsub/
 │   ├── s3/
 │   └── …
@@ -845,9 +850,10 @@ rule is **producers of work stop before its consumers** (D21):
    requests.
 3. `StageScheduler`: don't start new runs; wait for running tasks.
 4. `StageListeners`: stop pulling new messages; finish or nack in-flight ones.
-5. `StageWorkers`: stop reserving jobs; finish in-flight jobs (including ones
-   produced in steps 2–4) up to their timeout, then release them back to the
-   queue.
+5. `StageWorkers`: stop reserving jobs; give in-flight jobs (including
+   ones produced in steps 2–4) the shutdown grace period (half of the
+   budget by default), then cancel them and put those that stop back on
+   the queue without counting the attempt (D107).
 6. `StageBackground`: ad-hoc `app.Go` tasks.
 7. Shutdown hooks, in reverse registration order: flush logs and traces,
    close pools (DB, Redis).
@@ -867,26 +873,53 @@ type SendWelcome struct {
     UserID int64 `json:"user_id"`
 }
 
-func (j SendWelcome) Handle(ctx context.Context, app *anetos.App) error {
+func (j SendWelcome) Handle(ctx context.Context) error {
     user, err := db.Find[models.User](ctx, j.UserID)
     if err != nil { return err }
     return mailer.Send(ctx, mailers.Welcome{User: user})
 }
 
+// setup
+q, err := queue.ForApp(app, redis.QueueDriver())       // QUEUE_DRIVER
+err = queue.Register[jobs.SendWelcome](q, queue.Tries(5))
+err = q.Work(queue.Queues("emails", "default"), queue.Concurrency(10))
+
 // dispatching
-queue.Dispatch(c, jobs.SendWelcome{UserID: user.ID},
+queue.Dispatch(ctx, jobs.SendWelcome{UserID: user.ID},
     queue.OnQueue("emails"), queue.Delay(time.Minute))
 ```
 
-- Jobs are typed structs, serialized as JSON with a type name. Types are
-  registered at boot (`app.Worker` registers them), with no runtime
-  reflection lookup per message beyond the registry map.
-- Retries with exponential backoff and jitter, max attempts, per-job
-  timeout, a failed-jobs store, `queue:failed` / `queue:retry` commands.
-- Drivers: **sync** (runs immediately; for tests/dev), **database**,
-  **Redis**. SQS, NATS and others come as plugins.
-- Delivery is **at-least-once**. Handlers must be idempotent, and the docs
-  say so prominently.
+*(Implemented in B5: package `queue`, `drivers/redis`.)*
+
+- **Jobs** are typed structs with `Handle(ctx) error`, registered at
+  startup with `queue.Register[J]` (D104). A dispatch is a JSON envelope
+  `{"id", "job", "data"}`: a UUIDv7, the registered name (the Go type by
+  default, `queue.Name` to keep it across renames) and the fields. The
+  worker finds the type by name in the registry map and decodes into a
+  new value; nothing else is reflective. Dispatching an unregistered type
+  is an error. Jobs get their dependencies from `ctx`, which carries the
+  app's context values (`db`, `cache`, the queue, `app.AddContextValue`),
+  `queue.Info` and the timeout.
+- **Workers** are a component (`q.Work`; role `workers`,
+  `StageWorkers`, restarted on failure) that reserves jobs from its
+  queues in priority order, runs up to `Concurrency` at once and polls
+  every `QUEUE_POLL` when idle. `q.Run` runs them in a component of your
+  own.
+- **Delivery is at-least-once** (D17). Reserved jobs are leased, with a
+  token per reservation; outcomes are recorded only with the token (D105).
+- **Retries**: `QUEUE_TRIES` (3) attempts, exponential backoff with
+  jitter (`QUEUE_BACKOFF` 10s doubling to `QUEUE_BACKOFF_MAX` 10m), or
+  per type `queue.Tries`, `queue.Backoff`, `queue.Timeout`;
+  `queue.Permanent(err)` fails at once. A job out of tries is kept as
+  failed (also when its worker died during the last try: it isn't run
+  again), and its `Failed(ctx, err)` method (if any) runs; `queue:failed`,
+  `queue:retry`, `queue:forget`, `queue:flush` and `queue:clear` manage
+  them (D107).
+- **Drivers** (D105, D106): `sync` (runs at once in `Dispatch`, for
+  development and tests; the default), `memory`, `database` (dispatches
+  join the context's transaction) and `redis`. SQS, NATS and others come
+  as plugins implementing `queue.Store`; `queue/queuetest` is its
+  conformance suite.
 
 ### 13.5 Pub/sub listeners
 
@@ -958,7 +991,7 @@ Each service is an interface in the core module. Drivers are chosen in
 | Database | `db` | — | `drivers/postgres`, `drivers/mysql`, `drivers/sqlite` | v0.1 |
 | Session | `session` | cookie (encrypted), database | `drivers/redis` | v0.1 / v0.2 (B2 done) |
 | Cache (+ locks) | `cache` | memory, database | `drivers/redis` | v0.2 (B1 done) |
-| Queue | `queue` | sync, database | `drivers/redis`; SQS, NATS (plugins) | v0.2 |
+| Queue | `queue` | sync, memory, database | `drivers/redis`; SQS, NATS (plugins) | v0.2 (B5 done) |
 | Pub/sub | `pubsub` | in-memory (tests/dev) | `drivers/redis` (Streams), `drivers/gcppubsub`; NATS, Kafka (plugins) | v0.2 |
 | Mail | `mailer` | SMTP, log (dev) | Resend / Postmark / SES / Mailgun (plugins) | v0.2 |
 | Storage | `storage` | local | `drivers/s3` (S3-compatible, incl. R2/MinIO); GCS, Azure (plugins) | v0.2 |
@@ -1227,9 +1260,12 @@ func TestCreatePost(t *testing.T) {
   so a failed statement doesn't poison PostgreSQL's transaction. Whether
   the database is in memory is asked of SQLite after connecting, and an
   unset or empty `DB_DATABASE` never falls back to `database/app.db`.
-  Known differences from production (`AfterCommit`, statements after a
-  PostgreSQL error, timeouts, MySQL DDL) are documented, with
-  `WithoutTransaction()` as the way out.
+  The test's transaction comes from `db.WithTestTx`: work at its level
+  counts as committed, so `AfterCommit` callbacks run when a `db.Tx`
+  directly inside it (a request's) commits, or at once outside one (D108).
+  Known differences from production (connections of their own, such as
+  queue workers', statements after a PostgreSQL error, timeouts, MySQL
+  DDL) are documented, with `WithoutTransaction()` as the way out.
 - **Client** (D76): requests go straight to the router (no network) and act
   like a browser: its own cookie jar (Path and expiry honored; Secure
   and Domain ignored, so `SESSION_SECURE` and `__Host-` cookies work over
@@ -1243,8 +1279,11 @@ func TestCreatePost(t *testing.T) {
   assertions (`AssertDatabaseHas[T]`, `…Missing`, `…Count`,
   `AssertSoftDeleted`) using the typed columns.
 - **Fakes** for mail, queue, events, pub/sub, storage and the **clock**
-  (`app.Freeze(time)`) arrive with those features in v0.2 (D79); time will
-  be read from an injectable clock inside the framework.
+  (`app.Freeze(time)`) arrive in v0.2 (D79, B12); time will be read from
+  an injectable clock inside the framework. Until the queue fake, tests
+  run jobs with the sync driver. Each test app gets its own
+  `CACHE_PREFIX`, `SESSION_PREFIX` and `QUEUE_PREFIX`, cleaned up at the
+  end.
 - Everything works with `go test` and `-race`; `t.Parallel()` works with
   in-memory SQLite and server databases (not a SQLite file, whose write
   lock each test's transaction holds). One app per test or subtest.
@@ -1445,6 +1484,11 @@ unless new information arrives), **Open**, **Superseded**.
 | D101 | Social login verifies ID tokens by issuer, audience, expiry and nonce but not by signature, because they are received from the token endpoint over TLS (OIDC Core 3.1.3.7); all endpoints must be https; state and PKCE protect the flow | Accepted | No JOSE/JWKS dependency or key-rotation handling in the core; the spec allows it for the code flow; PKCE and nonce stop code injection and replay |
 | D102 | Social login doesn't create or link users itself: an app `Resolver` does, with `social_accounts` helpers; the guide and example link by provider account, and by email only when both the provider and the app verified it | Accepted | Account models differ per app; linking by unverified email allows pre-registration takeovers |
 | D103 | `APP_URL` (the public base URL) joins the app config; social login needs it for redirect URIs, and mail links will | Accepted | Deriving URLs from the request's Host is unreliable behind proxies and spoofable |
+| D104 | Jobs are structs with `Handle(ctx) error`, registered with `queue.Register[J]` and stored as a JSON envelope (`id` a UUIDv7, `job` the registered name, `data` the fields); the name defaults to the Go type; dispatching an unregistered type is an error and a worker fails an unknown one; dependencies come from the context, not from `Handle`'s parameters | Accepted | Typed and explicit like typed handlers; one registry lookup per job, no per-job reflection beyond decoding; JSON is debuggable, survives mixed versions and resolves O3 (no codec plug-ins); the context already carries the app's services |
+| D105 | Stores lease reserved jobs: reserving moves the job's available time to the lease's end (the longest registered timeout plus 30s), adds an attempt and sets a fresh token, and `Delete`, `Release` and `Fail` act only with that token; a job reserved past its tries (its worker died during the last one) fails without running; times follow the store server's clock; the database store reserves with `FOR UPDATE SKIP LOCKED` (PostgreSQL, MySQL 8.0, MariaDB 10.6+; SQLite updates atomically), Redis with a sorted set per queue and Lua scripts; failed jobs are kept by each store | Accepted | At-least-once with one index and no sweeper: a crashed worker's job comes back by itself; the token stops a worker whose lease ran out from deleting or failing the job under the next one; no lease extension keeps the store contract small, at the cost of slower redelivery when one job type has a long timeout |
+| D106 | The database store writes dispatches in the context's transaction (also with `queue.AfterCommit()`, when the transaction is on its database); other stores push at once, and `queue.AfterCommit()` defers the dispatch to `db.AfterCommit` (errors logged; returned when it runs at once, without a transaction); the sync driver runs the job once, in `Dispatch`, with the caller's context, ignoring delays and returning its error | Accepted | The database driver is a transactional outbox for free; Redis can't join a SQL transaction, so the app chooses; sync is for development and tests, where seeing the error matters more than retries |
+| D107 | Retries default to 3 tries with exponential backoff (10s doubling to 10m, ±20% jitter), per type `Tries`/`Timeout`/`Backoff`; `queue.Permanent` fails at once; a job out of tries is kept as failed and its optional `Failed` method runs; workers run in `StageWorkers`, stop reserving at shutdown, give running jobs half of `APP_SHUTDOWN_TIMEOUT` (`ShutdownGrace`, capped by `Supervisor.ShutdownDeadline` minus 2s), then cancel them and put those that stop back without counting the attempt (unless they return a permanent error); failed jobs keep a sanitized error (valid UTF-8, no NUL, at most 64 KB); `queue:retry all` retries the jobs failed when it started | Accepted | Laravel's knobs with safer defaults; jitter avoids retry storms; producers (HTTP) stop before workers so their last jobs still run; a deploy doesn't use up a job's tries; a failure every store can record never leaves a job looping |
+| D108 | `db.WithTestTx` marks a test's transaction: `AfterCommit` callbacks registered in it run at once, and those of a `db.Tx` directly inside it run when that commits; `anetostest` uses it, and gives each app its own `QUEUE_PREFIX`, purging its Redis keys at the end | Accepted | Tests behave like production for after-commit work (Laravel does the same), so `queue.AfterCommit()` jobs run in tests; `db.WithTx` keeps never running them, since its owner commits outside db's view |
 
 ---
 
@@ -1454,7 +1498,7 @@ unless new information arrives), **Open**, **Superseded**.
 |---|---|---|---|
 | O1 | ~~Does `web.Ctx` implementing `context.Context` cause confusion?~~ Resolved: yes it implements it, not pooled (D24) | §8.3 | Done |
 | O2 | ~~Model code generation: triggered by `anetos dev` automatically or only explicitly?~~ Resolved: both. `anetos gen` (or `go generate`) explicitly, `anetos dev` on every rebuild (F11), `anetos gen -check` in CI | §10.1 | Done |
-| O3 | Job serialization: JSON only, or pluggable codecs (msgpack, protobuf)? | §13.4 | B5 |
+| O3 | ~~Job serialization: JSON only, or pluggable codecs (msgpack, protobuf)?~~ Resolved: JSON only (D104) | §13.4 | Done |
 | O4 | Should async events share one global pool or have a pool per listener? | §13.6 | B6 |
 | O5 | Plugin config: generated Go struct in the app vs loaded from the plugin's own struct only | §16.2 | B11 |
 | O6 | ~~Which pure-Go SQLite implementation?~~ Resolved: modernc.org/sqlite (D38) | §10.3 | Done |
@@ -1484,3 +1528,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-09-30 | B2 sessions and rate limiting implemented: §8.6, §12.1, §14 updated; D93–D95 added |
 | 2026-09-30 | B3 authentication and authorization implemented: §5, §14, §15 updated; D96–D100 added; scaffolding moved to B14 |
 | 2026-10-01 | B4 social login implemented: §5, §7 (APP_URL), §15 updated; D101–D103 added |
+| 2026-10-01 | B5 queue implemented: §4, §5, §13.4, §14, §18 updated; D104–D108 added; O3 resolved |

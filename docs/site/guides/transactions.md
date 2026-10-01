@@ -52,7 +52,8 @@ err := db.Tx(ctx, func(ctx context.Context) error {
 ### 3. Run side effects after commit
 
 Emails, jobs and cache updates must not happen if the data is rolled
-back:
+back. (For jobs, `queue.Dispatch` has the option `queue.AfterCommit()`;
+see [Queues](queues.md#3-dispatch-jobs).)
 
 ```go
 // illustrative

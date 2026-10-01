@@ -29,7 +29,7 @@ Highest priority first. `.env` is never read.
 | Source | Holds |
 |---|---|
 | `anetostest.Env` | Whatever the test passes |
-| Forced | `APP_ENV=testing`, a random `APP_KEY`, a `CACHE_PREFIX` and `SESSION_PREFIX` of the app's own (its items and server-side sessions are removed when the test ends) |
+| Forced | `APP_ENV=testing`, a random `APP_KEY`, a `CACHE_PREFIX`, `SESSION_PREFIX` and `QUEUE_PREFIX` of the app's own (its items, server-side sessions and Redis jobs are removed when the test ends) |
 | Process environment | `DB_*` in CI, … |
 | `.env.testing` | Next to the test's `go.mod`; optional |
 | Defaults | `HTTP_ACCESS_LOG=false` |
@@ -43,7 +43,7 @@ them: never the default `database/app.db`.
 | Database | Each test gets |
 |---|---|
 | SQLite in memory (the default; checked with SQLite after connecting) | Its own database, migrated; no transaction, so `db.AfterCommit` callbacks run at once |
-| SQLite file, PostgreSQL, MySQL | The migrated database, and a transaction rolled back when the test ends (`AfterCommit` callbacks never run). Each request runs in a savepoint (`anetostest_request`), rolled back if the request left the transaction failed. With `WithoutTransaction()`, neither |
+| SQLite file, PostgreSQL, MySQL | The migrated database, and a transaction rolled back when the test ends (`db.WithTestTx`: `AfterCommit` callbacks run when a `db.Tx` inside it commits, or at once outside one). Each request runs in a savepoint (`anetostest_request`), rolled back if the request left the transaction failed. With `WithoutTransaction()`, neither |
 
 ## Requests (`anetostest`)
 

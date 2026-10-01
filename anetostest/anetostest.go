@@ -49,6 +49,7 @@ import (
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/db/migrate"
 	"anetos.dev/anetos/encryption"
+	"anetos.dev/anetos/queue"
 	"anetos.dev/anetos/session"
 	"anetos.dev/anetos/web"
 )
@@ -105,9 +106,10 @@ func LogLevel(l slog.Level) Option { return func(o *options) { o.level = l } }
 // prepares its database. It closes the app when the test ends.
 //
 // Settings, from highest priority: [Env] options; APP_ENV=testing, a
-// random APP_KEY, and a CACHE_PREFIX and SESSION_PREFIX of the App's own
-// (so tests sharing a store don't see each other's items; New removes the
-// App's items and sessions when the test ends); the process environment; the .env.testing file next to
+// random APP_KEY, and a CACHE_PREFIX, SESSION_PREFIX and QUEUE_PREFIX of
+// the App's own (so tests sharing a store don't see each other's items;
+// New removes the App's items, sessions and Redis jobs when the test
+// ends); the process environment; the .env.testing file next to
 // go.mod, if there is one (say, DB_DATABASE=blog_test); then
 // HTTP_ACCESS_LOG=false. The settings in .env are not used (New only
 // looks at its DB_CONNECTION, to stop a test that would use SQLite by
@@ -120,7 +122,8 @@ func New(t testing.TB, setup func(app *anetos.App) (*web.Server, error), opts ..
 		opt(o)
 	}
 	prefix := testPrefix()
-	forced := config.Map{"APP_ENV": "testing", "APP_KEY": encryption.GenerateKey(), "CACHE_PREFIX": prefix + "cache:", "SESSION_PREFIX": prefix + "session:"}
+	forced := config.Map{"APP_ENV": "testing", "APP_KEY": encryption.GenerateKey(), "CACHE_PREFIX": prefix + "cache:", "SESSION_PREFIX": prefix + "session:",
+		"QUEUE_PREFIX": prefix + "queue:"}
 	defaults := config.Map{"HTTP_ACCESS_LOG": "false"}
 	file, err := moduleEnv(".env.testing")
 	if err != nil {
@@ -187,6 +190,16 @@ func New(t testing.TB, setup func(app *anetos.App) (*web.Server, error), opts ..
 		}
 	}
 
+	if q, err := anetos.Resolve[*queue.Queue](app); err == nil {
+		if p, ok := q.Store().(interface{ Purge(context.Context) error }); ok {
+			t.Cleanup(func() {
+				if err := p.Purge(context.Background()); err != nil {
+					t.Errorf("anetostest: clear the queue: %v", err)
+				}
+			})
+		}
+	}
+
 	if o.migrate {
 		if runner, err := anetos.Resolve[*migrate.Runner](app); err == nil {
 			if _, err := runner.Up(a.ctx); err != nil {
@@ -204,7 +217,7 @@ func New(t testing.TB, setup func(app *anetos.App) (*web.Server, error), opts ..
 				t.Errorf("anetostest: roll back the test's transaction: %v", err)
 			}
 		})
-		if a.ctx, err = db.WithTx(a.ctx, tx); err != nil {
+		if a.ctx, err = db.WithTestTx(a.ctx, tx); err != nil {
 			t.Fatalf("anetostest: %v", err)
 		}
 		a.tx = true

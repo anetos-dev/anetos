@@ -48,9 +48,10 @@ migrations (when `setup` called `migrate.ForApp`) and closes it when the
 test ends. The settings, from highest priority:
 
 1. `anetostest.Env(map[string]string{…})` options;
-2. `APP_ENV=testing`, a random `APP_KEY`, and a `CACHE_PREFIX` and
-   `SESSION_PREFIX` of the app's own, so tests sharing a store don't see
-   each other's items or sessions (they are removed when the test ends);
+2. `APP_ENV=testing`, a random `APP_KEY`, and a `CACHE_PREFIX`,
+   `SESSION_PREFIX` and `QUEUE_PREFIX` of the app's own, so tests sharing
+   a store don't see each other's items, sessions or Redis jobs (they are
+   removed when the test ends);
 3. the process environment;
 4. `.env.testing` next to `go.mod`, if there is one (for PostgreSQL or
    MySQL, all the `DB_*` settings: see
@@ -226,9 +227,11 @@ inside it, so a failed statement (which aborts a PostgreSQL transaction)
 doesn't break the rest of the test: the request's writes are undone
 instead.
 
-This differs from production in a few ways. `db.AfterCommit` callbacks
-never run inside the test's transaction (they run at once with in-memory
-SQLite, which has none). On PostgreSQL, a request that catches a failed
+This differs from production in a few ways. Work done directly in the
+test's transaction counts as committed: `db.AfterCommit` callbacks run
+when a `db.Tx` inside it (a request's, say) commits, or at once outside
+one. Code with its own connections (queue workers, `db.WithoutTx`)
+doesn't see the test's rows. On PostgreSQL, a request that catches a failed
 statement and goes on querying fails (production, without the
 surrounding transaction, would carry on). A query canceled by a timeout
 closes the connection holding the transaction on PostgreSQL and MySQL, and
@@ -266,7 +269,7 @@ over `.env.testing`.
 | A request hangs until the test times out | Code opened its own connection (or `db.Tx` on a new context) and waits for the test's transaction's locks; or two parallel tests insert the same unique value | Use the request's context; `anetostest.WithoutTransaction()` and clean up yourself; unique values from factories |
 | `current transaction is aborted` (PostgreSQL) | A handler went on after a failed statement | Test that path with `anetostest.WithoutTransaction()` |
 | `The request left the test's transaction unusable` | A timeout cancelled a query, or a schema change on MySQL | `anetostest.WithoutTransaction()` for that test |
-| `AfterCommit` callbacks don't run (or run on SQLite only) | The test's transaction never commits | `anetostest.WithoutTransaction()` for that test |
+| A queue worker doesn't find the test's rows | Workers use their own connections, outside the test's transaction | `QUEUE_DRIVER=sync`, or `anetostest.WithoutTransaction()` for that test |
 | 403 "The page has expired" | The form sent a `_token` field (it wins over the automatic token), or the route has no session middleware | Drop the field; add `sessions.Middleware` |
 | `subtest may have called FailNow on a parent test` | An app made in a test used in its subtest | Make the app in the subtest |
 | `setup returned no server` | `setup` returns a nil `*web.Server` | Return the server |
@@ -277,7 +280,8 @@ over `.env.testing`.
 > test). `app.PostForm(…).AssertRedirect(…)` and friends are `$this->post()`
 > and `assertRedirect()`; factories are functions returning structs instead
 > of classes, and `Posts.With(…)` is a state. Clock, mail and queue fakes
-> come with those features.
+> (`Queue::fake()`) come in v0.2 (B12); until then, jobs run with the sync
+> driver.
 
 ## Next steps
 

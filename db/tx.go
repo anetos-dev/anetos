@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 )
 
@@ -17,6 +18,15 @@ type txState struct {
 	mu         sync.Mutex
 	savepoints int
 	after      []func(context.Context)
+	test       bool // from WithTestTx: work at its level counts as committed
+}
+
+// spDepth keys the number of savepoints a context is in.
+type spDepth struct{ db *DB }
+
+func (d *DB) depth(ctx context.Context) int {
+	n, _ := ctx.Value(spDepth{d}).(int)
+	return n
 }
 
 type txKey struct{ db *DB }
@@ -113,7 +123,8 @@ func (d *DB) savepoint(ctx context.Context, st *txState, fn func(ctx context.Con
 			_ = rollback()
 		}
 	}()
-	err := fn(ctx)
+	depth := d.depth(ctx)
+	err := fn(context.WithValue(ctx, spDepth{d}, depth+1))
 	done = true
 	if err != nil {
 		if rbErr := rollback(); rbErr != nil {
@@ -124,17 +135,29 @@ func (d *DB) savepoint(ctx context.Context, st *txState, fn func(ctx context.Con
 	if _, err := d.exec(ctx, st.tx, "RELEASE SAVEPOINT "+name, nil); err != nil {
 		return fmt.Errorf("db: release savepoint: %w", err)
 	}
+	if st.test && depth == 0 {
+		// Directly in a test's transaction, which never commits: this is
+		// the commit, as far as the test can tell.
+		st.mu.Lock()
+		after := slices.Clone(st.after[mark:])
+		st.after = st.after[:mark]
+		st.mu.Unlock()
+		for _, f := range after {
+			f(ctx)
+		}
+	}
 	return nil
 }
 
 // AfterCommit runs fn once the transaction in ctx commits, or right away if
-// ctx has no transaction. Use it for work that must only happen if the
+// ctx has no transaction (or only a test's, from [WithTestTx]). Use it for work that must only happen if the
 // data was saved, such as sending an email or dispatching a job. If the
 // transaction (or the nested transaction fn was registered in) rolls back,
-// fn never runs. fn gets a context outside the transaction.
+// fn never runs. fn gets a context outside the transaction (in a test's
+// transaction from [WithTestTx], the test's context).
 func AfterCommit(ctx context.Context, fn func(ctx context.Context)) {
 	if d, err := From(ctx); err == nil {
-		if st := d.txIn(ctx); st != nil {
+		if st := d.txIn(ctx); st != nil && (!st.test || d.depth(ctx) != 0) {
 			st.mu.Lock()
 			st.after = append(st.after, fn)
 			st.mu.Unlock()
@@ -156,6 +179,20 @@ func WithTx(ctx context.Context, tx *sql.Tx) (context.Context, error) {
 		return nil, err
 	}
 	return context.WithValue(ctx, txKey{d}, &txState{tx: tx}), nil
+}
+
+// WithTestTx is [WithTx] for test helpers, whose transaction is rolled
+// back at the end of the test instead of committed: work done at its
+// level counts as committed. [AfterCommit] callbacks registered directly
+// in it run at once, and those of a [Tx] directly inside it run when that
+// Tx commits (as they would in the app, without the test's transaction).
+// anetostest uses it.
+func WithTestTx(ctx context.Context, tx *sql.Tx) (context.Context, error) {
+	d, err := From(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return context.WithValue(ctx, txKey{d}, &txState{tx: tx, test: true}), nil
 }
 
 // WithoutTx returns ctx without its transaction on the database in ctx:

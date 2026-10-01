@@ -96,6 +96,48 @@ All notable changes to this project are documented here. The format follows
 - `examples/database` rate-limits its API; `examples/forms` has the
   sessions table and a test with `SESSION_DRIVER=database`; guide "Rate
   limiting", sessions guide step "Keep sessions on the server" (B2).
+- Queues (`queue` package): typed jobs (`Handle(ctx) error`) registered
+  with `queue.Register[J]` (`queue.Tries`, `queue.Timeout`,
+  `queue.Backoff`, `queue.Name`) and dispatched with `queue.Dispatch`
+  (`queue.OnQueue`, `queue.Delay`, `queue.AfterCommit`); `queue.ForApp`
+  picks a driver with `QUEUE_DRIVER` (`sync`, the default, `memory`,
+  `database`, or a driver's such as `redis`); workers with `q.Work`
+  (`queue.Queues` in priority order, `queue.Concurrency`,
+  `queue.ShutdownGrace`), role `workers`, or `q.Run`; retries with
+  exponential backoff and jitter, `queue.Permanent`, a `Failed` method,
+  `queue.Current` (the job's ID, attempt and tries); at-least-once
+  delivery with leased reservations (B5, design D104–D107).
+- Failed jobs are kept by the store; the `queue:failed`, `queue:retry`,
+  `queue:forget`, `queue:flush` and `queue:clear` commands (B5, design
+  D107).
+- Queue stores: memory, database (`queue.Migrations(table, failedTable)`,
+  `queue.CreateTables`, `QUEUE_TABLE`, `QUEUE_FAILED_TABLE`; dispatches
+  join the context's transaction) and Redis (`redis.QueueDriver`, `redis.NewQueueStore`,
+  `QUEUE_PREFIX`); the `queue.Store` interface and the `queue/queuetest`
+  conformance suite, run by `db/dbtest` on every database and by
+  `drivers/redis` (B5, design D105, D106).
+- `Supervisor.ShutdownDeadline`: when the components' shutdown budget
+  runs out, for components that plan their stop, such as queue workers
+  (B5, design D107).
+- `db.WithTestTx`, for test helpers' transactions: `AfterCommit`
+  callbacks run at once in it, or when a `db.Tx` directly inside it
+  commits (B5, design D108).
+- `anetostest.New` gives each test app its own `QUEUE_PREFIX` and removes
+  its Redis jobs when the test ends (B5, design D108).
+- `anetos new` projects set up the queue with workers, and include the
+  jobs tables; `.env` sets `QUEUE_DRIVER=database` (B5).
+- `examples/queue`: orders charged by a job, with retries, a declined
+  card failing for good, and tests with the sync driver and with workers;
+  guide "Queues" (B5).
+
+### Changed
+- `anetostest` runs `db.AfterCommit` callbacks registered in a test's
+  transaction (with a SQLite file, PostgreSQL or MySQL): when a `db.Tx`
+  inside it commits, as in a request, or at once outside one. They never
+  ran before, unlike in production (B5, design D108).
+- The SQL clock and deadlock retries of the database cache store moved
+  to an internal package shared with the queue; no change in behavior
+  (B5).
 
 ## [0.1.1] - 2026-09-30
 
