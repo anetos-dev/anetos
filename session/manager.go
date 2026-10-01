@@ -294,6 +294,7 @@ func ForApp(app *anetos.App, drivers ...Driver) (*Manager, error) {
 	if err != nil {
 		return nil, err
 	}
+	m.now = app.Now        // sessions expire on the app's clock, which tests can move
 	anetos.Provide(app, m) // for anetostest, and code that needs it
 	return m, nil
 }

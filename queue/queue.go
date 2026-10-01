@@ -15,6 +15,7 @@ import (
 	"regexp"
 	"runtime/debug"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"anetos.dev/anetos"
@@ -62,6 +63,70 @@ type Queue struct {
 	mu     sync.RWMutex
 	byName map[string]*jobType
 	byType map[reflect.Type]*jobType
+
+	obsMu     sync.RWMutex
+	observers []func(context.Context, Dispatched)
+	fake      atomic.Bool // Fake: jobs go to the observers only
+}
+
+// Dispatched describes a dispatched job, for [Queue.Observe].
+type Dispatched struct {
+	// ID is the job's ID.
+	ID string
+	// Job is the job type's name ("SendWelcome", "mail:send").
+	Job string
+	// Queue is the queue it went on.
+	Queue string
+	// Delay is its delay ([Delay]).
+	Delay time.Duration
+	// Data is the job, or a function job's payload, as JSON.
+	Data json.RawMessage
+}
+
+// Decode decodes the job's data into v: a pointer to the job type, or to
+// a function job's payload type.
+func (d Dispatched) Decode(v any) error { return json.Unmarshal(d.Data, v) }
+
+// Observe calls fn with each job dispatched from now on: once the store
+// has it (with the database driver, inside a transaction, once that
+// commits), or, with the sync driver, before it runs; with
+// [AfterCommit], after the commit. A job the store refuses isn't
+// passed. In a transaction of db.WithTx, whose commit db doesn't see,
+// the database driver's jobs aren't passed either. For tests and
+// instrumentation. fn must be quick and safe for concurrent use.
+// anetostest uses it to record jobs.
+func (q *Queue) Observe(fn func(ctx context.Context, d Dispatched)) {
+	q.obsMu.Lock()
+	defer q.obsMu.Unlock()
+	q.observers = append(q.observers, fn)
+}
+
+// Fake makes the queue, from now on, pass dispatched jobs to the
+// [Queue.Observe] functions only: they are neither stored nor run. For
+// tests (anetostest.FakeQueue); it can't be undone.
+func (q *Queue) Fake() { q.fake.Store(true) }
+
+// NameOf returns the name job's type is registered with ([Register]).
+func (q *Queue) NameOf(job Job) (string, error) {
+	jt, err := q.typeOf(job)
+	if err != nil {
+		return "", err
+	}
+	return jt.name, nil
+}
+
+// notify passes d, a job just dispatched, to the observers and the
+// dispatch's [OnDispatched] function.
+func (q *Queue) notify(ctx context.Context, d Dispatched, o dispatchOptions) {
+	q.obsMu.RLock()
+	obs := q.observers
+	q.obsMu.RUnlock()
+	for _, fn := range obs {
+		fn(ctx, d)
+	}
+	for _, fn := range o.onDispatched {
+		fn(ctx, d)
+	}
 }
 
 // jobType is a registered job type.
@@ -362,9 +427,20 @@ func jitter(d time.Duration) time.Duration {
 type DispatchOption func(*dispatchOptions)
 
 type dispatchOptions struct {
-	queue       string
-	delay       time.Duration
-	afterCommit bool
+	queue        string
+	delay        time.Duration
+	afterCommit  bool
+	onDispatched []func(context.Context, Dispatched)
+}
+
+// OnDispatched calls fn once the job is dispatched, when [Queue.Observe]
+// functions are: once the store has it (after the commit with
+// [AfterCommit]); not if the store refuses it or the transaction rolls
+// back. With the sync driver, fn is called before the job runs, whatever
+// its outcome. Each OnDispatched option adds a function. mailer.Queue
+// uses it to record queued email.
+func OnDispatched(fn func(ctx context.Context, d Dispatched)) DispatchOption {
+	return func(o *dispatchOptions) { o.onDispatched = append(o.onDispatched, fn) }
 }
 
 // OnQueue puts the job on the queue name: workers take jobs from the
@@ -449,12 +525,24 @@ func (q *Queue) dispatch(ctx context.Context, jt *jobType, value any, opts []Dis
 	if err != nil {
 		return err
 	}
+	d := Dispatched{ID: id, Job: jt.name, Queue: o.queue, Delay: o.delay, Data: data}
 	send := func(ctx context.Context) error {
-		if q.sync {
+		switch {
+		case q.fake.Load():
+			q.notify(ctx, d, o) // recorded only
+			return nil
+		case q.sync:
+			q.notify(ctx, d, o) // before it runs
 			return q.runSync(ctx, jt, id, o.queue, data)
 		}
 		if err := q.store.Push(ctx, Message{ID: id, Queue: o.queue, Payload: payload}, o.delay); err != nil {
 			return fmt.Errorf("queue: dispatch %s: %w", jt.name, err)
+		}
+		if q.joinsTx(ctx) {
+			// Written in the transaction: dispatched if it commits.
+			db.AfterCommit(ctx, func(ctx context.Context) { q.notify(ctx, d, o) })
+		} else {
+			q.notify(ctx, d, o)
 		}
 		return nil
 	}
@@ -494,7 +582,7 @@ func (q *Queue) dispatch(ctx context.Context, jt *jobType, value any, opts []Dis
 // ctx, so that waiting for its commit is unnecessary.
 func (q *Queue) joinsTx(ctx context.Context) bool {
 	s, ok := q.store.(interface{ joinsTx(context.Context) bool })
-	return ok && !q.sync && s.joinsTx(ctx)
+	return ok && !q.sync && !q.fake.Load() && s.joinsTx(ctx)
 }
 
 // runSync runs a job at once, for the sync driver: one attempt, whose

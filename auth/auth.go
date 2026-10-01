@@ -209,6 +209,7 @@ func ForApp[U Authenticatable](app *anetos.App, users Users[U]) (*Auth[U], error
 	if err != nil {
 		return nil, err
 	}
+	a.now = app.Now // tests can freeze it
 	anetos.Provide(app, a)
 	anetos.Provide(app, appAuth{})
 	return a, nil

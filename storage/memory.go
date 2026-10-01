@@ -12,7 +12,8 @@ import (
 	"slices"
 	"strings"
 	"sync"
-	"time"
+
+	"anetos.dev/anetos"
 )
 
 // MemoryBackend keeps files in memory: for tests and development. Files
@@ -37,7 +38,7 @@ func (m *MemoryBackend) Put(ctx context.Context, path string, r io.Reader, opts 
 		return err
 	}
 	sum := sha256.Sum256(data)
-	f := memFile{data: data, info: FileInfo{Path: path, Size: int64(len(data)), ModTime: time.Now().UTC(),
+	f := memFile{data: data, info: FileInfo{Path: path, Size: int64(len(data)), ModTime: anetos.Now(ctx).UTC(),
 		ContentType: opts.ContentType, ETag: `"` + hex.EncodeToString(sum[:16]) + `"`}}
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -128,7 +129,7 @@ func (m *MemoryBackend) Copy(ctx context.Context, src, dst string) error {
 		return ErrNotFound
 	}
 	f.info.Path = dst
-	f.info.ModTime = time.Now().UTC()
+	f.info.ModTime = anetos.Now(ctx).UTC()
 	m.files[dst] = f // the data is never changed in place
 	return nil
 }

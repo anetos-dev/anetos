@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -33,6 +35,40 @@ type Mailer struct {
 	log       *slog.Logger
 	now       func() time.Time
 	queued    atomic.Bool // the queue has the mail:send job
+
+	obsMu     sync.RWMutex
+	observers []func(context.Context, Record)
+}
+
+// Record is an email the mailer sent or queued, for [Mailer.Observe].
+type Record struct {
+	// Mailable is the mailable given to Send or Queue.
+	Mailable Mailable
+	// Message is the email it rendered.
+	Message *Outgoing
+	// Queued says it went through Queue: a job sends it.
+	Queued bool
+}
+
+// Observe calls fn with each email the mailer sends with [Send] (once
+// the transport took it) or queues with [Queue] (once the job is
+// dispatched: with queue.AfterCommit, after the commit; not if the
+// transaction rolls back; with the sync driver, once the job sent it)
+// from now on, for tests and instrumentation. fn must be
+// quick and safe for concurrent use. anetostest uses it to record mail.
+func (m *Mailer) Observe(fn func(ctx context.Context, r Record)) {
+	m.obsMu.Lock()
+	defer m.obsMu.Unlock()
+	m.observers = append(m.observers, fn)
+}
+
+func (m *Mailer) observe(ctx context.Context, r Record) {
+	m.obsMu.RLock()
+	obs := m.observers
+	m.obsMu.RUnlock()
+	for _, fn := range obs {
+		fn(ctx, r)
+	}
 }
 
 // Option configures a [Mailer] made with [New].
@@ -98,7 +134,11 @@ func (m *Mailer) Send(ctx context.Context, mailable Mailable) error {
 	if err != nil {
 		return err
 	}
-	return m.send(ctx, o)
+	if err := m.send(ctx, o); err != nil {
+		return err
+	}
+	m.observe(ctx, Record{Mailable: mailable, Message: o})
+	return nil
 }
 
 // send sends o with the transport.
@@ -145,7 +185,37 @@ func (m *Mailer) Queue(ctx context.Context, mailable Mailable, opts ...queue.Dis
 	if err != nil {
 		return err
 	}
-	return queue.DispatchFunc(ctx, sendJob, o, opts...)
+	r := Record{Mailable: mailable, Message: o, Queued: true}
+	// Recorded once dispatched: with the sync driver, during DispatchFunc,
+	// then only if the email was sent; otherwise when the store has it
+	// (after the commit, with queue.AfterCommit).
+	var (
+		mu      sync.Mutex
+		inline  = true
+		pending []context.Context
+	)
+	record := queue.OnDispatched(func(ctx context.Context, _ queue.Dispatched) {
+		mu.Lock()
+		if inline {
+			pending = append(pending, ctx)
+			mu.Unlock()
+			return
+		}
+		mu.Unlock()
+		m.observe(ctx, r)
+	})
+	err = queue.DispatchFunc(ctx, sendJob, o, append(slices.Clone(opts), record)...)
+	mu.Lock()
+	inline = false
+	ctxs := pending
+	mu.Unlock()
+	if err != nil {
+		return err
+	}
+	for _, ctx := range ctxs {
+		m.observe(ctx, r)
+	}
+	return nil
 }
 
 // register adds the job that sends queued emails to q.

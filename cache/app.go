@@ -44,7 +44,11 @@ type Driver struct {
 
 // MemoryDriver is the memory store's driver (CACHE_STORE=memory).
 func MemoryDriver() Driver {
-	return Driver{Name: "memory", Open: func(*anetos.App, Config) (Store, error) { return NewMemoryStore(), nil }}
+	return Driver{Name: "memory", Open: func(app *anetos.App, _ Config) (Store, error) {
+		s := NewMemoryStore()
+		s.now = app.Now // expiry on the app's clock, which tests can move
+		return s, nil
+	}}
 }
 
 // ForApp sets up the app's cache from the CACHE_* settings: it opens the

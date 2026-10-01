@@ -179,3 +179,25 @@ func TestCommands(t *testing.T) {
 		t.Errorf("status:\n%s", out.String())
 	}
 }
+
+// region: test-clock
+// With the clock frozen, timestamps are known: created_at, published_at
+// (set by the handler from anetos.Now), and deleted_at an hour later.
+func TestTimestamps(t *testing.T) {
+	app := anetostest.New(t, setup)
+	now := app.Freeze(time.Time{})
+	author := anetostest.Create(app, Authors)
+
+	var p Post
+	app.PostJSON("/posts", map[string]any{"author_id": author.ID, "title": "Hello", "body": "x", "publish": true}).
+		AssertCreated().
+		JSON(&p)
+	anetostest.AssertDatabaseHas[Post](app, PostCols.ID.Eq(p.ID), PostCols.CreatedAt.Eq(now), PostCols.PublishedAt.Eq(&now))
+
+	app.Travel(time.Hour)
+	app.Delete("/posts/" + strconv.FormatInt(p.ID, 10)).AssertNoContent()
+	later := now.Add(time.Hour)
+	anetostest.AssertSoftDeleted[Post](app, PostCols.ID.Eq(p.ID), PostCols.DeletedAt.Eq(&later))
+}
+
+// endregion

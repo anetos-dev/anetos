@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"anetos.dev/anetos"
 	"anetos.dev/anetos/auth"
 	"anetos.dev/anetos/auth/social"
 	"anetos.dev/anetos/db"
@@ -100,7 +101,7 @@ func findOrCreate(ctx context.Context, p social.Profile) (*User, error) {
 	err = db.Tx(ctx, func(ctx context.Context) error { // the user and the link, or neither
 		u, err = users.ByLogin(ctx, p.Email)
 		if errors.Is(err, db.ErrNotFound) {
-			now := time.Now().UTC()
+			now := anetos.Now(ctx).UTC()
 			name := p.Name
 			if name == "" {
 				name = p.Email

@@ -181,6 +181,7 @@ func PlaceOrder(c *web.Ctx, in OrderInput) (web.Responder, error) {
 | `queue.OnQueue(name)` | The queue (default `QUEUE_DEFAULT`). Names are lower-case letters, digits and `. _ : -` |
 | `queue.Delay(d)` | Run the job after `d` |
 | `queue.AfterCommit()` | Dispatch the job only once the transaction in the context commits; never if it rolls back |
+| `queue.OnDispatched(fn)` | Call `fn(ctx, queue.Dispatched)` once the job is dispatched (after the commit with `AfterCommit`; not if the store refuses it or the transaction rolls back; with the sync driver, before it runs) |
 
 Inside a transaction, a job must not run before the transaction commits,
 or it may look for rows that aren't there yet:
@@ -319,6 +320,19 @@ has none; with a SQLite file, PostgreSQL or MySQL, pass
 Redis jobs when the test ends. `queue.AfterCommit()` jobs are dispatched
 when a `db.Tx` inside the test's transaction commits, as they would be
 without it.
+
+To check that a job was dispatched without running it, fake the queue
+and assert on the recorded jobs:
+
+```go
+// illustrative
+app := anetostest.New(t, setup, anetostest.FakeQueue())
+id := placeOrder(t, app, "Book", 1500)
+anetostest.AssertDispatched(app, func(j ChargeOrder) bool { return j.OrderID == id })
+```
+
+[Test your app](testing.md#6-check-jobs-events-emails-and-messages) has
+the complete test and every assertion.
 
 ## How it works
 

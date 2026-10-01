@@ -4,8 +4,8 @@ package main
 
 import (
 	"context"
-	"time"
 
+	"anetos.dev/anetos"
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/db/migrate"
 )
@@ -78,7 +78,7 @@ var Seeders = []migrate.Seeder{
 		if err != nil {
 			return err
 		}
-		now := time.Now().UTC()
+		now := anetos.Now(ctx).UTC()
 		return db.CreateMany(ctx, []Post{
 			{AuthorID: ada.ID, Title: "Hello, Anetos", Body: "The first post.", PublishedAt: &now},
 			{AuthorID: ada.ID, Title: "A draft", Body: "Not published yet."},

@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"anetos.dev/anetos/auth/password"
 	"anetos.dev/anetos/db"
@@ -175,3 +176,21 @@ func TestPolicies(t *testing.T) {
 	app.GetJSON("/users/" + ada.AuthID()).AssertOK()
 	app.Get("/admin").AssertOK().AssertSee("Ada &lt;ada@example.com&gt;")
 }
+
+// region: test-clock
+// The reset link works for AUTH_RESET_TTL (60 minutes): travel past it.
+func TestResetLinkExpires(t *testing.T) {
+	links := mailbox(t)
+	app := anetostest.New(t, setup)
+	createUser(t, app, "Ada", "ada@example.com", false)
+	app.Get("/forgot-password")
+	app.PostForm("/forgot-password", url.Values{"email": {"ada@example.com"}})
+	q, _ := url.ParseQuery(links["Reset your password"][len("/reset-password?"):])
+
+	app.Travel(61 * time.Minute)
+	app.Get("/reset-password?" + q.Encode())
+	app.PostForm("/reset-password", url.Values{"token": {q.Get("token")}, "password": {"new password"}, "password_confirmation": {"new password"}}).
+		AssertValidationErrors("password")
+}
+
+// endregion

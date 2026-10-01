@@ -5,6 +5,7 @@ package dbtest
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -53,6 +54,8 @@ func testQueueStore(t *testing.T, ctx context.Context) {
 
 	q := queue.New(store, queue.Config{})
 	check(t, queue.Register[stJob](q))
+	var observed atomic.Int32 // Observe sees dispatches that commit only
+	q.Observe(func(context.Context, queue.Dispatched) { observed.Add(1) })
 	ctx = queue.WithQueue(ctx, q)
 	size := func() int64 {
 		t.Helper()
@@ -92,6 +95,9 @@ func testQueueStore(t *testing.T, ctx context.Context) {
 	if n := size(); n != 0 {
 		t.Errorf("after the rollback, with AfterCommit, %d job(s)", n)
 	}
+	if n := observed.Load(); n != 0 {
+		t.Errorf("%d rolled-back dispatch(es) observed", n)
+	}
 	// One that commits is dispatched, and so is one after the commit.
 	check(t, db.Tx(ctx, func(ctx context.Context) error {
 		if err := queue.Dispatch(ctx, stJob{Text: "in"}); err != nil {
@@ -101,6 +107,9 @@ func testQueueStore(t *testing.T, ctx context.Context) {
 	}))
 	if n := size(); n != 2 {
 		t.Errorf("after the commit, %d job(s), want 2", n)
+	}
+	if n := observed.Load(); n != 2 {
+		t.Errorf("%d dispatch(es) observed, want 2", n)
 	}
 	_, err = store.Clear(ctx, "default")
 	check(t, err)

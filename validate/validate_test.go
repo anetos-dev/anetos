@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"anetos.dev/anetos"
 )
 
 // fieldErrors validates v and returns its messages, failing the test on
@@ -282,6 +284,15 @@ func TestTimeRules(t *testing.T) {
 	wantError(t, &in{Start: now.Add(time.Hour), End: &later, Due: later.Add(time.Second)}, "due", "")
 	// Nothing to compare against: the other field's own rules report it.
 	wantValid(t, &in{Start: now.Add(time.Hour), Due: later})
+	// "now" is the app's clock.
+	then := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+	ctx := anetos.WithClock(context.Background(), func() time.Time { return then })
+	if err := Struct(ctx, &in{Start: then.Add(time.Hour)}); err != nil {
+		t.Errorf("after:now on the app's clock: %v", err)
+	}
+	if err := Struct(ctx, &in{Start: then.Add(-time.Hour)}); err == nil {
+		t.Error("before the app's clock: no error")
+	}
 }
 
 func TestNested(t *testing.T) {

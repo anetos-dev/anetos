@@ -311,10 +311,11 @@ func (d *Disk) TemporaryURL(ctx context.Context, p string, ttl time.Duration) (s
 	if ttl <= 0 {
 		return "", fmt.Errorf("storage: TemporaryURL(%s): the ttl must be positive", ttl)
 	}
-	expires := d.now().Add(ttl)
 	if s, ok := d.backend.(URLSigner); ok {
-		return s.SignedURL(ctx, p, expires)
+		// The store checks it against its own clock: real time.
+		return s.SignedURL(ctx, p, time.Now().Add(ttl))
 	}
+	expires := d.now().Add(ttl) // checked by Handler, on the app's clock
 	if d.url == "" {
 		return "", ErrNoURL
 	}

@@ -158,7 +158,7 @@ func Create[T any](ctx context.Context, row *T) error {
 		return err
 	}
 	v := reflect.ValueOf(row).Elem()
-	t := now()
+	t := now(ctx)
 	setTime(v, m, m.createdAt, t, true)
 	setTime(v, m, m.updatedAt, t, true)
 	if err := insert(ctx, d, c, m, []reflect.Value{v}, nil, nil); err != nil {
@@ -179,7 +179,7 @@ func CreateMany[T any](ctx context.Context, rows []T) error {
 	if err != nil {
 		return err
 	}
-	t := now()
+	t := now(ctx)
 	vs := make([]reflect.Value, len(rows))
 	for i := range rows {
 		if err := runHooks(ctx, &rows[i], "beforeCreate"); err != nil {
@@ -226,7 +226,7 @@ func Upsert[T any](ctx context.Context, rows []T, conflict []string, update ...s
 	if len(update) > 0 && m.updatedAt >= 0 && !slices.Contains(update, m.cols[m.updatedAt].name) {
 		update = append(slices.Clip(update), m.cols[m.updatedAt].name)
 	}
-	t := now()
+	t := now(ctx)
 	vs := make([]reflect.Value, len(rows))
 	for i := range rows {
 		vs[i] = reflect.ValueOf(&rows[i]).Elem()
@@ -370,7 +370,7 @@ func Update[T any](ctx context.Context, row *T) error {
 	if err := runHooks(ctx, row, "beforeUpdate"); err != nil {
 		return err
 	}
-	setTime(v, m, m.updatedAt, now(), false)
+	setTime(v, m, m.updatedAt, now(ctx), false)
 	cols := m.updatable()
 	if len(cols) == 0 {
 		return runHooks(ctx, row, "afterUpdate")
@@ -450,7 +450,7 @@ func deleteRow[T any](ctx context.Context, row *T, soft bool) error {
 		return err
 	}
 	b := &sqlBuilder{d: d.dialect}
-	t := now()
+	t := now(ctx)
 	if soft {
 		b.write("UPDATE ")
 		b.name(m.table)
@@ -500,7 +500,7 @@ func Restore[T any](ctx context.Context, row *T) error {
 	if err != nil {
 		return err
 	}
-	t := now()
+	t := now(ctx)
 	b := &sqlBuilder{d: d.dialect}
 	b.write("UPDATE ")
 	b.name(m.table)

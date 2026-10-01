@@ -206,6 +206,11 @@ fail). Test async listeners that use the database with in-memory SQLite
 or `anetostest.WithoutTransaction()`. Queued listeners run by the sync
 driver are in the test's transaction.
 
+To check that an event was emitted without running its listeners, fake
+it: `anetostest.New(t, setup, anetostest.FakeEvents(OrderPlaced{}))`,
+then `anetostest.AssertEmitted(app, func(e OrderPlaced) bool { … })`;
+see [Test your app](testing.md#6-check-jobs-events-emails-and-messages).
+
 ## How it works
 
 `events.On`, `OnAsync` and `OnQueued` add the listener to a map from the

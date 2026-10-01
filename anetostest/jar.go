@@ -15,6 +15,7 @@ import (
 // Max-Age and Expires.
 type jar struct {
 	cookies map[jarKey]jarCookie
+	now     func() time.Time // the app's clock: cookies expire when the test travels
 }
 
 type jarKey struct{ name, path string }
@@ -24,11 +25,11 @@ type jarCookie struct {
 	expires time.Time // zero: session cookie
 }
 
-func newJar() *jar { return &jar{cookies: map[jarKey]jarCookie{}} }
+func newJar(now func() time.Time) *jar { return &jar{cookies: map[jarKey]jarCookie{}, now: now} }
 
 // set stores the cookies of a response.
 func (j *jar) set(cs []*http.Cookie) {
-	now := time.Now()
+	now := j.now()
 	for _, c := range cs {
 		path := c.Path
 		if path == "" || path[0] != '/' {
@@ -56,7 +57,7 @@ func (j *jar) set(cs []*http.Cookie) {
 // forPath returns the cookies a browser sends to path, longest path
 // first; all of them for path "".
 func (j *jar) forPath(path string) []*http.Cookie {
-	now := time.Now()
+	now := j.now()
 	var out []*http.Cookie
 	for k, jc := range j.cookies {
 		if !jc.expires.IsZero() && !jc.expires.After(now) {

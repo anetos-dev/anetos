@@ -172,7 +172,10 @@ func AfterCommit(ctx context.Context, fn func(ctx context.Context)) {
 // the returned context run in tx, and [Tx] on it uses savepoints. Use it
 // to share a transaction with code that works with *sql.Tx directly.
 // [AfterCommit] callbacks registered on the returned context never run,
-// since the db package doesn't see the commit.
+// since the db package doesn't see the commit: neither do what relies on
+// them (queue.AfterCommit dispatches, async event listeners, and the
+// recording of jobs the database queue driver writes in tx, which
+// anetostest and queue.Queue.Observe see).
 func WithTx(ctx context.Context, tx *sql.Tx) (context.Context, error) {
 	d, err := From(ctx)
 	if err != nil {

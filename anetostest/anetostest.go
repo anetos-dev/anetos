@@ -3,7 +3,11 @@
 // Package anetostest tests Anetos applications: it boots the app with test
 // settings and a clean database, sends requests through the router like a
 // browser (cookies, CSRF tokens, the Referer), and asserts on responses,
-// sessions and database rows.
+// sessions, database rows, files, and the jobs, events, email and pub/sub
+// messages the app sent ([AssertDispatched], [AssertEmitted],
+// [AssertMailSent], [AssertPublished]; faked with [FakeQueue],
+// [FakeEvents], [FakePubSub]). [App.Freeze] and [App.Travel] control the
+// app's clock.
 //
 //	func TestCreatePost(t *testing.T) {
 //		app := anetostest.New(t, setup) // setup: the app's own wiring
@@ -70,6 +74,8 @@ type App struct {
 	headers  http.Header
 	referer  string
 	tx       bool // the test runs in a transaction
+	clock    testClock
+	rec      *recorder
 }
 
 // Option configures [New].
@@ -80,6 +86,10 @@ type options struct {
 	migrate     bool
 	transaction bool
 	level       slog.Level
+
+	fakeQueue, fakePubSub     bool
+	fakeEvents, fakeAllEvents bool
+	fakedEvents               []any
 }
 
 // Env sets configuration values, over the test defaults and the
@@ -122,6 +132,11 @@ func LogLevel(l slog.Level) Option { return func(o *options) { o.level = l } }
 // looks at its DB_CONNECTION, to stop a test that would use SQLite by
 // mistake). With SQLite and neither DB_DATABASE nor DB_URL set (or set to
 // ""), the database is in memory, not database/app.db.
+//
+// After setup, New records what the app's queue, event bus, mailer and
+// pub/sub dispatch, emit, mail and publish, for [AssertDispatched] and
+// the other assertions; [FakeQueue], [FakeEvents] and [FakePubSub] make
+// them record only. The app's clock is the test's ([App.Freeze], [App.Travel]).
 func New(t testing.TB, setup func(app *anetos.App) (*web.Server, error), opts ...Option) *App {
 	t.Helper()
 	o := &options{env: config.Map{}, migrate: true, transaction: true, level: slog.LevelInfo}
@@ -161,7 +176,8 @@ func New(t testing.TB, setup func(app *anetos.App) (*web.Server, error), opts ..
 		}
 	})
 	a := &App{App: app, t: t, headers: http.Header{}}
-	a.jar = newJar()
+	app.SetClock(a.clock.now) // Freeze, Travel
+	a.jar = newJar(app.Now)
 
 	if setup != nil {
 		srv, err := setup(app)
@@ -172,6 +188,7 @@ func New(t testing.TB, setup func(app *anetos.App) (*web.Server, error), opts ..
 			a.router = srv.Router()
 		}
 	}
+	a.record(o) // what the app dispatches, emits, mails and publishes
 	ctx := context.Background()
 	if err := app.Boot(ctx); err != nil {
 		t.Fatalf("anetostest: boot: %v", err)

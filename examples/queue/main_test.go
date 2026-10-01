@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -202,6 +203,8 @@ func TestResendReceipt(t *testing.T) {
 	id := placeOrder(t, app, "Lamp", 4250)
 
 	app.PostJSON(fmt.Sprintf("/orders/%d/receipt", id), nil).AssertStatus(http.StatusAccepted)
+	anetostest.AssertMailSent(app, func(m ReceiptMail) bool { return m.Order.OrderID == id })   // by the listener
+	anetostest.AssertMailQueued(app, func(m ReceiptMail) bool { return m.Order.OrderID == id }) // again
 
 	sent := sentMail(app)
 	if len(sent) != 2 { // when placed, and again
@@ -243,3 +246,40 @@ func TestBouncedAddress(t *testing.T) {
 }
 
 // endregion
+
+// region: test-fakes
+// With the queue and the OrderPlaced event faked, placing an order only
+// records the charge job and the event: the test checks they were
+// dispatched and emitted, and nothing ran.
+func TestPlaceOrderFaked(t *testing.T) {
+	g := &FakeGateway{}
+	fakeGateway(t, g)
+	app := anetostest.New(t, setup, anetostest.FakeQueue(), anetostest.FakeEvents(OrderPlaced{}))
+
+	id := placeOrder(t, app, "Book", 1500)
+	anetostest.AssertDispatched(app, func(j ChargeOrder) bool { return j.OrderID == id })
+	anetostest.AssertEmitted(app, func(e OrderPlaced) bool { return e.OrderID == id && e.Cents == 1500 })
+	anetostest.AssertMailNotSent[ReceiptMail](app, nil) // its listener didn't run
+	if orderStatus(t, app, id) != "pending" || g.Charges() != 0 {
+		t.Error("the charge ran")
+	}
+}
+
+// endregion
+
+// Email queued after a commit is recorded once the transaction commits:
+// not when it rolls back.
+func TestQueuedMailRolledBack(t *testing.T) {
+	app := anetostest.New(t, setup, anetostest.FakeQueue())
+	errRollback := errors.New("rollback")
+	err := db.Tx(app.Context(), func(ctx context.Context) error {
+		if err := mailer.Queue(ctx, ReceiptMail{Order: OrderPlaced{OrderID: 1, Email: "ada@example.com"}}, queue.AfterCommit()); err != nil {
+			return err
+		}
+		return errRollback
+	})
+	if !errors.Is(err, errRollback) {
+		t.Fatal(err)
+	}
+	app.AssertNoMail().AssertNothingDispatched()
+}

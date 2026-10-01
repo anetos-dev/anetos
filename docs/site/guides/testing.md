@@ -6,8 +6,9 @@ since: v0.1.0
 # Test your app
 
 Boot the app in a test, send it requests like a browser or an API
-client, and check the responses, the session and the database, with
-`anetostest`.
+client, and check the responses, the session, the database, the jobs,
+events and email the app sent, and its files, with `anetostest`; freeze
+or move the app's clock.
 
 ## Before you start
 
@@ -212,12 +213,157 @@ The conditions are the query builder's, and rows are counted as
 post, err := posts.Publish(app.Context(), id)
 ```
 
+### 6. Check jobs, events, emails and messages
+
+`anetostest` records what the app dispatches to the queue, emits as
+events, sends or queues as email, and publishes to pub/sub, and checks
+it with typed assertions. By default these still happen as usual (with
+`QUEUE_DRIVER=sync`, jobs run at once); fake them to only record:
+
+| Option | Then |
+|---|---|
+| `anetostest.FakeQueue()` | Dispatched jobs are recorded, not run or stored (queued email and queued listeners too) |
+| `anetostest.FakeEvents(OrderPlaced{}, …)` | Those events (all, with no arguments) are recorded and don't reach their listeners |
+| `anetostest.FakePubSub()` | Published messages are recorded, not sent to the broker |
+
+Email is never sent in tests (`MAIL_DRIVER=memory`), so it needs no
+fake.
+
+```go
+// With the queue and the OrderPlaced event faked, placing an order only
+// records the charge job and the event: the test checks they were
+// dispatched and emitted, and nothing ran.
+func TestPlaceOrderFaked(t *testing.T) {
+	g := &FakeGateway{}
+	fakeGateway(t, g)
+	app := anetostest.New(t, setup, anetostest.FakeQueue(), anetostest.FakeEvents(OrderPlaced{}))
+
+	id := placeOrder(t, app, "Book", 1500)
+	anetostest.AssertDispatched(app, func(j ChargeOrder) bool { return j.OrderID == id })
+	anetostest.AssertEmitted(app, func(e OrderPlaced) bool { return e.OrderID == id && e.Cents == 1500 })
+	anetostest.AssertMailNotSent[ReceiptMail](app, nil) // its listener didn't run
+	if orderStatus(t, app, id) != "pending" || g.Charges() != 0 {
+		t.Error("the charge ran")
+	}
+}
+```
+
+(Copied from [`examples/queue/main_test.go`](../../../examples/queue/main_test.go), region `test-fakes`.)
+
+Each assertion takes the type and a `match` function (`nil` for any):
+
+| Check | Assertions | Values |
+|---|---|---|
+| Jobs | `AssertDispatched[J]`, `AssertNotDispatched[J]`, `app.AssertNothingDispatched()` | `Jobs[J](app)`; `app.Dispatched()`, function jobs included |
+| Events | `AssertEmitted[E]`, `AssertNotEmitted[E]`, `app.AssertNothingEmitted()` | `Events[E](app)`, `app.Emitted()` |
+| Email | `AssertMailSent[M]` (`mailer.Send`), `AssertMailQueued[M]` (`mailer.Queue`), `AssertMailNotSent[M]`, `app.AssertNoMail()` | `Mailables[M](app)`, `app.Mail()` |
+| Pub/sub | `AssertPublished[T](app, topic, match)`, `AssertNotPublished[T]` | `Messages[T](app, topic)`, `app.Published()` |
+
+### 7. Check files
+
+Disks keep their files in memory in tests (`STORAGE_DRIVER=memory`), so
+each test starts with empty disks. `app.Disk()` (the default disk) and
+`app.Disk("avatars")` check them; the clock ([step 8](#8-control-the-clock))
+lets a test go past a link's expiry:
+
+```go
+// The upload is on the default disk, and its temporary URL stops working
+// after 15 minutes: the test travels in time instead of waiting.
+func TestDocumentLink(t *testing.T) {
+	app := anetostest.New(t, setup, env)
+	uploaded := app.Freeze(time.Time{})
+
+	var doc Document
+	app.PostMultipart("/documents", nil, anetostest.Upload{Field: "file", Filename: "q3.pdf", Content: pdf}).
+		AssertStatus(http.StatusCreated).
+		JSON(&doc)
+	app.Disk().AssertContent("documents/"+doc.Name, string(pdf))
+	app.Disk("avatars").AssertMissing("documents/" + doc.Name)
+	if !doc.UploadedAt.Equal(uploaded) {
+		t.Errorf("uploaded at %v, want %v", doc.UploadedAt, uploaded)
+	}
+
+	app.Travel(14 * time.Minute)
+	app.Get(doc.URL).AssertOK()
+	app.Travel(2 * time.Minute)
+	app.Get(doc.URL).AssertStatus(http.StatusForbidden)
+}
+```
+
+(Copied from [`examples/files/main_test.go`](../../../examples/files/main_test.go), region `test-disk`.)
+
+`AssertExists`, `AssertMissing` and `AssertContent` chain; `Files(prefix)`
+lists paths.
+
+### 8. Control the clock
+
+`app.Freeze(t)` stops the app's clock (at the current time, for the zero
+time) and returns the time; `app.Travel(d)` moves it; `app.Unfreeze()`
+returns to the real time. The framework reads the time from that clock:
+timestamps, the expiry of sessions, cookies, tokens, signed URLs and
+cached items, `after:now` rules. Read it in your code with
+`anetos.Now(ctx)` instead of `time.Now()`, so tests control it too.
+
+```go
+// With the clock frozen, timestamps are known: created_at, published_at
+// (set by the handler from anetos.Now), and deleted_at an hour later.
+func TestTimestamps(t *testing.T) {
+	app := anetostest.New(t, setup)
+	now := app.Freeze(time.Time{})
+	author := anetostest.Create(app, Authors)
+
+	var p Post
+	app.PostJSON("/posts", map[string]any{"author_id": author.ID, "title": "Hello", "body": "x", "publish": true}).
+		AssertCreated().
+		JSON(&p)
+	anetostest.AssertDatabaseHas[Post](app, PostCols.ID.Eq(p.ID), PostCols.CreatedAt.Eq(now), PostCols.PublishedAt.Eq(&now))
+
+	app.Travel(time.Hour)
+	app.Delete("/posts/" + strconv.FormatInt(p.ID, 10)).AssertNoContent()
+	later := now.Add(time.Hour)
+	anetostest.AssertSoftDeleted[Post](app, PostCols.ID.Eq(p.ID), PostCols.DeletedAt.Eq(&later))
+}
+```
+
+(Copied from [`examples/database/main_test.go`](../../../examples/database/main_test.go), region `test-clock`.)
+
+Travel past an expiry instead of waiting for it:
+
+```go
+// The reset link works for AUTH_RESET_TTL (60 minutes): travel past it.
+func TestResetLinkExpires(t *testing.T) {
+	links := mailbox(t)
+	app := anetostest.New(t, setup)
+	createUser(t, app, "Ada", "ada@example.com", false)
+	app.Get("/forgot-password")
+	app.PostForm("/forgot-password", url.Values{"email": {"ada@example.com"}})
+	q, _ := url.ParseQuery(links["Reset your password"][len("/reset-password?"):])
+
+	app.Travel(61 * time.Minute)
+	app.Get("/reset-password?" + q.Encode())
+	app.PostForm("/reset-password", url.Values{"token": {q.Get("token")}, "password": {"new password"}, "password_confirmation": {"new password"}}).
+		AssertValidationErrors("password")
+}
+```
+
+(Copied from [`examples/auth/main_test.go`](../../../examples/auth/main_test.go), region `test-clock`.)
+
+The clock doesn't move time kept elsewhere: database and Redis servers
+(items in the database and Redis cache stores expire, and those queues'
+delayed jobs become due, on their server's clock), timeouts, and the
+scheduler's and workers' loops. The [testing reference](../reference/anetostest.md#clock-anetostest-anetos)
+lists what reads the app's clock.
+
 ## Complete example
 
 - [`examples/forms/main_test.go`](../../../examples/forms/main_test.go):
   forms, validation, flash messages, htmx requests.
 - [`examples/database/main_test.go`](../../../examples/database/main_test.go):
-  a JSON API with factories and database assertions.
+  a JSON API with factories, database assertions and a frozen clock.
+- [`examples/queue/main_test.go`](../../../examples/queue/main_test.go):
+  jobs, events and email, run or faked.
+- [`examples/files/main_test.go`](../../../examples/files/main_test.go):
+  uploads, disks and expiring links.
 
 ## How it works
 
@@ -278,14 +424,22 @@ over `.env.testing`.
 | `subtest may have called FailNow on a parent test` | An app made in a test used in its subtest | Make the app in the subtest |
 | `setup returned no server` | `setup` returns a nil `*web.Server` | Return the server |
 | A redirect back goes to `/` | No HTML page loaded first, so there's no `Referer` | `app.Get` the form's page before posting |
+| `app.Freeze` doesn't change a time your code sets | The code reads `time.Now()` | Use `anetos.Now(ctx)` |
+| An item in the database or Redis cache doesn't expire after `app.Travel` | Those stores use their server's clock | Use `CACHE_STORE=memory` in tests, or test expiry another way |
+| `anetostest: FakeQueue: the app has no queue` | `setup` doesn't call `queue.ForApp` (or `events.ForApp`, `pubsub.ForApp` for the other fakes) | Drop the option, or set the service up |
+| `job type … isn't registered` from `Jobs[J]` or `AssertDispatched[J]` | `J` isn't registered with `queue.Register` | Register it in `setup`; check function jobs with `app.Dispatched()` |
 
 > **Coming from Laravel?** `anetostest.New` is the `TestCase` with
 > `RefreshDatabase` (in-memory SQLite, or migrations plus a transaction per
 > test). `app.PostForm(…).AssertRedirect(…)` and friends are `$this->post()`
 > and `assertRedirect()`; factories are functions returning structs instead
-> of classes, and `Posts.With(…)` is a state. Clock, mail and queue fakes
-> (`Queue::fake()`) come in v0.2 (B12); until then, jobs run with the sync
-> driver.
+> of classes, and `Posts.With(…)` is a state. `anetostest.FakeQueue()`,
+> `FakeEvents(…)` and `FakePubSub()` are `Queue::fake()`, `Event::fake()`
+> and friends, with typed assertions (`AssertDispatched[ChargeOrder]` for
+> `assertPushed(ChargeOrder::class, …)`); mail needs no `Mail::fake()`,
+> since tests never send it. `app.Freeze`, `app.Travel` are
+> `freezeTime()` and `travel()`, and `anetos.Now(ctx)` is `now()`.
+> `app.Disk()` replaces `Storage::fake()`.
 
 ## Next steps
 

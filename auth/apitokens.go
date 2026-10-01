@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"anetos.dev/anetos"
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/db/migrate"
 	"anetos.dev/anetos/web"
@@ -91,7 +92,7 @@ func (a *Auth[U]) CreateToken(ctx context.Context, u U, name string, abilities [
 		t.Abilities = []string{}
 	}
 	if ttl > 0 {
-		exp := time.Now().Add(ttl).UTC()
+		exp := a.now().Add(ttl).UTC()
 		t.ExpiresAt = &exp
 	}
 	if err := db.Create(ctx, t); err != nil {
@@ -141,7 +142,7 @@ func lookup(ctx context.Context, plain string) (*Token, error) {
 	if subtle.ConstantTimeCompare([]byte(t.Hash), []byte(hashSecret(secret))) != 1 {
 		return nil, nil
 	}
-	if t.ExpiresAt != nil && !time.Now().Before(*t.ExpiresAt) {
+	if t.ExpiresAt != nil && !anetos.Now(ctx).Before(*t.ExpiresAt) {
 		return nil, nil
 	}
 	return &t, nil
@@ -180,7 +181,7 @@ func (a *Auth[U]) TokenMiddleware(next http.Handler) http.Handler {
 			web.WriteError(w, r, err)
 			return
 		}
-		if now := time.Now().UTC(); t.LastUsedAt == nil || now.Sub(*t.LastUsedAt) >= time.Minute {
+		if now := a.now().UTC().Truncate(time.Microsecond); t.LastUsedAt == nil || now.Sub(*t.LastUsedAt) >= time.Minute {
 			// At most one write a minute per token.
 			if _, err := db.Query[Token](ctx).Where(colID.Eq(t.ID)).
 				Update(colLastUsed.Set(&now)); err != nil {

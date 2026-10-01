@@ -338,6 +338,17 @@ func TestForApp(t *testing.T) {
 	if got, err := cache.From(ctx); err != nil || got != c {
 		t.Errorf("From(app context) = %v, %v", got, err)
 	}
+	// The memory store's items expire on the app's clock.
+	at := time.Now()
+	app.SetClock(func() time.Time { return at })
+	if err := cache.Set(ctx, "k", 1, time.Minute); err != nil {
+		t.Fatal(err)
+	}
+	at = at.Add(2 * time.Minute)
+	if _, ok, _ := cache.Get[int](ctx, "k"); ok {
+		t.Error("an item outlived its ttl on the app's clock")
+	}
+	app.SetClock(nil)
 	if err := cache.Set(ctx, "a", 1, 0); err != nil {
 		t.Fatal(err)
 	}

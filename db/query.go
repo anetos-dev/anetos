@@ -13,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"anetos.dev/anetos"
 )
 
 // Q is a query on the table of model T. Build one with [Query]; each method
@@ -521,7 +523,7 @@ func (q *Q[T]) Update(assignments ...Assignment) (int64, error) {
 	if q.m.updatedAt >= 0 {
 		name := q.m.cols[q.m.updatedAt].name
 		if !slices.Contains(cols, name) {
-			assignments = append(slices.Clip(assignments), Assignment{name, valueExpr{now()}})
+			assignments = append(slices.Clip(assignments), Assignment{name, valueExpr{now(q.ctx)}})
 			cols = append(cols, name)
 		}
 	}
@@ -545,7 +547,7 @@ func (q *Q[T]) Update(assignments ...Assignment) (int64, error) {
 // aren't already deleted. Model hooks don't run for mass deletes.
 func (q *Q[T]) Delete() (int64, error) {
 	if q.m != nil && q.m.deletedAt >= 0 {
-		t := now()
+		t := now(q.ctx)
 		as := []Assignment{{q.m.cols[q.m.deletedAt].name, valueExpr{t}}}
 		if q.m.updatedAt >= 0 {
 			as = append(as, Assignment{q.m.cols[q.m.updatedAt].name, valueExpr{t}})
@@ -605,7 +607,8 @@ func (q *Q[T]) write(head func(b *sqlBuilder)) (int64, error) {
 	return res.RowsAffected()
 }
 
-// now is the time written to timestamp columns: UTC, with microsecond
-// precision (what PostgreSQL and MySQL's DATETIME(6) store), so the value
-// in memory matches the one read back.
-func now() time.Time { return time.Now().UTC().Truncate(time.Microsecond) }
+// now is the time written to timestamp columns, on the app's clock
+// (anetos.Now): UTC, with microsecond precision (what PostgreSQL and
+// MySQL's DATETIME(6) store), so the value in memory matches the one
+// read back.
+func now(ctx context.Context) time.Time { return anetos.Now(ctx).UTC().Truncate(time.Microsecond) }

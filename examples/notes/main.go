@@ -100,7 +100,7 @@ func (h *Notes) Show(c *web.Ctx, in NoteID) (Note, error) {
 func (h *Notes) Store(c *web.Ctx, in CreateNote) (web.Responder, error) {
 	h.mu.Lock()
 	h.nextID++
-	n := Note{ID: h.nextID, Title: in.Title, Body: in.Body, Tags: in.Tags, CreatedAt: time.Now().UTC()}
+	n := Note{ID: h.nextID, Title: in.Title, Body: in.Body, Tags: in.Tags, CreatedAt: anetos.Now(c).UTC()}
 	h.notes = append(h.notes, n)
 	h.mu.Unlock()
 

@@ -235,12 +235,43 @@ All notable changes to this project are documented here. The format follows
   at the end of `setup` (B11).
 - `examples/queue` uses the Postmark plugin and skips receipts to
   suppressed addresses; guides "Use plugins" and "Write a plugin" (B11).
+- The app's clock: `anetos.Now(ctx)`, `App.Now`, `App.SetClock` and
+  `anetos.WithClock`. Model timestamps, session lifetimes, auth tokens,
+  `APP_KEY`-signed temporary URLs, memory cache expiry, rate-limit
+  windows, `after:now`-style rules and emails' Date read it (B12, design
+  D136).
+- `Observe` hooks on the queue (`queue.Dispatched`), the event bus, the
+  mailer (`mailer.Record`) and pub/sub (`pubsub.Published`), and
+  `Fake()` on the queue, the bus (by event type) and pub/sub, which make
+  them record only; `queue.Queue.NameOf`; `queue.OnDispatched` (B12,
+  design D137).
+- `anetostest` records the jobs, events, email and pub/sub messages of
+  each test app; options `FakeQueue()`, `FakeEvents(…)`, `FakePubSub()`;
+  typed assertions `AssertDispatched[J]`, `AssertNotDispatched[J]`,
+  `AssertEmitted[E]`, `AssertNotEmitted[E]`, `AssertMailSent[M]`,
+  `AssertMailQueued[M]`, `AssertMailNotSent[M]`, `AssertPublished[T]`,
+  `AssertNotPublished[T]`, values `Jobs[J]`, `Events[E]`,
+  `Mailables[M]`, `Messages[T]`, `app.Dispatched()`, `app.Emitted()`,
+  `app.Mail()`, `app.Published()` and `app.AssertNothing…`; disk
+  assertions (`app.Disk(name).AssertExists`, `AssertMissing`,
+  `AssertContent`, `Files`); `app.Freeze`, `app.Travel`, `app.Unfreeze`
+  (B12, design D138–D140).
+- Examples: `examples/queue` tests with a faked queue and events and
+  mail assertions, `examples/files` disk assertions and an expiring
+  link, `examples/database` frozen timestamps, `examples/auth` an
+  expired reset link; the examples read the time with `anetos.Now`
+  (B12).
 - `examples/queue` emails a receipt for each order from its queued event
   listener, with a templ template, queues one again with `POST
   /orders/{id}/receipt`, and previews it in development; guide "Send
   email" (B9).
 
 ### Changed
+- `pubsub.Publish` copies a byte-slice message, so the caller may reuse
+  its buffer (B12).
+- `ratelimit.Result.RetryAfter` counts from the time of the hit, on the
+  app's clock (B12).
+- The test client's cookies expire on the app's clock (B12).
 - The Postmark transport moved from `drivers/postmark` to
   `plugins/postmark` (unreleased) (B11).
 - `make docs-check` also checks regions claimed from first-party plugins

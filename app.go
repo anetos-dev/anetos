@@ -63,6 +63,8 @@ type App struct {
 
 	cmdMu    sync.Mutex
 	commands map[string]cmd.Command
+
+	clock clock // Now
 }
 
 type ctxValue struct{ key, val any }
@@ -166,6 +168,7 @@ func New(opts ...Option) (*App, error) {
 		services: map[reflect.Type]any{},
 		commands: map[string]cmd.Command{},
 	}
+	a.AddContextValue(clockKey{}, &a.clock)
 	a.addBuiltins()
 	return a, nil
 }

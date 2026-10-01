@@ -259,10 +259,15 @@ func ForApp[U auth.Authenticatable](app *anetos.App, a *auth.Auth[U], resolve Re
 		return nil, fmt.Errorf("social: APP_URL %q must be https in production", app.Config().URL)
 	}
 	if len(providers) == 0 {
-		return &Social[U]{auth: a, resolve: resolve, providers: map[string]*provider{}}, nil
+		return &Social[U]{auth: a, resolve: resolve, providers: map[string]*provider{}, now: app.Now}, nil
 	}
 	opts = append([]Option{WithLogger(app.Logger().With("component", "social"))}, opts...)
-	return New(a, resolve, app.Config().URL, creds, providers, opts...)
+	s, err := New(a, resolve, app.Config().URL, creds, providers, opts...)
+	if err != nil {
+		return nil, err
+	}
+	s.now = app.Now // tests can freeze it
+	return s, nil
 }
 
 // Configured returns the providers whose SOCIAL_<NAME>_CLIENT_ID and

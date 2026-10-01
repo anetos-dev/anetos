@@ -12,14 +12,15 @@ import (
 	"testing"
 	"time"
 
+	"anetos.dev/anetos"
 	"anetos.dev/anetos/cache"
 )
 
 // fixedClock stops the clock in the middle of a minute for the test.
 func fixedClock(t *testing.T) {
 	at := time.Date(2026, 1, 1, 12, 0, 10, 0, time.UTC)
-	now = func() time.Time { return at }
-	t.Cleanup(func() { now = time.Now })
+	now = func(context.Context) time.Time { return at }
+	t.Cleanup(func() { now = anetos.Now })
 }
 
 func withCache(store cache.Store) context.Context {
@@ -203,17 +204,17 @@ func TestMiddlewareLimits(t *testing.T) {
 	for range 10 {
 		serve(h, "192.0.2.50:1", "")
 	}
-	now = func() time.Time { return time.Date(2026, 1, 1, 12, 1, 10, 0, time.UTC) } // the next minute
+	now = func(context.Context) time.Time { return time.Date(2026, 1, 1, 12, 1, 10, 0, time.UTC) } // the next minute
 	w := serve(h, "192.0.2.50:1", "")
 	if w.Code != http.StatusOK || w.Header().Get("X-RateLimit-Remaining") != "1" {
 		t.Errorf("next minute: %d, remaining %s (the daily quota was used up by blocked requests?)", w.Code, w.Header().Get("X-RateLimit-Remaining"))
 	}
 	// The daily limit blocks with its own reset.
 	for range 2 {
-		now = func() time.Time { return time.Date(2026, 1, 1, 12, 2+hits, 10, 0, time.UTC) }
+		now = func(context.Context) time.Time { return time.Date(2026, 1, 1, 12, 2+hits, 10, 0, time.UTC) }
 		serve(h, "192.0.2.50:1", "")
 	}
-	now = func() time.Time { return time.Date(2026, 1, 1, 13, 0, 0, 0, time.UTC) }
+	now = func(context.Context) time.Time { return time.Date(2026, 1, 1, 13, 0, 0, 0, time.UTC) }
 	w = serve(h, "192.0.2.50:1", "")
 	if w.Code != http.StatusTooManyRequests || w.Header().Get("X-RateLimit-Limit") != "5" || w.Header().Get("Retry-After") != "39600" {
 		t.Errorf("daily limit: %d %v", w.Code, w.Header())

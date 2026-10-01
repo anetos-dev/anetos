@@ -244,7 +244,7 @@ anetos.dev/anetos/            ← core module
 ├── storage/             disks: local (os.Root) and memory backends, signed URLs, file handler (B10); storage/storagetest: backend conformance suite
 ├── ext/                 public plugin API (package `ext`)
 ├── cmd/                 app-binary command types (F11); App.Execute dispatches
-├── anetostest/          test app, browser-like client, assertions (F12); fakes arrive with their features
+├── anetostest/          test app, browser-like client, assertions (F12); recording, fakes and the test clock (B12)
 ├── internal/            everything not part of the public API
 │   ├── convert/         string → typed value conversion (config and web binding)
 │   ├── dbutil/          the database server's clock and deadlock retries in SQL (cache, queue)
@@ -1482,10 +1482,23 @@ func TestCreatePost(t *testing.T) {
 - **Data** (D77, D78): factories (`db/factory`) and generic database
   assertions (`AssertDatabaseHas[T]`, `…Missing`, `…Count`,
   `AssertSoftDeleted`) using the typed columns.
-- **Fakes** for mail, queue, events, pub/sub, storage and the **clock**
-  (`app.Freeze(time)`) arrive in v0.2 (D79, B12); time will be read from
-  an injectable clock inside the framework. Until the queue fake, tests
-  run jobs with the sync driver. Each test app gets its own
+- **Recording and fakes** (B12, D137–D139): `anetostest.New` records,
+  through `Observe` hooks on the queue, the event bus, the mailer and
+  pub/sub, every job dispatched, event emitted, email sent or queued and
+  message published. `FakeQueue()`, `FakeEvents(types…)` and
+  `FakePubSub()` switch the real services to record only (`Fake`):
+  jobs aren't stored or run, events don't reach listeners, messages
+  don't reach the broker. Typed assertions decode what was recorded
+  (`AssertDispatched[ChargeOrder](app, match)`, `AssertEmitted[E]`,
+  `AssertMailSent[M]` / `AssertMailQueued[M]`, `AssertPublished[T]`);
+  `app.Disk(name)` checks files.
+- **Clock** (B12, D136, D140): the app has a clock (`anetos.Now(ctx)`,
+  `app.Now()`, `App.SetClock`), the system's in production;
+  `app.Freeze(t)`, `app.Travel(d)` and `app.Unfreeze()` control it in
+  tests. The framework reads the time an app observes from it
+  (timestamps, lifetimes, expiries, `after:now`, emails' Date, the test
+  client's cookies); servers' clocks, timeouts and loops stay real.
+- Each test app gets its own
   `CACHE_PREFIX`, `SESSION_PREFIX`, `QUEUE_PREFIX` and `PUBSUB_PREFIX`,
   cleaned up by shutdown hooks (which run before the app's connections
   close, also when a test runs the app), and `MAIL_DRIVER=memory`, so
@@ -1668,7 +1681,7 @@ unless new information arrives), **Open**, **Superseded**.
 | D76 | The test client calls the router in-process and behaves like a browser (cookie jar, automatic CSRF token, `Referer`), rather than disabling CSRF in tests | Accepted | Tests go through the same middleware as users; forms tests need no token scraping |
 | D77 | Factories are values (`factory.New(func(n int) T)`), with states as `With(func(*T))` returning a new factory, in `db/factory` so seeders can use them; related rows are made explicitly | Accepted | Typed, no reflection or registry; shared base factories can't be mutated by a test; relations stay explicit until relation handles (v0.1.x) |
 | D78 | Response assertions are chainable methods reporting with `t.Errorf`; database assertions and `Create` are generic functions (`AssertDatabaseHas[T](app, conds...)`) | Accepted | Go has no generic methods; `Errorf` shows every failed check of a request at once |
-| D79 | Fakes (clock, mail, queue, events, storage) ship with their features, not in F12 | Accepted | Nothing to fake in v0.1; each fake is designed with the API it replaces |
+| D79 | Fakes (clock, mail, queue, events, storage) ship with their features, not in F12 (done in B12: D136–D140) | Accepted | Nothing to fake in v0.1; each fake is designed with the API it replaces |
 | D80 | Pagination links come from `web.PageURL(ctx, n)` (the current URL with `page=n`, other query parameters kept), and a trailing `url.Values` argument gives named-route URLs a query string; no pagination component | Accepted | Found building the blog from the docs alone; keeps filters across pages; markup stays the app's |
 | D81 | `migrate --seed` needs `--force` in production like `db:seed`; plain `migrate` never does | Accepted | Seeding production by accident was possible; migrating on deploy must stay one command |
 | D82 | Every exported identifier of public packages, struct fields and interface methods included, has a doc comment, checked by `make api-docs` in CI | Accepted | The v0.1 exit criterion, kept true by a tool rather than review |
@@ -1725,6 +1738,11 @@ unless new information arrives), **Open**, **Superseded**.
 | D133 | A plugin's settings are its own struct (`Config() any`), filled by `config.Bind` in `Load`; a bind error doesn't fail `Load` but registers a provider that fails boot, so commands that don't boot (`plugins:env`, `plugins:list`, `ManagesApp`) still run; no config stub is generated in the app | Accepted | Resolves O5: settings stay typed in one place, and `anetos add` can ask the app for them (`plugins:env`) before they are set |
 | D134 | `anetos add` writes a generated `plugins.go` (read back in its list's order; import names avoid `main`'s declarations), checks with `go build` and the built app's `plugins:env` (so `ext.Load` refusals count), restores `go.mod`/`go.sum`/`plugins.go` on any refusal, reports a Anetos upgrade `go get` made, and appends missing keys to `.env.example` (`plugins:env` quotes values for `.env`); `anetos remove` reverses the first three, leaving settings and tables | Accepted | Installation is code generation (Go has no runtime discovery); a failed add leaves the project as it was |
 | D135 | First-party plugins live in `plugins/<name>`, one module each, importing only public packages; the Postmark transport moved from `drivers/postmark` (unreleased) to `plugins/postmark`, which adds the webhook, suppression list, job and commands | Accepted | The roadmap's proof that the public API suffices: one module installs with one command and adds routes, a migration, config, commands and a job |
+| D136 | The app has a clock: `App.Now()`, `App.SetClock(fn)` (nil: the system's), and `anetos.Now(ctx)`, which reads the clock of the app in ctx (every app context carries it) or `time.Now`; framework code that produces or checks times an app observes reads it (`ForApp` wires the components' `now` to `app.Now`; code with a context calls `anetos.Now`), while durations, timeouts, loops and database or Redis server time stay real | Accepted | No global clock to swap, so parallel tests each freeze their own app; context-carried like the app's other services; servers' clocks can't be faked, so they are documented as out of reach |
+| D137 | Test fakes are switches on the real services plus recording, not substitute implementations: the queue, event bus, mailer and pub/sub get `Observe(fn)` (also usable for instrumentation) and the first three's dispatch paths a `Fake()` that records only; anetostest observes every app and fakes on request (`FakeQueue`, `FakeEvents(types…)`, `FakePubSub`) | Accepted | Tests use the app's own setup unchanged; a recorded job is exactly what was dispatched (after commit, encoded), so checks see what a worker would get; one small hook per service instead of a fake per driver |
+| D138 | Assertions are generic functions over the recorded values with a match func (`AssertDispatched[J](app, match)`, `Jobs[J]`, `AssertEmitted[E]`, `AssertMailSent[M]`, `AssertMailQueued[M]`, `AssertPublished[T](app, topic, match)`), decoding jobs and messages from their JSON; failures list what was recorded | Accepted | Typed (design principle 3) without reflection-based matchers; Go methods can't have type parameters, so they are functions taking the app |
+| D139 | Mail and storage get no fake switch: tests already force `MAIL_DRIVER=memory` and `STORAGE_DRIVER=memory`; the mailer's records say sent (`Send`, once the transport took it) or queued (`Queue`, once dispatched), and `app.Disk(name)` asserts on files | Accepted | Nothing leaves the process in tests already; what was missing was typed checks |
+| D140 | `anetostest`'s clock: `Freeze(t)` (zero: now) truncates to microseconds, what databases store, so times read back compare equal; `Travel(d)` moves a frozen or a running clock; the test client's cookie jar reads the app's clock | Accepted | A frozen time equals the stored timestamps; cookies and server-side lifetimes expire together |
 
 ---
 
@@ -1771,3 +1789,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-01 | B9 mail implemented: §4, §5, §14, §18 updated, §14.2 added; D120–D123 added |
 | 2026-10-01 | B10 storage implemented: §4, §5, §14, §18 updated, §14.3 added; D124–D128 added; anetostest's APP_URL default is its own site |
 | 2026-10-01 | B11 plugin system implemented: §5, §6, §7, §16 rewritten, §17 updated; D129–D135 added; D23 superseded; O5 resolved; `drivers/postmark` moved to `plugins/postmark` |
+| 2026-10-01 | B12 test fakes implemented: §5, §18 updated; D136–D140 added |

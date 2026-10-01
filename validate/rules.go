@@ -23,6 +23,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"anetos.dev/anetos"
 	"anetos.dev/anetos/config"
 )
 
@@ -889,9 +890,9 @@ func timeRule(ok func(cmp int) bool) *spec {
 		maxParams: 1,
 		build: func(b *builder) (runFn, error) {
 			if b.params[0] == "now" {
-				return func(_ context.Context, v, _ reflect.Value) (bool, error) {
+				return func(ctx context.Context, v, _ reflect.Value) (bool, error) {
 					t, _ := reflect.TypeAssert[time.Time](v)
-					return ok(t.Compare(time.Now())), nil
+					return ok(t.Compare(anetos.Now(ctx))), nil // the app's clock
 				}, nil
 			}
 			sib, err := findSibling(b.root, b.params[0])

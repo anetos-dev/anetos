@@ -129,11 +129,39 @@ app := anetostest.New(t, setup, anetostest.WithoutTransaction())
 t.Cleanup(func() { _, _ = db.Exec(app.Context(), "DELETE FROM notes") })
 ```
 
-Fakes for the clock, mail, queues and events arrive in v0.2 (roadmap
-B12). Until then, test jobs with the sync driver, and wait for async
-event listeners with `bus.Wait` (they use their own connections, like
-queue workers); see [Queues](../guides/queues.md#5-test) and
-[Events](../guides/events.md#5-test).
+## Recording and fakes
+
+A test checks what the app did besides answering: the jobs it
+dispatched, the events it emitted, the email it sent and the messages it
+published. Rather than swapping these services for test doubles,
+`anetostest` watches the real ones: the queue, the event bus, the
+mailer and the pub/sub each have an `Observe` hook, which `anetostest.New`
+uses at the end of `setup` to record everything. The app runs as it
+does in production, so a test of a job's effect and a test of its
+dispatch use the same setup.
+
+When a test only wants to know that something was asked for, a fake
+stops the side effect: `FakeQueue` keeps jobs from being stored or run,
+`FakeEvents` keeps events from reaching their listeners, `FakePubSub`
+keeps messages from the broker. Each is a switch on the real service
+(`Fake`), so nothing else about the app changes. Email has no fake:
+tests never send it (`MAIL_DRIVER=memory`). Assertions are typed:
+`AssertDispatched[ChargeOrder]` decodes the recorded jobs as a worker
+would, so it checks what the worker will get.
+
+Async event listeners still use their own connections, like queue
+workers: wait for them with `bus.Wait`; see [Queues](../guides/queues.md#5-test)
+and [Events](../guides/events.md#5-test).
+
+## Time
+
+The framework reads the time an app can observe from the app's clock
+(`anetos.Now(ctx)`, `app.Now()`) rather than `time.Now`: timestamps,
+lifetimes and expiries. In production it is the system clock; a test
+freezes it (`app.Freeze`) or moves it (`app.Travel`), and everything
+that reads it follows, the test client's cookies included. Time kept by
+database and Redis servers, timeouts and the loops of workers and the
+scheduler are real: a test can't fast-forward a server.
 
 > **Coming from Laravel?** `anetostest.New` is a `TestCase` using
 > `RefreshDatabase`: a fresh in-memory database, or migrations plus a

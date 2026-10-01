@@ -123,7 +123,7 @@ func (h Accounts) VerifyEmail(c *web.Ctx, in TokenQuery) (web.Responder, error) 
 		return nil, err // 400 for a bad or expired link
 	}
 	if email == u.Email && u.EmailVerifiedAt == nil {
-		now := time.Now().UTC()
+		now := anetos.Now(c).UTC()
 		if _, err := db.Query[User](c).Where(colID.Eq(u.ID)).Update(colVerified.Set(&now)); err != nil {
 			return nil, err
 		}

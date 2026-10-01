@@ -225,6 +225,11 @@ transaction: test them with in-memory SQLite (as here) or
 test app its own `PUBSUB_PREFIX` and removes its streams when the test
 ends.
 
+To check what the app publishes, `anetostest` records every message:
+`anetostest.AssertPublished(app, "orders.created", func(m OrderCreated) bool { … })`.
+With `anetostest.FakePubSub()`, messages are only recorded, not sent to
+the broker; see [Test your app](testing.md#6-check-jobs-events-emails-and-messages).
+
 ## How it works
 
 **Redis Streams.** A topic is a stream (key `PUBSUB_PREFIX` + topic) and a

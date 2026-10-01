@@ -113,7 +113,7 @@ func (Blog) CreateAuthor(c *web.Ctx, in NewAuthor) (web.Responder, error) {
 func (Blog) CreatePost(c *web.Ctx, in NewPost) (web.Responder, error) {
 	p := Post{AuthorID: in.AuthorID, Title: in.Title, Body: in.Body, Tags: in.Tags}
 	if in.Publish {
-		now := time.Now().UTC()
+		now := anetos.Now(c).UTC() // the app's clock: tests can freeze it
 		p.PublishedAt = &now
 	}
 	if err := db.Create(c, &p); err != nil {

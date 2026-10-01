@@ -3,6 +3,7 @@
 package pubsub
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -14,6 +15,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"anetos.dev/anetos"
@@ -67,6 +69,48 @@ type PubSub struct {
 	mu        sync.Mutex
 	listeners []*listener
 	prepared  bool // the app booted: new listeners prepare at once
+	obsMu     sync.RWMutex
+	observers []func(context.Context, Published)
+	fake      atomic.Bool // Fake: messages go to the observers only
+}
+
+// Published describes a published message, for [PubSub.Observe].
+type Published struct {
+	// Topic is the topic it was published to.
+	Topic string
+	// Data is its body: JSON, unless bytes were published.
+	Data []byte
+	// Attributes are its attributes ([Attributes]).
+	Attributes map[string]string
+}
+
+// Decode decodes the message's JSON body into v.
+func (m Published) Decode(v any) error { return json.Unmarshal(m.Data, v) }
+
+// Observe calls fn with each message published from now on, as it is
+// handed to the broker (with [AfterCommit], once the transaction
+// commits), for tests and instrumentation. fn must be quick and safe
+// for concurrent use. anetostest uses it to record messages.
+func (p *PubSub) Observe(fn func(ctx context.Context, m Published)) {
+	p.obsMu.Lock()
+	defer p.obsMu.Unlock()
+	p.observers = append(p.observers, fn)
+}
+
+// Fake makes the pub/sub, from now on, pass published messages to the
+// [PubSub.Observe] functions only: the broker doesn't get them. For
+// tests (anetostest.FakePubSub); it can't be undone.
+func (p *PubSub) Fake() { p.fake.Store(true) }
+
+// observe passes m to the observers, and reports whether p is fake.
+func (p *PubSub) observe(ctx context.Context, m Published) bool {
+	p.obsMu.RLock()
+	obs := p.observers
+	p.obsMu.RUnlock()
+	for _, fn := range obs {
+		fn(ctx, m)
+	}
+	return p.fake.Load()
 }
 
 // Option configures a [PubSub] made with [New].
@@ -212,7 +256,7 @@ func (p *PubSub) Publish(ctx context.Context, topic string, v any, opts ...Publi
 	}
 	var data []byte
 	if rv := reflect.ValueOf(v); rv.Kind() == reflect.Slice && rv.Type().Elem().Kind() == reflect.Uint8 {
-		data = rv.Bytes() // []byte, json.RawMessage, other byte slices: as they are
+		data = bytes.Clone(rv.Bytes()) // []byte, json.RawMessage, other byte slices: as they are (the caller may reuse them)
 	} else {
 		var err error
 		if data, err = json.Marshal(v); err != nil {
@@ -220,6 +264,9 @@ func (p *PubSub) Publish(ctx context.Context, topic string, v any, opts ...Publi
 		}
 	}
 	send := func(ctx context.Context) error {
+		if p.observe(ctx, Published{Topic: topic, Data: data, Attributes: o.attrs}) {
+			return nil // fake: recorded only
+		}
 		if _, err := p.broker.Publish(ctx, topic, Outgoing{Data: data, Attributes: o.attrs}); err != nil {
 			return fmt.Errorf("pubsub: publish to %s: %w", topic, err)
 		}

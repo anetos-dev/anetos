@@ -307,6 +307,35 @@ func TestDocuments(t *testing.T) {
 
 (Copied from [`examples/files/main_test.go`](../../../examples/files/main_test.go), region `test`.)
 
+`app.Disk()` and `app.Disk("avatars")` check the disks' files, and
+`app.Travel` moves the clock past a temporary URL's expiry:
+
+```go
+// The upload is on the default disk, and its temporary URL stops working
+// after 15 minutes: the test travels in time instead of waiting.
+func TestDocumentLink(t *testing.T) {
+	app := anetostest.New(t, setup, env)
+	uploaded := app.Freeze(time.Time{})
+
+	var doc Document
+	app.PostMultipart("/documents", nil, anetostest.Upload{Field: "file", Filename: "q3.pdf", Content: pdf}).
+		AssertStatus(http.StatusCreated).
+		JSON(&doc)
+	app.Disk().AssertContent("documents/"+doc.Name, string(pdf))
+	app.Disk("avatars").AssertMissing("documents/" + doc.Name)
+	if !doc.UploadedAt.Equal(uploaded) {
+		t.Errorf("uploaded at %v, want %v", doc.UploadedAt, uploaded)
+	}
+
+	app.Travel(14 * time.Minute)
+	app.Get(doc.URL).AssertOK()
+	app.Travel(2 * time.Minute)
+	app.Get(doc.URL).AssertStatus(http.StatusForbidden)
+}
+```
+
+(Region `test-disk`.)
+
 ## How it works
 
 A `storage.Disk` checks paths, sets content types and builds URLs; its

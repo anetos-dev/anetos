@@ -5,8 +5,8 @@ since: v0.1.0
 
 # Testing reference
 
-The APIs of packages `anetostest` and `db/factory`, and the session
-hooks they use. See [Test your app](../guides/testing.md) for a
+The APIs of packages `anetostest` and `db/factory`, and the hooks
+they use. See [Test your app](../guides/testing.md) for a
 walkthrough.
 
 ## Starting the app (`anetostest`)
@@ -18,6 +18,9 @@ walkthrough.
 | `anetostest.WithoutMigrations()` | Option: don't run the migrations |
 | `anetostest.WithoutTransaction()` | Option: don't wrap the test in a transaction; its writes are committed |
 | `anetostest.LogLevel(level)` | Option: minimum level of the app's logs in the test's log. Default Info |
+| `anetostest.FakeQueue()` | Option: dispatched jobs are recorded only (`queue.Queue.Fake`): not stored or run. Fails the test if `setup` has no queue |
+| `anetostest.FakeEvents(events...)` | Option: events of the types of the values (all, with none) are recorded only (`events.Bus.Fake`): their listeners don't run. Fails the test if `setup` has no bus |
+| `anetostest.FakePubSub()` | Option: published messages are recorded only (`pubsub.PubSub.Fake`): the broker doesn't get them. Fails the test if `setup` has no pub/sub |
 | `app.Context()` | The context of the test's requests: the app's services, the database and the test's transaction. Pass it to your own code. (It hides the embedded `anetos.App.Context(parent)`; call `app.App.Context` for that) |
 | `app.Router()` | The app's `*web.Router`, or nil |
 | `app.App` | The embedded `*anetos.App`: `app.Config()`, `anetos.Resolve[T](app.App)`, … |
@@ -110,6 +113,73 @@ Generic functions, run on `app.Context()`. Conditions are
 | `anetostest.AssertSoftDeleted[T](app, conds...)` | A soft-deleted T row matches; T embeds `db.SoftDeletes` |
 | `anetostest.Create(app, factory)` | Inserts a row made by the factory; returns it |
 | `anetostest.CreateMany(app, factory, n)` | Inserts n rows |
+
+## Jobs, events, email and messages (`anetostest`)
+
+`anetostest.New` records, from the end of `setup` on, what the app
+dispatches, emits, mails and publishes, through the services' `Observe`
+hooks, whether or not they are faked. `match` is a `func(T) bool`;
+`nil` matches any. Assertions report with `t.Errorf` and list what was
+recorded.
+
+| API | Does |
+|---|---|
+| `app.Dispatched()` | `[]queue.Dispatched` (`ID`, `Job`, `Queue`, `Delay`, `Data`; `Decode(&v)`), every job, function jobs (`mail:send`, `event:…`) included, oldest first. A job is recorded once dispatched: when the store has it (the database driver writes it in the request's transaction: once that commits), with `AfterCommit` after the commit, with the sync driver before it runs; a dispatch that fails or is rolled back isn't recorded |
+| `anetostest.Jobs[J](app)` | The `J` jobs dispatched, decoded. J must be registered (`queue.Register`); fails the test otherwise |
+| `anetostest.AssertDispatched[J](app, match)` | A `J` job matches |
+| `anetostest.AssertNotDispatched[J](app, match)` | None matches |
+| `app.AssertNothingDispatched()` | No job of any type |
+| `app.Emitted()` | `[]any`: every event, oldest first, recorded when `Emit` is called, before its listeners |
+| `anetostest.Events[E](app)` | The events of type E (or implementing E, an interface) |
+| `anetostest.AssertEmitted[E](app, match)`, `AssertNotEmitted[E]`, `app.AssertNothingEmitted()` | As for jobs |
+| `app.Mail()` | `[]mailer.Record` (`Mailable`, rendered `Message`, `Queued`): emails sent with `mailer.Send` (once the transport took them) or queued with `mailer.Queue` (once the job is dispatched; with the sync driver, once the job sent it) |
+| `anetostest.Mailables[M](app)` | The mailables of type M, sent or queued |
+| `anetostest.AssertMailSent[M](app, match)` | An M sent with `mailer.Send` matches |
+| `anetostest.AssertMailQueued[M](app, match)` | An M queued with `mailer.Queue` matches |
+| `anetostest.AssertMailNotSent[M](app, match)` | No M sent or queued matches |
+| `app.AssertNoMail()` | Nothing sent or queued |
+| `app.Published()` | `[]pubsub.Published` (`Topic`, `Data`, `Attributes`; `Decode(&v)`), oldest first |
+| `anetostest.Messages[T](app, topic)` | The messages of topic, decoded from JSON as T |
+| `anetostest.AssertPublished[T](app, topic, match)`, `AssertNotPublished[T]` | A message of topic matches; none does |
+
+The emails the transport got (queued ones the queue ran included) stay
+available from the mailer: `anetos.MustResolve[*mailer.Mailer](app.App).Transport().(*mailer.MemoryTransport).Sent()`.
+
+## Files (`anetostest`)
+
+| API | Does |
+|---|---|
+| `app.Disk(name...)` | `*anetostest.Disk`: the default disk, or the named one (`STORAGE_DISKS`). Fails the test without `storage.ForApp` or for an unknown disk |
+| `d.AssertExists(paths...)` | The files exist |
+| `d.AssertMissing(paths...)` | They don't |
+| `d.AssertContent(path, want)` | The file exists with that content |
+| `d.Files(prefix)` | The paths under prefix (`""`: all), in order |
+| `d.Storage()` | The `*storage.Disk`, to add or read files |
+
+## Clock (`anetostest`, `anetos`)
+
+| API | Does |
+|---|---|
+| `app.Freeze(t)` | Stops the app's clock at t (now, for the zero time), truncated to microseconds; returns it |
+| `app.Travel(d)` | Moves the clock by d (back if negative): a frozen clock stays frozen, a running one runs d ahead |
+| `app.Unfreeze()` | Back to the system's time |
+| `app.Now()`, `anetos.Now(ctx)` | The time on the app's clock (`anetos.Now` without an app in ctx: `time.Now()`) |
+| `app.App.SetClock(fn)` | The hook underneath: the app reads the time from fn (nil: the system's clock) |
+| `anetos.WithClock(ctx, fn)` | A context with its own clock, for code without an app |
+
+Read from the app's clock: model timestamps (`created_at`, `updated_at`,
+`deleted_at`); session lifetimes (whatever the store); the expiry of
+the test client's cookies, password reset, verification and
+remember-me tokens, API tokens (and their `last_used_at`), temporary
+URLs signed with `APP_KEY`, social login state, and the memory cache's
+items and locks; rate-limit windows; `after:now`-style validation
+rules; emails' `Date`; memory disks' modification times. Not affected:
+the clocks of database and Redis servers, which expire the items of the
+database and Redis cache stores (rate-limit counters there included)
+and time their queues; the clock of a store that signs its own URLs
+(S3, which checks them in real time); queue delays and leases, in every
+driver; timeouts and durations; the scheduler's and workers' loops;
+log timestamps.
 
 ## Factories (`db/factory`)
 

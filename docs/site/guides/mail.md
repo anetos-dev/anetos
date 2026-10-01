@@ -224,9 +224,12 @@ the email with made-up values.
 
 ### 6. Test
 
-`anetostest` sets `MAIL_DRIVER=memory`: emails are kept, not sent. The
-mailer's transport is then a `*mailer.MemoryTransport`, whose `Sent`
-returns them, rendered:
+`anetostest` sets `MAIL_DRIVER=memory`: emails are kept, not sent. It
+records each mailable sent with `mailer.Send` or queued with
+`mailer.Queue`, for `anetostest.AssertMailSent`, `AssertMailQueued`
+and `AssertMailNotSent`, which check its type and fields. The rendered
+emails are the mailer's transport's, a `*mailer.MemoryTransport` whose
+`Sent` returns them:
 
 ```go
 // The receipt is queued (the sync driver sends it at once) and kept by
@@ -237,6 +240,8 @@ func TestResendReceipt(t *testing.T) {
 	id := placeOrder(t, app, "Lamp", 4250)
 
 	app.PostJSON(fmt.Sprintf("/orders/%d/receipt", id), nil).AssertStatus(http.StatusAccepted)
+	anetostest.AssertMailSent(app, func(m ReceiptMail) bool { return m.Order.OrderID == id })   // by the listener
+	anetostest.AssertMailQueued(app, func(m ReceiptMail) bool { return m.Order.OrderID == id }) // again
 
 	sent := sentMail(app)
 	if len(sent) != 2 { // when placed, and again

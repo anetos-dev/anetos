@@ -239,7 +239,9 @@ func ForApp(app *anetos.App, drivers ...Driver) (*Storage, error) {
 		if signer != nil {
 			opts = append(opts, SignWith(signer))
 		}
-		return NewDisk(displayName(name), b, opts...), nil
+		d := NewDisk(displayName(name), b, opts...)
+		d.now = app.Now // temporary URLs expire on the app's clock, which tests can move
+		return d, nil
 	}
 	closeAll := func() error {
 		var errs []error

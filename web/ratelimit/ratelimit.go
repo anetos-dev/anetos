@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"time"
 
+	"anetos.dev/anetos"
 	"anetos.dev/anetos/cache"
 	"anetos.dev/anetos/web"
 )
@@ -76,10 +77,19 @@ type Result struct {
 	Remaining int
 	// Reset is when the window ends and the count starts again.
 	Reset time.Time
+
+	at time.Time // when the hit was counted, on the app's clock
 }
 
-// RetryAfter returns how long until the window resets, from now.
-func (r Result) RetryAfter() time.Duration { return max(r.Reset.Sub(now()), 0) }
+// RetryAfter returns how long until the window resets, from the time of
+// the hit (on the app's clock, anetos.Now).
+func (r Result) RetryAfter() time.Duration {
+	at := r.at
+	if at.IsZero() {
+		at = time.Now()
+	}
+	return max(r.Reset.Sub(at), 0)
+}
 
 // Allow counts a hit for key against l and reports whether it is within
 // the limit. It uses the cache in ctx (cache.ForApp). Use it for actions
@@ -97,11 +107,11 @@ func (r Result) RetryAfter() time.Duration { return max(r.Reset.Sub(now()), 0) }
 // window ends. Keys are stored as hashes, so they may be secrets or any
 // input.
 func Allow(ctx context.Context, key string, l Limit) (Result, error) {
-	return allow(ctx, "allow\x00"+key, l, now())
+	return allow(ctx, "allow\x00"+key, l, now(ctx))
 }
 
-// now is the clock; tests replace it.
-var now = time.Now
+// now is the clock: the app's (anetos.Now); tests replace it.
+var now = anetos.Now
 
 func allow(ctx context.Context, key string, l Limit, at time.Time) (Result, error) {
 	k, reset, err := storeKey(key, l, at)
@@ -119,6 +129,7 @@ func allow(ctx context.Context, key string, l Limit, at time.Time) (Result, erro
 		Limit:     l.Max,
 		Remaining: int(max(int64(l.Max)-n, 0)),
 		Reset:     reset,
+		at:        at,
 	}, nil
 }
 
@@ -126,7 +137,7 @@ func allow(ctx context.Context, key string, l Limit, at time.Time) (Result, erro
 // another hit would be allowed, and how many remain. Use it with [Hit] to
 // count only some attempts (failed logins), checking first.
 func Check(ctx context.Context, key string, l Limit) (Result, error) {
-	at := now()
+	at := now(ctx)
 	k, reset, err := storeKey("allow\x00"+key, l, at)
 	if err != nil {
 		return Result{}, err
@@ -135,7 +146,7 @@ func Check(ctx context.Context, key string, l Limit) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	return Result{Allowed: n < int64(l.Max), Limit: l.Max, Remaining: int(max(int64(l.Max)-n, 0)), Reset: reset}, nil
+	return Result{Allowed: n < int64(l.Max), Limit: l.Max, Remaining: int(max(int64(l.Max)-n, 0)), Reset: reset, at: at}, nil
 }
 
 // Hit counts a hit for key against l, like [Allow].
@@ -144,7 +155,7 @@ func Hit(ctx context.Context, key string, l Limit) (Result, error) { return Allo
 // Clear forgets the hits counted for key against l in the current window:
 // after a successful login, say.
 func Clear(ctx context.Context, key string, l Limit) error {
-	k, _, err := storeKey("allow\x00"+key, l, now())
+	k, _, err := storeKey("allow\x00"+key, l, now(ctx))
 	if err != nil {
 		return err
 	}
@@ -207,7 +218,7 @@ func Middleware(name string, limits ...Limit) web.Middleware {
 	slices.SortStableFunc(order, func(a, b int) int { return cmp.Compare(limits[a].Window, limits[b].Window) })
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			t := now()
+			t := now(r.Context())
 			var tightest *Result
 			var blocked *Result
 			for _, i := range order {

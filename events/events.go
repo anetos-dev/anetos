@@ -40,6 +40,56 @@ type Bus struct {
 	once    sync.Once      // closes stop
 	base    context.Context
 	cancel  context.CancelFunc // cancels base: async handlers' contexts
+
+	obsMu     sync.RWMutex
+	observers []func(context.Context, any)
+	fakeAll   bool                  // Fake(): no event reaches listeners
+	faked     map[reflect.Type]bool // Fake(types…): these don't
+}
+
+// Observe calls fn with each event emitted from now on, before its
+// listeners get it, for tests and instrumentation. fn must be quick and
+// safe for concurrent use. anetostest uses it to record events.
+func (b *Bus) Observe(fn func(ctx context.Context, e any)) {
+	b.obsMu.Lock()
+	defer b.obsMu.Unlock()
+	b.observers = append(b.observers, fn)
+}
+
+// Fake stops events of the types of the given values (all events, with
+// none; nil values are ignored; a pointer type and its value type are
+// different types) from reaching their listeners from now on: [Emit] passes them to
+// the [Bus.Observe] functions only, and returns nil. For tests
+// (anetostest.FakeEvents); it can't be undone.
+//
+//	bus.Fake(OrderPlaced{}) // OrderPlaced's listeners don't run; other events' do
+func (b *Bus) Fake(events ...any) {
+	b.obsMu.Lock()
+	defer b.obsMu.Unlock()
+	if len(events) == 0 {
+		b.fakeAll = true
+		return
+	}
+	if b.faked == nil {
+		b.faked = map[reflect.Type]bool{}
+	}
+	for _, e := range events {
+		if e != nil {
+			b.faked[reflect.TypeOf(e)] = true
+		}
+	}
+}
+
+// observe passes e to the observers, and reports whether its type is
+// faked.
+func (b *Bus) observe(ctx context.Context, t reflect.Type, e any) bool {
+	b.obsMu.RLock()
+	obs, fake := b.observers, b.fakeAll || b.faked[t]
+	b.obsMu.RUnlock()
+	for _, fn := range obs {
+		fn(ctx, e)
+	}
+	return fake
 }
 
 type kind int
@@ -348,6 +398,9 @@ func (b *Bus) Emit(ctx context.Context, e any) error {
 	t := reflect.TypeOf(e)
 	if t == nil {
 		return errors.New("events: Emit(nil)")
+	}
+	if b.observe(ctx, t, e) {
+		return nil // faked: recorded only
 	}
 	b.mu.RLock()
 	ls := b.listeners[t]

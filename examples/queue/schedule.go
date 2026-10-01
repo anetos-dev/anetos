@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"time"
 
+	"anetos.dev/anetos"
 	"anetos.dev/anetos/db"
 )
 
@@ -18,7 +19,7 @@ var colCreatedAt = db.Col[time.Time]("created_at")
 // runs every night (see setup) on one instance, and is safe to run again:
 // it deletes what is old when it runs.
 func pruneAuditLog(ctx context.Context) error {
-	n, err := db.Query[AuditEntry](ctx).Where(colCreatedAt.Lt(time.Now().AddDate(0, 0, -90))).Delete()
+	n, err := db.Query[AuditEntry](ctx).Where(colCreatedAt.Lt(anetos.Now(ctx).AddDate(0, 0, -90))).Delete()
 	if err != nil {
 		return err
 	}
@@ -40,7 +41,7 @@ type SalesReport struct{}
 
 // Handle counts the orders and sends the report.
 func (SalesReport) Handle(ctx context.Context) error {
-	n, err := db.Query[Order](ctx).Where(colStatus.Eq("paid"), colCreatedAt.Gte(time.Now().Add(-time.Hour))).Count()
+	n, err := db.Query[Order](ctx).Where(colStatus.Eq("paid"), colCreatedAt.Gte(anetos.Now(ctx).Add(-time.Hour))).Count()
 	if err != nil {
 		return err
 	}
