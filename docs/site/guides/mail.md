@@ -24,7 +24,7 @@ Choose how emails are sent with `MAIL_DRIVER`:
 | `log` (default) | Written to the app's log, with their text body: not sent | Development |
 | `smtp` | Sent to the SMTP server of `MAIL_SMTP_URL` | Production with any provider; development with Mailpit |
 | `memory` | Kept in the process | Tests (`anetostest` sets it) |
-| `postmark` | Sent with Postmark's API (`drivers/postmark`, `MAIL_POSTMARK_TOKEN`) | Production with Postmark |
+| `postmark` | Sent with Postmark's API (`plugins/postmark`, `MAIL_POSTMARK_TOKEN`) | Production with Postmark |
 
 Set the sender of your emails with `MAIL_FROM_ADDRESS` (and
 `MAIL_FROM_NAME`, which defaults to `APP_NAME`), and `APP_URL`, the
@@ -130,7 +130,11 @@ if _, err := mailer.ForApp(app, postmark.Driver()); err != nil { // MAIL_DRIVER:
 (Copied from [`examples/queue`](../../../examples/queue/main.go), region `mail-setup`.)
 
 Drivers in other modules, such as `postmark.Driver()`, are passed to
-`mailer.ForApp`; `MAIL_DRIVER` picks one.
+`mailer.ForApp`; `MAIL_DRIVER` picks one. Postmark's comes with the
+[plugin](plugins.md) `anetos.dev/anetos/plugins/postmark`
+(`anetos add anetos.dev/anetos/plugins/postmark`), which also
+records the addresses Postmark stopped sending to, from its webhooks:
+check them with `postmark.Suppressed(ctx, email)` before sending.
 
 ### 4. Send or queue
 
@@ -156,8 +160,12 @@ func (s *Sales) countSale(_ context.Context, e OrderPlaced) error {
 }
 
 // emailReceipt sends the receipt, as a queue job: retried if the mail
-// server fails, and not lost if the process stops.
+// server fails, and not lost if the process stops. It skips addresses
+// Postmark stopped sending to (the postmark plugin's list).
 func emailReceipt(ctx context.Context, e OrderPlaced) error {
+	if bad, err := postmark.Suppressed(ctx, e.Email); err != nil || bad {
+		return err
+	}
 	return mailer.Send(ctx, ReceiptMail{Order: e})
 }
 ```
@@ -317,6 +325,8 @@ queue fails the job at once.
 
 - [Queues](queues.md): workers and retries, for queued email.
 - [Events](events.md): send email from a queued event listener.
+- [Use plugins](plugins.md): the Postmark plugin's webhook and
+  suppression list.
 - [Configuration reference](../reference/configuration.md#mail): the
   `MAIL_*` settings.
 

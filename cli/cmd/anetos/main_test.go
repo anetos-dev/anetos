@@ -33,6 +33,11 @@ func TestCommands(t *testing.T) {
 		{[]string{"key:generate", "x"}, 2, "Usage: anetos key:generate"},
 		{[]string{"nope"}, 2, `unknown command "nope"`},
 		{[]string{"gen", "-h"}, 0, "Usage: anetos gen"},
+		{[]string{"add", "-h"}, 0, "Usage: anetos add"},
+		{[]string{"add"}, 2, "Usage: anetos add"},
+		{[]string{"add", "not a module"}, 2, "malformed module path"},
+		{[]string{"remove", "-h"}, 0, "Usage: anetos remove"},
+		{[]string{"remove", "a", "b"}, 2, "Usage: anetos remove"},
 		{[]string{"gen", "-bogus"}, 2, "flag provided but not defined"},
 		{[]string{"gen", "-check", "../../internal/modelgen/internal/..."}, 0, ""},
 	}

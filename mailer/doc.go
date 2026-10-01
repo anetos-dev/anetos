@@ -11,7 +11,7 @@
 //	err = mailer.Queue(ctx, mails.Receipt{Order: o}, queue.OnQueue("emails"))
 //
 // Transports send rendered emails: the log (development), SMTP, memory
-// (tests) and, in driver modules, email APIs (drivers/postmark). The
+// (tests) and, in other modules, email APIs (plugins/postmark). The
 // mailer travels in the context, like the database and the cache.
 //
 // The package is named mailer, not mail, so it doesn't shadow net/mail.

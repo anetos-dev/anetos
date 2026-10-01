@@ -50,6 +50,8 @@ Commands:
   make:migration <name>     add a migration to database/migrations
   make:middleware <Name>    add a middleware to app/middleware
   gen [-check] [packages]   generate typed columns for models (default ./...)
+  add <module>[@version]    install a plugin (go get, plugins.go, .env.example)
+  remove <module>           uninstall a plugin
   key:generate              print a new APP_KEY line (append it to .env)
   version                   print the version
 
@@ -68,6 +70,13 @@ func run(args []string, stdout, stderr io.Writer) int {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 		return newProject(ctx, args[1:], stdout, stderr)
+	case "add", "remove":
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		if args[0] == "add" {
+			return addPlugin(ctx, args[1:], stdout, stderr)
+		}
+		return removePlugin(ctx, args[1:], stdout, stderr)
 	case "dev":
 		return dev(args[1:], stdout, stderr)
 	case "make:handler", "make:model", "make:migration", "make:middleware":

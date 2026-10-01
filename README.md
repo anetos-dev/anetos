@@ -12,8 +12,8 @@ kernel, configuration, runtime supervisor, HTTP layer, validation, data
 layer, migrations, model code generation, views, sessions, forms, the CLI
 and testing helpers; v0.1.1 added relations. v0.2 is in progress: the
 cache, server-side sessions and rate limiting, authentication, social
-login, queues, events, pub/sub listeners, the scheduler, mail and file
-storage are done. APIs will change.
+login, queues, events, pub/sub listeners, the scheduler, mail, file
+storage and plugins (`anetos add`) are done. APIs will change.
 
 ## Documents
 

@@ -313,3 +313,36 @@ func TestBadEnvTags(t *testing.T) {
 		}
 	}
 }
+
+func TestKeys(t *testing.T) {
+	type db struct {
+		Host string `env:"HOST" default:"localhost"`
+	}
+	type cfg struct {
+		Name    string `env:"APP_NAME,required"`
+		Port    int    `env:"PORT" default:"80"`
+		Skip    string `env:"-"`
+		DB      db     `prefix:"DB_"`
+		Replica *db    `prefix:"REPLICA_"`
+	}
+	keys, err := Keys(&cfg{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, k := range keys {
+		got = append(got, fmt.Sprintf("%s=%s %v %v", k.Name, k.Default, k.HasDefault, k.Required))
+	}
+	want := []string{"APP_NAME= false true", "PORT=80 true false", "DB_HOST=localhost true false", "REPLICA_HOST=localhost true false"}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Errorf("Keys = %q", got)
+	}
+	if _, err := Keys(42); err == nil {
+		t.Error("Keys(42): no error")
+	}
+	if _, err := Keys(struct {
+		X string `env:"X,bogus"`
+	}{}); err == nil {
+		t.Error("a bad tag: no error")
+	}
+}

@@ -59,8 +59,12 @@ func (s *Sales) countSale(_ context.Context, e OrderPlaced) error {
 }
 
 // emailReceipt sends the receipt, as a queue job: retried if the mail
-// server fails, and not lost if the process stops.
+// server fails, and not lost if the process stops. It skips addresses
+// Postmark stopped sending to (the postmark plugin's list).
 func emailReceipt(ctx context.Context, e OrderPlaced) error {
+	if bad, err := postmark.Suppressed(ctx, e.Email); err != nil || bad {
+		return err
+	}
 	return mailer.Send(ctx, ReceiptMail{Order: e})
 }
 ```

@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"strings"
 	"testing"
@@ -216,6 +217,29 @@ func TestResendReceipt(t *testing.T) {
 		}
 	}
 	app.PostJSON("/orders/999/receipt", nil).AssertNotFound()
+}
+
+// endregion
+
+// region: test-plugin
+// The postmark plugin's webhook records a hard bounce; the receipt to
+// that address isn't sent.
+func TestBouncedAddress(t *testing.T) {
+	fakeGateway(t, &FakeGateway{})
+	app := anetostest.New(t, setup, anetostest.Env(map[string]string{
+		"QUEUE_DRIVER":              "sync",
+		"POSTMARK_WEBHOOK_USER":     "postmark",
+		"POSTMARK_WEBHOOK_PASSWORD": "s3cret",
+	}))
+	req := httptest.NewRequest(http.MethodPost, "/postmark/webhook",
+		strings.NewReader(`{"RecordType":"Bounce","Type":"HardBounce","Email":"ada@example.com","Inactive":true}`))
+	req.SetBasicAuth("postmark", "s3cret")
+	app.Do(req).AssertNoContent()
+
+	placeOrder(t, app, "Lamp", 4250)
+	if sent := sentMail(app); len(sent) != 0 {
+		t.Errorf("%d emails to a bounced address", len(sent))
+	}
 }
 
 // endregion

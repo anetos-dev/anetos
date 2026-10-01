@@ -5,10 +5,13 @@
 // right after the block that starts with "(Copied from [`examples/x`](…),
 // region `name`.)" or, for a file already named on the page, "(Region
 // `name`.)". The example is examples/x/main.go, or the file itself when the
-// link names a .go or .templ file (examples/x/migrations.go). Go and templ
-// code blocks are checked.
-// Indentation common to every line is ignored on both sides, so a region
-// inside a function body can be shown unindented.
+// link names a .go or .templ file (examples/x/migrations.go). First-party
+// plugins are examples too: plugins/x/plugin.go. Go and templ code blocks
+// are checked.
+// Indentation common to every line, and blank lines at the start and end,
+// are ignored on both sides, so a region inside a function body can be
+// shown unindented, and one in a package can start with a blank line that
+// keeps "// region" out of the next declaration's doc comment.
 // See docs/contributing/documentation-guide.md §7. Run it with `make docs-check`.
 package main
 
@@ -22,7 +25,7 @@ import (
 )
 
 var (
-	exampleRef = regexp.MustCompile("examples/([A-Za-z0-9_./-]+?)(?:/main\\.go)?[`)]")
+	exampleRef = regexp.MustCompile("((?:examples|plugins)/[A-Za-z0-9_./-]+?)(?:/main\\.go)?[`)]")
 	regionRef  = regexp.MustCompile("[Rr]egion\\s+`([A-Za-z0-9_-]+)`")
 	regionDef  = regexp.MustCompile(`(?s)// region: ([A-Za-z0-9_-]+)\n(.*?)\n[ \t]*// endregion`)
 )
@@ -101,12 +104,12 @@ func checkDoc(root, path, doc string) (problems []string, checked int) {
 			continue
 		}
 		if lastExample == "" {
-			problems = append(problems, fmt.Sprintf("%s:%d: region %q referenced but no examples/ link before it", path, i+1, m[1]))
+			problems = append(problems, fmt.Sprintf("%s:%d: region %q referenced but no examples/ or plugins/ link before it", path, i+1, m[1]))
 			continue
 		}
 		regions, ok := regionsCache[lastExample]
 		if !ok {
-			file := filepath.Join(root, "examples", lastExample)
+			file := filepath.Join(root, lastExample)
 			if !strings.HasSuffix(lastExample, ".go") && !strings.HasSuffix(lastExample, ".templ") {
 				file = filepath.Join(file, "main.go")
 			}
@@ -117,16 +120,16 @@ func checkDoc(root, path, doc string) (problems []string, checked int) {
 			}
 			regions = map[string]string{}
 			for _, r := range regionDef.FindAllStringSubmatch(string(src), -1) {
-				regions[r[1]] = dedent(strings.TrimRight(r[2], "\n"))
+				regions[r[1]] = dedent(strings.Trim(r[2], "\n"))
 			}
 			regionsCache[lastExample] = regions
 		}
 		want, ok := regions[m[1]]
 		switch {
 		case !ok:
-			problems = append(problems, fmt.Sprintf("%s:%d: examples/%s has no region %q", path, i+1, lastExample, m[1]))
-		case dedent(strings.TrimRight(lastBlock, "\n")) != want:
-			problems = append(problems, fmt.Sprintf("%s:%d: code block differs from examples/%s region %q", path, i+1, lastExample, m[1]))
+			problems = append(problems, fmt.Sprintf("%s:%d: %s has no region %q", path, i+1, lastExample, m[1]))
+		case dedent(strings.Trim(lastBlock, "\n")) != want:
+			problems = append(problems, fmt.Sprintf("%s:%d: code block differs from %s region %q", path, i+1, lastExample, m[1]))
 		default:
 			checked++
 		}

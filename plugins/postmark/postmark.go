@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Package postmark sends the mailer package's emails with Postmark's API
-// (https://postmarkapp.com):
+// Package postmark is the Postmark plugin: a transport that sends the
+// mailer package's emails with Postmark's API (https://postmarkapp.com),
+// and webhooks that keep a list of the addresses Postmark stopped
+// sending to ([Plugin]).
 //
 //	m, err := mailer.ForApp(app, postmark.Driver())
 //
 // Settings: MAIL_DRIVER=postmark, MAIL_POSTMARK_TOKEN (a server API
 // token; POSTMARK_API_TEST checks requests without sending), and
-// MAIL_POSTMARK_STREAM (the message stream, default "outbound").
+// MAIL_POSTMARK_STREAM (the message stream, default "outbound"). The
+// plugin's are POSTMARK_WEBHOOK_USER and POSTMARK_WEBHOOK_PASSWORD.
 package postmark
 
 import (

@@ -123,6 +123,27 @@ func ForApp(app *anetos.App, sets []*Set, opts ...Option) (*Runner, error) {
 	return r, nil
 }
 
+// Add adds sets to the runner, such as plugins' (ext.Load does): before
+// it runs, during the app's setup. It returns an error if a set's name
+// is taken.
+func (r *Runner) Add(sets ...*Set) error {
+	sources := map[string]bool{}
+	for _, e := range r.entries {
+		sources[e.source] = true
+	}
+	for _, s := range sets {
+		if sources[s.source] {
+			return fmt.Errorf("migrate: two sets are named %q", s.source)
+		}
+		sources[s.source] = true
+		r.entries = append(r.entries, s.entries...)
+	}
+	slices.SortStableFunc(r.entries, func(a, b entry) int {
+		return cmp.Or(cmp.Compare(a.id, b.id), cmp.Compare(a.source, b.source))
+	})
+	return nil
+}
+
 // Result is one migration applied or rolled back.
 type Result struct {
 	Source string        // the set's source ("app", a plugin's name)

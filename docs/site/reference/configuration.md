@@ -310,3 +310,21 @@ Read by `social.ForApp` and `social.Configured`, for each provider name
 Callback URLs are `APP_URL` followed by `/auth/<name>/callback`
 (`social.WithCallbackPath` changes the path).
 
+
+## Plugins
+
+Each plugin's settings start with its name in capitals (`STRIPE_…`),
+and are read by `ext.Load` into the plugin's own settings struct. `go
+run . plugins:env` prints them with their defaults; `anetos add` adds
+them to `.env.example`. Missing or invalid ones stop the app from
+booting, with an error naming them. See [Use plugins](../guides/plugins.md).
+
+### `postmark`
+
+Read by the plugin of `plugins/postmark` (its mail transport reads
+`MAIL_POSTMARK_*`: [Mail](#mail)).
+
+| Key | Type | Default | Description | Since |
+|---|---|---|---|---|
+| `POSTMARK_WEBHOOK_USER` | string | empty | The user name of the webhook's basic auth, set in the webhook's URL in Postmark (`https://USER:PASSWORD@example.com/postmark/webhook`). Without it or the password, the webhook refuses every request (401) | v0.2 |
+| `POSTMARK_WEBHOOK_PASSWORD` | secret | empty | The webhook's password | v0.2 |

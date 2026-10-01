@@ -40,7 +40,8 @@ before `migrate`.
 
 | Path | Holds |
 |---|---|
-| `main.go` | `anetos.New`, `db.Connect`, `migrate.ForApp`, `web.NewServer`, `session.ForApp`, `routes.Register`, `app.Execute()`; `//go:generate` lines for templ and `anetos gen` |
+| `main.go` | `anetos.New`, `db.Connect`, `migrate.ForApp`, `cache.ForApp`, `queue.ForApp` (with workers), `events.ForApp`, `mailer.ForApp`, `storage.ForApp`, `schedule.ForApp`, `web.NewServer`, `session.ForApp`, `routes.Register`, then `ext.Load(app, plugins())`, and `app.Execute()`; `//go:generate` lines for templ and `anetos gen` |
+| `plugins.go` | The plugins, written by `anetos add` and `anetos remove` (an empty list at first) |
 | `main_test.go` | A test requesting the home page with `anetostest` |
 | `.env`, `.env.example` | Settings; `.env` has a fresh `APP_KEY` (file mode 0600) and stays out of git |
 | `.env.testing` | PostgreSQL and MySQL projects: the test database's settings (`<name>_test`) |
@@ -92,6 +93,44 @@ Run anywhere in a project. Existing files are never overwritten.
 
 Names may be `BlogPost`, `blog_post` or `blog-post`; files use snake case.
 
+## `anetos add <module>[@version]` and `anetos remove <module>`
+
+Install and uninstall [plugins](../guides/plugins.md), from the project's
+directory or below. Both rewrite `plugins.go` (generated: `DO NOT EDIT`),
+which `setup` passes to `ext.Load`.
+
+`anetos add` (version default `latest`):
+
+1. Prints the module and the version, and that plugins run with the
+   app's privileges; runs `go get <module>@<version>`.
+2. Adds the package's `Plugin()` to `plugins.go`, after the others.
+3. Runs `go build`, so a module without a `Plugin() ext.Plugin`
+   function, or one that doesn't compile against this version of
+   Anetos, is refused.
+4. Runs the built app's `plugins:env` (stopped after 2 minutes), which loads the
+   plugins without booting the app: if `ext.Load` refuses the plugin
+   (its `Requires()`, its name, its settings' names), so does `anetos
+   add`. Otherwise it appends the settings `.env.example` doesn't have
+   yet (commented and `export` keys count as present) under a
+   `# <name> plugin` line; if the app fails for another reason, it
+   prints the error and keeps the plugin.
+5. Prints the next steps: `plugins:list`, and `migrate` if it adds
+   migrations. Migrations never run by themselves.
+
+If step 1 to 4 refuses the plugin, `go.mod`, `go.sum` and `plugins.go`
+are put back as they were (exit 1). When `go get` upgrades Anetos itself
+(the plugin requires a newer version), `anetos add` says so. Adding a
+module that `plugins.go` already lists is an error (exit 1). Import
+names in `plugins.go` avoid the names `package main` declares.
+
+`anetos remove` takes the module out of `plugins.go`, runs `go mod tidy`
+and `go build` (putting the three files back if one fails, for example
+because your code still imports the plugin). The plugin's settings stay
+in `.env` and `.env.example`, and its tables in the database: drop them
+with a migration of your own if you want them gone (`migrate:rollback`
+rolls back a whole batch, your app's migrations included). Anetos stays
+at the version `anetos add` left it at.
+
 ## Other commands
 
 | Command | Does |
@@ -115,6 +154,8 @@ Names may be `BlogPost`, `blog_post` or `blog-post`; files use snake case.
 | `pubsub:publish <topic> <message>` | `pubsub.ForApp` | Publishes a message (its body as given) to a topic. See [Pub/sub listeners](../guides/pubsub.md#4-publish) |
 | `schedule:list` | `schedule.ForApp` | Each task, its schedule, its next run and options. See [Scheduling](../guides/scheduling.md#4-check-and-run-tasks) |
 | `schedule:run <task>` | `schedule.ForApp` | Runs a task now, whatever its schedule (`WithoutOverlapping` applies, across processes only with a shared cache store; `OnOneServer` doesn't) |
+| `plugins:list` | `ext.Load` | Each plugin, its version constraint, its route prefix and what it adds (or that its settings are missing); doesn't boot the app. See [Use plugins](../guides/plugins.md) |
+| `plugins:env [plugin]` | `ext.Load` | The plugins' settings as `.env` lines with their defaults (double-quoted when they need it; `# required` after required ones); doesn't boot the app, so it works before they are set |
 | `help [command]`, `-h`, `--help` | every app | The command list, or a command's usage (`<command> -h` too, as the first argument); doesn't boot the app |
 
 | API | Does |

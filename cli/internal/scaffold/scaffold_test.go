@@ -31,7 +31,7 @@ func TestCreate(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			for _, want := range []string{"go.mod", "main.go", "main_test.go", ".env", ".env.example", ".gitignore",
+			for _, want := range []string{"go.mod", "main.go", "main_test.go", "plugins.go", ".env", ".env.example", ".gitignore",
 				"routes/web.go", "app/handlers/home.go", "views/layout.templ", "public/static/app.css", "database/migrations/migrations.go", "database/factories/factories.go"} {
 				if !slices.Contains(files, want) {
 					t.Errorf("missing %s in %v", want, files)

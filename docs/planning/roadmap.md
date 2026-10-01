@@ -209,8 +209,9 @@ Goal: everything a real application needs beyond CRUD.
 | B6 Events | ✅ Done 2026-10-01 (sync, async and queued listeners; `queue.RegisterFunc`) |
 | B7 Pub/sub listeners | ✅ Done 2026-10-01 (memory, Redis Streams and Google Pub/Sub brokers; typed listeners, retries, dead letters; ordering keys deferred) |
 | B8 Scheduler | ✅ Done 2026-10-01 (cron and fluent schedules with time zones; `WithoutOverlapping`, `OnOneServer`, `Timeout`; `schedule:list`, `schedule:run`; in new projects) |
-| B9 Mail | ✅ Done 2026-10-01 (mailables with templ bodies; log, SMTP and memory transports; queued mail; Postmark as a driver module, to become a plugin with B11) |
+| B9 Mail | ✅ Done 2026-10-01 (mailables with templ bodies; log, SMTP and memory transports; queued mail; Postmark, now the `plugins/postmark` plugin) |
 | B10 Storage | ✅ Done 2026-10-01 (local, memory and S3-compatible disks; named disks; signed temporary URLs and a file handler) |
+| B11 Plugin system | ✅ Done 2026-10-01 (package `ext`, `ext.Load`, `anetos add` / `anetos remove`, enforced namespaces, `Requires()` checks; `plugins/postmark` adds settings, a migration, a route, a job and commands through the public API) |
 
 | WP | Work package | Notes |
 |---|---|---|
@@ -297,7 +298,7 @@ The plugin system has to be good enough for our own use, so any first-party
 feature that isn't core ships as a plugin built through the **public** API.
 Candidates:
 
-- Mail API drivers (Resend, SES, Mailgun; Postmark is done, in `drivers/postmark`)
+- Mail API drivers (Resend, SES, Mailgun; Postmark is done, in `plugins/postmark`)
 - Queue and pub/sub drivers beyond the core pair (SQS, NATS, Kafka)
 - Storage drivers (GCS, Azure)
 - Later: debug dashboard, admin panel, notifications
@@ -377,3 +378,4 @@ something, and we fix the API rather than add the hook.
 | 2026-10-01 | B8 (scheduler) done |
 | 2026-10-01 | B9 (mail) done; Q5 decided (Postmark); the Postmark driver ships as a driver module until the plugin system (B11) |
 | 2026-10-01 | B10 (storage) done |
+| 2026-10-01 | B11 (plugin system) done; Postmark moved from `drivers/postmark` to `plugins/postmark`, the first first-party plugin |

@@ -180,7 +180,13 @@ All notable changes to this project are documented here. The format follows
   `MAIL_DRIVER`: `log` (the default), `smtp` (`MAIL_SMTP_URL`, STARTTLS or
   TLS, AUTH PLAIN or LOGIN, SMTPUTF8) or `memory`, with
   `MAIL_FROM_ADDRESS` and `MAIL_FROM_NAME` (B9, design D120–D123).
-- New module `drivers/postmark`: the Postmark transport (B9).
+- New module `plugins/postmark`: the Postmark transport (B9), and the
+  plugin `postmark.Plugin()`: a webhook (`POST /postmark/webhook`, basic
+  auth from `POSTMARK_WEBHOOK_USER`/`PASSWORD`) that queues bounces,
+  spam complaints and subscription changes for the job
+  `postmark:webhook`, which keeps the `postmark_suppressions` list;
+  `postmark.Suppressed`; the commands `postmark:suppressions` and
+  `postmark:unsuppress` (B11, design D135).
 - `anetostest` sets `MAIL_DRIVER=memory`, and defaults `APP_URL` to
   `http://localhost` and `MAIL_FROM_ADDRESS` to `test@example.com` (B9,
   design D123).
@@ -205,12 +211,40 @@ All notable changes to this project are documented here. The format follows
   ignore `storage/` (B10).
 - `examples/files`: documents behind temporary URLs and public avatars;
   guide "Store files" (B10).
+- Plugins (`ext` package): `ext.Plugin` (`Name`) and the optional
+  `Compat`, `HasConfig`, `HasMigrations`, `HasRoutes`, `HasCommands`,
+  `HasJobs`, `HasSchedule`, `HasListeners` and `HasBoot`; `ext.Load`
+  wires them into an app in their namespaces (routes under `/<name>`
+  named `<name>.…`, `ext.Mount`; commands `<name>:…`; a migration set
+  per plugin; settings `<NAME>_…`, outside other plugins' prefixes;
+  the framework's names reserved) after checking `Requires()` with
+  `ext.Satisfies`, and adds the `plugins:list` and `plugins:env`
+  commands, which don't boot the app (B11, design D129–D133).
+- `anetos.Version()`: the core module's version in the app's build info
+  (B11, design D132).
+- `config.Keys`: the settings a struct reads, with their defaults (B11).
+- `migrate.Runner.Add`: adds migration sets after `migrate.ForApp`
+  (B11).
+- `web.NewServer` provides the server as a service
+  (`anetos.Resolve[*web.Server]`) (B11).
+- `anetos add <module>[@version]` and `anetos remove <module>`: install
+  and uninstall plugins (`go get`, the generated `plugins.go`, a build
+  check and a load check that restore the project when the plugin is
+  refused, settings appended to `.env.example`) (B11, design D134).
+- `anetos new` projects have `plugins.go` and load it with `ext.Load`
+  at the end of `setup` (B11).
+- `examples/queue` uses the Postmark plugin and skips receipts to
+  suppressed addresses; guides "Use plugins" and "Write a plugin" (B11).
 - `examples/queue` emails a receipt for each order from its queued event
   listener, with a templ template, queues one again with `POST
   /orders/{id}/receipt`, and previews it in development; guide "Send
   email" (B9).
 
 ### Changed
+- The Postmark transport moved from `drivers/postmark` to
+  `plugins/postmark` (unreleased) (B11).
+- `make docs-check` also checks regions claimed from first-party plugins
+  (`plugins/…`) (B11).
 - `anetostest`'s default `APP_URL` is `http://example.test`, the test
   client's own site, so absolute URLs a test gets can be fetched (B10).
 - The cache conformance suite's lease test releases leases with

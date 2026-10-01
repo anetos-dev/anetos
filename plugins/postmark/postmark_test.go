@@ -15,9 +15,9 @@ import (
 
 	"anetos.dev/anetos"
 	"anetos.dev/anetos/config"
-	"anetos.dev/anetos/drivers/postmark"
 	"anetos.dev/anetos/encryption"
 	"anetos.dev/anetos/mailer"
+	"anetos.dev/anetos/plugins/postmark"
 	"anetos.dev/anetos/queue"
 	"anetos.dev/anetos/view"
 )

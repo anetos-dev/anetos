@@ -19,6 +19,7 @@
 //	open http://localhost:8080/dev/mail/receipt   # the receipt email (development)
 //	go run . queue:failed                 # jobs that failed for good
 //	go run . schedule:list                # the scheduled tasks
+//	go run . plugins:list                 # the plugins (postmark: a webhook for bounces)
 package main
 
 import (
@@ -31,11 +32,12 @@ import (
 	"anetos.dev/anetos/cache"
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/db/migrate"
-	"anetos.dev/anetos/drivers/postmark"
 	"anetos.dev/anetos/drivers/redis"
 	"anetos.dev/anetos/drivers/sqlite"
 	"anetos.dev/anetos/events"
+	"anetos.dev/anetos/ext"
 	"anetos.dev/anetos/mailer"
+	"anetos.dev/anetos/plugins/postmark"
 	"anetos.dev/anetos/queue"
 	"anetos.dev/anetos/schedule"
 	"anetos.dev/anetos/web"
@@ -138,6 +140,13 @@ func setup(app *anetos.App) (*web.Server, error) {
 		orders, cents := sales.Snapshot()
 		return c.JSON(http.StatusOK, map[string]int64{"orders": orders, "cents": cents})
 	})
+	// region: plugins
+	// The plugins in plugins.go (anetos add), last: they use the services
+	// above. The postmark plugin's webhook is POST /postmark/webhook.
+	if err := ext.Load(app, plugins()); err != nil {
+		return nil, err
+	}
+	// endregion
 	return srv, nil
 }
 
