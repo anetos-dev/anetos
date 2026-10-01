@@ -35,6 +35,7 @@ code that wires the part they belong to:
 | `migrate`, `migrate:rollback`, `migrate:reset`, `migrate:fresh`, `migrate:status`, `db:seed` | `migrate.ForApp` ([Migrations](migrations.md)) |
 | `cache:clear` | `cache.ForApp` ([Cache values](../guides/cache.md)) |
 | `queue:failed`, `queue:retry`, `queue:forget`, `queue:flush`, `queue:clear` | `queue.ForApp` ([Queues](../guides/queues.md)) |
+| `pubsub:publish` | `pubsub.ForApp` ([Pub/sub listeners](../guides/pubsub.md)) |
 | Your own | `app.Command` or `app.AddCommand` |
 
 So a binary only offers commands for what it actually set up: without

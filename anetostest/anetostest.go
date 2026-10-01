@@ -49,6 +49,7 @@ import (
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/db/migrate"
 	"anetos.dev/anetos/encryption"
+	"anetos.dev/anetos/pubsub"
 	"anetos.dev/anetos/queue"
 	"anetos.dev/anetos/session"
 	"anetos.dev/anetos/web"
@@ -106,10 +107,10 @@ func LogLevel(l slog.Level) Option { return func(o *options) { o.level = l } }
 // prepares its database. It closes the app when the test ends.
 //
 // Settings, from highest priority: [Env] options; APP_ENV=testing, a
-// random APP_KEY, and a CACHE_PREFIX, SESSION_PREFIX and QUEUE_PREFIX of
-// the App's own (so tests sharing a store don't see each other's items;
-// New removes the App's items, sessions and Redis jobs when the test
-// ends); the process environment; the .env.testing file next to
+// random APP_KEY, and a CACHE_PREFIX, SESSION_PREFIX, QUEUE_PREFIX and
+// PUBSUB_PREFIX of the App's own (so tests sharing a store don't see each
+// other's items; New removes the App's items, sessions, Redis jobs and
+// streams when the test ends); the process environment; the .env.testing file next to
 // go.mod, if there is one (say, DB_DATABASE=blog_test); then
 // HTTP_ACCESS_LOG=false. The settings in .env are not used (New only
 // looks at its DB_CONNECTION, to stop a test that would use SQLite by
@@ -123,7 +124,7 @@ func New(t testing.TB, setup func(app *anetos.App) (*web.Server, error), opts ..
 	}
 	prefix := testPrefix()
 	forced := config.Map{"APP_ENV": "testing", "APP_KEY": encryption.GenerateKey(), "CACHE_PREFIX": prefix + "cache:", "SESSION_PREFIX": prefix + "session:",
-		"QUEUE_PREFIX": prefix + "queue:"}
+		"QUEUE_PREFIX": prefix + "queue:", "PUBSUB_PREFIX": prefix + "pubsub:"}
 	defaults := config.Map{"HTTP_ACCESS_LOG": "false"}
 	file, err := moduleEnv(".env.testing")
 	if err != nil {
@@ -171,32 +172,30 @@ func New(t testing.TB, setup func(app *anetos.App) (*web.Server, error), opts ..
 	}
 	a.ctx = app.Context(ctx)
 	a.sessions, _ = anetos.Resolve[*session.Manager](app)
-	// A shared store (database, Redis) keeps items and sessions after the
-	// test, out of its transaction: remove them.
+	// A shared store (database, Redis) keeps items, sessions, jobs and
+	// streams after the test, out of its transaction: remove them. As
+	// shutdown hooks, added after the app's, they run before its
+	// connections close, also when the test runs the app.
 	if c, err := anetos.Resolve[*cache.Cache](app); err == nil {
-		t.Cleanup(func() {
-			if err := c.Store().Flush(context.Background(), c.Prefix()); err != nil {
-				t.Errorf("anetostest: clear the cache: %v", err)
-			}
+		app.OnShutdown("anetostest: clear the cache", func(ctx context.Context) error {
+			return c.Store().Flush(ctx, c.Prefix())
 		})
 	}
 	if a.sessions != nil {
 		if store, prefix := a.sessions.Store(); store != nil {
-			t.Cleanup(func() {
-				if err := store.Flush(context.Background(), prefix); err != nil {
-					t.Errorf("anetostest: clear the sessions: %v", err)
-				}
+			app.OnShutdown("anetostest: clear the sessions", func(ctx context.Context) error {
+				return store.Flush(ctx, prefix)
 			})
 		}
 	}
-
 	if q, err := anetos.Resolve[*queue.Queue](app); err == nil {
 		if p, ok := q.Store().(interface{ Purge(context.Context) error }); ok {
-			t.Cleanup(func() {
-				if err := p.Purge(context.Background()); err != nil {
-					t.Errorf("anetostest: clear the queue: %v", err)
-				}
-			})
+			app.OnShutdown("anetostest: clear the queue", p.Purge)
+		}
+	}
+	if ps, err := anetos.Resolve[*pubsub.PubSub](app); err == nil {
+		if p, ok := ps.Broker().(interface{ Purge(context.Context) error }); ok {
+			app.OnShutdown("anetostest: clear the pub/sub streams", p.Purge)
 		}
 	}
 

@@ -142,12 +142,34 @@ All notable changes to this project are documented here. The format follows
   D111).
 - `examples/queue` emits `OrderPlaced`, with an audit log (`On`), sales
   counts (`OnAsync`) and receipts (`OnQueued`); guide "Events" (B6).
+- Pub/sub (`pubsub` package): `pubsub.ForApp` picks a broker with
+  `PUBSUB_DRIVER` (`memory`, the default, or a driver's: `redis`, `gcp`);
+  `pubsub.Publish` (JSON, or raw bytes; `Attributes`, `AfterCommit`);
+  typed listeners with `pubsub.Listen[T]` (`Subscription`, default
+  `<topic>.<APP_NAME>`; `Concurrency`, `Timeout`, `MaxAttempts`,
+  `Backoff`, `DeadLetter`, `ShutdownGrace`), run as components with the
+  role `listeners`, or with `ps.Run`; `pubsub.Permanent`,
+  `pubsub.Current`; subscriptions prepared when the app boots; the
+  `pubsub:publish` command (B7, design D112–D114).
+- The `pubsub.Broker` contract, the memory broker and the
+  `pubsub/pubsubtest` conformance suite (B7, design D112).
+- New module `drivers/gcppubsub`: the Google Cloud Pub/Sub broker (B7).
+- `anetostest.New` gives each test app its own `PUBSUB_PREFIX` and
+  removes its Redis streams (B7).
+- `examples/pubsub`: a billing service listening to `orders.created`,
+  with a dead-letter topic; guide "Pub/sub listeners" (B7).
 
 ### Changed
 - `anetostest` runs `db.AfterCommit` callbacks registered in a test's
   transaction (with a SQLite file, PostgreSQL or MySQL): when a `db.Tx`
   inside it commits, as in a request, or at once outside one. They never
   ran before, unlike in production (B5, design D108).
+- `queue.IsPermanent` (and `pubsub.IsPermanent`) recognize any error with
+  a `Permanent() bool` method, so each package's `Permanent` works in the
+  other's handlers (B7).
+- `anetostest` removes its test app's cache items, sessions and Redis jobs
+  in shutdown hooks rather than test cleanups, so it also works when a
+  test runs the app (whose shutdown closes the connections) (B7).
 - The SQL clock and deadlock retries of the database cache store moved
   to an internal package shared with the queue; no change in behavior
   (B5).

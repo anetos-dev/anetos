@@ -207,6 +207,7 @@ Goal: everything a real application needs beyond CRUD.
 | B4 Social login | ✅ Done 2026-10-01 (Google, GitHub, generic OIDC; `social_accounts` links; `APP_URL`) |
 | B5 Queue | ✅ Done 2026-10-01 (sync, memory, database and Redis drivers; workers; failed-job commands; `db.WithTestTx`) |
 | B6 Events | ✅ Done 2026-10-01 (sync, async and queued listeners; `queue.RegisterFunc`) |
+| B7 Pub/sub listeners | ✅ Done 2026-10-01 (memory, Redis Streams and Google Pub/Sub brokers; typed listeners, retries, dead letters; ordering keys deferred) |
 
 | WP | Work package | Notes |
 |---|---|---|
@@ -283,7 +284,7 @@ Goal: modern SPA-style frontends without giving up server-side routing.
 WebSockets/broadcasting · debug dashboard (Telescope-like) · admin panel
 generator · notifications (mail, SMS, Slack channels) · multi-tenancy · feature
 flags · full i18n · search adapters · Inertia SSR · read/write DB splitting ·
-more drivers (NATS, Kafka, SQS, RabbitMQ, GCS, Azure Blob), mostly as plugins.
+pub/sub ordering keys (Google) · more drivers (NATS, Kafka, SQS, RabbitMQ, GCS, Azure Blob), mostly as plugins.
 
 ---
 
@@ -369,3 +370,4 @@ something, and we fix the API rather than add the hook.
 | 2026-10-01 | B4 (social login) done |
 | 2026-10-01 | B5 (queue) done; memory driver added to its scope |
 | 2026-10-01 | B6 (events) done; function jobs added to the queue |
+| 2026-10-01 | B7 (pub/sub listeners) done; ordering keys deferred to the backlog |

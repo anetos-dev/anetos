@@ -49,9 +49,9 @@ test ends. The settings, from highest priority:
 
 1. `anetostest.Env(map[string]string{…})` options;
 2. `APP_ENV=testing`, a random `APP_KEY`, and a `CACHE_PREFIX`,
-   `SESSION_PREFIX` and `QUEUE_PREFIX` of the app's own, so tests sharing
-   a store don't see each other's items, sessions or Redis jobs (they are
-   removed when the test ends);
+   `SESSION_PREFIX`, `QUEUE_PREFIX` and `PUBSUB_PREFIX` of the app's own,
+   so tests sharing a store don't see each other's items, sessions, Redis
+   jobs or streams (they are removed when the app shuts down);
 3. the process environment;
 4. `.env.testing` next to `go.mod`, if there is one (for PostgreSQL or
    MySQL, all the `DB_*` settings: see

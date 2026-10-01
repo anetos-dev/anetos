@@ -576,6 +576,9 @@ type permanent struct{ err error }
 func (p permanent) Error() string { return p.err.Error() }
 func (p permanent) Unwrap() error { return p.err }
 
+// Permanent marks the error as permanent, for [IsPermanent].
+func (p permanent) Permanent() bool { return true }
+
 // Permanent wraps err so that the job fails for good, without retries:
 // for errors that won't go away, such as a record that doesn't exist.
 func Permanent(err error) error {
@@ -585,10 +588,13 @@ func Permanent(err error) error {
 	return permanent{err}
 }
 
-// IsPermanent reports whether err comes from [Permanent].
+// IsPermanent reports whether err, or an error it wraps, has a
+// Permanent() bool method returning true: errors from [Permanent], and
+// from pubsub.Permanent, so code shared by jobs and listeners can use
+// either.
 func IsPermanent(err error) bool {
-	var p permanent
-	return errors.As(err, &p)
+	var p interface{ Permanent() bool }
+	return errors.As(err, &p) && p.Permanent()
 }
 
 type queueKey struct{}

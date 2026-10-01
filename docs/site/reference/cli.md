@@ -112,6 +112,7 @@ Names may be `BlogPost`, `blog_post` or `blog-post`; files use snake case.
 | `migrate`, `migrate:rollback`, `migrate:reset`, `migrate:fresh`, `migrate:status`, `db:seed` | `migrate.ForApp` | See the [migrations reference](migrations.md#commands) |
 | `cache:clear` | `cache.ForApp` | Removes the app's cache items (keys with `CACHE_PREFIX`), locks included |
 | `queue:failed [--limit=N]`, `queue:retry <id>…\|all`, `queue:forget <id>…`, `queue:flush [--force]`, `queue:clear [--force] [queue]` | `queue.ForApp` | List, retry and delete failed jobs; delete the jobs waiting on a queue. `flush` and `clear` need `--force` in production. See [Queues](../guides/queues.md#4-handle-failed-jobs) |
+| `pubsub:publish <topic> <message>` | `pubsub.ForApp` | Publishes a message (its body as given) to a topic. See [Pub/sub listeners](../guides/pubsub.md#4-publish) |
 | `help [command]`, `-h`, `--help` | every app | The command list, or a command's usage (`<command> -h` too, as the first argument); doesn't boot the app |
 
 | API | Does |

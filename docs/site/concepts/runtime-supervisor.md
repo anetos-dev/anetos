@@ -37,9 +37,10 @@ Components declare **roles**. A process can run all of them or only some:
 ./blog run --only=workers            # background machines
 ```
 
-The built-in components with roles are the web server (`http`) and the
-queue's workers (`workers`, from `q.Work`; see [Queues](../guides/queues.md)).
-Pub/sub listeners bring theirs later in v0.2. Your own components choose
+The built-in components with roles are the web server (`http`), the
+queue's workers (`workers`, from `q.Work`; see [Queues](../guides/queues.md))
+and pub/sub listeners (`listeners`, from `pubsub.Listen`; see
+[Pub/sub listeners](../guides/pubsub.md)). Your own components choose
 theirs with `anetos.Roles("workers")`.
 
 `run` is the binary's default command (`app.Execute`; see

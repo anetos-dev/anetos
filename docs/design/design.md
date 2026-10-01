@@ -194,8 +194,8 @@ func main() {
     q, _ := queue.ForApp(app)          // QUEUE_DRIVER (B5)
     queue.Register[jobs.SendWelcome](q)
     q.Work(queue.Queues("emails"), queue.Concurrency(10))
-    app.Listen(pubsub.Topic("orders.created"), listeners.OrderCreated,
-        anetos.Concurrency(20), anetos.Retry(5))
+    ps, _ := pubsub.ForApp(app, redis.PubSubDriver()) // PUBSUB_DRIVER (B7)
+    pubsub.Listen(ps, "orders.created", listeners.OrderCreated, pubsub.Concurrency(20))
     app.Schedule(schedule.DailyAt("02:00"), tasks.PruneSessions)
 
     app.Execute() // parses os.Args: run (default) | serve | migrate | routes:list | … (F11)
@@ -204,8 +204,8 @@ func main() {
 
 F11 implemented `app.Execute` and the generated `main.go` (with a
 `setup` function the project's test reuses), and B5 the queue's workers
-(§13.4); `app.Use(plugins.All()...)`, listeners and schedules arrive
-later in v0.2.
+(§13.4) and B7 the pub/sub listeners (§13.5); `app.Use(plugins.All()...)`
+and schedules arrive later in v0.2.
 
 ---
 
@@ -234,7 +234,8 @@ anetos.dev/anetos/            ← core module
 ├── auth/                login, remember me, API tokens, reset/verification tokens, policies (B3); auth/password: argon2id; auth/social: OAuth/OIDC sign-in (B4)
 ├── queue/               jobs, workers, sync/memory/database stores, failed jobs (B5); queue/queuetest: store conformance suite
 ├── events/              typed in-process events: sync, async (bounded pools), queued listeners (B6)
-├── pubsub/ schedule/ mailer/ storage/
+├── pubsub/              topics, subscriptions, typed listeners, memory broker (B7); pubsub/pubsubtest: broker conformance suite
+├── schedule/ mailer/ storage/
 ├── ext/                 public plugin API (package `ext`)
 ├── cmd/                 app-binary command types (F11); App.Execute dispatches
 ├── anetostest/          test app, browser-like client, assertions (F12); fakes arrive with their features
@@ -247,8 +248,8 @@ anetos.dev/anetos/            ← core module
 ├── cli/                 ← separate module: the `anetos` developer tool (cmd/anetos: new, dev, make:*, gen, key:generate)
 ├── drivers/             ← each a separate module
 │   ├── postgres/ mysql/ sqlite/   database/sql driver + DSN; dialects are in db/
-│   ├── redis/           shared client (redis.Connect), cache store with locks (B1), sessions (B2), queue (B5); later pubsub (Streams)
-│   ├── gcppubsub/
+│   ├── redis/           shared client (redis.Connect), cache store with locks (B1), sessions (B2), queue (B5), pub/sub on Streams (B7)
+│   ├── gcppubsub/       Google Cloud Pub/Sub broker (B7)
 │   ├── s3/
 │   └── …
 ├── plugins/             ← first-party plugins, each a separate module
@@ -931,22 +932,37 @@ For consuming *external* streams, the case that needed a separate app with
 Buffalo:
 
 ```go
-app.Listen(pubsub.Topic("orders.created"), listeners.OrderCreated,
-    anetos.Concurrency(20), anetos.Retry(5), anetos.DeadLetter("orders.dlq"))
+ps, err := pubsub.ForApp(app, redis.PubSubDriver(), gcppubsub.Driver()) // PUBSUB_DRIVER
+err = pubsub.Listen(ps, "orders.created", listeners.OrderCreated,
+    pubsub.Concurrency(20), pubsub.MaxAttempts(5), pubsub.DeadLetter("orders.created.dlq"))
 
 // app/listeners/order_created.go
-func OrderCreated(ctx context.Context, msg events.OrderCreated) error {
-    // typed message, decoded for you; return nil → ack, error → nack/retry
+func OrderCreated(ctx context.Context, msg OrderCreated) error {
+    // typed message, decoded for you; nil → ack, error → redelivered after a backoff
 }
+
+err = pubsub.Publish(ctx, "invoices.created", InvoiceCreated{ID: inv.ID})
 ```
 
-- A `pubsub` contract with subscribe (and publish) plus drivers: **Redis
-  Streams** and **Google Pub/Sub** first (v0.2). NATS, Kafka and SQS come as
-  plugins.
-- Bounded concurrency per listener, ordered processing where the broker
-  supports ordering keys, and backpressure (stop pulling when the pool is
-  full).
-- The same at-least-once and idempotency caveat applies.
+*(Implemented in B7: package `pubsub`, `drivers/redis` (Streams),
+`drivers/gcppubsub`.)*
+
+- A `pubsub.Broker` contract: `Publish`, `Prepare` (create the
+  subscription if the broker can), `Subscribe` (deliver with bounded
+  concurrency, settle each message with an `Outcome`: ack, or redeliver
+  after a delay) (D112). Brokers: memory (core), Redis Streams, Google
+  Pub/Sub; `pubsub/pubsubtest` is the conformance suite, with feature flags
+  for what brokers differ on (delivery counts, delays, ack timeouts,
+  ordering). NATS, Kafka and SQS come as plugins.
+- A subscription is named `<topic>.<APP_NAME>` by default: each app gets
+  every message; an app's processes share them. Subscriptions are
+  prepared when the app boots (D113).
+- Listeners are typed (`Listen[T]`, JSON; `[]byte` for raw bodies), run as
+  components (role `listeners`, `StageListeners`), with `Concurrency`,
+  `Timeout`, `MaxAttempts`, `Backoff`, `DeadLetter` and `ShutdownGrace`;
+  retries and dead-lettering are done by the framework, uniformly, where
+  the broker counts deliveries (D114).
+- At-least-once (D17); ordering keys aren't supported yet.
 
 ### 13.6 Events (in-process)
 
@@ -1010,7 +1026,7 @@ Each service is an interface in the core module. Drivers are chosen in
 | Session | `session` | cookie (encrypted), database | `drivers/redis` | v0.1 / v0.2 (B2 done) |
 | Cache (+ locks) | `cache` | memory, database | `drivers/redis` | v0.2 (B1 done) |
 | Queue | `queue` | sync, memory, database | `drivers/redis`; SQS, NATS (plugins) | v0.2 (B5 done) |
-| Pub/sub | `pubsub` | in-memory (tests/dev) | `drivers/redis` (Streams), `drivers/gcppubsub`; NATS, Kafka (plugins) | v0.2 |
+| Pub/sub | `pubsub` | memory (tests/dev) | `drivers/redis` (Streams), `drivers/gcppubsub`; NATS, Kafka (plugins) | v0.2 (B7 done) |
 | Mail | `mailer` | SMTP, log (dev) | Resend / Postmark / SES / Mailgun (plugins) | v0.2 |
 | Storage | `storage` | local | `drivers/s3` (S3-compatible, incl. R2/MinIO); GCS, Azure (plugins) | v0.2 |
 | Password hashing | `auth/password` | argon2id, bcrypt | — | v0.2 (B3 done) |
@@ -1300,8 +1316,9 @@ func TestCreatePost(t *testing.T) {
   (`app.Freeze(time)`) arrive in v0.2 (D79, B12); time will be read from
   an injectable clock inside the framework. Until the queue fake, tests
   run jobs with the sync driver. Each test app gets its own
-  `CACHE_PREFIX`, `SESSION_PREFIX` and `QUEUE_PREFIX`, cleaned up at the
-  end.
+  `CACHE_PREFIX`, `SESSION_PREFIX`, `QUEUE_PREFIX` and `PUBSUB_PREFIX`,
+  cleaned up by shutdown hooks (which run before the app's connections
+  close, also when a test runs the app).
 - Everything works with `go test` and `-race`; `t.Parallel()` works with
   in-memory SQLite and server databases (not a SQLite file, whose write
   lock each test's transaction holds). One app per test or subtest.
@@ -1510,6 +1527,10 @@ unless new information arrives), **Open**, **Superseded**.
 | D109 | Events are values of any type, matched by their exact dynamic type; listeners are `func(ctx, E) error` added with `events.On`/`OnAsync`/`OnQueued[E]`; `On` listeners run in order in `Emit` and the first error stops them; emitting a type without listeners is fine, and interface types can't be listened to (an error); listener names default to the function's name | Accepted | Typed like handlers and jobs, with one map lookup per Emit; no event interface to implement; exact types keep matching predictable (no interface or embedding dispatch); events are announcements, so no listener is no error |
 | D110 | Async listeners each have a bounded pool (`Concurrency`, default 1) and buffer (`Buffer`, default 1000; `Emit` waits for room until its context ends), started lazily; they get events after the transaction commits, with a fresh context of the app's values; errors and panics are logged; the bus is closed in a shutdown hook (added last in setup) that refuses new events except those async listeners emit, gives them the remaining budget, then drops what is buffered and cancels them | Accepted | A pool per listener isolates a slow listener (O4); backpressure instead of unbounded memory or silent drops; after-commit avoids acting on rolled-back changes; a shutdown hook (not a supervised component) also drains in tests and commands, which never call Run |
 | D111 | Queued listeners are function jobs: `queue.RegisterFunc[T](q, name, fn)` / `DispatchFunc`, named `event:<listener>`, dispatched with `queue.AfterCommit()`; anonymous and generic functions must be named; function jobs can't take interface payloads | Accepted | Each listener gets its own tries, timeouts and failed jobs; one generic job type per event couldn't; function jobs are also useful on their own (closures over dependencies); stable names keep queued events working across deploys |
+| D112 | The broker contract is `Publish`, `Prepare` and `Subscribe(ctx, spec, handle) error`, where the broker owns pulling, flow control (at most `Concurrency` in flight) and settling, and `handle` returns an `Outcome` (ack, or redeliver after `RetryAfter`); messages carry `Attempt` (0 when the broker doesn't count) | Accepted | Fits pull loops (Redis) and push-style clients that manage leases themselves (Google's `Receive`); the framework keeps decoding, timeouts, retries and dead-lettering in one place; brokers that can't delay or count say so (conformance feature flags) instead of the contract pretending |
+| D113 | Subscriptions default to `<topic>.<APP_NAME>` and are prepared when the app boots (a provider), or when `Listen` runs after boot; Redis groups start at the stream's end; Google subscriptions must exist unless `PUBSUB_GCP_CREATE` (without it Prepare makes no API call, so least-privilege accounts work); Google IDs escape unsupported characters as `%XX` and are validated; topics have no prefix by default (`PUBSUB_PREFIX` exists for isolation, and tests) | Accepted | Each service gets every message and scales by running more processes; messages published between deploy and the first listener aren't lost; production infra (IAM, retention, dead-letter policies) belongs to infra tools, not app boot |
+| D114 | Retries and dead letters are the framework's: a failed message is redelivered after `Backoff` (10s doubling to 10m, jitter) until `MaxAttempts` (default unlimited), then published to `DeadLetter` with `anetos.*` attributes and acked, or dropped and logged without one (the dead-letter publish is retried for 10s before the message is nacked); `Permanent` errors (any error with `Permanent() bool`, so `queue.Permanent` too) and undecodable bodies skip the retries; `MaxAttempts` without delivery counts is logged once; `PubSub.Run` restarts failed listeners like the supervisor; messages stopped at shutdown are redelivered whatever MaxAttempts says | Accepted | Uniform across brokers; unlimited by default never drops data silently; Google's own retry policy and dead-letter policy apply where the framework can't (no delays; attempts only with a policy), documented |
+| D115 | Redis Streams: a failed message stays pending, its retry time in a per-group sorted set and its idle time set (`XCLAIM … IDLE … JUSTID`) so it can be claimed then (or after the ack timeout, to be put back to sleep if not due); claims use `XAUTOCLAIM … JUSTID`, and only due messages are claimed again without JUSTID, which counts the delivery; abandoned ones after the ack timeout (listener timeout + 30s); `Attempt` is the group's delivery count; streams are capped at about `PUBSUB_REDIS_MAXLEN`; consumers without pending messages are removed when they stop | Accepted | Backoffs of any length with exact delivery counts (waiting isn't a delivery); due retries are found in the sorted set directly, so many waiting messages don't delay them; each claim decision is one Lua script (remove a due retry time and claim; deliver a message without one only if this consumer owns it), so consumers sharing a group never both deliver a retry; retry times follow the server's clock; at-least-once survives crashed consumers; trimming bounds memory, at the documented cost of messages a slow group hasn't read |
 
 ---
 
@@ -1551,3 +1572,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-01 | B4 social login implemented: §5, §7 (APP_URL), §15 updated; D101–D103 added |
 | 2026-10-01 | B5 queue implemented: §4, §5, §13.4, §14, §18 updated; D104–D108 added; O3 resolved |
 | 2026-10-01 | B6 events implemented: §5, §13.4, §13.6 updated; D109–D111 added; O4 resolved |
+| 2026-10-01 | B7 pub/sub listeners implemented: §4, §5, §13.5, §14, §18 updated; D112–D115 added |

@@ -208,11 +208,24 @@ Read by `queue.ForApp` (or `queue.LoadConfig`) into `queue.Config`. See
 | `QUEUE_TABLE`, `QUEUE_FAILED_TABLE` | string | `jobs`, `failed_jobs` | The database driver's tables; pass the same names to `queue.Migrations` | v0.2 |
 | `QUEUE_PREFIX` | string | `APP_NAME` + `:queue:` | Starts the Redis driver's keys (Redis 5 or later). In a Redis Cluster, put a hash tag in it (`{blog}:queue:`). `anetostest` sets one per test app | v0.2 |
 
+## Pub/sub
+
+Read by `pubsub.ForApp` (or `pubsub.LoadConfig`) into `pubsub.Config`,
+and by the drivers. See [Pub/sub listeners](../guides/pubsub.md).
+
+| Key | Type | Default | Description | Since |
+|---|---|---|---|---|
+| `PUBSUB_DRIVER` | `memory` \| a driver's name (`redis`, `gcp`) | `memory` | The broker; `redis` needs `redis.PubSubDriver()` and `gcp` needs `gcppubsub.Driver()` passed to `pubsub.ForApp` | v0.2 |
+| `PUBSUB_PREFIX` | string | none | Starts topic names in the broker (Redis keys, Google IDs). Topics are shared with the other services using the broker, so leave it empty unless you need to separate them (or, in a Redis Cluster, need a hash tag: `{events}:`). `anetostest` sets one per test app | v0.2 |
+| `PUBSUB_REDIS_MAXLEN` | int ≥ 0 | `1000000` | About how many messages each Redis stream keeps; 0 for no limit | v0.2 |
+| `PUBSUB_GCP_PROJECT` | string | none (required with `gcp`) | The Google Cloud project's ID | v0.2 |
+| `PUBSUB_GCP_CREATE` | bool | `false` | Create missing Google topics and subscriptions (development, the emulator) | v0.2 |
+
 ## Redis
 
 Read by `redis.Connect` (module `drivers/redis`, also used by
-`redis.CacheDriver()`, `redis.SessionDriver()` and `redis.QueueDriver()`)
-into `redis.Config`.
+`redis.CacheDriver()`, `redis.SessionDriver()`, `redis.QueueDriver()` and
+`redis.PubSubDriver()`) into `redis.Config`.
 
 | Key | Type | Default | Description | Since |
 |---|---|---|---|---|

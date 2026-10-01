@@ -20,5 +20,9 @@ tagged `drivers/redis/vX.Y.Z`. The framework's own changes are in the
   (`QUEUE_DRIVER=redis`, keys under `QUEUE_PREFIX`): a sorted set per
   queue, a hash per job, every change in a Lua script on the server's
   clock; failed jobs; `Purge` for test cleanup (B5).
-- Runs the `cache/cachetest` (B1) and `queue/queuetest` (B5) conformance
-  suites against the server in `ANETOS_TEST_REDIS_URL`.
+- `redis.PubSubDriver()` and `redis.NewStreamsBroker`: the pub/sub broker
+  on Redis Streams (`PUBSUB_DRIVER=redis`, Redis 7+): consumer groups,
+  backoff through pending entries' idle time, `PUBSUB_REDIS_MAXLEN` (B7).
+- Runs the `cache/cachetest` (B1), `queue/queuetest` (B5) and
+  `pubsub/pubsubtest` (B7) conformance suites against the server in
+  `ANETOS_TEST_REDIS_URL`.

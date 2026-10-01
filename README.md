@@ -12,7 +12,7 @@ kernel, configuration, runtime supervisor, HTTP layer, validation, data
 layer, migrations, model code generation, views, sessions, forms, the CLI
 and testing helpers; v0.1.1 added relations. v0.2 is in progress: the
 cache, server-side sessions and rate limiting, authentication, social
-login, queues and events are done. APIs will change.
+login, queues, events and pub/sub listeners are done. APIs will change.
 
 ## Documents
 

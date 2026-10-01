@@ -4,6 +4,12 @@
 *.test
 *.out
 coverage.*
+# Binaries `go build` leaves in example modules
+/examples/*/auth
+/examples/*/database
+/examples/*/forms
+/examples/*/pubsub
+/examples/*/queue
 
 # Local environment
 .env
