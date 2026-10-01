@@ -4,12 +4,14 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"testing"
 	"time"
 
 	"anetos.dev/anetos"
 	"anetos.dev/anetos/db"
+	"anetos.dev/anetos/events"
 	"anetos.dev/anetos/queue"
 	"anetos.dev/anetos/anetostest"
 )
@@ -120,3 +122,30 @@ func TestMissingOrder(t *testing.T) {
 	app.Get("/orders/999").AssertNotFound()
 	app.PostJSON("/orders", map[string]any{"item": ""}).AssertUnprocessable()
 }
+
+// region: test-events
+// Each kind of listener: the audit entry is written with the order, the
+// receipt sent by the queued listener (the sync driver runs it at once),
+// and the sales counted in the background: bus.Wait waits for that.
+func TestOrderEvents(t *testing.T) {
+	fakeGateway(t, &FakeGateway{})
+	app := anetostest.New(t, setup, anetostest.Env(map[string]string{"QUEUE_DRIVER": "sync"}))
+	ordersBefore, _ := sales.Snapshot()
+
+	id := placeOrder(t, app, "Lamp", 4250)
+
+	anetostest.AssertDatabaseHas[AuditEntry](app, db.Col[int64]("order_id").Eq(id))
+	if sent := receipt.Sent(); len(sent) == 0 || sent[len(sent)-1] != fmt.Sprintf("Receipt for order %d: Lamp, $42.50", id) {
+		t.Errorf("receipts: %q", sent)
+	}
+	bus := anetos.MustResolve[*events.Bus](app.App)
+	if err := bus.Wait(app.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if orders, _ := sales.Snapshot(); orders != ordersBefore+1 {
+		t.Errorf("sales: %d orders, want %d", orders, ordersBefore+1)
+	}
+	app.Get("/stats").AssertOK()
+}
+
+// endregion

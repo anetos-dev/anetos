@@ -2,7 +2,9 @@
 
 // Command queue takes orders over HTTP and charges them in the
 // background, with a job: retried when the (fake) payment gateway fails,
-// marked failed when the card is declined. Jobs are kept where
+// marked failed when the card is declined. Placing an order emits an
+// OrderPlaced event, whose listeners write the audit log, count sales
+// and email a receipt. Jobs are kept where
 // QUEUE_DRIVER says: sync (run at once), memory, database (SQLite here)
 // or redis (REDIS_URL).
 //
@@ -25,6 +27,7 @@ import (
 	"anetos.dev/anetos/db/migrate"
 	"anetos.dev/anetos/drivers/redis"
 	"anetos.dev/anetos/drivers/sqlite"
+	"anetos.dev/anetos/events"
 	"anetos.dev/anetos/queue"
 	"anetos.dev/anetos/web"
 )
@@ -64,6 +67,21 @@ func setup(app *anetos.App) (*web.Server, error) {
 		return nil, err
 	}
 	// endregion
+	// region: events-setup
+	bus, err := events.ForApp(app) // after queue.ForApp: queued listeners use the app's queue
+	if err != nil {
+		return nil, err
+	}
+	if err := events.On(bus, recordAudit); err != nil {
+		return nil, err
+	}
+	if err := events.OnAsync(bus, sales.countSale, events.Name("count-sale")); err != nil {
+		return nil, err
+	}
+	if err := events.OnQueued(bus, emailReceipt, events.Job(queue.Tries(10))); err != nil {
+		return nil, err
+	}
+	// endregion
 	srv, err := web.NewServer(app)
 	if err != nil {
 		return nil, err
@@ -71,6 +89,10 @@ func setup(app *anetos.App) (*web.Server, error) {
 	r := srv.Router()
 	r.Post("/orders", web.H(PlaceOrder))
 	r.Get("/orders/{id}", web.H(ShowOrder))
+	r.Get("/stats", func(c *web.Ctx) error {
+		orders, cents := sales.Snapshot()
+		return c.JSON(http.StatusOK, map[string]int64{"orders": orders, "cents": cents})
+	})
 	return srv, nil
 }
 
@@ -87,6 +109,9 @@ func PlaceOrder(c *web.Ctx, in OrderInput) (web.Responder, error) {
 	err := db.Tx(c, func(ctx context.Context) error {
 		if err := db.Create(ctx, o); err != nil {
 			return err
+		}
+		if err := events.Emit(ctx, OrderPlaced{OrderID: o.ID, Item: o.Item, Cents: o.Cents}); err != nil {
+			return err // an On listener failed: no order
 		}
 		// AfterCommit: no charge for an order that isn't saved. (The
 		// database driver writes the job in the transaction instead.)

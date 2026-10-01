@@ -160,6 +160,9 @@ func PlaceOrder(c *web.Ctx, in OrderInput) (web.Responder, error) {
 		if err := db.Create(ctx, o); err != nil {
 			return err
 		}
+		if err := events.Emit(ctx, OrderPlaced{OrderID: o.ID, Item: o.Item, Cents: o.Cents}); err != nil {
+			return err // an On listener failed: no order
+		}
 		// AfterCommit: no charge for an order that isn't saved. (The
 		// database driver writes the job in the transaction instead.)
 		return queue.Dispatch(ctx, ChargeOrder{OrderID: o.ID}, queue.OnQueue("payments"), queue.AfterCommit())
@@ -192,6 +195,23 @@ or it may look for rows that aren't there yet:
 
 Dispatching a type that isn't registered is an error, so a forgotten
 `queue.Register` shows up at the first dispatch.
+
+A job can also be a function, for work that needs dependencies a struct's
+fields can't carry (the function can be a closure). Register it under a
+name, with the type of its payload, and dispatch it by that name:
+
+```go
+// illustrative
+err := queue.RegisterFunc(q, "reports.send", func(ctx context.Context, r ReportRequest) error {
+	return reports.Send(ctx, r.Month)
+}, queue.Tries(5))
+
+err = queue.DispatchFunc(ctx, "reports.send", ReportRequest{Month: "2026-09"})
+```
+
+The name is stored with each job, like a struct job's type name, so it
+must stay the same across deploys. [Queued event listeners](events.md)
+are function jobs.
 
 ### 4. Handle failed jobs
 

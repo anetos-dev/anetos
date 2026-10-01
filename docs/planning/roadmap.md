@@ -206,6 +206,7 @@ Goal: everything a real application needs beyond CRUD.
 | B3 Authentication & authorization | ✅ Done 2026-09-30 (library: login, remember me, throttling, reset and verification tokens, API tokens, policies; scaffolding moved to B14) |
 | B4 Social login | ✅ Done 2026-10-01 (Google, GitHub, generic OIDC; `social_accounts` links; `APP_URL`) |
 | B5 Queue | ✅ Done 2026-10-01 (sync, memory, database and Redis drivers; workers; failed-job commands; `db.WithTestTx`) |
+| B6 Events | ✅ Done 2026-10-01 (sync, async and queued listeners; `queue.RegisterFunc`) |
 
 | WP | Work package | Notes |
 |---|---|---|
@@ -367,3 +368,4 @@ something, and we fix the API rather than add the hook.
 | 2026-09-30 | B3 (authentication library) done; `make:auth` and emailed links split into B14, after mail (B9) |
 | 2026-10-01 | B4 (social login) done |
 | 2026-10-01 | B5 (queue) done; memory driver added to its scope |
+| 2026-10-01 | B6 (events) done; function jobs added to the queue |

@@ -797,3 +797,80 @@ func TestCommands(t *testing.T) {
 		})
 	}
 }
+
+// Report is a function job's payload.
+type Report struct {
+	Key   string `json:"key"`
+	Month string `json:"month"`
+}
+
+func TestRegisterFunc(t *testing.T) {
+	s := queue.NewMemoryStore()
+	q := newQueue(t, s, queue.Name("work"))
+	var got atomic.Pointer[Report]
+	err := queue.RegisterFunc(q, "reports.send", func(ctx context.Context, r Report) error {
+		info, _ := queue.Current(ctx)
+		if info.Job != "reports.send" || info.Tries != 2 {
+			return queue.Permanent(fmt.Errorf("Info = %+v", info))
+		}
+		got.Store(&r)
+		return nil
+	}, queue.Tries(2))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := queue.WithQueue(context.Background(), q)
+	if err := queue.DispatchFunc(ctx, "reports.send", Report{Key: "a", Month: "2026-09"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := queue.DispatchFunc(ctx, "reports.send", &Report{Key: "b"}); err != nil {
+		t.Errorf("a pointer payload: %v", err)
+	}
+	for name, err := range map[string]error{
+		"wrong type":  queue.DispatchFunc(ctx, "reports.send", "2026-09"),
+		"nil":         queue.DispatchFunc(ctx, "reports.send", nil),
+		"unknown":     queue.DispatchFunc(ctx, "reports.nope", Report{}),
+		"struct job":  queue.DispatchFunc(ctx, "work", Work{}),
+		"taken name":  queue.RegisterFunc(q, "work", func(context.Context, Report) error { return nil }),
+		"taken twice": queue.RegisterFunc(q, "reports.send", func(context.Context, Report) error { return nil }),
+		"nil func":    queue.RegisterFunc[Report](q, "reports.nil", nil),
+		"empty name":  queue.RegisterFunc(q, "", func(context.Context, Report) error { return nil }),
+	} {
+		if err == nil {
+			t.Errorf("%s: no error", name)
+		}
+	}
+	start(t, q)
+	eventually(t, "the jobs", func() bool { n, _ := s.Size(context.Background(), "default"); return n == 0 })
+	if r := got.Load(); r == nil || r.Key == "" {
+		t.Errorf("payload = %+v", r)
+	}
+	if f := failedJobs(t, s); len(f) != 0 {
+		t.Errorf("failed: %+v", f)
+	}
+	// With the sync driver too.
+	sq := queue.New(nil, queue.Config{})
+	var ran atomic.Bool
+	if err := queue.RegisterFunc(sq, "f", func(_ context.Context, r Report) error { ran.Store(r.Month == "x"); return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if err := sq.DispatchFunc(context.Background(), "f", Report{Month: "x"}); err != nil || !ran.Load() {
+		t.Errorf("sync: %v, ran %v", err, ran.Load())
+	}
+}
+
+func TestFuncJobDecodeFailure(t *testing.T) {
+	s := queue.NewMemoryStore()
+	q := newQueue(t, s)
+	if err := queue.RegisterFunc(q, "reports.bad", func(context.Context, Report) error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Push(context.Background(), queue.Message{ID: "bad", Queue: "default", Payload: []byte(`{"id":"bad","job":"reports.bad","data":{"month":5}}`)}, 0); err != nil {
+		t.Fatal(err)
+	}
+	start(t, q)
+	eventually(t, "the failed job", func() bool { return len(failedJobs(t, s)) == 1 })
+	if f := failedJobs(t, s)[0]; f.Attempts != 1 || !strings.Contains(f.Error, "decode reports.bad") {
+		t.Errorf("failed job = %+v", f)
+	}
+}

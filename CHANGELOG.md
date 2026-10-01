@@ -129,6 +129,19 @@ All notable changes to this project are documented here. The format follows
 - `examples/queue`: orders charged by a job, with retries, a declined
   card failing for good, and tests with the sync driver and with workers;
   guide "Queues" (B5).
+- Events (`events` package): `events.ForApp` (or `events.New`),
+  listeners of any event type added with `events.On` (in `Emit`, in its
+  transaction; the first error stops `Emit`), `events.OnAsync` (a bounded
+  goroutine pool per listener, after the commit; `Concurrency`, `Buffer`,
+  `Timeout`; drained at shutdown, lost if the process stops) and
+  `events.OnQueued` (a queue job per listener, `event:<name>`; `Job`,
+  `Dispatch`), `events.Name`; `events.Emit`; `bus.Wait` and `bus.Close`
+  (B6, design D109–D111).
+- Function jobs: `queue.RegisterFunc` registers a function of a typed
+  payload under a name, dispatched with `queue.DispatchFunc` (B6, design
+  D111).
+- `examples/queue` emits `OrderPlaced`, with an audit log (`On`), sales
+  counts (`OnAsync`) and receipts (`OnQueued`); guide "Events" (B6).
 
 ### Changed
 - `anetostest` runs `db.AfterCommit` callbacks registered in a test's

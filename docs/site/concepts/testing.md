@@ -127,8 +127,10 @@ t.Cleanup(func() { _, _ = db.Exec(app.Context(), "DELETE FROM notes") })
 ```
 
 Fakes for the clock, mail, queues and events arrive in v0.2 (roadmap
-B12). Until then, test jobs with the sync driver; see
-[Queues](../guides/queues.md#5-test).
+B12). Until then, test jobs with the sync driver, and wait for async
+event listeners with `bus.Wait` (they use their own connections, like
+queue workers); see [Queues](../guides/queues.md#5-test) and
+[Events](../guides/events.md#5-test).
 
 > **Coming from Laravel?** `anetostest.New` is a `TestCase` using
 > `RefreshDatabase`: a fresh in-memory database, or migrations plus a

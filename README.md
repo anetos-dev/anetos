@@ -11,8 +11,8 @@ listeners and the scheduler run together in **one binary**.
 kernel, configuration, runtime supervisor, HTTP layer, validation, data
 layer, migrations, model code generation, views, sessions, forms, the CLI
 and testing helpers; v0.1.1 added relations. v0.2 is in progress: the
-cache, server-side sessions and rate limiting, authentication, social login
-and queues are done. APIs will change.
+cache, server-side sessions and rate limiting, authentication, social
+login, queues and events are done. APIs will change.
 
 ## Documents
 

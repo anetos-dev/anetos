@@ -67,6 +67,7 @@ type Queue struct {
 // jobType is a registered job type.
 type jobType struct {
 	name    string
+	payload reflect.Type // a function's payload type (RegisterFunc); nil for Job types
 	tries   int
 	timeout time.Duration
 	backoff []time.Duration // nil: exponential from the config
@@ -219,6 +220,79 @@ func Register[J Job](q *Queue, opts ...JobOption) error {
 	return nil
 }
 
+// RegisterFunc registers fn as a job type named name, whose jobs carry a
+// payload of type T, stored as JSON. Dispatch them with [DispatchFunc]:
+//
+//	err := queue.RegisterFunc(q, "reports.send", func(ctx context.Context, r ReportRequest) error { … })
+//	err = queue.DispatchFunc(ctx, "reports.send", ReportRequest{Month: "2026-09"})
+//
+// It suits jobs that need dependencies a struct's fields can't carry (fn
+// can be a closure), and packages building on the queue (events.OnQueued).
+// The name works like [Name]'s, and the other options like [Register]'s.
+func RegisterFunc[T any](q *Queue, name string, fn func(ctx context.Context, payload T) error, opts ...JobOption) error {
+	if fn == nil {
+		return fmt.Errorf("queue: RegisterFunc(%q) with a nil function", name)
+	}
+	if t := reflect.TypeFor[T](); t.Kind() == reflect.Interface {
+		return fmt.Errorf("queue: RegisterFunc(%q): the payload type %s is an interface, which JSON can't decode into", name, t)
+	}
+	jt := &jobType{
+		payload: reflect.TypeFor[T](),
+		decode: func(data []byte) (Job, error) {
+			var v T
+			if err := json.Unmarshal(data, &v); err != nil {
+				return nil, err
+			}
+			return funcJob[T]{fn: fn, payload: v}, nil
+		},
+	}
+	for _, opt := range append([]JobOption{Name(name)}, opts...) {
+		if err := opt(jt); err != nil {
+			return err
+		}
+	}
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	if _, ok := q.byName[jt.name]; ok {
+		return fmt.Errorf("queue: two job types are named %q", jt.name)
+	}
+	q.byName[jt.name] = jt
+	return nil
+}
+
+// funcJob is a job of RegisterFunc: its function and payload.
+type funcJob[T any] struct {
+	fn      func(context.Context, T) error
+	payload T
+}
+
+func (j funcJob[T]) Handle(ctx context.Context) error { return j.fn(ctx, j.payload) }
+
+// DispatchFunc dispatches a job of the function registered as name (see
+// [RegisterFunc]) with payload, on the queue in ctx. payload must have
+// the function's payload type (or point to a value of it).
+func DispatchFunc(ctx context.Context, name string, payload any, opts ...DispatchOption) error {
+	q, err := From(ctx)
+	if err != nil {
+		return err
+	}
+	return q.DispatchFunc(ctx, name, payload, opts...)
+}
+
+// DispatchFunc dispatches a job of a function; see the function
+// [DispatchFunc].
+func (q *Queue) DispatchFunc(ctx context.Context, name string, payload any, opts ...DispatchOption) error {
+	jt := q.lookup(name)
+	if jt == nil || jt.payload == nil {
+		return fmt.Errorf("queue: no function registered as %q: call queue.RegisterFunc at startup", name)
+	}
+	t := reflect.TypeOf(payload)
+	if t != jt.payload && (t == nil || t.Kind() != reflect.Pointer || t.Elem() != jt.payload) {
+		return fmt.Errorf("queue: job %q takes a %s, not a %v", name, jt.payload, t)
+	}
+	return q.dispatch(ctx, jt, payload, opts)
+}
+
 // typeOf returns the registered type of job: its own, or, for a pointer,
 // that of the value it points to.
 func (q *Queue) typeOf(job Job) (*jobType, error) {
@@ -354,6 +428,11 @@ func (q *Queue) Dispatch(ctx context.Context, job Job, opts ...DispatchOption) e
 	if err != nil {
 		return err
 	}
+	return q.dispatch(ctx, jt, job, opts)
+}
+
+// dispatch encodes value (a job, or a function's payload) and sends it.
+func (q *Queue) dispatch(ctx context.Context, jt *jobType, value any, opts []DispatchOption) error {
 	o := dispatchOptions{queue: q.cfg.Default}
 	for _, opt := range opts {
 		opt(&o)
@@ -361,7 +440,7 @@ func (q *Queue) Dispatch(ctx context.Context, job Job, opts ...DispatchOption) e
 	if err := checkQueue(o.queue); err != nil {
 		return err
 	}
-	data, err := json.Marshal(job)
+	data, err := json.Marshal(value)
 	if err != nil {
 		return fmt.Errorf("queue: encode %s: %w", jt.name, err)
 	}

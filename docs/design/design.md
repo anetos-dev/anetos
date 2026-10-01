@@ -233,7 +233,8 @@ anetos.dev/anetos/            ← core module
 ├── cache/               cache, memory and database stores, locks (B1); cache/cachetest: store conformance suite
 ├── auth/                login, remember me, API tokens, reset/verification tokens, policies (B3); auth/password: argon2id; auth/social: OAuth/OIDC sign-in (B4)
 ├── queue/               jobs, workers, sync/memory/database stores, failed jobs (B5); queue/queuetest: store conformance suite
-├── pubsub/ events/ schedule/ mailer/ storage/
+├── events/              typed in-process events: sync, async (bounded pools), queued listeners (B6)
+├── pubsub/ schedule/ mailer/ storage/
 ├── ext/                 public plugin API (package `ext`)
 ├── cmd/                 app-binary command types (F11); App.Execute dispatches
 ├── anetostest/          test app, browser-like client, assertions (F12); fakes arrive with their features
@@ -915,6 +916,9 @@ queue.Dispatch(ctx, jobs.SendWelcome{UserID: user.ID},
   again), and its `Failed(ctx, err)` method (if any) runs; `queue:failed`,
   `queue:retry`, `queue:forget`, `queue:flush` and `queue:clear` manage
   them (D107).
+- **Function jobs**: `queue.RegisterFunc(q, name, fn)` registers a
+  function of a typed payload under a name, dispatched with
+  `queue.DispatchFunc`; queued event listeners use it (D111).
 - **Drivers** (D105, D106): `sync` (runs at once in `Dispatch`, for
   development and tests; the default), `memory`, `database` (dispatches
   join the context's transaction) and `redis`. SQS, NATS and others come
@@ -947,17 +951,31 @@ func OrderCreated(ctx context.Context, msg events.OrderCreated) error {
 ### 13.6 Events (in-process)
 
 ```go
-events.On(app, func(ctx context.Context, e events.UserRegistered) error { … })          // sync
-events.OnAsync(app, sendAnalytics, anetos.Concurrency(8))                                // goroutine pool
-events.OnQueued(app, sendWelcomeEmail)                                                   // durable via queue
+bus, err := events.ForApp(app)
+events.On(bus, recordAudit)                                    // sync, in Emit's transaction
+events.OnAsync(bus, sales.countSale, events.Concurrency(8))    // goroutine pool, after the commit
+events.OnQueued(bus, emailReceipt, events.Job(queue.Tries(5))) // durable: a queue job
 
-events.Emit(c, events.UserRegistered{UserID: user.ID})
+events.Emit(ctx, OrderPlaced{OrderID: o.ID})
 ```
 
-- Typed with generics; dispatch goes through a registry built at boot.
-- **Async** handlers run in a bounded goroutine pool. They are **lost if the
-  process crashes**, so anything important should use **queued** handlers.
-  The docs make this trade-off explicit.
+*(Implemented in B6: package `events`.)*
+
+- Events are any type; listeners are `func(ctx, E) error`, added with
+  generic functions, so the event type is checked by the compiler. `Emit`
+  looks the event's dynamic type up in a map; nothing else is reflective
+  (D109).
+- **On** listeners run in `Emit`, in order, with its context and
+  transaction; the first error stops them and is returned.
+- **OnAsync** listeners run in a bounded pool of their own (`Concurrency`,
+  `Buffer`; `Emit` waits for room), after the transaction commits, with a
+  fresh context carrying the app's values. Errors and panics are logged.
+  They are **lost if the process stops** before handling them; at
+  shutdown the bus gives them the rest of the budget (a shutdown hook)
+  (D110, resolving O4).
+- **OnQueued** listeners are queue jobs (`queue.RegisterFunc`, named
+  `event:<listener>`), dispatched with `queue.AfterCommit()`: durable and
+  retried (D111).
 
 ### 13.7 Scheduler
 
@@ -1489,6 +1507,9 @@ unless new information arrives), **Open**, **Superseded**.
 | D106 | The database store writes dispatches in the context's transaction (also with `queue.AfterCommit()`, when the transaction is on its database); other stores push at once, and `queue.AfterCommit()` defers the dispatch to `db.AfterCommit` (errors logged; returned when it runs at once, without a transaction); the sync driver runs the job once, in `Dispatch`, with the caller's context, ignoring delays and returning its error | Accepted | The database driver is a transactional outbox for free; Redis can't join a SQL transaction, so the app chooses; sync is for development and tests, where seeing the error matters more than retries |
 | D107 | Retries default to 3 tries with exponential backoff (10s doubling to 10m, ±20% jitter), per type `Tries`/`Timeout`/`Backoff`; `queue.Permanent` fails at once; a job out of tries is kept as failed and its optional `Failed` method runs; workers run in `StageWorkers`, stop reserving at shutdown, give running jobs half of `APP_SHUTDOWN_TIMEOUT` (`ShutdownGrace`, capped by `Supervisor.ShutdownDeadline` minus 2s), then cancel them and put those that stop back without counting the attempt (unless they return a permanent error); failed jobs keep a sanitized error (valid UTF-8, no NUL, at most 64 KB); `queue:retry all` retries the jobs failed when it started | Accepted | Laravel's knobs with safer defaults; jitter avoids retry storms; producers (HTTP) stop before workers so their last jobs still run; a deploy doesn't use up a job's tries; a failure every store can record never leaves a job looping |
 | D108 | `db.WithTestTx` marks a test's transaction: `AfterCommit` callbacks registered in it run at once, and those of a `db.Tx` directly inside it run when that commits; `anetostest` uses it, and gives each app its own `QUEUE_PREFIX`, purging its Redis keys at the end | Accepted | Tests behave like production for after-commit work (Laravel does the same), so `queue.AfterCommit()` jobs run in tests; `db.WithTx` keeps never running them, since its owner commits outside db's view |
+| D109 | Events are values of any type, matched by their exact dynamic type; listeners are `func(ctx, E) error` added with `events.On`/`OnAsync`/`OnQueued[E]`; `On` listeners run in order in `Emit` and the first error stops them; emitting a type without listeners is fine, and interface types can't be listened to (an error); listener names default to the function's name | Accepted | Typed like handlers and jobs, with one map lookup per Emit; no event interface to implement; exact types keep matching predictable (no interface or embedding dispatch); events are announcements, so no listener is no error |
+| D110 | Async listeners each have a bounded pool (`Concurrency`, default 1) and buffer (`Buffer`, default 1000; `Emit` waits for room until its context ends), started lazily; they get events after the transaction commits, with a fresh context of the app's values; errors and panics are logged; the bus is closed in a shutdown hook (added last in setup) that refuses new events except those async listeners emit, gives them the remaining budget, then drops what is buffered and cancels them | Accepted | A pool per listener isolates a slow listener (O4); backpressure instead of unbounded memory or silent drops; after-commit avoids acting on rolled-back changes; a shutdown hook (not a supervised component) also drains in tests and commands, which never call Run |
+| D111 | Queued listeners are function jobs: `queue.RegisterFunc[T](q, name, fn)` / `DispatchFunc`, named `event:<listener>`, dispatched with `queue.AfterCommit()`; anonymous and generic functions must be named; function jobs can't take interface payloads | Accepted | Each listener gets its own tries, timeouts and failed jobs; one generic job type per event couldn't; function jobs are also useful on their own (closures over dependencies); stable names keep queued events working across deploys |
 
 ---
 
@@ -1499,7 +1520,7 @@ unless new information arrives), **Open**, **Superseded**.
 | O1 | ~~Does `web.Ctx` implementing `context.Context` cause confusion?~~ Resolved: yes it implements it, not pooled (D24) | §8.3 | Done |
 | O2 | ~~Model code generation: triggered by `anetos dev` automatically or only explicitly?~~ Resolved: both. `anetos gen` (or `go generate`) explicitly, `anetos dev` on every rebuild (F11), `anetos gen -check` in CI | §10.1 | Done |
 | O3 | ~~Job serialization: JSON only, or pluggable codecs (msgpack, protobuf)?~~ Resolved: JSON only (D104) | §13.4 | Done |
-| O4 | Should async events share one global pool or have a pool per listener? | §13.6 | B6 |
+| O4 | ~~Should async events share one global pool or have a pool per listener?~~ Resolved: a pool per listener (D110) | §13.6 | Done |
 | O5 | Plugin config: generated Go struct in the app vs loaded from the plugin's own struct only | §16.2 | B11 |
 | O6 | ~~Which pure-Go SQLite implementation?~~ Resolved: modernc.org/sqlite (D38) | §10.3 | Done |
 | O7 | ~~Error keys use the json name even for form posts; should HTML forms key errors by the `form` name when it differs?~~ Resolved: yes, for form posts (D68) | §9 | Done |
@@ -1529,3 +1550,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-09-30 | B3 authentication and authorization implemented: §5, §14, §15 updated; D96–D100 added; scaffolding moved to B14 |
 | 2026-10-01 | B4 social login implemented: §5, §7 (APP_URL), §15 updated; D101–D103 added |
 | 2026-10-01 | B5 queue implemented: §4, §5, §13.4, §14, §18 updated; D104–D108 added; O3 resolved |
+| 2026-10-01 | B6 events implemented: §5, §13.4, §13.6 updated; D109–D111 added; O4 resolved |
