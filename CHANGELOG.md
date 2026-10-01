@@ -171,8 +171,29 @@ All notable changes to this project are documented here. The format follows
   for the tasks (B8).
 - `examples/queue` prunes its audit log every night and dispatches an
   hourly sales report job; guide "Scheduling" (B8).
+- Mail (`mailer` package): mailables (`Build(ctx) (*mailer.Message,
+  error)`) with HTML bodies from templ components and a text body (a
+  string, or made from the HTML), attachments (inline with a content
+  ID), headers, tags and metadata; `mailer.Send`, `mailer.Queue` (rendered
+  now, sent by the `mail:send` queue job), `mailer.URL` (links on
+  `APP_URL`) and `mailer.Preview`; `mailer.ForApp` picks a transport with
+  `MAIL_DRIVER`: `log` (the default), `smtp` (`MAIL_SMTP_URL`, STARTTLS or
+  TLS, AUTH PLAIN or LOGIN, SMTPUTF8) or `memory`, with
+  `MAIL_FROM_ADDRESS` and `MAIL_FROM_NAME` (B9, design D120–D123).
+- New module `drivers/postmark`: the Postmark transport (B9).
+- `anetostest` sets `MAIL_DRIVER=memory`, and defaults `APP_URL` to
+  `http://localhost` and `MAIL_FROM_ADDRESS` to `test@example.com` (B9,
+  design D123).
+- `anetos new` projects set up the mailer (`MAIL_DRIVER=log`) (B9).
+- `examples/queue` emails a receipt for each order from its queued event
+  listener, with a templ template, queues one again with `POST
+  /orders/{id}/receipt`, and previews it in development; guide "Send
+  email" (B9).
 
 ### Changed
+- The cache conformance suite's lease test releases leases with
+  `DeleteIf` and races Adds on an expired key separately, so it no
+  longer depends on timing (B9).
 - `anetostest` runs `db.AfterCommit` callbacks registered in a test's
   transaction (with a SQLite file, PostgreSQL or MySQL): when a `db.Tx`
   inside it commits, as in a request, or at once outside one. They never

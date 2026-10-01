@@ -155,12 +155,12 @@ Call `queue.Dispatch` with a request's context (or a job's):
 ```go
 // PlaceOrder saves the order and dispatches the job that charges it.
 func PlaceOrder(c *web.Ctx, in OrderInput) (web.Responder, error) {
-	o := &Order{Item: in.Item, Cents: in.Cents, Status: "pending"}
+	o := &Order{Item: in.Item, Cents: in.Cents, Email: in.Email, Status: "pending"}
 	err := db.Tx(c, func(ctx context.Context) error {
 		if err := db.Create(ctx, o); err != nil {
 			return err
 		}
-		if err := events.Emit(ctx, OrderPlaced{OrderID: o.ID, Item: o.Item, Cents: o.Cents}); err != nil {
+		if err := events.Emit(ctx, OrderPlaced{OrderID: o.ID, Item: o.Item, Cents: o.Cents, Email: o.Email}); err != nil {
 			return err // an On listener failed: no order
 		}
 		// AfterCommit: no charge for an order that isn't saved. (The
@@ -370,6 +370,7 @@ server's clock for delays and leases.
   pollers and heartbeats.
 - [Scheduling](scheduling.md): dispatch a job every hour or night with
   `schedule.Dispatch`.
+- [Send email](mail.md): `mailer.Queue` sends email from a queue job.
 - [Runtime supervisor](../concepts/runtime-supervisor.md): roles, stages
   and shutdown.
 

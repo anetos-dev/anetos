@@ -54,7 +54,7 @@ type AppConfig struct {
 	Env Environment `env:"APP_ENV" default:"production"`
 
 	// URL is the app's public base URL ("https://example.com"), for links
-	// that leave the app: OAuth callbacks, and later links in emails.
+	// that leave the app: OAuth callbacks, links in emails (mailer.URL).
 	// APP_URL; empty until set, and the features that need it say so.
 	URL string `env:"APP_URL"`
 

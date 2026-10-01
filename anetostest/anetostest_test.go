@@ -355,3 +355,19 @@ func TestCachePrefix(t *testing.T) {
 		t.Errorf("Env's CACHE_PREFIX: %q", p)
 	}
 }
+
+// Emails are kept, not sent, unless a test says otherwise.
+func TestMailDriver(t *testing.T) {
+	t.Setenv("MAIL_DRIVER", "smtp")
+	app := anetostest.New(t, nil)
+	if v, _ := app.Source().Lookup("MAIL_DRIVER"); v != "memory" {
+		t.Errorf("MAIL_DRIVER = %q", v)
+	}
+	if app.Config().URL != "http://localhost" {
+		t.Errorf("APP_URL = %q", app.Config().URL)
+	}
+	app = anetostest.New(t, nil, anetostest.Env(map[string]string{"MAIL_DRIVER": "log"}))
+	if v, _ := app.Source().Lookup("MAIL_DRIVER"); v != "log" {
+		t.Errorf("MAIL_DRIVER with Env = %q", v)
+	}
+}

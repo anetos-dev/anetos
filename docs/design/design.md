@@ -196,6 +196,7 @@ func main() {
     q.Work(queue.Queues("emails"), queue.Concurrency(10))
     ps, _ := pubsub.ForApp(app, redis.PubSubDriver()) // PUBSUB_DRIVER (B7)
     pubsub.Listen(ps, "orders.created", listeners.OrderCreated, pubsub.Concurrency(20))
+    mailer.ForApp(app, postmark.Driver()) // MAIL_DRIVER (B9)
     s, _ := schedule.ForApp(app)      // SCHEDULE_TIMEZONE (B8)
     s.Add(schedule.DailyAt("02:00"), "prune-sessions", tasks.PruneSessions, schedule.OnOneServer())
 
@@ -205,7 +206,8 @@ func main() {
 
 F11 implemented `app.Execute` and the generated `main.go` (with a
 `setup` function the project's test reuses), and B5 the queue's workers
-(§13.4), B7 the pub/sub listeners (§13.5) and B8 the scheduler (§13.7);
+(§13.4), B7 the pub/sub listeners (§13.5), B8 the scheduler (§13.7) and
+B9 the mailer (§14.2);
 `app.Use(plugins.All()...)` arrives later in v0.2.
 
 ---
@@ -237,13 +239,15 @@ anetos.dev/anetos/            ← core module
 ├── events/              typed in-process events: sync, async (bounded pools), queued listeners (B6)
 ├── pubsub/              topics, subscriptions, typed listeners, memory broker (B7); pubsub/pubsubtest: broker conformance suite
 ├── schedule/            cron and fluent schedules, the scheduler component, overlap and single-instance locks (B8)
-├── mailer/ storage/
+├── mailer/              mailables, rendering, log/SMTP/memory transports, queued mail (B9)
+├── storage/
 ├── ext/                 public plugin API (package `ext`)
 ├── cmd/                 app-binary command types (F11); App.Execute dispatches
 ├── anetostest/          test app, browser-like client, assertions (F12); fakes arrive with their features
 ├── internal/            everything not part of the public API
 │   ├── convert/         string → typed value conversion (config and web binding)
 │   ├── dbutil/          the database server's clock and deadlock retries in SQL (cache, queue)
+│   ├── htmltext/        HTML to plain text (emails' text bodies)
 │   ├── naming/          column and table naming rules (db and `anetos gen`)
 │   ├── appkey/          APP_KEY parsing and generation (kernel, encryption, cli)
 │   └── cmd/docsnippets/ checks doc code blocks against example regions
@@ -252,10 +256,11 @@ anetos.dev/anetos/            ← core module
 │   ├── postgres/ mysql/ sqlite/   database/sql driver + DSN; dialects are in db/
 │   ├── redis/           shared client (redis.Connect), cache store with locks (B1), sessions (B2), queue (B5), pub/sub on Streams (B7)
 │   ├── gcppubsub/       Google Cloud Pub/Sub broker (B7)
+│   ├── postmark/        Postmark mail transport, standard library only (B9)
 │   ├── s3/
 │   └── …
 ├── plugins/             ← first-party plugins, each a separate module
-│   ├── resend/ postmark/ …
+│   ├── resend/ …        (API mail drivers move here with the plugin system, B11)
 ├── examples/            compiled examples used by the docs
 └── docs/
 ```
@@ -1048,7 +1053,7 @@ Each service is an interface in the core module. Drivers are chosen in
 | Cache (+ locks) | `cache` | memory, database | `drivers/redis` | v0.2 (B1 done) |
 | Queue | `queue` | sync, memory, database | `drivers/redis`; SQS, NATS (plugins) | v0.2 (B5 done) |
 | Pub/sub | `pubsub` | memory (tests/dev) | `drivers/redis` (Streams), `drivers/gcppubsub`; NATS, Kafka (plugins) | v0.2 (B7 done) |
-| Mail | `mailer` | SMTP, log (dev) | Resend / Postmark / SES / Mailgun (plugins) | v0.2 |
+| Mail | `mailer` | log (dev), SMTP, memory (tests) | `drivers/postmark`; Resend, SES, Mailgun (plugins) | v0.2 (B9 done) |
 | Storage | `storage` | local | `drivers/s3` (S3-compatible, incl. R2/MinIO); GCS, Azure (plugins) | v0.2 |
 | Password hashing | `auth/password` | argon2id, bcrypt | — | v0.2 (B3 done) |
 | Encryption | `encryption` | AES-GCM with `APP_KEY`, key rotation | — | v0.1 |
@@ -1111,6 +1116,52 @@ err = cache.TryWithLock(ctx, "reports:monthly", 10*time.Minute, buildReport)
   `DeleteIf`/`ExpireIf`. `Acquire` polls with backoff until the context
   ends; `WithLock` waits, `TryWithLock` returns `ErrLockHeld`. They are
   leases, not fenced: work longer than the ttl must `Extend` (D91).
+
+### 14.2 Mail
+
+```go
+m, err := mailer.ForApp(app, postmark.Driver()) // MAIL_DRIVER: log | smtp | memory | postmark
+
+type Welcome struct{ User models.User }
+
+func (w Welcome) Build(ctx context.Context) (*mailer.Message, error) {
+    return &mailer.Message{
+        To:      []mailer.Address{{Name: w.User.Name, Address: w.User.Email}},
+        Subject: "Welcome",
+        HTML:    views.WelcomeEmail(w.User), // templ
+    }, nil
+}
+
+err = mailer.Send(ctx, Welcome{User: u})                          // now
+err = mailer.Queue(ctx, Welcome{User: u}, queue.OnQueue("emails")) // rendered now, sent by a worker
+```
+
+*(Implemented in B9: package `mailer`, `drivers/postmark`.)*
+
+- **Mailables** are types with `Build(ctx) (*Message, error)`; a
+  `*Message` is one too. The HTML body is a `view.Component` (templ),
+  rendered with the send's context; the text body is a string, or made
+  from the HTML (an internal converter: paragraphs, lists, links with
+  their URLs). Rendering fills the sender (`MAIL_FROM_*`) and a
+  `Message-ID`, and validates: addresses, a recipient, no line breaks in
+  the subject, names or headers, no overriding of the message's own
+  headers, lengths that keep header lines within 998 characters (values
+  are folded, non-ASCII ones encoded as RFC 2047 words). The result,
+  `mailer.Outgoing`, is what transports get (and check again), and is
+  JSON (D120).
+- **Transports** (`Send(ctx, *Outgoing) error`): log (default; a warning
+  in production), SMTP (standard library; `MAIL_SMTP_URL`; one connection
+  per email; STARTTLS required for remote hosts; passwords only over TLS
+  or to a local host; non-ASCII addresses only with SMTPUTF8), memory
+  (tests; `anetostest` sets it), and Postmark in a driver module. Errors
+  retrying won't fix are permanent, so queued mail fails at once (D121).
+- **Queued mail** is rendered when queued and sent by the `mail:send`
+  function job, which `mailer.ForApp` registers when the app has a queue
+  (`queue.ForApp` before or after it); the `Message-ID` is kept across
+  retries, the `Date` set when sent (D122).
+- **Links**: `mailer.URL(ctx, path)` joins `APP_URL` and a path, returning
+  `(string, error)` as templ accepts; `mailer.Preview` shows an email's
+  HTML in the browser during development (D123).
 
 ---
 
@@ -1341,7 +1392,10 @@ func TestCreatePost(t *testing.T) {
   run jobs with the sync driver. Each test app gets its own
   `CACHE_PREFIX`, `SESSION_PREFIX`, `QUEUE_PREFIX` and `PUBSUB_PREFIX`,
   cleaned up by shutdown hooks (which run before the app's connections
-  close, also when a test runs the app).
+  close, also when a test runs the app), and `MAIL_DRIVER=memory`, so
+  emails are kept (the mailer's `MemoryTransport`) rather than sent; test
+  defaults include `APP_URL=http://localhost` and
+  `MAIL_FROM_ADDRESS=test@example.com` (D123).
 - Everything works with `go test` and `-race`; `t.Parallel()` works with
   in-memory SQLite and server databases (not a SQLite file, whose write
   lock each test's transaction holds). One app per test or subtest.
@@ -1558,6 +1612,10 @@ unless new information arrives), **Open**, **Superseded**.
 | D117 | The scheduler is one supervised component (role `scheduler`, `StageScheduler`, restarted on failure), added when the app boots if it has tasks; tasks are named `func(ctx) error` with the app's values; it sleeps until the earliest next run and starts due runs in goroutines; missed runs (no scheduler running) are skipped and a late wake-up runs each task once; failures and panics are logged, never retried (`schedule.Dispatch` dispatches a queue job instead); `schedule:run` runs a task now | Accepted | No crontab or per-minute process (Laravel's `schedule:run`); one binary scales with `--only=scheduler`; catching up after downtime would run bursts of stale work; retries belong to the queue, which already has them; names make logs, locks and commands stable |
 | D118 | `OnOneServer` takes a cache lock per run, `schedule:<task>:<UTC minute>`, for an hour, never released; `WithoutOverlapping` takes `schedule:<task>:running` for the run, a 3-minute lease extended every minute while it goes, released when it ends; both need `cache.ForApp` (checked at boot, and by `Add` after it) and the memory store logs a warning for `OnOneServer`; skipped overlapping runs are logged as warnings | Accepted | Instances agree on a run by its scheduled minute, even with clock skew under an hour; keeping the run's lock stops a slow instance from running it again; a heartbeat lease is held exactly as long as the run lives (a fixed ttl either blocks the task for hours after a crash or lets a slow run overlap); locks are cache leases (D91), so any shared store works |
 | D119 | At shutdown the scheduler stops starting runs and gives running ones half of `APP_SHUTDOWN_TIMEOUT` (capped by `Supervisor.ShutdownDeadline` minus 2s; `WithShutdownGrace` without an app), then cancels their contexts and waits | Accepted | Same rule as the HTTP server and queue workers (D107); the stages share one deadline, so time a slow task uses is time listeners and workers don't get: long work belongs in a job (`schedule.Dispatch`) |
+| D120 | A mailable is any type with `Build(ctx) (*mailer.Message, error)`; the HTML body is a `view.Component` (templ) rendered with the send's context, the text body a string (templ would escape it), generated from the HTML by an internal converter when empty; rendering validates (addresses parse exactly as dot-atoms, a recipient, no CR/LF in subject, names, headers or metadata, no overriding of the message's own headers, length limits so header lines fold within 998 characters) and yields `mailer.Outgoing`, the JSON form transports get and validate again | Accepted | Typed and explicit like jobs (no reflection, no magic view lookup); templ keeps emails compiled and type-checked; validation at render stops header injection for every transport; a text part matters for deliverability, and a small converter avoids adding golang.org/x/net to the core |
+| D121 | Transports are `Send(ctx, *Outgoing) error`; core: log (default), SMTP on net/smtp (URL config, a `anetos.Secret`; one connection per email; STARTTLS required unless the host is local — localhost, 127.0.0.1, ::1, as net/smtp sees it — or `tls=none`, which refuses a password; AUTH PLAIN or LOGIN only over TLS or to a local host; non-ASCII addresses only with SMTPUTF8; replies ≥ 500 permanent, except 552 to a recipient) and memory; API drivers are driver modules (`drivers/postmark`, standard library only; 422/401/403/413 permanent, except code 405, an account that can't send for now) until the plugin system (B11) | Accepted | The log default never emails anyone by mistake; one connection per email is simple and enough for queued sending (pooling can come later without API change); TLS by default for remote servers protects credentials; permanent errors use the shared `Permanent() bool` convention (D114), so queued mail fails at once instead of retrying a rejected address |
+| D122 | `mailer.Queue` renders when queued, in the caller's context, and dispatches the function job `mail:send` (registered by `mailer.ForApp` when the app has a queue, or at boot when `queue.ForApp` came later) with the `Outgoing` as payload; the `Message-ID` stays across retries, and the `Date` is set when the job sends | Accepted | No registry of mailable types to keep in sync with workers; the email is what the request saw (not data changed later); errors in the mailable surface in the request; the costs (attachments in the payload, failed jobs keeping the email) are documented, with `Send` from a job of your own for large files; a Date in the past after a delay would look like spam |
+| D123 | Links in emails use `mailer.URL(ctx, path)` on `APP_URL` (an error without it); `anetostest` forces `MAIL_DRIVER=memory` and defaults `APP_URL=http://localhost` and `MAIL_FROM_ADDRESS=test@example.com` | Accepted | Emails leave the app, so links must be absolute and must not come from the request's Host (D103); tests never send real email, and mail tests work without extra settings; richer mail assertions come with the fakes (B12) |
 
 ---
 
@@ -1601,3 +1659,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-01 | B6 events implemented: §5, §13.4, §13.6 updated; D109–D111 added; O4 resolved |
 | 2026-10-01 | B7 pub/sub listeners implemented: §4, §5, §13.5, §14, §18 updated; D112–D115 added |
 | 2026-10-01 | B8 scheduler implemented: §4, §5, §13.3, §13.7, §17.2 updated; D116–D119 added |
+| 2026-10-01 | B9 mail implemented: §4, §5, §14, §18 updated, §14.2 added; D120–D123 added |

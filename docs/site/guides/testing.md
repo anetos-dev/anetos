@@ -51,12 +51,15 @@ test ends. The settings, from highest priority:
 2. `APP_ENV=testing`, a random `APP_KEY`, and a `CACHE_PREFIX`,
    `SESSION_PREFIX`, `QUEUE_PREFIX` and `PUBSUB_PREFIX` of the app's own,
    so tests sharing a store don't see each other's items, sessions, Redis
-   jobs or streams (they are removed when the app shuts down);
+   jobs or streams (they are removed when the app shuts down); and
+   `MAIL_DRIVER=memory`, so emails are kept, not sent (see
+   [Send email](mail.md#6-test));
 3. the process environment;
 4. `.env.testing` next to `go.mod`, if there is one (for PostgreSQL or
    MySQL, all the `DB_*` settings: see
    [Switch a project to PostgreSQL or MySQL](database.md#5-switch-a-project-to-postgresql-or-mysql));
-5. `HTTP_ACCESS_LOG=false`.
+5. `HTTP_ACCESS_LOG=false`, `APP_URL=http://localhost` and
+   `MAIL_FROM_ADDRESS=test@example.com`.
 
 `.env` isn't read, and with SQLite and neither `DB_DATABASE` nor `DB_URL`
 set (or set to `""`), the database is in memory: a test never touches

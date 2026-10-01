@@ -209,6 +209,7 @@ Goal: everything a real application needs beyond CRUD.
 | B6 Events | ✅ Done 2026-10-01 (sync, async and queued listeners; `queue.RegisterFunc`) |
 | B7 Pub/sub listeners | ✅ Done 2026-10-01 (memory, Redis Streams and Google Pub/Sub brokers; typed listeners, retries, dead letters; ordering keys deferred) |
 | B8 Scheduler | ✅ Done 2026-10-01 (cron and fluent schedules with time zones; `WithoutOverlapping`, `OnOneServer`, `Timeout`; `schedule:list`, `schedule:run`; in new projects) |
+| B9 Mail | ✅ Done 2026-10-01 (mailables with templ bodies; log, SMTP and memory transports; queued mail; Postmark as a driver module, to become a plugin with B11) |
 
 | WP | Work package | Notes |
 |---|---|---|
@@ -295,7 +296,7 @@ The plugin system has to be good enough for our own use, so any first-party
 feature that isn't core ships as a plugin built through the **public** API.
 Candidates:
 
-- Mail API drivers (Resend, Postmark, SES, Mailgun)
+- Mail API drivers (Resend, SES, Mailgun; Postmark is done, in `drivers/postmark`)
 - Queue and pub/sub drivers beyond the core pair (SQS, NATS, Kafka)
 - Storage drivers (GCS, Azure)
 - Later: debug dashboard, admin panel, notifications
@@ -342,7 +343,7 @@ something, and we fix the API rather than add the hook.
 | Q2 | ~~License: MIT vs Apache-2.0~~ **Decided 2026-09-30: Apache-2.0**, for its explicit patent grant, patent retaliation clause, trademark clarification and contribution terms (design D16) | Decided |
 | Q3 | ~~Minimum Go version~~ **Decided 2026-09-30:** the older of the two Go-supported releases, currently **Go 1.26**; CI tests minimum + latest (design D18) | Decided |
 | Q4 | Docs site generator (VitePress, Hugo, Starlight…) | At M2 |
-| Q5 | Which mail API driver is first-party first (Resend vs Postmark) | At B9 |
+| Q5 | ~~Which mail API driver is first-party first (Resend vs Postmark)~~ **Decided 2026-10-01: Postmark**, for its transactional focus, a stable documented API with error codes that tell permanent from temporary failures, and a test token (`POSTMARK_API_TEST`) that checks requests without sending; Resend can follow as a plugin | Decided |
 | Q6 | ~~Public repo from day one, or private until v0.3?~~ **Decided 2026-09-30:** private until ready for public release (v0.3). A private repo can use the working codename; GitHub redirects renamed repos, and the module path is a find-and-replace while nobody depends on it | Decided |
 
 ## 10. Change log for this document
@@ -373,3 +374,4 @@ something, and we fix the API rather than add the hook.
 | 2026-10-01 | B6 (events) done; function jobs added to the queue |
 | 2026-10-01 | B7 (pub/sub listeners) done; ordering keys deferred to the backlog |
 | 2026-10-01 | B8 (scheduler) done |
+| 2026-10-01 | B9 (mail) done; Q5 decided (Postmark); the Postmark driver ships as a driver module until the plugin system (B11) |

@@ -354,13 +354,15 @@ func testConcurrency(t *testing.T, ctx context.Context, s cache.Store, p string)
 		t.Errorf("%d Adds of one key succeeded", added.Load())
 	}
 
-	// Adds racing on keys that expire: no errors, and never two holders.
+	// Leases taken with Add and released with DeleteIf: never two
+	// holders at once. The ttl is long, so only atomicity is tested.
 	var holders, maxHolders atomic.Int32
-	errs = make(chan error, n*rounds)
-	for range n {
+	errs = make(chan error, 3*n*rounds)
+	for i := range n {
 		wg.Go(func() {
-			for range rounds {
-				ok, err := s.Add(ctx, p+"lease", []byte("x"), 30*time.Millisecond)
+			for r := range rounds {
+				token := []byte(fmt.Sprintf("%d-%d", i, r))
+				ok, err := s.Add(ctx, p+"lease", token, 10*time.Second)
 				if err != nil {
 					errs <- err
 					continue
@@ -371,18 +373,48 @@ func testConcurrency(t *testing.T, ctx context.Context, s cache.Store, p string)
 					}
 					time.Sleep(time.Millisecond)
 					holders.Add(-1)
+					if released, err := s.DeleteIf(ctx, p+"lease", token); err != nil || !released {
+						errs <- fmt.Errorf("release a lease: released %v: %w", released, err)
+					}
 				}
-				time.Sleep(5 * time.Millisecond)
+				time.Sleep(time.Millisecond)
 			}
 		})
 	}
 	wg.Wait()
+	if m := maxHolders.Load(); m > 1 {
+		t.Errorf("%d holders of one lease at once", m)
+	}
+
+	// Adds racing on a key that has just expired: exactly one wins.
+	for r := range 3 {
+		key := fmt.Sprintf("%sexpired%d", p, r)
+		if _, err := s.Add(ctx, key, []byte("old"), 30*time.Millisecond); err != nil {
+			t.Fatal(err)
+		}
+		time.Sleep(150 * time.Millisecond)
+		var winners atomic.Int32
+		start := make(chan struct{})
+		for i := range n {
+			wg.Go(func() {
+				<-start
+				ok, err := s.Add(ctx, key, []byte(fmt.Sprint(i)), 10*time.Second)
+				if err != nil {
+					errs <- err
+				} else if ok {
+					winners.Add(1)
+				}
+			})
+		}
+		close(start)
+		wg.Wait()
+		if w := winners.Load(); w != 1 {
+			t.Errorf("%d Adds won over an expired key, want 1", w)
+		}
+	}
 	close(errs)
 	for err := range errs {
 		t.Error(err)
-	}
-	if m := maxHolders.Load(); m > 1 {
-		t.Errorf("%d holders of one lease at once", m)
 	}
 }
 

@@ -110,9 +110,11 @@ func LogLevel(l slog.Level) Option { return func(o *options) { o.level = l } }
 // random APP_KEY, and a CACHE_PREFIX, SESSION_PREFIX, QUEUE_PREFIX and
 // PUBSUB_PREFIX of the App's own (so tests sharing a store don't see each
 // other's items; New removes the App's items, sessions, Redis jobs and
-// streams when the test ends); the process environment; the .env.testing file next to
+// streams when the test ends), and MAIL_DRIVER=memory (emails are kept,
+// not sent: check them with the mailer's MemoryTransport); the process environment; the .env.testing file next to
 // go.mod, if there is one (say, DB_DATABASE=blog_test); then
-// HTTP_ACCESS_LOG=false. The settings in .env are not used (New only
+// HTTP_ACCESS_LOG=false, APP_URL=http://localhost (for absolute links,
+// in emails say) and MAIL_FROM_ADDRESS=test@example.com. The settings in .env are not used (New only
 // looks at its DB_CONNECTION, to stop a test that would use SQLite by
 // mistake). With SQLite and neither DB_DATABASE nor DB_URL set (or set to
 // ""), the database is in memory, not database/app.db.
@@ -124,8 +126,8 @@ func New(t testing.TB, setup func(app *anetos.App) (*web.Server, error), opts ..
 	}
 	prefix := testPrefix()
 	forced := config.Map{"APP_ENV": "testing", "APP_KEY": encryption.GenerateKey(), "CACHE_PREFIX": prefix + "cache:", "SESSION_PREFIX": prefix + "session:",
-		"QUEUE_PREFIX": prefix + "queue:", "PUBSUB_PREFIX": prefix + "pubsub:"}
-	defaults := config.Map{"HTTP_ACCESS_LOG": "false"}
+		"QUEUE_PREFIX": prefix + "queue:", "PUBSUB_PREFIX": prefix + "pubsub:", "MAIL_DRIVER": "memory"}
+	defaults := config.Map{"HTTP_ACCESS_LOG": "false", "APP_URL": "http://localhost", "MAIL_FROM_ADDRESS": "test@example.com"}
 	file, err := moduleEnv(".env.testing")
 	if err != nil {
 		t.Fatalf("anetostest: %v", err)

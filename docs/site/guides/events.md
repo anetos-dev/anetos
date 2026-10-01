@@ -30,6 +30,7 @@ type OrderPlaced struct {
 	OrderID int64  `json:"order_id"`
 	Item    string `json:"item"`
 	Cents   int64  `json:"cents"`
+	Email   string `json:"email"`
 }
 ```
 
@@ -59,11 +60,8 @@ func (s *Sales) countSale(_ context.Context, e OrderPlaced) error {
 
 // emailReceipt sends the receipt, as a queue job: retried if the mail
 // server fails, and not lost if the process stops.
-func emailReceipt(_ context.Context, e OrderPlaced) error {
-	receipt.mu.Lock()
-	defer receipt.mu.Unlock()
-	receipt.sent = append(receipt.sent, fmt.Sprintf("Receipt for order %d: %s, $%d.%02d", e.OrderID, e.Item, e.Cents/100, e.Cents%100))
-	return nil
+func emailReceipt(ctx context.Context, e OrderPlaced) error {
+	return mailer.Send(ctx, ReceiptMail{Order: e})
 }
 ```
 
@@ -125,12 +123,12 @@ Call `events.Emit` with a request's (or a job's) context:
 ```go
 // PlaceOrder saves the order and dispatches the job that charges it.
 func PlaceOrder(c *web.Ctx, in OrderInput) (web.Responder, error) {
-	o := &Order{Item: in.Item, Cents: in.Cents, Status: "pending"}
+	o := &Order{Item: in.Item, Cents: in.Cents, Email: in.Email, Status: "pending"}
 	err := db.Tx(c, func(ctx context.Context) error {
 		if err := db.Create(ctx, o); err != nil {
 			return err
 		}
-		if err := events.Emit(ctx, OrderPlaced{OrderID: o.ID, Item: o.Item, Cents: o.Cents}); err != nil {
+		if err := events.Emit(ctx, OrderPlaced{OrderID: o.ID, Item: o.Item, Cents: o.Cents, Email: o.Email}); err != nil {
 			return err // an On listener failed: no order
 		}
 		// AfterCommit: no charge for an order that isn't saved. (The
@@ -179,8 +177,8 @@ func TestOrderEvents(t *testing.T) {
 	id := placeOrder(t, app, "Lamp", 4250)
 
 	anetostest.AssertDatabaseHas[AuditEntry](app, db.Col[int64]("order_id").Eq(id))
-	if sent := receipt.Sent(); len(sent) == 0 || sent[len(sent)-1] != fmt.Sprintf("Receipt for order %d: Lamp, $42.50", id) {
-		t.Errorf("receipts: %q", sent)
+	if sent := sentMail(app); len(sent) != 1 || sent[0].Subject != fmt.Sprintf("Your receipt for order %d", id) {
+		t.Errorf("emails: %+v", sent)
 	}
 	bus := anetos.MustResolve[*events.Bus](app.App)
 	if err := bus.Wait(app.Context()); err != nil {
@@ -242,6 +240,7 @@ workers' app must add the same listeners, as with any job type.
   listeners.
 - [Transactions](transactions.md): `db.AfterCommit`, which async and
   queued listeners use.
+- [Send email](mail.md): the receipt `emailReceipt` sends.
 
 > **Coming from Laravel?** An event is an event class, `events.Emit` is
 > `event(new OrderPlaced(...))`, and listeners are registered in code

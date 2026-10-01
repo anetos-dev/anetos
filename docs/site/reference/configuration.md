@@ -13,7 +13,7 @@ Read by `anetos.New` into `anetos.AppConfig`.
 |---|---|---|---|---|
 | `APP_NAME` | string | `anetos` | Application name, added to every log line as `app` | v0.1 |
 | `APP_ENV` | `development` \| `testing` \| `staging` \| `production` | `production` | Deployment environment; also selects `.env.<APP_ENV>` | v0.1 |
-| `APP_URL` | URL | empty | The app's public URL (`https://example.com`, no path), for links that leave the app: OAuth callbacks (social login) | v0.2 |
+| `APP_URL` | URL | empty | The app's public URL (`https://example.com`, no path), for links that leave the app: OAuth callbacks (social login), links in emails (`mailer.URL`) | v0.2 |
 | `APP_DEBUG` | bool | `false` | Enables debugging aids. **Rejected when `APP_ENV=production`** | v0.1 |
 | `APP_SHUTDOWN_TIMEOUT` | duration | `30s` | Total graceful-shutdown budget: components first, then shutdown hooks. Hooks always keep the smaller of 5s and a fifth of it. Keep it at or below your platform's grace period (Kubernetes default: 30s) | v0.1 |
 | `APP_KEY` | `base64:…` (32 bytes) | empty | Encrypts and authenticates session cookies. Required by sessions, which fail at startup without it. Generate one with `go tool anetos key:generate`. Keep it secret | v0.1 |
@@ -229,6 +229,20 @@ Read by `schedule.ForApp` (or `schedule.LoadConfig`) into
 | Key | Type | Default | Description | Since |
 |---|---|---|---|---|
 | `SCHEDULE_TIMEZONE` | IANA time zone (`Asia/Dhaka`) | `UTC` | The time zone of schedules without `.In(tz)`. Times that clock changes skip don't run that day; times they repeat run twice (see [Scheduling](../guides/scheduling.md#2-add-it-to-the-scheduler)) | v0.2 |
+
+## Mail
+
+Read by `mailer.ForApp` (or `mailer.LoadConfig`) into `mailer.Config`,
+and by the drivers. See [Send email](../guides/mail.md).
+
+| Key | Type | Default | Description | Since |
+|---|---|---|---|---|
+| `MAIL_DRIVER` | `log` \| `smtp` \| `memory` \| a driver's name (`postmark`) | `log` | How emails are sent: `log` writes them to the app's log (a warning in production), `memory` keeps them (tests; `anetostest` sets it); `postmark` needs `postmark.Driver()` passed to `mailer.ForApp` | v0.2 |
+| `MAIL_FROM_ADDRESS` | email address | none | The sender of messages without one; sending fails without either | v0.2 |
+| `MAIL_FROM_NAME` | string | `APP_NAME` | The sender's name | v0.2 |
+| `MAIL_SMTP_URL` | URL | `smtp://127.0.0.1:1025` | The SMTP server: `smtp://user:pass@host:587` (STARTTLS, required unless the host is local) or `smtps://…:465` (TLS); parameters `tls=none`, `timeout` (default `30s`), `local_name`. See [SMTP settings](../guides/mail.md#smtp-settings) | v0.2 |
+| `MAIL_POSTMARK_TOKEN` | string | none (required with `postmark`) | The Postmark server's API token (`POSTMARK_API_TEST` checks requests without sending) | v0.2 |
+| `MAIL_POSTMARK_STREAM` | string | `outbound` | The Postmark message stream | v0.2 |
 
 ## Redis
 

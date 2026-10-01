@@ -1,0 +1,27 @@
+package main
+
+import (
+	"strconv"
+
+	"anetos.dev/anetos/mailer"
+)
+
+// region: template
+// ReceiptEmail is the receipt's HTML body. Mail clients ignore most CSS,
+// so the styles are inline and the layout is one column. Links leave the
+// app: mailer.URL makes them absolute, with APP_URL.
+templ ReceiptEmail(e OrderPlaced) {
+	<!DOCTYPE html>
+	<html>
+		<body style="margin:0;padding:24px;background:#f4f4f5;font-family:Arial,sans-serif;color:#18181b">
+			<div style="max-width:560px;margin:0 auto;padding:24px;background:#ffffff;border-radius:8px">
+				<h1 style="margin:0 0 16px;font-size:20px">Thanks for your order</h1>
+				<p>Order { strconv.FormatInt(e.OrderID, 10) }: { e.Item }, { price(e.Cents) }.</p>
+				<p>We'll charge your card shortly.</p>
+				<p><a href={ mailer.URL(ctx, "/orders/"+strconv.FormatInt(e.OrderID, 10)) } style="color:#2563eb">See your order</a></p>
+			</div>
+		</body>
+	</html>
+}
+
+// endregion

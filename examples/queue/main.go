@@ -6,7 +6,8 @@
 // OrderPlaced event, whose listeners write the audit log, count sales
 // and email a receipt. Jobs are kept where
 // QUEUE_DRIVER says: sync (run at once), memory, database (SQLite here)
-// or redis (REDIS_URL). A scheduler prunes the audit log every night and
+// or redis (REDIS_URL). Receipts are emailed with the mailer (MAIL_DRIVER:
+// log, smtp, memory or postmark). A scheduler prunes the audit log every night and
 // dispatches an hourly sales report; its locks are in the cache
 // (CACHE_STORE: memory, database or redis).
 //
@@ -14,7 +15,8 @@
 //	export APP_ENV=development HTTP_ADDR=:8080 QUEUE_DRIVER=database
 //	go run . migrate
 //	go run .                              # the server, the workers and the scheduler
-//	curl -d '{"item":"Book","cents":1500}' localhost:8080/orders
+//	curl -d '{"item":"Book","cents":1500,"email":"ada@example.com"}' localhost:8080/orders
+//	open http://localhost:8080/dev/mail/receipt   # the receipt email (development)
 //	go run . queue:failed                 # jobs that failed for good
 //	go run . schedule:list                # the scheduled tasks
 package main
@@ -29,13 +31,17 @@ import (
 	"anetos.dev/anetos/cache"
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/db/migrate"
+	"anetos.dev/anetos/drivers/postmark"
 	"anetos.dev/anetos/drivers/redis"
 	"anetos.dev/anetos/drivers/sqlite"
 	"anetos.dev/anetos/events"
+	"anetos.dev/anetos/mailer"
 	"anetos.dev/anetos/queue"
 	"anetos.dev/anetos/schedule"
 	"anetos.dev/anetos/web"
 )
+
+//go:generate go tool templ generate
 
 func main() {
 	app, err := anetos.New()
@@ -69,6 +75,12 @@ func setup(app *anetos.App) (*web.Server, error) {
 	}
 	// Workers for the payments queue first, then the default one.
 	if err := q.Work(queue.Queues("payments", "default"), queue.Concurrency(4)); err != nil {
+		return nil, err
+	}
+	// endregion
+	// region: mail-setup
+	// With the queue, mailer.Queue sends from a queue job.
+	if _, err := mailer.ForApp(app, postmark.Driver()); err != nil { // MAIL_DRIVER: log, smtp, memory or postmark
 		return nil, err
 	}
 	// endregion
@@ -116,6 +128,12 @@ func setup(app *anetos.App) (*web.Server, error) {
 	r := srv.Router()
 	r.Post("/orders", web.H(PlaceOrder))
 	r.Get("/orders/{id}", web.H(ShowOrder))
+	r.Post("/orders/{id}/receipt", web.H(ResendReceipt))
+	// region: preview
+	if app.Config().Env.IsDevelopment() {
+		r.HandleStd(http.MethodGet, "/dev/mail/receipt", mailer.Preview(previewReceipt))
+	}
+	// endregion
 	r.Get("/stats", func(c *web.Ctx) error {
 		orders, cents := sales.Snapshot()
 		return c.JSON(http.StatusOK, map[string]int64{"orders": orders, "cents": cents})
@@ -127,17 +145,18 @@ func setup(app *anetos.App) (*web.Server, error) {
 type OrderInput struct {
 	Item  string `json:"item" validate:"required|max:100"`
 	Cents int64  `json:"cents" validate:"required|min:1"`
+	Email string `json:"email" validate:"required|email|max:254"`
 }
 
 // region: dispatch
 // PlaceOrder saves the order and dispatches the job that charges it.
 func PlaceOrder(c *web.Ctx, in OrderInput) (web.Responder, error) {
-	o := &Order{Item: in.Item, Cents: in.Cents, Status: "pending"}
+	o := &Order{Item: in.Item, Cents: in.Cents, Email: in.Email, Status: "pending"}
 	err := db.Tx(c, func(ctx context.Context) error {
 		if err := db.Create(ctx, o); err != nil {
 			return err
 		}
-		if err := events.Emit(ctx, OrderPlaced{OrderID: o.ID, Item: o.Item, Cents: o.Cents}); err != nil {
+		if err := events.Emit(ctx, OrderPlaced{OrderID: o.ID, Item: o.Item, Cents: o.Cents, Email: o.Email}); err != nil {
 			return err // an On listener failed: no order
 		}
 		// AfterCommit: no charge for an order that isn't saved. (The

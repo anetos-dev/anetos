@@ -4,11 +4,11 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/db/migrate"
+	"anetos.dev/anetos/mailer"
 )
 
 // region: event
@@ -19,6 +19,7 @@ type OrderPlaced struct {
 	OrderID int64  `json:"order_id"`
 	Item    string `json:"item"`
 	Cents   int64  `json:"cents"`
+	Email   string `json:"email"`
 }
 
 // endregion
@@ -60,7 +61,7 @@ func (s *Sales) Snapshot() (orders, cents int64) {
 	return s.Orders, s.Cents
 }
 
-// Outbox stands in for a mail server: it keeps the messages sent.
+// Outbox stands in for a chat channel: it keeps the messages sent.
 type Outbox struct {
 	mu   sync.Mutex
 	sent []string
@@ -73,10 +74,7 @@ func (o *Outbox) Sent() []string {
 	return append([]string(nil), o.sent...)
 }
 
-var (
-	sales   = &Sales{}
-	receipt = &Outbox{}
-)
+var sales = &Sales{}
 
 // region: listeners
 // recordAudit writes to the audit log in the order's transaction: if it
@@ -98,11 +96,8 @@ func (s *Sales) countSale(_ context.Context, e OrderPlaced) error {
 
 // emailReceipt sends the receipt, as a queue job: retried if the mail
 // server fails, and not lost if the process stops.
-func emailReceipt(_ context.Context, e OrderPlaced) error {
-	receipt.mu.Lock()
-	defer receipt.mu.Unlock()
-	receipt.sent = append(receipt.sent, fmt.Sprintf("Receipt for order %d: %s, $%d.%02d", e.OrderID, e.Item, e.Cents/100, e.Cents%100))
-	return nil
+func emailReceipt(ctx context.Context, e OrderPlaced) error {
+	return mailer.Send(ctx, ReceiptMail{Order: e})
 }
 
 // endregion

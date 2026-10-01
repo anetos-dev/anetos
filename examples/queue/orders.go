@@ -19,6 +19,7 @@ type Order struct {
 	db.Model
 	Item   string `db:"item" json:"item"`
 	Cents  int64  `db:"cents" json:"cents"`
+	Email  string `db:"email" json:"email"`   // the customer's, for the receipt
 	Status string `db:"status" json:"status"` // pending, paid or failed
 }
 
@@ -44,6 +45,7 @@ func init() {
 				t.ID()
 				t.String("item", 100)
 				t.BigInteger("cents")
+				t.String("email", 254)
 				t.String("status", 20).Default("pending")
 				t.Timestamps()
 			})

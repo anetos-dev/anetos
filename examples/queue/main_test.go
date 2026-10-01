@@ -5,13 +5,16 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	"anetos.dev/anetos"
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/events"
+	"anetos.dev/anetos/mailer"
 	"anetos.dev/anetos/queue"
 	"anetos.dev/anetos/schedule"
 	"anetos.dev/anetos/anetostest"
@@ -28,7 +31,7 @@ func fakeGateway(t *testing.T, g *FakeGateway) {
 func placeOrder(t *testing.T, app *anetostest.App, item string, cents int64) int64 {
 	t.Helper()
 	var o Order
-	app.PostJSON("/orders", map[string]any{"item": item, "cents": cents}).
+	app.PostJSON("/orders", map[string]any{"item": item, "cents": cents, "email": "ada@example.com"}).
 		AssertStatus(202).
 		AssertJSONPath("status", "pending").
 		JSON(&o)
@@ -136,8 +139,8 @@ func TestOrderEvents(t *testing.T) {
 	id := placeOrder(t, app, "Lamp", 4250)
 
 	anetostest.AssertDatabaseHas[AuditEntry](app, db.Col[int64]("order_id").Eq(id))
-	if sent := receipt.Sent(); len(sent) == 0 || sent[len(sent)-1] != fmt.Sprintf("Receipt for order %d: Lamp, $42.50", id) {
-		t.Errorf("receipts: %q", sent)
+	if sent := sentMail(app); len(sent) != 1 || sent[0].Subject != fmt.Sprintf("Your receipt for order %d", id) {
+		t.Errorf("emails: %+v", sent)
 	}
 	bus := anetos.MustResolve[*events.Bus](app.App)
 	if err := bus.Wait(app.Context()); err != nil {
@@ -179,6 +182,40 @@ func TestScheduledTasks(t *testing.T) {
 	if r := salesReports.Sent(); len(r) == 0 || r[len(r)-1] != "Sales report: orders paid in the last hour: 1" {
 		t.Errorf("reports: %q", r)
 	}
+}
+
+// endregion
+
+// sentMail returns the emails the app sent: anetostest sets
+// MAIL_DRIVER=memory, which keeps them.
+func sentMail(app *anetostest.App) []*mailer.Outgoing {
+	return anetos.MustResolve[*mailer.Mailer](app.App).Transport().(*mailer.MemoryTransport).Sent()
+}
+
+// region: test-mail
+// The receipt is queued (the sync driver sends it at once) and kept by
+// the memory transport: the test checks its recipient, subject and body.
+func TestResendReceipt(t *testing.T) {
+	fakeGateway(t, &FakeGateway{})
+	app := anetostest.New(t, setup, anetostest.Env(map[string]string{"QUEUE_DRIVER": "sync"}))
+	id := placeOrder(t, app, "Lamp", 4250)
+
+	app.PostJSON(fmt.Sprintf("/orders/%d/receipt", id), nil).AssertStatus(http.StatusAccepted)
+
+	sent := sentMail(app)
+	if len(sent) != 2 { // when placed, and again
+		t.Fatalf("%d emails", len(sent))
+	}
+	m := sent[1]
+	if m.To[0].Address != "ada@example.com" || m.Subject != fmt.Sprintf("Your receipt for order %d", id) {
+		t.Errorf("email %+v", m)
+	}
+	for _, want := range []string{"Lamp, $42.50", fmt.Sprintf("See your order (http://localhost/orders/%d)", id)} {
+		if !strings.Contains(m.Text, want) {
+			t.Errorf("the text lacks %q:\n%s", want, m.Text)
+		}
+	}
+	app.PostJSON("/orders/999/receipt", nil).AssertNotFound()
 }
 
 // endregion
