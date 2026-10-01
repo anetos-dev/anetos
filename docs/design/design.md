@@ -197,6 +197,7 @@ func main() {
     ps, _ := pubsub.ForApp(app, redis.PubSubDriver()) // PUBSUB_DRIVER (B7)
     pubsub.Listen(ps, "orders.created", listeners.OrderCreated, pubsub.Concurrency(20))
     mailer.ForApp(app, postmark.Driver()) // MAIL_DRIVER (B9)
+    storage.ForApp(app, s3.Driver())   // STORAGE_DRIVER, STORAGE_DISKS (B10)
     s, _ := schedule.ForApp(app)      // SCHEDULE_TIMEZONE (B8)
     s.Add(schedule.DailyAt("02:00"), "prune-sessions", tasks.PruneSessions, schedule.OnOneServer())
 
@@ -207,7 +208,7 @@ func main() {
 F11 implemented `app.Execute` and the generated `main.go` (with a
 `setup` function the project's test reuses), and B5 the queue's workers
 (§13.4), B7 the pub/sub listeners (§13.5), B8 the scheduler (§13.7) and
-B9 the mailer (§14.2);
+B9 the mailer (§14.2), B10 storage (§14.3);
 `app.Use(plugins.All()...)` arrives later in v0.2.
 
 ---
@@ -240,7 +241,7 @@ anetos.dev/anetos/            ← core module
 ├── pubsub/              topics, subscriptions, typed listeners, memory broker (B7); pubsub/pubsubtest: broker conformance suite
 ├── schedule/            cron and fluent schedules, the scheduler component, overlap and single-instance locks (B8)
 ├── mailer/              mailables, rendering, log/SMTP/memory transports, queued mail (B9)
-├── storage/
+├── storage/             disks: local (os.Root) and memory backends, signed URLs, file handler (B10); storage/storagetest: backend conformance suite
 ├── ext/                 public plugin API (package `ext`)
 ├── cmd/                 app-binary command types (F11); App.Execute dispatches
 ├── anetostest/          test app, browser-like client, assertions (F12); fakes arrive with their features
@@ -257,7 +258,7 @@ anetos.dev/anetos/            ← core module
 │   ├── redis/           shared client (redis.Connect), cache store with locks (B1), sessions (B2), queue (B5), pub/sub on Streams (B7)
 │   ├── gcppubsub/       Google Cloud Pub/Sub broker (B7)
 │   ├── postmark/        Postmark mail transport, standard library only (B9)
-│   ├── s3/
+│   ├── s3/              S3-compatible storage backend on minio-go (B10)
 │   └── …
 ├── plugins/             ← first-party plugins, each a separate module
 │   ├── resend/ …        (API mail drivers move here with the plugin system, B11)
@@ -1054,7 +1055,7 @@ Each service is an interface in the core module. Drivers are chosen in
 | Queue | `queue` | sync, memory, database | `drivers/redis`; SQS, NATS (plugins) | v0.2 (B5 done) |
 | Pub/sub | `pubsub` | memory (tests/dev) | `drivers/redis` (Streams), `drivers/gcppubsub`; NATS, Kafka (plugins) | v0.2 (B7 done) |
 | Mail | `mailer` | log (dev), SMTP, memory (tests) | `drivers/postmark`; Resend, SES, Mailgun (plugins) | v0.2 (B9 done) |
-| Storage | `storage` | local | `drivers/s3` (S3-compatible, incl. R2/MinIO); GCS, Azure (plugins) | v0.2 |
+| Storage | `storage` | local, memory | `drivers/s3` (S3-compatible, incl. R2/MinIO); GCS, Azure (plugins) | v0.2 (B10 done) |
 | Password hashing | `auth/password` | argon2id, bcrypt | — | v0.2 (B3 done) |
 | Encryption | `encryption` | AES-GCM with `APP_KEY`, key rotation | — | v0.1 |
 | Rate limiting | `web/ratelimit` | on the app's cache | (the cache's stores) | v0.2 (B2 done) |
@@ -1162,6 +1163,41 @@ err = mailer.Queue(ctx, Welcome{User: u}, queue.OnQueue("emails")) // rendered n
 - **Links**: `mailer.URL(ctx, path)` joins `APP_URL` and a path, returning
   `(string, error)` as templ accepts; `mailer.Preview` shows an email's
   HTML in the browser during development (D123).
+
+### 14.3 Storage
+
+```go
+st, err := storage.ForApp(app, s3.Driver()) // STORAGE_DRIVER: local | memory | s3; STORAGE_DISKS=avatars
+
+disk, err := storage.From(ctx)               // or storage.From(ctx, "avatars")
+err = disk.PutUpload(ctx, "documents/"+name, in.File)
+url, err := disk.TemporaryURL(ctx, "documents/"+name, 15*time.Minute)
+r.HandleStd(http.MethodGet, "/files/{path...}", st.Default().Handler())
+```
+
+*(Implemented in B10: package `storage`, `drivers/s3`.)*
+
+- **Backends and disks.** A `storage.Backend` keeps files: `Put`
+  (whole-file replace), `Open`, `Stat`, `Delete`, `List` (by prefix, in
+  byte order) and `Copy`, plus `URLSigner` where the store signs URLs;
+  `storage/storagetest` is the conformance suite. A `*storage.Disk` wraps
+  one: it checks paths (rejecting rather than cleaning), sets content
+  types (extension, else sniffed), and adds helpers and URLs.
+  `ErrNotFound` and `ErrInvalidPath` are 404s for the web package (D124).
+- **Configuration.** The default disk reads `STORAGE_*`; `STORAGE_DISKS`
+  names more, each reading `STORAGE_<NAME>_*` and inheriting the driver
+  and the driver's credential settings; `anetostest` sets the memory
+  driver (D125).
+- **Local disks** confine every access to `STORAGE_ROOT` with an
+  `os.Root`, and write through a synced temporary file renamed into place
+  (D126).
+- **URLs.** Visibility is per disk: `STORAGE_URL` and `STORAGE_PUBLIC`
+  give permanent URLs; temporary URLs are presigned by the store (S3) or
+  carry an `APP_KEY`-encrypted token that the disk's handler checks. The
+  handler serves with ranges and conditional requests, and sends active
+  content (HTML, SVG, XML, scripts) as sandboxed downloads (D127).
+- **S3** is `drivers/s3`, on minio-go: AWS, R2, MinIO and other
+  S3-compatible stores (D128).
 
 ---
 
@@ -1393,8 +1429,9 @@ func TestCreatePost(t *testing.T) {
   `CACHE_PREFIX`, `SESSION_PREFIX`, `QUEUE_PREFIX` and `PUBSUB_PREFIX`,
   cleaned up by shutdown hooks (which run before the app's connections
   close, also when a test runs the app), and `MAIL_DRIVER=memory`, so
-  emails are kept (the mailer's `MemoryTransport`) rather than sent; test
-  defaults include `APP_URL=http://localhost` and
+  emails are kept (the mailer's `MemoryTransport`) rather than sent, and
+  `STORAGE_DRIVER=memory`; `app.PostMultipart` uploads files; test
+  defaults include `APP_URL=http://example.test` (the test client's site) and
   `MAIL_FROM_ADDRESS=test@example.com` (D123).
 - Everything works with `go test` and `-race`; `t.Parallel()` works with
   in-memory SQLite and server databases (not a SQLite file, whose write
@@ -1615,7 +1652,12 @@ unless new information arrives), **Open**, **Superseded**.
 | D120 | A mailable is any type with `Build(ctx) (*mailer.Message, error)`; the HTML body is a `view.Component` (templ) rendered with the send's context, the text body a string (templ would escape it), generated from the HTML by an internal converter when empty; rendering validates (addresses parse exactly as dot-atoms, a recipient, no CR/LF in subject, names, headers or metadata, no overriding of the message's own headers, length limits so header lines fold within 998 characters) and yields `mailer.Outgoing`, the JSON form transports get and validate again | Accepted | Typed and explicit like jobs (no reflection, no magic view lookup); templ keeps emails compiled and type-checked; validation at render stops header injection for every transport; a text part matters for deliverability, and a small converter avoids adding golang.org/x/net to the core |
 | D121 | Transports are `Send(ctx, *Outgoing) error`; core: log (default), SMTP on net/smtp (URL config, a `anetos.Secret`; one connection per email; STARTTLS required unless the host is local — localhost, 127.0.0.1, ::1, as net/smtp sees it — or `tls=none`, which refuses a password; AUTH PLAIN or LOGIN only over TLS or to a local host; non-ASCII addresses only with SMTPUTF8; replies ≥ 500 permanent, except 552 to a recipient) and memory; API drivers are driver modules (`drivers/postmark`, standard library only; 422/401/403/413 permanent, except code 405, an account that can't send for now) until the plugin system (B11) | Accepted | The log default never emails anyone by mistake; one connection per email is simple and enough for queued sending (pooling can come later without API change); TLS by default for remote servers protects credentials; permanent errors use the shared `Permanent() bool` convention (D114), so queued mail fails at once instead of retrying a rejected address |
 | D122 | `mailer.Queue` renders when queued, in the caller's context, and dispatches the function job `mail:send` (registered by `mailer.ForApp` when the app has a queue, or at boot when `queue.ForApp` came later) with the `Outgoing` as payload; the `Message-ID` stays across retries, and the `Date` is set when the job sends | Accepted | No registry of mailable types to keep in sync with workers; the email is what the request saw (not data changed later); errors in the mailable surface in the request; the costs (attachments in the payload, failed jobs keeping the email) are documented, with `Send` from a job of your own for large files; a Date in the past after a delay would look like spam |
-| D123 | Links in emails use `mailer.URL(ctx, path)` on `APP_URL` (an error without it); `anetostest` forces `MAIL_DRIVER=memory` and defaults `APP_URL=http://localhost` and `MAIL_FROM_ADDRESS=test@example.com` | Accepted | Emails leave the app, so links must be absolute and must not come from the request's Host (D103); tests never send real email, and mail tests work without extra settings; richer mail assertions come with the fakes (B12) |
+| D123 | Links in emails use `mailer.URL(ctx, path)` on `APP_URL` (an error without it); `anetostest` forces `MAIL_DRIVER=memory` and defaults `APP_URL=http://example.test` (the test client's site) and `MAIL_FROM_ADDRESS=test@example.com` | Accepted | Emails leave the app, so links must be absolute and must not come from the request's Host (D103); tests never send real email, and mail tests work without extra settings; richer mail assertions come with the fakes (B12) |
+| D124 | Storage splits a small `Backend` contract (`Put` replacing whole files, `Open`, `Stat`, `Delete` without error for missing files, `List` by prefix in byte order, `Copy`; optional `URLSigner`) from the `*Disk` apps use, which checks paths (relative, slash-separated, no `.`/`..`/empty segments, backslashes, control characters or bidirectional overrides, ≤ 1024 bytes and 255 per name: rejected, never cleaned), sets content types (never an active type by sniffing) and builds URLs; `ErrNotFound` and `ErrInvalidPath` report 404 to the web package; `storagetest` is the conformance suite | Accepted | Backends stay easy to write (GCS, Azure as plugins) and behave alike, tested by one suite; rejecting bad paths makes traversal impossible by construction rather than by a cleaning rule; byte-order listing is S3's and costs local disks a per-directory sort |
+| D125 | The default disk is configured with `STORAGE_*`; `STORAGE_DISKS` names more, each read with `STORAGE_<NAME>_*` through a remapped config source, inheriting `STORAGE_DRIVER`, and the settings its driver lists (S3 region, endpoint, keys, path style) as a group, only if it sets none of them, but never locations (root, URL, public, bucket, prefix); `anetostest` forces `STORAGE_DRIVER=memory` | Accepted | Env-only configuration, like the other services, without a config file; shared credentials aren't repeated, and locations can't collide by inheritance; tests never write files to the project |
+| D126 | The local backend opens every file through an `os.Root` on `STORAGE_ROOT` (no path or symlink escapes; an escaping link is a missing file), writes to a hidden temporary file that it syncs, renames over the target and then syncs the directory, skips symlinks and temporary files when listing, derives content types from extensions (keeping none), uses inode, mtime and size as the ETag, and leaves empty directories | Accepted | `os.Root` (Go 1.24+) closes symlink and TOCTOU escapes the path check alone can't; rename gives readers the old or new file, never part, and a failed upload leaves nothing; removing empty directories would race with concurrent writes |
+| D127 | Visibility is per disk (`STORAGE_PUBLIC` with `STORAGE_URL`), not per file; temporary URLs come from the backend (`URLSigner`: S3 presigning, ≤ 7 days) or are `STORAGE_URL`/path?token= with the disk name, path and expiry encrypted with `APP_KEY`, which `Disk.Handler` checks; the handler serves GET/HEAD with one range (several get the whole file), ETags and conditional requests, `nosniff`, `private, no-store` for signed responses, and active types (`IsActive`: HTML, XML and SVG, JavaScript in all its types, CSS) as `application/octet-stream` attachments under `Content-Security-Policy: sandbox`; the S3 driver stores active types with `Content-Disposition: attachment` | Accepted | S3 buckets block per-object ACLs by default, so per-file visibility would mislead; signed local URLs give local disks Laravel's temporaryUrl without a public directory; encryption (not just a MAC) reuses the key-rotation machinery; serving user uploads from the app's origin needs the active-content guard, and an attachment served as a script type would still run through `<script src>`; multi-range requests multiply reads (each an S3 request) |
+| D128 | `drivers/s3` uses minio-go (Apache-2.0), not aws-sdk-go-v2: S3-compatible stores first, one module, presigning built in; `Open` reads the object with one GET (a read after `Seek` fetches a range with `If-Match`, failing if the object changed); readers of known size are sent from where they are (a section of a `ReaderAt`) in one request or parts, others buffered up to 8 MB (one request if shorter, 8 MB parts if not), and empty bodies as `http.NoBody`; a broken-off `List` drains minio-go's channel; a not-found `Stat` checks once that the bucket exists; tests run the suite against gofakes3 in process and, with `ANETOS_TEST_S3_URL`, a real S3-compatible server | Accepted | minio-go's defaults suit R2, MinIO and B2 as well as AWS; one GET makes a concurrent replace invisible to a reader (minio-go's lazy object issued a second, conditional request); minio-go allocates a ~530 MB part buffer for an unknown size unless told a part size; the fake doesn't verify signatures, so a real server (verified with versitygw) covers SigV4 |
 
 ---
 
@@ -1660,3 +1702,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-01 | B7 pub/sub listeners implemented: §4, §5, §13.5, §14, §18 updated; D112–D115 added |
 | 2026-10-01 | B8 scheduler implemented: §4, §5, §13.3, §13.7, §17.2 updated; D116–D119 added |
 | 2026-10-01 | B9 mail implemented: §4, §5, §14, §18 updated, §14.2 added; D120–D123 added |
+| 2026-10-01 | B10 storage implemented: §4, §5, §14, §18 updated, §14.3 added; D124–D128 added; anetostest's APP_URL default is its own site |

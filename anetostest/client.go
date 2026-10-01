@@ -6,8 +6,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"maps"
+	"mime"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/textproto"
 	"net/url"
 	"slices"
 	"strings"
@@ -72,6 +76,53 @@ func (a *App) PatchForm(path string, form url.Values) *Response {
 func (a *App) DeleteForm(path string, form url.Values) *Response {
 	a.t.Helper()
 	return a.sendForm(http.MethodDelete, path, form)
+}
+
+// Upload is a file for [App.PostMultipart].
+type Upload struct {
+	// Field is the form field's name.
+	Field string
+	// Filename is the file's name, as the client sends it.
+	Filename string
+	// Content is the file's content.
+	Content []byte
+	// ContentType is the part's media type. Default
+	// application/octet-stream.
+	ContentType string
+}
+
+// PostMultipart sends a POST request with a multipart form, as a browser
+// uploading files: the fields of form, then the files. The CSRF token is
+// sent as with [App.PostForm].
+//
+//	app.PostMultipart("/documents", nil, anetostest.Upload{Field: "file", Filename: "a.pdf", Content: pdf})
+func (a *App) PostMultipart(path string, form url.Values, files ...Upload) *Response {
+	a.t.Helper()
+	var body bytes.Buffer
+	w := multipart.NewWriter(&body)
+	for _, k := range slices.Sorted(maps.Keys(form)) {
+		for _, v := range form[k] {
+			_ = w.WriteField(k, v)
+		}
+	}
+	for _, f := range files {
+		ct := f.ContentType
+		if ct == "" {
+			ct = "application/octet-stream"
+		}
+		h := textproto.MIMEHeader{}
+		h.Set("Content-Disposition", mime.FormatMediaType("form-data", map[string]string{"name": f.Field, "filename": f.Filename}))
+		h.Set("Content-Type", ct)
+		pw, err := w.CreatePart(h)
+		if err != nil {
+			a.t.Fatalf("anetostest: POST %s: %v", path, err)
+		}
+		_, _ = pw.Write(f.Content)
+	}
+	if err := w.Close(); err != nil {
+		a.t.Fatalf("anetostest: POST %s: %v", path, err)
+	}
+	return a.sendWith(http.MethodPost, path, &body, w.FormDataContentType(), "text/html", form.Has("_token"))
 }
 
 // GetJSON sends a GET request accepting JSON, as an API client.

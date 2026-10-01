@@ -210,7 +210,7 @@ func TestResendReceipt(t *testing.T) {
 	if m.To[0].Address != "ada@example.com" || m.Subject != fmt.Sprintf("Your receipt for order %d", id) {
 		t.Errorf("email %+v", m)
 	}
-	for _, want := range []string{"Lamp, $42.50", fmt.Sprintf("See your order (http://localhost/orders/%d)", id)} {
+	for _, want := range []string{"Lamp, $42.50", fmt.Sprintf("See your order (http://example.test/orders/%d)", id)} {
 		if !strings.Contains(m.Text, want) {
 			t.Errorf("the text lacks %q:\n%s", want, m.Text)
 		}

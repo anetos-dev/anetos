@@ -5,6 +5,8 @@ package anetostest_test
 import (
 	"fmt"
 	"html/template"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -363,11 +365,41 @@ func TestMailDriver(t *testing.T) {
 	if v, _ := app.Source().Lookup("MAIL_DRIVER"); v != "memory" {
 		t.Errorf("MAIL_DRIVER = %q", v)
 	}
-	if app.Config().URL != "http://localhost" {
+	if v, _ := app.Source().Lookup("STORAGE_DRIVER"); v != "memory" {
+		t.Errorf("STORAGE_DRIVER = %q", v)
+	}
+	if app.Config().URL != "http://example.test" {
 		t.Errorf("APP_URL = %q", app.Config().URL)
 	}
 	app = anetostest.New(t, nil, anetostest.Env(map[string]string{"MAIL_DRIVER": "log"}))
 	if v, _ := app.Source().Lookup("MAIL_DRIVER"); v != "log" {
 		t.Errorf("MAIL_DRIVER with Env = %q", v)
 	}
+}
+
+type uploadInput struct {
+	Title string                `form:"title"`
+	File  *multipart.FileHeader `form:"file"`
+}
+
+func TestPostMultipart(t *testing.T) {
+	app := anetostest.New(t, func(app *anetos.App) (*web.Server, error) {
+		srv, err := web.NewServer(app)
+		if err != nil {
+			return nil, err
+		}
+		srv.Router().Post("/upload", web.H(func(c *web.Ctx, in uploadInput) (web.Responder, error) {
+			f, err := in.File.Open()
+			if err != nil {
+				return nil, err
+			}
+			defer f.Close()
+			b, _ := io.ReadAll(f)
+			return web.Text(http.StatusOK, fmt.Sprintf("%s %s %s %s", in.Title, in.File.Filename, in.File.Header.Get("Content-Type"), b)), nil
+		}))
+		return srv, nil
+	})
+	app.PostMultipart("/upload", url.Values{"title": {"Report"}},
+		anetostest.Upload{Field: "file", Filename: "r é.txt", Content: []byte("data"), ContentType: "text/plain"}).
+		AssertOK().AssertSee("Report r é.txt text/plain data")
 }

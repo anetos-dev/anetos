@@ -210,6 +210,7 @@ Goal: everything a real application needs beyond CRUD.
 | B7 Pub/sub listeners | ✅ Done 2026-10-01 (memory, Redis Streams and Google Pub/Sub brokers; typed listeners, retries, dead letters; ordering keys deferred) |
 | B8 Scheduler | ✅ Done 2026-10-01 (cron and fluent schedules with time zones; `WithoutOverlapping`, `OnOneServer`, `Timeout`; `schedule:list`, `schedule:run`; in new projects) |
 | B9 Mail | ✅ Done 2026-10-01 (mailables with templ bodies; log, SMTP and memory transports; queued mail; Postmark as a driver module, to become a plugin with B11) |
+| B10 Storage | ✅ Done 2026-10-01 (local, memory and S3-compatible disks; named disks; signed temporary URLs and a file handler) |
 
 | WP | Work package | Notes |
 |---|---|---|
@@ -375,3 +376,4 @@ something, and we fix the API rather than add the hook.
 | 2026-10-01 | B7 (pub/sub listeners) done; ordering keys deferred to the backlog |
 | 2026-10-01 | B8 (scheduler) done |
 | 2026-10-01 | B9 (mail) done; Q5 decided (Postmark); the Postmark driver ships as a driver module until the plugin system (B11) |
+| 2026-10-01 | B10 (storage) done |

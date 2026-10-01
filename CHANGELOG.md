@@ -185,12 +185,34 @@ All notable changes to this project are documented here. The format follows
   `http://localhost` and `MAIL_FROM_ADDRESS` to `test@example.com` (B9,
   design D123).
 - `anetos new` projects set up the mailer (`MAIL_DRIVER=log`) (B9).
+- Storage (`storage` package): disks on a `storage.Backend` (local
+  directory through an `os.Root`, memory) with `Put`, `PutBytes`,
+  `PutUpload`, `Get`, `Open`, `Stat`, `Exists`, `List` (by prefix, in
+  path order), `Delete`, `DeleteAll`, `Copy`, `Move`, `URL` (public
+  disks) and `TemporaryURL` (signed with `APP_KEY` for local disks,
+  presigned on S3), `Serve` and `Handler` (a range, conditional
+  requests; active content, `storage.IsActive`, sent as sandboxed
+  downloads); `storage.ForApp` with `STORAGE_DRIVER`,
+  `STORAGE_ROOT`, `STORAGE_URL`, `STORAGE_PUBLIC`, and named disks
+  (`STORAGE_DISKS`, `STORAGE_<NAME>_*`); `storage.From(ctx, name...)`;
+  path checking (`storage.CheckPath`, `ErrInvalidPath`); the
+  `storage/storagetest` conformance suite (B10, design D124–D127).
+- New module `drivers/s3`: S3 and S3-compatible stores (R2, MinIO, …)
+  on minio-go (B10, design D128).
+- `anetostest` sets `STORAGE_DRIVER=memory`; `app.PostMultipart` sends
+  multipart forms with files (`anetostest.Upload`) (B10).
+- `anetos new` projects set up storage (`STORAGE_DRIVER=local`) and
+  ignore `storage/` (B10).
+- `examples/files`: documents behind temporary URLs and public avatars;
+  guide "Store files" (B10).
 - `examples/queue` emails a receipt for each order from its queued event
   listener, with a templ template, queues one again with `POST
   /orders/{id}/receipt`, and previews it in development; guide "Send
   email" (B9).
 
 ### Changed
+- `anetostest`'s default `APP_URL` is `http://example.test`, the test
+  client's own site, so absolute URLs a test gets can be fetched (B10).
 - The cache conformance suite's lease test releases leases with
   `DeleteIf` and races Adds on an expired key separately, so it no
   longer depends on timing (B9).

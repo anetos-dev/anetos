@@ -6,6 +6,7 @@
 coverage.*
 # Binaries `go build` leaves in example modules
 /examples/*/auth
+/examples/*/files
 /examples/*/database
 /examples/*/forms
 /examples/*/pubsub
@@ -24,6 +25,9 @@ coverage.*
 
 # Files saved by the Claude desktop app
 /Claude outputs/
+
+# Files the local storage disk writes in examples
+/examples/*/storage/
 
 # SQLite databases
 *.db

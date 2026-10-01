@@ -244,6 +244,28 @@ and by the drivers. See [Send email](../guides/mail.md).
 | `MAIL_POSTMARK_TOKEN` | string | none (required with `postmark`) | The Postmark server's API token (`POSTMARK_API_TEST` checks requests without sending) | v0.2 |
 | `MAIL_POSTMARK_STREAM` | string | `outbound` | The Postmark message stream | v0.2 |
 
+## Storage
+
+Read by `storage.ForApp` (or `storage.LoadConfig`) into `storage.Config`
+for each disk, and by the drivers. The default disk reads `STORAGE_*`; a
+disk named in `STORAGE_DISKS`, say `avatars`, reads `STORAGE_AVATARS_*`
+(`STORAGE_AVATARS_DRIVER`, `STORAGE_AVATARS_S3_BUCKET`, …). See
+[Store files](../guides/storage.md).
+
+| Key | Type | Default | Description | Since |
+|---|---|---|---|---|
+| `STORAGE_DISKS` | comma-separated names | none | More disks: lower-case letters, digits and `_`, starting with a letter | v0.2 |
+| `STORAGE_DRIVER` | `local` \| `memory` \| a driver's name (`s3`) | `local` | Where the disk's files are; `s3` needs `s3.Driver()` passed to `storage.ForApp`. Named disks default to the default disk's | v0.2 |
+| `STORAGE_ROOT` | directory | `storage/app` (`storage/<name>` for a named disk) | The local driver's directory | v0.2 |
+| `STORAGE_URL` | URL | none | Where the disk's files are served: a CDN, a public bucket, or the route of the disk's handler. Needed for `URL`, and for `TemporaryURL` on local disks | v0.2 |
+| `STORAGE_PUBLIC` | bool | `false` | Anyone may read the files at `STORAGE_URL`, so `URL` works; otherwise only signed temporary URLs do | v0.2 |
+| `STORAGE_S3_BUCKET` | string | none (required with `s3`) | The bucket | v0.2 |
+| `STORAGE_S3_REGION` | string | `us-east-1` | The bucket's region (`auto` for R2). Named disks take the default disk's region, endpoint, keys and path style if they set none of them | v0.2 |
+| `STORAGE_S3_ENDPOINT` | URL | AWS | The store's URL, for S3-compatible stores (R2, MinIO, …). Named disks take the default disk's region, endpoint, keys and path style if they set none of them | v0.2 |
+| `STORAGE_S3_ACCESS_KEY`, `STORAGE_S3_SECRET_KEY` | string | none | The credentials; without them, the AWS environment variables, shared credentials file or instance role. Named disks take the default disk's region, endpoint, keys and path style if they set none of them | v0.2 |
+| `STORAGE_S3_PATH_STYLE` | bool | `false` | The bucket in the URL's path (MinIO). Named disks take the default disk's region, endpoint, keys and path style if they set none of them | v0.2 |
+| `STORAGE_S3_PREFIX` | string ending in `/` | none | A prefix for the disk's keys in the bucket (`uploads/`) | v0.2 |
+
 ## Redis
 
 Read by `redis.Connect` (module `drivers/redis`, also used by

@@ -247,3 +247,4 @@ func TestSignUpRules(t *testing.T) {
 - [Handle HTML forms](forms.md)
 - [Validation rules reference](../reference/validation-rules.md)
 - [Handlers and requests](handlers.md)
+- [Store files](storage.md): store the uploads you validated

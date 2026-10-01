@@ -29,10 +29,10 @@ Highest priority first. `.env` is never read.
 | Source | Holds |
 |---|---|
 | `anetostest.Env` | Whatever the test passes |
-| Forced | `APP_ENV=testing`, a random `APP_KEY`, a `CACHE_PREFIX`, `SESSION_PREFIX`, `QUEUE_PREFIX` and `PUBSUB_PREFIX` of the app's own (its items, server-side sessions, Redis jobs and streams are removed by shutdown hooks when the app stops: at the end of the test, or when the test's `app.Run` returns); `MAIL_DRIVER=memory` (emails are kept in the mailer's `*mailer.MemoryTransport`, not sent) |
+| Forced | `APP_ENV=testing`, a random `APP_KEY`, a `CACHE_PREFIX`, `SESSION_PREFIX`, `QUEUE_PREFIX` and `PUBSUB_PREFIX` of the app's own (its items, server-side sessions, Redis jobs and streams are removed by shutdown hooks when the app stops: at the end of the test, or when the test's `app.Run` returns); `MAIL_DRIVER=memory` (emails are kept in the mailer's `*mailer.MemoryTransport`, not sent); `STORAGE_DRIVER=memory` (files are kept in memory, on every disk without a driver of its own) |
 | Process environment | `DB_*` in CI, … |
 | `.env.testing` | Next to the test's `go.mod`; optional |
-| Defaults | `HTTP_ACCESS_LOG=false`, `APP_URL=http://localhost`, `MAIL_FROM_ADDRESS=test@example.com` |
+| Defaults | `HTTP_ACCESS_LOG=false`, `APP_URL=http://example.test` (the test client's site), `MAIL_FROM_ADDRESS=test@example.com` |
 
 With `DB_CONNECTION` unset or `sqlite`, and `DB_DATABASE` and `DB_URL`
 unset or empty in every source, `DB_DATABASE=:memory:` wins over all of
@@ -64,6 +64,7 @@ an URL on another site fails the test. Requests go to the router as
 |---|---|---|
 | `app.Get(path)`, `app.Head(path)`, `app.Delete(path)` | No body | `text/html` |
 | `app.PostForm(path, url.Values)`, `PutForm`, `PatchForm`, `DeleteForm` | URL-encoded form | `text/html` |
+| `app.PostMultipart(path, url.Values, anetostest.Upload{Field, Filename, Content, ContentType}…)` | Multipart form: the fields, then the files | `text/html` |
 | `app.GetJSON(path)`, `app.DeleteJSON(path)` | No body | `application/json` |
 | `app.PostJSON(path, v)`, `PutJSON`, `PatchJSON` | v encoded as JSON | `application/json` |
 | `app.Do(req)` | req (from `httptest.NewRequest` with a path), adding the jar's cookies it doesn't have, headers it doesn't have, `Referer` and token | req's |

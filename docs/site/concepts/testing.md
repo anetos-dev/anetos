@@ -31,9 +31,10 @@ when the test ends. There is no test-only wiring: `session.ForApp` and
 Settings come from these sources, highest priority first: `anetostest.Env`
 options; `APP_ENV=testing`, a random `APP_KEY`, and a `CACHE_PREFIX`,
 `SESSION_PREFIX`, `QUEUE_PREFIX` and `PUBSUB_PREFIX` of the app's own, and
-`MAIL_DRIVER=memory`, so emails are kept rather than sent; the process
+`MAIL_DRIVER=memory` and `STORAGE_DRIVER=memory`, so emails are kept
+rather than sent and files kept in memory; the process
 environment; `.env.testing` next to `go.mod`; then `HTTP_ACCESS_LOG=false`,
-`APP_URL=http://localhost` and `MAIL_FROM_ADDRESS=test@example.com`.
+`APP_URL=http://example.test` (the test client's site) and `MAIL_FROM_ADDRESS=test@example.com`.
 Settings in `.env` are never used. With SQLite and no `DB_DATABASE` or
 `DB_URL`, the database is `:memory:`, never the default `database/app.db`.
 If the test settings name a database without `DB_CONNECTION` while `.env`
