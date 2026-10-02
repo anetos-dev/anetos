@@ -66,8 +66,25 @@ All notable changes to this project are documented here. The format follows
   to your app", concept and reference pages (A1).
 - `web.HTTPError.ClientMessage()` and `ClientFields()`: the message and
   field messages clients see (A1).
+- AI providers, each a driver module on the provider's official SDK:
+  `drivers/anthropic` (`AI_PROVIDER=anthropic`, `ANTHROPIC_API_KEY`),
+  `drivers/openai` (`openai`, `OPENAI_API_KEY`; and `openai-compatible`
+  for Ollama, vLLM, LM Studio, OpenRouter, Groq…:
+  `OPENAI_COMPATIBLE_URL`, `OPENAI_COMPATIBLE_KEY`) and `drivers/gemini`
+  (`gemini`, `GEMINI_API_KEY`), with text, streaming, tools, structured
+  output and usage; `Options` for thinking budgets and reasoning effort,
+  and a hook to the SDK's request parameters; `AI_MODEL` is required
+  (A2, design §14.4, D166–D168).
+- `ai.Reasoning`, the reasoning a model needs back after tool calls
+  (Claude's thinking, Gemini's thought signatures), kept in
+  conversations (A2, D166).
+- `Schema.Map(ai.SchemaOptions{…})` and `ai.ConstraintKeywords`, to adapt
+  a schema to a provider's JSON Schema dialect (A2, D167).
+- `ai/aitest`, the providers' conformance suite on recorded HTTP
+  exchanges, with record, live and update modes (A2, D168).
 
 ### Changed
+- `examples/ai` is its own module, with the provider drivers (A2).
 - `s.Rename` refuses a table with a search index, `Alter` refuses to drop
   or rename an indexed column unless it drops the index too, and
   `Update`, `Delete` and `CursorPaginate` refuse a query with `Search`

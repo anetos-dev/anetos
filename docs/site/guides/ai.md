@@ -15,32 +15,43 @@ small support desk API.
 ## Before you start
 
 You have an app created with `anetos.New()`. Choose the provider with
-`AI_PROVIDER`, and the model with `AI_MODEL`:
+`AI_PROVIDER`, and the model with `AI_MODEL`. Each provider is a driver
+module, on the provider's official Go SDK, so your app depends only on
+the SDKs it uses:
 
-| Provider | Models are | Use it for |
+| `AI_PROVIDER` | Driver | Settings |
 |---|---|---|
-| A driver module's name | Called through the provider's official SDK, with its API key | Development and production |
-| `fake` | Never called: requests get scripted replies | Tests (`anetostest` sets it) |
+| `anthropic` | `anetos.dev/anetos/drivers/anthropic` | `ANTHROPIC_API_KEY` |
+| `openai` | `anetos.dev/anetos/drivers/openai` | `OPENAI_API_KEY` |
+| `openai-compatible` | the same, `openai.CompatibleDriver()`: Ollama, vLLM, LM Studio, OpenRouter, Groq… | `OPENAI_COMPATIBLE_URL`, and `OPENAI_COMPATIBLE_KEY` if the server needs one |
+| `gemini` | `anetos.dev/anetos/drivers/gemini` | `GEMINI_API_KEY` |
+| `fake` | built in: no model is called, requests get scripted replies | Tests (`anetostest` sets it) |
 
-> **Note:** The provider drivers (Anthropic, OpenAI and OpenAI-compatible
-> servers such as Ollama, and Gemini) are planned for v0.3, as separate
-> modules, so your app will depend only on the SDK it uses. Until then,
-> `fake` is the only provider: everything on this page works, and is
-> tested, with it.
+```env
+AI_PROVIDER=anthropic
+AI_MODEL=claude-haiku-4-5
+ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+```
+
+For a local model, run [Ollama](https://ollama.com) and point the
+compatible driver at it: `AI_PROVIDER=openai-compatible`,
+`OPENAI_COMPATIBLE_URL=http://localhost:11434/v1`, `AI_MODEL=llama3.2`.
 
 `AI_MAX_TOKENS` (default 4096) bounds each answer's length, and
 `AI_TIMEOUT` (default 10 minutes) each request's time. See
-[Configuration](../reference/configuration.md#ai).
+[Configuration](../reference/configuration.md#ai). The app doesn't
+start if the provider's key or `AI_MODEL` is missing.
 
 ## Steps
 
 ### 1. Set up the client
 
-In your setup function, after `anetos.New()`, call `ai.ForApp`, with
-the drivers of the providers you use:
+In your setup function, after `anetos.New()`, call `ai.ForApp` with
+the drivers of the providers your app may use (`AI_PROVIDER` picks one):
 
 ```go
-if _, err := ai.ForApp(app); err != nil { // AI_PROVIDER, AI_MODEL; pass the provider's driver
+// AI_PROVIDER picks one of these, AI_MODEL the model.
+if _, err := ai.ForApp(app, anthropic.Driver(), openai.Driver(), openai.CompatibleDriver(), gemini.Driver()); err != nil {
 	return nil, err
 }
 ```
@@ -78,7 +89,8 @@ conversation, pass the previous result's messages:
 Messages marshal to JSON, so you can store a conversation and continue it
 in a later request. Continue only from a successful call: after an error,
 the conversation can end with tool calls that have no results, which
-providers refuse.
+providers refuse. (An answer cut off at the token limit doesn't run its
+tool calls: they get error results, so the conversation stays valid.)
 
 ### 3. Get a typed answer
 
@@ -307,11 +319,35 @@ request or a job, so [N+1 detection](n-plus-one.md) covers it. See
 [AI](../concepts/ai.md) for the design, and the
 [AI reference](../reference/ai.md) for every option.
 
+Providers differ, and the drivers smooth what they can:
+
+- **Typed answers** use each provider's structured output. Each accepts
+  a different part of JSON Schema: rules it doesn't take (lengths,
+  ranges) are written into the fields' descriptions for the model, and
+  the answer is validated either way. OpenAI's strict mode is used when
+  the struct allows it (no maps, no `any` fields). Claude's structured
+  output takes no maps or `any` fields at all (the call fails before
+  sending), and at most 24 optional and 16 nullable fields.
+- **Reasoning:** models that think (Claude with extended thinking,
+  Gemini's thinking models) need their earlier reasoning back when they
+  get tool results. It's kept in the conversation as `ai.Reasoning`
+  parts, which marshal to JSON with the rest, and other providers
+  leave out. Claude with extended thinking can't continue a tool call
+  another provider made.
+- **A provider's own features** go through `ai.ProviderOptions` with the
+  driver's `Options`: `anthropic.Options{ThinkingBudget: 4096}`,
+  `openai.Options{ReasoningEffort: "low"}`, `gemini.Options{ThinkingBudget: &budget}`;
+  each also has a function to change the SDK's request parameters
+  directly. `Response.Raw` holds the SDK's response.
+
 ## Common problems
 
 | Problem | Cause | Fix |
 |---|---|---|
 | `ai: AI_PROVIDER isn't set` | No provider chosen | Set `AI_PROVIDER`, and pass its driver to `ai.ForApp` |
+| `ai: open the anthropic provider: ANTHROPIC_API_KEY isn't set` (or `AI_MODEL isn't set`) | The provider's key, or the model, is missing | Set it; the provider's names for its models are in its documentation |
+| `openai: authenticated requests require HTTPS` | `OPENAI_COMPATIBLE_KEY` is set and `OPENAI_COMPATIBLE_URL` is plain HTTP to another machine | Use https, or no key; on your own machine, HTTP works |
+| A local model's typed answers fail twice | Small models follow schemas poorly | Use a larger model, or simpler structs |
 | `ai: no AI client in the context` | `ai.ForApp` wasn't called, or the context isn't the app's | Call it in setup; use the request's or job's context |
 | `ai: fake: no reply scripted for request N` in a test | The app made more requests than `FakeAI` scripted | Add replies (`FakeAI`, `app.AI().Add`); `app.AI().Requests()` shows them |
 | `ai: the model's answer isn't a valid …` (502) | The answer broke the struct's shape or rules twice | Loosen the rules, describe fields better (`description` tags), or use a stronger model |

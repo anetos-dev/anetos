@@ -1,0 +1,118 @@
+{
+  "interactions": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/v1/chat/completions",
+        "body": {
+          "max_tokens": 1024,
+          "messages": [
+            {
+              "content": "You use the tools you're given to answer.",
+              "role": "system"
+            },
+            {
+              "content": "What's the weather in Paris? Use the get_weather tool.",
+              "role": "user"
+            }
+          ],
+          "model": "llama3.2",
+          "tools": [
+            {
+              "function": {
+                "description": "Today's weather in a city",
+                "name": "get_weather",
+                "parameters": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "city": {
+                      "description": "The city's name",
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "city"
+                  ],
+                  "type": "object"
+                }
+              },
+              "type": "function"
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": "{\"id\": \"chatcmpl-TO1\", \"object\": \"chat.completion\", \"created\": 1759400000, \"model\": \"llama3.2\", \"choices\": [{\"index\": 0, \"message\": {\"role\": \"assistant\", \"content\": null, \"tool_calls\": [{\"id\": \"call_Xq8Zk1ImBy3tJ2Ar9QSa5cDe\", \"type\": \"function\", \"function\": {\"name\": \"get_weather\", \"arguments\": \"{\\\"city\\\":\\\"Paris\\\"}\"}}]}, \"logprobs\": null, \"finish_reason\": \"tool_calls\"}], \"usage\": {\"prompt_tokens\": 160, \"completion_tokens\": 18, \"total_tokens\": 178}, \"system_fingerprint\": \"fp_ollama\"}"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/v1/chat/completions",
+        "body": {
+          "max_tokens": 1024,
+          "messages": [
+            {
+              "content": "You use the tools you're given to answer.",
+              "role": "system"
+            },
+            {
+              "content": "What's the weather in Paris? Use the get_weather tool.",
+              "role": "user"
+            },
+            {
+              "role": "assistant",
+              "tool_calls": [
+                {
+                  "function": {
+                    "arguments": "{\"city\":\"Paris\"}",
+                    "name": "get_weather"
+                  },
+                  "id": "call_Xq8Zk1ImBy3tJ2Ar9QSa5cDe",
+                  "type": "function"
+                }
+              ]
+            },
+            {
+              "content": "{\"city\":\"Paris\",\"sky\":\"sunny\",\"celsius\":21}",
+              "role": "tool",
+              "tool_call_id": "call_Xq8Zk1ImBy3tJ2Ar9QSa5cDe"
+            }
+          ],
+          "model": "llama3.2",
+          "tools": [
+            {
+              "function": {
+                "description": "Today's weather in a city",
+                "name": "get_weather",
+                "parameters": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "city": {
+                      "description": "The city's name",
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "city"
+                  ],
+                  "type": "object"
+                }
+              },
+              "type": "function"
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": "{\"id\": \"chatcmpl-TO2\", \"object\": \"chat.completion\", \"created\": 1759400000, \"model\": \"llama3.2\", \"choices\": [{\"index\": 0, \"message\": {\"role\": \"assistant\", \"content\": \"It's sunny in Paris today, 21\\u00b0C.\"}, \"logprobs\": null, \"finish_reason\": \"stop\"}], \"usage\": {\"prompt_tokens\": 205, \"completion_tokens\": 14, \"total_tokens\": 219}, \"system_fingerprint\": \"fp_ollama\"}"
+      }
+    }
+  ]
+}

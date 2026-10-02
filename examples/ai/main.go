@@ -6,20 +6,19 @@
 // written. Orders are kept in memory; the X-Customer header stands in for
 // authentication.
 //
-// Its tests script the model's answers with anetostest.FakeAI, so they
-// run without a provider:
+// It runs with any provider: Anthropic, OpenAI, Gemini, or a local
+// model through an OpenAI-compatible server such as Ollama:
 //
-//	go test ./examples/ai
-//
-// The provider drivers (Anthropic, OpenAI, Gemini) are planned for v0.3.
-// With one passed to ai.ForApp in setup, the app runs against a real
-// model:
-//
-//	export APP_ENV=development HTTP_ADDR=:8080 AI_PROVIDER=…   # the driver's name, and its key
-//	go run ./examples/ai
+//	export APP_ENV=development HTTP_ADDR=:8080
+//	export AI_PROVIDER=anthropic AI_MODEL=claude-haiku-4-5 ANTHROPIC_API_KEY=…
+//	# or AI_PROVIDER=openai-compatible OPENAI_COMPATIBLE_URL=http://localhost:11434/v1 AI_MODEL=llama3.2
+//	go run .
 //	curl -s localhost:8080/summaries -d '{"text":"My parcel is late and the tracking page is broken."}'
 //	curl -s localhost:8080/questions -H 'X-Customer: ada' -d '{"question":"Where is order 1042?"}'
 //	curl -sN 'localhost:8080/questions/stream?question=Where+is+order+1042%3F' -H 'X-Customer: ada'
+//
+// Its tests script the model's answers with anetostest.FakeAI, so they
+// run without a provider.
 package main
 
 import (
@@ -33,6 +32,9 @@ import (
 
 	"anetos.dev/anetos"
 	"anetos.dev/anetos/ai"
+	"anetos.dev/anetos/drivers/anthropic"
+	"anetos.dev/anetos/drivers/gemini"
+	"anetos.dev/anetos/drivers/openai"
 	"anetos.dev/anetos/web"
 )
 
@@ -49,7 +51,8 @@ func main() {
 
 func setup(app *anetos.App) (*web.Server, error) {
 	// region: setup
-	if _, err := ai.ForApp(app); err != nil { // AI_PROVIDER, AI_MODEL; pass the provider's driver
+	// AI_PROVIDER picks one of these, AI_MODEL the model.
+	if _, err := ai.ForApp(app, anthropic.Driver(), openai.Driver(), openai.CompatibleDriver(), gemini.Driver()); err != nil {
 		return nil, err
 	}
 	// endregion

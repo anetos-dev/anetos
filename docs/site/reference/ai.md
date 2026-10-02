@@ -38,7 +38,7 @@ Applied in order: the client's defaults, an agent's, the call's.
 | Option | Does | Default |
 |---|---|---|
 | `ai.System(text)` | Adds system instructions; several are joined by blank lines, in the order the options come (an agent's `Instructions` where the agent is) | none |
-| `ai.Model(name)` | The model | `AI_MODEL`, else the provider's |
+| `ai.Model(name)` | The model, by the provider's name for it | `AI_MODEL` |
 | `ai.MaxTokens(n)` | The longest answer, in tokens | `AI_MAX_TOKENS` |
 | `ai.Temperature(t)` | Sampling temperature | the provider's |
 | `ai.Timeout(d)` | Each request's timeout (in a stream, including the reader's time) | `AI_TIMEOUT` |
@@ -67,7 +67,7 @@ Applied in order: the client's defaults, an agent's, the call's.
 | `ai.Result` | `Messages` (the whole conversation: given messages, prompt, answers, tool results; after an error it can end with tool calls without results, which providers refuse to continue from), `Steps` (`[]*ai.Response`), `Usage` (the total); `Text()` (the last response's), `Response()` (the last) |
 | `ai.Response` | `Message`, `Stop`, `Usage`, `Model` (that answered), `Raw` (the provider's own response); `Text()`, `ToolCalls()` |
 | `ai.Usage` | `InputTokens` (including cached), `OutputTokens`, `CacheReadTokens`, `CacheWriteTokens`; `Add(u)` |
-| `ai.Message` | `Role` (`ai.RoleUser`, `RoleAssistant`, `RoleTool`), `Parts` (`ai.Text`, `ai.ToolCall{ID, Name, Input}`, `ai.ToolResult{CallID, Name, Content, IsError}`); `Text()`, `ToolCalls()`; JSON `{"role", "parts": [{"type": "text" \| "tool_call" \| "tool_result", …}]}`. `ai.UserMessage(text)`, `ai.AssistantMessage(text)` |
+| `ai.Message` | `Role` (`ai.RoleUser`, `RoleAssistant`, `RoleTool`), `Parts` (`ai.Text`, `ai.ToolCall{ID, Name, Input}`, `ai.ToolResult{CallID, Name, Content, IsError}`, `ai.Reasoning{Provider, Text, Data}`: a model's reasoning its provider needs back, before the part it belongs to; other providers leave it out); `Text()` (the text parts only), `ToolCalls()`; JSON `{"role", "parts": [{"type": "text" \| "tool_call" \| "tool_result" \| "reasoning", …}]}`. `ai.UserMessage(text)`, `ai.AssistantMessage(text)` |
 
 | `Stop` | Means |
 |---|---|
@@ -140,11 +140,41 @@ Recursive types are an error.
 | `*ai.OutputError` (`Type`, `Text`, `Stop`, `Err`) | `GenerateObject`'s answer was invalid twice, cut off, or refused; `Err` is a `*validate.Errors` for broken rules | 502 |
 | `ai: <provider>: <error>` | The provider failed (wraps its error) | 500; 503 on a timeout |
 
-## Providers (for driver authors)
+## Providers
+
+| Package | `AI_PROVIDER` | Constructor | `Options` (for `ai.ProviderOptions`) | `Response.Raw` |
+|---|---|---|---|---|
+| `drivers/anthropic` | `anthropic` | `anthropic.Driver()`, `anthropic.New(key, opts...)` | `ThinkingBudget` (extended thinking), `Params func(*anthropic.MessageNewParams)` | `*anthropic.Message` |
+| `drivers/openai` | `openai` | `openai.Driver()`, `openai.New(key, opts...)` | `ReasoningEffort`, `Params func(*openai.ChatCompletionNewParams)` | `*openai.ChatCompletion` (streams: `[]openai.ChatCompletionChunk`) |
+| `drivers/openai` | `openai-compatible` | `openai.CompatibleDriver()`, `openai.NewCompatible(url, key, opts...)` | the same | the same |
+| `drivers/gemini` | `gemini` | `gemini.Driver()`, `gemini.New(ctx, genai.ClientConfig{APIKey: key, …})` | `ThinkingBudget *int32`, `Config func(*genai.GenerateContentConfig)` | `*genai.GenerateContentResponse` (streams: a slice of them) |
+
+Each provider's `Client()` returns its SDK client. All use their API's
+chat endpoint (OpenAI's: Chat Completions, which compatible servers
+have) and the provider's structured output; the compatible provider
+sends `max_tokens`, OpenAI's `max_completion_tokens`. Rate limits and
+server errors are retried twice (by the Anthropic and OpenAI SDKs; the
+Gemini driver turns the SDK's retries on). The Anthropic and compatible
+providers send nothing from the SDKs' environment variables; OpenAI's
+reads `OPENAI_ORG_ID`, `OPENAI_PROJECT_ID` and the like, which are
+yours.
+
+| Provider | JSON Schema it takes for structured output | Other rules |
+|---|---|---|
+| Anthropic (no maps or `any` fields: refused before sending; at most 24 optional fields and 16 nullable or union ones) | types, `enum`, `format`; nullable as `anyOf` | In the description |
+| OpenAI (strict mode, when no maps or `any` fields) | types, `enum`; every property required, optional ones nullable | In the description |
+| Gemini | types, `enum`, `format` (date-time, date, time), `minimum`, `maximum`, `minItems`, `maxItems`; nullable as `anyOf` | In the description |
+
+Tool inputs get all of JSON Schema, except on Gemini (its dialect, as
+above).
+
+## Writing a provider
 
 | API | Does |
 |---|---|
 | `ai.Provider` | `Name()`, `Generate(ctx, *ai.Request) (*ai.Response, error)`, `Stream(ctx, *ai.Request) iter.Seq2[ai.Event, error]` (`EventText`s and `EventToolCall`s, then one `EventResponse` with the whole response) |
-| `ai.Request` | `Model` (empty: the provider's default), `System`, `Messages`, `Tools` (`[]ai.ToolSpec`), `Output` (`*ai.OutputSpec{Name, Schema}`: structured output), `MaxTokens`, `Temperature` (`*float64`), `Options` (the driver's own type, or ignore); `Prompt()` |
+| `schema.Map(ai.SchemaOptions{Keywords, Formats, AllRequired, NullableAnyOf})` | The schema as a `map[string]any` in the provider's dialect: the constraint keywords it takes (of `ai.ConstraintKeywords`) and the string formats (all, if `Formats` is empty), the others in words in the description; every property required (optional ones nullable); nullable as `anyOf`. Properties keep their order when marshaled (a provider may still reorder them: Anthropic puts required ones first) |
+| `aitest.Run(t, aitest.Config{Name, Model, KeyEnv, New, Dir, Skip})` | The conformance suite (package `ai/aitest`): text, streams, a conversation, tool calls and their results (streamed too), structured output, the token limit, errors. It replays recorded HTTP exchanges (`testdata/aitest/<Test>.json`) and checks the requests match; `ANETOS_AI_RECORD=1` records them from the provider (its key in `KeyEnv`; headers are never saved), `ANETOS_AI_LIVE=1` calls it without recording, `ANETOS_AI_UPDATE_REQUESTS=1` rewrites the recorded requests. `ANETOS_TEST_<NAME>_MODEL` picks the model to record with |
+| `ai.Request` | `Model` (the drivers refuse an empty one), `System`, `Messages`, `Tools` (`[]ai.ToolSpec`), `Output` (`*ai.OutputSpec{Name, Schema}`: structured output), `MaxTokens`, `Temperature` (`*float64`), `Options` (the driver's own type, or ignore); `Prompt()` |
 | `ai.Fake`, `ai.NewFake(replies...)` | The scripted provider, safe for concurrent use: `Add`, `Requests`, `Remaining`; replies `ai.FakeText`, `FakeObject`, `FakeToolCall`, `FakeError`, or an `ai.FakeReply` function |
 | `ai.FakeDriver()` | `AI_PROVIDER=fake` |

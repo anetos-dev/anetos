@@ -87,8 +87,8 @@ type Config struct {
 	// replies, for tests), or one passed to ForApp. AI_PROVIDER,
 	// required.
 	Provider string `env:"AI_PROVIDER"`
-	// Model is the default model; empty means the provider's own
-	// default. AI_MODEL.
+	// Model is the default model, by the provider's name for it; the
+	// provider drivers require it (the fake doesn't). AI_MODEL.
 	Model string `env:"AI_MODEL"`
 	// MaxTokens bounds every answer's length, unless a call sets
 	// [MaxTokens]. AI_MAX_TOKENS, default 4096.

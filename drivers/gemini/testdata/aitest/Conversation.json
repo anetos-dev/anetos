@@ -1,0 +1,46 @@
+{
+  "interactions": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/v1beta/models/gemini-2.5-flash:generateContent",
+        "body": {
+          "contents": [
+            {
+              "parts": [
+                {
+                  "text": "My name is Ada."
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "parts": [
+                {
+                  "text": "Nice to meet you, Ada."
+                }
+              ],
+              "role": "model"
+            },
+            {
+              "parts": [
+                {
+                  "text": "What's my name? Answer with the name only."
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "generationConfig": {
+            "maxOutputTokens": 1024
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json; charset=UTF-8",
+        "body": "{\"candidates\": [{\"content\": {\"parts\": [{\"text\": \"Ada\"}], \"role\": \"model\"}, \"finishReason\": \"STOP\", \"index\": 0}], \"usageMetadata\": {\"promptTokenCount\": 24, \"candidatesTokenCount\": 1, \"totalTokenCount\": 40, \"promptTokensDetails\": [{\"modality\": \"TEXT\", \"tokenCount\": 24}], \"thoughtsTokenCount\": 15}, \"modelVersion\": \"gemini-2.5-flash\", \"responseId\": \"r1\"}"
+      }
+    }
+  ]
+}

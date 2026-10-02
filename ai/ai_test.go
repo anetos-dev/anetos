@@ -762,3 +762,88 @@ func TestLogs(t *testing.T) {
 		t.Errorf("a prompt was logged:\n%s", out)
 	}
 }
+
+func TestSchemaMap(t *testing.T) {
+	type opt struct {
+		Name  string            `json:"name" description:"Who" validate:"required|max:20|email"`
+		Age   *int              `json:"age" validate:"between:1,120|in:1,2"`
+		Tags  map[string]string `json:"tags"`
+		Items []string          `json:"items" validate:"max:3"`
+	}
+	s, err := ai.SchemaFor[opt]()
+	check(t, err)
+	js := func(m map[string]any) string {
+		data, err := json.Marshal(m)
+		check(t, err)
+		return string(data)
+	}
+	// All of JSON Schema, in field order.
+	got := js(s.Map(ai.SchemaOptions{Keywords: ai.ConstraintKeywords}))
+	want := `{"additionalProperties":false,"properties":{"name":{"description":"Who","format":"email","maxLength":20,"minLength":1,"type":"string"},` +
+		`"age":{"enum":[1,2,null],"maximum":120,"minimum":1,"type":["integer","null"]},` +
+		`"tags":{"additionalProperties":{"type":"string"},"properties":{},"type":"object"},` +
+		`"items":{"items":{"type":"string"},"maxItems":3,"type":"array"}},"required":["name"],"type":"object"}`
+	if got != want {
+		t.Errorf("all keywords:\n%s\nwant\n%s", got, want)
+	}
+	// Constraints in words, nullable as anyOf, every property required.
+	got = js(s.Map(ai.SchemaOptions{AllRequired: true, NullableAnyOf: true}))
+	for _, w := range []string{
+		`"name":{"description":"Who (format: email; at least 1 character; at most 20 characters)","type":"string"}`,
+		`"age":{"anyOf":[{"description":"at least 1; at most 120","enum":[1,2],"type":"integer"},{"type":"null"}]}`,
+		`"tags":{"anyOf":[{"additionalProperties":{"type":"string"},"properties":{},"type":"object"},{"type":"null"}]}`,
+		`"required":["name","age","tags","items"]`,
+	} {
+		if !strings.Contains(got, w) {
+			t.Errorf("adapted:\n%s\nlacks %s", got, w)
+		}
+	}
+}
+
+func TestReasoningJSON(t *testing.T) {
+	m := ai.Message{Role: ai.RoleAssistant, Parts: []ai.Part{ai.Reasoning{Provider: "anthropic", Text: "Hmm.", Data: "sig"}, ai.Text("Yes.")}}
+	data, err := json.Marshal(m)
+	check(t, err)
+	if string(data) != `{"role":"assistant","parts":[{"type":"reasoning","text":"Hmm.","provider":"anthropic","data":"sig"},{"type":"text","text":"Yes."}]}` {
+		t.Errorf("JSON: %s", data)
+	}
+	var back ai.Message
+	check(t, json.Unmarshal(data, &back))
+	if back.Parts[0] != m.Parts[0] || back.Text() != "Yes." {
+		t.Errorf("back: %+v", back)
+	}
+	// Reasoning belongs to the model.
+	ctx, _ := fake(ai.FakeText("ok"))
+	bad := ai.Message{Role: ai.RoleUser, Parts: []ai.Part{ai.Reasoning{Data: "x"}}}
+	if _, err := ai.Generate(ctx, "", ai.Messages(bad)); err == nil {
+		t.Error("reasoning in a user message: no error")
+	}
+	if _, err := ai.Generate(ctx, "go on", ai.Messages(m)); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestCutOffToolCalls(t *testing.T) {
+	ran := false
+	tool := ai.Func("t", "", func(context.Context, struct{}) (string, error) { ran = true; return "", nil })
+	ctx, _ := fake(func(*ai.Request) (*ai.Response, error) {
+		return &ai.Response{Message: ai.Message{Role: ai.RoleAssistant, Parts: []ai.Part{ai.ToolCall{ID: "c", Name: "t", Input: json.RawMessage(`{}`)}}}, Stop: ai.StopMaxTokens}, nil
+	})
+	res, err := ai.Generate(ctx, "go", ai.Tools(tool))
+	if err != nil || ran || res.Response().Stop != ai.StopMaxTokens || len(res.Steps) != 1 || len(res.Messages) != 3 {
+		t.Fatalf("cut-off tool call: ran %v, %v", ran, err)
+	}
+	if r, ok := res.Messages[2].Parts[0].(ai.ToolResult); !ok || !r.IsError || r.CallID != "c" {
+		t.Errorf("the cut-off call's result: %+v", res.Messages[2])
+	}
+	// Formats a provider doesn't take go into the description.
+	type f struct {
+		Mail string `json:"mail" validate:"email"`
+		Day  string `json:"day" validate:"date"`
+	}
+	s, _ := ai.SchemaFor[f]()
+	data, _ := json.Marshal(s.Map(ai.SchemaOptions{Keywords: []string{"format"}, Formats: []string{"date"}}))
+	if !strings.Contains(string(data), `"mail":{"description":"format: email","type":"string"}`) || !strings.Contains(string(data), `"day":{"format":"date"`) {
+		t.Errorf("formats: %s", data)
+	}
+}

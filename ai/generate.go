@@ -46,8 +46,7 @@ type call struct {
 }
 
 // Model sets the model: its name at the provider ("claude-sonnet-4-5",
-// "gpt-5"…). Without it, the AI_MODEL setting, else the provider's
-// default.
+// "gpt-5"…). Without it, the AI_MODEL setting.
 func Model(name string) Option { return optionFunc(func(c *call) { c.model = name }) }
 
 // System adds system instructions: who the model is, what it may do,
@@ -206,7 +205,8 @@ var ErrMaxSteps = errors.New("ai: the model was still calling tools at the step 
 // client is the context's ([ForApp]), or [Using]'s. Each request to the
 // model is logged (provider, model, tokens, time; never the content). An
 // answer cut off at [MaxTokens] isn't an error: check
-// res.Response().Stop.
+// res.Response().Stop; its tool calls, which may be cut off too, don't
+// run (the conversation gets error results for them).
 func Generate(ctx context.Context, prompt string, opts ...Option) (*Result, error) {
 	return run(ctx, runInput{prompt: prompt, opts: opts})
 }
@@ -548,6 +548,17 @@ func run(ctx context.Context, in runInput) (*Result, error) {
 		}
 		calls := resp.ToolCalls()
 		if len(calls) == 0 {
+			return res, nil
+		}
+		if resp.Stop == StopMaxTokens {
+			// A cut-off answer's tool calls may be cut off too: they don't
+			// run, and say so, for the conversation to stay valid.
+			results := make([]Part, len(calls))
+			for i, tc := range calls {
+				results[i] = ToolResult{CallID: tc.ID, Name: tc.Name, Content: "Not run: the answer was cut off at the token limit.", IsError: true}
+			}
+			msgs = append(msgs, Message{Role: RoleTool, Parts: results})
+			res.Messages = msgs
 			return res, nil
 		}
 		if step >= maxSteps {

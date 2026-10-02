@@ -1,0 +1,64 @@
+{
+  "interactions": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/v1/messages",
+        "body": {
+          "max_tokens": 1024,
+          "messages": [
+            {
+              "content": [
+                {
+                  "text": "What is the capital of France?",
+                  "type": "text"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "model": "claude-haiku-4-5",
+          "output_config": {
+            "format": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "city": {
+                    "description": "at least 1 character",
+                    "type": "string"
+                  },
+                  "country": {
+                    "description": "at least 1 character",
+                    "type": "string"
+                  },
+                  "population": {
+                    "anyOf": [
+                      {
+                        "description": "Inhabitants of the city proper, if known",
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "city",
+                  "country"
+                ],
+                "type": "object"
+              },
+              "type": "json_schema"
+            }
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": "{\"id\": \"msg_01Out\", \"type\": \"message\", \"role\": \"assistant\", \"model\": \"claude-haiku-4-5-20251001\", \"content\": [{\"type\": \"text\", \"text\": \"{\\\"city\\\":\\\"Paris\\\",\\\"country\\\":\\\"France\\\",\\\"population\\\":2102650}\"}], \"stop_reason\": \"end_turn\", \"stop_sequence\": null, \"usage\": {\"input_tokens\": 180, \"cache_creation_input_tokens\": 0, \"cache_read_input_tokens\": 0, \"output_tokens\": 24, \"service_tier\": \"standard\"}}"
+      }
+    }
+  ]
+}

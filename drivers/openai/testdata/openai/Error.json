@@ -1,0 +1,58 @@
+{
+  "interactions": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/v1/chat/completions",
+        "body": {
+          "max_completion_tokens": 1024,
+          "messages": [
+            {
+              "content": "You answer with one word.",
+              "role": "system"
+            },
+            {
+              "content": "Reply with the word pong.",
+              "role": "user"
+            }
+          ],
+          "model": "anetos-no-such-model"
+        }
+      },
+      "response": {
+        "status": 404,
+        "content_type": "application/json",
+        "body": "{\"error\": {\"message\": \"The model `anetos-no-such-model` does not exist or you do not have access to it.\", \"type\": \"invalid_request_error\", \"param\": null, \"code\": \"model_not_found\"}}"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/v1/chat/completions",
+        "body": {
+          "max_completion_tokens": 1024,
+          "messages": [
+            {
+              "content": "You answer with one word.",
+              "role": "system"
+            },
+            {
+              "content": "Reply with the word pong.",
+              "role": "user"
+            }
+          ],
+          "model": "anetos-no-such-model",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          }
+        }
+      },
+      "response": {
+        "status": 404,
+        "content_type": "application/json",
+        "body": "{\"error\": {\"message\": \"The model `anetos-no-such-model` does not exist or you do not have access to it.\", \"type\": \"invalid_request_error\", \"param\": null, \"code\": \"model_not_found\"}}"
+      }
+    }
+  ]
+}

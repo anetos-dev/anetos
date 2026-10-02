@@ -73,7 +73,7 @@ func (s Schema) MarshalJSON() ([]byte, error) {
 			b.WriteByte(',')
 		}
 		first = false
-		b.WriteString(strconv.Quote(name))
+		b.Write(jsonString(name))
 		b.WriteByte(':')
 		data, err := json.Marshal(v)
 		if err != nil {
@@ -107,7 +107,7 @@ func (s Schema) MarshalJSON() ([]byte, error) {
 			if i > 0 {
 				b.WriteByte(',')
 			}
-			b.WriteString(strconv.Quote(p.Name))
+			b.Write(jsonString(p.Name))
 			b.WriteByte(':')
 			data, perr := json.Marshal(p.Schema)
 			if perr != nil {

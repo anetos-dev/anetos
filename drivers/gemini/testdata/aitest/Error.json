@@ -1,0 +1,72 @@
+{
+  "interactions": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/v1beta/models/anetos-no-such-model:generateContent",
+        "body": {
+          "contents": [
+            {
+              "parts": [
+                {
+                  "text": "Reply with the word pong."
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "generationConfig": {
+            "maxOutputTokens": 1024
+          },
+          "systemInstruction": {
+            "parts": [
+              {
+                "text": "You answer with one word."
+              }
+            ],
+            "role": "user"
+          }
+        }
+      },
+      "response": {
+        "status": 404,
+        "content_type": "application/json; charset=UTF-8",
+        "body": "{\"error\": {\"code\": 404, \"message\": \"models/anetos-no-such-model is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.\", \"status\": \"NOT_FOUND\"}}"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/v1beta/models/anetos-no-such-model:streamGenerateContent?alt=sse",
+        "body": {
+          "contents": [
+            {
+              "parts": [
+                {
+                  "text": "Reply with the word pong."
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "generationConfig": {
+            "maxOutputTokens": 1024
+          },
+          "systemInstruction": {
+            "parts": [
+              {
+                "text": "You answer with one word."
+              }
+            ],
+            "role": "user"
+          }
+        }
+      },
+      "response": {
+        "status": 404,
+        "content_type": "application/json; charset=UTF-8",
+        "body": "{\"error\": {\"code\": 404, \"message\": \"models/anetos-no-such-model is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.\", \"status\": \"NOT_FOUND\"}}"
+      }
+    }
+  ]
+}

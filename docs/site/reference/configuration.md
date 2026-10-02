@@ -263,10 +263,23 @@ drivers. See [Add AI to your app](../guides/ai.md).
 
 | Key | Type | Default | Description | Since |
 |---|---|---|---|---|
-| `AI_PROVIDER` | `fake` \| a driver's name | none (required) | The provider that runs the models. `fake` answers with scripted replies and never calls a model (a warning in production; `anetostest` sets it); the others need their driver passed to `ai.ForApp` | v0.3 |
-| `AI_MODEL` | string | the provider's default | The model calls use unless they set `ai.Model` | v0.3 |
+| `AI_PROVIDER` | `anthropic` \| `openai` \| `openai-compatible` \| `gemini` \| `fake` \| another driver's name | none (required) | The provider that runs the models; its driver must be passed to `ai.ForApp` (`fake` is built in: it answers with scripted replies and never calls a model, a warning in production; `anetostest` sets it) | v0.3 |
+| `AI_MODEL` | string | none (required by the drivers) | The model calls use unless they set `ai.Model`, by the provider's name for it | v0.3 |
 | `AI_MAX_TOKENS` | int ≥ 1 | `4096` | The longest answer, in tokens, unless a call sets `ai.MaxTokens`; a longer one is cut off | v0.3 |
 | `AI_TIMEOUT` | duration > 0 | `10m` | How long each request to the model may take, unless a call sets `ai.Timeout`; for a stream, including the time the reader's loop takes | v0.3 |
+| `ANTHROPIC_API_KEY` | secret | none (required with `anthropic`) | The Anthropic API key | v0.3 |
+| `ANTHROPIC_BASE_URL` | URL | Anthropic's | Another URL for the API (a proxy, a gateway) | v0.3 |
+| `OPENAI_API_KEY` | secret | none (required with `openai`) | The OpenAI API key | v0.3 |
+| `OPENAI_BASE_URL` | URL | OpenAI's | Another URL for OpenAI's API (a proxy, a gateway) | v0.3 |
+| `OPENAI_COMPATIBLE_URL` | URL | none (required with `openai-compatible`) | The API URL of an OpenAI-compatible server, up to `/v1`: `http://localhost:11434/v1` for Ollama | v0.3 |
+| `OPENAI_COMPATIBLE_KEY` | secret | none | Its API key, if it needs one (then the URL must be https, or on this machine) | v0.3 |
+| `GEMINI_API_KEY` | secret | none (required with `gemini`) | The Gemini API key, from Google AI Studio | v0.3 |
+| `GEMINI_BASE_URL` | URL | Google's | Another URL for the Gemini API | v0.3 |
+
+The OpenAI and Anthropic SDKs also read their own variables from the
+process environment (`OPENAI_ORG_ID`, `OPENAI_PROJECT_ID`,
+`ANTHROPIC_AUTH_TOKEN`…): the OpenAI driver uses them, the Anthropic
+and compatible drivers don't.
 
 ## Storage
 

@@ -1,0 +1,60 @@
+{
+  "interactions": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/v1beta/models/gemini-2.5-flash:generateContent",
+        "body": {
+          "contents": [
+            {
+              "parts": [
+                {
+                  "text": "What is the capital of France?"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "generationConfig": {
+            "maxOutputTokens": 1024,
+            "responseJsonSchema": {
+              "additionalProperties": false,
+              "properties": {
+                "city": {
+                  "description": "at least 1 character",
+                  "type": "string"
+                },
+                "country": {
+                  "description": "at least 1 character",
+                  "type": "string"
+                },
+                "population": {
+                  "anyOf": [
+                    {
+                      "description": "Inhabitants of the city proper, if known",
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "city",
+                "country"
+              ],
+              "type": "object"
+            },
+            "responseMimeType": "application/json"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json; charset=UTF-8",
+        "body": "{\"candidates\": [{\"content\": {\"parts\": [{\"text\": \"{\\\"city\\\": \\\"Paris\\\", \\\"country\\\": \\\"France\\\", \\\"population\\\": 2102650}\"}], \"role\": \"model\"}, \"finishReason\": \"STOP\", \"index\": 0}], \"usageMetadata\": {\"promptTokenCount\": 30, \"candidatesTokenCount\": 20, \"totalTokenCount\": 110, \"promptTokensDetails\": [{\"modality\": \"TEXT\", \"tokenCount\": 30}], \"thoughtsTokenCount\": 60}, \"modelVersion\": \"gemini-2.5-flash\", \"responseId\": \"r1\"}"
+      }
+    }
+  ]
+}

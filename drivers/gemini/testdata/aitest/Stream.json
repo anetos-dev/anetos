@@ -1,0 +1,38 @@
+{
+  "interactions": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse",
+        "body": {
+          "contents": [
+            {
+              "parts": [
+                {
+                  "text": "Reply with the word pong."
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "generationConfig": {
+            "maxOutputTokens": 1024
+          },
+          "systemInstruction": {
+            "parts": [
+              {
+                "text": "You answer with one word."
+              }
+            ],
+            "role": "user"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "content_type": "text/event-stream",
+        "body": "data: {\"candidates\": [{\"content\": {\"parts\": [{\"text\": \"Po\"}], \"role\": \"model\"}, \"index\": 0}], \"modelVersion\": \"gemini-2.5-flash\", \"responseId\": \"s1\"}\r\n\r\ndata: {\"candidates\": [{\"content\": {\"parts\": [{\"text\": \"ng!\"}], \"role\": \"model\"}, \"index\": 0}], \"modelVersion\": \"gemini-2.5-flash\", \"responseId\": \"s1\"}\r\n\r\ndata: {\"candidates\": [{\"content\": {\"parts\": [{\"text\": \"\"}], \"role\": \"model\"}, \"index\": 0, \"finishReason\": \"STOP\"}], \"modelVersion\": \"gemini-2.5-flash\", \"responseId\": \"s1\", \"usageMetadata\": {\"promptTokenCount\": 11, \"candidatesTokenCount\": 2, \"totalTokenCount\": 31, \"promptTokensDetails\": [{\"modality\": \"TEXT\", \"tokenCount\": 11}], \"thoughtsTokenCount\": 18}}\r\n\r\n"
+      }
+    }
+  ]
+}

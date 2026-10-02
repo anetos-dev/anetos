@@ -1,0 +1,141 @@
+{
+  "interactions": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/v1/messages",
+        "body": {
+          "max_tokens": 1024,
+          "messages": [
+            {
+              "content": [
+                {
+                  "text": "What's the weather in Paris? Use the get_weather tool.",
+                  "type": "text"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "model": "claude-haiku-4-5",
+          "system": [
+            {
+              "text": "You use the tools you're given to answer.",
+              "type": "text"
+            }
+          ],
+          "tools": [
+            {
+              "description": "Today's weather in a city",
+              "input_schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "city": {
+                    "description": "The city's name",
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "city"
+                ],
+                "type": "object"
+              },
+              "name": "get_weather"
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": "{\"id\": \"msg_01Tool1\", \"type\": \"message\", \"role\": \"assistant\", \"model\": \"claude-haiku-4-5-20251001\", \"content\": [{\"type\": \"text\", \"text\": \"I'll look up the weather in Paris.\"}, {\"type\": \"tool_use\", \"id\": \"toolu_01A09q90qw90lq917835lq9\", \"name\": \"get_weather\", \"input\": {\"city\": \"Paris\"}}], \"stop_reason\": \"tool_use\", \"stop_sequence\": null, \"usage\": {\"input_tokens\": 412, \"cache_creation_input_tokens\": 0, \"cache_read_input_tokens\": 0, \"output_tokens\": 64, \"service_tier\": \"standard\"}}"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/v1/messages",
+        "body": {
+          "max_tokens": 1024,
+          "messages": [
+            {
+              "content": [
+                {
+                  "text": "What's the weather in Paris? Use the get_weather tool.",
+                  "type": "text"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "text": "I'll look up the weather in Paris.",
+                  "type": "text"
+                },
+                {
+                  "id": "toolu_01A09q90qw90lq917835lq9",
+                  "input": {
+                    "city": "Paris"
+                  },
+                  "name": "get_weather",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": [
+                    {
+                      "text": "{\"city\":\"Paris\",\"sky\":\"sunny\",\"celsius\":21}",
+                      "type": "text"
+                    }
+                  ],
+                  "is_error": false,
+                  "tool_use_id": "toolu_01A09q90qw90lq917835lq9",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "model": "claude-haiku-4-5",
+          "system": [
+            {
+              "text": "You use the tools you're given to answer.",
+              "type": "text"
+            }
+          ],
+          "tools": [
+            {
+              "description": "Today's weather in a city",
+              "input_schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "city": {
+                    "description": "The city's name",
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "city"
+                ],
+                "type": "object"
+              },
+              "name": "get_weather"
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": "{\"id\": \"msg_01Tool2\", \"type\": \"message\", \"role\": \"assistant\", \"model\": \"claude-haiku-4-5-20251001\", \"content\": [{\"type\": \"text\", \"text\": \"It's sunny in Paris today, 21\\u00b0C.\"}], \"stop_reason\": \"end_turn\", \"stop_sequence\": null, \"usage\": {\"input_tokens\": 520, \"cache_creation_input_tokens\": 0, \"cache_read_input_tokens\": 0, \"output_tokens\": 15, \"service_tier\": \"standard\"}}"
+      }
+    }
+  ]
+}

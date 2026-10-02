@@ -1,0 +1,58 @@
+{
+  "interactions": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/v1/chat/completions",
+        "body": {
+          "max_tokens": 1024,
+          "messages": [
+            {
+              "content": "What is the capital of France?",
+              "role": "user"
+            }
+          ],
+          "model": "llama3.2",
+          "response_format": {
+            "json_schema": {
+              "name": "capital",
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "city": {
+                    "description": "at least 1 character",
+                    "type": "string"
+                  },
+                  "country": {
+                    "description": "at least 1 character",
+                    "type": "string"
+                  },
+                  "population": {
+                    "description": "Inhabitants of the city proper, if known",
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "city",
+                  "country",
+                  "population"
+                ],
+                "type": "object"
+              },
+              "strict": true
+            },
+            "type": "json_schema"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": "{\"id\": \"chatcmpl-O1\", \"object\": \"chat.completion\", \"created\": 1759400000, \"model\": \"llama3.2\", \"choices\": [{\"index\": 0, \"message\": {\"role\": \"assistant\", \"content\": \"{\\\"city\\\":\\\"Paris\\\",\\\"country\\\":\\\"France\\\",\\\"population\\\":2102650}\"}, \"logprobs\": null, \"finish_reason\": \"stop\"}], \"usage\": {\"prompt_tokens\": 95, \"completion_tokens\": 22, \"total_tokens\": 117}, \"system_fingerprint\": \"fp_ollama\"}"
+      }
+    }
+  ]
+}

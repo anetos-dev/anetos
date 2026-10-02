@@ -1,0 +1,56 @@
+{
+  "interactions": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/v1/chat/completions",
+        "body": {
+          "max_tokens": 1024,
+          "messages": [
+            {
+              "content": "You use the tools you're given to answer.",
+              "role": "system"
+            },
+            {
+              "content": "What's the weather in Paris? Use the get_weather tool.",
+              "role": "user"
+            }
+          ],
+          "model": "llama3.2",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          },
+          "tools": [
+            {
+              "function": {
+                "description": "Today's weather in a city",
+                "name": "get_weather",
+                "parameters": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "city": {
+                      "description": "The city's name",
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "city"
+                  ],
+                  "type": "object"
+                }
+              },
+              "type": "function"
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 200,
+        "content_type": "text/event-stream; charset=utf-8",
+        "body": "data: {\"id\": \"chatcmpl-TS\", \"object\": \"chat.completion.chunk\", \"created\": 1759400000, \"model\": \"llama3.2\", \"choices\": [{\"index\": 0, \"delta\": {\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"id\": \"call_Xq8Zk1ImBy3tJ2Ar9QSa5cDe\", \"type\": \"function\", \"function\": {\"name\": \"get_weather\", \"arguments\": \"{\\\"city\\\":\\\"Paris\\\"}\"}, \"index\": 0}]}, \"logprobs\": null, \"finish_reason\": null}]}\n\ndata: {\"id\": \"chatcmpl-TS\", \"object\": \"chat.completion.chunk\", \"created\": 1759400000, \"model\": \"llama3.2\", \"choices\": [{\"index\": 0, \"delta\": {}, \"logprobs\": null, \"finish_reason\": \"stop\"}]}\n\ndata: {\"id\": \"chatcmpl-TS\", \"object\": \"chat.completion.chunk\", \"created\": 1759400000, \"model\": \"llama3.2\", \"choices\": [], \"usage\": {\"prompt_tokens\": 160, \"completion_tokens\": 18, \"total_tokens\": 178}}\n\ndata: [DONE]\n\n"
+      }
+    }
+  ]
+}

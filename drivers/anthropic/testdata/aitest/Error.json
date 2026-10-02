@@ -1,0 +1,69 @@
+{
+  "interactions": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/v1/messages",
+        "body": {
+          "max_tokens": 1024,
+          "messages": [
+            {
+              "content": [
+                {
+                  "text": "Reply with the word pong.",
+                  "type": "text"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "model": "anetos-no-such-model",
+          "system": [
+            {
+              "text": "You answer with one word.",
+              "type": "text"
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 404,
+        "content_type": "application/json",
+        "body": "{\"type\": \"error\", \"error\": {\"type\": \"not_found_error\", \"message\": \"model: anetos-no-such-model\"}, \"request_id\": \"req_011CTx\"}"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/v1/messages",
+        "body": {
+          "max_tokens": 1024,
+          "messages": [
+            {
+              "content": [
+                {
+                  "text": "Reply with the word pong.",
+                  "type": "text"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "model": "anetos-no-such-model",
+          "stream": true,
+          "system": [
+            {
+              "text": "You answer with one word.",
+              "type": "text"
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 404,
+        "content_type": "application/json",
+        "body": "{\"type\": \"error\", \"error\": {\"type\": \"not_found_error\", \"message\": \"model: anetos-no-such-model\"}, \"request_id\": \"req_011CTx\"}"
+      }
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "interactions": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/v1/chat/completions",
+        "body": {
+          "max_tokens": 1024,
+          "messages": [
+            {
+              "content": "My name is Ada.",
+              "role": "user"
+            },
+            {
+              "content": "Nice to meet you, Ada.",
+              "role": "assistant"
+            },
+            {
+              "content": "What's my name? Answer with the name only.",
+              "role": "user"
+            }
+          ],
+          "model": "llama3.2"
+        }
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": "{\"id\": \"chatcmpl-C1\", \"object\": \"chat.completion\", \"created\": 1759400000, \"model\": \"llama3.2\", \"choices\": [{\"index\": 0, \"message\": {\"role\": \"assistant\", \"content\": \"Ada\"}, \"logprobs\": null, \"finish_reason\": \"stop\"}], \"usage\": {\"prompt_tokens\": 38, \"completion_tokens\": 3, \"total_tokens\": 41}, \"system_fingerprint\": \"fp_ollama\"}"
+      }
+    }
+  ]
+}

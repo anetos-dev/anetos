@@ -1,0 +1,61 @@
+{
+  "interactions": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse",
+        "body": {
+          "contents": [
+            {
+              "parts": [
+                {
+                  "text": "What's the weather in Paris? Use the get_weather tool."
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "generationConfig": {
+            "maxOutputTokens": 1024
+          },
+          "systemInstruction": {
+            "parts": [
+              {
+                "text": "You use the tools you're given to answer."
+              }
+            ],
+            "role": "user"
+          },
+          "tools": [
+            {
+              "functionDeclarations": [
+                {
+                  "description": "Today's weather in a city",
+                  "name": "get_weather",
+                  "parametersJsonSchema": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "city": {
+                        "description": "The city's name (at least 1 character)",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "city"
+                    ],
+                    "type": "object"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 200,
+        "content_type": "text/event-stream",
+        "body": "data: {\"candidates\": [{\"content\": {\"parts\": [{\"functionCall\": {\"name\": \"get_weather\", \"args\": {\"city\": \"Paris\"}}, \"thoughtSignature\": \"CiIBVKhc7oDNWlyZEU2N5u7a6gGr4dmOEuHrmmkYxD8LZK+i\"}], \"role\": \"model\"}, \"index\": 0, \"finishReason\": \"STOP\"}], \"modelVersion\": \"gemini-2.5-flash\", \"responseId\": \"s1\", \"usageMetadata\": {\"promptTokenCount\": 64, \"candidatesTokenCount\": 5, \"totalTokenCount\": 109, \"promptTokensDetails\": [{\"modality\": \"TEXT\", \"tokenCount\": 64}], \"thoughtsTokenCount\": 40}}\r\n\r\n"
+      }
+    }
+  ]
+}

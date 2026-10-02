@@ -62,8 +62,8 @@ func (m Message) ToolCalls() []ToolCall {
 	return out
 }
 
-// Part is a piece of a [Message]: [Text], [ToolCall] or [ToolResult].
-// The set is closed: providers handle every kind there is.
+// Part is a piece of a [Message]: [Text], [ToolCall], [ToolResult] or
+// [Reasoning]. The set is closed: providers handle every kind there is.
 type Part interface{ isPart() }
 
 // Text is text, from the user or the model.
@@ -92,20 +92,38 @@ type ToolResult struct {
 	IsError bool
 }
 
+// Reasoning is a model's reasoning ("thinking") that its provider needs
+// back to continue the conversation: some models must see their earlier
+// reasoning when they get tool results. A provider puts it before the
+// part it belongs to; it isn't the answer (Message.Text leaves it out),
+// and other providers ignore it.
+type Reasoning struct {
+	// Provider is the name of the provider that wrote it.
+	Provider string
+	// Text is the reasoning, if the provider shows it.
+	Text string
+	// Data is the provider's opaque state (a signature, encrypted
+	// reasoning), sent back as it is.
+	Data string
+}
+
 func (Text) isPart()       {}
 func (ToolCall) isPart()   {}
 func (ToolResult) isPart() {}
+func (Reasoning) isPart()  {}
 
 // partJSON is a Part's JSON form: {"type": "text", "text": "…"} and so on.
 type partJSON struct {
-	Type    string          `json:"type"`
-	Text    string          `json:"text,omitempty"`
-	ID      string          `json:"id,omitempty"`
-	CallID  string          `json:"call_id,omitempty"`
-	Name    string          `json:"name,omitempty"`
-	Input   json.RawMessage `json:"input,omitempty"`
-	Content string          `json:"content,omitempty"`
-	IsError bool            `json:"is_error,omitempty"`
+	Type     string          `json:"type"`
+	Text     string          `json:"text,omitempty"`
+	ID       string          `json:"id,omitempty"`
+	CallID   string          `json:"call_id,omitempty"`
+	Name     string          `json:"name,omitempty"`
+	Input    json.RawMessage `json:"input,omitempty"`
+	Content  string          `json:"content,omitempty"`
+	IsError  bool            `json:"is_error,omitempty"`
+	Provider string          `json:"provider,omitempty"`
+	Data     string          `json:"data,omitempty"`
 }
 
 type messageJSON struct {
@@ -114,7 +132,7 @@ type messageJSON struct {
 }
 
 // MarshalJSON writes the message as {"role": …, "parts": [{"type":
-// "text" | "tool_call" | "tool_result", …}]}.
+// "text" | "tool_call" | "tool_result" | "reasoning", …}]}.
 func (m Message) MarshalJSON() ([]byte, error) {
 	out := messageJSON{Role: m.Role, Parts: make([]partJSON, len(m.Parts))}
 	for i, p := range m.Parts {
@@ -131,6 +149,8 @@ func (m Message) MarshalJSON() ([]byte, error) {
 			out.Parts[i] = partJSON{Type: "tool_call", ID: p.ID, Name: p.Name, Input: input}
 		case ToolResult:
 			out.Parts[i] = partJSON{Type: "tool_result", CallID: p.CallID, Name: p.Name, Content: p.Content, IsError: p.IsError}
+		case Reasoning:
+			out.Parts[i] = partJSON{Type: "reasoning", Provider: p.Provider, Text: p.Text, Data: p.Data}
 		default:
 			return nil, fmt.Errorf("ai: unknown message part %T", p)
 		}
@@ -158,6 +178,8 @@ func (m *Message) UnmarshalJSON(data []byte) error {
 			parts[i] = ToolCall{ID: p.ID, Name: p.Name, Input: p.Input}
 		case "tool_result":
 			parts[i] = ToolResult{CallID: p.CallID, Name: p.Name, Content: p.Content, IsError: p.IsError}
+		case "reasoning":
+			parts[i] = Reasoning{Provider: p.Provider, Text: p.Text, Data: p.Data}
 		default:
 			return fmt.Errorf("ai: unknown message part type %q", p.Type)
 		}
@@ -175,7 +197,7 @@ func checkMessages(msgs []Message) error {
 			switch p.(type) {
 			case Text:
 				ok = m.Role == RoleUser || m.Role == RoleAssistant
-			case ToolCall:
+			case ToolCall, Reasoning:
 				ok = m.Role == RoleAssistant
 			case ToolResult:
 				ok = m.Role == RoleTool

@@ -1,0 +1,36 @@
+{
+  "interactions": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/v1/messages",
+        "body": {
+          "max_tokens": 1024,
+          "messages": [
+            {
+              "content": [
+                {
+                  "text": "Reply with the word pong.",
+                  "type": "text"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "model": "claude-haiku-4-5",
+          "system": [
+            {
+              "text": "You answer with one word.",
+              "type": "text"
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": "{\"id\": \"msg_01Text\", \"type\": \"message\", \"role\": \"assistant\", \"model\": \"claude-haiku-4-5-20251001\", \"content\": [{\"type\": \"text\", \"text\": \"pong\"}], \"stop_reason\": \"end_turn\", \"stop_sequence\": null, \"usage\": {\"input_tokens\": 21, \"cache_creation_input_tokens\": 0, \"cache_read_input_tokens\": 0, \"output_tokens\": 4, \"service_tier\": \"standard\"}}"
+      }
+    }
+  ]
+}

@@ -9,10 +9,9 @@ import (
 )
 
 // Provider is a model provider's API: what a driver module implements,
-// and the [Fake].
-// The package builds every [Request]; a provider translates it, calls
-// the API, and translates the answer back. Retrying rate limits and
-// server errors is the provider's (the official SDKs do).
+// and the [Fake]. The package builds every [Request]; a provider
+// translates it, calls the API, and translates the answer back.
+// Retrying rate limits and server errors is the provider's.
 type Provider interface {
 	// Name is the provider's, for logs and errors: "anthropic", "fake".
 	Name() string
@@ -27,7 +26,8 @@ type Provider interface {
 
 // Request is one call to a model. Providers must not modify it.
 type Request struct {
-	// Model is the model's name; empty means the provider's default.
+	// Model is the model's name. The provider drivers refuse an empty
+	// one; the Fake accepts it.
 	Model string
 	// System is the system instructions, empty for none.
 	System string

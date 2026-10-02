@@ -1,0 +1,30 @@
+{
+  "interactions": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/v1beta/models/gemini-2.5-flash:generateContent",
+        "body": {
+          "contents": [
+            {
+              "parts": [
+                {
+                  "text": "Count from 1 to 200, separated by commas."
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "generationConfig": {
+            "maxOutputTokens": 16
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json; charset=UTF-8",
+        "body": "{\"candidates\": [{\"content\": {\"parts\": [{\"text\": \"1, 2, 3, 4, 5, 6\"}], \"role\": \"model\"}, \"finishReason\": \"MAX_TOKENS\", \"index\": 0}], \"usageMetadata\": {\"promptTokenCount\": 16, \"candidatesTokenCount\": 16, \"totalTokenCount\": 32, \"promptTokensDetails\": [{\"modality\": \"TEXT\", \"tokenCount\": 16}]}, \"modelVersion\": \"gemini-2.5-flash\", \"responseId\": \"r1\"}"
+      }
+    }
+  ]
+}

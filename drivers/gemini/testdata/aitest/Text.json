@@ -1,0 +1,38 @@
+{
+  "interactions": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/v1beta/models/gemini-2.5-flash:generateContent",
+        "body": {
+          "contents": [
+            {
+              "parts": [
+                {
+                  "text": "Reply with the word pong."
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "generationConfig": {
+            "maxOutputTokens": 1024
+          },
+          "systemInstruction": {
+            "parts": [
+              {
+                "text": "You answer with one word."
+              }
+            ],
+            "role": "user"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json; charset=UTF-8",
+        "body": "{\"candidates\": [{\"content\": {\"parts\": [{\"text\": \"pong\"}], \"role\": \"model\"}, \"finishReason\": \"STOP\", \"index\": 0}], \"usageMetadata\": {\"promptTokenCount\": 11, \"candidatesTokenCount\": 1, \"totalTokenCount\": 32, \"promptTokensDetails\": [{\"modality\": \"TEXT\", \"tokenCount\": 11}], \"thoughtsTokenCount\": 20}, \"modelVersion\": \"gemini-2.5-flash\", \"responseId\": \"r1\"}"
+      }
+    }
+  ]
+}

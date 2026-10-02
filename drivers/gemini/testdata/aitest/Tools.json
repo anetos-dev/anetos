@@ -1,0 +1,149 @@
+{
+  "interactions": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/v1beta/models/gemini-2.5-flash:generateContent",
+        "body": {
+          "contents": [
+            {
+              "parts": [
+                {
+                  "text": "What's the weather in Paris? Use the get_weather tool."
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "generationConfig": {
+            "maxOutputTokens": 1024
+          },
+          "systemInstruction": {
+            "parts": [
+              {
+                "text": "You use the tools you're given to answer."
+              }
+            ],
+            "role": "user"
+          },
+          "tools": [
+            {
+              "functionDeclarations": [
+                {
+                  "description": "Today's weather in a city",
+                  "name": "get_weather",
+                  "parametersJsonSchema": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "city": {
+                        "description": "The city's name (at least 1 character)",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "city"
+                    ],
+                    "type": "object"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json; charset=UTF-8",
+        "body": "{\"candidates\": [{\"content\": {\"parts\": [{\"functionCall\": {\"name\": \"get_weather\", \"args\": {\"city\": \"Paris\"}}, \"thoughtSignature\": \"CiIBVKhc7oDNWlyZEU2N5u7a6gGr4dmOEuHrmmkYxD8LZK+i\"}], \"role\": \"model\"}, \"finishReason\": \"STOP\", \"index\": 0}], \"usageMetadata\": {\"promptTokenCount\": 64, \"candidatesTokenCount\": 5, \"totalTokenCount\": 109, \"promptTokensDetails\": [{\"modality\": \"TEXT\", \"tokenCount\": 64}], \"thoughtsTokenCount\": 40}, \"modelVersion\": \"gemini-2.5-flash\", \"responseId\": \"r1\"}"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/v1beta/models/gemini-2.5-flash:generateContent",
+        "body": {
+          "contents": [
+            {
+              "parts": [
+                {
+                  "text": "What's the weather in Paris? Use the get_weather tool."
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "parts": [
+                {
+                  "functionCall": {
+                    "args": {
+                      "city": "Paris"
+                    },
+                    "name": "get_weather"
+                  },
+                  "thoughtSignature": "CiIBVKhc7oDNWlyZEU2N5u7a6gGr4dmOEuHrmmkYxD8LZK+i"
+                }
+              ],
+              "role": "model"
+            },
+            {
+              "parts": [
+                {
+                  "functionResponse": {
+                    "name": "get_weather",
+                    "response": {
+                      "output": {
+                        "celsius": 21,
+                        "city": "Paris",
+                        "sky": "sunny"
+                      }
+                    }
+                  }
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "generationConfig": {
+            "maxOutputTokens": 1024
+          },
+          "systemInstruction": {
+            "parts": [
+              {
+                "text": "You use the tools you're given to answer."
+              }
+            ],
+            "role": "user"
+          },
+          "tools": [
+            {
+              "functionDeclarations": [
+                {
+                  "description": "Today's weather in a city",
+                  "name": "get_weather",
+                  "parametersJsonSchema": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "city": {
+                        "description": "The city's name (at least 1 character)",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "city"
+                    ],
+                    "type": "object"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json; charset=UTF-8",
+        "body": "{\"candidates\": [{\"content\": {\"parts\": [{\"text\": \"It's sunny in Paris today, 21\\u00b0C.\"}], \"role\": \"model\"}, \"finishReason\": \"STOP\", \"index\": 0}], \"usageMetadata\": {\"promptTokenCount\": 110, \"candidatesTokenCount\": 11, \"totalTokenCount\": 151, \"promptTokensDetails\": [{\"modality\": \"TEXT\", \"tokenCount\": 110}], \"thoughtsTokenCount\": 30}, \"modelVersion\": \"gemini-2.5-flash\", \"responseId\": \"r2\"}"
+      }
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "interactions": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/v1/chat/completions",
+        "body": {
+          "max_tokens": 16,
+          "messages": [
+            {
+              "content": "Count from 1 to 200, separated by commas.",
+              "role": "user"
+            }
+          ],
+          "model": "llama3.2"
+        }
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": "{\"id\": \"chatcmpl-M1\", \"object\": \"chat.completion\", \"created\": 1759400000, \"model\": \"llama3.2\", \"choices\": [{\"index\": 0, \"message\": {\"role\": \"assistant\", \"content\": \"1, 2, 3, 4, 5, 6, 7\"}, \"logprobs\": null, \"finish_reason\": \"length\"}], \"usage\": {\"prompt_tokens\": 22, \"completion_tokens\": 16, \"total_tokens\": 38}, \"system_fingerprint\": \"fp_ollama\"}"
+      }
+    }
+  ]
+}

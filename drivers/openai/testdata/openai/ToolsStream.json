@@ -1,0 +1,56 @@
+{
+  "interactions": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/v1/chat/completions",
+        "body": {
+          "max_completion_tokens": 1024,
+          "messages": [
+            {
+              "content": "You use the tools you're given to answer.",
+              "role": "system"
+            },
+            {
+              "content": "What's the weather in Paris? Use the get_weather tool.",
+              "role": "user"
+            }
+          ],
+          "model": "gpt-5-mini",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          },
+          "tools": [
+            {
+              "function": {
+                "description": "Today's weather in a city",
+                "name": "get_weather",
+                "parameters": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "city": {
+                      "description": "The city's name",
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "city"
+                  ],
+                  "type": "object"
+                }
+              },
+              "type": "function"
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 200,
+        "content_type": "text/event-stream; charset=utf-8",
+        "body": "data: {\"id\": \"chatcmpl-TS\", \"object\": \"chat.completion.chunk\", \"created\": 1759400000, \"model\": \"gpt-5-mini-2025-08-07\", \"choices\": [{\"index\": 0, \"delta\": {\"role\": \"assistant\", \"content\": null, \"tool_calls\": [{\"index\": 0, \"id\": \"call_Xq8Zk1ImBy3tJ2Ar9QSa5cDe\", \"type\": \"function\", \"function\": {\"name\": \"get_weather\", \"arguments\": \"\"}}], \"refusal\": null}, \"logprobs\": null, \"finish_reason\": null}], \"service_tier\": \"default\", \"system_fingerprint\": null, \"usage\": null, \"obfuscation\": \"x1\"}\n\ndata: {\"id\": \"chatcmpl-TS\", \"object\": \"chat.completion.chunk\", \"created\": 1759400000, \"model\": \"gpt-5-mini-2025-08-07\", \"choices\": [{\"index\": 0, \"delta\": {\"tool_calls\": [{\"index\": 0, \"function\": {\"arguments\": \"{\\\"city\\\"\"}}]}, \"logprobs\": null, \"finish_reason\": null}], \"service_tier\": \"default\", \"system_fingerprint\": null, \"usage\": null, \"obfuscation\": \"x1\"}\n\ndata: {\"id\": \"chatcmpl-TS\", \"object\": \"chat.completion.chunk\", \"created\": 1759400000, \"model\": \"gpt-5-mini-2025-08-07\", \"choices\": [{\"index\": 0, \"delta\": {\"tool_calls\": [{\"index\": 0, \"function\": {\"arguments\": \":\\\"Paris\\\"}\"}}]}, \"logprobs\": null, \"finish_reason\": null}], \"service_tier\": \"default\", \"system_fingerprint\": null, \"usage\": null, \"obfuscation\": \"x1\"}\n\ndata: {\"id\": \"chatcmpl-TS\", \"object\": \"chat.completion.chunk\", \"created\": 1759400000, \"model\": \"gpt-5-mini-2025-08-07\", \"choices\": [{\"index\": 0, \"delta\": {}, \"logprobs\": null, \"finish_reason\": \"tool_calls\"}], \"service_tier\": \"default\", \"system_fingerprint\": null, \"usage\": null, \"obfuscation\": \"x1\"}\n\ndata: {\"id\": \"chatcmpl-TS\", \"object\": \"chat.completion.chunk\", \"created\": 1759400000, \"model\": \"gpt-5-mini-2025-08-07\", \"choices\": [], \"service_tier\": \"default\", \"system_fingerprint\": null, \"usage\": {\"prompt_tokens\": 160, \"completion_tokens\": 18, \"total_tokens\": 178, \"prompt_tokens_details\": {\"cached_tokens\": 0, \"audio_tokens\": 0}, \"completion_tokens_details\": {\"reasoning_tokens\": 0, \"audio_tokens\": 0, \"accepted_prediction_tokens\": 0, \"rejected_prediction_tokens\": 0}}, \"obfuscation\": \"x1\"}\n\ndata: [DONE]\n\n"
+      }
+    }
+  ]
+}
