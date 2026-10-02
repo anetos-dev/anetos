@@ -65,6 +65,9 @@ gracefully.
   the backlog.
 - **No attempt to support every driver.** The core ships a few, and plugins
   cover the rest.
+- **Not an LLM framework.** The `ai` package connects models to the app
+  (typed output, tools, queues, storage, tests); it has no orchestration
+  graphs, prompt-template language or vector database of its own.
 
 ## 4. Target users
 
@@ -104,12 +107,13 @@ gracefully.
 |---|---|---|---|
 | **v0.1** | Foundation | Us | Build a CRUD app with forms, validation, a DB and migrations using only the docs |
 | **v0.2** | Batteries | Us + early testers | Auth, social login, queues, events, pub/sub listeners, scheduler, mail, storage, plugins |
-| **v0.3** | Public MVP | **Public release** | Anyone can go from zero to a deployed web app with auth |
+| **v0.3** | Search, AI & Public MVP | **Public release** | Full-text search and AI-capable apps (typed LLM calls, tools, streaming); anyone can go from zero to a deployed web app with auth |
 | **v0.4** | Frontend | Public | Vite + Inertia starter kits (Vue, React, Svelte) |
 | **v1.0** | Stable | Public | API stability promise |
 
 Estimated effort, part-time, with Claude Code assisting: v0.1 **6–10 weeks**,
-v0.2 **6–10 weeks**, v0.3 **4–6 weeks**, v0.4 **4–6 weeks**. These are rough;
+v0.2 **6–10 weeks**, v0.3 **4–6 weeks** (plus **4–6 weeks** for the search
+and AI work packages added on 2026-10-02), v0.4 **4–6 weeks**. These are rough;
 the data layer (F7–F9) is the least predictable. We'll re-estimate at the end
 of each milestone.
 
@@ -276,13 +280,23 @@ by role (D152).
 
 ---
 
-### v0.3 — Public MVP
+### v0.3 — Search, AI & Public MVP
 
-Goal: good enough for strangers to build and deploy real apps. **This is the
-first public release.**
+Goal: good enough for strangers to build and deploy real apps, including
+apps with search and AI features. **This is the first public release.**
+
+The search and AI work packages come first, so the public release has
+them (decided 2026-10-02; design §10.5, §14.4, D153–D159). They follow
+one order: full-text search in the data layer, then the AI core and its
+providers, then vectors and hybrid search, which joins the two.
 
 | WP | Work package | Notes |
 |---|---|---|
+| S1 | Database capabilities & full-text search | Drivers report capabilities (`FullText`, `BM25`, `Vector`), probed on the live server at boot where it matters (extensions, versions); features declare what they need, and the app refuses to start when the configured database can't provide it, with the alternatives in the message; `anetos new` and `migrate` refuse the same combinations. Searchable fields declared on the model (`search` tag), a migration helper (`t.SearchIndex`: PostgreSQL `tsvector` generated column + GIN, SQLite FTS5 with sync triggers, MySQL/MariaDB `FULLTEXT`), `q.Search(text)` ranked and paginated, `SEARCH_RANKING=default\|bm25` (BM25: SQLite FTS5 natively, PostgreSQL with pg_textsearch, refused on MySQL), `SEARCH_LANGUAGE`, `search:reindex`; a search box in an example |
+| A1 | AI core | Package `ai`: the provider contract, messages, `ai.Generate` (text) and streaming (an iterator), typed structured output (`ai.Generate[T]`: JSON schema from the struct, the answer checked with `validate` tags), typed tools (`ai.Func(name, description, fn)`, input validated, run as the current user) and an agent loop with a step limit, usage (tokens) on every response, an escape hatch to the provider's own client; `anetostest.FakeAI` with scripted replies and tool calls; no provider SDK in the core |
+| A2 | AI providers | Driver modules wrapping the official SDKs: `drivers/anthropic`, `drivers/openai` (with an OpenAI-compatible mode: Ollama, OpenRouter, Groq, vLLM…), `drivers/gemini`; `AI_PROVIDER`, `AI_MODEL` and per-provider keys; each passes an `ai/aitest` conformance suite against recorded responses, and live when its key is set |
+| A3 | AI in the app | Conversations stored in the database (`ai.Migrations`), usage and cost records with per-user budgets (on the rate limiter), `ai.Queue` (generation as a queue job, with retries), streaming to the browser (server-sent events, htmx-friendly), `make:agent`, units of work and logs for each call; an AI assistant with tools over its data in an example; guides |
+| S2 | Vectors & hybrid search | Embeddings in `ai` (`ai.Embed`, A2's providers), vector columns in migrations, `q.SearchSimilar(vector)` (PostgreSQL with pgvector, MariaDB 11.7+, SQLite by a brute-force scan for small data; refused on MySQL Community, whose `DISTANCE()` is HeatWave-only), `q.Search(text).Hybrid(…)` merging keyword and vector rankings by reciprocal rank fusion, a retrieval helper for agents, capability checks as in S1 |
 | M1 | Identity | Final name, GitHub org, domain, logo/mascot; rename pass |
 | M1b | Release plumbing | Tag the modules independently; remove the `replace` directives from `cli`, the drivers and the examples' published `go.mod` files (a module with `replace` can't be `go install`ed), so `go install …/cli/cmd/anetos@latest` and `anetos new` without `--replace` work |
 | M2 | Docs site | Choose the generator, publish versioned docs, full tutorial, guides for every feature |
@@ -296,6 +310,11 @@ first public release.**
 
 **Exit criteria**
 
+- An example app has full-text search on its content, on PostgreSQL and
+  SQLite, and an AI assistant that answers from that content with typed
+  tools and hybrid retrieval, streams its answers, and is tested with
+  `anetostest.FakeAI`; a configuration its database can't support stops
+  at boot with a clear message.
 - 3–5 volunteers who haven't seen Anetos before each go from nothing to a
   deployed CRUD app with auth **in under 30 minutes** using only the docs. We
   fix whatever slows them down.
@@ -321,7 +340,8 @@ Goal: modern SPA-style frontends without giving up server-side routing.
 
 WebSockets/broadcasting · debug dashboard (Telescope-like) · admin panel
 generator · notifications (mail, SMS, Slack channels) · multi-tenancy · feature
-flags · i18n (basic, a v0.2 stretch goal, and full) · search adapters · Inertia SSR · read/write DB splitting ·
+flags · i18n (basic, a v0.2 stretch goal, and full) · search engine drivers behind `Search` (Meilisearch, Typesense, OpenSearch) · Inertia SSR · read/write DB splitting ·
+AI: MCP server (the app's tools to MCP clients) and client (remote tools for agents), provider failover, images, speech and transcription, providers' own tools (web search, code execution), more providers (as plugins) ·
 pub/sub ordering keys (Google) · more drivers (NATS, Kafka, SQS, RabbitMQ, GCS, Azure Blob), mostly as plugins.
 
 ---
@@ -335,6 +355,8 @@ Candidates:
 - Mail API drivers (Resend, SES, Mailgun; Postmark is done, in `plugins/postmark`)
 - Queue and pub/sub drivers beyond the core pair (SQS, NATS, Kafka)
 - Storage drivers (GCS, Azure)
+- AI providers beyond the first three (Mistral, Bedrock, Azure OpenAI…),
+  as plugins or driver modules
 - Later: debug dashboard, admin panel, notifications
 
 If a first-party package needs a private hook, the plugin API is missing
@@ -370,6 +392,9 @@ something, and we fix the API rather than add the hook.
 | Third-party dependency risk (templ, drivers) | Medium | Medium | Views behind a renderer interface; heavy dependencies isolated in modules |
 | Naming/trademark conflict found late | Low | Medium | Settle name at M1 before any public promotion |
 | Competing with Goravel for "Laravel-like Go" | Medium | Medium | Different positioning: Go-native, typed, concurrency-first, stdlib-compatible |
+| AI provider APIs change fast; three provider drivers to maintain | High | Medium | A thin common contract with an escape hatch to each provider's own client; official SDKs in driver modules; recorded-response conformance tests; more providers as plugins |
+| Search and AI work delays the public release | Medium | High | Fixed MVP scope (S1, A1–A3, S2), everything else in the backlog; re-estimate after A1 |
+| Search behaves differently per database (stemming, stop words, scores) | High | Low | One API, documented differences, capability checks at boot, tests on the deployed database |
 
 ## 9. Open questions
 
@@ -381,6 +406,8 @@ something, and we fix the API rather than add the hook.
 | Q4 | Docs site generator (VitePress, Hugo, Starlight…) | At M2 |
 | Q5 | ~~Which mail API driver is first-party first (Resend vs Postmark)~~ **Decided 2026-10-01: Postmark**, for its transactional focus, a stable documented API with error codes that tell permanent from temporary failures, and a test token (`POSTMARK_API_TEST`) that checks requests without sending; Resend can follow as a plugin | Decided |
 | Q6 | ~~Public repo from day one, or private until v0.3?~~ **Decided 2026-09-30:** private until ready for public release (v0.3). A private repo can use the working codename; GitHub redirects renamed repos, and the module path is a find-and-replace while nobody depends on it | Decided |
+| Q7 | Search: the default `SEARCH_LANGUAGE` (`english`, or `simple`, which doesn't stem and suits every language) | At S1 |
+| Q8 | Embeddings: a column on the model's table, or a table per model (several embedding models, re-embedding without locking) | At S2 |
 
 ## 10. Change log for this document
 
@@ -417,3 +444,4 @@ something, and we fix the API rather than add the hook.
 | 2026-10-02 | B13 (N+1 detection) done; jobs, listeners, messages and tasks tracked too, through units of work |
 | 2026-10-02 | B14 (auth scaffolding) done; social login and policies left out of the scaffolding (library and examples cover them) |
 | 2026-10-02 | v0.2 exit criteria checked; social login added to `make:auth`, `anetostest.FakeSocial`, `anetos.Logger`, `examples/saas` with a role-splitting test; v0.2.0 tagged; basic i18n (stretch) to the backlog |
+| 2026-10-02 | Search and AI added to v0.3, before the public release: S1 (database capabilities, full-text search), A1–A3 (AI core, Anthropic/OpenAI/Gemini providers, app integration), S2 (vectors, hybrid search); exit criterion and risks added; AI extras and search engines in the backlog |

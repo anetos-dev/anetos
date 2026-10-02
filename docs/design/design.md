@@ -689,6 +689,54 @@ the layer stalls badly, an adapter over Bun behind the same public API. The
 public API is kept deliberately small to make that possible. F7 landed
 without needing it.
 
+### 10.5 Search (planned, v0.3: S1, S2)
+
+Full-text search is part of the data layer, not an add-on: a blog gets a
+ranked search box from a declaration, on every supported database
+(D154). Vector search arrives with the AI work (S2) on the same API, and
+the two combine into hybrid search (D159).
+
+```go
+// illustrative
+type Post struct {
+    db.Model
+    Title string `db:"title" search:"weight=A"`
+    Body  string `db:"body"  search:"weight=B"`
+}
+
+t.SearchIndex("title", "body")                        // migration: the database's own index
+posts, err := db.Query[Post](ctx).Search("go generics").Paginate(page, 20) // ranked
+```
+
+| | PostgreSQL | SQLite | MySQL / MariaDB |
+|---|---|---|---|
+| Index | `tsvector` generated column (weights from the tags) + GIN | FTS5 table (external content) kept in sync by triggers | `FULLTEXT` |
+| Default ranking | `ts_rank_cd` (no corpus statistics) | `bm25()` | InnoDB's relevance (TF-IDF style) |
+| BM25 (`SEARCH_RANKING=bm25`) | with the pg_textsearch extension | built in | refused |
+| Language | `SEARCH_LANGUAGE` (a text search configuration; `simple` doesn't stem) | porter stemmer or `unicode61` | no stemming; short words not indexed by default |
+| Vectors (S2) | pgvector | brute-force scan in Go (the pure-Go driver can't load `sqlite-vec`) | MariaDB 11.7+ native; refused on MySQL Community |
+
+- **Capabilities, checked at boot** (D153): each driver reports what its
+  server can do (`db.Capability`: `FullText`, `BM25`, `Vector`), probing
+  the live server where it depends on it (installed extensions, server
+  version). Features declare what they need when they are set up
+  (searchable models, `SEARCH_RANKING`, vector columns), and the app
+  refuses to start when the configured database can't provide it, naming
+  the setting, the database and the alternatives. `anetos new` refuses
+  the same combinations, `migrate` won't create an index the database
+  can't serve, and tests (in-memory SQLite by default) fail with the same
+  message rather than pass on a database production doesn't use.
+- **One API, documented differences:** stemming, stop words, phrase
+  syntax and scores differ by database; scores are never compared across
+  databases. Apps test search on the database they deploy to.
+- **Ranking** (D155): `SEARCH_RANKING=default` uses each database's best
+  built-in ranking; `bm25` is a requirement checked at boot.
+- **Hybrid** (D159): keyword and vector results merged by reciprocal rank
+  fusion, which needs no score normalization across the two.
+- **Scale:** database search serves most apps; search engines
+  (Meilisearch, Typesense, OpenSearch) can later sit behind the same
+  `Search` API as drivers (backlog).
+
 ---
 
 ## 11. Migrations, seeders & factories
@@ -1074,6 +1122,7 @@ Each service is an interface in the core module. Drivers are chosen in
 | Encryption | `encryption` | AES-GCM with `APP_KEY`, key rotation | — | v0.1 |
 | Rate limiting | `web/ratelimit` | on the app's cache | (the cache's stores) | v0.2 (B2 done) |
 | Logging | `log/slog` (stdlib) | text, JSON handlers | OpenTelemetry bridge (module) | v0.1 |
+| AI (LLMs) | `ai` | fake (tests) | `drivers/anthropic`, `drivers/openai` (and OpenAI-compatible servers), `drivers/gemini`; more as plugins | v0.3 (planned, A1–A3, §14.4) |
 
 **Rule:** a driver belongs in the core module only if it uses nothing but the
 standard library (or a tiny, stable dependency). Everything else is a module.
@@ -1212,6 +1261,62 @@ r.HandleStd(http.MethodGet, "/files/{path...}", st.Default().Handler())
   content (HTML, SVG, XML, scripts) as sandboxed downloads (D127).
 - **S3** is `drivers/s3`, on minio-go: AWS, R2, MinIO and other
   S3-compatible stores (D128).
+
+### 14.4 AI (planned, v0.3: A1–A3)
+
+Go has capable LLM libraries (the providers' official SDKs, LangChainGo,
+Genkit, Eino); what none has is the rest of a web app. Package `ai`
+connects models to it, and stays thin (D156):
+
+```go
+// illustrative
+type Summary struct {
+    Title string   `json:"title" validate:"required|max:80"`
+    Tags  []string `json:"tags" validate:"max:5"`
+}
+sum, err := ai.Generate[Summary](ctx, ai.Prompt("Summarize: "+post.Body)) // typed, checked
+
+support := ai.Agent{
+    Instructions: "You answer questions about the customer's orders.",
+    Tools:        []ai.Tool{ai.Func("find_order", "Look up an order by its number", findOrder)},
+}
+res, err := support.Prompt(ctx, "Where is order 1042?")   // tool calls run as the current user
+return ai.StreamSSE(c, support.Stream(ctx, question))      // to the browser as it's written
+```
+
+- **Contract in the core, providers in modules:** the core has the
+  provider interface, messages, streaming (an iterator of events: text,
+  tool call, tool result, usage), the agent loop and the fake; no
+  provider SDK. `drivers/anthropic`, `drivers/openai` and `drivers/gemini`
+  wrap the official SDKs; `drivers/openai` also speaks to
+  OpenAI-compatible servers (Ollama, OpenRouter, Groq, vLLM). Providers'
+  features move monthly (extended thinking, prompt caching, citations,
+  their own tools), so every response and provider gives access to the
+  native client and raw response: the common contract never has to grow
+  to everything (D156).
+- **Typed output and tools** (D157): `ai.Generate[T]` sends a JSON schema
+  built from `T` (at registration, never per call) and checks the answer
+  with `T`'s `validate` tags, retrying once with the errors; a tool is a
+  Go function of a typed input, whose schema comes from the input struct
+  and whose input is validated before it runs. Tools run with the
+  caller's context, so `auth.Current` and policies apply; the agent loop
+  stops after a step limit; each call and tool call is logged and is a
+  unit of work (§4).
+- **The app's batteries** (A3): conversations in the database, usage and
+  cost per call with per-user budgets on the rate limiter, `ai.Queue` for
+  generation as a queue job (retries, timeouts), server-sent events for
+  streaming, files from storage as inputs, `make:agent`.
+- **Testing** (D158): `anetostest.FakeAI(...)` scripts replies, typed
+  outputs and tool calls, records prompts for assertions, and makes no
+  network calls; providers pass an `ai/aitest` conformance suite against
+  recorded responses, and live when their key is set.
+- **Embeddings and retrieval** (S2, §10.5): `ai.Embed` on the same
+  providers; vector and hybrid search in the query builder; a retrieval
+  helper that gives agents the app's own content.
+- **Not in scope:** multi-agent orchestration graphs, prompt-template
+  languages, a vector database of its own (roadmap non-goals). MCP
+  (exposing the app's tools, using remote ones), provider failover,
+  images, speech and transcription are in the backlog.
 
 ---
 
@@ -1790,6 +1895,13 @@ unless new information arrives), **Open**, **Superseded**.
 | D150 | `make:auth` includes sign-in with Google and GitHub (`handlers.SocialUser`, linking by provider account, and by email only when verified on both sides), each provider on once its `SOCIAL_<NAME>_*` settings are set (appended, empty, to `.env` and `.env.example`); `social.WithHomeURL("/dashboard")` sends every sign-in where password logins go. Supersedes B14's choice to leave social login out | Accepted | Google login was a v0.2 promise; unused, it costs a table and two hidden routes (404); the v0.2 walkthrough found adapting the guide to a `make:auth` app the main blocker |
 | D151 | `anetos new --replace` replaces every module of the checkout (core, tool, `drivers/*`, `plugins/*`); `anetos add` runs `go mod tidy` after writing `plugins.go` | Accepted | First-party drivers and plugins install in framework-development projects as they will for users; the plugin becomes a direct requirement |
 | D152 | v0.2's exit criteria are shown by `examples/saas`, a `anetos new` + `make:auth` app, and its `roles_test.go`, which builds the binary and runs it as `http`, `workers`, `listeners` and `scheduler` processes (SQLite shared through files, Redis for pub/sub when `ANETOS_TEST_REDIS_URL` is set), then as one; it waits for the scheduler's next minute and is skipped by `-short` | Accepted | Role splitting is checked end to end on every CI run, not only described; a minute of test time is the price of a real scheduler tick |
+| D153 | Database features are capability-checked at boot: drivers report capabilities (`FullText`, `BM25`, `Vector`), probing the live server where they depend on it (extensions, versions); features declare what they need, and the app refuses to start when the configured database can't provide it, with the setting, the database and the alternatives in the message; `anetos new`, `migrate` and tests apply the same rule | Accepted (planned, S1) | A configuration that can't work fails at deploy, not on a user's first search; no silent fallback to a weaker feature |
+| D154 | Full-text search belongs to the data layer: opt-in per model (a `search` tag on the fields, `t.SearchIndex` in a migration), `q.Search(text)` ranked and paginated on PostgreSQL (`tsvector` + GIN), SQLite (FTS5 with sync triggers) and MySQL/MariaDB (`FULLTEXT`), with their differences documented | Accepted (planned, S1) | Most apps need a search box, and their database can serve it; declared rather than automatic, because each index costs space and writes, and needs a language and fields chosen |
+| D155 | `SEARCH_RANKING=default\|bm25`: default is each database's best built-in ranking; `bm25` is a boot-time requirement, met by SQLite's FTS5 and by PostgreSQL with pg_textsearch (PostgreSQL licence), refused on MySQL; ParadeDB's `pg_search` isn't the documented choice (AGPL-3.0) | Accepted (planned, S1) | BM25 ranks better than `ts_rank`, which ignores how common a word is; a permissive licence matters to apps shipped commercially |
+| D156 | AI is integration, not a framework: the core `ai` package holds the provider contract, messages, streaming, the agent loop and the fake; providers are driver modules wrapping the official SDKs (Anthropic, OpenAI and OpenAI-compatible, Gemini first), with access to the native client; no wrapping of LangChainGo, Genkit or Eino | Accepted (planned, A1–A2) | Our value is the app around the model (typed output, tools as the user, queues, storage, tests); a thin contract survives providers' fast changes, and the escape hatch covers what it doesn't |
+| D157 | Structured output and tools are typed: JSON schemas built from Go structs at registration, model output and tool input checked with `validate` tags (output retried once with the errors), tools run with the caller's context so auth and policies apply, a step limit on the agent loop, every call and tool call logged and run as a unit of work | Accepted (planned, A1) | Typed handlers' design applied to models; the model chooses which tools to call, so tools get no more power than the user has |
+| D158 | AI is tested without the network: `anetostest.FakeAI` scripts replies, typed outputs and tool calls and records prompts; provider drivers pass a conformance suite against recorded responses, and live only when their key is set | Accepted (planned, A1–A2) | Model output varies and costs money; app tests must be deterministic and free |
+| D159 | Vectors and hybrid search: `ai.Embed`, vector columns, `q.SearchSimilar` on pgvector, MariaDB 11.7+ and SQLite (a brute-force scan in Go, as the pure-Go driver can't load `sqlite-vec`), refused on MySQL Community (`DISTANCE()` is HeatWave-only); `Search(...).Hybrid(...)` merges keyword and vector rankings by reciprocal rank fusion | Accepted (planned, S2) | Retrieval for agents works best with both kinds of match; rank fusion needs no score normalization; capability checks (D153) keep unsupported setups from starting |
 
 ---
 
@@ -1804,6 +1916,8 @@ unless new information arrives), **Open**, **Superseded**.
 | O5 | ~~Plugin config: generated Go struct in the app vs loaded from the plugin's own struct only?~~ Resolved: the plugin's own struct (D133) | §16.2 | Done |
 | O6 | ~~Which pure-Go SQLite implementation?~~ Resolved: modernc.org/sqlite (D38) | §10.3 | Done |
 | O7 | ~~Error keys use the json name even for form posts; should HTML forms key errors by the `form` name when it differs?~~ Resolved: yes, for form posts (D68) | §9 | Done |
+| O8 | The default `SEARCH_LANGUAGE`: `english`, or `simple` (no stemming, every language) | §10.5 | At S1 |
+| O9 | Embeddings: a column on the model's table, or a table per model (several embedding models, re-embedding without locking) | §10.5, §14.4 | At S2 |
 
 ---
 
@@ -1840,3 +1954,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-02 | B13 N+1 detection implemented: §4 (units of work), §10.3 updated; D141–D144 added |
 | 2026-10-02 | B14 auth scaffolding implemented: §15, §17.1 updated; D145–D147 added |
 | 2026-10-02 | v0.2 exit criteria checked: §5 (logging), §15, §17.1, §18 updated; D148–D152 added |
+| 2026-10-02 | Search and AI planned for v0.3: §10.5 (search, database capabilities), §14 and §14.4 (AI) added; D153–D159, O8–O9 added |
