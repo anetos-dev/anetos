@@ -11,4 +11,6 @@ GitHub, a welcome email from a queue job, a pub/sub listener and a
 scheduled task, in one binary that also runs split by role
 (`run --only=…`), with a test that runs it that way. [`teams`](teams) is
 a JSON API where users have roles in teams and across them
-(`auth/rbac`).
+(`auth/rbac`). [`assistant`](assistant) is a help center with an AI
+assistant: stored conversations, answers streamed with htmx, replies
+from queue jobs and daily budgets.

@@ -108,6 +108,7 @@ func TestMake(t *testing.T) {
 	}{
 		{func() (string, error) { return MakeHandler(root, "blog-posts") }, "app/handlers/blog_posts.go", []string{"type BlogPosts struct{}", `pages.Get("/blog-posts", h.Index).Name("blog-posts.index")`}},
 		{func() (string, error) { return MakeModel(root, "Category") }, "app/models/category.go", []string{"type Category struct", "db.Model", "categories table"}},
+		{func() (string, error) { return MakeAgent(root, "order-support") }, "app/agents/order_support.go", []string{"var OrderSupport = ai.Agent{", `Name:         "order-support"`, "orderSupportLookup", "type orderSupportLookupInput struct"}},
 		{func() (string, error) { return MakeMiddleware(root, "admin_only") }, "app/middleware/admin_only.go", []string{"func AdminOnly(next http.Handler) http.Handler"}},
 		{func() (string, error) { return MakeMigration(root, "create_posts_table", now) }, "database/migrations/2026_10_01_123005_create_posts_table.go", []string{`All.AddFunc("2026_10_01_123005_create_posts_table"`, `s.Create("posts"`, `s.DropIfExists("posts")`}},
 		{func() (string, error) { return MakeMigration(root, "AddViewsToPostsTable", now) }, "database/migrations/2026_10_01_123006_add_views_to_posts_table.go", []string{`s.Alter("posts"`}},

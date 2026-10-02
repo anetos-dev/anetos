@@ -7,14 +7,16 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"anetos.dev/anetos/cli/internal/modelgen"
 	"anetos.dev/anetos/cli/internal/scaffold"
 )
 
-// makeCmd runs make:handler, make:model, make:migration and
-// make:middleware.
+// makeCmd runs make:handler, make:model, make:migration,
+// make:middleware and make:agent.
 func makeCmd(kind string, args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("anetos "+kind, flag.ContinueOnError)
 	var withMigration *bool
@@ -23,6 +25,7 @@ func makeCmd(kind string, args []string, stdout, stderr io.Writer) int {
 		"make:model":      "Usage: anetos make:model <Name> [--migration]\n\nWrites app/models/<name>.go with a model embedding db.Model, and its typed\ncolumns (anetos gen).\n",
 		"make:migration":  "Usage: anetos make:migration <name>\n\nWrites database/migrations/<timestamp>_<name>.go. create_posts_table\ncreates a table; add_x_to_posts_table alters one.\n",
 		"make:middleware": "Usage: anetos make:middleware <Name>\n\nWrites app/middleware/<name>.go with a middleware function.\n",
+		"make:agent":      "Usage: anetos make:agent <Name>\n\nWrites app/agents/<name>.go with an AI agent (package ai) and a tool.\n",
 	}[kind]
 	if kind == "make:model" {
 		withMigration = fs.Bool("migration", false, "also write a migration creating the table")
@@ -52,6 +55,8 @@ func makeCmd(kind string, args []string, stdout, stderr io.Writer) int {
 		path, err = scaffold.MakeHandler(root, pos[0])
 	case "make:middleware":
 		path, err = scaffold.MakeMiddleware(root, pos[0])
+	case "make:agent":
+		path, err = scaffold.MakeAgent(root, pos[0])
 	case "make:migration":
 		path, err = scaffold.MakeMigration(root, pos[0], time.Now())
 	case "make:model":
@@ -71,6 +76,9 @@ func makeCmd(kind string, args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "anetos %s: %v\n", kind, err)
 		return 1
 	}
+	if kind == "make:agent" {
+		agentHint(root, stdout)
+	}
 	if kind == "make:model" {
 		changes, err := modelgen.Generate(root, "./app/models")
 		if err == nil {
@@ -85,4 +93,28 @@ func makeCmd(kind string, args []string, stdout, stderr io.Writer) int {
 		}
 	}
 	return 0
+}
+
+// agentHint tells how to set up AI calls when the app doesn't yet.
+func agentHint(root string, w io.Writer) {
+	b, err := os.ReadFile(filepath.Join(root, "main.go"))
+	if err == nil && strings.Contains(string(b), "ai.ForApp") {
+		return
+	}
+	fmt.Fprint(w, `
+Agents call a model through the app's AI client. Set it up in setup (main.go):
+
+	if _, err := ai.ForApp(app, anthropic.Driver()); err != nil { // or openai, gemini
+		return nil, err
+	}
+
+with the driver module and the settings in .env:
+
+	go get anetos.dev/anetos/drivers/anthropic
+	AI_PROVIDER=anthropic
+	AI_MODEL=claude-sonnet-4-5
+	ANTHROPIC_API_KEY=…
+
+The guide "Add AI to your app" has the rest.
+`)
 }

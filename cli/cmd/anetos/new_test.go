@@ -39,6 +39,7 @@ func TestNewProject(t *testing.T) {
 		{"make:model", "Post", "--migration"},
 		{"make:handler", "Posts"},
 		{"make:middleware", "Admin"},
+		{"make:agent", "Support"},
 	} {
 		if code, out, errOut := runCmd(t, args...); code != 0 {
 			t.Fatalf("%v: %d\n%s\n%s", args, code, out, errOut)

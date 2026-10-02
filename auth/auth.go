@@ -212,6 +212,7 @@ func ForApp[U Authenticatable](app *anetos.App, users Users[U]) (*Auth[U], error
 	a.now = app.Now // tests can freeze it
 	anetos.Provide(app, a)
 	anetos.Provide(app, appAuth{})
+	app.AddContextValue(actorKey{}, actor(a))
 	return a, nil
 }
 

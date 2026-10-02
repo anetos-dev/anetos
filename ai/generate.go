@@ -32,17 +32,20 @@ func (f optionFunc) apply(c *call) { f(c) }
 
 // call is a call's settings.
 type call struct {
-	client      *Client
-	name        string // the agent's, for logs
-	model       string
-	system      []string
-	history     []Message
-	tools       []Tool
-	maxSteps    int
-	maxTokens   int
-	temperature *float64
-	timeout     time.Duration
-	options     any
+	client       *Client
+	name         string // the agent's, for logs
+	model        string
+	system       []string
+	history      []Message
+	tools        []Tool
+	maxSteps     int
+	maxTokens    int
+	temperature  *float64
+	timeout      time.Duration
+	options      any
+	user         string // ForUser
+	userSet      bool
+	conversation *int64 // the stored conversation's ID
 }
 
 // Model sets the model: its name at the provider ("claude-sonnet-4-5",
@@ -519,8 +522,16 @@ func run(ctx context.Context, in runInput) (*Result, error) {
 		maxSteps = DefaultMaxSteps
 	}
 	provider := client.Provider()
+	track, err := client.startTracking(ctx, &c)
+	if err != nil {
+		return nil, err
+	}
 	res := &Result{}
 	for step := 1; ; step++ {
+		if err := track.check(ctx); err != nil {
+			res.Messages = msgs
+			return res, err
+		}
 		req := &Request{
 			Model:       c.model,
 			System:      strings.Join(c.system, "\n\n"),
@@ -531,14 +542,20 @@ func run(ctx context.Context, in runInput) (*Result, error) {
 			Temperature: c.temperature,
 			Options:     c.options,
 		}
-		resp, err := client.request(ctx, provider, &c, step, req, in.yield)
+		resp, partial, err := client.request(ctx, provider, &c, step, req, in.yield)
 		if err != nil {
 			res.Messages = msgs
+			if partial != nil {
+				// A stream stopped or failed partway: its tokens are spent.
+				client.record(ctx, track, &c, provider.Name(), req, &Response{Model: req.Model, Usage: *partial}, true)
+				res.Usage.Add(*partial)
+			}
 			if errors.Is(err, errStopped) {
 				return res, err
 			}
 			return res, fmt.Errorf("ai: %s: %w", provider.Name(), err)
 		}
+		client.record(ctx, track, &c, provider.Name(), req, resp, false)
 		res.Steps = append(res.Steps, resp)
 		res.Usage.Add(resp.Usage)
 		msgs = append(msgs, resp.Message)
@@ -580,11 +597,28 @@ func run(ctx context.Context, in runInput) (*Result, error) {
 	}
 }
 
-// request sends one request, streaming its events to yield if set.
-func (cl *Client) request(ctx context.Context, p Provider, c *call, step int, req *Request, yield func(Event) bool) (*Response, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, err
+// request sends one request, streaming its events to yield if set. A
+// stream that stops or fails after it began returns an estimate of its
+// usage with the error.
+func (cl *Client) request(ctx context.Context, p Provider, c *call, step int, req *Request, yield func(Event) bool) (*Response, *Usage, error) {
+	resp, partial, interrupted, err := cl.send(ctx, p, c, step, req, yield)
+	if err == nil || (partial == 0 && !interrupted) {
+		return resp, nil, err // a provider's refusal costs nothing
 	}
+	u := estimateUsage(req, partial)
+	return nil, &u, err
+}
+
+// send sends one request. After an error, partial is the bytes of
+// output a stream yielded, and interrupted reports that the request was
+// cut off (canceled, timed out) while the provider worked on it.
+func (cl *Client) send(ctx context.Context, p Provider, c *call, step int, req *Request, yield func(Event) bool) (resp *Response, partial int, interrupted bool, err error) {
+	if err := ctx.Err(); err != nil {
+		return nil, 0, false, err
+	}
+	defer func() {
+		interrupted = err != nil && (errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded))
+	}()
 	rctx := ctx
 	if c.timeout > 0 {
 		var cancel context.CancelFunc
@@ -592,8 +626,6 @@ func (cl *Client) request(ctx context.Context, p Provider, c *call, step int, re
 		defer cancel()
 	}
 	start := time.Now()
-	var resp *Response
-	var err error
 	if yield == nil {
 		resp, err = p.Generate(rctx, req)
 	} else {
@@ -604,6 +636,10 @@ func (cl *Client) request(ctx context.Context, p Provider, c *call, step int, re
 			}
 			switch ev.Kind {
 			case EventText, EventToolCall:
+				partial += max(len(ev.Text), 1)
+				if ev.ToolCall != nil {
+					partial += len(ev.ToolCall.Name) + len(ev.ToolCall.Input)
+				}
 				if !yield(ev) {
 					err = errStopped
 				}
@@ -635,16 +671,16 @@ func (cl *Client) request(ctx context.Context, p Provider, c *call, step int, re
 		// The tokens are spent all the same.
 		attrs = append(attrs, slog.String("model", req.Model))
 		cl.logger().LogAttrs(ctx, slog.LevelInfo, "ai: stream stopped by its reader", attrs...)
-		return nil, err
+		return nil, partial, false, err
 	case err != nil:
 		attrs = append(attrs, slog.String("model", req.Model), slog.Any("error", err))
 		cl.logger().LogAttrs(ctx, slog.LevelWarn, "ai: request failed", attrs...)
-		return nil, err
+		return nil, partial, false, err
 	}
 	attrs = append(attrs, slog.String("model", resp.Model), slog.String("stop", string(resp.Stop)),
 		slog.Int64("input_tokens", resp.Usage.InputTokens), slog.Int64("output_tokens", resp.Usage.OutputTokens))
 	cl.logger().LogAttrs(ctx, slog.LevelInfo, "ai: response", attrs...)
-	return resp, nil
+	return resp, 0, false, nil
 }
 
 // logger returns the client's logger: the app's, or slog's default.

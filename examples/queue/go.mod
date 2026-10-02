@@ -8,10 +8,7 @@ require (
 	anetos.dev/anetos/drivers/sqlite v0.0.0-00010101000000-000000000000
 )
 
-require (
-	golang.org/x/crypto v0.57.0 // indirect
-	golang.org/x/oauth2 v0.37.0 // indirect
-)
+require golang.org/x/crypto v0.57.0 // indirect
 
 require (
 	github.com/a-h/parse v0.0.0-20250122154542-74294addb73e // indirect

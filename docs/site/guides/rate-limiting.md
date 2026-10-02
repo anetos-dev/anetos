@@ -100,6 +100,11 @@ To count only some attempts (failures), check first with
 `ratelimit.Check`, which doesn't count, and count with `ratelimit.Hit`
 when the attempt fails.
 
+To limit an amount rather than a number of events (bytes uploaded,
+a model's tokens), count it with `ratelimit.AllowN(ctx, key, n, limit)`:
+`ratelimit.PerDay(100_000)` then allows 100,000 a day. AI budgets
+(`ai.Budget`) work this way.
+
 ### 4. Test
 
 Each `anetostest` app has its own cache, so tests don't share counts. To

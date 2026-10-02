@@ -17,6 +17,7 @@ coverage.*
 /examples/notes/notes
 /examples/validation/validation
 /examples/teams/teams
+/examples/assistant/assistant
 /examples/ai/ai
 
 # Local environment

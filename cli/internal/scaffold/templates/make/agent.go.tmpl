@@ -1,0 +1,38 @@
+package agents
+
+import (
+	"context"
+
+	"anetos.dev/anetos/ai"
+)
+
+// [[.Type]] is an AI agent: a model's instructions, tools and settings.
+// Use it in handlers, jobs and commands:
+//
+//	res, err := agents.[[.Type]].Prompt(c, question)        // the answer, after any tool calls
+//	for ev, err := range agents.[[.Type]].Stream(c, question) { … } // as it's written
+//
+// Its tools run with the call's context, as the signed-in user: check
+// their permissions in the tools, as in a handler. Test it with
+// anetostest.FakeAI, which scripts the model's replies.
+var [[.Type]] = ai.Agent{
+	Name:         "[[.Path]]",
+	Instructions: "You are a helpful assistant. Answer briefly, using the tools for facts.",
+	Tools:        []ai.Tool{[[.ID]]Lookup},
+	// Model: "…", // the app's AI_MODEL by default
+	// MaxSteps: 10,
+}
+
+// [[.ID]]LookupInput is what the model sends to the lookup tool. Its
+// JSON schema comes from the tags: describe each field for the model,
+// and validate it as you would a request.
+type [[.ID]]LookupInput struct {
+	Query string `json:"query" description:"What to look up" validate:"required|max:200"`
+}
+
+// [[.ID]]Lookup is a tool the model may call. Replace it with your own:
+// query the database, call a service. An error with a 4xx status (not
+// found, forbidden, invalid) is told to the model; others stop the call.
+var [[.ID]]Lookup = ai.Func("lookup", "Look something up", func(ctx context.Context, in [[.ID]]LookupInput) (string, error) {
+	return "Nothing is known about " + in.Query + " yet.", nil
+})

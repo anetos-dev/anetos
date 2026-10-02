@@ -9,6 +9,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"slices"
 	"sync"
 	"time"
 
@@ -37,6 +38,7 @@ type state struct {
 	loading chan struct{} // closed when the load in progress ends
 	user    any           // nil for a guest
 	token   *Token        // the API token the request authenticated with
+	acting  bool          // made by ActAs: no session to sign in or out
 }
 
 type stateKey struct{}
@@ -336,4 +338,72 @@ func Intended(ctx context.Context, fallback string) string {
 		return u
 	}
 	return fallback
+}
+
+// actor finds users by ID for [ActAs]; ForApp puts the app's Auth in its
+// contexts as one.
+type actor interface {
+	ActAs(ctx context.Context, userID string, opts ...ActOption) context.Context
+}
+
+// ActOption configures [Auth.ActAs].
+type ActOption func(*state)
+
+// WithAbilities limits the context to abilities, as an API token with
+// them would ([TokenCan], and packages that read [CurrentToken], such as
+// auth/rbac): for work done for a request that was signed in with a
+// token, so that it can't do more than the token could. Its Token has
+// the abilities and user ID, and no ID.
+func WithAbilities(abilities []string) ActOption {
+	return func(st *state) {
+		st.token = &Token{Abilities: slices.Clone(abilities)}
+	}
+}
+
+type actorKey struct{}
+
+// idLoader loads the user an [Auth.ActAs] context acts as.
+type idLoader[U Authenticatable] struct {
+	a  *Auth[U]
+	id string
+}
+
+func (l idLoader[U]) load(ctx context.Context, _ *state) (any, error) {
+	u, err := l.a.users.ByID(ctx, l.id)
+	switch {
+	case notFound(err):
+		return nil, nil // deleted since: a guest
+	case err != nil:
+		return nil, err
+	}
+	return u, nil
+}
+
+// ActAs returns ctx in which the user with userID is the signed-in user,
+// for work done for a user outside their requests: a queue job, a
+// command. [User], [Current], [CurrentID], policies and what builds on
+// them (package auth/rbac, AI tools) see that user, loaded from
+// Users.ByID when first asked for; a user that doesn't exist is a guest.
+// There is no session: Attempt, Login and Logout fail. There is no API
+// token either, unless [WithAbilities] gives the limits of one.
+func (a *Auth[U]) ActAs(ctx context.Context, userID string, opts ...ActOption) context.Context {
+	st := &state{loader: idLoader[U]{a, userID}, log: a.log, acting: true}
+	for _, opt := range opts {
+		opt(st)
+	}
+	if st.token != nil {
+		st.token.UserID = userID
+	}
+	return context.WithValue(ctx, stateKey{}, st)
+}
+
+// ActAs is [Auth.ActAs] with the app's Auth (auth.ForApp), from ctx: for
+// packages that don't know the app's user type, such as package ai's
+// queued replies.
+func ActAs(ctx context.Context, userID string, opts ...ActOption) (context.Context, error) {
+	a, ok := ctx.Value(actorKey{}).(actor)
+	if !ok {
+		return nil, errors.New("auth: ActAs needs the app's Auth in the context (auth.ForApp)")
+	}
+	return a.ActAs(ctx, userID, opts...), nil
 }

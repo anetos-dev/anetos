@@ -27,6 +27,7 @@ type Client struct {
 	defaults []Option
 	log      *slog.Logger
 	units    func(context.Context, anetos.Unit) (context.Context, func())
+	usage    *UsageConfig // TrackUsage
 }
 
 // New returns a client for p; defaults ([Model], [MaxTokens],
@@ -97,6 +98,12 @@ type Config struct {
 	// [Timeout]. AI_TIMEOUT, default 10m (the official SDKs' default:
 	// long answers and reasoning models take minutes).
 	Timeout time.Duration `env:"AI_TIMEOUT" default:"10m"`
+	// QueueTimeout bounds a queued reply ([Conversation.QueueReply]):
+	// all its requests and tool calls. AI_QUEUE_TIMEOUT, default 15m. The
+	// queue's workers wait this long, plus a margin, before taking back a
+	// job of any type whose worker died (the lease is the longest
+	// timeout).
+	QueueTimeout time.Duration `env:"AI_QUEUE_TIMEOUT" default:"15m"`
 }
 
 // LoadConfig reads the AI_* settings.
@@ -111,6 +118,9 @@ func LoadConfig(src config.Source) (Config, error) {
 	}
 	if cfg.Timeout <= 0 {
 		errs = append(errs, fmt.Errorf("AI_TIMEOUT is %s: it must be positive", cfg.Timeout))
+	}
+	if cfg.QueueTimeout <= 0 {
+		errs = append(errs, fmt.Errorf("AI_QUEUE_TIMEOUT is %s: it must be positive", cfg.QueueTimeout))
 	}
 	return cfg, errors.Join(errs...)
 }

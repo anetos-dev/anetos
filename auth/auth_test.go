@@ -418,6 +418,45 @@ func TestCurrentID(t *testing.T) {
 	}
 }
 
+func TestActAs(t *testing.T) {
+	s := newStore(t)
+	_, _, app := newAppWith(t, s)
+	ctx := app.Context(context.Background())
+	asBob, err := auth.ActAs(ctx, "2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u, ok := auth.User[*user](asBob); !ok || u.Email != "bob@example.com" {
+		t.Errorf("acting as bob: %+v, %v", u, ok)
+	}
+	if id, err := auth.CurrentID(asBob); err != nil || id != "2" {
+		t.Errorf("CurrentID: %q, %v", id, err)
+	}
+	if err := auth.AuthorizeUser(asBob, func(_ context.Context, u *user) bool { return u.Admin }); err != nil {
+		t.Errorf("bob is an admin: %v", err)
+	}
+	if _, ok := auth.CurrentToken(asBob); ok {
+		t.Error("a token")
+	}
+	// The limits of the token a request had.
+	limited, _ := auth.ActAs(ctx, "2", auth.WithAbilities([]string{"posts:read"}))
+	if tok, ok := auth.CurrentToken(limited); !ok || tok.UserID != "2" || !auth.TokenCan(limited, "posts:read") || auth.TokenCan(limited, "posts:write") {
+		t.Errorf("abilities: %+v", tok)
+	}
+	gone, _ := auth.ActAs(ctx, "99")
+	if auth.Check(gone) {
+		t.Error("a user that doesn't exist is signed in")
+	}
+	s.failLoads = true
+	failing, _ := auth.ActAs(ctx, "1")
+	if _, err := auth.Current[*user](failing); err == nil || errors.Is(err, auth.ErrUnauthenticated) {
+		t.Errorf("a load failure: %v", err)
+	}
+	if _, err := auth.ActAs(context.Background(), "1"); err == nil {
+		t.Error("ActAs without an Auth in the context")
+	}
+}
+
 func TestTokens(t *testing.T) {
 	s := newStore(t)
 	a, _ := newApp(t, s)

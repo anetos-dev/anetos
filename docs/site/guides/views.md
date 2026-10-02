@@ -130,7 +130,11 @@ func mustAssets() *view.Assets {
 `assets.URL("app.css")` is `/assets/app.css?v=3f2a9c01d4`. Requests
 with the current hash may be cached for a year; a changed file gets a new
 URL. Mount it with `r.HandleStd(http.MethodGet, "/assets/{path...}", assets)`.
-`htmx.FS` holds the bundled htmx (version `htmx.Version`).
+`htmx.FS` holds the bundled htmx (version `htmx.Version`) and its
+server-sent events extension, `htmx-ext-sse.min.js` (`htmx.SSEVersion`),
+for pages that show updates as they happen: a streamed AI answer (see
+[Build an AI assistant](ai-assistant.md)), or events of your own, sent
+with `c.Events()`.
 
 ### 5. Update parts of a page with htmx
 
@@ -186,6 +190,32 @@ func (Notes) Delete(c *web.Ctx, in NoteID) (web.Responder, error) {
 The layout puts the CSRF token in `hx-headers`, so every htmx request
 passes [CSRF protection](forms.md). `c.HTMX()` returns the other htmx
 headers (target, trigger, boosted).
+
+For updates the server pushes, `c.Events()` starts a response of
+server-sent events, which the SSE extension swaps into the page:
+
+```go
+// illustrative
+stream, err := c.Events() // no request or write timeout for this response
+if err != nil {
+	return err
+}
+for status := range updates {
+	if err := stream.Send("status", html.EscapeString(status)); err != nil {
+		return nil // the browser left
+	}
+}
+return stream.Send("done", "")
+```
+
+```html
+<!-- illustrative -->
+<div hx-ext="sse" sse-connect="/jobs/7/events" sse-swap="status" sse-close="done"></div>
+```
+
+Close the stream with an event (`sse-close`): browsers reconnect to a
+stream that ends. `stream.Comment(text)` sends a keep-alive, and
+`srv.Stopping()` tells a long stream that the server is shutting down.
 
 ### 6. Or use html/template
 

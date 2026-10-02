@@ -46,6 +46,7 @@ Applied in order: the client's defaults, an agent's, the call's.
 | `ai.Tools(tools...)` | Adds tools | none |
 | `ai.MaxSteps(n)` | The most requests in a call with tools; then `ai.ErrMaxSteps`. `GenerateObject`'s retry is a second call, with its own limit | `ai.DefaultMaxSteps` (10) |
 | `ai.ProviderOptions(v)` | The driver's own request options (a type it defines) | none |
+| `ai.ForUser(userID)` | The user the call is for: its usage records and budget (`TrackUsage`) | the signed-in user, if any; a conversation's user |
 | `ai.Using(c)` | Use client c, not the context's | the context's |
 | an `ai.Agent` | Its settings | |
 
@@ -137,8 +138,49 @@ Recursive types are an error.
 |---|---|---|
 | `ai.ErrNoClient` | No client in the context and no `ai.Using` | 500 |
 | `ai.ErrMaxSteps` | The model still called tools at the last step | 500 |
+| `*ai.BudgetError` (`UserID`, `RetryAfter`) | The call's user spent their budget; wrapped in a `*web.HTTPError` whose message tells them when to try again | 429 |
+| `ai.ErrConversationChanged` | Another call added to the conversation during this one; nothing was stored | 409 |
 | `*ai.OutputError` (`Type`, `Text`, `Stop`, `Err`) | `GenerateObject`'s answer was invalid twice, cut off, or refused; `Err` is a `*validate.Errors` for broken rules | 502 |
 | `ai: <provider>: <error>` | The provider failed (wraps its error) | 500; 503 on a timeout |
+
+## Conversations
+
+| API | Does | Since |
+|---|---|---|
+| `ai.Migrations()` | The `ai_conversations`, `ai_messages` and `ai_usage` tables, for `migrate.ForApp` | v0.3 |
+| `ai.StartConversation(ctx, userID, title)` | Stores a new `*ai.Conversation` of the user (an `AuthID`, up to 100 bytes) | v0.3 |
+| `ai.FindConversation(ctx, userID, id)` | The user's conversation, else `db.ErrNotFound` (404) | v0.3 |
+| `ai.Conversations(ctx, userID)` | The user's conversations, the latest changed first, without messages | v0.3 |
+| `conv.Messages(ctx)` | Its messages, oldest first | v0.3 |
+| `conv.Add(ctx, msgs...)` | Stores messages at the end, without calling a model (the user's question) | v0.3 |
+| `conv.Prompt(ctx, prompt, opts...)`, `conv.Stream(…)` | `Generate` and `Stream` after its messages; the prompt and answers are stored if the call succeeds (before `EventDone`) | v0.3 |
+| `conv.Reply(ctx, opts...)`, `conv.StreamReply(…)` | Answer its last message (the user's); stored the same way | v0.3 |
+| `conv.QueueReply(ctx, agent)` | Answers its last message from a queue job, with the agent registered under `agent.Name`, as its user (`auth.ActAs`, with the abilities of the API token ctx was signed in with, if any); `Status` is `ai.StatusQueued`, then `""`, or `ai.StatusFailed` with `Error`. A retry runs the tools again; a job that finds the conversation changed does nothing. With the sync queue driver, it runs in the calling request, after its commit | v0.3 |
+| `conv.Delete(ctx)` | Deletes it and its messages (its usage records stay) | v0.3 |
+| `ai.QueueAgents(app, agents...)` | Registers the `ai.reply` job type on the app's queue, with the agents queued replies may use (by `Name`); needs `queue.ForApp` first. Jobs time out after `AI_QUEUE_TIMEOUT` | v0.3 |
+
+`ai.Conversation` fields: `ID`, `UserID`, `Title` (cut at 255 bytes), `Status`, `Error`,
+`CreatedAt`, `UpdatedAt`. Calls on a conversation are for its user
+(`ForUser`), and their usage records name it; `ai.Messages` options are
+ignored.
+
+## Streaming to the browser
+
+| API | Does | Since |
+|---|---|---|
+| `ai.SSE(c, events)` | Writes a stream (`ai.Stream`, `conv.StreamReply`…) as server-sent events, through `c.Events()` (no request or write timeout): `text` (a piece, HTML-escaped), `tool` (a tool's name), `error` (a 4xx error's message, else a general one; others are logged), then `done`, always last; a comment every 15 seconds keeps proxies from closing a quiet stream | v0.3 |
+
+## Usage and budgets
+
+| API | Does | Since |
+|---|---|---|
+| `c.TrackUsage(ai.UsageConfig{Prices, Budget})` | Records each response in `ai_usage` and enforces budgets; call at startup. Budgets need the app's cache. Records are written with the call's context: inside a transaction that rolls back they go with it, so don't call models inside transactions | v0.3 |
+| `ai.Price{Input, Output, CacheRead, CacheWrite}` | Per million tokens; cache prices of 0 charge `Input`. `p.Cost(usage)` | v0.3 |
+| `UsageConfig.Prices` | `map[string]ai.Price` by model name: the response's model, else the requested one | v0.3 |
+| `UsageConfig.Budget` | `func(ctx, userID) (ai.Budget, error)`, once per call with a user | v0.3 |
+| `ai.Budget{Tokens, Cost, Per}` | Input and output tokens, or cost, per period (aligned to the clock: a day starts at midnight UTC); 0 for no limit. Checked before each request; a response can go past it. Changing a user's limit starts their count for the period over | v0.3 |
+| `ai.UsageRecord` | A row of `ai_usage`: `UserID`, `ConversationID`, `Agent`, `Provider`, `Model`, the four token counts, `Cost`, `Estimated`, `CreatedAt`. A stream the reader left partway, or a request cut off by a timeout or a cancellation, is recorded and counted too, estimated at about four bytes a token for its input and the output it yielded (`Estimated`) | v0.3 |
+| `ai.TotalUsage(ctx, userID, since)` | `ai.UsageTotal{Usage, Cost, Responses}` since a time | v0.3 |
 
 ## Providers
 

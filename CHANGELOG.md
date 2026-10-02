@@ -112,7 +112,42 @@ All notable changes to this project are documented here. The format follows
   administrators add and API tokens; guide "Roles and permissions", a
   concept page, and the reference (R1).
 
+- AI conversations stored in the database (`ai.Migrations`:
+  `ai_conversations`, `ai_messages`): `ai.StartConversation`,
+  `FindConversation` (the user's only), `Conversations`; `conv.Prompt`,
+  `Stream`, `Add`, `Reply`, `StreamReply`, `Messages`, `Delete`. A call
+  stores its messages once it succeeds, or refuses with
+  `ai.ErrConversationChanged` (409) if another call added to the
+  conversation (A3, design §14.4, D175).
+- AI usage and budgets: `client.TrackUsage(ai.UsageConfig{Prices,
+  Budget})` records every model response in `ai_usage` (`ai.UsageRecord`)
+  with its cost, and refuses calls over a user's `ai.Budget` (tokens or
+  cost per period) with an `*ai.BudgetError` (429); streams stopped
+  partway count with an estimate; `ai.ForUser`,
+  `ai.Price`, `ai.TotalUsage` (A3, D176).
+- Queued replies: `ai.QueueAgents(app, agents...)` and
+  `conv.QueueReply(ctx, agent)`, answered by a queue job as the
+  conversation's user, with the conversation's `Status` and `Error` to
+  poll (A3, D177).
+- `auth.ActAs(ctx, userID, opts...)` and `a.ActAs`: a context signed in
+  as a user, for jobs and commands working for them, with
+  `auth.WithAbilities` for the limits of an API token (A3, D177).
+- `AI_QUEUE_TIMEOUT` (default 15m) bounds a queued reply (A3, D177).
+- Server-sent events: `c.Events()` (`*web.EventStream`: `Send`,
+  `Comment`), without the request's or the server's write timeout;
+  `web.WithoutTimeout(ctx)` for other streams; `ai.SSE(c, events)` sends a
+  streamed answer as `text`, `tool`, `error` and `done` events for htmx.
+  The htmx SSE extension is bundled in `view/htmx`
+  (`htmx-ext-sse.min.js`, `htmx.SSEVersion`) (A3, D178).
+- `ratelimit.AllowN`, counting an amount at once (A3, D176).
+- `anetos make:agent <Name>` writes an AI agent with a typed tool to
+  `app/agents` (A3, D179).
+- `examples/assistant`: a help center whose assistant searches and reads
+  its articles, with stored conversations, streamed answers, background
+  replies and a daily budget; guide "Build an AI assistant" (A3).
+
 ### Changed
+- `examples/ai` streams without the request timeout (`web.WithoutTimeout`) (A3).
 - `examples/ai` is its own module, with the provider drivers (A2).
 - `s.Rename` refuses a table with a search index, `Alter` refuses to drop
   or rename an indexed column unless it drops the index too, and

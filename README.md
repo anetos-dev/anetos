@@ -20,8 +20,9 @@ first public release, is in progress: full-text search, AI (typed
 LLM calls, tools that run as the user, streaming, a test fake;
 Anthropic, OpenAI and compatible servers, and Gemini) and roles and
 permissions (global and per team, [`examples/teams`](examples/teams))
-are done; AI in the app (stored conversations, budgets, queued
-generation) and vector search are next. APIs will change.
+and AI in the app (stored conversations, answers streamed to the page,
+replies from queue jobs, usage budgets; [`examples/assistant`](examples/assistant))
+are done; vector search is next. APIs will change.
 
 ## Documents
 

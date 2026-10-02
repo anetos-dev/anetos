@@ -179,12 +179,12 @@ type StreamQuestion struct {
 // AskStream answers a question as plain text, sent as the model writes
 // it.
 func AskStream(c *web.Ctx, in StreamQuestion) (web.Responder, error) {
-	ctx := context.WithValue(c, customerKey{}, in.Customer)
+	// A long answer outlasts HTTP_REQUEST_TIMEOUT and HTTP_WRITE_TIMEOUT:
+	// lift both for this response. (Leaving the page still stops it.)
+	ctx := context.WithValue(web.WithoutTimeout(c), customerKey{}, in.Customer)
 	w := c.Writer()
 	rc := http.NewResponseController(w)
-	// A long answer outlasts HTTP_WRITE_TIMEOUT: give this response more
-	// time. (HTTP_REQUEST_TIMEOUT still bounds the request's context.)
-	if err := rc.SetWriteDeadline(time.Now().Add(5 * time.Minute)); err != nil && !errors.Is(err, http.ErrNotSupported) {
+	if err := rc.SetWriteDeadline(time.Time{}); err != nil && !errors.Is(err, http.ErrNotSupported) {
 		return nil, err
 	}
 	for ev, err := range support.Stream(ctx, in.Question) {

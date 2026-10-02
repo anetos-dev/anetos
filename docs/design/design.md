@@ -241,7 +241,7 @@ anetos.dev/anetos/            ← core module
 │   ├── dbtest/          conformance suite every driver module runs
 │   ├── factory/         model factories for tests and seeders (F12)
 │   └── migrate/         schema builder, runner (F8)
-├── view/                Component interface, helpers, assets (F10); view/htmx: bundled htmx
+├── view/                Component interface, helpers, assets (F10); view/htmx: bundled htmx and its SSE extension
 ├── session/             encrypted cookie sessions, flash, CSRF token (F10)
 ├── encryption/          AES-256-GCM with APP_KEY and key rotation (F10)
 ├── cache/               cache, memory and database stores, locks (B1); cache/cachetest: store conformance suite
@@ -252,7 +252,7 @@ anetos.dev/anetos/            ← core module
 ├── schedule/            cron and fluent schedules, the scheduler component, overlap and single-instance locks (B8)
 ├── mailer/              mailables, rendering, log/SMTP/memory transports, queued mail (B9)
 ├── storage/             disks: local (os.Root) and memory backends, signed URLs, file handler (B10); storage/storagetest: backend conformance suite
-├── ai/                  provider contract, messages, Generate/GenerateObject/Stream, tools and agents, schemas, the fake (A1); ai/aitest: provider conformance suite on recorded exchanges (A2)
+├── ai/                  provider contract, messages, Generate/GenerateObject/Stream, tools and agents, schemas, the fake (A1); stored conversations, usage and budgets, queued replies, SSE (A3); ai/aitest: provider conformance suite on recorded exchanges (A2)
 ├── ext/                 public plugin API (package `ext`)
 ├── cmd/                 app-binary command types (F11); App.Execute dispatches
 ├── anetostest/          test app, browser-like client, assertions (F12); recording, fakes and the test clock (B12)
@@ -311,6 +311,7 @@ blog/                        (F11 generates the unmarked lines)
 ├── app/
 │   ├── handlers/            HTTP handlers
 │   ├── middleware/          (make:middleware)
+│   ├── agents/              AI agents (make:agent)
 │   ├── models/              model structs (+ generated models_gen.go)
 │   ├── jobs/ events/ listeners/ mailers/ policies/ tasks/   (v0.2)
 ├── database/
@@ -495,6 +496,13 @@ v0.2.
   `HTTP_SHUTDOWN_GRACE` (capped at half of `APP_SHUTDOWN_TIMEOUT` so later
   stages keep their time), then cancel request contexts and close
   connections. `srv.Stopping()` lets streaming handlers end immediately.
+- **Server-sent events** (A3, D178): `c.Events()` starts a
+  `text/event-stream` response (`Send(event, data)`, `Comment`), flushed
+  per event; it lifts the server's write deadline for the response and
+  the `Timeout` middleware's deadline for the request
+  (`web.WithoutTimeout`: the request's context from before the
+  middleware, with the current values, so the stream still stops when the
+  client leaves or the server shuts down).
 
 ---
 
@@ -853,7 +861,8 @@ Implemented in F10 (packages `view`, `session`, `encryption`; helpers in
   hash are cacheable for a year. The app declares its `*view.Assets` and
   templates use it directly (no context lookup).
 - **htmx** 2.0.11 is bundled (`view/htmx`, 0BSD) and served through
-  `view.NewAssets(…, htmx.FS)`. `c.IsHTMX()` (adds `Vary: HX-Request`) and
+  `view.NewAssets(…, htmx.FS)`, with its server-sent events extension
+  (`htmx-ext-sse.min.js` 2.2.4, 0BSD, A3). `c.IsHTMX()` (adds `Vary: HX-Request`) and
   `c.HTMX()` support partial rendering; the layout passes the CSRF token in
   `hx-headers`.
 - **Sessions** (D64): the whole session is an encrypted cookie (AES-256-GCM
@@ -1290,7 +1299,7 @@ r.HandleStd(http.MethodGet, "/files/{path...}", st.Default().Handler())
 - **S3** is `drivers/s3`, on minio-go: AWS, R2, MinIO and other
   S3-compatible stores (D128).
 
-### 14.4 AI (v0.3: A1–A2 done; A3 planned)
+### 14.4 AI (v0.3: A1–A3 done)
 
 Go has capable LLM libraries (the providers' official SDKs, LangChainGo,
 Genkit, Eino); what none has is the rest of a web app. Package `ai`
@@ -1376,10 +1385,43 @@ for ev, err := range support.Stream(ctx, question) { … }  // the answer as it'
 - **Logs** (D165): each model request is logged with provider, model,
   step, stop reason, tokens and duration; each tool call with its name,
   duration and error. Prompts and answers never are.
-- **The app's batteries** (A3): conversations in the database, usage and
-  cost per call with per-user budgets on the rate limiter, `ai.Queue` for
-  generation as a queue job (retries, timeouts), server-sent events for
-  streaming, files from storage as inputs, `make:agent`.
+- **Conversations** (A3, D175): `ai.Conversation`, a row of
+  `ai_conversations` (user, title, status, error) with its messages in
+  `ai_messages` as JSON (`ai.Migrations`); `FindConversation(ctx, userID,
+  id)` finds only the user's. `Prompt`/`Stream` ask and store; `Add`
+  stores the question and `Reply`/`StreamReply` answer the last one, so a
+  page can store a question and stream its answer in another request. A
+  call stores its new messages (question, answers, tool results) in one
+  transaction once it succeeds, under a lock on the conversation, and
+  refuses (`ErrConversationChanged`, 409) if another call added messages
+  meanwhile; a failed call stores nothing.
+- **Usage and budgets** (A3, D176): `client.TrackUsage(UsageConfig{Prices,
+  Budget})` writes each response's usage to `ai_usage` (user,
+  conversation, agent, provider, model, tokens, cost at the app's prices,
+  by model name) and enforces per-user `Budget`s (tokens or cost per
+  period, from a function of the user, so plans differ), counted with
+  `ratelimit.AllowN` in the app's cache and checked before each request:
+  over budget, a `*BudgetError` inside a 429 `HTTPError` with a message for
+  the user. Streams stopped partway are counted with an estimate. A call is for `ForUser`'s user, else the signed-in one
+  (`auth.CurrentID`); `TotalUsage` sums a user's records.
+- **Queued replies** (A3, D177): `ai.QueueAgents(app, agents...)`
+  registers the `ai.reply` job (30-minute timeout) with the agents, by
+  name; `conv.QueueReply(ctx, agent)` sets the status to `queued` and
+  dispatches after commit. The job acts as the conversation's user
+  (`auth.ActAs`, new in A3, with the queuing request's token abilities),
+  so tools see them as in a request; retries rerun the tools; it does
+  nothing if the conversation's message count changed since dispatch
+  (answered by an earlier attempt, or a newer question), 4xx errors fail
+  it at once, and a final failure sets `failed` with a message for the
+  user.
+- **Streaming to the browser** (A3, D178): `ai.SSE(c, events)` writes a
+  stream as server-sent events through `c.Events()`: `text` and `tool`
+  (HTML-escaped, for htmx's SSE extension, now bundled), `error` (a 4xx
+  error's message, else a general one), and `done`, always last, so the
+  page closes the stream instead of reconnecting.
+- **`make:agent`** (A3, D179) writes `app/agents/<name>.go`: an
+  `ai.Agent` and a typed tool to replace. Files (images, documents) as
+  model inputs moved to the backlog.
 - **Testing** (D158, D165): `anetostest` forces `AI_PROVIDER=fake` (an
   `Env` option can choose another; `FakeAI` swaps the fake back in);
   `anetostest.FakeAI(...)` scripts replies (text, objects, tool calls,
@@ -1480,7 +1522,12 @@ if err := auth.Authorize(c, policies.Post.Update, &post); err != nil { return ni
   among the token's abilities, and role checks need `*` (D172).
   `AuthorizeRole` lets a user give only roles whose permissions they have
   in the scope, `AuthorizeRolesOf` change only roles they could give
-  (D173). Checking an undeclared permission is an error, not
+  (D173).
+- **Acting as a user** (A3, D177): `a.ActAs(ctx, userID)` and
+  `auth.ActAs(ctx, userID)` (the app's Auth from the context) give work
+  done for a user outside their requests (queue jobs, commands) a
+  signed-in user, loaded by ID when first asked for, with no session or
+  token: `auth.Current`, policies, `rbac` checks and AI tools see them. Checking an undeclared permission is an error, not
   a no (D174). Commands: `rbac:roles`, `rbac:user`, `rbac:assign`,
   `rbac:unassign`. `examples/teams` shows team and global roles.
 - **Scaffolding** (B14, D145–D147, D150): `anetos make:auth` generates the
@@ -1639,7 +1686,7 @@ planned.
 |---|---|
 | `anetos new <dir> [--module=…] [--db=…] [--stack=…]` | Create a project (F11; v0.4 adds `--stack`) |
 | `anetos dev` | Watch (polling) → `templ generate` → `anetos gen` → build → restart on a free port → browser reload; stable address through a proxy that shows build errors (F11) |
-| `anetos make:<thing>` | handler, model (`--migration`), migration, middleware (F11); auth (B14, §15); job, event, listener, mail, policy, task, command, test, plugin (later) |
+| `anetos make:<thing>` | handler, model (`--migration`), migration, middleware (F11); auth (B14, §15); agent (A3: an `ai.Agent` with a typed tool in `app/agents`, D179); job, event, listener, mail, policy, task, command, test, plugin (later) |
 | `anetos gen` | Run code generators: typed model columns (F9), relation handles (v0.1.1). `-check` for CI |
 | `anetos key:generate` | Print a new `APP_KEY` line (F10) |
 | `anetos add <module>[@version]` / `anetos remove <module>` | Install or uninstall a plugin: `go get`, `plugins.go`, `go mod tidy`, a build check, `.env.example` (B11, §16.3, D151) |
@@ -2022,6 +2069,11 @@ unless new information arrives), **Open**, **Superseded**.
 | D172 | For a request signed in with an API token, a permission must also be one of the token's abilities (the permission's name, or `*`), and role checks are false unless the token has `*`; the package functions check the signed-in user, `rbac.Of` any user (no token involved) | Accepted | A token's abilities are a ceiling, as with `auth.TokenCan`: a read-only token can't delete whatever its user's roles; a role says nothing about what a token was given, so it mustn't pass for one |
 | D173 | `rbac.AuthorizeRole(ctx, scope, role)` allows giving a role only to a user who has, in that scope, every permission it allows (super there, with a `*` token, for a super role), and `AuthorizeRolesOf` changing a user's roles in a scope only to one who could give them all; both compare permissions, not names; deciding who may manage members stays an app permission | Accepted | Without it, anyone who may manage members can escalate to any role, including a super one, or demote those above them; the rule needs no configuration and holds for roles administrators add later |
 | D174 | Checking a permission that isn't declared is an error (500 from `Authorize`, logged by `Can`), not a refusal; storing an unknown role or permission is a 422; role and permission names are lowercase ASCII, and user IDs and scopes are binary columns on MySQL, so every database compares them alike, exactly; `CreateRole` removes leftover grants of a role that was removed from code | Accepted | A misspelled or forgotten permission is a bug that should surface in development, not a silent 403; MySQL's and MariaDB's collations would otherwise merge "team:ABC" with "team:abc" (and user "Alice" with "alice"), leaking grants across teams and users; a role must not come back to its old holders under a new definition |
+| D175 | Stored conversations are two tables (`ai_conversations` with user, title, status and error; `ai_messages` with one JSON message per row and its position), belong to a user, and are found only for that user; a call stores its new messages in one transaction after it succeeds, locking the conversation and checking that its message count is unchanged, else `ErrConversationChanged` (409); `Add` + `Reply`/`StreamReply` split asking from answering | Accepted | Messages are append-only and read whole, so JSON rows keep every part type without a schema per part; scoping by user closes the common hole of IDs in URLs; storing out of order would corrupt the conversation, and a conflict is rare and visible; a question stored before its answer survives a failed answer |
+| D176 | Usage tracking is opt-in per client (`TrackUsage`): a record per model response in `ai_usage`, priced from an app-provided `Prices` map by model name (no built-in price list); budgets per user and period (tokens or cost) are counted on the rate limiter with `ratelimit.AllowN` (new) and checked before each request; a request cut off partway (a stream's reader left, a timeout, a cancellation) is recorded and counted with an estimate (`Estimated`, about four bytes a token); records and counts outlive the client's cancellation but join the call's transaction; a call is for `ForUser`'s user or the signed-in user | Accepted | Prices and model names change too often to ship; per-response records survive calls that fail midway and attribute agents' steps; the cache-backed counter is cheap and works across instances, while the table is for reporting; checking per request stops a long agent loop, though one response can overshoot |
+| D177 | Queued replies are a queue job (`ai.reply`) carrying the conversation, user, agent name and message count; agents are registered by name (`QueueAgents`); the job acts as the user through a new `auth.ActAs(ctx, userID, auth.WithAbilities(…))` (a request state that loads the user by ID, with the queuing request's token abilities, and refuses Login/Logout); it is idempotent by the message count, permanent on 4xx errors, and reports through the conversation's status and error, which only the conversation's latest job (`queued_after`) may change; its timeout is `AI_QUEUE_TIMEOUT` (15m) | Accepted | Agents hold functions and can't be serialized, but the binary has them; tools must see the same user as in a request; at-least-once delivery must not answer twice; pages need something to poll |
+| D178 | Server-sent events are a web feature (`c.Events()`: headers, per-event flush, no write deadline, and the request's context without the Timeout middleware's deadline via `web.WithoutTimeout`, which keeps cancellation by the client and values); `ai.SSE` maps an answer's events to `text`, `tool`, `error` and a final `done`, HTML-escaped, with the htmx SSE extension bundled in `view/htmx`; a comment every 15 seconds keeps the stream alive through proxies; `WithoutTimeout` lifts the outermost Timeout, so route groups' timeouts go too | Accepted | A stream must outlast HTTP_REQUEST_TIMEOUT without turning timeouts off app-wide; htmx is the default front end, and escaping makes the data safe to swap in; browsers reconnect to ended streams, so the last event tells the page to close |
+| D179 | `anetos make:agent` writes an `ai.Agent` with a typed tool to `app/agents`, and prints the `ai.ForApp` setup if `main.go` lacks it; files (images, documents) as model inputs move to the backlog | Accepted | Agents are the unit apps reuse; a typed tool shows the schema-from-tags pattern; multimodal parts need every driver's support and storage handling, not needed for the MVP's assistant |
 
 ---
 
@@ -2079,3 +2131,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-02 | A1 AI core implemented: §4, §5, §14 updated, §14.4 rewritten, §18 updated; D156–D158 accepted (drivers and conformance planned, A2), D163–D165 added |
 | 2026-10-02 | A2 AI providers implemented: §5, §14, §14.4 updated; D156, D158 accepted in full; D166–D168 added |
 | 2026-10-02 | R1 roles and permissions implemented: §5, §15, §17.2 updated; D169–D174 added |
+| 2026-10-02 | A3 AI in the app implemented: §5, §6, §8.6, §12.1, §14.4, §15, §17.1 updated; D175–D179 added; files as model inputs to the backlog |

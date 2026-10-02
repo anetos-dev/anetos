@@ -14,6 +14,7 @@
 //	make:model <Name>         add a model (--migration: and its migration)
 //	make:migration <name>     add a migration
 //	make:middleware <Name>    add a middleware
+//	make:agent <Name>         add an AI agent
 //	make:auth                 add accounts: registration, login, verification, reset, API tokens
 //	gen [-check] [packages]   generate typed columns for models (default ./...)
 //	key:generate              print a new APP_KEY line
@@ -50,6 +51,7 @@ Commands:
   make:model <Name>         add a model to app/models (--migration: and its migration)
   make:migration <name>     add a migration to database/migrations
   make:middleware <Name>    add a middleware to app/middleware
+  make:agent <Name>         add an AI agent to app/agents
   make:auth                 add accounts: registration, login, email verification, password reset, API tokens
   gen [-check] [packages]   generate typed columns for models (default ./...)
   add <module>[@version]    install a plugin (go get, plugins.go, .env.example)
@@ -85,7 +87,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 		return makeAuth(ctx, args[1:], stdout, stderr)
-	case "make:handler", "make:model", "make:migration", "make:middleware":
+	case "make:handler", "make:model", "make:migration", "make:middleware", "make:agent":
 		return makeCmd(args[0], args[1:], stdout, stderr)
 	case "key:generate":
 		if len(args) > 1 {

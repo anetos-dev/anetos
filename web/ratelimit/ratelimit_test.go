@@ -32,7 +32,7 @@ func TestAllow(t *testing.T) {
 	now := time.Date(2026, 1, 1, 12, 0, 10, 0, time.UTC)
 	l := PerMinute(3)
 	for i := range 5 {
-		res, err := allow(ctx, "login:ada", l, now)
+		res, err := allow(ctx, "login:ada", l, 1, now)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -44,18 +44,18 @@ func TestAllow(t *testing.T) {
 		}
 	}
 	// Another key, another limit and the next window count separately.
-	if res, _ := allow(ctx, "login:bob", l, now); !res.Allowed {
+	if res, _ := allow(ctx, "login:bob", l, 1, now); !res.Allowed {
 		t.Error("another key blocked")
 	}
-	if res, _ := allow(ctx, "login:ada", PerHour(10), now); !res.Allowed {
+	if res, _ := allow(ctx, "login:ada", PerHour(10), 1, now); !res.Allowed {
 		t.Error("another limit blocked")
 	}
-	if res, _ := allow(ctx, "login:ada", l, now.Add(50*time.Second)); !res.Allowed || res.Remaining != 2 {
+	if res, _ := allow(ctx, "login:ada", l, 1, now.Add(50*time.Second)); !res.Allowed || res.Remaining != 2 {
 		t.Errorf("next window: %+v", res)
 	}
 	// Long and binary keys are hashed to fit the cache.
 	for _, k := range []string{strings.Repeat("k", 500), "bad\xff"} {
-		if _, err := allow(ctx, k, l, now); err != nil {
+		if _, err := allow(ctx, k, l, 1, now); err != nil {
 			t.Errorf("key %.20q: %v", k, err)
 		}
 	}
@@ -248,5 +248,26 @@ func TestCheck(t *testing.T) {
 	}
 	if res, _ := Check(ctx, "k", l); res.Remaining != 0 {
 		t.Error("Check counted a hit")
+	}
+}
+
+func TestAllowN(t *testing.T) {
+	fixedClock(t)
+	ctx := withCache(cache.NewMemoryStore())
+	l := PerDay(1000)
+	if res, err := AllowN(ctx, "tokens:ada", 600, l); err != nil || !res.Allowed || res.Remaining != 400 {
+		t.Fatalf("600: %+v %v", res, err)
+	}
+	if res, _ := AllowN(ctx, "tokens:ada", 500, l); res.Allowed || res.Remaining != 0 {
+		t.Errorf("1100: %+v", res)
+	}
+	if res, _ := Check(ctx, "tokens:ada", l); res.Allowed {
+		t.Error("over the limit, Check allows")
+	}
+	if res, _ := AllowN(ctx, "tokens:bob", 0, l); !res.Allowed || res.Remaining != 1000 {
+		t.Errorf("0: %+v", res)
+	}
+	if _, err := AllowN(ctx, "tokens:ada", -1, l); err == nil {
+		t.Error("a negative n accepted")
 	}
 }

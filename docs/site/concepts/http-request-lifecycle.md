@@ -50,7 +50,7 @@ Every request, matched or not, passes through the global middleware:
 | `SecureHeaders` | `nosniff`, frame and referrer policies; HSTS in production |
 | `CORS` | Only if `HTTP_CORS_ORIGINS` is set; answers preflights |
 | `BodyLimit` | Caps the body at `HTTP_MAX_BODY` |
-| `Timeout` | Puts a deadline of `HTTP_REQUEST_TIMEOUT` on the request context |
+| `Timeout` | Puts a deadline of `HTTP_REQUEST_TIMEOUT` on the request context; a streaming handler lifts it with `web.WithoutTimeout` (as `c.Events()` does), keeping the cancellation when the client leaves |
 
 ## 3. Routing
 

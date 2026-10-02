@@ -211,8 +211,8 @@ func CurrentToken(ctx context.Context) (*Token, bool) {
 // with a session (the app's own pages and front end) may do anything its
 // user may. A guest may do nothing.
 func TokenCan(ctx context.Context, ability string) bool {
-	if t, ok := CurrentToken(ctx); ok {
-		return t.Can(ability)
+	if t, ok := CurrentToken(ctx); ok && !t.Can(ability) {
+		return false
 	}
 	return Check(ctx)
 }

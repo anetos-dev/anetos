@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"anetos.dev/anetos"
@@ -32,24 +33,35 @@ type Ctx struct {
 	r      *http.Request
 	router *Router
 	route  *Route
+	// streaming is the request with the context [Ctx.Events] gave it. It
+	// is atomic: database/sql watches a context's Done from goroutines.
+	streaming atomic.Pointer[http.Request]
 }
 
 var _ context.Context = (*Ctx)(nil)
 
+// ctx returns the request's context.
+func (c *Ctx) ctx() context.Context { return c.Request().Context() }
+
 // Deadline implements context.Context.
-func (c *Ctx) Deadline() (time.Time, bool) { return c.r.Context().Deadline() }
+func (c *Ctx) Deadline() (time.Time, bool) { return c.ctx().Deadline() }
 
 // Done implements context.Context.
-func (c *Ctx) Done() <-chan struct{} { return c.r.Context().Done() }
+func (c *Ctx) Done() <-chan struct{} { return c.ctx().Done() }
 
 // Err implements context.Context.
-func (c *Ctx) Err() error { return c.r.Context().Err() }
+func (c *Ctx) Err() error { return c.ctx().Err() }
 
 // Value implements context.Context.
-func (c *Ctx) Value(key any) any { return c.r.Context().Value(key) }
+func (c *Ctx) Value(key any) any { return c.ctx().Value(key) }
 
 // Request returns the underlying request.
-func (c *Ctx) Request() *http.Request { return c.r }
+func (c *Ctx) Request() *http.Request {
+	if r := c.streaming.Load(); r != nil {
+		return r
+	}
+	return c.r
+}
 
 // Writer returns the response writer. Prefer the response helpers; if you
 // write directly, errors returned afterwards can only be logged.

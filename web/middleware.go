@@ -258,13 +258,18 @@ func ParsePrefixes(values []string) ([]netip.Prefix, error) {
 // Timeout gives each request a context deadline of d. Handlers that pass
 // the context to their I/O stop when it expires, and the resulting
 // context.DeadlineExceeded error becomes a 503 response. A zero d disables it.
+// Streaming handlers remove it with [WithoutTimeout] (as [Ctx.Events] does).
 func Timeout(d time.Duration) Middleware {
 	return func(next http.Handler) http.Handler {
 		if d <= 0 {
 			return next
 		}
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ctx, cancel := context.WithTimeout(r.Context(), d)
+			parent := r.Context()
+			if parent.Value(beforeTimeoutKey{}) == nil { // the outermost Timeout's, for WithoutTimeout
+				parent = context.WithValue(parent, beforeTimeoutKey{}, parent)
+			}
+			ctx, cancel := context.WithTimeout(parent, d)
 			defer cancel()
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})

@@ -39,6 +39,7 @@ Packages `auth`, `auth/password`, `auth/social` and `auth/rbac`. How-to: [Authen
 | `auth.Current[U](ctx)` | The signed-in user, `auth.ErrUnauthenticated`, or the load error |
 | `auth.Check(ctx)` | Whether a user is signed in |
 | `auth.CurrentID(ctx)` | The signed-in user's `AuthID`, `auth.ErrUnauthenticated`, or the load error, for code that works with any user type (v0.3) |
+| `a.ActAs(ctx, userID, opts...)`, `auth.ActAs(ctx, userID, opts...)` | A context whose signed-in user is that user (loaded with `Users.ByID` when asked for; none if it doesn't exist), for queue jobs and commands working for a user; no session (`Attempt`, `Login` and `Logout` refuse) and no token, unless `auth.WithAbilities(abilities)` gives it a token's limits. The function finds the app's Auth in ctx (v0.3) |
 | `auth.Intended(ctx, fallback)` | The page a guest asked for before logging in, or `fallback` |
 
 ## Tokens

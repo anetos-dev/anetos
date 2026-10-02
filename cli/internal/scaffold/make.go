@@ -86,6 +86,17 @@ func ModelTable(name string) string {
 	return naming.Plural(naming.Snake(t))
 }
 
+// MakeAgent writes app/agents/<name>.go with an ai.Agent and a tool.
+func MakeAgent(root, name string) (string, error) {
+	t, err := typeName(name)
+	if err != nil {
+		return "", err
+	}
+	snake := naming.Snake(t)
+	d := makeData{Type: t, Path: strings.ReplaceAll(snake, "_", "-"), ID: strings.ToLower(t[:1]) + t[1:]}
+	return d.write(root, "agent.go.tmpl", "app/agents/"+snake+".go")
+}
+
 // MakeMiddleware writes app/middleware/<name>.go with a middleware
 // function.
 func MakeMiddleware(root, name string) (string, error) {

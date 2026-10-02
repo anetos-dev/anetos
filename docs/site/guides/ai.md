@@ -235,12 +235,12 @@ type StreamQuestion struct {
 // AskStream answers a question as plain text, sent as the model writes
 // it.
 func AskStream(c *web.Ctx, in StreamQuestion) (web.Responder, error) {
-	ctx := context.WithValue(c, customerKey{}, in.Customer)
+	// A long answer outlasts HTTP_REQUEST_TIMEOUT and HTTP_WRITE_TIMEOUT:
+	// lift both for this response. (Leaving the page still stops it.)
+	ctx := context.WithValue(web.WithoutTimeout(c), customerKey{}, in.Customer)
 	w := c.Writer()
 	rc := http.NewResponseController(w)
-	// A long answer outlasts HTTP_WRITE_TIMEOUT: give this response more
-	// time. (HTTP_REQUEST_TIMEOUT still bounds the request's context.)
-	if err := rc.SetWriteDeadline(time.Now().Add(5 * time.Minute)); err != nil && !errors.Is(err, http.ErrNotSupported) {
+	if err := rc.SetWriteDeadline(time.Time{}); err != nil && !errors.Is(err, http.ErrNotSupported) {
 		return nil, err
 	}
 	for ev, err := range support.Stream(ctx, in.Question) {
@@ -272,11 +272,11 @@ and last `ai.EventDone`, whose `Result` holds the conversation and usage.
 Leaving the loop early stops the generation. A request's timeout
 (`AI_TIMEOUT`) counts the time your loop takes too, so a slow reader
 makes the request last longer. A stream also outlasts the server's
-limits: the example extends `HTTP_WRITE_TIMEOUT` for its response with
-`SetWriteDeadline`, and `HTTP_REQUEST_TIMEOUT` (which ends the request's
-context) must be raised for the app too. See
-[Configuration](../reference/configuration.md#http-server) for streaming
-responses and shutdown.
+limits: the example lifts `HTTP_REQUEST_TIMEOUT` for its request
+(`web.WithoutTimeout`, keeping the cancellation when the client leaves)
+and `HTTP_WRITE_TIMEOUT` for its response (`SetWriteDeadline`). For
+browsers, `ai.SSE` sends the answer as server-sent events and does both:
+see [Build an AI assistant](ai-assistant.md).
 
 ### 6. Test it
 
@@ -358,6 +358,8 @@ Providers differ, and the drivers smooth what they can:
 
 ## Next steps
 
+- [Build an AI assistant](ai-assistant.md): stored conversations,
+  answers streamed to the page, replies from queue jobs, usage budgets.
 - [AI concepts](../concepts/ai.md): what the package does, and doesn't.
 - [AI reference](../reference/ai.md): options, events, errors, schemas.
 - [Authorization](authorization.md) and [Roles and

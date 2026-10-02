@@ -116,6 +116,72 @@ model, step, stop reason, input and output tokens and duration; each
 tool call with its name, duration and error. Prompts and answers are
 never logged: they are the users' data.
 
+## Conversations
+
+A stored conversation (`ai.Conversation`) is a row of
+`ai_conversations` with its messages in `ai_messages`, one row each, as
+JSON: text, tool calls and results, and the reasoning some models need
+back. It belongs to a user, and `ai.FindConversation` finds it only for
+that user, so an ID in a URL can't reach another's.
+
+A call on a conversation (`Prompt`, `Stream`, `Reply`, `StreamReply`)
+loads its messages, sends them with the new question, and, once the
+answer is complete, stores everything new in one transaction: the
+question, the model's messages, the tools' results. It stores nothing
+if the call fails, and refuses to store if another call added messages
+in the meantime (`ErrConversationChanged`), since an answer belongs after
+the question it answers. A page can store the question first (`Add`)
+and stream the answer from another request (`StreamReply`): the question
+is kept if the answer fails, and can be answered again.
+
+## Streaming to the browser
+
+`ai.SSE` writes a streamed answer as server-sent events (`text`,
+`tool`, `error`, `done`), HTML-escaped for htmx's SSE extension, which
+`view/htmx` bundles. The stream goes through `c.Events()`, which lifts
+the request's timeout and the server's write timeout for that response:
+an answer can take minutes, and still stops when the browser leaves,
+which stops the model. A comment every 15 seconds keeps proxies from
+closing a stream while the model thinks or a tool runs. Errors become an `error` event, with the
+message of a 4xx error (a spent budget) or a general one (others are
+logged), followed by `done`, so the page closes the stream instead of
+reconnecting.
+
+## Queued replies
+
+`conv.QueueReply` answers from a queue job (`ai.QueueAgents` registers
+the job type, with the agents it may run, found by name: a job carries
+the name, not the agent). The job acts as the conversation's user
+(`auth.ActAs`), so the agent's tools see the same user as in a request,
+limited to the abilities of the API token the reply was queued with, if
+any. Retries follow the queue's settings, and start the reply over: the
+tools run again, so tools that change things must be safe to repeat. The conversation's `Status`
+says where it stands (`queued`, or `failed` with a message for the
+user). A job remembers how many messages the conversation had: if that
+changed (the reply was stored by an earlier attempt, or the user asked
+something else), it does nothing, so a question gets one answer however
+often the job runs.
+
+## Usage and budgets
+
+With `client.TrackUsage`, every model response is recorded in
+`ai_usage` for its user (the signed-in user, or `ai.ForUser`'s), with
+its conversation, agent, model, tokens and cost at the app's prices. A
+budget (tokens or cost per period, per user, from a function of the
+user, so plans can differ) is counted on the rate limiter, in the app's
+cache, and checked before each request to the model: a call over
+budget fails with a 429 before it spends more. A single response can
+go past the budget, since its length isn't known beforehand. A stream
+the reader leaves partway (a closed tab), or a request cut off by a
+timeout or a cancellation, has spent tokens too, which the provider
+never reports: it's recorded and counted with an estimate, about four
+bytes a token for its input and what it yielded (reasoning a model did
+without showing it can't be counted). Records are
+written even if the client has gone, but in the call's transaction, if
+any: one that rolls back takes them with it, so models aren't called
+inside transactions (on SQLite, the transaction would also hold the
+write lock for the whole call).
+
 ## Testing
 
 Model output varies and costs money, so tests don't call a model:
@@ -127,14 +193,14 @@ request, for assertions on what the model was sent.
 ## Not in scope
 
 Multi-agent orchestration graphs, prompt template languages and a
-vector database of its own are out of scope. Conversations stored in the
-database, usage budgets, generation in queue jobs, server-sent events,
-embeddings and vector search are planned, as are Vertex AI, Bedrock and
-Azure OpenAI's own authentication (their APIs work through a proxy URL
-until then).
+vector database of its own are out of scope. Embeddings and vector
+search are planned (S2), as are Vertex AI, Bedrock and Azure OpenAI's
+own authentication (their APIs work through a proxy URL until then),
+and files (images, documents) as inputs.
 
 ## See also
 
 - [Add AI to your app](../guides/ai.md)
+- [Build an AI assistant](../guides/ai-assistant.md)
 - [AI reference](../reference/ai.md)
 - [Testing](testing.md)

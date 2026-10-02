@@ -107,20 +107,30 @@ func (r Result) RetryAfter() time.Duration {
 // window ends. Keys are stored as hashes, so they may be secrets or any
 // input.
 func Allow(ctx context.Context, key string, l Limit) (Result, error) {
-	return allow(ctx, "allow\x00"+key, l, now(ctx))
+	return allow(ctx, "allow\x00"+key, l, 1, now(ctx))
+}
+
+// AllowN counts n hits for key at once, like [Allow]: for limits on
+// amounts rather than events, such as the tokens of a user's AI calls (n
+// tokens against a limit of tokens per day). n must not be negative.
+func AllowN(ctx context.Context, key string, n int, l Limit) (Result, error) {
+	if n < 0 {
+		return Result{}, fmt.Errorf("ratelimit: AllowN with n = %d", n)
+	}
+	return allow(ctx, "allow\x00"+key, l, int64(n), now(ctx))
 }
 
 // now is the clock: the app's (anetos.Now); tests replace it.
 var now = anetos.Now
 
-func allow(ctx context.Context, key string, l Limit, at time.Time) (Result, error) {
+func allow(ctx context.Context, key string, l Limit, hits int64, at time.Time) (Result, error) {
 	k, reset, err := storeKey(key, l, at)
 	if err != nil {
 		return Result{}, err
 	}
 	// Keep the counter past its window (by up to a minute), for clocks that
 	// differ between instances.
-	n, err := cache.Increment(ctx, k, 1, reset.Sub(at)+min(max(l.Window, time.Second), time.Minute))
+	n, err := cache.Increment(ctx, k, hits, reset.Sub(at)+min(max(l.Window, time.Second), time.Minute))
 	if err != nil {
 		return Result{}, err
 	}
@@ -234,7 +244,7 @@ func Middleware(name string, limits ...Limit) web.Middleware {
 					}
 					key = "mw\x00" + name + "\x00by\x00" + k
 				}
-				res, err := allow(r.Context(), key, l, t)
+				res, err := allow(r.Context(), key, l, 1, t)
 				if err != nil {
 					web.WriteError(w, r, fmt.Errorf("ratelimit: %w", err))
 					return

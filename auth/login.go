@@ -15,6 +15,8 @@ import (
 
 var errNoMiddleware = errors.New("auth: no auth state in the context; add the Auth middleware (after the session middleware) to the route")
 
+var errActing = errors.New("auth: the context acts as a user (ActAs): there is no session to sign in or out")
+
 // Attempt signs in the user whose login and password match, and returns
 // them. It fails with [ErrInvalidCredentials] for an unknown login or a
 // wrong password (taking about as long either way), and with a
@@ -142,6 +144,9 @@ func (a *Auth[U]) login(ctx context.Context, u U, hash string, remember bool) er
 	if st == nil || s == nil {
 		return errNoMiddleware
 	}
+	if st.acting {
+		return errActing
+	}
 	if remember && a.users.RememberToken == nil {
 		return errNoRemember
 	}
@@ -179,6 +184,9 @@ func (a *Auth[U]) Logout(ctx context.Context) error {
 	s := session.From(ctx)
 	if st == nil || s == nil {
 		return errNoMiddleware
+	}
+	if st.acting {
+		return errActing
 	}
 	u, err := Current[U](ctx)
 	s.Invalidate()

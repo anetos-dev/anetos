@@ -114,10 +114,12 @@ Read by `web.NewServer` (or `web.LoadConfig`) into `web.Config`.
 | `HTTP_CORS_CREDENTIALS` | bool | `false` | Allow cookies; can't be combined with `*` | v0.1 |
 | `HTTP_CORS_MAX_AGE` | duration | `10m` | How long browsers cache preflights | v0.1 |
 
-Streaming responses (server-sent events, long polling) should set
-`HTTP_WRITE_TIMEOUT=0` and `HTTP_REQUEST_TIMEOUT=0` (or override them per
-route with `http.ResponseController`), and end the stream when
-`srv.Stopping()` is closed so shutdown doesn't wait for the grace period.
+Streaming responses lift `HTTP_REQUEST_TIMEOUT` and `HTTP_WRITE_TIMEOUT`
+for themselves: `c.Events()` (server-sent events, and `ai.SSE`) does both;
+other streams use `web.WithoutTimeout(ctx)` for the request's context and
+`http.ResponseController`'s `SetWriteDeadline` for the response. They
+should end when `srv.Stopping()` is closed, so shutdown doesn't wait for
+the grace period.
 
 HSTS (`Strict-Transport-Security`) is sent automatically when
 `APP_ENV=production`; serve production over HTTPS (usually at your proxy or
@@ -267,6 +269,7 @@ drivers. See [Add AI to your app](../guides/ai.md).
 | `AI_MODEL` | string | none (required by the drivers) | The model calls use unless they set `ai.Model`, by the provider's name for it | v0.3 |
 | `AI_MAX_TOKENS` | int ≥ 1 | `4096` | The longest answer, in tokens, unless a call sets `ai.MaxTokens`; a longer one is cut off | v0.3 |
 | `AI_TIMEOUT` | duration > 0 | `10m` | How long each request to the model may take, unless a call sets `ai.Timeout`; for a stream, including the time the reader's loop takes | v0.3 |
+| `AI_QUEUE_TIMEOUT` | duration > 0 | `15m` | How long a queued reply (`conv.QueueReply`) may take, all its requests and tool calls. Also how long the queue's workers wait before taking back a job of any type whose worker died (the queue's lease is its longest job timeout) | v0.3 |
 | `ANTHROPIC_API_KEY` | secret | none (required with `anthropic`) | The Anthropic API key | v0.3 |
 | `ANTHROPIC_BASE_URL` | URL | Anthropic's | Another URL for the API (a proxy, a gateway) | v0.3 |
 | `OPENAI_API_KEY` | secret | none (required with `openai`) | The OpenAI API key | v0.3 |
