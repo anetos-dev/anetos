@@ -6,6 +6,18 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-02
+
+Batteries: the cache, server-side sessions and rate limiting,
+authentication with API tokens and policies, social login (Google,
+GitHub, OpenID Connect), queues, events, pub/sub listeners, the
+scheduler, mail, file storage, plugins, test fakes and the app clock,
+N+1 detection, and `anetos make:auth`. `examples/saas` puts them in one
+app that runs as one binary or split by role. Like v0.1, this is a
+private pre-release: the modules still use `replace` directives (roadmap
+M1b). New modules: `drivers/redis`, `drivers/s3`, `drivers/gcppubsub`
+and `plugins/postmark`, tagged `<path>/v0.2.0` with the others.
+
 ### Added
 - Cache (`cache` package): `cache.ForApp` picks a store with
   `CACHE_STORE` (`memory`, `database`, or a driver's such as `redis`) and
@@ -281,8 +293,48 @@ All notable changes to this project are documented here. The format follows
   listener, with a templ template, queues one again with `POST
   /orders/{id}/receipt`, and previews it in development; guide "Send
   email" (B9).
+- `anetos.Logger(ctx)`: the app's logger, from its contexts, for jobs,
+  listeners and tasks (`slog.Default()` without an app) (v0.2 checks,
+  design D148).
+- `anetostest.FakeSocial()` signs social login in through a stand-in
+  OpenID Connect provider, for every provider (through an internal hook,
+  honored only with `APP_ENV=testing`); `app.SocialSignIn(redirect,
+  anetostest.SocialAccount{…})`. `anetostest` now imports `auth/social`,
+  so modules that use it list `golang.org/x/oauth2` and
+  `golang.org/x/crypto` as indirect requirements (already the core's)
+  (v0.2 checks, design D149).
+- `social.Provider.Title` ("Google", "GitHub"; `OIDC`'s defaults to its
+  name) and `Social.Title(name)`, for sign-in buttons;
+  `social.WithHomeURL(path)`; `social.ForApp` checks its options also
+  when no provider is configured (v0.2 checks).
+- `anetos make:auth` adds sign-in with Google and GitHub: `handlers.SocialUser`,
+  buttons on the login and registration pages, the `social.redirect` and
+  `social.callback` routes, the `social_accounts` migration, the empty
+  `SOCIAL_GOOGLE_*` and `SOCIAL_GITHUB_*` settings in `.env` and
+  `.env.example`, and tests with `FakeSocial` (v0.2 checks, design D150).
+- `examples/saas`: a `anetos new` + `make:auth` app with a welcome email
+  from a queue job, a listener on a billing topic and a scheduled task
+  that ends trials, and a test that runs the binary as `http`,
+  `workers`, `listeners` and `scheduler` processes, then as one (v0.2
+  checks, design D152).
+- `plugins/postmark` has a README (v0.2 checks).
 
 ### Changed
+- `anetos new --replace` also replaces the checkout's driver and plugin
+  modules, so `go get` and `anetos add` take them from it; `anetos add`
+  runs `go mod tidy` after writing `plugins.go`, so the plugin is a direct
+  requirement (v0.2 checks, design D151).
+- `auth` refuses `AUTH_LOGIN_URL` and `AUTH_HOME_URL` values, and
+  intended pages, with control characters, which browsers drop
+  (`/\t/host`) (v0.2 checks).
+- `examples/auth` doesn't link a second account of the same provider to
+  a user by email (a reused address) (v0.2 checks).
+- The mailer's unknown-`MAIL_DRIVER` error suggests `postmark.Driver()`
+  only for `MAIL_DRIVER=postmark` (v0.2 checks).
+- `examples/auth` tests social login with `anetostest.FakeSocial` (its
+  package variables for a fake provider are gone) and labels its buttons
+  with the providers' titles; `examples/queue` and the queue and
+  scheduling guides log with `anetos.Logger(ctx)` (v0.2 checks).
 - `examples/auth` emails its verification and reset links with the
   mailer instead of logging them (B14).
 - `pubsub.Publish` copies a byte-slice message, so the caller may reuse

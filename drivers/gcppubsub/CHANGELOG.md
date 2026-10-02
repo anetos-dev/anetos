@@ -7,6 +7,10 @@ tagged `drivers/gcppubsub/vX.Y.Z`. The framework's own changes are in the
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-02
+
+The first release, with the framework's v0.2.0.
+
 ### Added
 - Google Cloud Pub/Sub broker for the `pubsub` package: `gcppubsub.Driver()`
   (`PUBSUB_DRIVER=gcp`, `PUBSUB_GCP_PROJECT`, `PUBSUB_GCP_CREATE`) and

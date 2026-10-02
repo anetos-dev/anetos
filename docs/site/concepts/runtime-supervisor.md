@@ -54,6 +54,14 @@ theirs with `anetos.Roles("workers")`.
 - Asking for a role no component declares is an error, so typos in `--only`
   fail loudly.
 
+Split processes share work through shared stores: the database or Redis
+for the queue, the cache (database or Redis) for the scheduler's
+`OnOneServer` locks, and a broker (Redis, Google Pub/Sub) for pub/sub;
+the `memory` drivers stay inside one process.
+[`examples/saas`](../../../examples/saas) runs one binary as four
+processes, `http`, `workers`, `listeners` and `scheduler`, and its
+`roles_test.go` follows a sign-up from one to the other.
+
 ## Failure policies
 
 | Policy | On error or panic | Use for |

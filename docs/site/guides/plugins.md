@@ -84,15 +84,16 @@ Next:
   go run . migrate        if it adds migrations
 ```
 
-`anetos add` runs `go get`, lists the plugin in `plugins.go`, builds the
-app, loads the plugin as the app does (its `plugins:env` command, which
+`anetos add` runs `go get`, lists the plugin in `plugins.go`, tidies
+`go.mod`, builds the app, loads the plugin as the app does (its `plugins:env` command, which
 doesn't boot the app), and adds the plugin's settings to `.env.example`.
 If the plugin isn't a plugin, doesn't compile, or the app refuses it
 (it requires another version of Anetos, or its name is taken), `go.mod`,
 `go.sum` and `plugins.go` are left as they were. If the plugin needs a
 newer Anetos than your app had, `go get` upgrades it, and `anetos add`
 says so. Add `@v1.2.3` to the module for a version other than the
-latest.
+latest. (A project made with `anetos new --replace` takes Anetos's
+first-party plugins from that checkout.)
 
 ### 3. Configure and migrate
 

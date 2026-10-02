@@ -207,6 +207,38 @@ func TestMakeAuth(t *testing.T) {
 	if h := read(t, filepath.Join(dir, "app/handlers/auth.go")); !strings.Contains(h, `"example.com/shop/app/models"`) {
 		t.Errorf("handlers' imports:\n%s", h)
 	}
+	// The SOCIAL_* settings, once per file.
+	if !slices.Equal(res.Env, []string{".env", ".env.example"}) {
+		t.Errorf("Env = %v", res.Env)
+	}
+	for _, f := range res.Env {
+		if env := read(t, filepath.Join(dir, f)); strings.Count(env, "\nSOCIAL_GOOGLE_CLIENT_ID=\n") != 1 || !strings.Contains(env, "\nSOCIAL_GITHUB_CLIENT_SECRET=\n") {
+			t.Errorf("%s:\n%s", f, env)
+		}
+	}
+	envFile := filepath.Join(t.TempDir(), ".env")
+	for content, want := range map[string]string{
+		"":                                   strings.TrimPrefix(socialSettings, "\n"),
+		"A=1":                                "A=1\n" + socialSettings,
+		"A=1\n":                              "A=1\n" + socialSettings,
+		"A=1\n\n":                            "A=1\n\n" + strings.TrimPrefix(socialSettings, "\n"),
+		"# SOCIAL_GOOGLE_CLIENT_ID=x\n":      "",
+		"export SOCIAL_GOOGLE_CLIENT_ID = x": "",
+	} {
+		if err := os.WriteFile(envFile, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		added, err := addSettings(envFile, socialSettings)
+		if err != nil || added != (want != "") {
+			t.Errorf("addSettings to %q: %v, %v", content, added, err)
+		}
+		if got := read(t, envFile); want != "" && got != want {
+			t.Errorf("addSettings to %q:\n%s", content, got)
+		}
+	}
+	if added, err := addSettings(filepath.Join(t.TempDir(), "missing"), socialSettings); added || err != nil {
+		t.Errorf("a missing file: %v, %v", added, err)
+	}
 	// Nothing is overwritten.
 	if _, err := MakeAuth(dir, now); err == nil || !strings.Contains(err.Error(), "create_users_table.go exists") {
 		t.Errorf("twice: %v", err)
@@ -266,6 +298,23 @@ func TestMakeAuth(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(p, "app/models/user.go")); !os.IsNotExist(err) {
 		t.Errorf("user.go left behind: %v", err)
+	}
+	if strings.Contains(read(t, filepath.Join(p, ".env")), "SOCIAL_") {
+		t.Error("the settings were added")
+	}
+	// A settings file that can't be read stops it before it writes.
+	p = fresh()
+	if err := os.Remove(filepath.Join(p, ".env.example")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(p, ".env.example"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if res, err := MakeAuth(p, now); err == nil || len(res.Created) != 0 {
+		t.Errorf("unreadable .env.example: %+v, %v", res, err)
+	}
+	if _, err := os.Stat(filepath.Join(p, "auth.go")); !os.IsNotExist(err) {
+		t.Errorf("auth.go written: %v", err)
 	}
 	// A comment isn't a call; a routes.Register moved out of setup isn't
 	// wired into.

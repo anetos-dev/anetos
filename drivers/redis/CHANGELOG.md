@@ -7,6 +7,10 @@ tagged `drivers/redis/vX.Y.Z`. The framework's own changes are in the
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-02
+
+The first release, with the framework's v0.2.0.
+
 ### Added
 - `redis.Connect`: the app's shared go-redis client for `REDIS_URL`,
   pinged when the app boots and closed at shutdown (B1).

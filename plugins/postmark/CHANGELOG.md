@@ -7,6 +7,10 @@ tagged `plugins/postmark/vX.Y.Z`. The framework's own changes are in the
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-02
+
+The first release, with the framework's v0.2.0.
+
 ### Added
 - Postmark transport for the `mailer` package: `postmark.Driver()`
   (`MAIL_DRIVER=postmark`, `MAIL_POSTMARK_TOKEN`, `MAIL_POSTMARK_STREAM`)
@@ -17,6 +21,8 @@ tagged `plugins/postmark/vX.Y.Z`. The framework's own changes are in the
   `POSTMARK_WEBHOOK_PASSWORD`), the job `postmark:webhook`, the table
   `postmark_suppressions`, `postmark.Suppressed`, and the commands
   `postmark:suppressions` and `postmark:unsuppress` (B11).
+- A README: what the plugin adds, sending through Postmark, the webhook
+  (v0.2 checks).
 
 ### Changed
 - The module moved from `drivers/postmark` (B11).

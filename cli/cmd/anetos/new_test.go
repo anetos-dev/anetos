@@ -69,12 +69,15 @@ func TestNewProject(t *testing.T) {
 		}
 		return string(b)
 	}
-	// anetos add, with the plugin from this checkout.
+	// anetos add, with the plugin from this checkout: --replace replaced
+	// every module of the checkout.
 	const postmark = "anetos.dev/anetos/plugins/postmark"
-	goRun("mod", "edit", "-replace", postmark+"="+filepath.Join(repo, "plugins", "postmark"))
-	if code, out, errOut := runCmd(t, "add", postmark+"@v0.0.0-00010101000000-000000000000"); code != 0 ||
+	if code, out, errOut := runCmd(t, "add", postmark); code != 0 ||
 		!strings.Contains(out, "POSTMARK_WEBHOOK_USER, POSTMARK_WEBHOOK_PASSWORD") {
 		t.Fatalf("add: %d\n%s\n%s", code, out, errOut)
+	}
+	if mod := read(t, filepath.Join(dir, "go.mod")); !regexp.MustCompile(`(?m)^\s*` + regexp.QuoteMeta(postmark) + ` v\S+$`).MatchString(mod) {
+		t.Errorf("go.mod doesn't require the plugin directly:\n%s", mod)
 	}
 	if b, err := os.ReadFile(filepath.Join(dir, ".env.example")); err != nil ||
 		!strings.Contains(string(b), "\n# postmark plugin\nPOSTMARK_WEBHOOK_USER=\nPOSTMARK_WEBHOOK_PASSWORD=\n") {

@@ -58,8 +58,9 @@ them); otherwise they skip.
 
 Run `make check` before every commit.
 
-After changing a model in `examples/database` or `examples/forms`, or a
-`.templ` file in `examples/forms`, run `go generate ./...` there; after changing the generator's fixtures, run
+After changing a model in `examples/database`, `examples/forms` or
+`examples/saas`, or a `.templ` file in `examples/forms` or `examples/saas`,
+run `go generate ./...` there; after changing the generator's fixtures, run
 `go run ./cmd/anetos gen ./internal/modelgen/internal/...` in `cli/`.
 
 `cli/` tests create and build a project with `anetos new` (and download

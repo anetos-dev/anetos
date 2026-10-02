@@ -45,6 +45,13 @@ func TestForApp(t *testing.T) {
 			t.Errorf("%s: no error", name)
 		}
 	}
+	// The hint names Postmark's driver only for postmark.
+	for drv, want := range map[string]string{"postmark": "pass postmark.Driver()", "postmrk": "check its spelling"} {
+		_, err := mailer.ForApp(newApp(t, config.Map{"MAIL_DRIVER": drv}, nil))
+		if err == nil || !strings.Contains(err.Error(), want) || (drv != "postmark" && strings.Contains(err.Error(), "postmark.Driver")) {
+			t.Errorf("MAIL_DRIVER=%s: %v", drv, err)
+		}
+	}
 	app := newApp(t, config.Map{"MAIL_DRIVER": "memory", "MAIL_FROM_ADDRESS": "shop@example.com"}, nil)
 	m, err := mailer.ForApp(app)
 	check(t, err)

@@ -76,6 +76,7 @@ type App struct {
 	tx       bool // the test runs in a transaction
 	clock    testClock
 	rec      *recorder
+	idp      *idp // FakeSocial
 }
 
 // Option configures [New].
@@ -88,6 +89,7 @@ type options struct {
 	level       slog.Level
 
 	fakeQueue, fakePubSub     bool
+	fakeSocial                bool
 	fakeEvents, fakeAllEvents bool
 	fakedEvents               []any
 }
@@ -179,6 +181,9 @@ func New(t testing.TB, setup func(app *anetos.App) (*web.Server, error), opts ..
 	app.SetClock(a.clock.now) // Freeze, Travel
 	a.jar = newJar(app.Now)
 
+	if o.fakeSocial {
+		a.startIDP() // before setup, which calls social.ForApp
+	}
 	if setup != nil {
 		srv, err := setup(app)
 		if err != nil {

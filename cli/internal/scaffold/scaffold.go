@@ -48,7 +48,13 @@ type projectData struct {
 	Name, Title, Module, DB, Key, Replace, DBName string
 	// Replace paths, quoted for go.mod when needed.
 	ReplaceCore, ReplaceCLI, ReplaceDriver string
+	// ReplaceOthers are the checkout's other modules (drivers and
+	// plugins the project may add): module path → replace path.
+	ReplaceOthers []Replacement
 }
+
+// Replacement is a replace directive of a project's go.mod.
+type Replacement struct{ Path, Dir string }
 
 const dbEnv = `[[define "db-env"]]
 [[- if eq .DB "sqlite" -]]
@@ -117,6 +123,15 @@ func Create(p Project) ([]string, error) {
 		data.ReplaceCore = modfile.AutoQuote(p.Replace)
 		data.ReplaceCLI = modfile.AutoQuote(p.Replace + "/cli")
 		data.ReplaceDriver = modfile.AutoQuote(p.Replace + "/drivers/" + p.DB)
+		others, err := checkoutModules(p.Replace)
+		if err != nil {
+			return nil, err
+		}
+		for _, o := range others {
+			if o.Path != "anetos.dev/anetos/drivers/"+p.DB {
+				data.ReplaceOthers = append(data.ReplaceOthers, Replacement{o.Path, modfile.AutoQuote(o.Dir)})
+			}
+		}
 	}
 	// Render everything first, so a template error writes nothing.
 	type file struct {
@@ -252,4 +267,27 @@ func identifier(name string) string {
 func isStd(name string) bool {
 	pkg, err := build.Default.Import(name, "", build.FindOnly)
 	return err == nil && pkg.Goroot
+}
+
+// checkoutModules returns the driver and plugin modules of a Anetos
+// checkout, so that a --replace project can go get them (and anetos add
+// them) from it.
+func checkoutModules(checkout string) ([]Replacement, error) {
+	var mods []Replacement
+	for _, dir := range []string{"drivers", "plugins"} {
+		files, err := filepath.Glob(filepath.Join(checkout, dir, "*", "go.mod"))
+		if err != nil {
+			return nil, err
+		}
+		for _, f := range files {
+			b, err := os.ReadFile(f)
+			if err != nil {
+				return nil, err
+			}
+			if path := modfile.ModulePath(b); path != "" {
+				mods = append(mods, Replacement{path, filepath.ToSlash(filepath.Dir(f))})
+			}
+		}
+	}
+	return mods, nil
 }

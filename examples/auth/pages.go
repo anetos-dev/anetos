@@ -32,8 +32,20 @@ func render(c *web.Ctx, name string, data map[string]any) error {
 // and the sign-in providers.
 func (h Accounts) page(name string) func(c *web.Ctx) error {
 	return func(c *web.Ctx) error {
-		return render(c, name, map[string]any{"Token": c.Request().URL.Query().Get("token"), "Providers": h.social.Providers()})
+		return render(c, name, map[string]any{"Token": c.Request().URL.Query().Get("token"), "Providers": h.providers()})
 	}
+}
+
+// provider is a sign-in button.
+type provider struct{ Name, Title string }
+
+// providers returns the sign-in buttons: "Sign in with Google".
+func (h Accounts) providers() []provider {
+	var ps []provider
+	for _, name := range h.social.Providers() {
+		ps = append(ps, provider{name, h.social.Title(name)})
+	}
+	return ps
 }
 
 // Dashboard shows the account and its API tokens.
@@ -81,7 +93,7 @@ var pages = template.Must(template.New("").Funcs(template.FuncMap{"field": field
 <button>Log in</button>
 </form>
 {{template "error" (field . "social")}}
-{{range .Providers}}<p><a href="/auth/{{.}}/redirect">Sign in with {{.}}</a></p>{{end}}
+{{range .Providers}}<p><a href="/auth/{{.Name}}/redirect">Sign in with {{.Title}}</a></p>{{end}}
 <p><a href="/forgot-password">Forgot your password?</a> · <a href="/register">Register</a></p></body></html>{{end}}
 
 {{define "forgot"}}{{template "top" "Forgot password"}}

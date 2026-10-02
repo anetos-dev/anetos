@@ -32,8 +32,8 @@ var authFiles = [][2]string{
 }
 
 // authCall is what make:auth adds to setup in main.go, after the routes.
-const authCall = `	// Accounts (anetos make:auth): registration, login, email
-	// verification, password reset and API tokens.
+const authCall = `	// Accounts (anetos make:auth): registration, login with a password,
+	// Google or GitHub, email verification, password reset and API tokens.
 	if _, err := setupAuth(app, srv.Router(), sessions); err != nil {
 		return nil, err
 	}
@@ -50,6 +50,9 @@ type AuthResult struct {
 	// Wired says main.go now calls setupAuth; when false, the app must
 	// call it itself.
 	Wired bool
+	// Env are the settings files (.env, .env.example) the SOCIAL_*
+	// settings were added to.
+	Env []string
 }
 
 // MakeAuth writes the account scaffolding into the project at root:
@@ -58,7 +61,8 @@ type AuthResult struct {
 // one of the files exists already, or a name they declare is taken in
 // its package; if a write fails, it removes what it wrote. When setup in
 // main.go has the routes.Register call of a anetos new project, it adds
-// the call to setupAuth after it.
+// the call to setupAuth after it. It adds the SOCIAL_* settings, empty,
+// to .env and .env.example.
 func MakeAuth(root string, now time.Time) (AuthResult, error) {
 	var res AuthResult
 	b, err := os.ReadFile(filepath.Join(root, "go.mod"))
@@ -103,6 +107,18 @@ func MakeAuth(root string, now time.Time) (AuthResult, error) {
 		}
 	}
 
+	// The settings files, as they are: read now, so a file that can't be
+	// read stops make:auth before it writes anything.
+	envFiles := []string{".env", ".env.example"}
+	envBefore := map[string][]byte{}
+	for _, name := range envFiles {
+		b, err := os.ReadFile(filepath.Join(root, name))
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			return res, err
+		}
+		envBefore[name] = b
+	}
+
 	data := struct{ Module, ID string }{mod, id}
 	out := make([][]byte, len(files))
 	for i, f := range files {
@@ -110,32 +126,101 @@ func MakeAuth(root string, now time.Time) (AuthResult, error) {
 			return res, err
 		}
 	}
+	// undo leaves the project as it was.
+	undo := func(err error) (AuthResult, error) {
+		for _, c := range res.Created {
+			_ = os.Remove(filepath.Join(root, filepath.FromSlash(c)))
+		}
+		_ = os.Remove(filepath.Join(root, "app", "mailers")) // if make:auth created it, it's empty
+		for _, name := range res.Env {
+			_ = os.WriteFile(filepath.Join(root, name), envBefore[name], 0o600)
+		}
+		return AuthResult{}, fmt.Errorf("%w (the files written were removed)", err)
+	}
 	for i, f := range files {
 		if err := writeNew(filepath.Join(root, filepath.FromSlash(f[1])), out[i], 0o644); err != nil {
-			// Leave the project as it was.
-			for _, c := range res.Created {
-				_ = os.Remove(filepath.Join(root, filepath.FromSlash(c)))
-			}
-			_ = os.Remove(filepath.Join(root, "app", "mailers")) // if make:auth created it, it's empty
-			return AuthResult{}, fmt.Errorf("%w (the files written were removed)", err)
+			return undo(err)
 		}
 		res.Created = append(res.Created, f[1])
 	}
-
+	for _, name := range envFiles {
+		if envBefore[name] == nil {
+			continue // no such file
+		}
+		added, err := addSettings(filepath.Join(root, name), socialSettings)
+		if added {
+			res.Env = append(res.Env, name)
+		}
+		if err != nil {
+			if !added {
+				res.Env = append(res.Env, name) // it may be half written
+			}
+			return undo(err)
+		}
+	}
 	wired, err := wireAuth(filepath.Join(root, "main.go"))
 	res.Wired = wired
 	return res, err
+}
+
+// socialSettings are the settings of sign-in with Google and GitHub.
+const socialSettings = `
+# Sign in with Google and GitHub (anetos make:auth): each is on once its
+# client ID and secret are set. Register APP_URL/auth/google/callback
+# (or /github/) as the callback URL with the provider.
+SOCIAL_GOOGLE_CLIENT_ID=
+SOCIAL_GOOGLE_CLIENT_SECRET=
+SOCIAL_GITHUB_CLIENT_ID=
+SOCIAL_GITHUB_CLIENT_SECRET=
+`
+
+// addSettings appends block to the settings file, unless the file is
+// missing or already has the first setting of block (commented out or
+// not), and reports whether it did.
+func addSettings(file, block string) (bool, error) {
+	cur, err := os.ReadFile(file)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	var first string
+	for line := range strings.SplitSeq(block, "\n") {
+		if k, _, ok := strings.Cut(line, "="); ok && !strings.HasPrefix(line, "#") {
+			first = k
+			break
+		}
+	}
+	if first != "" && regexp.MustCompile(`(?m)^[#\s]*(export\s+)?`+regexp.QuoteMeta(first)+`\s*=`).Match(cur) {
+		return false, nil
+	}
+	switch {
+	case len(cur) == 0 || bytes.HasSuffix(cur, []byte("\n\n")):
+		block = strings.TrimPrefix(block, "\n") // a blank line already
+	case !bytes.HasSuffix(cur, []byte("\n")):
+		block = "\n" + block
+	}
+	f, err := os.OpenFile(file, os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		return false, err
+	}
+	_, err = f.WriteString(block)
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	return err == nil, err
 }
 
 // authNames are the top-level names the generated files declare, by
 // package directory ("" is the root, package main).
 var authNames = map[string][]string{
 	"app/models":   {"User", "Users", "UserCols"},
-	"app/handlers": {"Accounts", "RegisterInput", "LoginInput", "ForgotInput", "ResetInput", "TokenQuery", "NewTokenInput", "TokenID", "emailTaken", "cleanName"},
+	"app/handlers": {"Accounts", "RegisterInput", "LoginInput", "ForgotInput", "ResetInput", "TokenQuery", "NewTokenInput", "TokenID", "SocialUser", "emailTaken", "cleanName"},
 	"app/mailers":  {"VerifyEmail", "ResetPassword"},
-	"views":        {"Register", "Login", "ForgotPassword", "ResetPassword", "Dashboard", "authError", "VerifyEmailMail", "ResetPasswordMail", "authMail"},
+	"views":        {"SocialButton", "Register", "Login", "ForgotPassword", "ResetPassword", "Dashboard", "socialButtons", "authError", "VerifyEmailMail", "ResetPasswordMail", "authMail"},
 	"routes":       {"Auth"},
-	"":             {"setupAuth", "authRegister", "authLink", "TestRegisterAndVerify", "TestResendVerification", "TestRegisterValidation", "TestLoginAndLogout", "TestLoginReturnsToTheRequestedPage", "TestPasswordReset", "TestResetSignsOutAndRevokesTokens", "TestAPIToken"},
+	"":             {"setupAuth", "authRegister", "authLink", "TestRegisterAndVerify", "TestResendVerification", "TestRegisterValidation", "TestLoginAndLogout", "TestLoginReturnsToTheRequestedPage", "TestPasswordReset", "TestResetSignsOutAndRevokesTokens", "TestAPIToken", "TestSocialSignIn", "TestSocialSignInFindsVerifiedAccounts"},
 }
 
 func dirLabel(dir string) string {

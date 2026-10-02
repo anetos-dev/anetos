@@ -28,7 +28,8 @@ func GitHub() Provider {
 // Server): web is its site, api its API's base URL.
 func GitHubAt(web, api string) Provider {
 	return Provider{
-		Name: "github",
+		Name:  "github",
+		Title: "GitHub",
 		Endpoint: oauth2.Endpoint{
 			AuthURL:  web + "/login/oauth/authorize",
 			TokenURL: web + "/login/oauth/access_token",

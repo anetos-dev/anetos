@@ -28,7 +28,7 @@ success, 1 on errors, 2 for bad usage.
 | `--module` | the directory's name | Go module path |
 | `--db` | `sqlite` | `sqlite`, `postgres` or `mysql`: the driver in `main.go` and the `DB_*` settings in `.env` |
 | `--skip-install` | `false` | Only write the files |
-| `--replace` | | A local Anetos checkout, used through `replace` directives (framework development) |
+| `--replace` | | A local Anetos checkout, used through `replace` directives (framework development): the core, the tool, and every driver and plugin module of the checkout, so `go get` and `anetos add` take them from it too |
 
 The directory must not exist or be empty; its name (letters, digits, `-`
 and `_`, starting with a letter) becomes the app's name. `anetos new .`
@@ -91,7 +91,7 @@ Run anywhere in a project. Existing files are never overwritten
 | `make:model <Name> [--migration]` | `app/models/<name>.go`: a model embedding `db.Model`, then its typed columns (`anetos gen`); with `--migration`, also `create_<table>_table` |
 | `make:migration <name>` | `database/migrations/<YYYY_MM_DD_HHMMSS>_<name>.go`: `create_posts_table` creates a table; `add_x_to_posts_table` (the last `to`, `from`, `in` or `on`) gets commented `Alter` code for that table; other names get empty functions. The timestamp is always after the newest migration's, so migrations made in the same second keep their order |
 | `make:middleware <Name>` | `app/middleware/<name>.go`: a `func(http.Handler) http.Handler` |
-| `make:auth` | Accounts: `app/models/user.go` (`User`, `models.Users`), `app/handlers/auth.go` (`handlers.Accounts`), `app/mailers/auth.go` and `views/auth_mail.templ` (verification and reset emails), `views/auth.templ` (pages), `routes/auth.go` (`routes.Auth`), `auth.go` (`setupAuth`), `auth_test.go`, and a `create_users_table` migration; then `go mod tidy`, `anetos gen`, `templ generate` and `go build ./...`, and a `setupAuth` call in `setup` after its `routes.Register(srv.Router(), sessions)` statement (else it prints the call to add). Writes nothing if one of the files or a `create_users_table` migration exists, or a name the files declare is taken in its package; removes what it wrote if a write fails. See [Add accounts with make:auth](../guides/accounts.md) |
+| `make:auth` | Accounts, with sign-in with Google and GitHub: `app/models/user.go` (`User`, `models.Users`), `app/handlers/auth.go` (`handlers.Accounts`, `handlers.SocialUser`), `app/mailers/auth.go` and `views/auth_mail.templ` (verification and reset emails), `views/auth.templ` (pages), `routes/auth.go` (`routes.Auth`), `auth.go` (`setupAuth`), `auth_test.go`, and a `create_users_table` migration; the empty `SOCIAL_GOOGLE_*` and `SOCIAL_GITHUB_*` settings appended to `.env` and `.env.example` (unless there); then `go mod tidy`, `anetos gen`, `templ generate` and `go build ./...`, and a `setupAuth` call in `setup` after its `routes.Register(srv.Router(), sessions)` statement (else it prints the call to add). Writes nothing if one of the files or a `create_users_table` migration exists, or a name the files declare is taken in its package; removes what it wrote if a write fails. See [Add accounts with make:auth](../guides/accounts.md) |
 
 Names may be `BlogPost`, `blog_post` or `blog-post`; files use snake case.
 
@@ -105,7 +105,8 @@ which `setup` passes to `ext.Load`.
 
 1. Prints the module and the version, and that plugins run with the
    app's privileges; runs `go get <module>@<version>`.
-2. Adds the package's `Plugin()` to `plugins.go`, after the others.
+2. Adds the package's `Plugin()` to `plugins.go`, after the others, and
+   runs `go mod tidy` (the module becomes a direct requirement).
 3. Runs `go build`, so a module without a `Plugin() ext.Plugin`
    function, or one that doesn't compile against this version of
    Anetos, is refused.

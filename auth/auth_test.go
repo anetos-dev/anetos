@@ -441,7 +441,7 @@ func TestConfig(t *testing.T) {
 	if err != nil || cfg.LoginURL != "/login" || cfg.Throttle != 5 {
 		t.Errorf("defaults %+v %v", cfg, err)
 	}
-	for _, env := range []config.Map{{"AUTH_LOGIN_URL": "//evil.example"}, {"AUTH_HOME_URL": "https://x"}, {"AUTH_THROTTLE": "0"}, {"AUTH_RESET_TTL": "1s"}} {
+	for _, env := range []config.Map{{"AUTH_LOGIN_URL": "//evil.example"}, {"AUTH_HOME_URL": "https://x"}, {"AUTH_HOME_URL": "/\t/evil.example"}, {"AUTH_THROTTLE": "0"}, {"AUTH_RESET_TTL": "1s"}} {
 		if _, err := auth.LoadConfig(env); err == nil {
 			t.Errorf("%v accepted", env)
 		}

@@ -112,7 +112,11 @@ func ForApp(app *anetos.App, drivers ...Driver) (*Mailer, error) {
 		for j, d := range all {
 			names[j] = d.Name
 		}
-		return nil, fmt.Errorf("mailer: MAIL_DRIVER is %q, but the drivers are [%s]; pass its driver to mailer.ForApp (postmark.Driver() from anetos.dev/anetos/plugins/postmark)", cfg.Driver, strings.Join(names, ", "))
+		hint := "check its spelling, or pass its driver to mailer.ForApp"
+		if cfg.Driver == "postmark" {
+			hint = "pass postmark.Driver() (anetos.dev/anetos/plugins/postmark) to mailer.ForApp"
+		}
+		return nil, fmt.Errorf("mailer: MAIL_DRIVER is %q, but the drivers are [%s]: %s", cfg.Driver, strings.Join(names, ", "), hint)
 	}
 	t, err := all[i].Open(app, cfg)
 	if err != nil {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 	"unicode"
@@ -12,6 +13,7 @@ import (
 	"anetos.dev/anetos"
 	"anetos.dev/anetos/auth"
 	"anetos.dev/anetos/auth/password"
+	"anetos.dev/anetos/auth/social"
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/mailer"
 	"anetos.dev/anetos/queue"
@@ -25,12 +27,14 @@ import (
 	"[[.Module]]/views"
 )
 
-// Accounts serves registration, login and logout, email verification,
-// password reset and API tokens (anetos make:auth). Hashing, tokens,
-// sessions and throttling are package auth's; this is your code to
+// Accounts serves registration, login and logout, sign-in with Google
+// and GitHub, email verification, password reset and API tokens (anetos
+// make:auth). Hashing, tokens, sessions and throttling are package
+// auth's, and the sign-in flow package social's; this is your code to
 // change.
 type Accounts struct {
-	Auth *auth.Auth[*models.User]
+	Auth   *auth.Auth[*models.User]
+	Social *social.Social[*models.User]
 }
 
 // RegisterInput is the registration form.
@@ -76,8 +80,8 @@ type TokenID struct {
 }
 
 // RegisterPage shows the registration form.
-func (Accounts) RegisterPage(c *web.Ctx) error {
-	return c.Render(http.StatusOK, views.Register())
+func (h Accounts) RegisterPage(c *web.Ctx) error {
+	return c.Render(http.StatusOK, views.Register(h.socialButtons()))
 }
 
 // Register creates the account, emails the verification link and signs
@@ -147,8 +151,75 @@ func (h Accounts) sendVerification(ctx context.Context, u *models.User) error {
 }
 
 // LoginPage shows the login form.
-func (Accounts) LoginPage(c *web.Ctx) error {
-	return c.Render(http.StatusOK, views.Login())
+func (h Accounts) LoginPage(c *web.Ctx) error {
+	return c.Render(http.StatusOK, views.Login(h.socialButtons()))
+}
+
+// socialButtons returns a "Sign in with …" button per provider whose
+// SOCIAL_<NAME>_CLIENT_ID and _CLIENT_SECRET are set.
+func (h Accounts) socialButtons() []views.SocialButton {
+	var buttons []views.SocialButton
+	for _, name := range h.Social.Providers() {
+		buttons = append(buttons, views.SocialButton{Name: name, Title: h.Social.Title(name)})
+	}
+	return buttons
+}
+
+// SocialUser returns the user of an account signing in with Google or
+// GitHub: the one it is linked to; else the user with its verified email
+// address (who then signs in either way); else a new user, without a
+// password. An address the provider hasn't verified can't be trusted to
+// find anyone, and nor can one the user hasn't verified here: someone
+// could have registered it first, with a password, to take over the
+// account of whoever signs in with it later.
+func SocialUser(ctx context.Context, p social.Profile) (*models.User, error) {
+	id, linked, err := social.FindLink(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+	if linked {
+		u, err := models.Users.ByID(ctx, id)
+		if !errors.Is(err, db.ErrNotFound) {
+			return u, err
+		}
+		// The user was deleted: forget the link and start again.
+		if err := social.Unlink(ctx, id, p.Provider); err != nil {
+			return nil, err
+		}
+	}
+	if p.Email == "" || !p.EmailVerified {
+		return nil, &social.ErrNoAccount{Message: "Your account there has no verified email address."}
+	}
+	var u *models.User
+	err = db.Tx(ctx, func(ctx context.Context) error { // the user and the link, or neither
+		u, err = models.Users.ByLogin(ctx, p.Email)
+		if errors.Is(err, db.ErrNotFound) {
+			now := anetos.Now(ctx).UTC()
+			name := cleanName(p.Name)
+			if name == "" {
+				name, _, _ = strings.Cut(p.Email, "@")
+			}
+			u = &models.User{Name: name, Email: strings.ToLower(p.Email), EmailVerifiedAt: &now}
+			err = db.Create(ctx, u)
+		}
+		if err != nil {
+			return err
+		}
+		if u.EmailVerifiedAt == nil {
+			return &social.ErrNoAccount{Message: "An account with this email address exists. Log in with your password and verify the address first."}
+		}
+		// Linked already to another account there: the address was
+		// reused, not the same person.
+		links, err := social.Links(ctx, u.AuthID())
+		if err != nil {
+			return err
+		}
+		if slices.ContainsFunc(links, func(l social.Account) bool { return l.Provider == p.Provider }) {
+			return &social.ErrNoAccount{Message: "The account with this email address signs in with another account there."}
+		}
+		return social.Link(ctx, p, u.AuthID())
+	})
+	return u, err
 }
 
 // Login signs the user in, throttling repeated failures (AUTH_THROTTLE),

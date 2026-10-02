@@ -227,7 +227,9 @@ it with typed assertions. By default these still happen as usual (with
 | `anetostest.FakePubSub()` | Published messages are recorded, not sent to the broker |
 
 Email is never sent in tests (`MAIL_DRIVER=memory`), so it needs no
-fake.
+fake. For sign-in with Google or GitHub, `anetostest.FakeSocial()` puts
+a stand-in provider in their place and `app.SocialSignIn` signs in with
+the account you give (see [Social login](social-login.md#3-test)).
 
 ```go
 // With the queue and the OrderPlaced event faked, placing an order only

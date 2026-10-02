@@ -282,5 +282,6 @@ func randomToken() string {
 
 // localPath reports whether u is a path on this site.
 func localPath(u string) bool {
-	return strings.HasPrefix(u, "/") && !strings.HasPrefix(u, "//") && !strings.HasPrefix(u, "/\\")
+	return strings.HasPrefix(u, "/") && !strings.HasPrefix(u, "//") && !strings.HasPrefix(u, "/\\") &&
+		!strings.ContainsFunc(u, func(r rune) bool { return r < 0x20 || r == 0x7f }) // browsers drop control characters: "/\t/host"
 }

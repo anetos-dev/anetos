@@ -7,6 +7,14 @@ tagged `drivers/postgres/vX.Y.Z`. The framework's own changes are in the
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-02
+
+Released with the framework's v0.2.0.
+
+### Added
+- Its conformance tests (`db/dbtest`) also cover the database cache,
+  session and queue stores (B1, B2, B5).
+
 ## [0.1.0] - 2026-09-30
 
 ### Added

@@ -7,6 +7,10 @@ tagged `drivers/s3/vX.Y.Z`. The framework's own changes are in the
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-02
+
+The first release, with the framework's v0.2.0.
+
 ### Added
 - S3 and S3-compatible backend for the `storage` package: `s3.Driver()`
   (`STORAGE_DRIVER=s3`, `STORAGE_S3_BUCKET`, `_REGION`, `_ENDPOINT`,

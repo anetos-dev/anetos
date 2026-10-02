@@ -18,11 +18,13 @@ import (
 const makeAuthUsage = `Usage: anetos make:auth
 
 Adds accounts to the project: registration, login with "remember me"
-and throttling, logout, email verification, password reset and API
-tokens. It writes the User model, the handlers, the pages and emails,
-the routes, the users table's migration, setupAuth (auth.go) and its
-tests, then calls setupAuth from setup in main.go. The code is yours to
-change; hashing, tokens, sessions and throttling stay in package auth.
+and throttling, sign-in with Google and GitHub, logout, email
+verification, password reset and API tokens. It writes the User model,
+the handlers, the pages and emails, the routes, the users table's
+migration, setupAuth (auth.go) and its tests, adds the SOCIAL_*
+settings to .env and .env.example, then calls setupAuth from setup in
+main.go. The code is yours to change; hashing, tokens, sessions and
+throttling stay in package auth, the sign-in flow in package social.
 `
 
 // makeAuth runs anetos make:auth.
@@ -52,6 +54,9 @@ func makeAuth(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	if err != nil {
 		fmt.Fprintln(stderr, "anetos make:auth:", err)
 		return 1
+	}
+	for _, f := range res.Env {
+		fmt.Fprintf(stdout, "updated %s: SOCIAL_* settings\n", f)
 	}
 	if res.Wired {
 		fmt.Fprintln(stdout, "updated main.go: setup calls setupAuth")
@@ -95,9 +100,10 @@ setupAuth yourself in setup, after the routes:
 	}
 	fmt.Fprint(stdout, `
 Next:
-  go run . migrate     create the users and api_tokens tables
+  go run . migrate     create the users, api_tokens and social_accounts tables
   go test ./...        the account tests (auth_test.go)
   go tool anetos dev   then open /register; emails go to the log (MAIL_DRIVER=log)
+Sign in with Google or GitHub: set its SOCIAL_* settings in .env.
 `)
 	return 0
 }

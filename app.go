@@ -171,6 +171,7 @@ func New(opts ...Option) (*App, error) {
 		commands: map[string]cmd.Command{},
 	}
 	a.AddContextValue(clockKey{}, &a.clock)
+	a.AddContextValue(loggerKey{}, log)
 	a.addBuiltins()
 	return a, nil
 }
@@ -208,6 +209,23 @@ func (a *App) Source() config.Source { return a.src }
 
 // Logger returns the application logger.
 func (a *App) Logger() *slog.Logger { return a.log }
+
+type loggerKey struct{}
+
+// Logger returns the logger of the app in ctx ([App.Logger]: LOG_LEVEL,
+// LOG_FORMAT, with the app's name and environment), or slog.Default()
+// when ctx has none. Jobs, listeners, scheduled tasks and handlers get
+// contexts with the app in them, so they log with:
+//
+//	anetos.Logger(ctx).InfoContext(ctx, "invoice sent", "invoice", inv.ID)
+//
+// (In handlers, c.Logger() adds the request ID and route.)
+func Logger(ctx context.Context) *slog.Logger {
+	if l, ok := ctx.Value(loggerKey{}).(*slog.Logger); ok {
+		return l
+	}
+	return slog.Default()
+}
 
 // Supervisor returns the runtime supervisor, for health checks and status.
 func (a *App) Supervisor() *supervisor.Supervisor { return a.sup }

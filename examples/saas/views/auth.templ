@@ -1,0 +1,161 @@
+// SPDX-License-Identifier: Apache-2.0
+
+package views
+
+import (
+	"anetos.dev/anetos/auth"
+	"anetos.dev/anetos/view"
+	"anetos.dev/anetos/web"
+
+	"anetos.dev/anetos/examples/saas/app/models"
+)
+
+// The account pages (anetos make:auth): yours to change.
+
+// SocialButton is a "Sign in with …" button.
+type SocialButton struct {
+	Name  string // the provider in URLs: google
+	Title string // its name for people: Google
+}
+
+// Register is the registration form.
+templ Register(social []SocialButton) {
+	@Layout("Register") {
+		<h1>Register</h1>
+		<form method="post" action={ web.URL(ctx, "register") }>
+			@view.CSRFField(ctx)
+			<label for="name">Name</label>
+			<input id="name" name="name" autocomplete="name" value={ view.Old(ctx, "name") }/>
+			@authError("name")
+			<label for="email">Email</label>
+			<input id="email" name="email" type="email" autocomplete="email" value={ view.Old(ctx, "email") }/>
+			@authError("email")
+			<label for="password">Password</label>
+			<input id="password" name="password" type="password" autocomplete="new-password"/>
+			@authError("password")
+			<label for="password_confirmation">Confirm password</label>
+			<input id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password"/>
+			<p><button type="submit">Register</button></p>
+		</form>
+		@socialButtons(social)
+		<p>Already registered? <a href={ web.URL(ctx, "login") }>Log in</a></p>
+	}
+}
+
+// Login is the login form.
+templ Login(social []SocialButton) {
+	@Layout("Log in") {
+		<h1>Log in</h1>
+		<form method="post" action={ web.URL(ctx, "login") }>
+			@view.CSRFField(ctx)
+			<label for="email">Email</label>
+			<input id="email" name="email" type="email" autocomplete="email" value={ view.Old(ctx, "email") }/>
+			@authError("email")
+			<label for="password">Password</label>
+			<input id="password" name="password" type="password" autocomplete="current-password"/>
+			@authError("password")
+			<label><input type="checkbox" name="remember" value="1"/> Remember me</label>
+			<p><button type="submit">Log in</button></p>
+		</form>
+		@socialButtons(social)
+		<p><a href={ web.URL(ctx, "password.request") }>Forgot your password?</a> · <a href={ web.URL(ctx, "register") }>Register</a></p>
+	}
+}
+
+// ForgotPassword asks for the address to send a reset link to.
+templ ForgotPassword() {
+	@Layout("Forgot password") {
+		<h1>Forgot your password?</h1>
+		<p>Enter your email address: we'll email you a link to choose a new password.</p>
+		<form method="post" action={ web.URL(ctx, "password.email") }>
+			@view.CSRFField(ctx)
+			<label for="email">Email</label>
+			<input id="email" name="email" type="email" autocomplete="email" value={ view.Old(ctx, "email") }/>
+			@authError("email")
+			<p><button type="submit">Email me a reset link</button></p>
+		</form>
+	}
+}
+
+// ResetPassword is the new-password form of a reset link.
+templ ResetPassword(token string) {
+	@Layout("Reset password") {
+		<h1>Choose a new password</h1>
+		<form method="post" action={ web.URL(ctx, "password.update") }>
+			@view.CSRFField(ctx)
+			<input type="hidden" name="token" value={ token }/>
+			<label for="password">New password</label>
+			<input id="password" name="password" type="password" autocomplete="new-password"/>
+			@authError("password")
+			<label for="password_confirmation">Confirm password</label>
+			<input id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password"/>
+			<p><button type="submit">Reset password</button></p>
+		</form>
+	}
+}
+
+// Dashboard shows the account and its API tokens; newToken is a token
+// just created, shown once.
+templ Dashboard(u *models.User, tokens []auth.Token, newToken string) {
+	@Layout("Dashboard") {
+		<h1>Hello, { u.Name }</h1>
+		if u.Plan == "trial" && u.TrialEndsAt != nil {
+			<p>Plan: trial, until { u.TrialEndsAt.Format("January 2") }</p>
+		} else {
+			<p>Plan: { u.Plan }</p>
+		}
+		if u.EmailVerifiedAt == nil {
+			<p>Please verify your email address: we emailed you a link.</p>
+			<form method="post" action={ web.URL(ctx, "verification.send") }>
+				@view.CSRFField(ctx)
+				<button type="submit">Send the link again</button>
+			</form>
+		}
+		<form method="post" action={ web.URL(ctx, "logout") }>
+			@view.CSRFField(ctx)
+			<button type="submit">Log out</button>
+		</form>
+		<h2>API tokens</h2>
+		if newToken != "" {
+			<p>Your new token (copy it now, it won't be shown again): <code>{ newToken }</code></p>
+		}
+		<ul>
+			for _, t := range tokens {
+				<li>
+					{ t.Name }
+					<form method="post" action={ web.URL(ctx, "tokens.destroy", t.ID) }>
+						@view.CSRFField(ctx)
+						<button type="submit">Revoke</button>
+					</form>
+				</li>
+			}
+		</ul>
+		<form method="post" action={ web.URL(ctx, "tokens.store") }>
+			@view.CSRFField(ctx)
+			<label for="token-name">Name</label>
+			<input id="token-name" name="name"/>
+			@authError("name")
+			<p><button type="submit">Create token</button></p>
+		</form>
+	}
+}
+
+// socialButtons shows a link per provider, and why a sign-in failed.
+templ socialButtons(buttons []SocialButton) {
+	if len(buttons) > 0 {
+		<p>
+			for _, b := range buttons {
+				<a href={ web.URL(ctx, "social.redirect", b.Name) }>Sign in with { b.Title }</a>
+				{ " " }
+			}
+		</p>
+	}
+	@authError("social")
+}
+
+// authError shows the validation message for a field, if any.
+templ authError(field string) {
+	if msg := view.Errors(ctx).Get(field); msg != "" {
+		<p class="error">{ msg }</p>
+	}
+}

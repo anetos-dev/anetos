@@ -327,7 +327,7 @@ func setup(app *anetos.App) (*web.Server, error) {
 	// region: social-setup
 	// Providers with SOCIAL_<NAME>_CLIENT_ID and _CLIENT_SECRET set; their
 	// callbacks are APP_URL/auth/<name>/callback.
-	s, err := social.ForApp(app, a, findOrCreate, social.Configured(app, socialProviders...), socialOptions...)
+	s, err := social.ForApp(app, a, findOrCreate, social.Configured(app, social.Google(), social.GitHub()))
 	if err != nil {
 		return nil, err
 	}
@@ -339,13 +339,6 @@ func setup(app *anetos.App) (*web.Server, error) {
 	routes(srv.Router(), sessions, a, s)
 	return srv, nil
 }
-
-// socialProviders are the providers users may sign in with; tests
-// replace them, and socialOptions, with a fake provider.
-var (
-	socialProviders = []social.Provider{social.Google(), social.GitHub()}
-	socialOptions   []social.Option
-)
 
 func routes(r *web.Router, sessions *session.Manager, a *auth.Auth[*User], s *social.Social[*User]) {
 	h := Accounts{auth: a, social: s}

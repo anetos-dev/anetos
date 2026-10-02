@@ -10,8 +10,14 @@ import (
 
 // The account pages (anetos make:auth): yours to change.
 
+// SocialButton is a "Sign in with …" button.
+type SocialButton struct {
+	Name  string // the provider in URLs: google
+	Title string // its name for people: Google
+}
+
 // Register is the registration form.
-templ Register() {
+templ Register(social []SocialButton) {
 	@Layout("Register") {
 		<h1>Register</h1>
 		<form method="post" action={ web.URL(ctx, "register") }>
@@ -29,12 +35,13 @@ templ Register() {
 			<input id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password"/>
 			<p><button type="submit">Register</button></p>
 		</form>
+		@socialButtons(social)
 		<p>Already registered? <a href={ web.URL(ctx, "login") }>Log in</a></p>
 	}
 }
 
 // Login is the login form.
-templ Login() {
+templ Login(social []SocialButton) {
 	@Layout("Log in") {
 		<h1>Log in</h1>
 		<form method="post" action={ web.URL(ctx, "login") }>
@@ -48,6 +55,7 @@ templ Login() {
 			<label><input type="checkbox" name="remember" value="1"/> Remember me</label>
 			<p><button type="submit">Log in</button></p>
 		</form>
+		@socialButtons(social)
 		<p><a href={ web.URL(ctx, "password.request") }>Forgot your password?</a> · <a href={ web.URL(ctx, "register") }>Register</a></p>
 	}
 }
@@ -123,6 +131,19 @@ templ Dashboard(u *models.User, tokens []auth.Token, newToken string) {
 			<p><button type="submit">Create token</button></p>
 		</form>
 	}
+}
+
+// socialButtons shows a link per provider, and why a sign-in failed.
+templ socialButtons(buttons []SocialButton) {
+	if len(buttons) > 0 {
+		<p>
+			for _, b := range buttons {
+				<a href={ web.URL(ctx, "social.redirect", b.Name) }>Sign in with { b.Title }</a>
+				{ " " }
+			}
+		</p>
+	}
+	@authError("social")
 }
 
 // authError shows the validation message for a field, if any.

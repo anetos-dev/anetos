@@ -9,6 +9,11 @@ Let users sign in with Google, GitHub, or any OpenID Connect provider
 (Okta, Auth0, Microsoft Entra ID, Keycloak, GitLab…). The complete app is
 [`examples/auth`](../../../examples/auth).
 
+An app made with [`make:auth`](accounts.md) has Google and GitHub set up
+already: set their settings (below) and the buttons appear. This guide
+explains what that code does, and how to add social login to an app of
+your own.
+
 ## Before you start
 
 Set up [authentication](authentication.md) first: social login finds or
@@ -83,6 +88,15 @@ func findOrCreate(ctx context.Context, p social.Profile) (*User, error) {
 		if u.EmailVerifiedAt == nil {
 			return &social.ErrNoAccount{Message: "An account with this email address exists. Log in with your password and verify the address, then sign in with " + p.Provider + "."}
 		}
+		// Linked already to another account at the provider: the address
+		// was reused, not the same person.
+		links, err := social.Links(ctx, u.AuthID())
+		if err != nil {
+			return err
+		}
+		if slices.ContainsFunc(links, func(l social.Account) bool { return l.Provider == p.Provider }) {
+			return &social.ErrNoAccount{Message: "The account with this email address signs in with another " + p.Provider + " account."}
+		}
 		return social.Link(ctx, p, u.AuthID())
 	})
 	return u, err
@@ -96,15 +110,18 @@ change, and can be reused. When you delete a user, delete their links
 (`social.Unlink`); the example also forgets a link whose user is gone. Only use an email address to find an existing
 user when both the provider and your app have verified it; otherwise
 someone could register the address first, with a password, and take over
-the account of whoever later signs in with it. Return
-`*social.ErrNoAccount` to refuse with a message on the login page.
+the account of whoever later signs in with it. Nor does the example link
+a second account of the same provider to a user by email: an address
+the provider gave to someone new (a closed account, a reused work
+address) isn't the same person. Return `*social.ErrNoAccount` to refuse
+with a message on the login page.
 
 ### 2. Set up the providers and routes
 
 ```go
 // Providers with SOCIAL_<NAME>_CLIENT_ID and _CLIENT_SECRET set; their
 // callbacks are APP_URL/auth/<name>/callback.
-s, err := social.ForApp(app, a, findOrCreate, social.Configured(app, socialProviders...), socialOptions...)
+s, err := social.ForApp(app, a, findOrCreate, social.Configured(app, social.Google(), social.GitHub()))
 if err != nil {
 	return nil, err
 }
@@ -132,7 +149,8 @@ guests.Get("/auth/{provider}/redirect", s.Redirect)
 guests.Get("/auth/{provider}/callback", s.Callback)
 ```
 
-and a link per provider on the login page:
+and a link per provider on the login page, from `s.Providers()` (their
+names, in URLs) and `s.Title(name)` (their names for people, "Google"):
 
 ```html
 <a href="/auth/github/redirect">Sign in with GitHub</a>
@@ -141,25 +159,32 @@ and a link per provider on the login page:
 
 A failed or canceled sign-in returns to `AUTH_LOGIN_URL` with an error on
 the `social` field (`view.Errors(ctx).Get("social")`); a successful one
-goes to the page the user wanted, or `AUTH_HOME_URL`.
+goes to the page the user wanted, or `AUTH_HOME_URL`
+(`social.WithHomeURL("/dashboard")` sets another).
 
 ### 3. Test
 
-Tests replace the providers with a fake OpenID Connect provider, and play
-its sign-in page:
+With the `anetostest.FakeSocial` option, every provider signs in through a
+stand-in provider the test controls (nothing reaches Google or GitHub,
+and no settings are needed). `app.SocialSignIn` follows the redirect
+route, plays the provider's page for the account you give, and returns
+the app's answer to the callback:
 
 ```go
 func TestSocialSignIn(t *testing.T) {
-	p, app := socialApp(t)
-	app.Get("/login").AssertSee(`href="/auth/sso/redirect"`)
+	// FakeSocial: Google and GitHub sign in through a stand-in provider.
+	app := anetostest.New(t, setup, anetostest.FakeSocial())
+	app.Get("/login").AssertSee(`href="/auth/google/redirect"`, "Sign in with Google")
 
 	// A new account: a user is created, with the address verified.
-	p.signIn(t, app, "s-1", "grace@example.com", true).AssertRedirect("/") // AUTH_HOME_URL
-	app.Get("/dashboard").AssertSee("Hello, SSO user").AssertDontSee("Please verify")
+	grace := anetostest.SocialAccount{ID: "g-1", Email: "grace@example.com", EmailVerified: true, Name: "Grace"}
+	app.SocialSignIn("/auth/google/redirect", grace).AssertRedirect("/") // AUTH_HOME_URL
+	app.Get("/dashboard").AssertSee("Hello, Grace").AssertDontSee("Please verify")
 	app.PostForm("/logout", nil)
 
-	// The same account again: the linked user.
-	p.signIn(t, app, "s-1", "grace@new.example", true).AssertRedirect("/")
+	// The same account again, with a new address: the linked user.
+	grace.Email = "grace@new.example"
+	app.SocialSignIn("/auth/google/redirect", grace).AssertRedirect("/")
 	n, err := db.RawFirst[int64](app.Context(), "SELECT COUNT(*) FROM users")
 	if err != nil || n != 1 {
 		t.Errorf("users: %d, %v", n, err)
@@ -188,6 +213,17 @@ is retried after 30 seconds, and the document is refreshed daily, keeping
 the old endpoints if that fails), so a slow provider doesn't hold up
 requests past their deadline. A fetch in progress at shutdown may run for
 up to 10 more seconds.
+
+`anetostest.FakeSocial` runs a stand-in OpenID Connect provider on a
+local TLS server and hands it to the app (through an internal hook,
+honored only with `APP_ENV=testing`) before `setup` runs:
+`social.ForApp` then points every provider at it (keeping their names,
+titles and scopes), and `social.Configured` keeps every provider. The
+flow is the real one, state, PKCE and ID token checks included, with
+one difference: every provider signs in as an OpenID Connect provider,
+so a provider that reads the profile from its API (GitHub's
+`/user/emails`, a `Provider.Profile` of your own) doesn't run that code
+in these tests.
 
 `Profile.Token` holds the provider's tokens, for calling its API with the
 scopes asked for; change `Provider.Scopes` to ask for more.

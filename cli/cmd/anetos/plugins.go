@@ -24,8 +24,8 @@ import (
 const addUsage = `Usage: anetos add <module>[@version]
 
 Installs a plugin: go get the module (default @latest), list its
-Plugin() in plugins.go, check that the app builds, and add its settings
-to .env.example. Plugins are Go code compiled into your app, with its
+Plugin() in plugins.go, tidy go.mod, check that the app builds, and add
+its settings to .env.example. Plugins are Go code compiled into your app, with its
 privileges: add only code you trust.
 `
 
@@ -90,6 +90,11 @@ func addPlugin(ctx context.Context, args []string, stdout, stderr io.Writer) int
 		fmt.Fprintf(stdout, "It needs a newer Anetos: %s went from %s to %s. Read its CHANGELOG.\n", corePath, coreBefore, coreAfter)
 	}
 	if err := scaffold.WritePlugins(root, append(installed, mod)); err != nil {
+		return fail(err)
+	}
+	// plugins.go imports it now: a direct requirement, with the
+	// requirements of its packages.
+	if err := runGo(ctx, root, stderr, "mod", "tidy"); err != nil {
 		return fail(err)
 	}
 	tmp, err := os.MkdirTemp("", "anetos-add-")

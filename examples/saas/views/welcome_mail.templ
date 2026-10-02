@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: Apache-2.0
+
+package views
+
+// WelcomeMail greets name, whose trial ends on trialEnds, with a link to
+// the dashboard.
+templ WelcomeMail(name, trialEnds, url string) {
+	@authMail() {
+		<p>Hello { name },</p>
+		<p>Welcome to SaaS! Your trial runs until { trialEnds }.</p>
+		<p><a href={ templ.SafeURL(url) } style="display:inline-block;padding:10px 16px;background:#1d1d1f;color:#ffffff;text-decoration:none;border-radius:6px">Go to your dashboard</a></p>
+	}
+}

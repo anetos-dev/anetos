@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: Apache-2.0
+
+package views
+
+import "anetos.dev/anetos/web"
+
+// Home is the home page.
+templ Home() {
+	@Layout("Home") {
+		<h1>Welcome to SaaS</h1>
+		<p>A 14-day trial, then the free plan, or a paid one from the billing service.</p>
+		<p><a href={ web.URL(ctx, "register") }>Start your trial</a> · <a href={ web.URL(ctx, "login") }>Log in</a></p>
+	}
+}

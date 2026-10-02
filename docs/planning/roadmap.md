@@ -214,7 +214,15 @@ Goal: everything a real application needs beyond CRUD.
 | B11 Plugin system | ✅ Done 2026-10-01 (package `ext`, `ext.Load`, `anetos add` / `anetos remove`, enforced namespaces, `Requires()` checks; `plugins/postmark` adds settings, a migration, a route, a job and commands through the public API) |
 | B12 Test fakes | ✅ Done 2026-10-01 (recording of jobs, events, mail and pub/sub messages with typed assertions; queue, event and pub/sub fakes; disk assertions; the app clock with `Freeze`/`Travel`) |
 | B13 N+1 detection | ✅ Done 2026-10-02 (units of work in the kernel; repeated-query warnings with the caller, in development and tests by default, for requests, jobs, listeners, messages and tasks; `anetostest` assertions) |
-| B14 Auth scaffolding | ✅ Done 2026-10-02 (`anetos make:auth`: model, handlers, templ pages, emails, routes, migration, `setupAuth` and tests written into the app; links emailed with the mailer; `examples/auth` emails its links too) |
+| B14 Auth scaffolding | ✅ Done 2026-10-02 (`anetos make:auth`: model, handlers, templ pages, emails, routes, migration, `setupAuth` and tests written into the app; links emailed with the mailer; `examples/auth` emails its links too; sign-in with Google and GitHub added by the exit check) |
+
+All v0.2 work packages are done, and the exit criteria were checked on
+2026-10-02 (see below). **v0.2.0 was tagged on 2026-10-02** (private
+tags, as for v0.1: `v0.2.0`, `cli/v0.2.0`,
+`drivers/{sqlite,postgres,mysql,redis,s3,gcppubsub}/v0.2.0` and
+`plugins/postmark/v0.2.0`; the modules still use `replace` directives
+until M1b). The stretch goal, basic i18n, wasn't done: it joins i18n in
+the backlog unless v0.3 takes it up. Next: v0.3.
 
 | WP | Work package | Notes |
 |---|---|---|
@@ -242,6 +250,29 @@ Goal: everything a real application needs beyond CRUD.
   **all from one binary**, with `--only=` role splitting shown working.
 - A first-party plugin installs with one command and adds routes, a migration,
   config, a command and a worker.
+
+**Exit criteria check (2026-10-02)**
+
+A reader who used only `docs/site`, the examples and `go doc` built the
+app of the first criterion with `anetos new` and `make:auth` and
+installed the Postmark plugin, in about 12 minutes, without reading the
+framework's source. What it found is fixed: `anetos new --replace` didn't
+cover drivers and plugins (D151); adding social login to a `make:auth`
+app took guesswork, and its test helper existed only in an example
+(D149, D150); jobs logged through Go's default logger (D148); smaller
+items (a misleading mail-driver hint, the plugin left `// indirect`, no
+plugin README, lower-case provider names on buttons). The app is now
+[`examples/saas`](../../examples/saas), with a test that runs it split
+by role (D152).
+
+| Criterion | Result |
+|---|---|
+| Sign-up and login, password and Google | ✅ `make:auth` writes both (Google and GitHub, each on once its settings are set). Tested through the real OAuth/OpenID Connect flow against a stand-in provider (`anetostest.FakeSocial`); the reader checked the redirect to Google with dummy credentials. A real Google account hasn't signed in: there are no credentials here |
+| Welcome email from a queued job | ✅ `examples/saas` dispatches `jobs.SendWelcome` after the user commits; split, the `workers` process sends it, not the web process |
+| Consumes a pub/sub topic | ✅ `billing.subscription_changed` over Redis Streams, applied by the `listeners` process. Across processes it needs Redis: without `ANETOS_TEST_REDIS_URL` that step of the test is skipped (the memory broker is per process) |
+| Runs a scheduled task | ✅ `end-trials`, every minute, run by the `scheduler` process (`OnOneServer` locks in the database cache) |
+| All from one binary, `--only=` shown working | ✅ `roles_test.go` builds the binary, runs `http`, `workers`, `listeners` and `scheduler` processes on one SQLite file (and Redis), follows a sign-up across them, then runs everything in one process; an unknown role exits with an error. It takes up to a minute (the scheduler's tick); `-short` skips it |
+| Plugin with one command: routes, migration, config, command, worker | ✅ `anetos add anetos.dev/anetos/plugins/postmark`: `POST /postmark/webhook`, the `postmark_suppressions` migration, two settings, two commands, and the `postmark:webhook` job, run by the app's queue workers (in the reader's split run, by the `workers` process). The plugin API has no hook for a component of its own; a plugin starts one with `app.Go` from `Boot` |
 
 ---
 
@@ -290,7 +321,7 @@ Goal: modern SPA-style frontends without giving up server-side routing.
 
 WebSockets/broadcasting · debug dashboard (Telescope-like) · admin panel
 generator · notifications (mail, SMS, Slack channels) · multi-tenancy · feature
-flags · full i18n · search adapters · Inertia SSR · read/write DB splitting ·
+flags · i18n (basic, a v0.2 stretch goal, and full) · search adapters · Inertia SSR · read/write DB splitting ·
 pub/sub ordering keys (Google) · more drivers (NATS, Kafka, SQS, RabbitMQ, GCS, Azure Blob), mostly as plugins.
 
 ---
@@ -385,3 +416,4 @@ something, and we fix the API rather than add the hook.
 | 2026-10-01 | B12 (test fakes) done; pub/sub recording and a fake added to its scope; the app clock (`anetos.Now`) |
 | 2026-10-02 | B13 (N+1 detection) done; jobs, listeners, messages and tasks tracked too, through units of work |
 | 2026-10-02 | B14 (auth scaffolding) done; social login and policies left out of the scaffolding (library and examples cover them) |
+| 2026-10-02 | v0.2 exit criteria checked; social login added to `make:auth`, `anetostest.FakeSocial`, `anetos.Logger`, `examples/saas` with a role-splitting test; v0.2.0 tagged; basic i18n (stretch) to the backlog |

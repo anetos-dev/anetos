@@ -25,6 +25,7 @@ import (
 	"anetos.dev/anetos/cache"
 	"anetos.dev/anetos/config"
 	"anetos.dev/anetos/encryption"
+	"anetos.dev/anetos/internal/socialstub"
 	"anetos.dev/anetos/session"
 	"anetos.dev/anetos/view"
 	"anetos.dev/anetos/web"
@@ -519,6 +520,11 @@ func TestConfigErrors(t *testing.T) {
 	if _, err := social.New(a, resolve, "https://app.test", creds, []social.Provider{social.Google()}, social.WithHTTPClient(nil)); err != nil {
 		t.Errorf("WithHTTPClient(nil): %v", err)
 	}
+	for _, home := range []string{"dashboard", "//evil.example", "/\\evil.example", "https://evil.example", "/\t/evil.example"} {
+		if _, err := social.New(a, resolve, "https://app.test", creds, []social.Provider{social.Google()}, social.WithHomeURL(home)); err == nil {
+			t.Errorf("WithHomeURL(%q): no error", home)
+		}
+	}
 }
 
 func TestForAppAndConfigured(t *testing.T) {
@@ -547,6 +553,9 @@ func TestForAppAndConfigured(t *testing.T) {
 	}
 	if names := s.Providers(); len(names) != 1 || names[0] != "github" {
 		t.Errorf("Providers = %v", names)
+	}
+	if s.Title("github") != "GitHub" || s.Title("nope") != "nope" {
+		t.Errorf("Title: %q, %q", s.Title("github"), s.Title("nope"))
 	}
 	if _, err := social.ForApp(app, a, store.resolve, []social.Provider{social.Google()}); err == nil || !strings.Contains(err.Error(), "SOCIAL_GOOGLE_CLIENT_ID") {
 		t.Errorf("unconfigured provider: %v", err)
@@ -614,4 +623,71 @@ func TestDiscoveryRefresh(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Error("the discovery document wasn't read again")
+}
+
+// A stand-in provider (anetostest.FakeSocial's) replaces every provider
+// in tests, and is refused anywhere else.
+func TestStub(t *testing.T) {
+	newApp := func(env string) (*anetos.App, *auth.Auth[*user]) {
+		app, err := anetos.New(anetos.WithSource(config.Map{"APP_ENV": env, "APP_KEY": encryption.GenerateKey(),
+			"APP_URL": "https://app.test"}), anetos.WithLogOutput(io.Discard))
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = app.Close() })
+		if _, err := cache.ForApp(app); err != nil {
+			t.Fatal(err)
+		}
+		a, err := auth.ForApp(app, (&users{byID: map[string]*user{}}).auth())
+		if err != nil {
+			t.Fatal(err)
+		}
+		anetos.Provide(app, &socialstub.Stub{Issuer: "https://stub.test/", Client: http.DefaultClient})
+		return app, a
+	}
+	resolve := (&users{byID: map[string]*user{}}).resolve
+
+	app, a := newApp("testing")
+	providers := social.Configured(app, social.Google(), social.GitHub()) // no settings: all kept
+	if len(providers) != 2 {
+		t.Fatalf("Configured = %v", providers)
+	}
+	s, err := social.ForApp(app, a, resolve, providers)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := s.Providers(); len(got) != 2 || s.Title("github") != "GitHub" {
+		t.Errorf("Providers = %v, Title = %q", got, s.Title("github"))
+	}
+
+	app, a = newApp("production")
+	if got := social.Configured(app, social.Google(), social.GitHub()); len(got) != 0 {
+		t.Errorf("Configured in production = %v", got)
+	}
+	if _, err := social.ForApp(app, a, resolve, []social.Provider{social.Google()}); err == nil || !strings.Contains(err.Error(), "outside APP_ENV=testing") {
+		t.Errorf("ForApp in production: %v", err)
+	}
+}
+
+// Options are checked even when no provider is configured yet.
+func TestForAppChecksOptions(t *testing.T) {
+	app, err := anetos.New(anetos.WithSource(config.Map{"APP_ENV": "testing", "APP_KEY": encryption.GenerateKey(),
+		"APP_URL": "https://app.test"}), anetos.WithLogOutput(io.Discard))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer app.Close()
+	if _, err := cache.ForApp(app); err != nil {
+		t.Fatal(err)
+	}
+	a, err := auth.ForApp(app, (&users{byID: map[string]*user{}}).auth())
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolve := (&users{byID: map[string]*user{}}).resolve
+	for _, opt := range []social.Option{social.WithHomeURL("dashboard"), social.WithHomeURL("/\t/evil.example"), social.WithCallbackPath("/nope")} {
+		if _, err := social.ForApp(app, a, resolve, nil, opt); err == nil {
+			t.Error("a bad option was accepted")
+		}
+	}
 }

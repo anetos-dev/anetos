@@ -9,6 +9,11 @@ require (
 )
 
 require (
+	golang.org/x/crypto v0.57.0 // indirect
+	golang.org/x/oauth2 v0.37.0 // indirect
+)
+
+require (
 	github.com/a-h/parse v0.0.0-20250122154542-74294addb73e // indirect
 	github.com/a-h/templ v0.3.1020
 	github.com/andybalholm/brotli v1.1.0 // indirect

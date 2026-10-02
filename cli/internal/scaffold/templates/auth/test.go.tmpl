@@ -171,3 +171,53 @@ func TestAPIToken(t *testing.T) {
 	app.PostForm("/tokens/"+strconv.FormatInt(tok.ID, 10)+"/delete", nil).AssertRedirect("/dashboard")
 	app.WithHeader("Authorization", "Bearer "+token).GetJSON("/api/me").AssertStatus(http.StatusUnauthorized)
 }
+
+func TestSocialSignIn(t *testing.T) {
+	// Without SOCIAL_* settings, there's no sign-in with Google or GitHub.
+	off := anetostest.Env(map[string]string{"SOCIAL_GOOGLE_CLIENT_ID": "", "SOCIAL_GITHUB_CLIENT_ID": ""})
+	anetostest.New(t, setup, off).Get("/login").AssertOK().AssertDontSee("Sign in with")
+
+	// FakeSocial: Google and GitHub sign in through a stand-in provider.
+	app := anetostest.New(t, setup, anetostest.FakeSocial())
+	app.Get("/login").AssertSee("Sign in with Google", "Sign in with GitHub")
+	grace := anetostest.SocialAccount{ID: "g-1", Email: "Grace@Example.com", EmailVerified: true, Name: "Grace"}
+	app.SocialSignIn("/auth/google/redirect", grace).AssertRedirect("/dashboard")
+	app.Get("/dashboard").AssertSee("Hello, Grace").AssertDontSee("Please verify")
+	app.PostForm("/logout", nil)
+
+	// The same account again: the same user.
+	app.SocialSignIn("/auth/google/redirect", grace).AssertRedirect("/dashboard")
+	anetostest.AssertDatabaseCount[models.User](app, 1)
+	anetostest.AssertDatabaseHas[models.User](app, models.UserCols.Email.Eq("grace@example.com"))
+}
+
+// Signing in with a provider finds an account by its address only when
+// both the provider and the app have verified it.
+func TestSocialSignInFindsVerifiedAccounts(t *testing.T) {
+	app := anetostest.New(t, setup, anetostest.FakeSocial())
+	app.Get("/register")
+	app.PostForm("/register", url.Values{
+		"name": {"Ada"}, "email": {"ada@example.com"},
+		"password": {"correct horse"}, "password_confirmation": {"correct horse"},
+	}).AssertRedirect("/dashboard")
+	app.PostForm("/logout", nil)
+	ada := anetostest.SocialAccount{ID: "42", Email: "ada@example.com", EmailVerified: true, Name: "Ada L."}
+
+	// Not verified here yet: refused.
+	app.SocialSignIn("/auth/github/redirect", ada).AssertRedirect("/login").
+		Follow().AssertSee("An account with this email address exists")
+	// Not verified there: refused.
+	app.SocialSignIn("/auth/github/redirect", anetostest.SocialAccount{ID: "43", Email: "ada@example.com"}).
+		AssertRedirect("/login").Follow().AssertSee("no verified email address")
+
+	// Verified here: the account is found, and linked.
+	app.Get(authLink(t, anetostest.Mailables[mailers.VerifyEmail](app)[0].URL)) // signs nobody in
+	app.SocialSignIn("/auth/github/redirect", ada).AssertRedirect("/dashboard")
+	app.Get("/dashboard").AssertSee("Hello, Ada")
+	app.PostForm("/logout", nil)
+	anetostest.AssertDatabaseCount[models.User](app, 1)
+
+	// Another GitHub account with the address (reused) isn't linked to Ada.
+	app.SocialSignIn("/auth/github/redirect", anetostest.SocialAccount{ID: "44", Email: "ada@example.com", EmailVerified: true}).
+		AssertRedirect("/login").Follow().AssertSee("signs in with another account there")
+}

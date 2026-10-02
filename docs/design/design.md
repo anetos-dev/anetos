@@ -280,7 +280,9 @@ package is **`web`** (not `http`), the runtime is **`supervisor`** (not
 `runtime`), mail is **`mailer`** (not `net/mail`'s `mail`), encryption is
 **`encryption`** (not `crypto`), password hashing is **`auth/password`** (not
 `hash`), and the plugin API is **`ext`** (not `plugin`). We don't provide a
-`log` package; we use `log/slog`.
+`log` package; we use `log/slog`. The app's logger travels in its
+contexts, like its clock: `anetos.Logger(ctx)` returns it, and the app
+never replaces `slog.Default()` (D148).
 
 **Why the database drivers are modules too:** `pgx`, the MySQL driver and a
 SQLite implementation are each sizeable. A Postgres app shouldn't compile or
@@ -1265,14 +1267,20 @@ if err := auth.Authorize(c, policies.Post.Update, &post); err != nil { return ni
   to users, and email is used only when verified on both sides (D102).
   Credentials come from `SOCIAL_<NAME>_*`, callbacks from the new
   `APP_URL` (D103). Failures return to the login page with a `social`
-  field error; success signs in with `a.Login`.
+  field error; success signs in with `a.Login` and goes to the intended
+  page, else `AUTH_HOME_URL` or `WithHomeURL`. Providers carry a `Title`
+  for buttons. Tests swap every provider for a stand-in: an internal
+  stub provided to the app before `ForApp`, honored only with
+  `APP_ENV=testing`, points them at it (D149).
 - **Authorization:** typed policies, `func(ctx, U, T) bool`, checked by
   generic `auth.Authorize` (and `AuthorizeUser`, `Allows`); errors carry
   401/403 (D100).
-- **Scaffolding** (B14, D145–D147): `anetos make:auth` generates the
-  `User` model (with `models.Users`), `handlers.Accounts`, templ pages
-  and emails (`app/mailers`), `routes.Auth`, the users migration,
-  `setupAuth` (the `api_tokens` set via `Runner.Add`, `auth.ForApp`, the
+- **Scaffolding** (B14, D145–D147, D150): `anetos make:auth` generates the
+  `User` model (with `models.Users`), `handlers.Accounts` (and
+  `handlers.SocialUser`), templ pages and emails (`app/mailers`),
+  `routes.Auth`, the users migration, `setupAuth` (the `api_tokens` and
+  `social_accounts` sets via `Runner.Add`, `auth.ForApp`, Google and
+  GitHub through `social.ForApp`, each on once its settings are set, the
   routes) and `auth_test.go` **into the app**, where the developer owns
   them (the Breeze approach), adapted from `examples/auth` to a
   `anetos new` project. It writes nothing over existing files, adds one
@@ -1426,12 +1434,15 @@ planned.
 | `anetos make:<thing>` | handler, model (`--migration`), migration, middleware (F11); auth (B14, §15); job, event, listener, mail, policy, task, command, test, plugin (later) |
 | `anetos gen` | Run code generators: typed model columns (F9), relation handles (v0.1.1). `-check` for CI |
 | `anetos key:generate` | Print a new `APP_KEY` line (F10) |
-| `anetos add <module>[@version]` / `anetos remove <module>` | Install or uninstall a plugin: `go get`, `plugins.go`, a build check, `.env.example` (B11, §16.3) |
+| `anetos add <module>[@version]` / `anetos remove <module>` | Install or uninstall a plugin: `go get`, `plugins.go`, `go mod tidy`, a build check, `.env.example` (B11, §16.3, D151) |
 | `anetos build` | Production build: `-trimpath`, version via ldflags, `CGO_ENABLED=0` by default |
 | `anetos doctor` | Check the environment and project (Go version, `APP_KEY`, debug in prod, pending migrations) |
 | `anetos stub:publish` | Copy generator templates into the project for customization |
 
-Generators produce plain Go that the developer owns.
+Generators produce plain Go that the developer owns. `anetos new
+--replace=<checkout>` (framework development) replaces every module of
+the checkout, drivers and plugins included, so `go get` and `anetos add`
+take them from it (D151).
 
 ### 17.2 App binary commands
 
@@ -1512,7 +1523,10 @@ func TestCreatePost(t *testing.T) {
   don't reach the broker. Typed assertions decode what was recorded
   (`AssertDispatched[ChargeOrder](app, match)`, `AssertEmitted[E]`,
   `AssertMailSent[M]` / `AssertMailQueued[M]`, `AssertPublished[T]`);
-  `app.Disk(name)` checks files.
+  `app.Disk(name)` checks files. `FakeSocial()` runs a stand-in OpenID
+  Connect provider on a local TLS server for social login, and
+  `app.SocialSignIn(redirect, account)` signs in through the real flow
+  (D149).
 - **Clock** (B12, D136, D140): the app has a clock (`anetos.Now(ctx)`,
   `app.Now()`, `App.SetClock`), the system's in production;
   `app.Freeze(t)`, `app.Travel(d)` and `app.Unfreeze()` control it in
@@ -1771,6 +1785,11 @@ unless new information arrives), **Open**, **Superseded**.
 | D145 | `make:auth` writes complete, owned files (model, handlers, pages, emails, routes, migration, `setupAuth`, tests) into a `anetos new` project; it refuses when a file exists or a name they declare is taken in its package (parsed), removes what it wrote if a write fails, and checks the project builds; the one edit of an existing file is a `setupAuth` call inserted after the `routes.Register(srv.Router(), sessions)` statement of `func setup` (found with go/ast), else printed | Accepted | Breeze's ownership model without silently rewriting the developer's code; a fresh project works with one command |
 | D146 | The generated code is tested by the CLI's own test: a new project gets `make:auth`, builds, migrates and passes the generated `auth_test.go`; `examples/auth` stays the library-level example the Authentication guide follows | Accepted | Templates can't drift into code that doesn't compile or work; the guide's code stays region-checked |
 | D147 | Generated accounts send the verification and reset links with `mailer.Queue` (rendered now, sent by a worker; synchronous in tests), as absolute URLs on `APP_URL` (`mailer.URL`), to the address alone; registration creates the user and queues the email in one transaction (`queue.AfterCommit`); reset links are limited per address and resent verification links per account, besides per IP; `examples/auth` sends with `mailer.Send` and logs a failed verification email | Accepted | A slow or failing mail server doesn't slow or fail registration and reset requests (the queue retries); links work from any mail client |
+| D148 | `anetos.Logger(ctx)` returns the app's logger from the context (an app context value, like the clock), else `slog.Default()`; the app never calls `slog.SetDefault` | Accepted | Jobs, listeners and tasks log with the app's level, format and attributes; a process-global default would follow the last app created (tests create many) and would reroute the standard `log` package (`log.Fatal` at INFO) |
+| D149 | Social login is tested through the real flow against a stand-in: `anetostest.FakeSocial()` runs an OpenID Connect provider on a local TLS server and provides a stub (`internal/socialstub`, so apps can't) before `setup`; with `APP_ENV=testing` only (elsewhere `ForApp` fails), `social.ForApp` points every provider at it (names, titles and scopes kept), `social.Configured` keeps them all, and `app.SocialSignIn(redirect, account)` plays the provider's page. Providers with a `Profile` function (GitHub) sign in as OpenID Connect ones there | Accepted | Apps test their resolver and routes without hooks of their own (`examples/auth` used package variables for a fake), and state, PKCE and ID token checks still run; ID tokens aren't signature-checked (D101), so a stub reachable in production would let its issuer sign in as anyone |
+| D150 | `make:auth` includes sign-in with Google and GitHub (`handlers.SocialUser`, linking by provider account, and by email only when verified on both sides), each provider on once its `SOCIAL_<NAME>_*` settings are set (appended, empty, to `.env` and `.env.example`); `social.WithHomeURL("/dashboard")` sends every sign-in where password logins go. Supersedes B14's choice to leave social login out | Accepted | Google login was a v0.2 promise; unused, it costs a table and two hidden routes (404); the v0.2 walkthrough found adapting the guide to a `make:auth` app the main blocker |
+| D151 | `anetos new --replace` replaces every module of the checkout (core, tool, `drivers/*`, `plugins/*`); `anetos add` runs `go mod tidy` after writing `plugins.go` | Accepted | First-party drivers and plugins install in framework-development projects as they will for users; the plugin becomes a direct requirement |
+| D152 | v0.2's exit criteria are shown by `examples/saas`, a `anetos new` + `make:auth` app, and its `roles_test.go`, which builds the binary and runs it as `http`, `workers`, `listeners` and `scheduler` processes (SQLite shared through files, Redis for pub/sub when `ANETOS_TEST_REDIS_URL` is set), then as one; it waits for the scheduler's next minute and is skipped by `-short` | Accepted | Role splitting is checked end to end on every CI run, not only described; a minute of test time is the price of a real scheduler tick |
 
 ---
 
@@ -1820,3 +1839,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-01 | B12 test fakes implemented: §5, §18 updated; D136–D140 added |
 | 2026-10-02 | B13 N+1 detection implemented: §4 (units of work), §10.3 updated; D141–D144 added |
 | 2026-10-02 | B14 auth scaffolding implemented: §15, §17.1 updated; D145–D147 added |
+| 2026-10-02 | v0.2 exit criteria checked: §5 (logging), §15, §17.1, §18 updated; D148–D152 added |

@@ -5,7 +5,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"anetos.dev/anetos"
@@ -23,7 +22,7 @@ func pruneAuditLog(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	slog.InfoContext(ctx, "audit log pruned", "deleted", n)
+	anetos.Logger(ctx).InfoContext(ctx, "audit log pruned", "deleted", n)
 	return nil
 }
 

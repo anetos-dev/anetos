@@ -75,14 +75,15 @@ Packages `auth`, `auth/password` and `auth/social`. How-to: [Authentication](../
 
 | API | Does |
 |---|---|
-| `social.Google()`, `social.GitHub()`, `social.GitHubAt(web, api)`, `social.OIDC(name, issuer)` | Providers; their `Scopes` and other fields can be changed |
+| `social.Google()`, `social.GitHub()`, `social.GitHubAt(web, api)`, `social.OIDC(name, issuer)` | Providers; their `Scopes`, `Title` ("Google", for buttons; `OIDC`'s defaults to its name) and other fields can be changed |
 | `social.Configured(app, providers...)` | The providers whose `SOCIAL_<NAME>_CLIENT_ID` and `_CLIENT_SECRET` are set |
-| `social.ForApp(app, a, resolve, providers, opts...)` | `*social.Social[U]`; needs `APP_URL` (https in production); with no providers, its routes answer 404; `social.WithHTTPClient`, `social.WithLogger`, `social.WithCallbackPath` |
+| `social.ForApp(app, a, resolve, providers, opts...)` | `*social.Social[U]`; needs `APP_URL` (https in production); with no providers, its routes answer 404; `social.WithHTTPClient`, `social.WithLogger`, `social.WithCallbackPath`, `social.WithHomeURL(path)` (where users go without an intended page; default `AUTH_HOME_URL`) |
 | `social.New(a, resolve, baseURL, creds, providers, opts...)` | Without an app |
 | `s.Redirect`, `s.Callback` | Handlers for `/auth/{provider}/redirect` (`?remember=1`) and `/auth/{provider}/callback` |
 | `s.Providers()`, `s.CallbackURL(name)` | Provider names, in the order given; a provider's callback URL to register |
 | `social.Resolver[U]`, `social.Profile` | `func(ctx, Profile) (U, error)`: finds or creates the user; the profile has `Provider`, `Subject`, `Email`, `EmailVerified`, `Name`, `AvatarURL`, `Token` |
 | `social.ErrNoAccount{Message}` | Refuses a sign-in with a message on the login page (`social` field) |
+| `s.Providers()`, `s.Title(name)` | The providers' names, in the order given, and their titles, for sign-in buttons |
 | `social.Migrations()` | The `social_accounts` table |
 | `social.FindLink(ctx, p)`, `social.Link(ctx, p, userID)`, `social.Links(ctx, userID)`, `social.Unlink(ctx, userID, provider)` | Links between provider accounts and users |
 

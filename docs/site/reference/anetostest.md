@@ -21,6 +21,7 @@ walkthrough.
 | `anetostest.FakeQueue()` | Option: dispatched jobs are recorded only (`queue.Queue.Fake`): not stored or run. Fails the test if `setup` has no queue |
 | `anetostest.FakeEvents(events...)` | Option: events of the types of the values (all, with none) are recorded only (`events.Bus.Fake`): their listeners don't run. Fails the test if `setup` has no bus |
 | `anetostest.FakePubSub()` | Option: published messages are recorded only (`pubsub.PubSub.Fake`): the broker doesn't get them. Fails the test if `setup` has no pub/sub |
+| `anetostest.FakeSocial()` | Option: social login (`auth/social`) signs in through a stand-in OpenID Connect provider on a local TLS server, for every provider (GitHub's API and other `Provider.Profile` functions aren't called); `social.Configured` keeps every provider, with test credentials where settings are missing. Sign in with `app.SocialSignIn` |
 | `app.Context()` | The context of the test's requests: the app's services, the database and the test's transaction. Pass it to your own code. (It hides the embedded `anetos.App.Context(parent)`; call `app.App.Context` for that) |
 | `app.Router()` | The app's `*web.Router`, or nil |
 | `app.App` | The embedded `*anetos.App`: `app.Config()`, `anetos.Resolve[T](app.App)`, … |
@@ -75,6 +76,7 @@ an URL on another site fails the test. Requests go to the router as
 | `app.WithHeader(name, value)` | Sets a header on every later request; returns app | |
 | `app.WithSession(func(*session.Session))` | Changes the session later requests carry; returns app. Needs `session.ForApp` in setup | |
 | `app.Session()` | The `*session.Session` the next request will carry (flash values and errors from the last response included), to read | |
+| `app.SocialSignIn(redirect, anetostest.SocialAccount{ID, Email, EmailVerified, Name, AvatarURL})` | GET redirect (the app's route to the provider, such as `/auth/google/redirect`), the stand-in provider's sign-in as the account, then GET the app's callback; returns the callback's response. Needs `FakeSocial`; `ID` is required | `text/html` |
 
 ## Responses (`anetostest.Response`)
 

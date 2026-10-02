@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"errors"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -114,6 +115,15 @@ func findOrCreate(ctx context.Context, p social.Profile) (*User, error) {
 		}
 		if u.EmailVerifiedAt == nil {
 			return &social.ErrNoAccount{Message: "An account with this email address exists. Log in with your password and verify the address, then sign in with " + p.Provider + "."}
+		}
+		// Linked already to another account at the provider: the address
+		// was reused, not the same person.
+		links, err := social.Links(ctx, u.AuthID())
+		if err != nil {
+			return err
+		}
+		if slices.ContainsFunc(links, func(l social.Account) bool { return l.Provider == p.Provider }) {
+			return &social.ErrNoAccount{Message: "The account with this email address signs in with another " + p.Provider + " account."}
 		}
 		return social.Link(ctx, p, u.AuthID())
 	})

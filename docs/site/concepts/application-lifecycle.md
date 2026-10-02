@@ -80,6 +80,21 @@ context the app didn't create, such as in a CLI command or a test.
 with nothing but the request context. Keep it for such cross-cutting
 services; ordinary dependencies still belong in constructors.
 
+The app's own context values are its clock and its logger:
+`anetos.Now(ctx)` reads the time tests can freeze, and
+`anetos.Logger(ctx)` returns the app's logger (`LOG_LEVEL`, `LOG_FORMAT`,
+with the app's name and environment), so jobs, listeners and scheduled
+tasks log like the rest of the app:
+
+```go
+// illustrative
+anetos.Logger(ctx).InfoContext(ctx, "invoice sent", "invoice", inv.ID)
+```
+
+Plain `slog.Info` writes through Go's default logger instead, which the
+app leaves alone. In handlers, `c.Logger()` adds the request ID and
+route.
+
 ## Failures during startup
 
 - `New` returns an error that lists **every** invalid or missing setting.

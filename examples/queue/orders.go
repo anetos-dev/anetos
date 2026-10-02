@@ -6,9 +6,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"sync"
 
+	"anetos.dev/anetos"
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/db/migrate"
 	"anetos.dev/anetos/queue"
@@ -136,9 +136,9 @@ func (j ChargeOrder) Handle(ctx context.Context) error {
 
 // Failed runs when the job fails for good: declined, or out of tries.
 func (j ChargeOrder) Failed(ctx context.Context, err error) {
-	slog.InfoContext(ctx, "order not charged", "order", j.OrderID, "error", err)
+	anetos.Logger(ctx).InfoContext(ctx, "order not charged", "order", j.OrderID, "error", err)
 	if err := setStatus(ctx, j.OrderID, "failed"); err != nil {
-		slog.ErrorContext(ctx, "mark the order failed", "order", j.OrderID, "error", err)
+		anetos.Logger(ctx).ErrorContext(ctx, "mark the order failed", "order", j.OrderID, "error", err)
 	}
 }
 

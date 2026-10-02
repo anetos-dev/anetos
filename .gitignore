@@ -4,13 +4,18 @@
 *.test
 *.out
 coverage.*
-# Binaries `go build` leaves in example modules
-/examples/*/auth
-/examples/*/files
-/examples/*/database
-/examples/*/forms
-/examples/*/pubsub
-/examples/*/queue
+# Binaries `go build` leaves in example modules (exact paths: a pattern
+# like /examples/*/database would also hide examples/saas/database/)
+/examples/auth/auth
+/examples/files/files
+/examples/database/database
+/examples/forms/forms
+/examples/pubsub/pubsub
+/examples/queue/queue
+/examples/saas/saas
+/examples/lifecycle/lifecycle
+/examples/notes/notes
+/examples/validation/validation
 
 # Local environment
 .env

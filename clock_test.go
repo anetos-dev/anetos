@@ -5,6 +5,8 @@ package anetos_test
 import (
 	"context"
 	"io"
+	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
@@ -36,5 +38,24 @@ func TestClock(t *testing.T) {
 	}
 	if got := anetos.Now(anetos.WithClock(context.Background(), func() time.Time { return at })); !got.Equal(at) {
 		t.Errorf("WithClock: %v", got)
+	}
+}
+
+func TestLogger(t *testing.T) {
+	var out strings.Builder
+	app, err := anetos.New(anetos.WithSource(config.Map{"APP_ENV": "testing", "APP_NAME": "shop"}), anetos.WithLogOutput(&out))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer app.Close()
+	if anetos.Logger(app.Context(context.Background())) != app.Logger() {
+		t.Error("Logger(app context) isn't the app's logger")
+	}
+	anetos.Logger(app.Context(context.Background())).Info("hello")
+	if !strings.Contains(out.String(), "app=shop") {
+		t.Errorf("log: %q", out.String())
+	}
+	if anetos.Logger(context.Background()) != slog.Default() {
+		t.Error("Logger without an app isn't slog.Default()")
 	}
 }
