@@ -32,6 +32,17 @@ func init() {
 			})
 		},
 		func(s *migrate.Schema) error { return s.Drop("notes") })
+	// region: search-index
+	Migrations.AddFunc("2026_10_02_120000_add_search_to_notes",
+		func(s *migrate.Schema) error {
+			return s.Alter("notes", func(t *migrate.Table) {
+				t.SearchIndex("title", "body") // titles weigh more
+			})
+		},
+		func(s *migrate.Schema) error {
+			return s.Alter("notes", func(t *migrate.Table) { t.DropSearchIndex() })
+		})
+	// endregion
 }
 
 // region: seeders

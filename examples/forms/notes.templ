@@ -9,12 +9,19 @@ import (
 )
 
 // region: list
-// NotesPage lists one page of notes, with links to the pages around it.
-templ NotesPage(page db.Page[Note]) {
+// NotesPage lists one page of notes, with links to the pages around it
+// (they keep the search words, q) and a search box.
+templ NotesPage(page db.Page[Note], q string) {
 	@Layout("All notes") {
 		<h1>Notes</h1>
 		<p><a href={ web.URL(ctx, "notes.new") }>New note</a></p>
-		if page.Total == 0 {
+		<form method="get" action={ web.URL(ctx, "notes.index") } role="search">
+			<input type="search" name="q" value={ q } aria-label="Search notes"/>
+			<button type="submit">Search</button>
+		</form>
+		if page.Total == 0 && q != "" {
+			<p>No notes match “{ q }”.</p>
+		} else if page.Total == 0 {
 			<p>No notes yet.</p>
 		}
 		<ul class="notes">

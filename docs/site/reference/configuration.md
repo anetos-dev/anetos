@@ -167,6 +167,17 @@ keys with a prefix, e.g. `ANALYTICS_DB_HOST`) into `db.Config`.
 | `DB_SLOW_QUERY` | duration | `500ms` | Log queries taking at least this long as warnings (without arguments). `0` disables | v0.1 |
 | `DB_REPEATED_QUERIES` | int | `5` when `APP_ENV` is `development` or `testing`, off elsewhere | Warn when a unit of work (a request, a job, a listener, a task) runs the same query this many times or more: an N+1. `0` disables; otherwise at least 2. See [Find N+1 queries](../guides/n-plus-one.md) | v0.2 |
 
+### Search
+
+| Key | Type | Default | Description | Since |
+|---|---|---|---|---|
+| `SEARCH_LANGUAGE` | `simple` \| a language | `simple` | How search matches words: `simple` as written, in any language; `english` (PostgreSQL, SQLite) also matches their other forms; on PostgreSQL any text search configuration (`german`, `french`…). MySQL has `simple` only. Search indexes are built for it: change it, then run `search:reindex` | v0.3 |
+| `SEARCH_RANKING` | `default` \| `bm25` | `default` | Order of search results: the database's own ranking, or BM25 (SQLite; PostgreSQL 17+ with the pg_textsearch extension; not MySQL). PostgreSQL needs `search:reindex` after a change | v0.3 |
+
+The app refuses to start when the database can't serve these settings,
+or when a search index was built for other ones (except for `migrate…`
+and `search:reindex`); see [Search](../guides/search.md).
+
 Driver specifics:
 
 - **SQLite** connections use WAL journaling, a 5s busy timeout, foreign

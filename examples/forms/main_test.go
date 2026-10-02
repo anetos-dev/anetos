@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"anetos.dev/anetos/db"
@@ -113,6 +114,26 @@ func TestPagination(t *testing.T) {
 		AssertSee(item(1), item(0), `href="?page=1"`).
 		AssertDontSee(item(2), `rel="next"`)
 	app.Get("/notes?page=9").AssertSee(`href="?page=2"`) // past the end: back to the last page
+}
+
+// endregion
+
+// region: test-search
+func TestSearch(t *testing.T) {
+	app := anetostest.New(t, setup)
+	anetostest.Create(app, NoteFactory.With(func(n *Note) { n.Title, n.Body = "Groceries", "Rice, lentils and green tea" }))
+	anetostest.Create(app, NoteFactory.With(func(n *Note) { n.Title, n.Body = "Tea tasting", "Darjeeling first flush" }))
+	anetostest.Create(app, NoteFactory.With(func(n *Note) { n.Title, n.Body = "Ideas", "A blog about Go" }))
+
+	// Every word must match, as a prefix; title matches rank first.
+	app.Get("/notes?q=tea").AssertOK().
+		AssertSee("<strong>Tea tasting</strong>", "<strong>Groceries</strong>", `value="tea"`).
+		AssertDontSee("<strong>Ideas</strong>")
+	if page := app.Get("/notes?q=tea").Text(); strings.Index(page, "Tea tasting") > strings.Index(page, "Groceries") {
+		t.Error("the title match isn't first")
+	}
+	app.Get("/notes?q=green+te").AssertSee("<strong>Groceries</strong>").AssertDontSee("<strong>Tea tasting</strong>")
+	app.Get("/notes?q=coffee").AssertSee("No notes match “coffee”.")
 }
 
 // endregion

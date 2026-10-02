@@ -152,6 +152,7 @@ at the version `anetos add` left it at.
 | `serve` | `web.NewServer` | `run --only=http` |
 | `routes:list` | `web.NewServer` | Method, path and name of every route |
 | `migrate`, `migrate:rollback`, `migrate:reset`, `migrate:fresh`, `migrate:status`, `db:seed` | `migrate.ForApp` | See the [migrations reference](migrations.md#commands) |
+| `search:reindex [table…]` | `migrate.ForApp` | Rebuilds the search indexes (all, or the tables') for `SEARCH_LANGUAGE` and `SEARCH_RANKING`. See [Search](../guides/search.md) |
 | `cache:clear` | `cache.ForApp` | Removes the app's cache items (keys with `CACHE_PREFIX`), locks included |
 | `queue:failed [--limit=N]`, `queue:retry <id>…\|all`, `queue:forget <id>…`, `queue:flush [--force]`, `queue:clear [--force] [queue]` | `queue.ForApp` | List, retry and delete failed jobs; delete the jobs waiting on a queue. `flush` and `clear` need `--force` in production. See [Queues](../guides/queues.md#4-handle-failed-jobs) |
 | `pubsub:publish <topic> <message>` | `pubsub.ForApp` | Publishes a message (its body as given) to a topic. See [Pub/sub listeners](../guides/pubsub.md#4-publish) |
@@ -164,7 +165,8 @@ at the version `anetos add` left it at.
 | API | Does |
 |---|---|
 | `app.Command(name, description, run)` | Adds a command; panics if the name is invalid (lowercase words joined by `:` or `-`) or taken |
-| `app.AddCommand(cmd.Command{Name, Usage, Description, Run, ManagesApp})` | The same, returning an error |
+| `app.AddCommand(cmd.Command{Name, Usage, Description, Run, ManagesApp, ChangesSchema})` | The same, returning an error. `ChangesSchema`: the command changes the database's structure, so boot checks that the schema matches the settings (search indexes) don't stop it |
+| `cmd.Running(ctx)` | The command the app is booting or running for, in boot code (`cmd.WithCommand` sets it) |
 | `app.Commands()` | Every command, sorted |
 | `app.Execute()` | Runs `os.Args[1:]` with a context canceled by SIGINT/SIGTERM, then exits |
 | `app.ExecuteArgs(ctx, args, stdout, stderr)` | Runs and returns the exit status (tests) |

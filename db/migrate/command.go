@@ -16,7 +16,7 @@ import (
 )
 
 // Commands lists the command names [Runner.Command] handles.
-var Commands = []string{"migrate", "migrate:rollback", "migrate:reset", "migrate:fresh", "migrate:status", "db:seed"}
+var Commands = []string{"migrate", "migrate:rollback", "migrate:reset", "migrate:fresh", "migrate:status", "db:seed", "search:reindex"}
 
 var commandHelp = map[string][2]string{ // usage, description
 	"migrate":          {"[--seed [--force]]", "Run pending migrations (then the seeders)"},
@@ -25,6 +25,7 @@ var commandHelp = map[string][2]string{ // usage, description
 	"migrate:fresh":    {"[--seed]", "Drop all tables and migrate again (development and testing only)"},
 	"migrate:status":   {"", "List migrations and whether they ran"},
 	"db:seed":          {"[--seeder=NAME] [--force]", "Run the seeders, or one"},
+	"search:reindex":   {"[table…]", "Rebuild the search indexes (or those of the tables) for SEARCH_LANGUAGE and SEARCH_RANKING"},
 }
 
 // AppCommands returns the migration commands as commands of the app
@@ -34,9 +35,10 @@ func (r *Runner) AppCommands() []cmd.Command {
 	out := make([]cmd.Command, 0, len(Commands))
 	for _, name := range Commands {
 		out = append(out, cmd.Command{
-			Name:        name,
-			Usage:       commandHelp[name][0],
-			Description: commandHelp[name][1],
+			Name:          name,
+			Usage:         commandHelp[name][0],
+			Description:   commandHelp[name][1],
+			ChangesSchema: name != "db:seed", // they run even when the search indexes are out of date
 			Run: func(ctx context.Context, args *cmd.Args) error {
 				_, err := r.Command(ctx, append([]string{name}, args.Args...), args.Stdout)
 				return err
@@ -64,6 +66,7 @@ func (r *Runner) AppCommands() []cmd.Command {
 //	migrate:fresh [--seed]         drop all tables and migrate (development and testing only)
 //	migrate:status                 list migrations and whether they ran
 //	db:seed [--seeder=NAME]        run all seeders, or one
+//	search:reindex [table…]        rebuild search indexes for the SEARCH_* settings
 //
 // In production (any APP_ENV but development, testing and staging),
 // rollback, reset, db:seed and migrate --seed also need --force. Flags a
@@ -97,6 +100,7 @@ func (r *Runner) Command(ctx context.Context, args []string, out io.Writer) (han
 	case "db:seed":
 		seeder = fs.String("seeder", "", "run only this seeder")
 		force = fs.Bool("force", false, "allow in production")
+	case "search:reindex":
 	default:
 		return false, nil
 	}
@@ -109,7 +113,7 @@ func (r *Runner) Command(ctx context.Context, args []string, out io.Writer) (han
 		}
 		return true, cmd.Usagef("%w", err)
 	}
-	if fs.NArg() > 0 {
+	if fs.NArg() > 0 && name != "search:reindex" {
 		return true, cmd.Usagef("%s: unexpected arguments %v", name, fs.Args())
 	}
 	production := r.env != anetos.Development && r.env != anetos.Testing && r.env != anetos.Staging
@@ -147,6 +151,15 @@ func (r *Runner) Command(ctx context.Context, args []string, out io.Writer) (han
 		err = r.printStatus(ctx, out)
 	case "db:seed":
 		err = r.seed(ctx, out, *seeder)
+	case "search:reindex":
+		var tables []string
+		tables, err = r.Reindex(ctx, fs.Args()...)
+		for _, t := range tables {
+			fmt.Fprintf(out, "Reindexed:   %s\n", t)
+		}
+		if len(tables) == 0 && err == nil {
+			fmt.Fprintln(out, "No search indexes.")
+		}
 	}
 	return true, err
 }

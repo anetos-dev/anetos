@@ -313,6 +313,13 @@ type DB struct {
 	repeated     int // WithRepeatedQueries
 	repMu        sync.RWMutex
 	repObservers []func(context.Context, RepeatedQuery)
+
+	search  SearchConfig // WithSearch
+	reqMu   sync.Mutex
+	reqs    []requirement // Require
+	checked bool          // Check passed
+	ftMu    sync.Mutex
+	ftWords *mysqlWords // what MySQL's full-text indexes skip, read once
 }
 
 // Option configures a [DB] created with [Open] or [New].
@@ -369,7 +376,7 @@ func Open(drv Driver, cfg Config, opts ...Option) (*DB, error) {
 // New wraps an existing *sql.DB, for example one opened by other code or a
 // test helper.
 func New(sqlDB *sql.DB, d Dialect, opts ...Option) *DB {
-	db := &DB{sql: sqlDB, dialect: d, log: slog.New(slog.DiscardHandler)}
+	db := &DB{sql: sqlDB, dialect: d, log: slog.New(slog.DiscardHandler), search: defaultSearch()}
 	for _, o := range opts {
 		o(db)
 	}
@@ -400,12 +407,17 @@ func (d *DB) Close() error { return d.sql.Close() }
 // closes it in a shutdown hook. It pings the database when the app boots
 // (right away if it already has), so the app and every command that boots
 // it fail fast when the database is unreachable, while `help` doesn't need
-// one.
+// one; then it runs [DB.Check], so the app doesn't start with settings
+// or features the database can't serve (SEARCH_*, [DB.Require]).
 //
 // Queries are logged at debug level in development unless DB_LOG_QUERIES
 // says otherwise.
 func Connect(ctx context.Context, app *anetos.App, drivers ...Driver) (*DB, error) {
 	cfg, err := config.Get[Config](app.Source())
+	if err != nil {
+		return nil, err
+	}
+	search, err := config.Get[SearchConfig](app.Source())
 	if err != nil {
 		return nil, err
 	}
@@ -428,6 +440,7 @@ func Connect(ctx context.Context, app *anetos.App, drivers ...Driver) (*DB, erro
 		WithLogger(app.Logger().With("component", "db")),
 		WithQueryLog(app.Config().Env.IsDevelopment()),
 		WithRepeatedQueries(repeated),
+		WithSearch(search),
 	}
 	d, err := Open(drivers[i], cfg, opts...)
 	if err != nil {
@@ -486,5 +499,5 @@ func (c *connCheck) Boot(ctx context.Context, _ *anetos.App) error {
 	if err := c.d.Ping(pingCtx); err != nil {
 		return fmt.Errorf("db: connect to %s: %w", c.name, err)
 	}
-	return nil
+	return c.d.Check(pingCtx) // search settings, requirements, search indexes
 }

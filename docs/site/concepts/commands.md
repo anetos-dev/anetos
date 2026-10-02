@@ -32,7 +32,7 @@ code that wires the part they belong to:
 |---|---|
 | `run [--only=role,…]` (the default), `help` | Every app |
 | `serve`, `routes:list` | `web.NewServer` |
-| `migrate`, `migrate:rollback`, `migrate:reset`, `migrate:fresh`, `migrate:status`, `db:seed` | `migrate.ForApp` ([Migrations](migrations.md)) |
+| `migrate`, `migrate:rollback`, `migrate:reset`, `migrate:fresh`, `migrate:status`, `db:seed`, `search:reindex` | `migrate.ForApp` ([Migrations](../guides/migrations.md), [Search](../guides/search.md)) |
 | `cache:clear` | `cache.ForApp` ([Cache values](../guides/cache.md)) |
 | `queue:failed`, `queue:retry`, `queue:forget`, `queue:flush`, `queue:clear` | `queue.ForApp` ([Queues](../guides/queues.md)) |
 | `pubsub:publish` | `pubsub.ForApp` ([Pub/sub listeners](../guides/pubsub.md)) |

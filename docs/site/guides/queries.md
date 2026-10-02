@@ -85,12 +85,16 @@ For an HTML list, pass the page to the view (`ListNotes` binds
 ```go
 func (Notes) Index(c *web.Ctx, in ListNotes) (web.Responder, error) {
 	// Newest first; the ID breaks ties between notes created in the same
-	// instant, so no note shows on two pages.
-	page, err := db.Query[Note](c).OrderBy(NoteCols.CreatedAt.Desc(), NoteCols.ID.Desc()).Paginate(in.Page, 10)
+	// instant, so no note shows on two pages. With search words, the
+	// best matches come first, then the newest. Search of no words
+	// changes nothing.
+	page, err := db.Query[Note](c).OrderBy(NoteCols.CreatedAt.Desc(), NoteCols.ID.Desc()).
+		Search(in.Q).
+		Paginate(in.Page, 10)
 	if err != nil {
 		return nil, err
 	}
-	return web.View(NotesPage(page)), nil
+	return web.View(NotesPage(page, in.Q)), nil
 }
 ```
 
@@ -101,12 +105,19 @@ link (`?q=go&page=2`) that keeps the other query parameters (a search, a
 filter). Past the end, the "Newer" link goes back to the last page:
 
 ```templ
-// NotesPage lists one page of notes, with links to the pages around it.
-templ NotesPage(page db.Page[Note]) {
+// NotesPage lists one page of notes, with links to the pages around it
+// (they keep the search words, q) and a search box.
+templ NotesPage(page db.Page[Note], q string) {
 	@Layout("All notes") {
 		<h1>Notes</h1>
 		<p><a href={ web.URL(ctx, "notes.new") }>New note</a></p>
-		if page.Total == 0 {
+		<form method="get" action={ web.URL(ctx, "notes.index") } role="search">
+			<input type="search" name="q" value={ q } aria-label="Search notes"/>
+			<button type="submit">Search</button>
+		</form>
+		if page.Total == 0 && q != "" {
+			<p>No notes match “{ q }”.</p>
+		} else if page.Total == 0 {
 			<p>No notes yet.</p>
 		}
 		<ul class="notes">

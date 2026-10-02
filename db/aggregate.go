@@ -55,7 +55,8 @@ func aggregate[V, T any](q *Q[T], fn, col string) (V, error) {
 	if b.err != nil {
 		return zero, b.err
 	}
-	return scalar[V](q.ctx, d, c, b)
+	v, err := scalar[V](q.ctx, d, c, b)
+	return v, q.searchHint(err)
 }
 
 // Pluck returns the values of one column of the matching rows. Columns
@@ -72,6 +73,7 @@ func Pluck[V, T any](q *Q[T], col Column[V]) ([]V, error) {
 		return nil, b.err
 	}
 	rows, err := d.query(q.ctx, c, b.String(), b.args)
+	err = q.searchHint(err)
 	if col.json {
 		return collectJSON[V](rows, err)
 	}
@@ -123,5 +125,5 @@ func Select[R, T any](q *Q[T], terms ...string) ([]R, error) {
 		return nil, b.err
 	}
 	rows, err := d.query(q.ctx, c, b.String(), b.args)
-	return collect[R](d, rows, err)
+	return collect[R](d, rows, q.searchHint(err))
 }

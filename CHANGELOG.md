@@ -6,6 +6,44 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Full-text search: `q.Search(text)` keeps the rows matching every word
+  (as prefixes) of text in a search index's columns and orders them by
+  relevance, with `Where`, soft deletes, `Paginate`, `Count` and the
+  aggregates; `t.SearchIndex(cols...)` and `t.DropSearchIndex()` in
+  migrations build each database's own index (PostgreSQL `tsvector` + GIN,
+  MySQL/MariaDB `FULLTEXT`, SQLite FTS5 kept in sync by triggers), with
+  column weights, recorded in the `search_indexes` table
+  (`db.SearchIndexes`); `s.Drop` removes it with the table (S1, design
+  §10.5, D154, D160, D162).
+- `SEARCH_LANGUAGE` (`simple`, the default, or a language: `english` on
+  PostgreSQL and SQLite, any text search configuration on PostgreSQL) and
+  `SEARCH_RANKING` (`default` or `bm25`: SQLite's FTS5, PostgreSQL 17+ with
+  pg_textsearch); the `search:reindex` command rebuilds indexes for them
+  (S1, D155, D160).
+- Database capabilities checked when the app boots: `db.Capability`
+  (`db.FullText`, `db.BM25`), `d.Supports`, `d.Require(feature, caps...)`,
+  `d.Check` and `d.CheckSearch`; `db.Connect` refuses to start when the
+  database can't serve the `SEARCH_*` settings or a requirement, or when a
+  search index was built for other settings, naming the setting, the
+  database and the way out (S1, D153).
+- `cmd.Command.ChangesSchema`, and `cmd.WithCommand`/`cmd.Running` to know
+  at boot which command runs: the migration commands and `search:reindex`
+  run even when the search indexes are out of date (S1, D162).
+- `anetos new` writes `SEARCH_LANGUAGE` and `SEARCH_RANKING` to `.env` and
+  `.env.example`, with what the chosen database supports (S1).
+- `examples/forms` has a search box; guide "Add full-text search",
+  references for the migration methods, the query builder, the settings
+  and the command (S1).
+
+### Changed
+- `s.Rename` refuses a table with a search index, `Alter` refuses to drop
+  or rename an indexed column unless it drops the index too, and
+  `Update`, `Delete` and `CursorPaginate` refuse a query with `Search`
+  (S1).
+- `Count`, `Exists` and the count of `Paginate` no longer order the rows
+  they count (S1).
+
 ## [0.2.0] - 2026-10-02
 
 Batteries: the cache, server-side sessions and rate limiting,

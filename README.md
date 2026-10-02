@@ -15,8 +15,10 @@ added the batteries: the cache, server-side sessions and rate limiting,
 authentication, social login, queues, events, pub/sub listeners, the
 scheduler, mail, file storage, plugins (`anetos add`), test fakes, N+1
 detection and `anetos make:auth`. [`examples/saas`](examples/saas)
-shows them in one app, run as one binary or split by role. Next is
-v0.3, the first public release. APIs will change.
+shows them in one app, run as one binary or split by role. v0.3, the
+first public release, is in progress: full-text search is done; AI
+(typed LLM calls, tools, streaming) and vector search are next. APIs
+will change.
 
 ## Documents
 

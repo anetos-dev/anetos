@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -128,6 +129,19 @@ func (s *Schema) Create(table string, build func(t *Table)) error {
 	if err != nil {
 		return err
 	}
+	if t.unsearch {
+		return fmt.Errorf("migrate: %s: DropSearchIndex belongs in Alter", table)
+	}
+	if t.search != nil {
+		if err := s.checkSearch(); err != nil {
+			return err
+		}
+		more, err := s.searchSQL(table, t.search, s.d.SearchConfig(), false)
+		if err != nil {
+			return err
+		}
+		stmts = append(stmts, more...)
+	}
 	return s.run(stmts)
 }
 
@@ -144,23 +158,77 @@ func (s *Schema) Alter(table string, build func(t *Table)) error {
 	if err != nil {
 		return err
 	}
+	touches := slices.ContainsFunc(t.alters, func(a alteration) bool { return a.kind == "dropColumn" || a.kind == "renameColumn" })
+	if t.unsearch || t.search != nil || touches {
+		ix, has, err := s.searchIndex(table)
+		if err != nil {
+			return err
+		}
+		if has && !t.unsearch {
+			for _, a := range t.alters {
+				if (a.kind == "dropColumn" || a.kind == "renameColumn") && slices.ContainsFunc(ix.Columns, func(c string) bool { return strings.EqualFold(c, a.a) }) {
+					return fmt.Errorf("migrate: %s.%s is in the search index: DropSearchIndex in the same Alter (and SearchIndex again without it, or with its new name)", table, a.a)
+				}
+			}
+		}
+		switch {
+		case t.unsearch && !has:
+			return fmt.Errorf("migrate: %s has no search index to drop", table)
+		case t.unsearch:
+			stmts = append(s.dropSearchSQL(ix), stmts...) // before its columns go
+		case has:
+			return fmt.Errorf("migrate: %s already has a search index: DropSearchIndex first", table)
+		}
+		if t.search != nil {
+			if err := s.checkSearch(); err != nil {
+				return err
+			}
+			more, err := s.searchSQL(table, t.search, s.d.SearchConfig(), true)
+			if err != nil {
+				return err
+			}
+			stmts = append(stmts, more...)
+		}
+	}
 	return s.run(stmts)
 }
 
-// Drop drops a table.
+// Drop drops a table, and its search index.
 func (s *Schema) Drop(table string) error {
 	if err := checkName(table); err != nil {
 		return err
 	}
-	return s.run([]string{"DROP TABLE " + s.q(table)})
+	stmts, err := s.dropSearchWithTable(table)
+	if err != nil {
+		return err
+	}
+	return s.run(append(stmts, "DROP TABLE "+s.q(table)))
 }
 
-// DropIfExists drops a table if it exists.
+// DropIfExists drops a table if it exists, and its search index.
 func (s *Schema) DropIfExists(table string) error {
 	if err := checkName(table); err != nil {
 		return err
 	}
-	return s.run([]string{"DROP TABLE IF EXISTS " + s.q(table)})
+	stmts, err := s.dropSearchWithTable(table)
+	if err != nil {
+		return err
+	}
+	return s.run(append(stmts, "DROP TABLE IF EXISTS "+s.q(table)))
+}
+
+// dropSearchWithTable returns the statements that remove table's search
+// index along with the table: its record, and on SQLite its FTS5 table
+// (columns and indexes go with the table elsewhere).
+func (s *Schema) dropSearchWithTable(table string) ([]string, error) {
+	ix, has, err := s.searchIndex(table)
+	if err != nil || !has {
+		return nil, err
+	}
+	if s.dialect == "sqlite" {
+		return s.dropSearchSQL(ix), nil
+	}
+	return []string{"DELETE FROM " + s.q(db.SearchIndexesTable) + " WHERE " + s.q("table_name") + " = " + sqlString(table)}, nil
 }
 
 // Rename renames a table.
@@ -169,6 +237,13 @@ func (s *Schema) DropIfExists(table string) error {
 func (s *Schema) Rename(from, to string) error {
 	if err := errors.Join(checkName(from), checkName(to)); err != nil {
 		return err
+	}
+	_, has, err := s.searchIndex(from)
+	if err != nil {
+		return err
+	}
+	if has {
+		return fmt.Errorf("migrate: %s %w", from, errRenameSearch)
 	}
 	return s.run([]string{"ALTER TABLE " + s.q(from) + " RENAME TO " + s.q(to)})
 }
@@ -534,7 +609,7 @@ func (s *Schema) alterSQL(t *Table) ([]string, error) {
 	for _, ix := range t.indexes {
 		stmts = append(stmts, s.indexSQL(t.name, ix))
 	}
-	if len(stmts) == 0 {
+	if len(stmts) == 0 && t.search == nil && !t.unsearch {
 		return nil, fmt.Errorf("migrate: Alter(%s) changes nothing", t.name)
 	}
 	return stmts, nil

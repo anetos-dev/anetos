@@ -43,6 +43,27 @@ type Command struct {
 	// ManagesApp says Run boots, runs and stops the app itself, as run and
 	// serve do. Other commands run between Boot and Close.
 	ManagesApp bool
+	// ChangesSchema says Run changes the database's structure (migrate,
+	// search:reindex): checks that the schema matches the settings,
+	// which would stop the app at boot, don't stop it.
+	ChangesSchema bool
+}
+
+type runningKey struct{}
+
+// WithCommand returns ctx carrying c, the command being run: the app's
+// Execute adds it to the context the app boots and runs the command
+// with.
+func WithCommand(ctx context.Context, c Command) context.Context {
+	return context.WithValue(ctx, runningKey{}, c)
+}
+
+// Running returns the command in ctx ([WithCommand]), if any: packages
+// that check things when the app boots ask it, for commands that fix
+// what they check.
+func Running(ctx context.Context) (Command, bool) {
+	c, ok := ctx.Value(runningKey{}).(Command)
+	return c, ok
 }
 
 var nameRe = regexp.MustCompile(`^[a-z][a-z0-9-]*(:[a-z][a-z0-9-]*)*$`)

@@ -41,7 +41,8 @@ type Q[T any] struct {
 	trashed  trashed
 	distinct bool
 	lock     lock
-	with     []relSpec // relations to load
+	with     []relSpec   // relations to load
+	search   *searchSpec // Search
 }
 
 type trashed int
@@ -222,6 +223,9 @@ func (q *Q[T]) qualified(col string) string {
 // where writes the WHERE clause, including the soft-delete scope.
 func (q *Q[T]) where(b *sqlBuilder) {
 	conds := q.wheres
+	if q.search != nil && b.d.Name() != "sqlite" { // SQLite's is a join
+		conds = append(slices.Clip(conds), searchCond{q.search})
+	}
 	if q.m.deletedAt >= 0 {
 		col := C(q.qualified(q.m.cols[q.m.deletedAt].name))
 		switch q.trashed {
@@ -241,6 +245,10 @@ func (q *Q[T]) where(b *sqlBuilder) {
 func (q *Q[T]) from(b *sqlBuilder) {
 	b.write(" FROM ")
 	b.name(q.m.table)
+	if q.search != nil && b.d.Name() == "sqlite" {
+		b.write(" ")
+		searchJoin{q.search}.build(b)
+	}
 	for _, j := range q.joins {
 		b.write(" ")
 		j.build(b)
@@ -261,9 +269,9 @@ func (q *Q[T]) tail(b *sqlBuilder, withOrder bool) {
 		b.write(" HAVING ")
 		And(q.havings...).build(b)
 	}
-	if withOrder && len(q.orders) > 0 {
+	if orders := q.orderTerms(); withOrder && len(orders) > 0 {
 		b.write(" ORDER BY ")
-		for i, o := range q.orders {
+		for i, o := range orders {
 			if i > 0 {
 				b.write(", ")
 			}
@@ -286,6 +294,16 @@ func (q *Q[T]) tail(b *sqlBuilder, withOrder bool) {
 			b.write(" " + l)
 		}
 	}
+}
+
+// orderTerms returns the query's ORDER BY terms. A distinct or grouped
+// query has no search ranking: its rows aren't the rows the ranking
+// scores.
+func (q *Q[T]) orderTerms() []Order {
+	if q.search == nil || (!q.distinct && len(q.groups) == 0) {
+		return q.orders
+	}
+	return slices.DeleteFunc(slices.Clone(q.orders), func(o Order) bool { _, ok := o.raw.(searchRank); return ok })
 }
 
 // selectSQL builds the SELECT for the model's columns, or for cols if given.
@@ -321,7 +339,9 @@ func (q *Q[T]) countSQL(d Dialect) *sqlBuilder {
 				cols[i] = quoteName(d, g)
 			}
 		}
-		inner := q.selectSQL(d, cols)
+		sub := q.clone()
+		sub.orders = nil // the order doesn't change how many rows there are
+		inner := sub.selectSQL(d, cols)
 		b := &sqlBuilder{d: d, args: inner.args, err: inner.err}
 		b.write("SELECT COUNT(*) FROM (" + inner.String() + ") AS anetos_count")
 		return b
@@ -352,7 +372,7 @@ func (q *Q[T]) rows(cols []string) (*DB, *sql.Rows, error) {
 		return nil, nil, b.err
 	}
 	rows, err := d.query(q.ctx, c, b.String(), b.args)
-	return d, rows, err
+	return d, rows, q.searchHint(err)
 }
 
 // Get returns every matching row. It returns an empty (non-nil) slice if
@@ -452,7 +472,8 @@ func (q *Q[T]) Count() (int64, error) {
 	if b.err != nil {
 		return 0, b.err
 	}
-	return scalar[int64](q.ctx, d, c, b)
+	n, err := scalar[int64](q.ctx, d, c, b)
+	return n, q.searchHint(err)
 }
 
 // Exists reports whether any row matches.
@@ -461,13 +482,15 @@ func (q *Q[T]) Exists() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	b := q.Limit(1).selectSQL(d.dialect, []string{"1"})
+	sub := q.Limit(1)
+	sub.orders = nil // any row will do
+	b := sub.selectSQL(d.dialect, []string{"1"})
 	if b.err != nil {
 		return false, b.err
 	}
 	rows, err := d.query(q.ctx, c, b.String(), b.args)
 	if err != nil {
-		return false, err
+		return false, q.searchHint(err)
 	}
 	defer rows.Close()
 	found := rows.Next()
@@ -587,8 +610,8 @@ func (q *Q[T]) Restore() (int64, error) {
 // write runs an UPDATE or DELETE whose head is written by head.
 func (q *Q[T]) write(head func(b *sqlBuilder)) (int64, error) {
 	if len(q.joins) > 0 || len(q.orders) > 0 || q.hasLimit || q.offset > 0 || len(q.groups) > 0 ||
-		len(q.havings) > 0 || q.distinct || q.lock != noLock {
-		return 0, errors.New("db: Update and Delete only support Where conditions (not Join, OrderBy, Limit, Offset, GroupBy, Having, Distinct or locks); for more, use db.Exec with your database's syntax")
+		len(q.havings) > 0 || q.distinct || q.lock != noLock || q.search != nil {
+		return 0, errors.New("db: Update and Delete only support Where conditions (not Join, OrderBy, Limit, Offset, GroupBy, Having, Distinct, Search or locks); for more, use db.Exec with your database's syntax")
 	}
 	d, c, err := q.prepare()
 	if err != nil {

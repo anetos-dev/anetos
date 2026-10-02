@@ -4,10 +4,10 @@ package migrate
 
 import (
 	"fmt"
-	"hash/fnv"
 	"strings"
 
 	"anetos.dev/anetos/db"
+	"anetos.dev/anetos/internal/dbutil"
 )
 
 // colType is a portable column type, mapped to SQL per dialect.
@@ -193,6 +193,8 @@ type Table struct {
 	foreigns []*Foreign
 	alters   []alteration
 	errs     []error
+	search   []string // SearchIndex
+	unsearch bool     // DropSearchIndex
 }
 
 func (t *Table) add(name string, typ colType) *Column {
@@ -355,25 +357,47 @@ func (t *Table) DropUnique(columns ...string) {
 	t.alters = append(t.alters, alteration{kind: "dropIndex", a: indexName(t.name, columns, "unique")})
 }
 
+// SearchIndex makes the table searchable with Search
+// (db.Query[Post](ctx).Search(text)): a full-text index over text
+// columns, most important first, whose matches weigh more (1, 0.4, 0.2,
+// then 0.1 on PostgreSQL and SQLite; MySQL weighs them alike):
+//
+//	t.SearchIndex("title", "body")
+//
+// It is built for SEARCH_LANGUAGE and SEARCH_RANKING, which the
+// database must support, and recorded in the search_indexes table
+// (db.SearchIndexes). PostgreSQL gets a generated search_vector column
+// with a GIN index (and, for SEARCH_RANKING=bm25, a generated
+// search_text column with a bm25 index); MySQL and MariaDB a generated
+// search_text column with a FULLTEXT index; SQLite a <table>_search FTS5
+// table, kept in sync by triggers. In Alter, rows already in the table
+// are indexed.
+func (t *Table) SearchIndex(columns ...string) {
+	switch {
+	case len(columns) == 0:
+		t.errs = append(t.errs, fmt.Errorf("migrate: %s: SearchIndex needs columns", t.name))
+	case t.search != nil:
+		t.errs = append(t.errs, fmt.Errorf("migrate: %s: one SearchIndex per table", t.name))
+	}
+	t.search = columns
+}
+
+// DropSearchIndex removes the table's search index ([Schema.Alter]
+// only).
+func (t *Table) DropSearchIndex() { t.unsearch = true }
+
 // DropForeign removes the foreign key created on columns (not supported
 // on SQLite).
 func (t *Table) DropForeign(columns ...string) {
 	t.alters = append(t.alters, alteration{kind: "dropForeign", a: indexName(t.name, columns, "foreign")})
 }
 
-// maxIdent is the longest identifier every database keeps whole
-// (PostgreSQL truncates at 63 bytes, MySQL refuses more than 64).
-const maxIdent = 63
+// maxIdent is the longest identifier every database keeps whole.
+const maxIdent = dbutil.MaxIdent
 
 // indexName follows Laravel: posts_author_id_created_at_index. Names too
 // long for PostgreSQL are shortened with a hash of the full name, so
 // different long names stay different, and Drop* computes the same name.
 func indexName(table string, columns []string, suffix string) string {
-	name := strings.ToLower(strings.NewReplacer(".", "_", "-", "_").Replace(table + "_" + strings.Join(columns, "_") + "_" + suffix))
-	if len(name) <= maxIdent {
-		return name
-	}
-	h := fnv.New32a()
-	h.Write([]byte(name))
-	return fmt.Sprintf("%s_%08x", name[:maxIdent-9], h.Sum32())
+	return dbutil.IndexName(table, columns, suffix)
 }

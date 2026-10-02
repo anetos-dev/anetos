@@ -135,6 +135,7 @@ func (a *App) ExecuteArgs(ctx context.Context, args []string, stdout, stderr io.
 		printUsage(stdout, bin, c) // without running the command
 		return 0
 	}
+	ctx = cmd.WithCommand(ctx, c) // for boot checks (cmd.Running)
 	err := a.runCommand(ctx, c, &cmd.Args{Name: c.Name, Args: args[1:], Stdout: stdout, Stderr: stderr})
 	switch {
 	case err == nil, errors.Is(err, flag.ErrHelp):

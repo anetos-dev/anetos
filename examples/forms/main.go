@@ -75,7 +75,8 @@ type UpdateNote struct {
 
 // ListNotes is the input of GET /notes.
 type ListNotes struct {
-	Page int `query:"page"` // 1-based; missing or 0 is the first page
+	Page int    `query:"page"`                 // 1-based; missing or 0 is the first page
+	Q    string `query:"q" validate:"max:200"` // search words
 }
 
 // Notes holds the handlers. They find the database in the request context.
@@ -84,12 +85,16 @@ type Notes struct{}
 // region: index
 func (Notes) Index(c *web.Ctx, in ListNotes) (web.Responder, error) {
 	// Newest first; the ID breaks ties between notes created in the same
-	// instant, so no note shows on two pages.
-	page, err := db.Query[Note](c).OrderBy(NoteCols.CreatedAt.Desc(), NoteCols.ID.Desc()).Paginate(in.Page, 10)
+	// instant, so no note shows on two pages. With search words, the
+	// best matches come first, then the newest. Search of no words
+	// changes nothing.
+	page, err := db.Query[Note](c).OrderBy(NoteCols.CreatedAt.Desc(), NoteCols.ID.Desc()).
+		Search(in.Q).
+		Paginate(in.Page, 10)
 	if err != nil {
 		return nil, err
 	}
-	return web.View(NotesPage(page)), nil
+	return web.View(NotesPage(page, in.Q)), nil
 }
 
 // endregion

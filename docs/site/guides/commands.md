@@ -48,7 +48,7 @@ func main() {
 |---|---|
 | `run [--only=role,…]` | Every app |
 | `serve`, `routes:list` | `web.NewServer` |
-| `migrate`, `migrate:rollback`, `migrate:reset`, `migrate:fresh`, `migrate:status`, `db:seed` | `migrate.ForApp` ([Migrations](migrations.md)) |
+| `migrate`, `migrate:rollback`, `migrate:reset`, `migrate:fresh`, `migrate:status`, `db:seed`, `search:reindex` | `migrate.ForApp` ([Migrations](migrations.md), [Search](search.md)) |
 | `cache:clear` | `cache.ForApp` ([Cache values](cache.md)) |
 | `queue:failed`, `queue:retry`, `queue:forget`, `queue:flush`, `queue:clear` | `queue.ForApp` ([Queues](queues.md)) |
 | `pubsub:publish` | `pubsub.ForApp` ([Pub/sub listeners](pubsub.md)) |

@@ -24,6 +24,7 @@ Each method returns a new query; the original is unchanged.
 | `Distinct()` | `SELECT DISTINCT` |
 | `Scope(fns...)` | Applies `func(*db.Q[T]) *db.Q[T]` modifiers |
 | `WithTrashed()`, `OnlyTrashed()` | Include / only soft-deleted rows |
+| `Search(text)` | Full-text search: rows matching every word of `text` (as prefixes), best first, then `OrderBy`'s order; needs a search index ([search](../guides/search.md)). Text without words changes nothing; `Distinct` and `GroupBy` queries search without the relevance order; Update, Delete and `CursorPaginate` refuse it |
 | `WhereHas(rel, conds...)`, `WhereDoesntHave(rel, conds...)` | `EXISTS (…)` / `NOT EXISTS (…)` on a relation's rows ([relations](models.md#relations)) |
 | `With(rels...)` | Loads relations of the rows, one query per relation ([relations](models.md#relations)) |
 | `ForUpdate()`, `ForShare()` | Row locks until the transaction ends (nothing on SQLite) |

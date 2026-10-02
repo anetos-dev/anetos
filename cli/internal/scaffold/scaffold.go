@@ -75,6 +75,21 @@ DB_DATABASE=[[.DBName]]
 DB_USERNAME=root
 DB_PASSWORD=
 [[- end]]
+
+# Full-text search (Search in queries, t.SearchIndex in migrations)
+[[- if eq .DB "mysql"]]: MySQL matches
+# words as written (simple), and has no BM25 ranking
+SEARCH_LANGUAGE=simple
+SEARCH_RANKING=default
+[[- else]]: simple
+# (default) matches words as written, in any language; english also
+# matches their other forms (run, running)[[if eq .DB "postgres"]], as do PostgreSQL's other
+# text search configurations (german, french…)[[end]]. Changing it needs
+# go run . search:reindex
+SEARCH_LANGUAGE=simple
+# default, or bm25[[if eq .DB "postgres"]] (needs PostgreSQL 17+ with the pg_textsearch extension)[[end]]
+SEARCH_RANKING=default
+[[- end]]
 [[end]]`
 
 // Create writes the project's files. The directory must not exist, or be

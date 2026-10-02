@@ -69,6 +69,8 @@ must be `Nullable()` or have a default: the builder reports both.
 | `t.DropForeign(cols...)` | Alter (not SQLite) | Removes the foreign key on those columns |
 | `t.IndexNamed(name, cols...)`, `t.UniqueNamed(name, cols...)` | Create, Alter | Index with your own name |
 | `t.DropIndexNamed(name)`, `t.DropForeignNamed(name)` | Alter | Drop by name (after `Rename`, or for older schemas) |
+| `t.SearchIndex(cols...)` | Create, Alter | Full-text search index over text columns, most important first ([search](#search-indexes)); one per table |
+| `t.DropSearchIndex()` | Alter | Removes the table's search index |
 
 Index names follow Laravel's: `posts_author_id_created_at_index`,
 `posts_slug_unique`, `posts_author_id_foreign`. A name longer than 63
@@ -84,8 +86,8 @@ schema or database instead.
 |---|---|
 | `s.Create(table, fn)` | `CREATE TABLE` plus its indexes |
 | `s.Alter(table, fn)` | Adds, changes, renames and drops columns, indexes and foreign keys |
-| `s.Drop(table)`, `s.DropIfExists(table)` | Drops a table |
-| `s.Rename(from, to)` | Renames a table |
+| `s.Drop(table)`, `s.DropIfExists(table)` | Drops a table, and its search index |
+| `s.Rename(from, to)` | Renames a table; refused when it has a search index (drop it first, add it again after) |
 | `s.HasTable(table)`, `s.HasColumn(table, col)` | Whether they exist |
 | `s.Exec(sql, args...)` | Raw SQL. Without arguments: sent as written, split at `;` (trigger and function bodies stay whole). With arguments: one statement with `?` placeholders |
 | `s.Context()` | The migration's context (database and transaction), for the db package |
@@ -146,10 +148,40 @@ Registered on the app by `migrate.ForApp`, so the binary runs them
 | `migrate:reset` | | Needs `--force` |
 | `migrate:fresh` | `--seed` | Refused (also in staging) |
 | `db:seed` | `--seeder=NAME` | Needs `--force` |
+| `search:reindex` | table names (default: all) | Allowed |
+
+Every command but `db:seed` changes the schema (`cmd.Command.ChangesSchema`),
+so it runs even when the search indexes don't match `SEARCH_LANGUAGE` and
+`SEARCH_RANKING`, which stops the app and other commands at boot.
 
 On PostgreSQL and MySQL, runs are serialized with an advisory or named
 lock (per database) held on its own connection: the pool needs at least
 2 connections.
+
+## Search indexes
+
+`t.SearchIndex("title", "body")` builds, for `SEARCH_LANGUAGE` and
+`SEARCH_RANKING` (which the database must support, or the migration
+fails):
+
+| Database | Objects |
+|---|---|
+| PostgreSQL | `search_vector`, a stored generated `tsvector` column (columns weighted A, B, C, D in order), and its GIN index `<table>_search_index`; with `SEARCH_RANKING=bm25`, also `search_text`, a generated text column, and its `bm25` index `<table>_search_bm25` (pg_textsearch) |
+| MySQL, MariaDB | `search_text`, a stored generated `LONGTEXT` column (the columns joined), and its `FULLTEXT` index `<table>_search_index` |
+| SQLite | `<table>_search`, an FTS5 table on the table's rows (tokenizer `unicode61`, with `porter` for english; column weights 1, 0.4, 0.2, 0.1), and the triggers `<table>_search_insert`, `_delete` and `_update` that keep it current |
+
+In `Alter`, rows already in the table are indexed. Each index is
+recorded in the `search_indexes` table (`db.SearchIndexes(ctx)` reads
+it): its columns, language and ranking. `search:reindex` rebuilds
+indexes from those records for the current settings, after checking
+that every indexed column still exists. On MySQL and MariaDB, whose
+schema changes aren't transactional, a rebuild that fails midway (a lock
+timeout, a full disk) leaves the table without its index: run
+`search:reindex` again. Columns must hold
+text. `Alter` refuses to drop or rename an indexed column unless the
+same `Alter` drops the index (`t.DropSearchIndex()`, the change, then
+`t.SearchIndex` with the new columns). Object names longer than 63
+bytes are shortened like index names.
 
 ## The migrations table
 

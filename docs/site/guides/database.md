@@ -135,6 +135,11 @@ in every environment. In development and tests, a request (or job, …)
 that runs the same query five times or more is logged as a warning: see
 [Find N+1 queries](n-plus-one.md).
 
+When the app starts, it also checks that the database can serve what the
+app asks of it (the `SEARCH_*` settings, features' requirements), and
+stops with a clear message if it can't: see
+[Add full-text search](search.md#choose-the-settings).
+
 > **Coming from Laravel?** `DB_CONNECTION`, `DB_HOST` and friends mean what
 > they mean in Laravel's `.env`. There is no `config/database.php`: extra
 > connections use prefixed keys.

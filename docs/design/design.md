@@ -689,50 +689,75 @@ the layer stalls badly, an adapter over Bun behind the same public API. The
 public API is kept deliberately small to make that possible. F7 landed
 without needing it.
 
-### 10.5 Search (planned, v0.3: S1, S2)
+### 10.5 Search (v0.3: S1 done, S2 planned)
 
 Full-text search is part of the data layer, not an add-on: a blog gets a
-ranked search box from a declaration, on every supported database
-(D154). Vector search arrives with the AI work (S2) on the same API, and
-the two combine into hybrid search (D159).
+ranked search box from one migration line and one query method, on every
+supported database (D154). Vector search arrives with the AI work (S2) on
+the same API, and the two combine into hybrid search (D159).
 
 ```go
 // illustrative
-type Post struct {
-    db.Model
-    Title string `db:"title" search:"weight=A"`
-    Body  string `db:"body"  search:"weight=B"`
-}
-
-t.SearchIndex("title", "body")                        // migration: the database's own index
-posts, err := db.Query[Post](ctx).Search("go generics").Paginate(page, 20) // ranked
+s.Alter("posts", func(t *migrate.Table) {
+    t.SearchIndex("title", "body") // most important first: weighs more
+})
+posts, err := db.Query[Post](ctx).Where(published).Search(q).Paginate(page, 20) // best first
 ```
+
+The migration is the one declaration (D162): models carry no search tags,
+and the query side needs only the table and the settings, because each
+database's objects follow fixed names.
 
 | | PostgreSQL | SQLite | MySQL / MariaDB |
 |---|---|---|---|
-| Index | `tsvector` generated column (weights from the tags) + GIN | FTS5 table (external content) kept in sync by triggers | `FULLTEXT` |
-| Default ranking | `ts_rank_cd` (no corpus statistics) | `bm25()` | InnoDB's relevance (TF-IDF style) |
-| BM25 (`SEARCH_RANKING=bm25`) | with the pg_textsearch extension | built in | refused |
-| Language | `SEARCH_LANGUAGE` (a text search configuration; `simple` doesn't stem) | porter stemmer or `unicode61` | no stemming; short words not indexed by default |
+| Index | generated `search_vector` (`tsvector`, columns weighted A–D) + GIN | `<table>_search` FTS5 table (external content, rowid) kept in sync by triggers, column weights as its `rank` | generated `search_text` (`LONGTEXT`) + `FULLTEXT` |
+| Match | `@@ to_tsquery(language, 'w1':* & 'w2':*)` | a join on `MATCH '"w1"* "w2"*'` | `MATCH … AGAINST ('+w1* +w2*' IN BOOLEAN MODE)`; words it doesn't index are optional (`w*`), or all required when no other word remains |
+| Default ranking | `ts_rank_cd` (no corpus statistics) | `bm25()` | InnoDB's relevance (TF-IDF style), no column weights |
+| BM25 (`SEARCH_RANKING=bm25`) | PostgreSQL 17+ with pg_textsearch: generated `search_text` + `bm25` index, `COALESCE(<@>, 0)` ranks first (wrapped so the planner never scans the bm25 index, which returns only whole-word matches), `ts_rank_cd` breaks ties (prefix-only matches score 0 in BM25) | built in | refused |
+| `SEARCH_LANGUAGE` | `simple`, `english`, any text search configuration (checked in `pg_ts_config`) | `simple`, `english` (porter) | `simple` |
 | Vectors (S2) | pgvector | brute-force scan in Go (the pure-Go driver can't load `sqlite-vec`) | MariaDB 11.7+ native; refused on MySQL Community |
 
-- **Capabilities, checked at boot** (D153): each driver reports what its
-  server can do (`db.Capability`: `FullText`, `BM25`, `Vector`), probing
-  the live server where it depends on it (installed extensions, server
-  version). Features declare what they need when they are set up
-  (searchable models, `SEARCH_RANKING`, vector columns), and the app
-  refuses to start when the configured database can't provide it, naming
-  the setting, the database and the alternatives. `anetos new` refuses
-  the same combinations, `migrate` won't create an index the database
-  can't serve, and tests (in-memory SQLite by default) fail with the same
-  message rather than pass on a database production doesn't use.
-- **One API, documented differences:** stemming, stop words, phrase
-  syntax and scores differ by database; scores are never compared across
-  databases. Apps test search on the database they deploy to.
+- **Words** (D160): text becomes at most 32 lower-case words of letters,
+  digits and combining marks (so Bangla and Hindi words stay whole); every
+  word must match, as a prefix (on MySQL, words its index skips are
+  optional next to indexed ones). That recovers most of what stemming gives,
+  the same way on every database, with `simple` as the default.
+- **Capabilities, checked at boot** (D153): each dialect's capabilities
+  (`db.Capability`: `FullText`, `BM25`; `Vector` in S2) are probed on
+  the server where they depend on it (version, extensions);
+  features declare needs with `d.Require`. `db.Connect` runs `d.Check` at
+  boot: the `SEARCH_*` settings, the requirements, and the
+  `search_indexes` records against the settings. Any mismatch stops the
+  app with the setting, the database and the way out; only the last check
+  is skipped for commands that change the schema
+  (`cmd.Command.ChangesSchema`: `migrate…`, `search:reindex`), which is
+  how a mismatch gets fixed. Migrations check the settings before
+  building an index; `anetos new` writes settings its database supports.
+- **One API, documented differences:** stemming, stop words (dropped by
+  PostgreSQL languages other than `simple`; not indexed by MySQL), short
+  words (MySQL skips words under three characters; they and its stop
+  words only match longer words they start), accent folding (SQLite and
+  MySQL's default collation fold, PostgreSQL doesn't) and scores differ
+  by database; scores are never compared across databases. MySQL's
+  full-text index sees only committed rows, so search tests there run
+  without the test's transaction.
+- **Query shapes:** `Count`, `Exists` and count subqueries drop the
+  ordering; `Distinct` and `GroupBy` queries search without the relevance
+  order (their rows aren't the rows it scores, and PostgreSQL and MySQL
+  refuse an ORDER BY outside a DISTINCT select list); `CursorPaginate`,
+  `Update` and `Delete` refuse `Search`.
+- **Schema safety:** `Alter` refuses to drop or rename an indexed column
+  unless the same `Alter` drops the index; `Rename` refuses an indexed
+  table; `search:reindex` checks every indexed column exists before it
+  drops anything (MySQL's DDL isn't transactional). Index object names
+  are shortened like other index names, by one shared function, so
+  queries name the BM25 index the way migrations created it.
 - **Ranking** (D155): `SEARCH_RANKING=default` uses each database's best
   built-in ranking; `bm25` is a requirement checked at boot.
 - **Hybrid** (D159): keyword and vector results merged by reciprocal rank
   fusion, which needs no score normalization across the two.
+- **Embeddings** (S2, D161): a companion table per searchable model, one
+  row per chunk, filled by queue jobs after commits.
 - **Scale:** database search serves most apps; search engines
   (Meilisearch, Typesense, OpenSearch) can later sit behind the same
   `Search` API as drivers (backlog).
@@ -1895,13 +1920,16 @@ unless new information arrives), **Open**, **Superseded**.
 | D150 | `make:auth` includes sign-in with Google and GitHub (`handlers.SocialUser`, linking by provider account, and by email only when verified on both sides), each provider on once its `SOCIAL_<NAME>_*` settings are set (appended, empty, to `.env` and `.env.example`); `social.WithHomeURL("/dashboard")` sends every sign-in where password logins go. Supersedes B14's choice to leave social login out | Accepted | Google login was a v0.2 promise; unused, it costs a table and two hidden routes (404); the v0.2 walkthrough found adapting the guide to a `make:auth` app the main blocker |
 | D151 | `anetos new --replace` replaces every module of the checkout (core, tool, `drivers/*`, `plugins/*`); `anetos add` runs `go mod tidy` after writing `plugins.go` | Accepted | First-party drivers and plugins install in framework-development projects as they will for users; the plugin becomes a direct requirement |
 | D152 | v0.2's exit criteria are shown by `examples/saas`, a `anetos new` + `make:auth` app, and its `roles_test.go`, which builds the binary and runs it as `http`, `workers`, `listeners` and `scheduler` processes (SQLite shared through files, Redis for pub/sub when `ANETOS_TEST_REDIS_URL` is set), then as one; it waits for the scheduler's next minute and is skipped by `-short` | Accepted | Role splitting is checked end to end on every CI run, not only described; a minute of test time is the price of a real scheduler tick |
-| D153 | Database features are capability-checked at boot: drivers report capabilities (`FullText`, `BM25`, `Vector`), probing the live server where they depend on it (extensions, versions); features declare what they need, and the app refuses to start when the configured database can't provide it, with the setting, the database and the alternatives in the message; `anetos new`, `migrate` and tests apply the same rule | Accepted (planned, S1) | A configuration that can't work fails at deploy, not on a user's first search; no silent fallback to a weaker feature |
-| D154 | Full-text search belongs to the data layer: opt-in per model (a `search` tag on the fields, `t.SearchIndex` in a migration), `q.Search(text)` ranked and paginated on PostgreSQL (`tsvector` + GIN), SQLite (FTS5 with sync triggers) and MySQL/MariaDB (`FULLTEXT`), with their differences documented | Accepted (planned, S1) | Most apps need a search box, and their database can serve it; declared rather than automatic, because each index costs space and writes, and needs a language and fields chosen |
-| D155 | `SEARCH_RANKING=default\|bm25`: default is each database's best built-in ranking; `bm25` is a boot-time requirement, met by SQLite's FTS5 and by PostgreSQL with pg_textsearch (PostgreSQL licence), refused on MySQL; ParadeDB's `pg_search` isn't the documented choice (AGPL-3.0) | Accepted (planned, S1) | BM25 ranks better than `ts_rank`, which ignores how common a word is; a permissive licence matters to apps shipped commercially |
+| D153 | Database features are capability-checked at boot: each dialect's capabilities (`FullText`, `BM25`, `Vector`) are probed on the server where they depend on it (extensions, versions); features declare what they need, and the app refuses to start when the configured database can't provide it, with the setting, the database and the alternatives in the message; `anetos new`, `migrate` and tests apply the same rule | Accepted | A configuration that can't work fails at deploy, not on a user's first search; no silent fallback to a weaker feature |
+| D154 | Full-text search belongs to the data layer: opt-in per table (`t.SearchIndex` in a migration), `q.Search(text)` ranked and paginated on PostgreSQL (`tsvector` + GIN), SQLite (FTS5 with sync triggers) and MySQL/MariaDB (`FULLTEXT`), with their differences documented | Accepted | Most apps need a search box, and their database can serve it; declared rather than automatic, because each index costs space and writes, and needs a language and fields chosen |
+| D155 | `SEARCH_RANKING=default\|bm25`: default is each database's best built-in ranking; `bm25` is a boot-time requirement, met by SQLite's FTS5 and by PostgreSQL with pg_textsearch (PostgreSQL licence), refused on MySQL; ParadeDB's `pg_search` isn't the documented choice (AGPL-3.0) | Accepted | BM25 ranks better than `ts_rank`, which ignores how common a word is; a permissive licence matters to apps shipped commercially |
 | D156 | AI is integration, not a framework: the core `ai` package holds the provider contract, messages, streaming, the agent loop and the fake; providers are driver modules wrapping the official SDKs (Anthropic, OpenAI and OpenAI-compatible, Gemini first), with access to the native client; no wrapping of LangChainGo, Genkit or Eino | Accepted (planned, A1–A2) | Our value is the app around the model (typed output, tools as the user, queues, storage, tests); a thin contract survives providers' fast changes, and the escape hatch covers what it doesn't |
 | D157 | Structured output and tools are typed: JSON schemas built from Go structs at registration, model output and tool input checked with `validate` tags (output retried once with the errors), tools run with the caller's context so auth and policies apply, a step limit on the agent loop, every call and tool call logged and run as a unit of work | Accepted (planned, A1) | Typed handlers' design applied to models; the model chooses which tools to call, so tools get no more power than the user has |
 | D158 | AI is tested without the network: `anetostest.FakeAI` scripts replies, typed outputs and tool calls and records prompts; provider drivers pass a conformance suite against recorded responses, and live only when their key is set | Accepted (planned, A1–A2) | Model output varies and costs money; app tests must be deterministic and free |
 | D159 | Vectors and hybrid search: `ai.Embed`, vector columns, `q.SearchSimilar` on pgvector, MariaDB 11.7+ and SQLite (a brute-force scan in Go, as the pure-Go driver can't load `sqlite-vec`), refused on MySQL Community (`DISTANCE()` is HeatWave-only); `Search(...).Hybrid(...)` merges keyword and vector rankings by reciprocal rank fusion | Accepted (planned, S2) | Retrieval for agents works best with both kinds of match; rank fusion needs no score normalization; capability checks (D153) keep unsupported setups from starting |
+| D160 | `SEARCH_LANGUAGE` defaults to `simple` (no stemming, every language), and every search word matches as a prefix on every database; a language (`english`…) is opt-in. Indexes record the language and ranking they were built for, and a mismatch with the settings stops the app at boot until `search:reindex` | Accepted | `simple` is never wrong, only less generous, and behaves alike on MySQL (which can't stem); prefix matching recovers most of stemming's recall and gives search-as-you-type; a language baked into an index can't silently disagree with the queries |
+| D161 | Embeddings (S2) live in a companion table per searchable model (`post_embeddings`): one row per chunk (record id, position, the chunk's text or offsets, the vector, the embedding model's name, a content hash), filled by queue jobs after commits; switching embedding models fills a new table side by side, then switches | Accepted (planned, S2) | Retrieval works on passages, not whole records; vectors (~6 KB) would bloat the model's table; models change and their sizes differ, and a vector index needs one size; unchanged content is never embedded again |
+| D162 | The migration is a search index's only declaration: no model tags; each database's objects have fixed names (`search_vector`, `search_text`, `<table>_search` and its triggers), so queries need only the table and the settings; the `search_indexes` table records columns, language and ranking for the boot check and `search:reindex`; MySQL search words its index skips (short and over-long words, stop words: InnoDB's default list, or the configured stop-word table) stay as optional prefixes, required only when no indexed word remains; `cmd.Command.ChangesSchema` marks the commands that may run with out-of-date indexes | Accepted | One source of truth that can't disagree with the schema; no per-query metadata lookup; a required word MySQL doesn't index would make every search fail, and dropping it would lose prefix matches ("ca" finding "cat") |
 
 ---
 
@@ -1916,8 +1944,8 @@ unless new information arrives), **Open**, **Superseded**.
 | O5 | ~~Plugin config: generated Go struct in the app vs loaded from the plugin's own struct only?~~ Resolved: the plugin's own struct (D133) | §16.2 | Done |
 | O6 | ~~Which pure-Go SQLite implementation?~~ Resolved: modernc.org/sqlite (D38) | §10.3 | Done |
 | O7 | ~~Error keys use the json name even for form posts; should HTML forms key errors by the `form` name when it differs?~~ Resolved: yes, for form posts (D68) | §9 | Done |
-| O8 | The default `SEARCH_LANGUAGE`: `english`, or `simple` (no stemming, every language) | §10.5 | At S1 |
-| O9 | Embeddings: a column on the model's table, or a table per model (several embedding models, re-embedding without locking) | §10.5, §14.4 | At S2 |
+| O8 | ~~The default `SEARCH_LANGUAGE`: `english`, or `simple`?~~ Resolved: `simple`, with prefix matching (D160) | §10.5 | Done |
+| O9 | ~~Embeddings: a column on the model's table, or a table per model?~~ Resolved: a table per model, one row per chunk (D161) | §10.5, §14.4 | Done |
 
 ---
 
@@ -1955,3 +1983,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-02 | B14 auth scaffolding implemented: §15, §17.1 updated; D145–D147 added |
 | 2026-10-02 | v0.2 exit criteria checked: §5 (logging), §15, §17.1, §18 updated; D148–D152 added |
 | 2026-10-02 | Search and AI planned for v0.3: §10.5 (search, database capabilities), §14 and §14.4 (AI) added; D153–D159, O8–O9 added |
+| 2026-10-02 | S1 full-text search implemented: §10.5 rewritten; D153–D155 accepted, D160–D162 added; O8, O9 resolved |

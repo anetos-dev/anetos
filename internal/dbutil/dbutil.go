@@ -6,6 +6,8 @@ package dbutil
 
 import (
 	"context"
+	"fmt"
+	"hash/fnv"
 	"math/rand/v2"
 	"strings"
 	"time"
@@ -58,4 +60,23 @@ func Transient(err error) bool {
 		}
 	}
 	return false
+}
+
+// MaxIdent is the longest identifier every database keeps whole
+// (PostgreSQL truncates at 63 bytes, MySQL refuses more than 64).
+const MaxIdent = 63
+
+// IndexName names an index the way migrations do, following Laravel:
+// posts_author_id_created_at_index, lower-case. Names longer than
+// MaxIdent are shortened with a hash of the full name, so different long
+// names stay different, and code that looks an index up by name (Drop*,
+// a search's BM25 index) computes the same name.
+func IndexName(table string, columns []string, suffix string) string {
+	name := strings.ToLower(strings.NewReplacer(".", "_", "-", "_").Replace(table + "_" + strings.Join(columns, "_") + "_" + suffix))
+	if len(name) <= MaxIdent {
+		return name
+	}
+	h := fnv.New32a()
+	h.Write([]byte(name))
+	return fmt.Sprintf("%s_%08x", name[:MaxIdent-9], h.Sum32())
 }

@@ -5,6 +5,7 @@ package db
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -94,6 +95,9 @@ func (q *Q[T]) CursorPaginate(cursor string, perPage int) (CursorPage[T], error)
 	}
 	if perPage < 1 {
 		perPage = DefaultPerPage
+	}
+	if q.search != nil {
+		return CursorPage[T]{}, errors.New("db: CursorPaginate can't page through Search results, which are ordered by relevance; use Paginate")
 	}
 	orders, cols, err := q.cursorOrders()
 	if err != nil {

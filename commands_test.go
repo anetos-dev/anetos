@@ -221,3 +221,36 @@ func TestHelpOnlyFirst(t *testing.T) {
 		t.Errorf("late -h: %d %q", code, errOut)
 	}
 }
+
+// runningProvider records the command the app boots for.
+type runningProvider struct{ seen *string }
+
+func (runningProvider) Name() string               { return "running" }
+func (runningProvider) Register(*anetos.App) error { return nil }
+func (p runningProvider) Boot(ctx context.Context, _ *anetos.App) error {
+	if c, ok := cmd.Running(ctx); ok {
+		*p.seen = c.Name + map[bool]string{true: " changes the schema"}[c.ChangesSchema]
+	}
+	return nil
+}
+
+// Boot checks see which command the app boots for.
+func TestRunningCommand(t *testing.T) {
+	app := newApp(t, config.Map{})
+	var seen string
+	app.Use(runningProvider{&seen})
+	if err := app.AddCommand(cmd.Command{Name: "schema:fix", ChangesSchema: true, Run: func(ctx context.Context, _ *cmd.Args) error {
+		if c, ok := cmd.Running(ctx); !ok || c.Name != "schema:fix" {
+			return errors.New("the command's context doesn't say which command runs")
+		}
+		return nil
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	if code, out, errOut := execute(t, app, "schema:fix"); code != 0 || seen != "schema:fix changes the schema" {
+		t.Errorf("%d %q %q, seen %q", code, out, errOut, seen)
+	}
+	if _, ok := cmd.Running(context.Background()); ok {
+		t.Error("Running without a command")
+	}
+}

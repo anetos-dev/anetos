@@ -68,6 +68,28 @@ pure Go, so the single binary still cross-compiles without a C toolchain.
 Every driver module runs the same conformance suite (`db/dbtest`) against
 a real database in CI.
 
+## One API, each database's own search
+
+Full-text search (`q.Search(text)`) is one method over three different
+engines: PostgreSQL's `tsvector` and GIN indexes, MySQL's `FULLTEXT`
+indexes, SQLite's FTS5. A migration builds the database's own index
+(`t.SearchIndex`), and the query builder writes that database's match and
+ranking SQL. The engines don't agree on everything (which words they
+stem, skip or weigh, and how they score), so the [Search](../guides/search.md)
+guide lists the differences instead of hiding them.
+
+## The database is checked when the app boots
+
+`db.Connect` pings the database when the app boots, then checks that it
+can serve what the app asks of it: `SEARCH_LANGUAGE` and `SEARCH_RANKING`,
+the capabilities features declared with `d.Require(feature, caps...)`
+(`db.FullText`, `db.BM25`), and that the search indexes were built for the
+current settings. A mismatch stops the app (and its commands) at once,
+naming the setting, the database and the way out, rather than failing on
+a user's first search or silently ranking differently. Commands that fix
+the schema (`migrate…`, `search:reindex`) skip the last check, so they
+can run.
+
 ## Times are UTC
 
 Timestamps are written in UTC with microsecond precision, and times are
@@ -107,7 +129,7 @@ UTC to keep their calendar day.
 
 - [Connect to a database](../guides/database.md), [Migrations](../guides/migrations.md)
 - [Define models and save data](../guides/models.md)
-- [Query data](../guides/queries.md)
+- [Query data](../guides/queries.md), [Search](../guides/search.md)
 - [Transactions](../guides/transactions.md)
 - [Raw SQL](../guides/raw-sql.md)
 - [Models reference](../reference/models.md), [Query builder reference](../reference/query-builder.md)

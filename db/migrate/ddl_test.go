@@ -291,3 +291,52 @@ func TestLongIndexNames(t *testing.T) {
 		t.Errorf("short name changed: %s", short)
 	}
 }
+
+func TestSearchSQL(t *testing.T) {
+	cfg := db.SearchConfig{Language: "english", Ranking: "bm25"}
+	for dialect, want := range map[db.Dialect][]string{
+		db.Postgres(): {
+			`ALTER TABLE "posts" ADD COLUMN "search_vector" tsvector GENERATED ALWAYS AS (setweight(to_tsvector('english', coalesce("title"::text, '')), 'A') || setweight(to_tsvector('english', coalesce("body"::text, '')), 'B')) STORED`,
+			`CREATE INDEX "posts_search_index" ON "posts" USING gin ("search_vector")`,
+			`ALTER TABLE "posts" ADD COLUMN "search_text" text GENERATED ALWAYS AS (coalesce("title"::text, '') || ' ' || coalesce("body"::text, '')) STORED`,
+			`CREATE INDEX "posts_search_bm25" ON "posts" USING bm25 ("search_text") WITH (text_config = 'english')`,
+		},
+		db.MySQL(): {
+			"ALTER TABLE `posts` ADD COLUMN `search_text` LONGTEXT GENERATED ALWAYS AS (CONCAT_WS(' ', `title`, `body`)) STORED",
+			"ALTER TABLE `posts` ADD FULLTEXT INDEX `posts_search_index` (`search_text`)",
+		},
+		db.SQLite(): {
+			`CREATE VIRTUAL TABLE "posts_search" USING fts5("title", "body", content='posts', tokenize='porter unicode61 remove_diacritics 2')`,
+			`INSERT INTO "posts_search" ("posts_search", rank) VALUES ('rank', 'bm25(1.0, 0.4)')`,
+			`CREATE TRIGGER "posts_search_insert" AFTER INSERT ON "posts" BEGIN INSERT INTO "posts_search" (rowid, "title", "body") VALUES (new.rowid, new."title", new."body"); END`,
+			`CREATE TRIGGER "posts_search_update" AFTER UPDATE OF "title", "body" ON "posts" BEGIN INSERT INTO "posts_search" ("posts_search", rowid, "title", "body") VALUES ('delete', old.rowid, old."title", old."body"); INSERT INTO "posts_search" (rowid, "title", "body") VALUES (new.rowid, new."title", new."body"); END`,
+			`INSERT INTO "posts_search" ("posts_search") VALUES ('rebuild')`,
+		},
+	} {
+		got, err := schemaFor(dialect).searchSQL("posts", []string{"title", "body"}, cfg, true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, w := range want {
+			if !slices.Contains(got, w) {
+				t.Errorf("%s: missing\n%s\nin\n%s", dialect.Name(), w, strings.Join(got, "\n"))
+			}
+		}
+		if last := got[len(got)-1]; !strings.Contains(last, "INSERT INTO") || !strings.Contains(last, "'posts', 'title,body', 'english', 'bm25'") {
+			t.Errorf("%s: record: %s", dialect.Name(), last)
+		}
+	}
+	s := schemaFor(db.SQLite())
+	for _, cols := range [][]string{{"a", "a"}, {"a.b"}, {""}, {"a,b"}} {
+		if _, err := s.searchSQL("posts", cols, cfg, false); err == nil {
+			t.Errorf("columns %q: no error", cols)
+		}
+	}
+	tbl := &Table{name: "posts"}
+	tbl.SearchIndex()
+	tbl.SearchIndex("a")
+	tbl.SearchIndex("b")
+	if len(tbl.errs) != 2 {
+		t.Errorf("errors: %v", tbl.errs)
+	}
+}

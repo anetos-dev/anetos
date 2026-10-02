@@ -285,6 +285,12 @@ by role (D152).
 Goal: good enough for strangers to build and deploy real apps, including
 apps with search and AI features. **This is the first public release.**
 
+**Progress**
+
+| WP | Status |
+|---|---|
+| S1 Database capabilities & full-text search | ✅ Done 2026-10-02 (`q.Search`, `t.SearchIndex`, `SEARCH_LANGUAGE`/`SEARCH_RANKING`, boot-time capability checks, `search:reindex`; tested on SQLite, PostgreSQL 16, PostgreSQL 17 with pg_textsearch, MySQL 8.0 and MariaDB) |
+
 The search and AI work packages come first, so the public release has
 them (decided 2026-10-02; design §10.5, §14.4, D153–D159). They follow
 one order: full-text search in the data layer, then the AI core and its
@@ -292,7 +298,7 @@ providers, then vectors and hybrid search, which joins the two.
 
 | WP | Work package | Notes |
 |---|---|---|
-| S1 | Database capabilities & full-text search | Drivers report capabilities (`FullText`, `BM25`, `Vector`), probed on the live server at boot where it matters (extensions, versions); features declare what they need, and the app refuses to start when the configured database can't provide it, with the alternatives in the message; `anetos new` and `migrate` refuse the same combinations. Searchable fields declared on the model (`search` tag), a migration helper (`t.SearchIndex`: PostgreSQL `tsvector` generated column + GIN, SQLite FTS5 with sync triggers, MySQL/MariaDB `FULLTEXT`), `q.Search(text)` ranked and paginated, `SEARCH_RANKING=default\|bm25` (BM25: SQLite FTS5 natively, PostgreSQL with pg_textsearch, refused on MySQL), `SEARCH_LANGUAGE`, `search:reindex`; a search box in an example |
+| S1 | Database capabilities & full-text search | Each dialect's capabilities (`FullText`, `BM25`), probed on the server at boot where it matters (extensions, versions); features declare what they need (`d.Require`), and the app refuses to start when the configured database can't provide it, or when a search index was built for other settings, with the alternatives in the message (commands that change the schema still run); `anetos new` writes settings its database supports, and migrations check them. Search indexes declared in migrations (`t.SearchIndex`: PostgreSQL `tsvector` generated column + GIN, SQLite FTS5 with sync triggers, MySQL/MariaDB generated column + `FULLTEXT`), `q.Search(text)` ranked and paginated, `SEARCH_LANGUAGE` (default `simple`, prefix matching), `SEARCH_RANKING=default\|bm25` (BM25: SQLite FTS5 natively, PostgreSQL 17+ with pg_textsearch, refused on MySQL), `search:reindex`; a search box in `examples/forms` |
 | A1 | AI core | Package `ai`: the provider contract, messages, `ai.Generate` (text) and streaming (an iterator), typed structured output (`ai.Generate[T]`: JSON schema from the struct, the answer checked with `validate` tags), typed tools (`ai.Func(name, description, fn)`, input validated, run as the current user) and an agent loop with a step limit, usage (tokens) on every response, an escape hatch to the provider's own client; `anetostest.FakeAI` with scripted replies and tool calls; no provider SDK in the core |
 | A2 | AI providers | Driver modules wrapping the official SDKs: `drivers/anthropic`, `drivers/openai` (with an OpenAI-compatible mode: Ollama, OpenRouter, Groq, vLLM…), `drivers/gemini`; `AI_PROVIDER`, `AI_MODEL` and per-provider keys; each passes an `ai/aitest` conformance suite against recorded responses, and live when its key is set |
 | A3 | AI in the app | Conversations stored in the database (`ai.Migrations`), usage and cost records with per-user budgets (on the rate limiter), `ai.Queue` (generation as a queue job, with retries), streaming to the browser (server-sent events, htmx-friendly), `make:agent`, units of work and logs for each call; an AI assistant with tools over its data in an example; guides |
@@ -406,8 +412,8 @@ something, and we fix the API rather than add the hook.
 | Q4 | Docs site generator (VitePress, Hugo, Starlight…) | At M2 |
 | Q5 | ~~Which mail API driver is first-party first (Resend vs Postmark)~~ **Decided 2026-10-01: Postmark**, for its transactional focus, a stable documented API with error codes that tell permanent from temporary failures, and a test token (`POSTMARK_API_TEST`) that checks requests without sending; Resend can follow as a plugin | Decided |
 | Q6 | ~~Public repo from day one, or private until v0.3?~~ **Decided 2026-09-30:** private until ready for public release (v0.3). A private repo can use the working codename; GitHub redirects renamed repos, and the module path is a find-and-replace while nobody depends on it | Decided |
-| Q7 | Search: the default `SEARCH_LANGUAGE` (`english`, or `simple`, which doesn't stem and suits every language) | At S1 |
-| Q8 | Embeddings: a column on the model's table, or a table per model (several embedding models, re-embedding without locking) | At S2 |
+| Q7 | ~~Search: the default `SEARCH_LANGUAGE`~~ **Decided 2026-10-02: `simple`**, with every word matched as a prefix; languages are opt-in, and an index built for another language stops the app until `search:reindex` (design D160) | Decided |
+| Q8 | ~~Embeddings: a column on the model's table, or a table per model~~ **Decided 2026-10-02: a table per model**, one row per chunk, filled by queue jobs (design D161) | Decided |
 
 ## 10. Change log for this document
 
@@ -445,3 +451,4 @@ something, and we fix the API rather than add the hook.
 | 2026-10-02 | B14 (auth scaffolding) done; social login and policies left out of the scaffolding (library and examples cover them) |
 | 2026-10-02 | v0.2 exit criteria checked; social login added to `make:auth`, `anetostest.FakeSocial`, `anetos.Logger`, `examples/saas` with a role-splitting test; v0.2.0 tagged; basic i18n (stretch) to the backlog |
 | 2026-10-02 | Search and AI added to v0.3, before the public release: S1 (database capabilities, full-text search), A1–A3 (AI core, Anthropic/OpenAI/Gemini providers, app integration), S2 (vectors, hybrid search); exit criterion and risks added; AI extras and search engines in the backlog |
+| 2026-10-02 | S1 (database capabilities, full-text search) done; Q7 and Q8 decided |
