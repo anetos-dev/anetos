@@ -257,6 +257,26 @@ func Current[U Authenticatable](ctx context.Context) (U, error) {
 	return typed, nil
 }
 
+// CurrentID returns the [Authenticatable.AuthID] of the request's
+// signed-in user, [ErrUnauthenticated] if there is none, or the error that
+// kept it from being loaded. It is for code that works with any user type,
+// such as package auth/rbac; handlers use [Current] or [User].
+func CurrentID(ctx context.Context) (string, error) {
+	st := stateFrom(ctx)
+	if st == nil {
+		return "", ErrUnauthenticated
+	}
+	u, err := st.get(ctx)
+	if err != nil {
+		return "", err
+	}
+	a, ok := u.(Authenticatable)
+	if !ok { // nil: a guest
+		return "", ErrUnauthenticated
+	}
+	return a.AuthID(), nil
+}
+
 // Check reports whether the request has a signed-in user.
 func Check(ctx context.Context) bool {
 	st := stateFrom(ctx)

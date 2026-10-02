@@ -16,6 +16,8 @@ coverage.*
 /examples/lifecycle/lifecycle
 /examples/notes/notes
 /examples/validation/validation
+/examples/teams/teams
+/examples/ai/ai
 
 # Local environment
 .env

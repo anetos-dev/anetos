@@ -201,7 +201,8 @@ on, until it answers or reaches `MaxSteps` (10 by default; then
 `ai.ErrMaxSteps`). `res.Usage` adds up every step.
 
 Tools run with the context of the call, so they act as the current
-user: in your app, `auth.Current` and your policies apply inside them.
+user: in your app, `auth.Current`, your policies and permissions
+(`rbac.Authorize`) apply inside them.
 How a tool's error reaches the model:
 
 | The tool returns | The model is told | The call |
@@ -359,7 +360,8 @@ Providers differ, and the drivers smooth what they can:
 
 - [AI concepts](../concepts/ai.md): what the package does, and doesn't.
 - [AI reference](../reference/ai.md): options, events, errors, schemas.
-- [Authorization](authorization.md): the policies tools should check.
+- [Authorization](authorization.md) and [Roles and
+  permissions](roles-and-permissions.md): what tools should check.
 
 > **Coming from Laravel?** This covers what Prism (and Laravel's AI
 > packages) do: text, structured output and tools, with a fake for

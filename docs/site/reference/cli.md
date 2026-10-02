@@ -158,6 +158,7 @@ at the version `anetos add` left it at.
 | `pubsub:publish <topic> <message>` | `pubsub.ForApp` | Publishes a message (its body as given) to a topic. See [Pub/sub listeners](../guides/pubsub.md#4-publish) |
 | `schedule:list` | `schedule.ForApp` | Each task, its schedule, its next run and options. See [Scheduling](../guides/scheduling.md#4-check-and-run-tasks) |
 | `schedule:run <task>` | `schedule.ForApp` | Runs a task now, whatever its schedule (`WithoutOverlapping` applies, across processes only with a shared cache store; `OnOneServer` doesn't) |
+| `rbac:roles`, `rbac:user <user-id>`, `rbac:assign [--scope=kind:id] <user-id> <role>`, `rbac:unassign …` | `rbac.ForApp` | List the roles and their users; show a user's grants; give or take a role. See [Roles and permissions](../guides/roles-and-permissions.md) |
 | `plugins:list` | `ext.Load` | Each plugin, its version constraint, its route prefix and what it adds (or that its settings are missing); doesn't boot the app. See [Use plugins](../guides/plugins.md) |
 | `plugins:env [plugin]` | `ext.Load` | The plugins' settings as `.env` lines with their defaults (double-quoted when they need it; `# required` after required ones); doesn't boot the app, so it works before they are set |
 | `help [command]`, `-h`, `--help` | every app | The command list, or a command's usage (`<command> -h` too, as the first argument); doesn't boot the app |

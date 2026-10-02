@@ -107,7 +107,7 @@ gracefully.
 |---|---|---|---|
 | **v0.1** | Foundation | Us | Build a CRUD app with forms, validation, a DB and migrations using only the docs |
 | **v0.2** | Batteries | Us + early testers | Auth, social login, queues, events, pub/sub listeners, scheduler, mail, storage, plugins |
-| **v0.3** | Search, AI & Public MVP | **Public release** | Full-text search and AI-capable apps (typed LLM calls, tools, streaming); anyone can go from zero to a deployed web app with auth |
+| **v0.3** | Search, AI & Public MVP | **Public release** | Full-text search, AI-capable apps (typed LLM calls, tools, streaming) and roles and permissions; anyone can go from zero to a deployed web app with auth |
 | **v0.4** | Frontend | Public | Vite + Inertia starter kits (Vue, React, Svelte) |
 | **v1.0** | Stable | Public | API stability promise |
 
@@ -292,17 +292,22 @@ apps with search and AI features. **This is the first public release.**
 | S1 Database capabilities & full-text search | ✅ Done 2026-10-02 (`q.Search`, `t.SearchIndex`, `SEARCH_LANGUAGE`/`SEARCH_RANKING`, boot-time capability checks, `search:reindex`; tested on SQLite, PostgreSQL 16, PostgreSQL 17 with pg_textsearch, MySQL 8.0 and MariaDB) |
 | A1 AI core | ✅ Done 2026-10-02 (package `ai`: `Generate`, `GenerateObject[T]`, `Stream`, `Func` tools, `Agent`, schemas from struct tags, `ForApp` and `AI_*` settings, the fake; `anetostest.FakeAI`; `examples/ai`; tested with the fake only, the providers come in A2) |
 | A2 AI providers | ✅ Done 2026-10-02 (`drivers/anthropic`, `drivers/openai` with `openai-compatible`, `drivers/gemini`; `ai.Reasoning`, `Schema.Map`, the `ai/aitest` conformance suite on cassettes. The cassettes are written by hand from the APIs' documented formats, not yet recorded from the live APIs: that needs the providers' keys, `ANETOS_AI_RECORD=1`) |
+| R1 Roles & permissions | ✅ Done 2026-10-02 (package `auth/rbac`: permissions in code, roles in code and in the database, global and scoped grants (teams), checks and middleware for the signed-in user with API token abilities as a ceiling, `AuthorizeRole` against escalation, `rbac:*` commands; `auth.CurrentID`; `examples/teams`; tested on SQLite, PostgreSQL 16 and 17, MySQL 8.0 and MariaDB) |
 
 The search and AI work packages come first, so the public release has
 them (decided 2026-10-02; design §10.5, §14.4, D153–D159). They follow
 one order: full-text search in the data layer, then the AI core and its
-providers, then vectors and hybrid search, which joins the two.
+providers, then vectors and hybrid search, which joins the two. Roles and
+permissions (R1) came in after A2, before A3: multi-user apps need them
+from the first release, and A3's per-user budgets and tools build on
+them (decided 2026-10-02; design §15, D169–D174).
 
 | WP | Work package | Notes |
 |---|---|---|
 | S1 | Database capabilities & full-text search | Each dialect's capabilities (`FullText`, `BM25`), probed on the server at boot where it matters (extensions, versions); features declare what they need (`d.Require`), and the app refuses to start when the configured database can't provide it, or when a search index was built for other settings, with the alternatives in the message (commands that change the schema still run); `anetos new` writes settings its database supports, and migrations check them. Search indexes declared in migrations (`t.SearchIndex`: PostgreSQL `tsvector` generated column + GIN, SQLite FTS5 with sync triggers, MySQL/MariaDB generated column + `FULLTEXT`), `q.Search(text)` ranked and paginated, `SEARCH_LANGUAGE` (default `simple`, prefix matching), `SEARCH_RANKING=default\|bm25` (BM25: SQLite FTS5 natively, PostgreSQL 17+ with pg_textsearch, refused on MySQL), `search:reindex`; a search box in `examples/forms` |
 | A1 | AI core | Package `ai`: the provider contract (`Generate`, `Stream` as an iterator of events), messages (JSON for storage), `ai.Generate` (text), `ai.GenerateObject[T]` (JSON schema from the struct's json, description and validate tags; the answer checked with the `validate` rules, retried once), `ai.Stream`, typed tools (`ai.Func(name, description, fn)`, input validated, run as the current user, 4xx errors told to the model) and `ai.Agent` with a step limit, usage on every response and in total, an escape hatch to the provider's own client and options; `ai.ForApp` with `AI_PROVIDER`, `AI_MODEL`, `AI_MAX_TOKENS`, `AI_TIMEOUT`; a log line per request (no content) and a unit of work per tool call; the `Fake` provider and `anetostest.FakeAI` (forced in tests) with scripted replies and tool calls; `examples/ai`; no provider SDK in the core |
 | A2 | AI providers | Driver modules wrapping the official SDKs: `drivers/anthropic`, `drivers/openai` (with an OpenAI-compatible mode: Ollama, OpenRouter, Groq, vLLM…), `drivers/gemini`; per-provider keys and options (`ProviderOptions` types), translation of the common schema to each structured-output dialect (`Schema.Map`), reasoning state kept in conversations (`ai.Reasoning`); each passes an `ai/aitest` conformance suite against recorded HTTP exchanges, and live when its key is set |
+| R1 | Roles & permissions | Package `auth/rbac`: permissions declared in code as typed constants; roles declared in code (super roles) and roles administrators store in the database, built from declared permissions; grants of roles and single permissions to users globally or in a scope (`team:42`), a global grant applying everywhere; checks of the signed-in user (`Authorize`/`AuthorizeIn`, `Can`, `HasRole`, `Require`/`RequireIn` middleware) with API token abilities as a ceiling, and of any user (`rbac.Of`); grants read once per unit of work; `AuthorizeRole` so no one gives more than they have; `Assignments`, `UsersWith`; `rbac:*` commands; `examples/teams`; guide, concept, reference |
 | A3 | AI in the app | Conversations stored in the database (`ai.Migrations`), usage and cost records with per-user budgets (on the rate limiter), `ai.Queue` (generation as a queue job, with retries), streaming to the browser (server-sent events, htmx-friendly), `make:agent`; an AI assistant with tools over its data in an example; guides |
 | S2 | Vectors & hybrid search | Embeddings in `ai` (`ai.Embed`, A2's providers), vector columns in migrations, `q.SearchSimilar(vector)` (PostgreSQL with pgvector, MariaDB 11.7+, SQLite by a brute-force scan for small data; refused on MySQL Community, whose `DISTANCE()` is HeatWave-only), `q.Search(text).Hybrid(…)` merging keyword and vector rankings by reciprocal rank fusion, a retrieval helper for agents, capability checks as in S1 |
 | M1 | Identity | Final name, GitHub org, domain, logo/mascot; rename pass |
@@ -349,6 +354,7 @@ Goal: modern SPA-style frontends without giving up server-side routing.
 WebSockets/broadcasting · debug dashboard (Telescope-like) · admin panel
 generator · notifications (mail, SMS, Slack channels) · multi-tenancy · feature
 flags · i18n (basic, a v0.2 stretch goal, and full) · search engine drivers behind `Search` (Meilisearch, Typesense, OpenSearch) · Inertia SSR · read/write DB splitting ·
+roles and permissions: scope hierarchies, roles a team defines for itself, `make:auth` with roles ·
 AI: MCP server (the app's tools to MCP clients) and client (remote tools for agents), provider failover, images, speech and transcription, providers' own tools (web search, code execution), more providers (as plugins), Vertex AI, Bedrock and Azure OpenAI authentication for the drivers ·
 pub/sub ordering keys (Google) · more drivers (NATS, Kafka, SQS, RabbitMQ, GCS, Azure Blob), mostly as plugins.
 
@@ -401,7 +407,7 @@ something, and we fix the API rather than add the hook.
 | Naming/trademark conflict found late | Low | Medium | Settle name at M1 before any public promotion |
 | Competing with Goravel for "Laravel-like Go" | Medium | Medium | Different positioning: Go-native, typed, concurrency-first, stdlib-compatible |
 | AI provider APIs change fast; three provider drivers to maintain | High | Medium | A thin common contract with an escape hatch to each provider's own client; official SDKs in driver modules; recorded-response conformance tests; more providers as plugins |
-| Search and AI work delays the public release | Medium | High | Fixed MVP scope (S1, A1–A3, S2), everything else in the backlog; re-estimate after A1 |
+| Search and AI work delays the public release | Medium | High | Fixed MVP scope (S1, A1–A3, R1, S2), everything else in the backlog; re-estimate after A1 |
 | Search behaves differently per database (stemming, stop words, scores) | High | Low | One API, documented differences, capability checks at boot, tests on the deployed database |
 
 ## 9. Open questions
@@ -456,3 +462,5 @@ something, and we fix the API rather than add the hook.
 | 2026-10-02 | S1 (database capabilities, full-text search) done; Q7 and Q8 decided |
 | 2026-10-02 | A1 (AI core) done; `ai.ForApp` and the `AI_*` settings moved into A1 from A2, and a unit of work per tool call and a log line per request done in A1 (removed from A3); scope of A2, A3 and S2 unchanged |
 | 2026-10-02 | A2 (AI providers) done; `ai.Reasoning` and `Schema.Map` added to the core for it; the conformance cassettes are hand-written from the APIs' formats until they're recorded with keys; Vertex AI, Bedrock and Azure OpenAI authentication to the backlog |
+| 2026-10-02 | R1 (roles and permissions) added to v0.3 after A2 and before A3, at the user's request: multi-user apps need it from the first public release |
+| 2026-10-02 | R1 (roles and permissions) done; scope hierarchies, team-defined roles and `make:auth` with roles to the backlog |

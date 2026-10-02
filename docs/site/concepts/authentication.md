@@ -63,8 +63,13 @@ user, 403 for a refusal), so handlers return them as they are. Because
 policies are Go functions, the compiler checks that the user and subject
 types match, and there are no ability names to misspell.
 
+Roles say what a user may do from who they are rather than from the
+thing acted on: package `auth/rbac` gives users roles, globally or in a
+scope such as a team, made of permissions declared in code. See [Roles
+and permissions](roles-and-permissions.md).
+
 ## Related
 
-- [Authentication](../guides/authentication.md), [Authorization](../guides/authorization.md), [Social login](../guides/social-login.md)
+- [Authentication](../guides/authentication.md), [Authorization](../guides/authorization.md), [Roles and permissions](../guides/roles-and-permissions.md), [Social login](../guides/social-login.md)
 - [Authentication reference](../reference/auth.md)
 - [Sessions and flash messages](../guides/sessions.md)

@@ -12,6 +12,12 @@ Decide what a signed-in user may do, with policies the compiler checks.
 Set up [authentication](authentication.md): policies check the request's
 signed-in user.
 
+Policies decide from the user and the thing acted on ("authors edit
+their own posts"). For roles stored per user, globally or in a team
+("Ada is an owner of Acme"), use [roles and
+permissions](roles-and-permissions.md); a policy can check those too,
+with `rbac.CanIn`.
+
 ## Steps
 
 ### 1. Write policies
@@ -95,4 +101,5 @@ a comment, and there are no ability names to misspell.
 
 ## Next steps
 
+- [Roles and permissions](roles-and-permissions.md)
 - [Authentication](authentication.md)

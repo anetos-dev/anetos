@@ -83,6 +83,35 @@ All notable changes to this project are documented here. The format follows
 - `ai/aitest`, the providers' conformance suite on recorded HTTP
   exchanges, with record, live and update modes (A2, D168).
 
+- Roles and permissions (`auth/rbac` package): permissions declared in
+  code as `rbac.Permission` constants, roles of them (`rbac.Role`, super
+  roles) checked by `rbac.ForApp`; users get roles and single permissions
+  globally or in a scope such as a team (`rbac.ScopeOf("team", id)`),
+  stored in `rbac_grants` (`rbac.Migrations`): `Assign`, `Unassign`,
+  `Sync`, `Grant`, `Revoke`, `RemoveUser`, `RemoveScope`, `Assignments`,
+  `UsersWith`. A global grant applies in every scope (R1, design §15,
+  D169, D170).
+- Checks of the signed-in user: `rbac.Authorize`/`AuthorizeIn` (401, 403),
+  `Can`/`CanIn`, `HasRole`/`HasRoleIn`, `Require`/`RequireIn` middleware
+  with `PathScope`, `rbac.Current` and `rbac.Of` (`*rbac.Grants`: roles,
+  permissions and scopes of a user). Grants are read in one query per user
+  per unit of work; a token-authenticated request may use only the
+  permissions among its abilities; checking an undeclared permission is an
+  error (R1, D171, D172, D174).
+- `rbac.AuthorizeRole`: a user may give a role only if they have its
+  permissions in the scope; `rbac.AuthorizeRolesOf`: and change or take
+  away a user's roles only if they could give them (R1, D173).
+- Roles of the database, which administrators add from the declared
+  permissions: `rbac.CreateRole`, `UpdateRole`, `DeleteRole`, `Roles`,
+  `FindRole` (R1, D169).
+- `rbac:roles`, `rbac:user`, `rbac:assign` and `rbac:unassign` commands
+  (R1).
+- `auth.CurrentID(ctx)`: the signed-in user's `AuthID`, for code that
+  works with any user type (R1).
+- `examples/teams`: a JSON API with team roles, global roles, roles
+  administrators add and API tokens; guide "Roles and permissions", a
+  concept page, and the reference (R1).
+
 ### Changed
 - `examples/ai` is its own module, with the provider drivers (A2).
 - `s.Rename` refuses a table with a search index, `Alter` refuses to drop

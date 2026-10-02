@@ -457,6 +457,7 @@ the user's other sessions are signed out once.
 ## Next steps
 
 - [Authorization](authorization.md)
+- [Roles and permissions](roles-and-permissions.md)
 - [Social login](social-login.md)
 - [Rate limiting](rate-limiting.md)
 - [Sessions and flash messages](sessions.md)

@@ -209,6 +209,13 @@ func newAppWith(t *testing.T, s *store) (*auth.Auth[*user], *browser, *anetos.Ap
 		}
 		return c.Redirect(http.StatusSeeOther, "/")
 	})
+	r.Get("/id", func(c *web.Ctx) error {
+		id, err := auth.CurrentID(c)
+		if err != nil {
+			return err
+		}
+		return c.Text(http.StatusOK, id)
+	})
 	private := r.Group("", a.Require)
 	private.Get("/dashboard", func(c *web.Ctx) error {
 		u, _ := auth.User[*user](c)
@@ -389,6 +396,25 @@ func TestRehashAndLoadErrors(t *testing.T) {
 	s.failLoads = false
 	if res := b.do(http.MethodGet, "/dashboard", nil); res.StatusCode != http.StatusOK {
 		t.Errorf("after the failure: %d", res.StatusCode)
+	}
+}
+
+func TestCurrentID(t *testing.T) {
+	s := newStore(t)
+	_, b := newApp(t, s)
+	if res := b.do(http.MethodGet, "/id", nil, "Accept", "application/json"); res.StatusCode != http.StatusUnauthorized {
+		t.Errorf("guest: %d", res.StatusCode)
+	}
+	login(b, "bob@example.com", "secret", false)
+	if res := b.do(http.MethodGet, "/id", nil); res.StatusCode != http.StatusOK || res.Body != "2" {
+		t.Errorf("signed in: %d %q", res.StatusCode, res.Body)
+	}
+	s.failLoads = true
+	if res := b.do(http.MethodGet, "/id", nil); res.StatusCode != http.StatusInternalServerError {
+		t.Errorf("load failure: %d", res.StatusCode)
+	}
+	if _, err := auth.CurrentID(context.Background()); !errors.Is(err, auth.ErrUnauthenticated) {
+		t.Errorf("no middleware: %v", err)
 	}
 }
 

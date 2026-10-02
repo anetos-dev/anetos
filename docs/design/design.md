@@ -245,7 +245,7 @@ anetos.dev/anetos/            ← core module
 ├── session/             encrypted cookie sessions, flash, CSRF token (F10)
 ├── encryption/          AES-256-GCM with APP_KEY and key rotation (F10)
 ├── cache/               cache, memory and database stores, locks (B1); cache/cachetest: store conformance suite
-├── auth/                login, remember me, API tokens, reset/verification tokens, policies (B3); auth/password: argon2id; auth/social: OAuth/OIDC sign-in (B4)
+├── auth/                login, remember me, API tokens, reset/verification tokens, policies (B3); auth/password: argon2id; auth/social: OAuth/OIDC sign-in (B4); auth/rbac: roles and permissions (R1)
 ├── queue/               jobs, workers, sync/memory/database stores, failed jobs (B5); queue/queuetest: store conformance suite
 ├── events/              typed in-process events: sync, async (bounded pools), queued listeners (B6)
 ├── pubsub/              topics, subscriptions, typed listeners, memory broker (B7); pubsub/pubsubtest: broker conformance suite
@@ -1406,7 +1406,7 @@ for ev, err := range support.Stream(ctx, question) { … }  // the answer as it'
 
 Implemented in B3 (packages `auth` and `auth/password`) and B4
 (`auth/social`); scaffolding, with the verification and reset emails,
-in B14.
+in B14; roles and permissions in R1 (`auth/rbac`).
 
 ```go
 a, err := auth.ForApp(app, users) // users: auth.Users[*models.User]{ByID, ByLogin, …}
@@ -1462,6 +1462,27 @@ if err := auth.Authorize(c, policies.Post.Update, &post); err != nil { return ni
 - **Authorization:** typed policies, `func(ctx, U, T) bool`, checked by
   generic `auth.Authorize` (and `AuthorizeUser`, `Allows`); errors carry
   401/403 (D100).
+- **Roles and permissions** (R1, package `auth/rbac`): permissions are
+  `rbac.Permission` constants declared in code and passed to
+  `rbac.ForApp` with the roles built from them (`Super` for every
+  permission); administrators add roles of declared permissions in the
+  database (`rbac_roles`, `CreateRole`), never super (D169). Users (by
+  `AuthID`, through the new `auth.CurrentID`) get roles and single
+  permissions globally or in a scope, `rbac.ScopeOf("team", 42)`, one row
+  each in `rbac_grants`; a global grant applies in every scope; no scope
+  hierarchy; a scope's members are its grants (D170). A user's grants are
+  read in one query (a second for roles of the database) once per unit of
+  work, cached in the unit's context (`AroundUnits`), refreshed by the
+  package's own writes (D171). The signed-in user is checked by
+  `rbac.Authorize`/`AuthorizeIn` (401/403), `Can`/`CanIn`,
+  `HasRole`/`HasRoleIn`, `Require`/`RequireIn` with `PathScope`; any user
+  by `rbac.Of`; a token-authenticated request may use only the permissions
+  among the token's abilities, and role checks need `*` (D172).
+  `AuthorizeRole` lets a user give only roles whose permissions they have
+  in the scope, `AuthorizeRolesOf` change only roles they could give
+  (D173). Checking an undeclared permission is an error, not
+  a no (D174). Commands: `rbac:roles`, `rbac:user`, `rbac:assign`,
+  `rbac:unassign`. `examples/teams` shows team and global roles.
 - **Scaffolding** (B14, D145–D147, D150): `anetos make:auth` generates the
   `User` model (with `models.Users`), `handlers.Accounts` (and
   `handlers.SocialUser`), templ pages and emails (`app/mailers`),
@@ -1638,7 +1659,7 @@ Implemented in F11 (package `cmd`, `App.Execute`; D69): `run [--only=…]`
 plus **custom commands**. Features add theirs: `cache:clear` (B1),
 `queue:failed`, `queue:retry`, `queue:forget`, `queue:flush`,
 `queue:clear` (B5), `pubsub:publish` (B7), `schedule:list`,
-`schedule:run` (B8), `plugins:list`, `plugins:env` (B11, `ext.Load`). Later: the shortcuts `work`, `listen`, `schedule`,
+`schedule:run` (B8), `plugins:list`, `plugins:env` (B11, `ext.Load`), `search:reindex` (S1), `rbac:roles`, `rbac:user`, `rbac:assign`, `rbac:unassign` (R1). Later: the shortcuts `work`, `listen`, `schedule`,
 and `down` / `up` (maintenance).
 
 ```go
@@ -1995,6 +2016,12 @@ unless new information arrives), **Open**, **Superseded**.
 | D166 | `ai.Reasoning{Provider, Text, Data}` is a message part: reasoning state a provider returns and needs back (Anthropic thinking and redacted thinking blocks with their signatures, Gemini thought signatures), placed before the part it belongs to, excluded from `Message.Text`, marshaled with the conversation, and left out by other providers; Gemini's driver puts its documented placeholder signature on a step's first function call that has none and didn't come from Gemini; a cut-off answer's tool calls get error results instead of running | Accepted | Thinking models fail or degrade without their reasoning after tool calls (Gemini 3 refuses function calls without their signature); an opaque, provider-tagged part keeps the message model closed and conversations mostly portable between providers (Claude with extended thinking can't continue another model's tool call) |
 | D167 | Drivers adapt schemas with `Schema.Map(SchemaOptions{Keywords, Formats, AllRequired, NullableAnyOf})`: the constraint keywords and string formats a provider takes stay, the others become words in the description ("at most 20 characters"), properties keep field order (a provider may reorder: Anthropic puts required ones first); OpenAI's strict mode only when the schema has no maps or `any` values; Anthropic refuses those for structured output before sending; tool inputs get full JSON Schema except on Gemini | Accepted | Providers reject unknown keywords in structured output, and each takes a different set; the model still sees every rule, and validation enforces them; field order guides the model's writing |
 | D168 | Drivers are tested by `ai/aitest` on cassettes: recorded HTTP exchanges per test (method, path without keys, canonical JSON body; status, content type, body), replayed through the SDK's HTTP client, with the requests compared; `ANETOS_AI_RECORD`, `ANETOS_AI_LIVE` and `ANETOS_AI_UPDATE_REQUESTS` switch modes; drivers require `AI_MODEL` and their key at boot; the OpenAI driver uses Chat Completions for both modes | Accepted | Tests are fast, free and deterministic, yet exercise the real SDKs' parsing, and a change to what a driver sends shows up as a diff; recording again tracks API changes; Chat Completions is the one API compatible servers share |
+| D169 | Role-based access control is a core subpackage, `auth/rbac`, over package `auth`'s signed-in user (`auth.CurrentID`, any user type): permissions are typed constants declared in code; roles are declared in code (and may be super) or stored in the database by administrators, made only of declared permissions and never super; code roles take precedence over stored ones of the same name | Accepted | Permissions are what code checks, so code owns them and a misspelled constant doesn't compile; roles the app is built around need no syncing to a table; administrators still get custom roles without inventing permissions the code never checks; no new dependency |
+| D170 | A grant (a role or a single permission of a user) has a scope: global (`""`) or `kind:id` from `rbac.ScopeOf`; a global grant applies in every scope; scopes are opaque keys with no hierarchy; one `rbac_grants` table (user ID, scope, kind, name, unique) holds every grant, and a scope's members are the users with grants in it | Accepted | Team roles are what multi-user apps need first; opaque keys fit teams, projects and organizations alike without schema changes; a global administrator is the common case; no membership table to keep in sync |
+| D171 | A user's grants, in every scope, are read in one query (a second for roles of the database) the first time a unit of work checks them, and cached in the unit's context (`App.AroundUnits`; a unit inside another, such as a tool call, shares it); a read is kept only once its transaction commits (`db.AfterCommit`) and if no change came since (a generation count); the package's writes drop the user's entry (role changes drop all) at once and again after commit; outside a unit, every check reads | Accepted | A page checking many permissions in many teams costs one query, never N+1; a unit is short, so staleness is bounded and changes made in it are seen; designed for users with grants in up to a few thousand scopes, staff use global roles |
+| D172 | For a request signed in with an API token, a permission must also be one of the token's abilities (the permission's name, or `*`), and role checks are false unless the token has `*`; the package functions check the signed-in user, `rbac.Of` any user (no token involved) | Accepted | A token's abilities are a ceiling, as with `auth.TokenCan`: a read-only token can't delete whatever its user's roles; a role says nothing about what a token was given, so it mustn't pass for one |
+| D173 | `rbac.AuthorizeRole(ctx, scope, role)` allows giving a role only to a user who has, in that scope, every permission it allows (super there, with a `*` token, for a super role), and `AuthorizeRolesOf` changing a user's roles in a scope only to one who could give them all; both compare permissions, not names; deciding who may manage members stays an app permission | Accepted | Without it, anyone who may manage members can escalate to any role, including a super one, or demote those above them; the rule needs no configuration and holds for roles administrators add later |
+| D174 | Checking a permission that isn't declared is an error (500 from `Authorize`, logged by `Can`), not a refusal; storing an unknown role or permission is a 422; role and permission names are lowercase ASCII, and user IDs and scopes are binary columns on MySQL, so every database compares them alike, exactly; `CreateRole` removes leftover grants of a role that was removed from code | Accepted | A misspelled or forgotten permission is a bug that should surface in development, not a silent 403; MySQL's and MariaDB's collations would otherwise merge "team:ABC" with "team:abc" (and user "Alice" with "alice"), leaking grants across teams and users; a role must not come back to its old holders under a new definition |
 
 ---
 
@@ -2051,3 +2078,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-02 | S1 full-text search implemented: §10.5 rewritten; D153–D155 accepted, D160–D162 added; O8, O9 resolved |
 | 2026-10-02 | A1 AI core implemented: §4, §5, §14 updated, §14.4 rewritten, §18 updated; D156–D158 accepted (drivers and conformance planned, A2), D163–D165 added |
 | 2026-10-02 | A2 AI providers implemented: §5, §14, §14.4 updated; D156, D158 accepted in full; D166–D168 added |
+| 2026-10-02 | R1 roles and permissions implemented: §5, §15, §17.2 updated; D169–D174 added |

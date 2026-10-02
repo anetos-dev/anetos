@@ -37,6 +37,7 @@ code that wires the part they belong to:
 | `queue:failed`, `queue:retry`, `queue:forget`, `queue:flush`, `queue:clear` | `queue.ForApp` ([Queues](../guides/queues.md)) |
 | `pubsub:publish` | `pubsub.ForApp` ([Pub/sub listeners](../guides/pubsub.md)) |
 | `schedule:list`, `schedule:run` | `schedule.ForApp` ([Scheduling](../guides/scheduling.md)) |
+| `rbac:roles`, `rbac:user`, `rbac:assign`, `rbac:unassign` | `rbac.ForApp` ([Roles and permissions](../guides/roles-and-permissions.md)) |
 | Your own | `app.Command` or `app.AddCommand` |
 
 So a binary only offers commands for what it actually set up: without
