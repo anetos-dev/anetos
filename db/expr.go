@@ -30,6 +30,15 @@ func (b *sqlBuilder) arg(v any) {
 		}
 		v = string(text)
 	}
+	if b.d.Name() == "mysql" {
+		// MariaDB takes vectors as binary, which prepared statements'
+		// string parameters don't carry: send them as text.
+		if vec, ok := vectorArg("mysql", v); ok && vec != nil {
+			b.args = append(b.args, vec)
+			b.sb.WriteString("VEC_FromText(" + b.d.Placeholder(len(b.args)) + ")")
+			return
+		}
+	}
 	b.args = append(b.args, v)
 	b.sb.WriteString(b.d.Placeholder(len(b.args)))
 }

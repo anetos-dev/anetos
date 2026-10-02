@@ -145,8 +145,41 @@ All notable changes to this project are documented here. The format follows
 - `examples/assistant`: a help center whose assistant searches and reads
   its articles, with stored conversations, streamed answers, background
   replies and a daily budget; guide "Build an AI assistant" (A3).
+- Vector search: `q.Similar(model, v)` orders records by their nearest
+  chunk of an embedding model, and `q.Hybrid(text, model, v)` merges that
+  with full-text search by reciprocal rank fusion; both combine with
+  `Where`, scopes, `Count` and `Paginate`. `db.Vector`,
+  `db.CosineDistance`, `db.Chunks`, `db.ReplaceChunks`,
+  `db.NearestChunks`, `db.PruneChunks`, `db.RecordID`, `db.TableOf`, `db.EmbeddingsTable`,
+  `q.WhereKeys`; the `db.VectorSearch` capability and
+  `d.CheckCapabilities` (PostgreSQL with pgvector, MariaDB 11.7+,
+  SQLite; refused on MySQL Community) (S2, design §10.5, D159, D182).
+- Migrations: `t.Vector(name, dims)` and `s.CreateEmbeddings(table,
+  dims)`/`s.DropEmbeddings(table)`, the companion table of a model's
+  chunks with a vector index (HNSW on PostgreSQL, MariaDB's vector
+  index) (S2, D161, D183).
+- Embeddings in package `ai`: `ai.Embed`, `ai.EmbedQuery`, the optional
+  `ai.Embedder` contract, `AI_EMBEDDING_PROVIDER` and
+  `AI_EMBEDDING_MODEL`, `Client.EmbeddingModel`, `Client.SetEmbedder`;
+  usage recorded and budgets enforced; the fake embeds by words, and
+  `Fake.Embeddings` lists its requests (S2, D180).
+- `ai.EmbeddingsFor` keeps a model's embeddings: `Sync` (queue jobs of
+  a hundred records after the commit), `SyncNow`, `SyncAll` and the
+  `ai:embed` command re-embed only changed chunks (`FixedSize` for models
+  that make one size of vector); `Search` (hybrid with a search index)
+  returns passages, and `Tool` gives agents the search, under the
+  config's `Scope` (S2, D181, D184).
+- `aitest.Config.EmbeddingModel` runs an `Embed` conformance test (S2).
+- `examples/assistant` searches its articles by meaning and words; guide
+  "Search by meaning" (S2).
 
 ### Changed
+- On MariaDB 11.6+, error 1020 ("Record has changed since last read",
+  from `innodb_snapshot_isolation`) is retried like a deadlock by the
+  database cache and queue stores, and many-to-many `Attach`, `Detach`
+  and `Sync` outside a transaction retry it (S2, D183).
+- `anetostest` clears `AI_EMBEDDING_PROVIDER`, so embeddings are the
+  fake's (S2).
 - `examples/ai` streams without the request timeout (`web.WithoutTimeout`) (A3).
 - `examples/ai` is its own module, with the provider drivers (A2).
 - `s.Rename` refuses a table with a search index, `Alter` refuses to drop

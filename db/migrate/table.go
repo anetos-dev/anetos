@@ -29,6 +29,7 @@ const (
 	typeJSON
 	typeBinary
 	typeUUID
+	typeVector
 )
 
 // Column is a column being added or changed. Its methods set modifiers and
@@ -213,6 +214,17 @@ func (t *Table) ID() *Column { return t.add("id", typeID) }
 // UUID adds a UUID column (UUID on PostgreSQL, CHAR(36) on MySQL, TEXT on
 // SQLite). Scan it into a string.
 func (t *Table) UUID(name string) *Column { return t.add(name, typeUUID) }
+
+// Vector adds a column of embeddings with dims dimensions: pgvector's
+// vector(dims) on PostgreSQL, VECTOR(dims) on MariaDB 11.7+, a BLOB of
+// float32s on SQLite. Read and write it as a db.Vector. Most apps use
+// [Schema.CreateEmbeddings] instead, which makes the table package ai
+// fills.
+func (t *Table) Vector(name string, dims int) *Column {
+	c := t.add(name, typeVector)
+	c.length = dims
+	return c
+}
 
 // String adds a VARCHAR column. A length of 0 means 255.
 func (t *Table) String(name string, length int) *Column {

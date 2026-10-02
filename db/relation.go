@@ -12,6 +12,8 @@ import (
 	"sort"
 	"strings"
 	"sync"
+
+	"anetos.dev/anetos/internal/dbutil"
 )
 
 // Relations are declared with a rel tag on a field of the model: a
@@ -843,6 +845,16 @@ func pivotWrite[T any](ctx context.Context, row *T, s relSpec, op string, ids []
 		}
 	}
 	fk, relFK := r.pivot+"."+r.pivotFK, r.pivot+"."+r.pivotRelFK
+	if !InTx(ctx) {
+		// A concurrent write of the same links can fail the transaction
+		// for serialization (MariaDB 11.6+): run it again.
+		return dbutil.Retry(ctx, func() error { return pivotTx(ctx, r, op, parent, fk, relFK, want, seen) })
+	}
+	return pivotTx(ctx, r, op, parent, fk, relFK, want, seen)
+}
+
+// pivotTx writes a pivot table's links, in a transaction.
+func pivotTx(ctx context.Context, r *relMeta, op string, parent any, fk, relFK string, want []any, seen map[any]bool) error {
 	return Tx(ctx, func(ctx context.Context) error {
 		d, c, err := handle(ctx)
 		if err != nil {

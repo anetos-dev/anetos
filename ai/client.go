@@ -28,6 +28,10 @@ type Client struct {
 	log      *slog.Logger
 	units    func(context.Context, anetos.Unit) (context.Context, func())
 	usage    *UsageConfig // TrackUsage
+	// embed is the embeddings provider when it isn't provider
+	// (AI_EMBEDDING_PROVIDER); embedModel is AI_EMBEDDING_MODEL.
+	embed      Embedder
+	embedModel string
 }
 
 // New returns a client for p; defaults ([Model], [MaxTokens],
@@ -45,10 +49,10 @@ func (c *Client) Provider() Provider {
 	return c.provider
 }
 
-// Fake replaces the client's provider with a [Fake] answering with
-// replies (one per request, in order), and returns it; if the provider
-// is already a Fake, it adds replies to it. For tests: anetostest.FakeAI
-// calls it.
+// Fake replaces the client's provider, and its embeddings provider, with
+// a [Fake] answering with replies (one per request, in order), and
+// returns it; if the provider is already a Fake, it adds replies to it.
+// For tests: anetostest.FakeAI calls it.
 func (c *Client) Fake(replies ...FakeReply) *Fake {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -57,8 +61,21 @@ func (c *Client) Fake(replies ...FakeReply) *Fake {
 		f = NewFake()
 		c.provider = f
 	}
+	if c.embed != nil {
+		c.embed = f
+	}
 	f.Add(replies...)
 	return f
+}
+
+// SetEmbedder sets the client's embeddings provider and model ([Embed]),
+// for a client made with [New]; by default it is the provider, if it
+// has embeddings. [ForApp] sets them from AI_EMBEDDING_PROVIDER and
+// AI_EMBEDDING_MODEL.
+func (c *Client) SetEmbedder(e Embedder, model string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.embed, c.embedModel = e, model
 }
 
 type clientKey struct{}
@@ -104,6 +121,17 @@ type Config struct {
 	// job of any type whose worker died (the lease is the longest
 	// timeout).
 	QueueTimeout time.Duration `env:"AI_QUEUE_TIMEOUT" default:"15m"`
+	// EmbeddingProvider is the driver that makes embeddings ([Embed]),
+	// when it isn't AI_PROVIDER's (Anthropic has none): openai, gemini,
+	// openai-compatible, or fake. AI_EMBEDDING_PROVIDER, default
+	// AI_PROVIDER.
+	EmbeddingProvider string `env:"AI_EMBEDDING_PROVIDER"`
+	// EmbeddingModel is the embedding model, by the provider's name for
+	// it (text-embedding-3-small, gemini-embedding-001); embeddings
+	// record it, and searches use only its own. AI_EMBEDDING_MODEL,
+	// required for embeddings except with the fake (default
+	// fake-embedding).
+	EmbeddingModel string `env:"AI_EMBEDDING_MODEL"`
 }
 
 // LoadConfig reads the AI_* settings.
@@ -167,26 +195,69 @@ func ForApp(app *anetos.App, drivers ...Driver) (*Client, error) {
 	if cfg.Provider == "" {
 		return nil, fmt.Errorf("ai: AI_PROVIDER isn't set: set it to one of [%s]", strings.Join(names, ", "))
 	}
-	i := slices.IndexFunc(all, func(d Driver) bool { return d.Name == cfg.Provider })
-	if i < 0 {
-		return nil, fmt.Errorf("ai: AI_PROVIDER is %q, but the drivers are [%s]: check its spelling, or pass its driver to ai.ForApp", cfg.Provider, strings.Join(names, ", "))
+	find := func(setting, name string) (Driver, error) {
+		i := slices.IndexFunc(all, func(d Driver) bool { return d.Name == name })
+		if i < 0 {
+			return Driver{}, fmt.Errorf("ai: %s is %q, but the drivers are [%s]: check its spelling, or pass its driver to ai.ForApp", setting, name, strings.Join(names, ", "))
+		}
+		return all[i], nil
 	}
-	p, err := all[i].Open(app, cfg)
+	driver, err := find("AI_PROVIDER", cfg.Provider)
+	if err != nil {
+		return nil, err
+	}
+	var embed Driver
+	if cfg.EmbeddingProvider != "" {
+		if embed, err = find("AI_EMBEDDING_PROVIDER", cfg.EmbeddingProvider); err != nil {
+			return nil, err
+		}
+		if cfg.EmbeddingModel == "" && embed.Name != "fake" {
+			return nil, fmt.Errorf("ai: AI_EMBEDDING_PROVIDER is %s, but AI_EMBEDDING_MODEL isn't set: set it to the embedding model's name", embed.Name)
+		}
+		if embed.Name == cfg.Provider {
+			embed = Driver{} // the provider's own
+		}
+	}
+	p, err := driver.Open(app, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("ai: open the %s provider: %w", cfg.Provider, err)
+	}
+	if closer, ok := p.(io.Closer); ok {
+		app.OnShutdown("ai", func(context.Context) error { return closer.Close() })
+	}
+	var e Embedder
+	if embed.Open != nil {
+		// The embeddings driver is opened with the embedding model as its
+		// model (drivers require one).
+		ecfg := cfg
+		ecfg.Provider, ecfg.Model = embed.Name, cfg.EmbeddingModel
+		ep, err := embed.Open(app, ecfg)
+		if err != nil {
+			return nil, fmt.Errorf("ai: open the %s embeddings provider: %w", embed.Name, err)
+		}
+		if closer, ok := ep.(io.Closer); ok {
+			app.OnShutdown("ai embeddings", func(context.Context) error { return closer.Close() })
+		}
+		var ok bool
+		if e, ok = ep.(Embedder); !ok {
+			return nil, fmt.Errorf("ai: AI_EMBEDDING_PROVIDER is %s, which has no embeddings: choose openai, gemini or openai-compatible", embed.Name)
+		}
 	}
 	defaults := []Option{MaxTokens(cfg.MaxTokens), Timeout(cfg.Timeout)}
 	if cfg.Model != "" {
 		defaults = append(defaults, Model(cfg.Model))
 	}
 	c := New(p, defaults...)
+	c.embed, c.embedModel = e, cfg.EmbeddingModel
+	if c.embedModel == "" {
+		if _, fake := c.embed.(*Fake); fake || (c.embed == nil && cfg.Provider == "fake") {
+			c.embedModel = "fake-embedding"
+		}
+	}
 	c.log = app.Logger().With("component", "ai")
 	c.units = app.StartUnit
 	if cfg.Provider == "fake" && app.Config().Env.IsProduction() {
 		c.log.Warn("ai: AI_PROVIDER is fake in production: models are never called")
-	}
-	if closer, ok := p.(io.Closer); ok {
-		app.OnShutdown("ai", func(context.Context) error { return closer.Close() })
 	}
 	app.AddContextValue(clientKey{}, c)
 	anetos.Provide(app, c)

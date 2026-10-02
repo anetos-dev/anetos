@@ -13,7 +13,9 @@
 // Response.Raw is the SDK's *genai.GenerateContentResponse (for a
 // stream, its []*genai.GenerateContentResponse), and [Provider.Client]
 // the SDK client. Requests are retried twice on rate limits and server
-// errors. Vertex AI isn't supported yet.
+// errors. It makes embeddings ([Provider.Embed]): AI_EMBEDDING_MODEL
+// names the model (gemini-embedding-001), and AI_EMBEDDING_PROVIDER=gemini
+// uses them with another provider's chat. Vertex AI isn't supported yet.
 package gemini
 
 import (
@@ -97,6 +99,43 @@ func (p *Provider) Client() *genai.Client { return p.client }
 
 // Name returns "gemini".
 func (p *Provider) Name() string { return Name }
+
+// Embed implements ai.Embedder with the Gemini API's embeddings
+// (gemini-embedding-001): documents are embedded for retrieval
+// (RETRIEVAL_DOCUMENT), queries as queries (RETRIEVAL_QUERY), and
+// req.Dimensions shortens the vectors. Gemini doesn't count the tokens:
+// the usage is estimated, at four bytes a token.
+func (p *Provider) Embed(ctx context.Context, req *ai.EmbedRequest) (*ai.EmbedResponse, error) {
+	cfg := &genai.EmbedContentConfig{TaskType: "RETRIEVAL_DOCUMENT"}
+	if req.Purpose == ai.EmbedForQuery {
+		cfg.TaskType = "RETRIEVAL_QUERY"
+	}
+	if req.Dimensions > 0 {
+		dims := int32(req.Dimensions)
+		cfg.OutputDimensionality = &dims
+	}
+	contents := make([]*genai.Content, len(req.Inputs))
+	size := 0
+	for i, text := range req.Inputs {
+		contents[i] = genai.NewContentFromText(text, genai.RoleUser)
+		size += len(text)
+	}
+	res, err := p.client.Models.EmbedContent(ctx, req.Model, contents, cfg)
+	if err != nil {
+		return nil, err
+	}
+	if len(res.Embeddings) != len(req.Inputs) {
+		return nil, fmt.Errorf("gemini: %d embeddings for %d inputs", len(res.Embeddings), len(req.Inputs))
+	}
+	out := &ai.EmbedResponse{Model: req.Model, Usage: ai.Usage{InputTokens: int64((size + 3) / 4)}, Estimated: true}
+	for _, e := range res.Embeddings {
+		if e == nil {
+			return nil, errors.New("gemini: an empty embedding")
+		}
+		out.Vectors = append(out.Vectors, ai.Vector(e.Values))
+	}
+	return out, nil
+}
 
 // Options are the provider's own request options, for ai.ProviderOptions.
 type Options struct {

@@ -112,3 +112,22 @@ func TestFakeAIOverEnv(t *testing.T) {
 		t.Errorf("AI with a live provider: %q", msg)
 	}
 }
+
+func TestFakeEmbeddingsByDefault(t *testing.T) {
+	// The fake makes embeddings too, whatever AI_EMBEDDING_PROVIDER says.
+	t.Setenv("AI_EMBEDDING_PROVIDER", "openai")
+	t.Setenv("AI_EMBEDDING_MODEL", "text-embedding-3-small")
+	app := anetostest.New(t, func(app *anetos.App) (*web.Server, error) {
+		if _, err := ai.ForApp(app); err != nil {
+			return nil, err
+		}
+		return web.NewServer(app)
+	})
+	vs, err := ai.Embed(app.Context(), 8, "cats", "dogs")
+	if err != nil || len(vs) != 2 || len(vs[0]) != 8 {
+		t.Fatalf("Embed = %v, %v", vs, err)
+	}
+	if got := app.AI().Embeddings(); len(got) != 1 || got[0].Model != "text-embedding-3-small" || len(got[0].Inputs) != 2 {
+		t.Errorf("embedding requests: %+v", got)
+	}
+}

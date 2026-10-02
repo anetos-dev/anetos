@@ -12,10 +12,18 @@
 // updates report the rows they matched (clientFoundRows=true), which the db
 // package relies on. Sessions use UTC (time_zone='+00:00') unless the DSN
 // sets time_zone.
+//
+// For vector search on MariaDB 11.7+, each session sets mhnsw_ef_search
+// to 1000 (MariaDB's default is 20), so a vector index returns the
+// candidates the query builder asks for (db.SimilarCandidates) even when
+// the query's conditions keep few of the chunks it visits. It applies to
+// the app's own vector queries too; MySQL and older MariaDB ignore it.
 package mysql
 
 import (
+	"context"
 	"database/sql"
+	"database/sql/driver"
 	"net"
 	"strconv"
 	"time"
@@ -35,7 +43,34 @@ func open(cfg db.Config) (*sql.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	return sql.Open("mysql", dsn)
+	c, err := mysql.ParseDSN(dsn)
+	if err != nil {
+		return nil, err
+	}
+	conn, err := mysql.NewConnector(c)
+	if err != nil {
+		return nil, err
+	}
+	return sql.OpenDB(vectorConnector{conn}), nil
+}
+
+// vectorEFSearch is the mhnsw_ef_search sessions set: candidates a
+// MariaDB vector index visits before the query's conditions.
+const vectorEFSearch = 1000
+
+// vectorConnector sets MariaDB's vector search setting on each new
+// connection, best effort (MySQL has no such variable).
+type vectorConnector struct{ driver.Connector }
+
+func (v vectorConnector) Connect(ctx context.Context) (driver.Conn, error) {
+	c, err := v.Connector.Connect(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if ex, ok := c.(driver.ExecerContext); ok {
+		_, _ = ex.ExecContext(ctx, "SET SESSION mhnsw_ef_search = "+strconv.Itoa(vectorEFSearch), nil)
+	}
+	return c, nil
 }
 
 // DSN returns the go-sql-driver/mysql DSN for cfg.

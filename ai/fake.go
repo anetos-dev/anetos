@@ -59,7 +59,7 @@ func FakeError(err error) FakeReply {
 // Fake is a [Provider] that answers with scripted replies, one per
 // request, in order, and records the requests. It never calls a model.
 // Usage counts words, as a stand-in for tokens. A request with no reply
-// left fails. A Fake is safe for concurrent use; replies are taken in
+// left fails. It makes embeddings too ([Fake.Embed]), with no replies. A Fake is safe for concurrent use; replies are taken in
 // the order requests arrive.
 //
 //	f := ai.NewFake(ai.FakeToolCall("find_order", map[string]int{"number": 1042}), ai.FakeText("It shipped."))
@@ -68,6 +68,7 @@ type Fake struct {
 	mu       sync.Mutex
 	replies  []FakeReply
 	requests []Request
+	embeds   []EmbedRequest
 }
 
 // NewFake returns a Fake with replies.
@@ -85,6 +86,13 @@ func (f *Fake) Requests() []Request {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return slices.Clone(f.requests)
+}
+
+// Embeddings returns the embedding requests so far, oldest first.
+func (f *Fake) Embeddings() []EmbedRequest {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.embeds)
 }
 
 // Remaining returns the number of replies not used yet.

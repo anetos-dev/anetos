@@ -9,41 +9,41 @@ import (
 	"anetos.dev/anetos/db"
 )
 
+// region: embeddings
+// embeddingDims is the size of the articles' vectors: the embeddings
+// table's (the migration), and what the embedding model makes. 1536 suits
+// OpenAI's text-embedding-3-small and Gemini's gemini-embedding-001; for
+// another model, change both (and set FixedSize if it can't shorten its
+// vectors).
+const embeddingDims = 1536
+
+// articleEmbeddings is how the articles are embedded: their title and
+// body, split into chunks.
+var articleEmbeddings = ai.EmbeddingsConfig[Article]{
+	Text:       func(a Article) string { return a.Title + "\n\n" + a.Body },
+	Title:      func(a Article) string { return a.Title },
+	Dimensions: embeddingDims,
+}
+
+// endregion
+
 // region: agent
-// helpdesk answers questions about Tidy from the help center, with two
-// tools over the articles: full-text search, and reading one.
-var helpdesk = ai.Agent{
-	Name: "helpdesk",
-	Instructions: "You answer questions about Tidy, a to-do app, from its help-center articles. " +
-		"Search the articles, read the best match, and answer briefly, naming the article. " +
-		"If the articles don't say, say you don't know.",
-	Tools:    []ai.Tool{searchArticles, readArticle},
-	MaxSteps: 6,
+// newHelpdesk returns the agent that answers questions about Tidy from
+// the help center, with two tools over the articles: a hybrid search
+// (their meaning and their words), and reading one.
+func newHelpdesk(articles *ai.Embeddings[Article]) ai.Agent {
+	return ai.Agent{
+		Name: "helpdesk",
+		Instructions: "You answer questions about Tidy, a to-do app, from its help-center articles. " +
+			"Search the articles, read the best match if its passage isn't enough, and answer briefly, naming the article. " +
+			"If the articles don't say, say you don't know.",
+		Tools: []ai.Tool{
+			articles.Tool("search_articles", "Search the help center by meaning and words; returns the best articles' IDs, titles and passages", 3),
+			readArticle,
+		},
+		MaxSteps: 6,
+	}
 }
-
-// SearchInput is what the model sends to search_articles.
-type SearchInput struct {
-	Query string `json:"query" description:"Words to search the help center for" validate:"required|max:200"`
-}
-
-// ArticleHit is a search result for the model.
-type ArticleHit struct {
-	ID    int64  `json:"id"`
-	Title string `json:"title"`
-}
-
-var searchArticles = ai.Func("search_articles", "Search the help center; returns the matching articles' IDs and titles, best first",
-	func(ctx context.Context, in SearchInput) ([]ArticleHit, error) {
-		found, err := db.Query[Article](ctx).Search(in.Query).Limit(5).Get()
-		if err != nil {
-			return nil, err
-		}
-		hits := make([]ArticleHit, len(found))
-		for i, a := range found {
-			hits[i] = ArticleHit{ID: a.ID, Title: a.Title}
-		}
-		return hits, nil
-	})
 
 // ReadInput is what the model sends to read_article.
 type ReadInput struct {

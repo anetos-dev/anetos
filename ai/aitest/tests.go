@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"anetos.dev/anetos/ai"
+	"anetos.dev/anetos/db"
 )
 
 // test is one conformance test.
@@ -274,5 +275,46 @@ func testError(t *testing.T, p ai.Provider, _ string) {
 	}
 	if _, err := collect(t, p, req); err == nil {
 		t.Error("Stream with an unknown model: no error")
+	}
+}
+
+// embedDims is the size the Embed test asks for.
+const embedDims = 128
+
+// testEmbed embeds documents and a query, and checks that the query is
+// nearest the documents about its topic.
+func testEmbed(t *testing.T, e ai.Embedder, model string) {
+	ctx := ctxOf(t)
+	docs := []string{"Cats sleep in the sun.", "A kitten naps on the warm windowsill.", "The rocket reached orbit."}
+	resp, err := e.Embed(ctx, &ai.EmbedRequest{Model: model, Inputs: docs, Dimensions: embedDims, Purpose: ai.EmbedForDocument})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.Vectors) != len(docs) {
+		t.Fatalf("%d vectors for %d documents", len(resp.Vectors), len(docs))
+	}
+	for i, v := range resp.Vectors {
+		if len(v) != embedDims {
+			t.Errorf("vector %d has %d dimensions, not %d", i, len(v), embedDims)
+		}
+	}
+	if resp.Usage.InputTokens <= 0 {
+		t.Errorf("usage: %+v", resp.Usage)
+	}
+	q, err := e.Embed(ctx, &ai.EmbedRequest{Model: model, Inputs: []string{"Where do cats nap?"}, Dimensions: embedDims, Purpose: ai.EmbedForQuery})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(q.Vectors) != 1 || len(q.Vectors[0]) != embedDims {
+		t.Fatalf("query vectors: %d", len(q.Vectors))
+	}
+	dist := make([]float64, len(docs))
+	for i, v := range resp.Vectors {
+		if dist[i], err = db.CosineDistance(q.Vectors[0], v); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if dist[0] >= dist[2] || dist[1] >= dist[2] {
+		t.Errorf("the query about cats isn't nearest the documents about cats: distances %v", dist)
 	}
 }

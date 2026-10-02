@@ -7,6 +7,11 @@ tagged `drivers/mysql/vX.Y.Z`. The framework's own changes are in the
 
 ## [Unreleased]
 
+### Added
+- On MariaDB 11.7+, each session sets `mhnsw_ef_search` to 1000, so vector
+  searches get their candidates under selective filters (MariaDB's
+  default is 20); MySQL ignores it (S2, D182).
+
 ## [0.2.0] - 2026-10-02
 
 Released with the framework's v0.2.0.

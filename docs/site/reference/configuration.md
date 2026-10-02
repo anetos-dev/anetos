@@ -269,6 +269,8 @@ drivers. See [Add AI to your app](../guides/ai.md).
 | `AI_MODEL` | string | none (required by the drivers) | The model calls use unless they set `ai.Model`, by the provider's name for it | v0.3 |
 | `AI_MAX_TOKENS` | int ≥ 1 | `4096` | The longest answer, in tokens, unless a call sets `ai.MaxTokens`; a longer one is cut off | v0.3 |
 | `AI_TIMEOUT` | duration > 0 | `10m` | How long each request to the model may take, unless a call sets `ai.Timeout`; for a stream, including the time the reader's loop takes | v0.3 |
+| `AI_EMBEDDING_PROVIDER` | a driver's name | `AI_PROVIDER` | The provider of embeddings (`ai.Embed`, `ai.Embeddings`), when `AI_PROVIDER`'s has none (`anthropic`): `openai`, `gemini`, `openai-compatible` or `fake`; its driver is passed to `ai.ForApp`, and reads its own settings. `anetostest` clears it | v0.3 |
+| `AI_EMBEDDING_MODEL` | string | none; `fake-embedding` with the fake | The embedding model, by the provider's name for it (`text-embedding-3-small`, `gemini-embedding-001`); stored with each chunk, and searches use only its chunks. Required for embeddings, and with `AI_EMBEDDING_PROVIDER` | v0.3 |
 | `AI_QUEUE_TIMEOUT` | duration > 0 | `15m` | How long a queued reply (`conv.QueueReply`) may take, all its requests and tool calls. Also how long the queue's workers wait before taking back a job of any type whose worker died (the queue's lease is its longest job timeout) | v0.3 |
 | `ANTHROPIC_API_KEY` | secret | none (required with `anthropic`) | The Anthropic API key | v0.3 |
 | `ANTHROPIC_BASE_URL` | URL | Anthropic's | Another URL for the API (a proxy, a gateway) | v0.3 |

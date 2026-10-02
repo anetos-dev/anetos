@@ -182,6 +182,25 @@ ignored.
 | `ai.UsageRecord` | A row of `ai_usage`: `UserID`, `ConversationID`, `Agent`, `Provider`, `Model`, the four token counts, `Cost`, `Estimated`, `CreatedAt`. A stream the reader left partway, or a request cut off by a timeout or a cancellation, is recorded and counted too, estimated at about four bytes a token for its input and the output it yielded (`Estimated`) | v0.3 |
 | `ai.TotalUsage(ctx, userID, since)` | `ai.UsageTotal{Usage, Cost, Responses}` since a time | v0.3 |
 
+## Embeddings
+
+See [Search by meaning](../guides/semantic-search.md).
+
+| API | Does | Since |
+|---|---|---|
+| `ai.Embed(ctx, dims, texts...)` | `[]ai.Vector`: the texts' embeddings as documents, with the client's embedding model (`AI_EMBEDDING_MODEL`), in requests of at most 96 texts; `dims` asks for vectors of that size (0: the model's), and vectors of another size are an error. Each request's usage is recorded (agent `embed`) and counts against budgets | v0.3 |
+| `ai.EmbedQuery(ctx, dims, text)` | The embedding of a query (what to find documents with) | v0.3 |
+| `ai.Vector` | `db.Vector`, a `[]float32` | v0.3 |
+| `ai.Embedder` | `Embed(ctx, *ai.EmbedRequest) (*ai.EmbedResponse, error)`: the OpenAI (and compatible), Gemini and fake providers have it; Anthropic's doesn't. `EmbedRequest{Model, Inputs, Dimensions, Purpose}` (`ai.EmbedForDocument`, `ai.EmbedForQuery`); `EmbedResponse{Vectors, Usage, Model, Estimated}` | v0.3 |
+| `ai.ErrNoEmbedder` | The client has no embeddings provider | v0.3 |
+| `client.EmbeddingModel()`, `client.SetEmbedder(e, model)` | The embedding model's name; set the embeddings provider of a client made with `ai.New` | v0.3 |
+| `ai.EmbeddingsFor(app, ai.EmbeddingsConfig[T]{Text, Dimensions, FixedSize, ChunkSize, Title, Scope})` | `*ai.Embeddings[T]`, which keeps the embeddings of `T`'s records in `<table>_embeddings` (`migrate.Schema.CreateEmbeddings`). `Text` is a record's text, `Dimensions` the vectors' size (the table's, which the model is asked for; with `FixedSize`, for models that make one size, only checked), `ChunkSize` the most characters in a chunk (2000), `Title` names records in the tool's results, `Scope` narrows every search (with the search's context). After `ai.ForApp`; with the app's queue (`queue.ForApp` first), registers the job `ai.embed:<table>`. Adds the command `ai:embed [table…]` | v0.3 |
+| `e.Sync(ctx, rows...)` | Updates the rows' embeddings: in queue jobs of a hundred rows dispatched after the transaction commits, or right away without a queue (after the commit, inside a transaction) | v0.3 |
+| `e.SyncNow(ctx, rows...)` | Updates them now: splits the text into chunks (paragraphs, sentences, words), embeds those whose text or model changed, and replaces the record's chunks. Not inside a transaction | v0.3 |
+| `e.SyncAll(ctx)` | Deletes the chunks of deleted records (`db.PruneChunks`), then syncs every record, a hundred at a time (what `ai:embed` runs) | v0.3 |
+| `e.Search(ctx, query, limit, scopes...)` | `[]ai.Passage[T]{Record, Text, Position, Distance}`: the records nearest the query, best first (at most `limit`; 10 for 0), with their nearest chunk; hybrid (`db.Q.Hybrid`) when the table has a search index, else `db.Q.Similar`; a blank query finds nothing. A record found only by its words has `Position` -1, the start of its text, and `Distance` 1 | v0.3 |
+| `e.Tool(name, description, limit)` | An `ai.Tool` that searches: the model sends `{"query": …}` and gets `[]ai.SearchResult{ID, Title, Text}` | v0.3 |
+
 ## Providers
 
 | Package | `AI_PROVIDER` | Constructor | `Options` (for `ai.ProviderOptions`) | `Response.Raw` |
@@ -210,13 +229,19 @@ yours.
 Tool inputs get all of JSON Schema, except on Gemini (its dialect, as
 above).
 
+Embeddings: OpenAI's and compatible servers' Embeddings API
+(`dimensions` when asked), and Gemini's (`RETRIEVAL_DOCUMENT` or
+`RETRIEVAL_QUERY`, `outputDimensionality`; Gemini doesn't count tokens,
+so its usage is estimated at four bytes a token). Anthropic has no
+embeddings API: set `AI_EMBEDDING_PROVIDER`.
+
 ## Writing a provider
 
 | API | Does |
 |---|---|
 | `ai.Provider` | `Name()`, `Generate(ctx, *ai.Request) (*ai.Response, error)`, `Stream(ctx, *ai.Request) iter.Seq2[ai.Event, error]` (`EventText`s and `EventToolCall`s, then one `EventResponse` with the whole response) |
 | `schema.Map(ai.SchemaOptions{Keywords, Formats, AllRequired, NullableAnyOf})` | The schema as a `map[string]any` in the provider's dialect: the constraint keywords it takes (of `ai.ConstraintKeywords`) and the string formats (all, if `Formats` is empty), the others in words in the description; every property required (optional ones nullable); nullable as `anyOf`. Properties keep their order when marshaled (a provider may still reorder them: Anthropic puts required ones first) |
-| `aitest.Run(t, aitest.Config{Name, Model, KeyEnv, New, Dir, Skip})` | The conformance suite (package `ai/aitest`): text, streams, a conversation, tool calls and their results (streamed too), structured output, the token limit, errors. It replays recorded HTTP exchanges (`testdata/aitest/<Test>.json`) and checks the requests match; `ANETOS_AI_RECORD=1` records them from the provider (its key in `KeyEnv`; headers are never saved), `ANETOS_AI_LIVE=1` calls it without recording, `ANETOS_AI_UPDATE_REQUESTS=1` rewrites the recorded requests. `ANETOS_TEST_<NAME>_MODEL` picks the model to record with |
+| `aitest.Run(t, aitest.Config{Name, Model, KeyEnv, New, Dir, Skip, EmbeddingModel})` | The conformance suite (package `ai/aitest`): text, streams, a conversation, tool calls and their results (streamed too), structured output, the token limit, errors, and, with `EmbeddingModel`, embeddings (`Embed`). It replays recorded HTTP exchanges (`testdata/aitest/<Test>.json`) and checks the requests match; `ANETOS_AI_RECORD=1` records them from the provider (its key in `KeyEnv`; headers are never saved), `ANETOS_AI_LIVE=1` calls it without recording, `ANETOS_AI_UPDATE_REQUESTS=1` rewrites the recorded requests. `ANETOS_TEST_<NAME>_MODEL` (and `_EMBEDDING_MODEL`) picks the model to record with |
 | `ai.Request` | `Model` (the drivers refuse an empty one), `System`, `Messages`, `Tools` (`[]ai.ToolSpec`), `Output` (`*ai.OutputSpec{Name, Schema}`: structured output), `MaxTokens`, `Temperature` (`*float64`), `Options` (the driver's own type, or ignore); `Prompt()` |
-| `ai.Fake`, `ai.NewFake(replies...)` | The scripted provider, safe for concurrent use: `Add`, `Requests`, `Remaining`; replies `ai.FakeText`, `FakeObject`, `FakeToolCall`, `FakeError`, or an `ai.FakeReply` function |
+| `ai.Fake`, `ai.NewFake(replies...)` | The scripted provider, safe for concurrent use: `Add`, `Requests`, `Remaining`, `Embeddings` (its embedding requests: it embeds texts by their words, without replies); replies `ai.FakeText`, `FakeObject`, `FakeToolCall`, `FakeError`, or an `ai.FakeReply` function |
 | `ai.FakeDriver()` | `AI_PROVIDER=fake` |

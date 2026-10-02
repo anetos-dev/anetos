@@ -154,6 +154,7 @@ at the version `anetos add` left it at.
 | `routes:list` | `web.NewServer` | Method, path and name of every route |
 | `migrate`, `migrate:rollback`, `migrate:reset`, `migrate:fresh`, `migrate:status`, `db:seed` | `migrate.ForApp` | See the [migrations reference](migrations.md#commands) |
 | `search:reindex [table…]` | `migrate.ForApp` | Rebuilds the search indexes (all, or the tables') for `SEARCH_LANGUAGE` and `SEARCH_RANKING`. See [Search](../guides/search.md) |
+| `ai:embed [table…]` | `ai.EmbeddingsFor` | Embeds the records whose text or embedding model changed (all tables', or the named ones), a hundred at a time; unchanged chunks aren't embedded again. See [Search by meaning](../guides/semantic-search.md) |
 | `cache:clear` | `cache.ForApp` | Removes the app's cache items (keys with `CACHE_PREFIX`), locks included |
 | `queue:failed [--limit=N]`, `queue:retry <id>…\|all`, `queue:forget <id>…`, `queue:flush [--force]`, `queue:clear [--force] [queue]` | `queue.ForApp` | List, retry and delete failed jobs; delete the jobs waiting on a queue. `flush` and `clear` need `--force` in production. See [Queues](../guides/queues.md#4-handle-failed-jobs) |
 | `pubsub:publish <topic> <message>` | `pubsub.ForApp` | Publishes a message (its body as given) to a topic. See [Pub/sub listeners](../guides/pubsub.md#4-publish) |

@@ -7,6 +7,11 @@ tagged `drivers/sqlite/vX.Y.Z`. The framework's own changes are in the
 
 ## [Unreleased]
 
+### Added
+- The driver registers `anetos_vec_distance_cosine`, the cosine distance
+  of two vectors stored as little-endian float32s, for vector search
+  (S2).
+
 ## [0.2.0] - 2026-10-02
 
 Released with the framework's v0.2.0.

@@ -10,17 +10,26 @@
 // (postgres://user:password@host:5432/app?sslmode=require); use DB_URL for
 // TLS and other connection parameters. Sessions use the UTC time zone
 // unless the URL sets timezone.
+//
+// For vector search (pgvector), each session sets hnsw.ef_search to
+// db.SimilarCandidates and, with pgvector 0.8+, hnsw.iterative_scan to
+// strict_order, so an HNSW index returns as many candidates as the query
+// builder asks for, conditions included (by default it stops at 40). They
+// apply to the app's own pgvector queries too.
 package postgres
 
 import (
+	"context"
 	"database/sql"
 	"net"
 	"net/url"
 	"strconv"
 	"strings"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/stdlib" // registers the "pgx" database/sql driver
+
 	"anetos.dev/anetos/db"
-	_ "github.com/jackc/pgx/v5/stdlib" // registers the "pgx" database/sql driver
 )
 
 // Driver returns the PostgreSQL driver, selected by DB_CONNECTION=postgres.
@@ -29,7 +38,22 @@ func Driver() db.Driver {
 }
 
 func open(cfg db.Config) (*sql.DB, error) {
-	return sql.Open("pgx", DSN(cfg))
+	cc, err := pgx.ParseConfig(DSN(cfg))
+	if err != nil {
+		return nil, err
+	}
+	return stdlib.OpenDB(*cc, stdlib.OptionAfterConnect(vectorSettings)), nil
+}
+
+// vectorSettings sets pgvector's HNSW search settings for the session.
+// Before the extension's library loads, they are placeholders, which it
+// adopts; an older pgvector without iterative scans drops that one.
+// They are best effort: a server that refuses them (a pooler, say)
+// keeps pgvector's defaults.
+func vectorSettings(ctx context.Context, c *pgx.Conn) error {
+	_, _ = c.Exec(ctx, "SET hnsw.ef_search = "+strconv.Itoa(db.SimilarCandidates))
+	_, _ = c.Exec(ctx, "SET hnsw.iterative_scan = strict_order") // pgvector 0.8+
+	return nil
 }
 
 // withUTC adds timezone=UTC to a connection string that doesn't choose a

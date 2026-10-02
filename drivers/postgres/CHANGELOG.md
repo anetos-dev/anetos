@@ -7,6 +7,12 @@ tagged `drivers/postgres/vX.Y.Z`. The framework's own changes are in the
 
 ## [Unreleased]
 
+### Added
+- Each session sets pgvector's `hnsw.ef_search` to `db.SimilarCandidates`
+  and, with pgvector 0.8+, `hnsw.iterative_scan` to `strict_order`, so
+  vector searches get their 200 candidates after filters (by default the
+  index stops at 40) (S2, D182).
+
 ## [0.2.0] - 2026-10-02
 
 Released with the framework's v0.2.0.

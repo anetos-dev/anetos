@@ -18,51 +18,36 @@ budget per user.
   [cache](cache.md), where budgets are counted.
 
 The code here comes from [`examples/assistant`](../../../examples/assistant),
-a help center whose assistant searches and reads its articles
-([full-text search](search.md)).
+a help center whose assistant searches and reads its articles (a
+[search by meaning](semantic-search.md), with the articles' full-text
+index).
 
 ## Steps
 
 ### 1. Write the agent
 
 The agent's tools query the app's data. They run as the signed-in user,
-so a tool sees only what the user may see:
+so a tool sees only what the user may see. Here, one searches the
+articles by their embeddings and words (`articles.Tool`, from
+[Search by meaning](semantic-search.md)), and one reads an article:
 
 ```go
-// helpdesk answers questions about Tidy from the help center, with two
-// tools over the articles: full-text search, and reading one.
-var helpdesk = ai.Agent{
-	Name: "helpdesk",
-	Instructions: "You answer questions about Tidy, a to-do app, from its help-center articles. " +
-		"Search the articles, read the best match, and answer briefly, naming the article. " +
-		"If the articles don't say, say you don't know.",
-	Tools:    []ai.Tool{searchArticles, readArticle},
-	MaxSteps: 6,
+// newHelpdesk returns the agent that answers questions about Tidy from
+// the help center, with two tools over the articles: a hybrid search
+// (their meaning and their words), and reading one.
+func newHelpdesk(articles *ai.Embeddings[Article]) ai.Agent {
+	return ai.Agent{
+		Name: "helpdesk",
+		Instructions: "You answer questions about Tidy, a to-do app, from its help-center articles. " +
+			"Search the articles, read the best match if its passage isn't enough, and answer briefly, naming the article. " +
+			"If the articles don't say, say you don't know.",
+		Tools: []ai.Tool{
+			articles.Tool("search_articles", "Search the help center by meaning and words; returns the best articles' IDs, titles and passages", 3),
+			readArticle,
+		},
+		MaxSteps: 6,
+	}
 }
-
-// SearchInput is what the model sends to search_articles.
-type SearchInput struct {
-	Query string `json:"query" description:"Words to search the help center for" validate:"required|max:200"`
-}
-
-// ArticleHit is a search result for the model.
-type ArticleHit struct {
-	ID    int64  `json:"id"`
-	Title string `json:"title"`
-}
-
-var searchArticles = ai.Func("search_articles", "Search the help center; returns the matching articles' IDs and titles, best first",
-	func(ctx context.Context, in SearchInput) ([]ArticleHit, error) {
-		found, err := db.Query[Article](ctx).Search(in.Query).Limit(5).Get()
-		if err != nil {
-			return nil, err
-		}
-		hits := make([]ArticleHit, len(found))
-		for i, a := range found {
-			hits[i] = ArticleHit{ID: a.ID, Title: a.Title}
-		}
-		return hits, nil
-	})
 
 // ReadInput is what the model sends to read_article.
 type ReadInput struct {
@@ -96,6 +81,12 @@ client.TrackUsage(ai.UsageConfig{ // the ai_usage table, and budgets
 	},
 	// Prices: map[string]ai.Price{"model-name": {Input: …, Output: …}}, // per million tokens
 })
+articles, err := ai.EmbeddingsFor(app, articleEmbeddings) // articles_embeddings; ai:embed
+if err != nil {
+	return nil, err
+}
+anetos.Provide(app, articles)
+helpdesk := newHelpdesk(articles)
 if err := ai.QueueAgents(app, helpdesk); err != nil { // answers in the background
 	return nil, err
 }
@@ -105,6 +96,7 @@ if err := ai.QueueAgents(app, helpdesk); err != nil { // answers in the backgrou
 
 `TrackUsage` records each model response's tokens and cost for its user,
 and refuses calls once the user's budget for the period is spent.
+`EmbeddingsFor` keeps the articles' embeddings, for the search tool.
 `QueueAgents` lets the agent answer from queue jobs.
 
 ### 3. Store conversations
@@ -160,7 +152,7 @@ func (Handlers) Send(c *web.Ctx, in Question) (web.Responder, error) {
 
 // Reply streams the answer to the conversation's last question, and
 // stores it.
-func (Handlers) Reply(c *web.Ctx, in ChatPath) (web.Responder, error) {
+func (h Handlers) Reply(c *web.Ctx, in ChatPath) (web.Responder, error) {
 	conv, err := conversation(c, in.ID)
 	if err != nil {
 		return nil, err
@@ -169,7 +161,7 @@ func (Handlers) Reply(c *web.Ctx, in ChatPath) (web.Responder, error) {
 	if err != nil {
 		return nil, err
 	}
-	answer := conv.StreamReply(c, helpdesk)
+	answer := conv.StreamReply(c, h.helpdesk)
 	if len(msgs) == 0 || msgs[len(msgs)-1].Role != ai.RoleUser || conv.Status == ai.StatusQueued {
 		answer = func(func(ai.Event, error) bool) {} // answered already: a browser that reconnected
 	}
@@ -222,7 +214,7 @@ stored, or `ai.StatusFailed`, with `Error`, if it fails for good:
 ```go
 // Later stores the question for a queue job to answer, and returns a
 // placeholder that polls Status.
-func (Handlers) Later(c *web.Ctx, in Question) (web.Responder, error) {
+func (h Handlers) Later(c *web.Ctx, in Question) (web.Responder, error) {
 	conv, err := conversation(c, in.ID)
 	if err != nil {
 		return nil, err
@@ -230,7 +222,7 @@ func (Handlers) Later(c *web.Ctx, in Question) (web.Responder, error) {
 	if err := conv.Add(c, ai.UserMessage(in.Prompt)); err != nil {
 		return nil, err
 	}
-	if err := conv.QueueReply(c, helpdesk); err != nil {
+	if err := conv.QueueReply(c, h.helpdesk); err != nil {
 		return nil, err
 	}
 	return page("queued", map[string]any{"Conversation": conv, "Prompt": in.Prompt}), nil
@@ -321,7 +313,7 @@ storage, the stream and the queue run for real:
 func TestAssistant(t *testing.T) {
 	// The model's replies, scripted: search, read, answer.
 	app := anetostest.New(t, setup, anetostest.FakeAI(
-		ai.FakeToolCall("search_articles", SearchInput{Query: "export"}),
+		ai.FakeToolCall("search_articles", map[string]string{"query": "How do I export my lists?"}),
 		ai.FakeToolCall("read_article", ReadInput{ID: 1}),
 		ai.FakeText("Open Settings, then Data, and choose Export (Export your lists)."),
 	))
@@ -337,10 +329,10 @@ func TestAssistant(t *testing.T) {
 	app.Get("/chat/1").AssertSee("Used: search_articles, read_article", "Open Settings, then Data, and choose Export").
 		AssertDontSee("sse-connect")
 
-	// The tools ran for real: the search found the article, which the
-	// model read.
+	// The tools ran for real: the search found the article, with its
+	// passage, which the model read.
 	reqs := app.AI().Requests()
-	if got := reqs[1].Messages[2].Parts[0].(ai.ToolResult).Content; !strings.Contains(got, `"title":"Export your lists"`) {
+	if got := reqs[1].Messages[2].Parts[0].(ai.ToolResult).Content; !strings.HasPrefix(got, `[{"id":1,"title":"Export your lists","text":"Export your lists\n\nOpen Settings`) {
 		t.Errorf("search results: %s", got)
 	}
 	app.AssertPrompted(func(r ai.Request) bool { return strings.Contains(r.System, "help-center articles") })

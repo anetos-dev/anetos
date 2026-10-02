@@ -71,7 +71,7 @@ func init() {
 				t.String("title", 255)
 				t.Text("body")
 				t.Timestamps()
-				t.SearchIndex("title", "body") // what search_articles searches
+				t.SearchIndex("title", "body") // search_articles finds their words too
 			})
 		},
 		func(s *migrate.Schema) error {
@@ -80,6 +80,13 @@ func init() {
 			}
 			return s.Drop("users")
 		})
+	// region: migration
+	Migrations.AddFunc("2026_10_02_140000_create_articles_embeddings",
+		func(s *migrate.Schema) error {
+			return s.CreateEmbeddings("articles", embeddingDims) // articles_embeddings
+		},
+		func(s *migrate.Schema) error { return s.DropEmbeddings("articles") })
+	// endregion
 }
 
 // helpCenter is the articles seed adds: the help center of Tidy, a

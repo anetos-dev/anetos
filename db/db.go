@@ -320,6 +320,7 @@ type DB struct {
 	checked bool          // Check passed
 	ftMu    sync.Mutex
 	ftWords *mysqlWords // what MySQL's full-text indexes skip, read once
+	vecDims sync.Map    // MariaDB: embeddings table → its vectors' size
 }
 
 // Option configures a [DB] created with [Open] or [New].

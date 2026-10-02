@@ -2,7 +2,8 @@
 
 // Command assistant is a help center with an AI assistant: users sign in
 // and chat with an agent that searches and reads the help-center
-// articles (full-text search). Conversations are stored, answers stream
+// articles (a hybrid search: their embeddings, and their words).
+// Conversations are stored, answers stream
 // to the page as they're written (server-sent events, with htmx), a
 // question can also be answered in the background by a queue job, and
 // each user's usage counts against a daily budget.
@@ -10,6 +11,7 @@
 //	anetos key:generate >> .env          # APP_KEY, once
 //	export APP_ENV=development HTTP_ADDR=:8080
 //	export AI_PROVIDER=anthropic AI_MODEL=claude-sonnet-4-5 ANTHROPIC_API_KEY=…
+//	export AI_EMBEDDING_PROVIDER=openai AI_EMBEDDING_MODEL=text-embedding-3-small OPENAI_API_KEY=…
 //	go run . migrate
 //	go run . seed                         # the articles, and ada@example.com (password: password)
 //	go run .
@@ -93,21 +95,28 @@ func setup(app *anetos.App) (*web.Server, error) {
 		},
 		// Prices: map[string]ai.Price{"model-name": {Input: …, Output: …}}, // per million tokens
 	})
+	articles, err := ai.EmbeddingsFor(app, articleEmbeddings) // articles_embeddings; ai:embed
+	if err != nil {
+		return nil, err
+	}
+	anetos.Provide(app, articles)
+	helpdesk := newHelpdesk(articles)
 	if err := ai.QueueAgents(app, helpdesk); err != nil { // answers in the background
 		return nil, err
 	}
 	// endregion
-	app.Command("seed", "Add the help-center articles and a user (ada@example.com, password: password)", seed)
+	app.Command("seed", "Add the help-center articles and a user (ada@example.com, password: password)",
+		func(ctx context.Context, args *cmd.Args) error { return seed(ctx, args, articles) })
 	srv, err := web.NewServer(app)
 	if err != nil {
 		return nil, err
 	}
-	routes(srv.Router(), sessions, a)
+	routes(srv.Router(), sessions, Handlers{auth: a, helpdesk: helpdesk})
 	return srv, nil
 }
 
-func routes(r *web.Router, sessions *session.Manager, a *auth.Auth[*User]) {
-	h := Handlers{auth: a}
+func routes(r *web.Router, sessions *session.Manager, h Handlers) {
+	a := h.auth
 	r.HandleStd(http.MethodGet, "/assets/{path...}", assets)
 	// region: routes
 	pages := r.Group("", sessions.Middleware, web.CSRF(), a.Middleware)
@@ -138,7 +147,8 @@ func must[T any](v T, err error) T {
 
 // Handlers serves the pages.
 type Handlers struct {
-	auth *auth.Auth[*User]
+	auth     *auth.Auth[*User]
+	helpdesk ai.Agent
 }
 
 // LoginInput is the login form.
@@ -266,7 +276,7 @@ func (Handlers) Send(c *web.Ctx, in Question) (web.Responder, error) {
 
 // Reply streams the answer to the conversation's last question, and
 // stores it.
-func (Handlers) Reply(c *web.Ctx, in ChatPath) (web.Responder, error) {
+func (h Handlers) Reply(c *web.Ctx, in ChatPath) (web.Responder, error) {
 	conv, err := conversation(c, in.ID)
 	if err != nil {
 		return nil, err
@@ -275,7 +285,7 @@ func (Handlers) Reply(c *web.Ctx, in ChatPath) (web.Responder, error) {
 	if err != nil {
 		return nil, err
 	}
-	answer := conv.StreamReply(c, helpdesk)
+	answer := conv.StreamReply(c, h.helpdesk)
 	if len(msgs) == 0 || msgs[len(msgs)-1].Role != ai.RoleUser || conv.Status == ai.StatusQueued {
 		answer = func(func(ai.Event, error) bool) {} // answered already: a browser that reconnected
 	}
@@ -287,7 +297,7 @@ func (Handlers) Reply(c *web.Ctx, in ChatPath) (web.Responder, error) {
 // region: later
 // Later stores the question for a queue job to answer, and returns a
 // placeholder that polls Status.
-func (Handlers) Later(c *web.Ctx, in Question) (web.Responder, error) {
+func (h Handlers) Later(c *web.Ctx, in Question) (web.Responder, error) {
 	conv, err := conversation(c, in.ID)
 	if err != nil {
 		return nil, err
@@ -295,7 +305,7 @@ func (Handlers) Later(c *web.Ctx, in Question) (web.Responder, error) {
 	if err := conv.Add(c, ai.UserMessage(in.Prompt)); err != nil {
 		return nil, err
 	}
-	if err := conv.QueueReply(c, helpdesk); err != nil {
+	if err := conv.QueueReply(c, h.helpdesk); err != nil {
 		return nil, err
 	}
 	return page("queued", map[string]any{"Conversation": conv, "Prompt": in.Prompt}), nil
@@ -365,12 +375,17 @@ func truncate(s string, n int) string {
 	return string(r[:n-1]) + "…"
 }
 
-// seed adds the articles and a user.
-func seed(ctx context.Context, args *cmd.Args) error {
+// region: seed
+// seed adds the articles, embedded, and a user.
+func seed(ctx context.Context, args *cmd.Args, embeddings *ai.Embeddings[Article]) error {
 	articles := append([]Article(nil), helpCenter...)
 	if err := db.CreateMany(ctx, articles); err != nil {
 		return err
 	}
+	if err := embeddings.Sync(ctx, articles...); err != nil { // a queue job; with QUEUE_DRIVER=sync, now
+		return err
+	}
+	// endregion
 	hash, err := password.Hash("password")
 	if err != nil {
 		return err

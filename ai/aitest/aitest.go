@@ -73,6 +73,10 @@ type Config struct {
 	Dir string
 	// Skip names the tests the provider can't pass, with why.
 	Skip map[string]string
+	// EmbeddingModel is the embedding model of the recordings, for
+	// providers with embeddings (ai.Embedder): the Embed test runs with
+	// it (ANETOS_TEST_<NAME>_EMBEDDING_MODEL when recording).
+	EmbeddingModel string
 }
 
 type mode int
@@ -140,6 +144,24 @@ func Run(t *testing.T, c Config) {
 			tc.run(t, p, model)
 		})
 	}
+	if c.EmbeddingModel == "" {
+		return
+	}
+	embedModel := c.EmbeddingModel
+	if env := "ANETOS_TEST_" + strings.ToUpper(strings.ReplaceAll(c.Name, "-", "_")) + "_EMBEDDING_MODEL"; (m == record || m == live) && os.Getenv(env) != "" {
+		embedModel = os.Getenv(env)
+	}
+	t.Run("Embed", func(t *testing.T) {
+		if why, ok := c.Skip["Embed"]; ok {
+			t.Skip(why)
+		}
+		hc := &http.Client{Transport: newTransport(t, m, filepath.Join(c.Dir, "Embed.json"))}
+		e, ok := c.New(t, hc, key).(ai.Embedder)
+		if !ok {
+			t.Fatal("aitest: EmbeddingModel is set, but the provider isn't an ai.Embedder")
+		}
+		testEmbed(t, e, embedModel)
+	})
 }
 
 // cassette is a test's recorded HTTP exchanges.

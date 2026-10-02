@@ -185,6 +185,17 @@ func testAIConversations(t *testing.T, ctx context.Context) {
 	if fake.Remaining() != 1 {
 		t.Error("the model was asked over budget")
 	}
+	// Embeddings count too: for the signed-in user, against their budget.
+	if _, err := ai.Embed(a.ActAs(ctx, "frugal"), 0, "spent"); web.StatusOf(err) != http.StatusTooManyRequests {
+		t.Errorf("embedding over budget: %v", err)
+	}
+	if _, err := ai.Embed(a.ActAs(ctx, "embedder"), 0, "three little words", "and four more words"); err != nil {
+		t.Error(err)
+	}
+	if recs, err := db.Query[ai.UsageRecord](ctx).Where(db.Col[string]("user_id").Eq("embedder")).Get(); err != nil || len(recs) != 1 ||
+		recs[0].Model != "fake-embedding" || recs[0].Agent != "embed" || recs[0].InputTokens != 7 || recs[0].Provider != "fake" {
+		t.Errorf("embedding usage: %+v, %v", recs, err)
+	}
 	fake = client.Fake() // drop the unused reply
 	for fake.Remaining() > 0 {
 		_, _ = ai.Generate(ctx, "drain", ai.ForUser("drain"))

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"anetos.dev/anetos"
 	"anetos.dev/anetos/ai"
 	"anetos.dev/anetos/auth/password"
 	"anetos.dev/anetos/db"
@@ -29,10 +30,19 @@ func signIn(t *testing.T, app *anetostest.App, name string) *User {
 	return u
 }
 
+// addArticles adds the help center's articles, and embeds them (with
+// the fake embedder: no model is called).
 func addArticles(t *testing.T, app *anetostest.App) {
 	t.Helper()
 	articles := append([]Article(nil), helpCenter...)
 	if err := db.CreateMany(app.Context(), articles); err != nil {
+		t.Fatal(err)
+	}
+	embeddings, err := anetos.Resolve[*ai.Embeddings[Article]](app.App)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := embeddings.Sync(app.Context(), articles...); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -41,7 +51,7 @@ func addArticles(t *testing.T, app *anetostest.App) {
 func TestAssistant(t *testing.T) {
 	// The model's replies, scripted: search, read, answer.
 	app := anetostest.New(t, setup, anetostest.FakeAI(
-		ai.FakeToolCall("search_articles", SearchInput{Query: "export"}),
+		ai.FakeToolCall("search_articles", map[string]string{"query": "How do I export my lists?"}),
 		ai.FakeToolCall("read_article", ReadInput{ID: 1}),
 		ai.FakeText("Open Settings, then Data, and choose Export (Export your lists)."),
 	))
@@ -57,10 +67,10 @@ func TestAssistant(t *testing.T) {
 	app.Get("/chat/1").AssertSee("Used: search_articles, read_article", "Open Settings, then Data, and choose Export").
 		AssertDontSee("sse-connect")
 
-	// The tools ran for real: the search found the article, which the
-	// model read.
+	// The tools ran for real: the search found the article, with its
+	// passage, which the model read.
 	reqs := app.AI().Requests()
-	if got := reqs[1].Messages[2].Parts[0].(ai.ToolResult).Content; !strings.Contains(got, `"title":"Export your lists"`) {
+	if got := reqs[1].Messages[2].Parts[0].(ai.ToolResult).Content; !strings.HasPrefix(got, `[{"id":1,"title":"Export your lists","text":"Export your lists\n\nOpen Settings`) {
 		t.Errorf("search results: %s", got)
 	}
 	app.AssertPrompted(func(r ai.Request) bool { return strings.Contains(r.System, "help-center articles") })
@@ -128,3 +138,26 @@ func TestOtherUsersConversations(t *testing.T) {
 	app.PostForm("/chat/1", url.Values{"prompt": {"Mine now?"}}).AssertNotFound()
 	app.AssertNotPrompted()
 }
+
+// region: test-search
+func TestSearchArticles(t *testing.T) {
+	app := anetostest.New(t, setup)
+	addArticles(t, app)
+	embeddings, err := anetos.Resolve[*ai.Embeddings[Article]](app.App)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Each article was embedded once, as a document.
+	if reqs := app.AI().Embeddings(); len(reqs) != 1 || len(reqs[0].Inputs) != len(helpCenter) || reqs[0].Dimensions != embeddingDims {
+		t.Fatalf("embedding requests: %+v", reqs)
+	}
+	found, err := embeddings.Search(app.Context(), "what does the team plan cost", 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(found) != 2 || found[0].Record.Title != "Plans and billing" {
+		t.Errorf("found %+v", found)
+	}
+}
+
+// endregion

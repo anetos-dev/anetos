@@ -34,7 +34,7 @@ Highest priority first. `.env` is never read.
 | Source | Holds |
 |---|---|
 | `anetostest.Env` | Whatever the test passes |
-| Forced | `APP_ENV=testing`, a random `APP_KEY`, a `CACHE_PREFIX`, `SESSION_PREFIX`, `QUEUE_PREFIX` and `PUBSUB_PREFIX` of the app's own (its items, server-side sessions, Redis jobs and streams are removed by shutdown hooks when the app stops: at the end of the test, or when the test's `app.Run` returns); `MAIL_DRIVER=memory` (emails are kept in the mailer's `*mailer.MemoryTransport`, not sent); `STORAGE_DRIVER=memory` (files are kept in memory, on every disk without a driver of its own); `AI_PROVIDER=fake` (no model is called: `FakeAI` scripts the answers; `anetostest.Env` can set another) |
+| Forced | `APP_ENV=testing`, a random `APP_KEY`, a `CACHE_PREFIX`, `SESSION_PREFIX`, `QUEUE_PREFIX` and `PUBSUB_PREFIX` of the app's own (its items, server-side sessions, Redis jobs and streams are removed by shutdown hooks when the app stops: at the end of the test, or when the test's `app.Run` returns); `MAIL_DRIVER=memory` (emails are kept in the mailer's `*mailer.MemoryTransport`, not sent); `STORAGE_DRIVER=memory` (files are kept in memory, on every disk without a driver of its own); `AI_PROVIDER=fake` (no model is called: `FakeAI` scripts the answers; `anetostest.Env` can set another) and an empty `AI_EMBEDDING_PROVIDER` (embeddings are `AI_PROVIDER`'s: the fake's) |
 | Process environment | `DB_*` in CI, … |
 | `.env.testing` | Next to the test's `go.mod`; optional |
 | Defaults | `HTTP_ACCESS_LOG=false`, `APP_URL=http://example.test` (the test client's site), `MAIL_FROM_ADDRESS=test@example.com` |
@@ -154,11 +154,14 @@ The app's AI client (`ai.ForApp`) uses the fake provider in tests
 (`*ai.Fake`): requests get the replies `FakeAI` scripted, in order, and a
 request with no reply left fails with an error saying so. A test that
 sets another `AI_PROVIDER` with `anetostest.Env` uses that provider,
-unless it also uses `FakeAI`, which puts the fake in its place.
+unless it also uses `FakeAI`, which puts the fake in its place. The
+fake makes embeddings too (`ai.Embed`, `ai.Embeddings`), without
+replies: vectors of the texts' words, so texts sharing words are near,
+of the size asked for (or, for a `FixedSize` model, the size expected).
 
 | API | Does |
 |---|---|
-| `app.AI()` | The `*ai.Fake`: `Requests()` (`[]ai.Request`, oldest first: `Prompt()`, `System`, `Messages`, `Tools`, `Output`, `Model`…), `Add(replies...)` for more replies, `Remaining()`. Fails the test if the app has no AI client, or its provider isn't the fake |
+| `app.AI()` | The `*ai.Fake`: `Requests()` (`[]ai.Request`, oldest first: `Prompt()`, `System`, `Messages`, `Tools`, `Output`, `Model`…), `Add(replies...)` for more replies, `Remaining()`, `Embeddings()` (`[]ai.EmbedRequest`: `Model`, `Inputs`, `Dimensions`, `Purpose`). Fails the test if the app has no AI client, or its provider isn't the fake |
 | `app.AssertPrompted(match)` | A request matched (`func(ai.Request) bool`; nil matches any); otherwise reports the last prompt |
 | `app.AssertNotPrompted()` | No request was made |
 | `ai.FakeText(text)` | Reply: text |

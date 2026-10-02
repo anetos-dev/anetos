@@ -41,8 +41,9 @@ type Q[T any] struct {
 	trashed  trashed
 	distinct bool
 	lock     lock
-	with     []relSpec   // relations to load
-	search   *searchSpec // Search
+	with     []relSpec    // relations to load
+	search   *searchSpec  // Search
+	similar  *similarSpec // Similar, Hybrid
 }
 
 type trashed int
@@ -249,6 +250,10 @@ func (q *Q[T]) from(b *sqlBuilder) {
 		b.write(" ")
 		searchJoin{q.search}.build(b)
 	}
+	if q.similar != nil {
+		b.write(" ")
+		q.similar.join(b)
+	}
 	for _, j := range q.joins {
 		b.write(" ")
 		j.build(b)
@@ -300,10 +305,21 @@ func (q *Q[T]) tail(b *sqlBuilder, withOrder bool) {
 // query has no search ranking: its rows aren't the rows the ranking
 // scores.
 func (q *Q[T]) orderTerms() []Order {
-	if q.search == nil || (!q.distinct && len(q.groups) == 0) {
+	if q.similar != nil && !q.distinct && len(q.groups) == 0 {
+		// Ranks tie (rank fusion, equal chunks): the primary key orders
+		// them last, so pages neither repeat nor skip rows.
+		return append(slices.Clip(q.orders), Order{col: q.qualified(q.similar.pk)})
+	}
+	if q.search == nil && q.similar == nil || (!q.distinct && len(q.groups) == 0) {
 		return q.orders
 	}
-	return slices.DeleteFunc(slices.Clone(q.orders), func(o Order) bool { _, ok := o.raw.(searchRank); return ok })
+	return slices.DeleteFunc(slices.Clone(q.orders), func(o Order) bool {
+		switch o.raw.(type) {
+		case searchRank, similarRank:
+			return true
+		}
+		return false
+	})
 }
 
 // selectSQL builds the SELECT for the model's columns, or for cols if given.
@@ -359,7 +375,11 @@ func (q *Q[T]) prepare() (*DB, conn, error) {
 	if q.err != nil {
 		return nil, nil, q.err
 	}
-	return handle(q.ctx)
+	d, c, err := handle(q.ctx)
+	if err == nil && q.similar != nil {
+		err = d.checkVectorSize(q.ctx, c, q.similar.table, len(q.similar.vector))
+	}
+	return d, c, err
 }
 
 func (q *Q[T]) rows(cols []string) (*DB, *sql.Rows, error) {
@@ -372,7 +392,7 @@ func (q *Q[T]) rows(cols []string) (*DB, *sql.Rows, error) {
 		return nil, nil, b.err
 	}
 	rows, err := d.query(q.ctx, c, b.String(), b.args)
-	return d, rows, q.searchHint(err)
+	return d, rows, q.similarHint(q.searchHint(err))
 }
 
 // Get returns every matching row. It returns an empty (non-nil) slice if
@@ -462,6 +482,30 @@ func (q *Q[T]) Find(id any) (T, error) {
 	return q.Where(cmpExpr{q.qualified(q.m.cols[q.m.pk].name), "=", id}).First()
 }
 
+// WhereKeys keeps the rows whose primary key is one of ids (none: no
+// rows), as [Q.Find] does for one.
+func (q *Q[T]) WhereKeys(ids ...any) *Q[T] {
+	if q.err == nil && q.m.pk < 0 {
+		c := q.clone()
+		c.err = fmt.Errorf("db: %s has no primary key", q.m.typ)
+		return c
+	}
+	if q.err != nil {
+		return q
+	}
+	return q.Where(inExpr{q.qualified(q.m.cols[q.m.pk].name), slices.Clone(ids), false})
+}
+
+// TableOf returns the table of model T (its [Tabler] name, or the
+// type's name in snake case, plural).
+func TableOf[T any]() (string, error) {
+	m, err := metaOf(reflect.TypeFor[T]())
+	if err != nil {
+		return "", err
+	}
+	return m.table, nil
+}
+
 // Count returns the number of matching rows.
 func (q *Q[T]) Count() (int64, error) {
 	d, c, err := q.prepare()
@@ -473,7 +517,7 @@ func (q *Q[T]) Count() (int64, error) {
 		return 0, b.err
 	}
 	n, err := scalar[int64](q.ctx, d, c, b)
-	return n, q.searchHint(err)
+	return n, q.similarHint(q.searchHint(err))
 }
 
 // Exists reports whether any row matches.
@@ -490,7 +534,7 @@ func (q *Q[T]) Exists() (bool, error) {
 	}
 	rows, err := d.query(q.ctx, c, b.String(), b.args)
 	if err != nil {
-		return false, q.searchHint(err)
+		return false, q.similarHint(q.searchHint(err))
 	}
 	defer rows.Close()
 	found := rows.Next()
@@ -610,8 +654,8 @@ func (q *Q[T]) Restore() (int64, error) {
 // write runs an UPDATE or DELETE whose head is written by head.
 func (q *Q[T]) write(head func(b *sqlBuilder)) (int64, error) {
 	if len(q.joins) > 0 || len(q.orders) > 0 || q.hasLimit || q.offset > 0 || len(q.groups) > 0 ||
-		len(q.havings) > 0 || q.distinct || q.lock != noLock || q.search != nil {
-		return 0, errors.New("db: Update and Delete only support Where conditions (not Join, OrderBy, Limit, Offset, GroupBy, Having, Distinct, Search or locks); for more, use db.Exec with your database's syntax")
+		len(q.havings) > 0 || q.distinct || q.lock != noLock || q.search != nil || q.similar != nil {
+		return 0, errors.New("db: Update and Delete only support Where conditions (not Join, OrderBy, Limit, Offset, GroupBy, Having, Distinct, Search, Similar or locks); for more, use db.Exec with your database's syntax")
 	}
 	d, c, err := q.prepare()
 	if err != nil {

@@ -29,6 +29,7 @@ and [Seed the database](../guides/seeders.md) for walkthroughs.
 | `t.Binary(name)` | `BYTEA` | `LONGBLOB` | `BLOB` | `[]byte` |
 | `t.UUID(name)` | `UUID` | `CHAR(36)` | `TEXT` | `string` |
 | `t.ForeignID(name)` | `BIGINT` | `BIGINT` | `BIGINT` | `int64` |
+| `t.Vector(name, dims)` | `vector(dims)` (pgvector) | `VECTOR(dims)` (MariaDB 11.7+) | `BLOB` (little-endian float32s) | `db.Vector` |
 | `t.Timestamps()` | `created_at`, `updated_at`: timestamps defaulting to now | | | `db.Timestamps` |
 | `t.SoftDeletes()` | `deleted_at`: nullable timestamp | | | `db.SoftDeletes` |
 
@@ -89,6 +90,7 @@ schema or database instead.
 | `s.Drop(table)`, `s.DropIfExists(table)` | Drops a table, and its search index |
 | `s.Rename(from, to)` | Renames a table; refused when it has a search index (drop it first, add it again after) |
 | `s.HasTable(table)`, `s.HasColumn(table, col)` | Whether they exist |
+| `s.CreateEmbeddings(table, dims)`, `s.DropEmbeddings(table)` | The table of `table`'s embeddings: see [Embeddings tables](#embeddings-tables) |
 | `s.Exec(sql, args...)` | Raw SQL. Without arguments: sent as written, split at `;` (trigger and function bodies stay whole). With arguments: one statement with `?` placeholders |
 | `s.Context()` | The migration's context (database and transaction), for the db package |
 | `s.Dialect()` | `"postgres"`, `"mysql"` or `"sqlite"` |
@@ -182,6 +184,31 @@ text. `Alter` refuses to drop or rename an indexed column unless the
 same `Alter` drops the index (`t.DropSearchIndex()`, the change, then
 `t.SearchIndex` with the new columns). Object names longer than 63
 bytes are shortened like index names.
+
+## Embeddings tables
+
+`s.CreateEmbeddings("articles", 1536)` creates `articles_embeddings`,
+which [package `ai`](../guides/semantic-search.md) fills, and needs the
+database's vector search (`db.VectorSearch`): SQLite, PostgreSQL with
+pgvector, MariaDB 11.7+. Dimensions run from 1 to 16000.
+
+| Column | Type |
+|---|---|
+| `id` | `t.ID()` |
+| `record_id` | the record's ID, a foreign key to `articles.id` (not on MariaDB); the chunks are deleted with the record |
+| `chunk` | the chunk's position, from 0; unique with `record_id` |
+| `content`, `content_hash` | the chunk's text, and its SHA-256 |
+| `model` | the embedding model's name, up to 100 characters |
+| `embedding` | `t.Vector("embedding", dims)` |
+| `created_at`, `updated_at` | `t.Timestamps()` |
+
+| Database | Also |
+|---|---|
+| PostgreSQL | `CREATE EXTENSION IF NOT EXISTS vector` (a superuser's: pgvector isn't trusted, so create it beforehand otherwise); an HNSW index with `vector_cosine_ops`, up to 2000 dimensions (above, searches compare every chunk); `ON DELETE CASCADE` |
+| MariaDB | `VECTOR INDEX … DISTANCE=cosine`; no foreign key: an `AFTER DELETE` trigger on `articles`, `articles_embeddings_delete_trigger`, deletes a record's chunks, since InnoDB's cascading deletes skip the vector index, which then misses rows. A record deleted by another table's cascade doesn't fire it: its chunks stay until `db.PruneChunks` (`ai:embed`), and searches skip them (the candidates are chunks of existing records). Creating the trigger needs the `TRIGGER` privilege, and with binary logging `SUPER` or `log_bin_trust_function_creators`; if it fails, the table is dropped again |
+| SQLite | no index (the driver's `anetos_vec_distance_cosine` compares every chunk); `ON DELETE CASCADE` |
+
+`s.DropEmbeddings("articles")` drops the table (and the trigger).
 
 ## The migrations table
 

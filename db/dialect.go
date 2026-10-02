@@ -71,6 +71,9 @@ func (postgres) Arg(v any) any {
 	if t, ok := timeArg(v); ok {
 		return t
 	}
+	if vec, ok := vectorArg("postgres", v); ok {
+		return vec
+	}
 	return v
 }
 
@@ -103,7 +106,12 @@ func (mysql) LockClause(share bool) string {
 	}
 	return "FOR UPDATE"
 }
-func (mysql) Arg(v any) any { return v }
+func (mysql) Arg(v any) any {
+	if vec, ok := vectorArg("mysql", v); ok {
+		return vec
+	}
+	return v
+}
 
 type sqlite struct{}
 
@@ -133,6 +141,9 @@ func (sqlite) Arg(v any) any {
 			return tt.Format(SQLiteTimeFormat)
 		}
 		return t
+	}
+	if vec, ok := vectorArg("sqlite", v); ok {
+		return vec
 	}
 	return v
 }

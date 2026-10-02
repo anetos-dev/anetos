@@ -51,10 +51,12 @@ func Retry(ctx context.Context, fn func() error) error {
 }
 
 // Transient reports whether err is a deadlock or serialization failure
-// (SQLSTATE 40001 or 40P01, MySQL error 1213).
+// (SQLSTATE 40001 or 40P01, MySQL error 1213, and MariaDB's 1020, "Record
+// has changed since last read", from innodb_snapshot_isolation, on by
+// default since 11.6).
 func Transient(err error) bool {
 	msg := err.Error()
-	for _, s := range []string{"SQLSTATE 40001", "SQLSTATE 40P01", "Error 1213 (40001)"} {
+	for _, s := range []string{"SQLSTATE 40001", "SQLSTATE 40P01", "Error 1213 (40001)", "Error 1020 (HY000)"} {
 		if strings.Contains(msg, s) {
 			return true
 		}

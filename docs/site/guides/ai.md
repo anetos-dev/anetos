@@ -360,6 +360,8 @@ Providers differ, and the drivers smooth what they can:
 
 - [Build an AI assistant](ai-assistant.md): stored conversations,
   answers streamed to the page, replies from queue jobs, usage budgets.
+- [Search by meaning](semantic-search.md): embeddings, vector and hybrid
+  search, and a search tool for agents.
 - [AI concepts](../concepts/ai.md): what the package does, and doesn't.
 - [AI reference](../reference/ai.md): options, events, errors, schemas.
 - [Authorization](authorization.md) and [Roles and

@@ -178,3 +178,46 @@ func TestStreamToolCallsWithoutIndexes(t *testing.T) {
 		t.Errorf("calls %+v", calls)
 	}
 }
+
+func TestEmbed(t *testing.T) {
+	url, _, bodies := server(t,
+		`{"object":"list","model":"text-embedding-3-small","usage":{"prompt_tokens":5,"total_tokens":5},"data":[
+			{"object":"embedding","index":1,"embedding":[0,1]},{"object":"embedding","index":0,"embedding":[1,0]}]}`,
+		`{"object":"list","model":"m","usage":{"prompt_tokens":1,"total_tokens":1},"data":[{"object":"embedding","index":3,"embedding":[1]}]}`,
+		`{"object":"list","model":"m","usage":{"prompt_tokens":1,"total_tokens":1},"data":[]}`)
+	p := openai.New("k", option.WithBaseURL(url), option.WithMaxRetries(0), option.WithUnsafeAllowHTTP())
+	resp, err := p.Embed(t.Context(), &ai.EmbedRequest{Model: "text-embedding-3-small", Inputs: []string{"a", "b"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// In the inputs' order, whatever the answer's.
+	if len(resp.Vectors) != 2 || resp.Vectors[0][0] != 1 || resp.Vectors[1][1] != 1 || resp.Usage.InputTokens != 5 || resp.Model != "text-embedding-3-small" {
+		t.Errorf("response: %+v", resp)
+	}
+	if _, ok := (*bodies)[0]["dimensions"]; ok {
+		t.Errorf("dimensions sent unasked: %v", (*bodies)[0])
+	}
+	if _, err := p.Embed(t.Context(), &ai.EmbedRequest{Model: "m", Inputs: []string{"a"}, Dimensions: 8}); err == nil || !strings.Contains(err.Error(), "index 3") {
+		t.Errorf("a wrong index: %v", err)
+	}
+	if (*bodies)[1]["dimensions"] != float64(8) {
+		t.Errorf("dimensions: %v", (*bodies)[1])
+	}
+	if _, err := p.Embed(t.Context(), &ai.EmbedRequest{Model: "m", Inputs: []string{"a"}}); err == nil || !strings.Contains(err.Error(), "0 embeddings for 1 inputs") {
+		t.Errorf("too few: %v", err)
+	}
+}
+
+func TestEmbeddingDriver(t *testing.T) {
+	// OpenAI's embeddings for another provider's chat.
+	app, err := anetos.New(anetos.WithSource(config.Map{"APP_ENV": "testing", "APP_KEY": encryption.GenerateKey(), "AI_PROVIDER": "fake",
+		"AI_EMBEDDING_PROVIDER": "openai", "AI_EMBEDDING_MODEL": "text-embedding-3-small", "OPENAI_API_KEY": "k"}), anetos.WithLogOutput(io.Discard))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = app.Close() }()
+	client, err := ai.ForApp(app, openai.Driver())
+	if err != nil || client.EmbeddingModel() != "text-embedding-3-small" || client.Provider().Name() != "fake" {
+		t.Errorf("ForApp: %v", err)
+	}
+}

@@ -367,6 +367,14 @@ func (s *Schema) sqlType(c *Column) string {
 			return "CHAR(36)"
 		}
 		return "TEXT"
+	case typeVector:
+		switch s.dialect {
+		case "postgres":
+			return "vector(" + strconv.Itoa(c.length) + ")"
+		case "mysql":
+			return "VECTOR(" + strconv.Itoa(c.length) + ")"
+		}
+		return "BLOB"
 	}
 	panic("migrate: unknown column type")
 }

@@ -130,8 +130,9 @@ func LogLevel(l slog.Level) Option { return func(o *options) { o.level = l } }
 // streams when the test ends), MAIL_DRIVER=memory (emails are kept,
 // not sent: check them with the mailer's MemoryTransport),
 // STORAGE_DRIVER=memory (files are kept in memory, for every disk that
-// doesn't set its own driver) and AI_PROVIDER=fake (no model is called:
-// [FakeAI] scripts the answers); the process environment; the
+// doesn't set its own driver), AI_PROVIDER=fake (no model is called:
+// [FakeAI] scripts the answers) and an empty AI_EMBEDDING_PROVIDER (so
+// embeddings are AI_PROVIDER's: the fake's); the process environment; the
 // .env.testing file next to go.mod, if there is one (say,
 // DB_DATABASE=blog_test); then HTTP_ACCESS_LOG=false,
 // APP_URL=http://example.test (the test client's site, for absolute
@@ -153,7 +154,7 @@ func New(t testing.TB, setup func(app *anetos.App) (*web.Server, error), opts ..
 	}
 	prefix := testPrefix()
 	forced := config.Map{"APP_ENV": "testing", "APP_KEY": encryption.GenerateKey(), "CACHE_PREFIX": prefix + "cache:", "SESSION_PREFIX": prefix + "session:",
-		"QUEUE_PREFIX": prefix + "queue:", "PUBSUB_PREFIX": prefix + "pubsub:", "MAIL_DRIVER": "memory", "STORAGE_DRIVER": "memory", "AI_PROVIDER": "fake"}
+		"QUEUE_PREFIX": prefix + "queue:", "PUBSUB_PREFIX": prefix + "pubsub:", "MAIL_DRIVER": "memory", "STORAGE_DRIVER": "memory", "AI_PROVIDER": "fake", "AI_EMBEDDING_PROVIDER": ""}
 	defaults := config.Map{"HTTP_ACCESS_LOG": "false", "APP_URL": "http://example.test", "MAIL_FROM_ADDRESS": "test@example.com"}
 	file, err := moduleEnv(".env.testing")
 	if err != nil {

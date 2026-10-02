@@ -50,6 +50,7 @@ func main() {
 | `serve`, `routes:list` | `web.NewServer` |
 | `migrate`, `migrate:rollback`, `migrate:reset`, `migrate:fresh`, `migrate:status`, `db:seed`, `search:reindex` | `migrate.ForApp` ([Migrations](migrations.md), [Search](search.md)) |
 | `cache:clear` | `cache.ForApp` ([Cache values](cache.md)) |
+| `ai:embed` | `ai.EmbeddingsFor` ([Search by meaning](semantic-search.md)) |
 | `queue:failed`, `queue:retry`, `queue:forget`, `queue:flush`, `queue:clear` | `queue.ForApp` ([Queues](queues.md)) |
 | `pubsub:publish` | `pubsub.ForApp` ([Pub/sub listeners](pubsub.md)) |
 | `schedule:list`, `schedule:run` | `schedule.ForApp` ([Scheduling](scheduling.md)) |

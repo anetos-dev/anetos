@@ -241,6 +241,8 @@ roadmap behind the same `Search` method.
 
 - [Query data](queries.md): conditions, ordering and pagination that
   combine with `Search`.
+- [Search by meaning](semantic-search.md): embeddings, and hybrid search
+  that combines them with this index.
 - [Migrations reference](../reference/migrations.md#search-indexes): the
   objects each database gets.
 - [Configuration reference](../reference/configuration.md#search):

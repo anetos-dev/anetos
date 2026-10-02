@@ -92,6 +92,8 @@ func (d *DB) supports(ctx context.Context, c Capability) (bool, string, error) {
 			return true, "", nil
 		}
 		return false, "use PostgreSQL, MySQL/MariaDB or SQLite", nil
+	case VectorSearch:
+		return d.supportsVector(ctx)
 	case BM25:
 		switch name {
 		case "sqlite":
@@ -139,6 +141,13 @@ func (d *DB) Require(feature string, caps ...Capability) error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	return d.checkRequirement(ctx, requirement{feature, caps})
+}
+
+// CheckCapabilities returns nil if the database provides caps, else the
+// error [DB.Require] would stop the app with, naming feature: for code
+// that checks before it does something, such as a migration.
+func (d *DB) CheckCapabilities(ctx context.Context, feature string, caps ...Capability) error {
 	return d.checkRequirement(ctx, requirement{feature, caps})
 }
 
@@ -375,18 +384,34 @@ type searchSpec struct {
 // refuse a query with Search.
 func (q *Q[T]) Search(text string) *Q[T] {
 	c := q.clone()
-	c.orders = slices.DeleteFunc(slices.Clone(c.orders), func(o Order) bool { _, ok := o.raw.(searchRank); return ok })
-	c.search = nil
-	terms := searchTerms(text)
-	if c.err != nil || len(terms) == 0 {
+	c.dropRanking()
+	if c.err != nil {
 		return c
 	}
-	d, err := From(c.ctx)
+	spec, err := c.newSearch(text)
 	if err != nil {
 		c.err = err
 		return c
 	}
-	spec := &searchSpec{table: c.m.table, cfg: d.search}
+	if spec == nil {
+		return c
+	}
+	c.search = spec
+	c.orders = append([]Order{{raw: searchRank{spec}}}, c.orders...)
+	return c
+}
+
+// newSearch returns the search of text, or nil for text without words.
+func (q *Q[T]) newSearch(text string) (*searchSpec, error) {
+	terms := searchTerms(text)
+	if len(terms) == 0 {
+		return nil, nil
+	}
+	d, err := From(q.ctx)
+	if err != nil {
+		return nil, err
+	}
+	spec := &searchSpec{table: q.m.table, cfg: d.search}
 	switch d.dialect.Name() {
 	case "postgres":
 		quoted := make([]string, len(terms))
@@ -401,19 +426,15 @@ func (q *Q[T]) Search(text string) *Q[T] {
 		}
 		spec.terms = []string{strings.Join(quoted, " ")}
 	case "mysql":
-		kept, err := d.mysqlTerms(c.ctx, terms)
+		kept, err := d.mysqlTerms(q.ctx, terms)
 		if err != nil {
-			c.err = err
-			return c
+			return nil, err
 		}
 		spec.terms = []string{strings.Join(kept, " ")}
 	default:
-		c.err = fmt.Errorf("db: Search isn't supported on %s", d.dialect.Name())
-		return c
+		return nil, fmt.Errorf("db: Search isn't supported on %s", d.dialect.Name())
 	}
-	c.search = spec
-	c.orders = append([]Order{{raw: searchRank{spec}}}, c.orders...)
-	return c
+	return spec, nil
 }
 
 // searchCond is the WHERE condition of a search (PostgreSQL, MySQL;

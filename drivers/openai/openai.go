@@ -15,7 +15,10 @@
 // validated as usual. [Options] sets the reasoning effort, and reaches
 // every request parameter; Response.Raw is the SDK's
 // *openai.ChatCompletion (for a stream, its []openai.ChatCompletionChunk),
-// and [Provider.Client] the SDK client.
+// and [Provider.Client] the SDK client. Both make embeddings
+// ([Provider.Embed]), with the Embeddings API: AI_EMBEDDING_MODEL names
+// the model (text-embedding-3-small), and AI_EMBEDDING_PROVIDER=openai
+// uses them with another provider's chat.
 package openai
 
 import (
@@ -386,6 +389,41 @@ func (p *Provider) Generate(ctx context.Context, req *ai.Request) (*ai.Response,
 		return nil, err
 	}
 	return response(c)
+}
+
+// Embed implements ai.Embedder with the Embeddings API, which OpenAI and
+// most compatible servers (Ollama, vLLM, LM Studio) have: the vectors of
+// the inputs, req.Dimensions long if set (OpenAI's text-embedding-3
+// models shorten theirs). The purpose doesn't change OpenAI's
+// embeddings.
+func (p *Provider) Embed(ctx context.Context, req *ai.EmbedRequest) (*ai.EmbedResponse, error) {
+	params := sdk.EmbeddingNewParams{
+		Model:          req.Model,
+		Input:          sdk.EmbeddingNewParamsInputUnion{OfArrayOfStrings: req.Inputs},
+		EncodingFormat: sdk.EmbeddingNewParamsEncodingFormatFloat,
+	}
+	if req.Dimensions > 0 {
+		params.Dimensions = sdk.Int(int64(req.Dimensions))
+	}
+	res, err := p.client.Embeddings.New(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+	out := &ai.EmbedResponse{Vectors: make([]ai.Vector, len(req.Inputs)), Model: res.Model, Usage: ai.Usage{InputTokens: res.Usage.PromptTokens}}
+	for _, e := range res.Data {
+		if e.Index < 0 || int(e.Index) >= len(out.Vectors) || out.Vectors[e.Index] != nil {
+			return nil, fmt.Errorf("openai: an embedding at index %d for %d inputs", e.Index, len(req.Inputs))
+		}
+		v := make(ai.Vector, len(e.Embedding))
+		for i, x := range e.Embedding {
+			v[i] = float32(x)
+		}
+		out.Vectors[e.Index] = v
+	}
+	if len(res.Data) != len(req.Inputs) {
+		return nil, fmt.Errorf("openai: %d embeddings for %d inputs", len(res.Data), len(req.Inputs))
+	}
+	return out, nil
 }
 
 // streamCall is a tool call being streamed.

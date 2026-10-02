@@ -10,20 +10,44 @@
 // is created if missing), or :memory: for a private in-memory database.
 // Connections use WAL journaling, a 5 second busy timeout, foreign keys,
 // and transactions that take the write lock when they begin, so concurrent
-// writers wait instead of failing. DB_URL replaces all of this with a
+// writers wait instead of failing. The driver adds the SQL function vector
+// search compares embeddings with (db.SQLiteCosineFunction). DB_URL replaces all of this with a
 // modernc.org/sqlite DSN of your own.
 package sqlite
 
 import (
 	"database/sql"
+	"database/sql/driver"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"anetos.dev/anetos/db"
-	_ "modernc.org/sqlite" // registers the "sqlite" database/sql driver
+	"modernc.org/sqlite" // registers the "sqlite" database/sql driver
 )
+
+func init() {
+	// Vector search (db.Q.Similar) compares embeddings with this function:
+	// the pure-Go SQLite can't load extensions such as sqlite-vec.
+	if err := sqlite.RegisterDeterministicScalarFunction(db.SQLiteCosineFunction, 2, cosine); err != nil {
+		panic(err)
+	}
+}
+
+// cosine is db.CosineDistanceBlobs as an SQL function; NULL for a NULL
+// argument.
+func cosine(_ *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
+	a, aok := args[0].([]byte)
+	b, bok := args[1].([]byte)
+	if !aok || !bok {
+		if args[0] == nil || args[1] == nil {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("%s: arguments must be vectors (blobs), not %T and %T", db.SQLiteCosineFunction, args[0], args[1])
+	}
+	return db.CosineDistanceBlobs(a, b)
+}
 
 // DefaultPath is the database file used when DB_DATABASE is empty.
 const DefaultPath = "database/app.db"

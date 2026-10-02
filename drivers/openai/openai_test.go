@@ -20,7 +20,9 @@ func TestConformance(t *testing.T) {
 		Name:   openai.Name,
 		Model:  "gpt-5-mini",
 		KeyEnv: "OPENAI_API_KEY",
-		Dir:    filepath.Join("testdata", "openai"),
+		// The Embed recording is written by hand, in the API's format.
+		EmbeddingModel: "text-embedding-3-small",
+		Dir:            filepath.Join("testdata", "openai"),
 		New: func(_ *testing.T, hc *http.Client, key string) ai.Provider {
 			return openai.New(key, option.WithHTTPClient(hc), option.WithMaxRetries(0),
 				option.WithBaseURL("https://api.openai.com/v1"))

@@ -22,7 +22,10 @@ Anthropic, OpenAI and compatible servers, and Gemini) and roles and
 permissions (global and per team, [`examples/teams`](examples/teams))
 and AI in the app (stored conversations, answers streamed to the page,
 replies from queue jobs, usage budgets; [`examples/assistant`](examples/assistant))
-are done; vector search is next. APIs will change.
+and vector and hybrid search (embeddings kept next to the records, on
+PostgreSQL with pgvector, MariaDB 11.7+ or SQLite, and a search tool for
+agents) are done; the release work (name, docs site, deploy) is next.
+APIs will change.
 
 ## Documents
 

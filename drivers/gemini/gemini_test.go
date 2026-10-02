@@ -18,6 +18,8 @@ func TestConformance(t *testing.T) {
 		Name:   gemini.Name,
 		Model:  "gemini-2.5-flash",
 		KeyEnv: "GEMINI_API_KEY",
+		// The Embed recording is written by hand, in the API's format.
+		EmbeddingModel: "gemini-embedding-001",
 		New: func(t *testing.T, hc *http.Client, key string) ai.Provider {
 			one := int32(1)
 			p, err := gemini.New(t.Context(), genai.ClientConfig{APIKey: key, HTTPClient: hc, HTTPOptions: genai.HTTPOptions{

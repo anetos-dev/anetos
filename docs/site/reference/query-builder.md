@@ -24,7 +24,9 @@ Each method returns a new query; the original is unchanged.
 | `Distinct()` | `SELECT DISTINCT` |
 | `Scope(fns...)` | Applies `func(*db.Q[T]) *db.Q[T]` modifiers |
 | `WithTrashed()`, `OnlyTrashed()` | Include / only soft-deleted rows |
-| `Search(text)` | Full-text search: rows matching every word of `text` (as prefixes), best first, then `OrderBy`'s order; needs a search index ([search](../guides/search.md)). Text without words changes nothing; `Distinct` and `GroupBy` queries search without the relevance order; Update, Delete and `CursorPaginate` refuse it |
+| `WhereKeys(ids...)` | `WHERE <primary key> IN (…)`; none matches nothing |
+| `Similar(model, v)`, `Hybrid(text, model, v)` | Vector search: records nearest `v` by their chunks of `model`; hybrid also ranks the full-text matches of `text` ([vector search](#vector-search)) |
+| `Search(text)` | Full-text search: rows matching every word of `text` (as prefixes), best first, then `OrderBy`'s order; needs a search index ([search](../guides/search.md)). Text without words changes nothing; `Distinct` and `GroupBy` queries search without the relevance order; Update, Delete and `CursorPaginate` refuse it. It replaces a `Similar` or `Hybrid`, and they replace it |
 | `WhereHas(rel, conds...)`, `WhereDoesntHave(rel, conds...)` | `EXISTS (…)` / `NOT EXISTS (…)` on a relation's rows ([relations](models.md#relations)) |
 | `With(rels...)` | Loads relations of the rows, one query per relation ([relations](models.md#relations)) |
 | `ForUpdate()`, `ForShare()` | Row locks until the transaction ends (nothing on SQLite) |
@@ -78,6 +80,43 @@ by the query's column orderings plus the primary key; it rejects
 `OrderRaw`, and the ordering columns shouldn't contain NULLs. Cursors are
 encoded, not signed: a client can craft one, which only moves where its
 own page starts.
+
+## Vector search
+
+For records with an embeddings table (`migrate.Schema.CreateEmbeddings`),
+usually kept by [`ai.Embeddings`](../guides/semantic-search.md).
+
+| Method or function | Does |
+|---|---|
+| `Similar(model, v)` | Joins the records' chunks of `model` (all models' for `""`), keeps the `db.SimilarCandidates` (200) chunks nearest `v` by cosine distance, and orders the records by their nearest chunk, then `OrderBy`'s order, then the primary key (ties never make pages overlap). `v` must have the table's size |
+| `Hybrid(text, model, v)` | `Similar`'s list and `Search(text)`'s (200 each), merged by reciprocal rank fusion: a record scores `1/(60 + rank)` in each list it's in, so records both find come first. Needs a search index; text without words makes it `Similar` |
+| `db.Vector` | `[]float32`; scans a string as pgvector's text (`[1,2,3]`, what the PostgreSQL driver returns), and bytes as little-endian float32s (MariaDB, SQLite) |
+| `db.CosineDistance(a, b)` | `1 - cos`: 0 for the same direction, 1 unrelated, 2 opposite; an error for vectors of different sizes |
+| `db.Chunks[T](ctx, ids...)` | `[]db.Chunk{RecordID, Position, Content, ContentHash, Model, Embedding}` of the records (all, for none), by record and position |
+| `db.ReplaceChunks[T](ctx, id, chunks)` | Makes them the record's chunks, in one transaction that locks the record's row (positions from the slice's order); for a deleted record, removes its chunks. Outside a transaction, retried on deadlocks |
+| `db.PruneChunks[T](ctx)` | Deletes the chunks of records that no longer exist, and returns how many (MariaDB: those another table's cascade left) |
+| `db.NearestChunks[T](ctx, model, v, ids...)` | `[]db.ChunkMatch{Chunk, Distance}` of the records, nearest first |
+| `db.RecordID(row)`, `db.TableOf[T]()` | A record's integer primary key; `T`'s table |
+| `db.EmbeddingsTable(table)` | `table + "_embeddings"` |
+| `d.Supports(ctx, db.VectorSearch)`, `d.CheckCapabilities(ctx, feature, caps...)` | Whether the database has vector search: SQLite (the driver registers `anetos_vec_distance_cosine`), PostgreSQL with the `vector` extension available, MariaDB 11.7+; MySQL Community doesn't. `CheckCapabilities` returns an error naming the feature and what to install |
+
+`Similar` and `Hybrid` combine with `Where`, scopes, soft deletes,
+`Limit`, `Count` and `Paginate`; `Distinct` and `GroupBy` queries lose
+their order; Update, Delete and `CursorPaginate` refuse them. Vector
+indexes find nearest chunks approximately (HNSW on PostgreSQL and
+MariaDB): a record outside the candidates isn't returned, and a record
+with many near chunks takes more of them. The PostgreSQL driver sets
+`hnsw.ef_search` to 200 and `hnsw.iterative_scan` to `strict_order`
+(pgvector 0.8+) for each session, so the index returns 200 candidates
+after `model`'s filter (by default it stops at 40); they apply to the
+app's own pgvector queries too. The MySQL driver sets MariaDB's
+`mhnsw_ef_search` to 1000 per session (default 20), for the same reason.
+On MariaDB, the candidates are chunks of
+existing records (its embeddings tables have no foreign key). Zero vectors differ
+by database (SQLite: distance 1; MariaDB: 0; PostgreSQL: NaN): don't
+store them. On MariaDB,
+vectors travel as text (`VEC_FromText(?)`); raw SQL with a `db.Vector`
+argument must write that too.
 
 ## Writing
 

@@ -182,25 +182,48 @@ any: one that rolls back takes them with it, so models aren't called
 inside transactions (on SQLite, the transaction would also hold the
 write lock for the whole call).
 
+## Embeddings and retrieval
+
+An agent answers from the app's data through its tools; for text that
+is searched by meaning (help articles, documents, notes), `ai.Embeddings`
+keeps each record's chunks and their vectors in a table next to the
+record's, in the app's own database (pgvector, MariaDB's vectors, or
+SQLite), not in a separate vector store: the chunks commit and roll
+back with the data, deleting a record deletes them, and a search joins
+them with the record's table, so its conditions, scopes and soft deletes
+apply. A search is hybrid when the table has a full-text index too: the
+two rankings are merged by rank (reciprocal rank fusion), so a rare word
+or a product code still finds its record when its meaning is vague.
+
+Embeddings depend on the model that made them: vectors of two models
+can't be compared. Each chunk records its model, searches use only the
+current model's chunks, and `ai:embed` re-embeds after a change. The
+embedding provider can differ from the chat provider
+(`AI_EMBEDDING_PROVIDER`): Anthropic has no embeddings. See
+[Search by meaning](../guides/semantic-search.md).
+
 ## Testing
 
 Model output varies and costs money, so tests don't call a model:
 `anetostest` sets `AI_PROVIDER=fake`, and `anetostest.FakeAI` scripts
 the answers, one per request. Everything around the model runs for real:
 schemas, validation, retries, tools, the loop. The fake records each
-request, for assertions on what the model was sent.
+request, for assertions on what the model was sent. It makes embeddings
+too, from the texts' words (texts that share words are near), so a
+search works in tests without a model.
 
 ## Not in scope
 
 Multi-agent orchestration graphs, prompt template languages and a
-vector database of its own are out of scope. Embeddings and vector
-search are planned (S2), as are Vertex AI, Bedrock and Azure OpenAI's
-own authentication (their APIs work through a proxy URL until then),
-and files (images, documents) as inputs.
+vector database of its own are out of scope: embeddings live in the
+app's database. Vertex AI, Bedrock and Azure OpenAI's own
+authentication are planned (their APIs work through a proxy URL until
+then), as are files (images, documents) as inputs.
 
 ## See also
 
 - [Add AI to your app](../guides/ai.md)
 - [Build an AI assistant](../guides/ai-assistant.md)
+- [Search by meaning](../guides/semantic-search.md)
 - [AI reference](../reference/ai.md)
 - [Testing](testing.md)

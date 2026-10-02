@@ -252,7 +252,7 @@ anetos.dev/anetos/            ← core module
 ├── schedule/            cron and fluent schedules, the scheduler component, overlap and single-instance locks (B8)
 ├── mailer/              mailables, rendering, log/SMTP/memory transports, queued mail (B9)
 ├── storage/             disks: local (os.Root) and memory backends, signed URLs, file handler (B10); storage/storagetest: backend conformance suite
-├── ai/                  provider contract, messages, Generate/GenerateObject/Stream, tools and agents, schemas, the fake (A1); stored conversations, usage and budgets, queued replies, SSE (A3); ai/aitest: provider conformance suite on recorded exchanges (A2)
+├── ai/                  provider contract, messages, Generate/GenerateObject/Stream, tools and agents, schemas, the fake (A1); stored conversations, usage and budgets, queued replies, SSE (A3); embeddings, Embeddings[T] sync and search, the search tool (S2); ai/aitest: provider conformance suite on recorded exchanges (A2)
 ├── ext/                 public plugin API (package `ext`)
 ├── cmd/                 app-binary command types (F11); App.Execute dispatches
 ├── anetostest/          test app, browser-like client, assertions (F12); recording, fakes and the test clock (B12)
@@ -700,12 +700,23 @@ the layer stalls badly, an adapter over Bun behind the same public API. The
 public API is kept deliberately small to make that possible. F7 landed
 without needing it.
 
-### 10.5 Search (v0.3: S1 done, S2 planned)
+### 10.5 Search (v0.3: S1 and S2 done)
 
 Full-text search is part of the data layer, not an add-on: a blog gets a
 ranked search box from one migration line and one query method, on every
-supported database (D154). Vector search arrives with the AI work (S2) on
-the same API, and the two combine into hybrid search (D159).
+supported database (D154). Vector search (S2) is on the same query
+builder, over a companion table of chunks, and the two combine into
+hybrid search (D159, D161); package `ai` fills the chunks and gives
+agents the search as a tool (§14.4).
+
+```go
+// illustrative
+s.CreateEmbeddings("articles", 1536) // articles_embeddings: a row per chunk
+articles, _ := ai.EmbeddingsFor(app, ai.EmbeddingsConfig[Article]{Text: articleText, Dimensions: 1536})
+articles.Sync(ctx, article)                          // a queue job after the commit
+found, _ := articles.Search(ctx, "how much is the team plan", 5) // hybrid: meaning and words
+db.Query[Article](ctx).Where(published).Hybrid(q, model, v).Limit(10).Get() // the query builder's own
+```
 
 ```go
 // illustrative
@@ -726,7 +737,7 @@ database's objects follow fixed names.
 | Default ranking | `ts_rank_cd` (no corpus statistics) | `bm25()` | InnoDB's relevance (TF-IDF style), no column weights |
 | BM25 (`SEARCH_RANKING=bm25`) | PostgreSQL 17+ with pg_textsearch: generated `search_text` + `bm25` index, `COALESCE(<@>, 0)` ranks first (wrapped so the planner never scans the bm25 index, which returns only whole-word matches), `ts_rank_cd` breaks ties (prefix-only matches score 0 in BM25) | built in | refused |
 | `SEARCH_LANGUAGE` | `simple`, `english`, any text search configuration (checked in `pg_ts_config`) | `simple`, `english` (porter) | `simple` |
-| Vectors (S2) | pgvector | brute-force scan in Go (the pure-Go driver can't load `sqlite-vec`) | MariaDB 11.7+ native; refused on MySQL Community |
+| Vectors (S2) | pgvector: `vector(n)`, `<=>` (cosine), an HNSW index (`vector_cosine_ops`) up to 2000 dimensions; the migration creates the extension | `BLOB` of little-endian float32s, compared by a deterministic Go function the driver registers (`anetos_vec_distance_cosine`): every chunk is scanned (the pure-Go driver can't load `sqlite-vec`) | MariaDB 11.7+: `VECTOR(n)`, `VEC_DISTANCE_COSINE`, `VECTOR INDEX … DISTANCE=cosine`; vectors sent as text through `VEC_FromText(?)`; no foreign key, chunks deleted by a trigger (D183). Refused on MySQL Community (`DISTANCE()` is HeatWave-only) |
 
 - **Words** (D160): text becomes at most 32 lower-case words of letters,
   digits and combining marks (so Bangla and Hindi words stay whole); every
@@ -734,7 +745,7 @@ database's objects follow fixed names.
   optional next to indexed ones). That recovers most of what stemming gives,
   the same way on every database, with `simple` as the default.
 - **Capabilities, checked at boot** (D153): each dialect's capabilities
-  (`db.Capability`: `FullText`, `BM25`; `Vector` in S2) are probed on
+  (`db.Capability`: `FullText`, `BM25`, `VectorSearch`) are probed on
   the server where they depend on it (version, extensions);
   features declare needs with `d.Require`. `db.Connect` runs `d.Check` at
   boot: the `SEARCH_*` settings, the requirements, and the
@@ -765,10 +776,24 @@ database's objects follow fixed names.
   queries name the BM25 index the way migrations created it.
 - **Ranking** (D155): `SEARCH_RANKING=default` uses each database's best
   built-in ranking; `bm25` is a requirement checked at boot.
-- **Hybrid** (D159): keyword and vector results merged by reciprocal rank
-  fusion, which needs no score normalization across the two.
-- **Embeddings** (S2, D161): a companion table per searchable model, one
-  row per chunk, filled by queue jobs after commits.
+- **Vectors** (D159, D182): `q.Similar(model, v)` joins a derived table of
+  the 200 chunks of `model` nearest `v` (`ORDER BY distance LIMIT 200`,
+  the shape vector indexes serve), grouped per record by its nearest
+  chunk; the records' own conditions, scopes and soft deletes apply, and
+  `Count` and `Paginate` work. Writes and `CursorPaginate` refuse it.
+  Vectors of another size are an error on every database (pgvector and
+  the SQLite function fail; on MariaDB, whose distance is NULL, the
+  table's size is read from `information_schema` and checked first).
+- **Hybrid** (D159): `q.Hybrid(text, model, v)` ranks the 200 nearest
+  records and the 200 best full-text matches with `ROW_NUMBER()`, and
+  orders by the sum of `1/(60 + rank)` over both lists (reciprocal rank
+  fusion, which needs no score normalization). Text without words is
+  `Similar`. `Search`, `Similar` and `Hybrid` replace each other.
+- **Embeddings** (S2, D161): a companion table per searchable model,
+  `<table>_embeddings` (`CreateEmbeddings`): one row per chunk with its
+  text, SHA-256, model name and vector, unique by record and position,
+  deleted with the record. Package `ai` fills it (D181); `db.Chunks`,
+  `db.ReplaceChunks` and `db.NearestChunks` are the primitives.
 - **Scale:** database search serves most apps; search engines
   (Meilisearch, Typesense, OpenSearch) can later sit behind the same
   `Search` API as drivers (backlog).
@@ -1434,9 +1459,20 @@ for ev, err := range support.Stream(ctx, question) { … }  // the answer as it'
   match what the driver sends; with a key, `ANETOS_AI_RECORD=1` records
   them from the live API (never the headers) and `ANETOS_AI_LIVE=1`
   runs against it.
-- **Embeddings and retrieval** (S2, §10.5): `ai.Embed` on the same
-  providers; vector and hybrid search in the query builder; a retrieval
-  helper that gives agents the app's own content.
+- **Embeddings and retrieval** (S2, §10.5, D180–D181, D184):
+  `ai.Embed` and `ai.EmbedQuery` call an optional `Embedder` contract
+  (OpenAI and compatible servers, Gemini with task types; Anthropic has
+  none), possibly another provider than chat's (`AI_EMBEDDING_PROVIDER`,
+  `AI_EMBEDDING_MODEL`), in batches of 96, with usage recorded and
+  budgets enforced like model calls. `ai.EmbeddingsFor` keeps a model's
+  chunks: `Sync` dispatches a queue job after the commit (or embeds
+  inline without a queue), splits the text by paragraphs, sentences and
+  words, and embeds only chunks whose hash or model changed; `ai:embed`
+  syncs everything after a change of model. `Search` is hybrid when the
+  table has a full-text index and returns each record's nearest passage;
+  `Tool` gives agents the search, under the config's `Scope` (the
+  user's records only). The fake embeds texts by their words,
+  deterministically, so retrieval runs in tests without a model.
 - **Not in scope:** multi-agent orchestration graphs, prompt-template
   languages, a vector database of its own (roadmap non-goals). MCP
   (exposing the app's tools, using remote ones), provider failover,
@@ -2053,9 +2089,9 @@ unless new information arrives), **Open**, **Superseded**.
 | D156 | AI is integration, not a framework: the core `ai` package holds the provider contract, messages, streaming, the agent loop and the fake; providers are driver modules wrapping the official SDKs (Anthropic, OpenAI and OpenAI-compatible, Gemini first), with access to the native client; no wrapping of LangChainGo, Genkit or Eino | Accepted | Our value is the app around the model (typed output, tools as the user, queues, storage, tests); a thin contract survives providers' fast changes, and the escape hatch covers what it doesn't |
 | D157 | Structured output and tools are typed: JSON schemas built once per Go struct (json names, `description` tags, the `validate` rules JSON Schema can express), model output and tool input checked with `validate` tags (output retried once with the errors; not when cut off or refused), tools run with the caller's context so auth and policies apply, a step limit on the tool loop, every model request logged and every tool call run as a unit of work | Accepted | Typed handlers' design applied to models; the model chooses which tools to call, so tools get no more power than the user has |
 | D158 | AI is tested without the network: `anetostest.FakeAI` scripts replies, typed outputs and tool calls and records prompts; provider drivers pass a conformance suite against recorded responses, and live only when their key is set | Accepted | Model output varies and costs money; app tests must be deterministic and free |
-| D159 | Vectors and hybrid search: `ai.Embed`, vector columns, `q.SearchSimilar` on pgvector, MariaDB 11.7+ and SQLite (a brute-force scan in Go, as the pure-Go driver can't load `sqlite-vec`), refused on MySQL Community (`DISTANCE()` is HeatWave-only); `Search(...).Hybrid(...)` merges keyword and vector rankings by reciprocal rank fusion | Accepted (planned, S2) | Retrieval for agents works best with both kinds of match; rank fusion needs no score normalization; capability checks (D153) keep unsupported setups from starting |
+| D159 | Vectors and hybrid search: `ai.Embed`, vector columns (`t.Vector`), `q.Similar(model, v)` on pgvector, MariaDB 11.7+ and SQLite (a Go function the driver registers, scanning every chunk, as the pure-Go driver can't load `sqlite-vec`), refused on MySQL Community (`DISTANCE()` is HeatWave-only); `q.Hybrid(text, model, v)` merges keyword and vector rankings by reciprocal rank fusion (k = 60) | Accepted (S2) | Retrieval for agents works best with both kinds of match; rank fusion needs no score normalization; capability checks (D153) keep unsupported setups from starting |
 | D160 | `SEARCH_LANGUAGE` defaults to `simple` (no stemming, every language), and every search word matches as a prefix on every database; a language (`english`…) is opt-in. Indexes record the language and ranking they were built for, and a mismatch with the settings stops the app at boot until `search:reindex` | Accepted | `simple` is never wrong, only less generous, and behaves alike on MySQL (which can't stem); prefix matching recovers most of stemming's recall and gives search-as-you-type; a language baked into an index can't silently disagree with the queries |
-| D161 | Embeddings (S2) live in a companion table per searchable model (`post_embeddings`): one row per chunk (record id, position, the chunk's text or offsets, the vector, the embedding model's name, a content hash), filled by queue jobs after commits; switching embedding models fills a new table side by side, then switches | Accepted (planned, S2) | Retrieval works on passages, not whole records; vectors (~6 KB) would bloat the model's table; models change and their sizes differ, and a vector index needs one size; unchanged content is never embedded again |
+| D161 | Embeddings (S2) live in a companion table per searchable model (`post_embeddings`): one row per chunk (record id, position, the chunk's text, the vector, the embedding model's name, a content hash), filled by queue jobs after commits; searches use only the current model's chunks, so switching models (same size) is `ai:embed` re-embedding in place, not a second table; a new size is a new migration | Accepted (S2) | Retrieval works on passages, not whole records; vectors (~6 KB) would bloat the model's table; models change and their sizes differ, and a vector index needs one size; unchanged content is never embedded again |
 | D162 | The migration is a search index's only declaration: no model tags; each database's objects have fixed names (`search_vector`, `search_text`, `<table>_search` and its triggers), so queries need only the table and the settings; the `search_indexes` table records columns, language and ranking for the boot check and `search:reindex`; MySQL search words its index skips (short and over-long words, stop words: InnoDB's default list, or the configured stop-word table) stay as optional prefixes, required only when no indexed word remains; `cmd.Command.ChangesSchema` marks the commands that may run with out-of-date indexes | Accepted | One source of truth that can't disagree with the schema; no per-query metadata lookup; a required word MySQL doesn't index would make every search fail, and dropping it would lose prefix matches ("ca" finding "cat") |
 | D163 | AI calls are functions over the context's client: `ai.Generate` (text), `ai.GenerateObject[T]` (returns `T, *Result, error`) and `ai.Stream` (`iter.Seq2[Event, error]`, ending with `EventDone` and the `Result`); options apply in order (the client's defaults from `AI_*`, an `Agent`'s, the call's); `Agent` is reusable settings and an `Option`; every call returns a `Result` (steps, total usage, the whole conversation as JSON-ready messages); `ai.ForApp` and the `AI_*` settings are in A1, the provider drivers in A2 | Accepted | One way to call, like `db.Query[T](ctx)` and `mailer.Send(ctx, …)`; usage is always at hand without a second API; a typed result can't hide the usage behind generics; an agent passed to `GenerateObject` gives typed answers with tools for free; the settings and the fake had to exist for A1's tests |
 | D164 | A tool's error is told to the model only if it has a 4xx status, and only as a web client would see it (status text, the message and fields of the `HTTPError` that has the status via `ClientMessage`/`ClientFields`, field messages of a validation error), so it can correct its input or tell the user; any other error stops the call and is returned; invalid input is an `*ai.InputError` (422); unknown tool names are told to the model; tools run one at a time | Accepted | The same line the web layer draws between the client's mistakes and the server's failures; internal causes (SQL, hosts) never reach a model that could repeat them; sequential calls keep a request's transaction usable |
@@ -2074,6 +2110,11 @@ unless new information arrives), **Open**, **Superseded**.
 | D177 | Queued replies are a queue job (`ai.reply`) carrying the conversation, user, agent name and message count; agents are registered by name (`QueueAgents`); the job acts as the user through a new `auth.ActAs(ctx, userID, auth.WithAbilities(…))` (a request state that loads the user by ID, with the queuing request's token abilities, and refuses Login/Logout); it is idempotent by the message count, permanent on 4xx errors, and reports through the conversation's status and error, which only the conversation's latest job (`queued_after`) may change; its timeout is `AI_QUEUE_TIMEOUT` (15m) | Accepted | Agents hold functions and can't be serialized, but the binary has them; tools must see the same user as in a request; at-least-once delivery must not answer twice; pages need something to poll |
 | D178 | Server-sent events are a web feature (`c.Events()`: headers, per-event flush, no write deadline, and the request's context without the Timeout middleware's deadline via `web.WithoutTimeout`, which keeps cancellation by the client and values); `ai.SSE` maps an answer's events to `text`, `tool`, `error` and a final `done`, HTML-escaped, with the htmx SSE extension bundled in `view/htmx`; a comment every 15 seconds keeps the stream alive through proxies; `WithoutTimeout` lifts the outermost Timeout, so route groups' timeouts go too | Accepted | A stream must outlast HTTP_REQUEST_TIMEOUT without turning timeouts off app-wide; htmx is the default front end, and escaping makes the data safe to swap in; browsers reconnect to ended streams, so the last event tells the page to close |
 | D179 | `anetos make:agent` writes an `ai.Agent` with a typed tool to `app/agents`, and prints the `ai.ForApp` setup if `main.go` lacks it; files (images, documents) as model inputs move to the backlog | Accepted | Agents are the unit apps reuse; a typed tool shows the schema-from-tags pattern; multimodal parts need every driver's support and storage handling, not needed for the MVP's assistant |
+| D180 | Embeddings are an optional `ai.Embedder` contract next to `Provider`, from the client's embeddings provider: AI_PROVIDER's when it has one, else `AI_EMBEDDING_PROVIDER` (opened with `AI_EMBEDDING_MODEL` as its model). Requests go in batches of 96 texts with a purpose (document or query: Gemini's task types) and an optional size; their usage is recorded (agent `embed`) and counted against budgets, estimated where the provider doesn't count (Gemini). The fake embeds texts by their hashed words | Accepted | Anthropic, the default chat provider, has no embeddings, so the two must be separable; one usage record and budget per user covers both kinds of call; a deterministic fake keeps retrieval testable without a model |
+| D181 | `ai.Embeddings[T]` (from `ai.EmbeddingsFor`, at setup) owns a model's chunks: `Sync` dispatches the job `ai.embed:<table>` per hundred records after the commit (inline without a queue), `SyncNow` re-embeds only chunks whose hash or model changed and replaces the record's chunks in one transaction, `ai:embed` syncs every record. The config's `Scope` runs on every search with its context, so the agent tool (`Tool`) sees only the user's records. The vector size is asked of the model, unless `FixedSize` (models that make one size and refuse the parameter): then it is only checked | Accepted | Embedding is slow and paid: it belongs after the commit and must skip unchanged text; authorization declared once can't be forgotten in a tool |
+| D182 | Vector queries select the 200 nearest chunks (`ORDER BY distance LIMIT 200`, which HNSW indexes serve), group them by record (nearest chunk), and join the records' table; hybrid ranks both lists with `ROW_NUMBER()` and merges them with `UNION ALL` and a float sum of `1/(60 + rank)`; the primary key breaks ties last. The pool counts chunks, so a record with many near chunks takes more of it. The PostgreSQL driver sets `hnsw.ef_search` (200) and `hnsw.iterative_scan` (`strict_order`, pgvector 0.8+) per session, or pgvector's index stops at 40 rows before filters; the MySQL driver sets MariaDB's `mhnsw_ef_search` (1000; default 20), whose index otherwise falls short under selective filters. A vector of another size is an error, checked against `information_schema` on MariaDB (kept a minute) | Accepted | The record query keeps its conditions, scopes, counts and pages; the same SQL runs on all three databases (window functions: PostgreSQL, MariaDB 10.2+, SQLite 3.25+); a NULL distance must not silently drop results |
+| D183 | On MariaDB, vectors travel as text (`VEC_FromText(?)`, written by the query builder) because prepared statements send byte parameters as strings in the connection's character set, which mangles binary vectors; vectors are scanned by source type (pgx returns pgvector's text as a string; MariaDB and SQLite return bytes), never by their first byte. The embeddings table has no foreign key there: a record's chunks are deleted by an `AFTER DELETE` trigger, because InnoDB's cascades skip MariaDB's vector index (which then loses rows) and a restricting key would block cascades from other tables; chunks a cascade leaves are pruned by `ai:embed` (`db.PruneChunks`), and until then the candidate query keeps only chunks of existing records (`EXISTS`), so they can't crowd live ones out. Chunk replacements lock the record and retry deadlocks. Error 1020 ("Record has changed since last read", `innodb_snapshot_isolation`, on since 11.6) is a transient error, retried by the cache, the queue and pivot writes | Accepted | Found against MariaDB 11.8: both failures were silent wrong answers, not errors |
+| D184 | Chunks are split by characters (default 2000, about 500 tokens): whole paragraphs (split on blank lines) while they fit, then a long paragraph's sentences (after `.!?` and a space, or a full-width `。！？`), then words; no overlap; linear in the text. A search returns each record with its nearest chunk (`Passage`), and a record found only by its words with the start of its text | Accepted | Character counts need no tokenizer per model; paragraph boundaries keep passages readable for the model and citable for the user |
 
 ---
 
@@ -2132,3 +2173,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-02 | A2 AI providers implemented: §5, §14, §14.4 updated; D156, D158 accepted in full; D166–D168 added |
 | 2026-10-02 | R1 roles and permissions implemented: §5, §15, §17.2 updated; D169–D174 added |
 | 2026-10-02 | A3 AI in the app implemented: §5, §6, §8.6, §12.1, §14.4, §15, §17.1 updated; D175–D179 added; files as model inputs to the backlog |
+| 2026-10-02 | S2 vectors and hybrid search implemented: §5, §10.5, §14.4 updated; D159, D161 accepted (D161: models switch in place); D180–D184 added |

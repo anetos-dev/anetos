@@ -8,6 +8,9 @@ tagged `drivers/openai/vX.Y.Z`. The framework's own changes are in the
 ## [Unreleased]
 
 ### Added
+- `Provider.Embed`: embeddings with the Embeddings API, for OpenAI and
+  compatible servers (`dimensions` when asked); `AI_EMBEDDING_PROVIDER=openai`
+  uses them with another provider's chat (S2).
 - The OpenAI provider of package ai (`AI_PROVIDER=openai`) on
   openai-go, and the provider for OpenAI-compatible servers
   (`AI_PROVIDER=openai-compatible`: Ollama, vLLM, LM Studio, OpenRouter,

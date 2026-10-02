@@ -8,6 +8,9 @@ tagged `drivers/gemini/vX.Y.Z`. The framework's own changes are in the
 ## [Unreleased]
 
 ### Added
+- `Provider.Embed`: embeddings with `RETRIEVAL_DOCUMENT` and
+  `RETRIEVAL_QUERY` task types and `outputDimensionality`; the usage is
+  estimated (S2).
 - The Gemini provider of package ai (`AI_PROVIDER=gemini`) on Google's
   Gen AI SDK: the Gemini API with text, streaming, function calls,
   structured output (`responseJsonSchema`) and usage; thought signatures
