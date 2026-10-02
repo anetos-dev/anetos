@@ -21,6 +21,7 @@ walkthrough.
 | `anetostest.FakeQueue()` | Option: dispatched jobs are recorded only (`queue.Queue.Fake`): not stored or run. Fails the test if `setup` has no queue |
 | `anetostest.FakeEvents(events...)` | Option: events of the types of the values (all, with none) are recorded only (`events.Bus.Fake`): their listeners don't run. Fails the test if `setup` has no bus |
 | `anetostest.FakePubSub()` | Option: published messages are recorded only (`pubsub.PubSub.Fake`): the broker doesn't get them. Fails the test if `setup` has no pub/sub |
+| `anetostest.FakeAI(replies...)` | Option: the model's answers, one per request to the app's AI client, in order (`ai.FakeText`, `ai.FakeObject`, `ai.FakeToolCall`, `ai.FakeError`, or an `ai.FakeReply` function). Options add up. Fails the test if `setup` has no AI client (`ai.ForApp`). See [AI](#ai-anetostest) |
 | `anetostest.FakeSocial()` | Option: social login (`auth/social`) signs in through a stand-in OpenID Connect provider on a local TLS server, for every provider (GitHub's API and other `Provider.Profile` functions aren't called); `social.Configured` keeps every provider, with test credentials where settings are missing. Sign in with `app.SocialSignIn` |
 | `app.Context()` | The context of the test's requests: the app's services, the database and the test's transaction. Pass it to your own code. (It hides the embedded `anetos.App.Context(parent)`; call `app.App.Context` for that) |
 | `app.Router()` | The app's `*web.Router`, or nil |
@@ -33,7 +34,7 @@ Highest priority first. `.env` is never read.
 | Source | Holds |
 |---|---|
 | `anetostest.Env` | Whatever the test passes |
-| Forced | `APP_ENV=testing`, a random `APP_KEY`, a `CACHE_PREFIX`, `SESSION_PREFIX`, `QUEUE_PREFIX` and `PUBSUB_PREFIX` of the app's own (its items, server-side sessions, Redis jobs and streams are removed by shutdown hooks when the app stops: at the end of the test, or when the test's `app.Run` returns); `MAIL_DRIVER=memory` (emails are kept in the mailer's `*mailer.MemoryTransport`, not sent); `STORAGE_DRIVER=memory` (files are kept in memory, on every disk without a driver of its own) |
+| Forced | `APP_ENV=testing`, a random `APP_KEY`, a `CACHE_PREFIX`, `SESSION_PREFIX`, `QUEUE_PREFIX` and `PUBSUB_PREFIX` of the app's own (its items, server-side sessions, Redis jobs and streams are removed by shutdown hooks when the app stops: at the end of the test, or when the test's `app.Run` returns); `MAIL_DRIVER=memory` (emails are kept in the mailer's `*mailer.MemoryTransport`, not sent); `STORAGE_DRIVER=memory` (files are kept in memory, on every disk without a driver of its own); `AI_PROVIDER=fake` (no model is called: `FakeAI` scripts the answers; `anetostest.Env` can set another) |
 | Process environment | `DB_*` in CI, … |
 | `.env.testing` | Next to the test's `go.mod`; optional |
 | Defaults | `HTTP_ACCESS_LOG=false`, `APP_URL=http://example.test` (the test client's site), `MAIL_FROM_ADDRESS=test@example.com` |
@@ -147,11 +148,31 @@ recorded.
 The emails the transport got (queued ones the queue ran included) stay
 available from the mailer: `anetos.MustResolve[*mailer.Mailer](app.App).Transport().(*mailer.MemoryTransport).Sent()`.
 
+## AI (`anetostest`)
+
+The app's AI client (`ai.ForApp`) uses the fake provider in tests
+(`*ai.Fake`): requests get the replies `FakeAI` scripted, in order, and a
+request with no reply left fails with an error saying so. A test that
+sets another `AI_PROVIDER` with `anetostest.Env` uses that provider,
+unless it also uses `FakeAI`, which puts the fake in its place.
+
+| API | Does |
+|---|---|
+| `app.AI()` | The `*ai.Fake`: `Requests()` (`[]ai.Request`, oldest first: `Prompt()`, `System`, `Messages`, `Tools`, `Output`, `Model`…), `Add(replies...)` for more replies, `Remaining()`. Fails the test if the app has no AI client, or its provider isn't the fake |
+| `app.AssertPrompted(match)` | A request matched (`func(ai.Request) bool`; nil matches any); otherwise reports the last prompt |
+| `app.AssertNotPrompted()` | No request was made |
+| `ai.FakeText(text)` | Reply: text |
+| `ai.FakeObject(v)` | Reply: v as JSON, the answer to `ai.GenerateObject` |
+| `ai.FakeToolCall(name, input)` | Reply: a call of tool name with input (encoded as JSON); its result goes to the next request |
+| `ai.FakeError(err)` | Reply: the request fails with err |
+
+Replies' usage counts words, as a stand-in for tokens.
+
 ## Repeated queries (`anetostest`)
 
 | API | Does |
 |---|---|
-| `app.RepeatedQueries()` | `[]db.RepeatedQuery` (`Unit`, `SQL`, `Count`, `Caller`; `String()`): the queries a request, job, listener or task of the test ran `DB_REPEATED_QUERIES` times or more (5 by default in tests), oldest first. Also logged as warnings |
+| `app.RepeatedQueries()` | `[]db.RepeatedQuery` (`Unit`, `SQL`, `Count`, `Caller`; `String()`): the queries a request, job, listener, task or AI tool call of the test ran `DB_REPEATED_QUERIES` times or more (5 by default in tests), oldest first. Also logged as warnings |
 | `app.AssertNoRepeatedQueries()` | None: no N+1. See [Find N+1 queries](../guides/n-plus-one.md) |
 
 ## Files (`anetostest`)

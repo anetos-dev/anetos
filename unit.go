@@ -17,12 +17,13 @@ type unitFuncs struct {
 }
 
 // Unit is a unit of work the app runs: an HTTP request, a queue job, an
-// event or pub/sub listener's handling of a message, a scheduled task.
+// event or pub/sub listener's handling of a message, a scheduled task, a
+// model's call of a tool (package ai), which runs inside another unit.
 type Unit struct {
-	// Kind is "request", "job", "listener", "message" or "task".
+	// Kind is "request", "job", "listener", "message", "task" or "tool".
 	Kind string
 	// Name says which: "GET /posts/7", the job type's name, the
-	// listener's or task's name.
+	// listener's, task's or tool's name.
 	Name string
 }
 
@@ -32,8 +33,8 @@ type UnitFunc func(ctx context.Context, u Unit) (context.Context, func())
 
 // AroundUnits adds fn, which wraps every unit of work from now on: the
 // server's requests, the queue's jobs, async and queued event listeners,
-// pub/sub listeners and scheduled tasks call [App.StartUnit]. db.Connect
-// uses it to detect repeated queries.
+// pub/sub listeners, scheduled tasks and AI tool calls call
+// [App.StartUnit]. db.Connect uses it to detect repeated queries.
 func (a *App) AroundUnits(fn UnitFunc) {
 	a.unitMu.Lock()
 	defer a.unitMu.Unlock()

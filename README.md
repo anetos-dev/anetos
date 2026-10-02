@@ -16,9 +16,10 @@ authentication, social login, queues, events, pub/sub listeners, the
 scheduler, mail, file storage, plugins (`anetos add`), test fakes, N+1
 detection and `anetos make:auth`. [`examples/saas`](examples/saas)
 shows them in one app, run as one binary or split by role. v0.3, the
-first public release, is in progress: full-text search is done; AI
-(typed LLM calls, tools, streaming) and vector search are next. APIs
-will change.
+first public release, is in progress: full-text search and the AI core
+(typed LLM calls, tools that run as the user, streaming, a test fake)
+are done; the AI provider drivers, AI in the app and vector search are
+next. APIs will change.
 
 ## Documents
 

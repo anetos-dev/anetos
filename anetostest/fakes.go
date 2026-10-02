@@ -108,6 +108,7 @@ func (a *App) record(o *options) {
 			r.mail = append(r.mail, rec)
 		})
 	}
+	a.recordAI(o)
 	ps, err := anetos.Resolve[*pubsub.PubSub](app)
 	switch {
 	case err == nil:

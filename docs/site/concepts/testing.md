@@ -145,7 +145,12 @@ stops the side effect: `FakeQueue` keeps jobs from being stored or run,
 `FakeEvents` keeps events from reaching their listeners, `FakePubSub`
 keeps messages from the broker. Each is a switch on the real service
 (`Fake`), so nothing else about the app changes. Email has no fake:
-tests never send it (`MAIL_DRIVER=memory`). Assertions are typed:
+tests never send it (`MAIL_DRIVER=memory`). Language models are the
+exception: a test uses the AI client's fake provider
+(`AI_PROVIDER=fake`, unless the test sets another), since a model's
+answers vary and cost money;
+`FakeAI` scripts them, and everything around the model (schemas,
+validation, tools) runs for real. Assertions are typed:
 `AssertDispatched[ChargeOrder]` decodes the recorded jobs as a worker
 would, so it checks what the worker will get.
 

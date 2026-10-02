@@ -230,6 +230,9 @@ Email is never sent in tests (`MAIL_DRIVER=memory`), so it needs no
 fake. For sign-in with Google or GitHub, `anetostest.FakeSocial()` puts
 a stand-in provider in their place and `app.SocialSignIn` signs in with
 the account you give (see [Social login](social-login.md#3-test)).
+Models are never called either (`AI_PROVIDER=fake`):
+`anetostest.FakeAI(…)` scripts their answers, and `app.AssertPrompted`
+checks what the app asked (see [Add AI to your app](ai.md#6-test-it)).
 
 ```go
 // With the queue and the OrderPlaced event faked, placing an order only

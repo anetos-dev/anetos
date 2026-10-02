@@ -62,6 +62,21 @@ func (e *HTTPError) Unwrap() error { return e.Err }
 // HTTPStatus implements [StatusCoder].
 func (e *HTTPError) HTTPStatus() int { return e.Status }
 
+// ClientMessage returns the client-safe message: Message, or the status
+// text. Clients see it for a 4xx error (a 5xx one shows only the status
+// text, outside debug mode); package ai tells it to a model when a tool
+// fails with a 4xx error.
+func (e *HTTPError) ClientMessage() string {
+	if e.Message == "" {
+		return http.StatusText(e.Status)
+	}
+	return e.Message
+}
+
+// ClientFields returns Fields, the per-field messages clients see.
+// Package ai tells them to a model when a tool fails with a 4xx error.
+func (e *HTTPError) ClientFields() map[string]string { return e.Fields }
+
 // StatusCoder can be implemented by domain errors to choose their HTTP
 // status without depending on this package, for example a "not found" error
 // in a data layer returning 404.

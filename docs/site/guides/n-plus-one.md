@@ -32,7 +32,8 @@ level=WARN msg="repeated query: an N+1? Load related rows with With or a single 
 
 `unit` is what ran the queries: `request GET /slow-posts`, `job
 SendDigest`, `listener emailReceipt`, `message orders.created
-(billing)`, `task prune-audit-log`. `count` is how many times it ran
+(billing)`, `task prune-audit-log`, `tool find_order` (a model's call
+of an [AI tool](ai.md)). `count` is how many times it ran
 the query, and `at` is the line of your code that ran it (the fifth
 time).
 
@@ -129,7 +130,8 @@ for _, id := range ids { … }
 ## How it works
 
 Every unit of work of the app (a request, a queue job, an async or
-queued event listener, a pub/sub message, a scheduled task) starts with
+queued event listener, a pub/sub message, a scheduled task, an AI tool
+call) starts with
 `app.StartUnit`, which runs the functions added with `app.AroundUnits`.
 `db.Connect` adds one that gives the unit a counter in its context, when
 detection is on. Each query made with that context counts its SQL text,
@@ -138,7 +140,8 @@ for values; when a count reaches the threshold, the call stack is read
 once to find the first frame outside the framework. When the unit ends,
 each query at or over the threshold is logged, and passed to the
 functions added with `d.OnRepeatedQuery`. A unit inside another (a job
-the sync queue driver runs in a request) counts its own queries.
+the sync queue driver runs in a request, a tool call in a request)
+counts its own queries.
 
 Queries of the framework's database stores (the database cache, queue
 and session stores) aren't counted: a cache read per key or a job per

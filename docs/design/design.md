@@ -212,8 +212,9 @@ B9 the mailer (§14.2), B10 storage (§14.3);
 `app.Use(plugins.All()...)` arrives later in v0.2.
 
 **Units of work** (B13, D141). A request, a queue job, an async or
-queued event listener's handling, a pub/sub message and a scheduled
-task are each a *unit of work* (`anetos.Unit{Kind, Name}`). The
+queued event listener's handling, a pub/sub message, a scheduled
+task and a model's call of an AI tool (inside another unit, §14.4) are
+each a *unit of work* (`anetos.Unit{Kind, Name}`). The
 packages that run them call `app.StartUnit(ctx, unit)`, which runs the
 functions added with `app.AroundUnits(fn)`: each may wrap the unit's
 context and be told when it ends. `db.Connect` uses it for
@@ -251,12 +252,13 @@ anetos.dev/anetos/            ← core module
 ├── schedule/            cron and fluent schedules, the scheduler component, overlap and single-instance locks (B8)
 ├── mailer/              mailables, rendering, log/SMTP/memory transports, queued mail (B9)
 ├── storage/             disks: local (os.Root) and memory backends, signed URLs, file handler (B10); storage/storagetest: backend conformance suite
+├── ai/                  provider contract, messages, Generate/GenerateObject/Stream, tools and agents, schemas, the fake (A1)
 ├── ext/                 public plugin API (package `ext`)
 ├── cmd/                 app-binary command types (F11); App.Execute dispatches
 ├── anetostest/          test app, browser-like client, assertions (F12); recording, fakes and the test clock (B12)
 ├── internal/            everything not part of the public API
 │   ├── convert/         string → typed value conversion (config and web binding)
-│   ├── dbutil/          the database server's clock and deadlock retries in SQL (cache, queue)
+│   ├── dbutil/          the database server's clock and deadlock retries in SQL (cache, queue), index names (db, migrate)
 │   ├── htmltext/        HTML to plain text (emails' text bodies)
 │   ├── naming/          column and table naming rules (db and `anetos gen`)
 │   ├── appkey/          APP_KEY parsing and generation (kernel, encryption, cli)
@@ -1147,7 +1149,7 @@ Each service is an interface in the core module. Drivers are chosen in
 | Encryption | `encryption` | AES-GCM with `APP_KEY`, key rotation | — | v0.1 |
 | Rate limiting | `web/ratelimit` | on the app's cache | (the cache's stores) | v0.2 (B2 done) |
 | Logging | `log/slog` (stdlib) | text, JSON handlers | OpenTelemetry bridge (module) | v0.1 |
-| AI (LLMs) | `ai` | fake (tests) | `drivers/anthropic`, `drivers/openai` (and OpenAI-compatible servers), `drivers/gemini`; more as plugins | v0.3 (planned, A1–A3, §14.4) |
+| AI (LLMs) | `ai` | fake (tests) | `drivers/anthropic`, `drivers/openai` (and OpenAI-compatible servers), `drivers/gemini`; more as plugins | v0.3 (A1 done; A2–A3 planned, §14.4) |
 
 **Rule:** a driver belongs in the core module only if it uses nothing but the
 standard library (or a tiny, stable dependency). Everything else is a module.
@@ -1287,7 +1289,7 @@ r.HandleStd(http.MethodGet, "/files/{path...}", st.Default().Handler())
 - **S3** is `drivers/s3`, on minio-go: AWS, R2, MinIO and other
   S3-compatible stores (D128).
 
-### 14.4 AI (planned, v0.3: A1–A3)
+### 14.4 AI (v0.3: A1 done; A2–A3 planned)
 
 Go has capable LLM libraries (the providers' official SDKs, LangChainGo,
 Genkit, Eino); what none has is the rest of a web app. Package `ai`
@@ -1297,44 +1299,73 @@ connects models to it, and stays thin (D156):
 // illustrative
 type Summary struct {
     Title string   `json:"title" validate:"required|max:80"`
-    Tags  []string `json:"tags" validate:"max:5"`
+    Tags  []string `json:"tags" description:"Lower-case topics" validate:"max:5"`
 }
-sum, err := ai.Generate[Summary](ctx, ai.Prompt("Summarize: "+post.Body)) // typed, checked
+sum, res, err := ai.GenerateObject[Summary](ctx, "Summarize: "+post.Body) // typed, checked; res.Usage
 
 support := ai.Agent{
     Instructions: "You answer questions about the customer's orders.",
     Tools:        []ai.Tool{ai.Func("find_order", "Look up an order by its number", findOrder)},
 }
-res, err := support.Prompt(ctx, "Where is order 1042?")   // tool calls run as the current user
-return ai.StreamSSE(c, support.Stream(ctx, question))      // to the browser as it's written
+res, err = support.Prompt(ctx, "Where is order 1042?")   // tool calls run as the current user
+for ev, err := range support.Stream(ctx, question) { … }  // the answer as it's written
 ```
 
-- **Contract in the core, providers in modules:** the core has the
-  provider interface, messages, streaming (an iterator of events: text,
-  tool call, tool result, usage), the agent loop and the fake; no
-  provider SDK. `drivers/anthropic`, `drivers/openai` and `drivers/gemini`
-  wrap the official SDKs; `drivers/openai` also speaks to
-  OpenAI-compatible servers (Ollama, OpenRouter, Groq, vLLM). Providers'
-  features move monthly (extended thinking, prompt caching, citations,
-  their own tools), so every response and provider gives access to the
-  native client and raw response: the common contract never has to grow
-  to everything (D156).
-- **Typed output and tools** (D157): `ai.Generate[T]` sends a JSON schema
-  built from `T` (at registration, never per call) and checks the answer
-  with `T`'s `validate` tags, retrying once with the errors; a tool is a
-  Go function of a typed input, whose schema comes from the input struct
-  and whose input is validated before it runs. Tools run with the
-  caller's context, so `auth.Current` and policies apply; the agent loop
-  stops after a step limit; each call and tool call is logged and is a
-  unit of work (§4).
+- **Contract in the core, providers in modules** (D156): the core has the
+  `Provider` interface (`Generate`, and `Stream`: an iterator of events
+  ending with the whole response), `Request`/`Response`, messages (a
+  closed set of parts: text, tool call, tool result; JSON for storage),
+  `Usage` (input tokens including cached ones, output, cache reads and
+  writes), the tool loop, schemas, `ForApp` with `AI_PROVIDER`,
+  `AI_MODEL`, `AI_MAX_TOKENS`, `AI_TIMEOUT` (default 10 minutes, the
+  SDKs' own; in a stream, the reader's time counts) and the `Fake`; no provider
+  SDK. `drivers/anthropic`, `drivers/openai` (also OpenAI-compatible
+  servers: Ollama, OpenRouter, Groq, vLLM) and `drivers/gemini` (A2)
+  wrap the official SDKs, translate the common request (including the
+  JSON Schema dialects of structured output), and retry like the SDKs
+  do. Providers' features move monthly (reasoning, prompt caching,
+  citations, hosted tools), so `ProviderOptions` passes a driver's own
+  request type, `Response.Raw` keeps the provider's response, and
+  `Client.Provider()` leads to the SDK client: the contract never has to
+  grow to everything.
+- **Calls** (D163): `ai.Generate` (text), `ai.GenerateObject[T]` (a
+  typed T) and `ai.Stream` (events) take the context's client
+  (`ForApp`, `WithClient`, or `Using`) and options applied in order:
+  the client's defaults, an `Agent`'s, the call's. An `Agent` is
+  reusable settings (instructions, tools, model, step limit) and an
+  `Option` itself. Every call returns a `Result`: the steps' responses,
+  their total usage and the whole conversation, to continue it
+  (`Messages`).
+- **Typed output and tools** (D157): schemas come from structs (json
+  names, `description` tags, and the `validate` rules JSON Schema can
+  express), built once per type; model output and tool input are checked
+  with the same `validate` rules. A wrong typed answer goes back once
+  with its problems; then an `OutputError` (502). Answers cut off at the
+  token limit or refused aren't retried. A tool is a Go function of a
+  typed input (`ai.Func`), made at startup (bad names or types panic).
+- **Tools act as the user** (D157, D164): tools run with the call's
+  context, so `auth.Current` and policies apply. A tool's error with a
+  4xx status is told to the model as a web client would see it (status
+  text, an `HTTPError`'s message, field messages; never the internal
+  cause), and the model can correct itself; any other error stops the
+  call. Tools run in order, each a unit of work (`anetos.Unit` kind
+  `tool`), so N+1 detection covers them; the loop stops at a step limit
+  (`ErrMaxSteps`).
+- **Logs** (D165): each model request is logged with provider, model,
+  step, stop reason, tokens and duration; each tool call with its name,
+  duration and error. Prompts and answers never are.
 - **The app's batteries** (A3): conversations in the database, usage and
   cost per call with per-user budgets on the rate limiter, `ai.Queue` for
   generation as a queue job (retries, timeouts), server-sent events for
   streaming, files from storage as inputs, `make:agent`.
-- **Testing** (D158): `anetostest.FakeAI(...)` scripts replies, typed
-  outputs and tool calls, records prompts for assertions, and makes no
-  network calls; providers pass an `ai/aitest` conformance suite against
-  recorded responses, and live when their key is set.
+- **Testing** (D158, D165): `anetostest` forces `AI_PROVIDER=fake` (an
+  `Env` option can choose another; `FakeAI` swaps the fake back in);
+  `anetostest.FakeAI(...)` scripts replies (text, objects, tool calls,
+  errors), one per request, and the fake records requests for
+  assertions (`app.AI()`, `AssertPrompted`); a request with no reply
+  fails. Everything around the model runs for real. Providers pass an
+  `ai/aitest` conformance suite against recorded responses, and live
+  when their key is set (A2).
 - **Embeddings and retrieval** (S2, §10.5): `ai.Embed` on the same
   providers; vector and hybrid search in the query builder; a retrieval
   helper that gives agents the app's own content.
@@ -1656,7 +1687,9 @@ func TestCreatePost(t *testing.T) {
   `app.Disk(name)` checks files. `FakeSocial()` runs a stand-in OpenID
   Connect provider on a local TLS server for social login, and
   `app.SocialSignIn(redirect, account)` signs in through the real flow
-  (D149).
+  (D149). The AI client uses its fake provider: `FakeAI(replies…)`
+  scripts the model's answers, `app.AI()` and `AssertPrompted` check what
+  it was sent (D165).
 - **Clock** (B12, D136, D140): the app has a clock (`anetos.Now(ctx)`,
   `app.Now()`, `App.SetClock`), the system's in production;
   `app.Freeze(t)`, `app.Travel(d)` and `app.Unfreeze()` control it in
@@ -1923,13 +1956,16 @@ unless new information arrives), **Open**, **Superseded**.
 | D153 | Database features are capability-checked at boot: each dialect's capabilities (`FullText`, `BM25`, `Vector`) are probed on the server where they depend on it (extensions, versions); features declare what they need, and the app refuses to start when the configured database can't provide it, with the setting, the database and the alternatives in the message; `anetos new`, `migrate` and tests apply the same rule | Accepted | A configuration that can't work fails at deploy, not on a user's first search; no silent fallback to a weaker feature |
 | D154 | Full-text search belongs to the data layer: opt-in per table (`t.SearchIndex` in a migration), `q.Search(text)` ranked and paginated on PostgreSQL (`tsvector` + GIN), SQLite (FTS5 with sync triggers) and MySQL/MariaDB (`FULLTEXT`), with their differences documented | Accepted | Most apps need a search box, and their database can serve it; declared rather than automatic, because each index costs space and writes, and needs a language and fields chosen |
 | D155 | `SEARCH_RANKING=default\|bm25`: default is each database's best built-in ranking; `bm25` is a boot-time requirement, met by SQLite's FTS5 and by PostgreSQL with pg_textsearch (PostgreSQL licence), refused on MySQL; ParadeDB's `pg_search` isn't the documented choice (AGPL-3.0) | Accepted | BM25 ranks better than `ts_rank`, which ignores how common a word is; a permissive licence matters to apps shipped commercially |
-| D156 | AI is integration, not a framework: the core `ai` package holds the provider contract, messages, streaming, the agent loop and the fake; providers are driver modules wrapping the official SDKs (Anthropic, OpenAI and OpenAI-compatible, Gemini first), with access to the native client; no wrapping of LangChainGo, Genkit or Eino | Accepted (planned, A1–A2) | Our value is the app around the model (typed output, tools as the user, queues, storage, tests); a thin contract survives providers' fast changes, and the escape hatch covers what it doesn't |
-| D157 | Structured output and tools are typed: JSON schemas built from Go structs at registration, model output and tool input checked with `validate` tags (output retried once with the errors), tools run with the caller's context so auth and policies apply, a step limit on the agent loop, every call and tool call logged and run as a unit of work | Accepted (planned, A1) | Typed handlers' design applied to models; the model chooses which tools to call, so tools get no more power than the user has |
-| D158 | AI is tested without the network: `anetostest.FakeAI` scripts replies, typed outputs and tool calls and records prompts; provider drivers pass a conformance suite against recorded responses, and live only when their key is set | Accepted (planned, A1–A2) | Model output varies and costs money; app tests must be deterministic and free |
+| D156 | AI is integration, not a framework: the core `ai` package holds the provider contract, messages, streaming, the agent loop and the fake; providers are driver modules wrapping the official SDKs (Anthropic, OpenAI and OpenAI-compatible, Gemini first), with access to the native client; no wrapping of LangChainGo, Genkit or Eino | Accepted (A1 done; drivers planned, A2) | Our value is the app around the model (typed output, tools as the user, queues, storage, tests); a thin contract survives providers' fast changes, and the escape hatch covers what it doesn't |
+| D157 | Structured output and tools are typed: JSON schemas built once per Go struct (json names, `description` tags, the `validate` rules JSON Schema can express), model output and tool input checked with `validate` tags (output retried once with the errors; not when cut off or refused), tools run with the caller's context so auth and policies apply, a step limit on the tool loop, every model request logged and every tool call run as a unit of work | Accepted | Typed handlers' design applied to models; the model chooses which tools to call, so tools get no more power than the user has |
+| D158 | AI is tested without the network: `anetostest.FakeAI` scripts replies, typed outputs and tool calls and records prompts; provider drivers pass a conformance suite against recorded responses, and live only when their key is set | Accepted (A1 done; conformance planned, A2) | Model output varies and costs money; app tests must be deterministic and free |
 | D159 | Vectors and hybrid search: `ai.Embed`, vector columns, `q.SearchSimilar` on pgvector, MariaDB 11.7+ and SQLite (a brute-force scan in Go, as the pure-Go driver can't load `sqlite-vec`), refused on MySQL Community (`DISTANCE()` is HeatWave-only); `Search(...).Hybrid(...)` merges keyword and vector rankings by reciprocal rank fusion | Accepted (planned, S2) | Retrieval for agents works best with both kinds of match; rank fusion needs no score normalization; capability checks (D153) keep unsupported setups from starting |
 | D160 | `SEARCH_LANGUAGE` defaults to `simple` (no stemming, every language), and every search word matches as a prefix on every database; a language (`english`…) is opt-in. Indexes record the language and ranking they were built for, and a mismatch with the settings stops the app at boot until `search:reindex` | Accepted | `simple` is never wrong, only less generous, and behaves alike on MySQL (which can't stem); prefix matching recovers most of stemming's recall and gives search-as-you-type; a language baked into an index can't silently disagree with the queries |
 | D161 | Embeddings (S2) live in a companion table per searchable model (`post_embeddings`): one row per chunk (record id, position, the chunk's text or offsets, the vector, the embedding model's name, a content hash), filled by queue jobs after commits; switching embedding models fills a new table side by side, then switches | Accepted (planned, S2) | Retrieval works on passages, not whole records; vectors (~6 KB) would bloat the model's table; models change and their sizes differ, and a vector index needs one size; unchanged content is never embedded again |
 | D162 | The migration is a search index's only declaration: no model tags; each database's objects have fixed names (`search_vector`, `search_text`, `<table>_search` and its triggers), so queries need only the table and the settings; the `search_indexes` table records columns, language and ranking for the boot check and `search:reindex`; MySQL search words its index skips (short and over-long words, stop words: InnoDB's default list, or the configured stop-word table) stay as optional prefixes, required only when no indexed word remains; `cmd.Command.ChangesSchema` marks the commands that may run with out-of-date indexes | Accepted | One source of truth that can't disagree with the schema; no per-query metadata lookup; a required word MySQL doesn't index would make every search fail, and dropping it would lose prefix matches ("ca" finding "cat") |
+| D163 | AI calls are functions over the context's client: `ai.Generate` (text), `ai.GenerateObject[T]` (returns `T, *Result, error`) and `ai.Stream` (`iter.Seq2[Event, error]`, ending with `EventDone` and the `Result`); options apply in order (the client's defaults from `AI_*`, an `Agent`'s, the call's); `Agent` is reusable settings and an `Option`; every call returns a `Result` (steps, total usage, the whole conversation as JSON-ready messages); `ai.ForApp` and the `AI_*` settings are in A1, the provider drivers in A2 | Accepted | One way to call, like `db.Query[T](ctx)` and `mailer.Send(ctx, …)`; usage is always at hand without a second API; a typed result can't hide the usage behind generics; an agent passed to `GenerateObject` gives typed answers with tools for free; the settings and the fake had to exist for A1's tests |
+| D164 | A tool's error is told to the model only if it has a 4xx status, and only as a web client would see it (status text, the message and fields of the `HTTPError` that has the status via `ClientMessage`/`ClientFields`, field messages of a validation error), so it can correct its input or tell the user; any other error stops the call and is returned; invalid input is an `*ai.InputError` (422); unknown tool names are told to the model; tools run one at a time | Accepted | The same line the web layer draws between the client's mistakes and the server's failures; internal causes (SQL, hosts) never reach a model that could repeat them; sequential calls keep a request's transaction usable |
+| D165 | `anetostest` forces `AI_PROVIDER=fake` (over the environment; `Env` can choose another, and `FakeAI` swaps the fake back in), which answers only scripted replies (a request with none fails) and records requests; model requests are logged with provider, model, step, stop, tokens and duration, never content | Accepted | A test can't call a paid model by accident, and an unscripted request is a bug in the test, not a default answer; prompts and answers are users' data, while tokens and times are what operators need |
 
 ---
 
@@ -1984,3 +2020,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-02 | v0.2 exit criteria checked: §5 (logging), §15, §17.1, §18 updated; D148–D152 added |
 | 2026-10-02 | Search and AI planned for v0.3: §10.5 (search, database capabilities), §14 and §14.4 (AI) added; D153–D159, O8–O9 added |
 | 2026-10-02 | S1 full-text search implemented: §10.5 rewritten; D153–D155 accepted, D160–D162 added; O8, O9 resolved |
+| 2026-10-02 | A1 AI core implemented: §4, §5, §14 updated, §14.4 rewritten, §18 updated; D156–D158 accepted (drivers and conformance planned, A2), D163–D165 added |

@@ -6,8 +6,9 @@
 // sessions, database rows, files, and the jobs, events, email and pub/sub
 // messages the app sent ([AssertDispatched], [AssertEmitted],
 // [AssertMailSent], [AssertPublished]; faked with [FakeQueue],
-// [FakeEvents], [FakePubSub]). [App.Freeze] and [App.Travel] control the
-// app's clock.
+// [FakeEvents], [FakePubSub]), and the model requests it made, with
+// scripted answers ([FakeAI], [App.AssertPrompted]). [App.Freeze] and
+// [App.Travel] control the app's clock.
 //
 //	func TestCreatePost(t *testing.T) {
 //		app := anetostest.New(t, setup) // setup: the app's own wiring
@@ -48,6 +49,7 @@ import (
 	"testing"
 
 	"anetos.dev/anetos"
+	"anetos.dev/anetos/ai"
 	"anetos.dev/anetos/cache"
 	"anetos.dev/anetos/config"
 	"anetos.dev/anetos/db"
@@ -77,6 +79,7 @@ type App struct {
 	clock    testClock
 	rec      *recorder
 	idp      *idp // FakeSocial
+	ai       *ai.Fake
 }
 
 // Option configures [New].
@@ -92,6 +95,8 @@ type options struct {
 	fakeSocial                bool
 	fakeEvents, fakeAllEvents bool
 	fakedEvents               []any
+	fakeAI                    bool
+	aiReplies                 []ai.FakeReply
 }
 
 // Env sets configuration values, over the test defaults and the
@@ -123,9 +128,10 @@ func LogLevel(l slog.Level) Option { return func(o *options) { o.level = l } }
 // PUBSUB_PREFIX of the App's own (so tests sharing a store don't see each
 // other's items; New removes the App's items, sessions, Redis jobs and
 // streams when the test ends), MAIL_DRIVER=memory (emails are kept,
-// not sent: check them with the mailer's MemoryTransport) and
+// not sent: check them with the mailer's MemoryTransport),
 // STORAGE_DRIVER=memory (files are kept in memory, for every disk that
-// doesn't set its own driver); the process environment; the
+// doesn't set its own driver) and AI_PROVIDER=fake (no model is called:
+// [FakeAI] scripts the answers); the process environment; the
 // .env.testing file next to go.mod, if there is one (say,
 // DB_DATABASE=blog_test); then HTTP_ACCESS_LOG=false,
 // APP_URL=http://example.test (the test client's site, for absolute
@@ -147,7 +153,7 @@ func New(t testing.TB, setup func(app *anetos.App) (*web.Server, error), opts ..
 	}
 	prefix := testPrefix()
 	forced := config.Map{"APP_ENV": "testing", "APP_KEY": encryption.GenerateKey(), "CACHE_PREFIX": prefix + "cache:", "SESSION_PREFIX": prefix + "session:",
-		"QUEUE_PREFIX": prefix + "queue:", "PUBSUB_PREFIX": prefix + "pubsub:", "MAIL_DRIVER": "memory", "STORAGE_DRIVER": "memory"}
+		"QUEUE_PREFIX": prefix + "queue:", "PUBSUB_PREFIX": prefix + "pubsub:", "MAIL_DRIVER": "memory", "STORAGE_DRIVER": "memory", "AI_PROVIDER": "fake"}
 	defaults := config.Map{"HTTP_ACCESS_LOG": "false", "APP_URL": "http://example.test", "MAIL_FROM_ADDRESS": "test@example.com"}
 	file, err := moduleEnv(".env.testing")
 	if err != nil {

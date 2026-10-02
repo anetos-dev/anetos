@@ -188,3 +188,12 @@ func TestCustomErrorHandler(t *testing.T) {
 		t.Errorf("404 via custom handler = %d %q", got.status, got.body)
 	}
 }
+
+func TestHTTPErrorClientMessage(t *testing.T) {
+	if got := Error(http.StatusConflict, "Already booked.").Wrap(errors.New("unique violation")).ClientMessage(); got != "Already booked." {
+		t.Errorf("message: %q", got)
+	}
+	if got := Error(http.StatusNotFound, "").ClientMessage(); got != "Not Found" {
+		t.Errorf("status text: %q", got)
+	}
+}

@@ -35,6 +35,37 @@ All notable changes to this project are documented here. The format follows
 - `examples/forms` has a search box; guide "Add full-text search",
   references for the migration methods, the query builder, the settings
   and the command (S1).
+- AI (`ai` package): `ai.Generate` (text), `ai.GenerateObject[T]` (an
+  answer decoded into a struct and checked with its `validate` tags,
+  retried once with the problems, else an `*ai.OutputError`, 502) and
+  `ai.Stream` (an iterator of events), with options (`System`, `Model`,
+  `MaxTokens`, `Temperature`, `Timeout`, `Messages`, `Tools`,
+  `MaxSteps`, `ProviderOptions`, `Using`); every call returns an
+  `*ai.Result` with the steps, their total usage and the conversation,
+  which marshals to JSON (A1, design §14.4, D156, D157, D163).
+- AI tools: `ai.Func(name, description, fn)` with a typed input whose
+  JSON schema comes from its json, description and validate tags
+  (`ai.SchemaFor[T]`), validated before fn runs; tools run with the
+  caller's context, as the current user; a tool error with a 4xx status
+  is told to the model as a web client would see it, others stop the
+  call; `ai.Agent` bundles instructions, tools and options (A1, D157,
+  D164).
+- `ai.ForApp(app, drivers...)` with `AI_PROVIDER`, `AI_MODEL`,
+  `AI_MAX_TOKENS` and `AI_TIMEOUT`; the `ai.Provider` contract for driver
+  modules, `Request.Options`, `Response.Raw` and `Client.Provider()` for
+  what it doesn't cover; each model request is logged with its tokens
+  (never its content), and each tool call is a unit of work (kind
+  `tool`) (A1, D156, D165).
+- `ai.Fake` (`AI_PROVIDER=fake`) with scripted replies (`ai.FakeText`,
+  `FakeObject`, `FakeToolCall`, `FakeError`); `anetostest` forces it, and
+  `anetostest.FakeAI(replies...)`, `app.AI()`, `app.AssertPrompted` and
+  `app.AssertNotPrompted` test what the app asks a model (A1, D158,
+  D165).
+- `examples/ai`, a support desk API with a typed summary, an agent with
+  a tool over the customer's orders and a streamed answer; guide "Add AI
+  to your app", concept and reference pages (A1).
+- `web.HTTPError.ClientMessage()` and `ClientFields()`: the message and
+  field messages clients see (A1).
 
 ### Changed
 - `s.Rename` refuses a table with a search index, `Alter` refuses to drop

@@ -256,6 +256,18 @@ and by the drivers. See [Send email](../guides/mail.md).
 | `MAIL_POSTMARK_TOKEN` | string | none (required with `postmark`) | The Postmark server's API token (`POSTMARK_API_TEST` checks requests without sending) | v0.2 |
 | `MAIL_POSTMARK_STREAM` | string | `outbound` | The Postmark message stream | v0.2 |
 
+## AI
+
+Read by `ai.ForApp` (or `ai.LoadConfig`) into `ai.Config`, and by the
+drivers. See [Add AI to your app](../guides/ai.md).
+
+| Key | Type | Default | Description | Since |
+|---|---|---|---|---|
+| `AI_PROVIDER` | `fake` \| a driver's name | none (required) | The provider that runs the models. `fake` answers with scripted replies and never calls a model (a warning in production; `anetostest` sets it); the others need their driver passed to `ai.ForApp` | v0.3 |
+| `AI_MODEL` | string | the provider's default | The model calls use unless they set `ai.Model` | v0.3 |
+| `AI_MAX_TOKENS` | int ≥ 1 | `4096` | The longest answer, in tokens, unless a call sets `ai.MaxTokens`; a longer one is cut off | v0.3 |
+| `AI_TIMEOUT` | duration > 0 | `10m` | How long each request to the model may take, unless a call sets `ai.Timeout`; for a stream, including the time the reader's loop takes | v0.3 |
+
 ## Storage
 
 Read by `storage.ForApp` (or `storage.LoadConfig`) into `storage.Config`
