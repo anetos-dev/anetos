@@ -174,6 +174,24 @@ All notable changes to this project are documented here. The format follows
   "Search by meaning" (S2).
 
 ### Changed
+- The framework is named **Anetos** (M1, D185); an app on v0.2 follows
+  the [upgrade guide](docs/site/upgrade/v0.3.md):
+  - module `anetos.dev/anetos` (was `anetos.dev/anetos`), command
+    `anetos`, package names `anetos` and `anetostest` (was `anetostest`),
+    environment variables `ANETOS_*` (was `ANETOS_*`);
+  - directives `//anetos:model`, `//anetos:skip`, `-- anetos:no-transaction`
+    and `-- anetos:no-split`; the old `anetos:` ones are plain comments now.
+    `anetos gen` won't overwrite `models_gen.go` files from `anetos gen`
+    until they're deleted;
+  - the encryption key derivation and the signing contexts carry the new
+    name: values encrypted by v0.2 (also under `APP_PREVIOUS_KEYS`) can't be
+    decrypted, and sessions, remember-me cookies (now `anetos_session`,
+    `anetos_remember`), password-reset and verification links and signed
+    storage URLs issued by v0.2 are invalid;
+  - the default `APP_NAME` is `anetos`, which names Redis key prefixes and
+    default pub/sub subscriptions; dead-letter attributes are `anetos.*`;
+    the migration lock and the local disk's temporary files
+    (`.anetos-tmp-`) have new names.
 - On MariaDB 11.6+, error 1020 ("Record has changed since last read",
   from `innodb_snapshot_isolation`) is retried like a deadlock by the
   database cache and queue stores, and many-to-many `Attach`, `Detach`
@@ -430,7 +448,7 @@ and `plugins/postmark`, tagged `<path>/v0.2.0` with the others.
   at the end of `setup` (B11).
 - `examples/queue` uses the Postmark plugin and skips receipts to
   suppressed addresses; guides "Use plugins" and "Write a plugin" (B11).
-- `anetos make:auth`: writes accounts into a `anetos new` project
+- `anetos make:auth`: writes accounts into an `anetos new` project
   (registration, login with "remember me" and throttling, logout, email
   verification, password reset, API tokens): the `User` model, handlers,
   templ pages, verification and reset emails, routes, the users
@@ -495,7 +513,7 @@ and `plugins/postmark`, tagged `<path>/v0.2.0` with the others.
   `social.callback` routes, the `social_accounts` migration, the empty
   `SOCIAL_GOOGLE_*` and `SOCIAL_GITHUB_*` settings in `.env` and
   `.env.example`, and tests with `FakeSocial` (v0.2 checks, design D150).
-- `examples/saas`: a `anetos new` + `make:auth` app with a welcome email
+- `examples/saas`: an `anetos new` + `make:auth` app with a welcome email
   from a queue job, a listener on a billing topic and a scheduled task
   that ends trials, and a test that runs the binary as `http`,
   `workers`, `listeners` and `scheduler` processes, then as one (v0.2
@@ -737,7 +755,7 @@ modules and the `cli` module are tagged `drivers/<name>/v0.1.0` and
   `With`, `Make`, `MakeMany`, `Create`, `CreateMany`.
 - `session.Manager.Load` and `Edit` read and change the session a request
   carries, for test clients (F12).
-- `dbtest.RunApp` tests a driver with a `anetostest` app (F12).
+- `dbtest.RunApp` tests a driver with an `anetostest` app (F12).
 - `anetos new` projects test with `anetostest`; PostgreSQL and MySQL
   projects get a `.env.testing` for a `<name>_test` database (F12).
 - Docs: testing guide and reference; the guides' "Testing it" sections

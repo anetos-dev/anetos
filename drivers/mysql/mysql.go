@@ -28,8 +28,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-sql-driver/mysql"
 	"anetos.dev/anetos/db"
+	"github.com/go-sql-driver/mysql"
 )
 
 // Driver returns the MySQL/MariaDB driver, selected by

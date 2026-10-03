@@ -208,7 +208,7 @@ s := session.New()
 ctx := session.NewContext(context.Background(), s)
 ```
 
-Across requests, a `anetostest` app keeps the session cookie: check the
+Across requests, an `anetostest` app keeps the session cookie: check the
 session after a response with `res.AssertSessionHas("status", "Saved.")`,
 and set values before a request with `app.WithSession(func(s
 *session.Session) { … })`. See [Test your app](testing.md#2-test-a-form).

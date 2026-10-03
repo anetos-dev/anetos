@@ -14,8 +14,8 @@ func TestInternalFrames(t *testing.T) {
 	mods := []string{ // longest first, as modules() sorts them
 		"anetos.dev/anetos/examples/database",
 		"anetos.dev/anetos/drivers/sqlite",
-		"anetos.dev/anetos-contrib",
 		"github.com/acme/shop.example",
+		"anetos.dev/anetos-contrib",
 		"anetos.dev/anetos",
 		"golang.org/x/sync",
 		"blog",
@@ -27,19 +27,19 @@ func TestInternalFrames(t *testing.T) {
 		"anetos.dev/anetos/drivers/sqlite.(*conn).Query":     true,
 		"anetos.dev/anetos/examples/database.Blog.ListPosts": false,
 		"anetos.dev/anetos-contrib/pagination.Links":         false,
-		"blog/app/handlers.Posts.Index":                               false,
-		"blog.Handler":                                                false,
-		"github.com/acme/shop.example.Handler":                        false,
-		"github.com/acme/shop.example/handlers.Index":                 false,
-		"blog/app/handlers.Posts.Index.func1":                         false,
-		"main.TestNoNPlusOne":                                         false,
-		"main.(*Blog).ListPosts":                                      false,
-		"golang.org/x/sync/errgroup.(*Group).Go.func1":                false,
-		"slices.Chunk[...].func1":                                     true,
-		"net/http.HandlerFunc.ServeHTTP":                              true,
-		"testing.tRunner":                                             true,
-		"runtime.goexit":                                              true,
-		"encoding/json.Marshal":                                       true,
+		"blog/app/handlers.Posts.Index":                      false,
+		"blog.Handler":                                       false,
+		"github.com/acme/shop.example.Handler":               false,
+		"github.com/acme/shop.example/handlers.Index":        false,
+		"blog/app/handlers.Posts.Index.func1":                false,
+		"main.TestNoNPlusOne":                                false,
+		"main.(*Blog).ListPosts":                             false,
+		"golang.org/x/sync/errgroup.(*Group).Go.func1":       false,
+		"slices.Chunk[...].func1":                            true,
+		"net/http.HandlerFunc.ServeHTTP":                     true,
+		"testing.tRunner":                                    true,
+		"runtime.goexit":                                     true,
+		"encoding/json.Marshal":                              true,
 	} {
 		if got := internal(fn, mods); got != want {
 			t.Errorf("internal(%s) = %v", fn, got)
@@ -50,8 +50,8 @@ func TestInternalFrames(t *testing.T) {
 		"anetos.dev/anetos/db.(*DB).query":                   true,
 		"anetos.dev/anetos/examples/database.Blog.ListPosts": false,
 		"anetos.dev/anetosapp/handlers.Index":                false,
-		"blog/handlers.Index":                                         false,
-		"slices.Chunk[...].func1":                                     true,
+		"blog/handlers.Index":                                false,
+		"slices.Chunk[...].func1":                            true,
 	} {
 		if got := internal(fn, nil); got != want {
 			t.Errorf("internal(%s, nil) = %v", fn, got)

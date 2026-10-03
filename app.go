@@ -39,7 +39,7 @@ type Provider interface {
 	Boot(ctx context.Context, a *App) error
 }
 
-// App is a Anetos application: its configuration, logger, services,
+// App is an Anetos application: its configuration, logger, services,
 // providers and supervised components.
 //
 // Create one with [New], add providers and components, then call [App.Run].

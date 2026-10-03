@@ -216,7 +216,7 @@ or `OnlyTrashed()`. Every method is listed in the
 
 Create the rows a query should (and shouldn't) find with
 [factories](testing.md#4-make-rows-with-factories), then run it on
-`app.Context()` of a `anetostest` app.
+`app.Context()` of an `anetostest` app.
 
 ## Common problems
 

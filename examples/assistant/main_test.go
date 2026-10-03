@@ -9,9 +9,9 @@ import (
 
 	"anetos.dev/anetos"
 	"anetos.dev/anetos/ai"
+	"anetos.dev/anetos/anetostest"
 	"anetos.dev/anetos/auth/password"
 	"anetos.dev/anetos/db"
-	"anetos.dev/anetos/anetostest"
 )
 
 // signIn creates a user and signs in as them.

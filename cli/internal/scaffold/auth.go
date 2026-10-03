@@ -39,7 +39,7 @@ const authCall = `	// Accounts (anetos make:auth): registration, login with a pa
 	}
 `
 
-// routesCall is the line of a anetos new project's main.go that
+// routesCall is the line of an anetos new project's main.go that
 // make:auth adds its call after.
 const routesCall = "routes.Register(srv.Router(), sessions)"
 
@@ -60,7 +60,7 @@ type AuthResult struct {
 // users table's migration, setupAuth and its tests. It writes nothing if
 // one of the files exists already, or a name they declare is taken in
 // its package; if a write fails, it removes what it wrote. When setup in
-// main.go has the routes.Register call of a anetos new project, it adds
+// main.go has the routes.Register call of an anetos new project, it adds
 // the call to setupAuth after it. It adds the SOCIAL_* settings, empty,
 // to .env and .env.example.
 func MakeAuth(root string, now time.Time) (AuthResult, error) {

@@ -1,6 +1,7 @@
 # Anetos
 
-> **Working codename.** The final name will be chosen before the first public release (v0.3).
+> *Anetos* (Greek άνετος, "at ease, comfortable"; say **AH-neh-tos**).
+> Module `anetos.dev/anetos`, command `anetos`.
 
 A batteries-included Go web framework with the developer comfort of Laravel,
 built the Go way: typed, `net/http`-compatible, code generation instead of

@@ -14,12 +14,12 @@ import (
 	"time"
 
 	"anetos.dev/anetos"
+	"anetos.dev/anetos/anetostest"
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/events"
 	"anetos.dev/anetos/mailer"
 	"anetos.dev/anetos/queue"
 	"anetos.dev/anetos/schedule"
-	"anetos.dev/anetos/anetostest"
 )
 
 // fakeGateway makes setup use g.

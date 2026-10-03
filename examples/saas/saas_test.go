@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"anetos.dev/anetos/pubsub"
 	"anetos.dev/anetos/anetostest"
+	"anetos.dev/anetos/pubsub"
 
 	"anetos.dev/anetos/examples/saas/app/jobs"
 	"anetos.dev/anetos/examples/saas/app/listeners"

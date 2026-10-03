@@ -17,7 +17,7 @@ import (
 
 const newUsage = `Usage: anetos new <directory> [--module=path] [--db=sqlite|postgres|mysql]
 
-Creates a Anetos project: routes, handlers, templ views with a layout,
+Creates an Anetos project: routes, handlers, templ views with a layout,
 sessions and CSRF protection, migrations, static files with htmx, a test,
 and a .env with a fresh APP_KEY. Then it downloads the dependencies and
 generates the views (skip with --skip-install).

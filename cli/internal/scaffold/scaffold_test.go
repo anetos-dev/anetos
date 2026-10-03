@@ -263,7 +263,7 @@ func TestMakeAuth(t *testing.T) {
 	if res, err := MakeAuth(other, now); err != nil || res.Wired || read(t, filepath.Join(other, "main.go")) != main {
 		t.Errorf("unwired: %+v, %v", res, err)
 	}
-	// Not a anetos new project.
+	// Not an anetos new project.
 	if _, err := MakeAuth(t.TempDir(), now); err == nil {
 		t.Error("an empty directory: no error")
 	}

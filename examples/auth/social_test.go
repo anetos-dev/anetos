@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/anetostest"
+	"anetos.dev/anetos/db"
 )
 
 // region: test-social

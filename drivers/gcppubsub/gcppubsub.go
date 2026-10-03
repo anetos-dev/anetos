@@ -20,11 +20,11 @@ import (
 	"sync"
 	"time"
 
-	gpubsub "cloud.google.com/go/pubsub/v2"
-	"cloud.google.com/go/pubsub/v2/apiv1/pubsubpb"
 	"anetos.dev/anetos"
 	"anetos.dev/anetos/config"
 	"anetos.dev/anetos/pubsub"
+	gpubsub "cloud.google.com/go/pubsub/v2"
+	"cloud.google.com/go/pubsub/v2/apiv1/pubsubpb"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

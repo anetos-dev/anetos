@@ -1,6 +1,6 @@
 # [[.Title]]
 
-A [Anetos](https://anetos.dev/anetos) application.
+An [Anetos](https://github.com/anetos-dev/anetos) application.
 
 ```sh
 go run . migrate        # create the database tables
@@ -28,9 +28,9 @@ GitHub, email verification, password reset, API tokens) with
 
 Add plugins with `go tool anetos add <module>` (and remove them with
 `go tool anetos remove <module>`): `plugins.go` lists them, and `main.go`
-loads them. See [Use plugins](https://anetos.dev/anetos/blob/main/docs/site/guides/plugins.md).
+loads them. See [Use plugins](https://github.com/anetos-dev/anetos/blob/main/docs/site/guides/plugins.md).
 
-Tests use [anetostest](https://anetos.dev/anetos/blob/main/docs/site/guides/testing.md):
+Tests use [anetostest](https://github.com/anetos-dev/anetos/blob/main/docs/site/guides/testing.md):
 each gets the app with a migrated database, and leaves no rows behind.
 [[if eq .DB "sqlite"]]It's an in-memory SQLite database, so there's nothing
 to set up.[[else]]`go test` reads the database settings from `.env.testing`,

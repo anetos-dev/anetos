@@ -235,7 +235,7 @@ user has no other account of that provider linked.
 | `…_create_users_table.go exists` or `app/models/user.go exists` | The app has users already, or `make:auth` ran before | Rename yours, or add accounts by hand from [Authentication](authentication.md) |
 | `app/models already declares User` (or another name) | A name the generated files declare is taken in that package | Rename yours |
 | `the project doesn't build` after the files are written | Your code and the generated code clash, or a tool failed | Fix it, then run the commands it prints |
-| `no app/models directory` | Not a `anetos new` project | Start from [`examples/auth`](../../../examples/auth) |
+| `no app/models directory` | Not an `anetos new` project | Start from [`examples/auth`](../../../examples/auth) |
 | `main.go doesn't have the routes.Register call` | `setup` was changed | Add the `setupAuth` call it prints |
 | `no such table: users` | The migrations haven't run | `go run . migrate` |
 | `URL needs the app's public URL` when registering | `APP_URL` isn't set | Set it in `.env` |

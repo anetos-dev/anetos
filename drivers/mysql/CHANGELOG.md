@@ -12,6 +12,11 @@ tagged `drivers/mysql/vX.Y.Z`. The framework's own changes are in the
   searches get their candidates under selective filters (MariaDB's
   default is 20); MySQL ignores it (S2, D182).
 
+### Changed
+- The module path is `anetos.dev/anetos/drivers/mysql`
+  (was `anetos.dev/anetos/drivers/mysql`);
+  the framework is named Anetos (M1).
+
 ## [0.2.0] - 2026-10-02
 
 Released with the framework's v0.2.0.
@@ -24,5 +29,5 @@ Released with the framework's v0.2.0.
 
 ### Added
 - MySQL and MariaDB through go-sql-driver/mysql: DSN from `DB_*` or `DB_URL` with `parseTime`, UTC and found-rows settings, named-lock migrations; tested on MySQL 8.0 and MariaDB 10.11 (F7).
-- Runs the `db/dbtest` conformance suite, and a `anetostest` app test
+- Runs the `db/dbtest` conformance suite, and an `anetostest` app test
   (F7, F8, F12).

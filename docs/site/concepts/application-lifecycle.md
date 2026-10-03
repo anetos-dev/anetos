@@ -5,7 +5,7 @@ since: v0.1.0
 
 # Application lifecycle
 
-A Anetos application goes through five phases: **New → Register → Boot →
+An Anetos application goes through five phases: **New → Register → Boot →
 Run → Shutdown**. Knowing which code runs in which phase tells you where to
 put configuration, wiring, connections and cleanup.
 

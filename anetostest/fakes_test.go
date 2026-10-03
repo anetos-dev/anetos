@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"anetos.dev/anetos"
+	"anetos.dev/anetos/anetostest"
 	"anetos.dev/anetos/events"
 	"anetos.dev/anetos/mailer"
 	"anetos.dev/anetos/pubsub"
 	"anetos.dev/anetos/queue"
-	"anetos.dev/anetos/anetostest"
 	"anetos.dev/anetos/session"
 	"anetos.dev/anetos/storage"
 	"anetos.dev/anetos/web"

@@ -101,7 +101,7 @@ func Apply(changes []Change) error {
 }
 
 // candidates lists the packages worth type-checking: those that import
-// the db package (directly or not), mention TableName or a anetos
+// the db package (directly or not), mention TableName or an anetos
 // directive, or have a generated file. Generated files are replaced by an
 // empty file in the overlay, so stale ones can't break type checking.
 func candidates(dir string, patterns []string) (roots []string, overlay map[string][]byte, err error) {

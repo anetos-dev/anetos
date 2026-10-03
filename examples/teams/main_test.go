@@ -10,11 +10,11 @@ import (
 	"testing"
 
 	"anetos.dev/anetos"
+	"anetos.dev/anetos/anetostest"
 	"anetos.dev/anetos/auth"
 	"anetos.dev/anetos/auth/rbac"
 	"anetos.dev/anetos/cmd"
 	"anetos.dev/anetos/db"
-	"anetos.dev/anetos/anetostest"
 )
 
 // region: test-helpers

@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"anetos.dev/anetos"
+	"anetos.dev/anetos/anetostest"
 	"anetos.dev/anetos/cmd"
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/db/migrate"
@@ -18,7 +19,6 @@ import (
 	"anetos.dev/anetos/ext"
 	"anetos.dev/anetos/plugins/postmark"
 	"anetos.dev/anetos/queue"
-	"anetos.dev/anetos/anetostest"
 	"anetos.dev/anetos/web"
 )
 

@@ -284,7 +284,7 @@ func isStd(name string) bool {
 	return err == nil && pkg.Goroot
 }
 
-// checkoutModules returns the driver and plugin modules of a Anetos
+// checkoutModules returns the driver and plugin modules of an Anetos
 // checkout, so that a --replace project can go get them (and anetos add
 // them) from it.
 func checkoutModules(checkout string) ([]Replacement, error) {

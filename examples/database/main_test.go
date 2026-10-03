@@ -12,10 +12,10 @@ import (
 	"time"
 
 	"anetos.dev/anetos"
+	"anetos.dev/anetos/anetostest"
 	"anetos.dev/anetos/cache"
 	"anetos.dev/anetos/config"
 	"anetos.dev/anetos/db"
-	"anetos.dev/anetos/anetostest"
 	"anetos.dev/anetos/web"
 )
 

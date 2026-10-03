@@ -13,12 +13,12 @@ import (
 	"testing"
 
 	"anetos.dev/anetos"
+	"anetos.dev/anetos/anetostest"
 	"anetos.dev/anetos/cmd"
 	"anetos.dev/anetos/config"
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/db/factory"
 	"anetos.dev/anetos/db/migrate"
-	"anetos.dev/anetos/anetostest"
 	"anetos.dev/anetos/web"
 )
 

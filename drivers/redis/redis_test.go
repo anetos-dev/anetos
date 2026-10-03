@@ -14,12 +14,12 @@ import (
 	"time"
 
 	"anetos.dev/anetos"
+	"anetos.dev/anetos/anetostest"
 	"anetos.dev/anetos/cache"
 	"anetos.dev/anetos/cache/cachetest"
 	"anetos.dev/anetos/config"
 	"anetos.dev/anetos/drivers/redis"
 	"anetos.dev/anetos/encryption"
-	"anetos.dev/anetos/anetostest"
 	"anetos.dev/anetos/session"
 	"anetos.dev/anetos/web"
 	goredis "github.com/redis/go-redis/v9"

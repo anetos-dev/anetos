@@ -1,6 +1,8 @@
 # Anetos — Documentation Guide
 
-> **Working codename.** "Anetos" is a placeholder until the final name is chosen.
+> **Name.** Write *Anetos* in prose and `anetos` for the command, the
+> module (`anetos.dev/anetos`) and packages. Never "AnetOS", "aNETos" or a
+> short form such as "anet" (design D185).
 
 | | |
 |---|---|

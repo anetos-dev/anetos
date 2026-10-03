@@ -7,6 +7,11 @@ tagged `plugins/postmark/vX.Y.Z`. The framework's own changes are in the
 
 ## [Unreleased]
 
+### Changed
+- The module path is `anetos.dev/anetos/plugins/postmark`
+  (was `anetos.dev/anetos/plugins/postmark`);
+  the framework is named Anetos (M1).
+
 ## [0.2.0] - 2026-10-02
 
 The first release, with the framework's v0.2.0.

@@ -11,6 +11,7 @@ require (
 require golang.org/x/crypto v0.57.0 // indirect
 
 require (
+	anetos.dev/anetos/plugins/postmark v0.0.0-00010101000000-000000000000
 	github.com/a-h/parse v0.0.0-20250122154542-74294addb73e // indirect
 	github.com/a-h/templ v0.3.1020
 	github.com/andybalholm/brotli v1.1.0 // indirect
@@ -21,7 +22,6 @@ require (
 	github.com/fatih/color v1.16.0 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	anetos.dev/anetos/plugins/postmark v0.0.0-00010101000000-000000000000
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/natefinch/atomic v1.0.1 // indirect

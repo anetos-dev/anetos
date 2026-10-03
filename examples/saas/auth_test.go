@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
+	"anetos.dev/anetos/anetostest"
 	"anetos.dev/anetos/auth"
 	"anetos.dev/anetos/db"
-	"anetos.dev/anetos/anetostest"
 
 	"anetos.dev/anetos/examples/saas/app/mailers"
 	"anetos.dev/anetos/examples/saas/app/models"

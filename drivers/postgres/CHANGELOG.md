@@ -13,6 +13,11 @@ tagged `drivers/postgres/vX.Y.Z`. The framework's own changes are in the
   vector searches get their 200 candidates after filters (by default the
   index stops at 40) (S2, D182).
 
+### Changed
+- The module path is `anetos.dev/anetos/drivers/postgres`
+  (was `anetos.dev/anetos/drivers/postgres`);
+  the framework is named Anetos (M1).
+
 ## [0.2.0] - 2026-10-02
 
 Released with the framework's v0.2.0.
@@ -25,5 +30,5 @@ Released with the framework's v0.2.0.
 
 ### Added
 - PostgreSQL through pgx (stdlib mode): DSN from `DB_*` or `DB_URL`, UTC session time zone, advisory-lock migrations (F7).
-- Runs the `db/dbtest` conformance suite, and a `anetostest` app test
+- Runs the `db/dbtest` conformance suite, and an `anetostest` app test
   (F7, F8, F12).

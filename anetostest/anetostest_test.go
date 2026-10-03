@@ -16,8 +16,8 @@ import (
 	"testing"
 
 	"anetos.dev/anetos"
-	"anetos.dev/anetos/cache"
 	"anetos.dev/anetos/anetostest"
+	"anetos.dev/anetos/cache"
 	"anetos.dev/anetos/session"
 	"anetos.dev/anetos/web"
 )

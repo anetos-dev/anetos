@@ -8,7 +8,7 @@ since: v0.2.0
 Let people register, log in (with "remember me"), log out, verify their
 email address and reset a forgotten password, and give API clients
 tokens. The complete app is [`examples/auth`](../../../examples/auth).
-In a `anetos new` project, `go tool anetos make:auth` writes all of this
+In an `anetos new` project, `go tool anetos make:auth` writes all of this
 into your app: see [Add accounts with make:auth](accounts.md). This
 guide is the `auth` package underneath, step by step.
 

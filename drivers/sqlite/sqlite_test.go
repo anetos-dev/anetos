@@ -9,10 +9,10 @@ import (
 	"testing"
 
 	"anetos.dev/anetos"
+	"anetos.dev/anetos/anetostest"
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/db/dbtest"
 	"anetos.dev/anetos/drivers/sqlite"
-	"anetos.dev/anetos/anetostest"
 	"anetos.dev/anetos/web"
 )
 

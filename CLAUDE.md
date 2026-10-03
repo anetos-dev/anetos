@@ -4,7 +4,8 @@ Instructions for AI assistants working in this repository.
 
 ## Project
 
-Anetos (working codename) is an open-source, batteries-included Go web
+Anetos (Greek άνετος, "at ease"; module `anetos.dev/anetos`, GitHub org
+`anetos-dev`) is an open-source, batteries-included Go web
 framework. Read these before making changes:
 
 - `docs/planning/roadmap.md`: milestones and work packages (WP IDs like F5, B7)

@@ -3,8 +3,8 @@ module anetos.dev/anetos/drivers/anthropic
 go 1.26.0
 
 require (
-	github.com/anthropics/anthropic-sdk-go v1.78.0
 	anetos.dev/anetos v0.0.0-00010101000000-000000000000
+	github.com/anthropics/anthropic-sdk-go v1.78.0
 )
 
 require (

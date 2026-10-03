@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"anetos.dev/anetos"
-	"anetos.dev/anetos/pubsub"
 	"anetos.dev/anetos/anetostest"
+	"anetos.dev/anetos/pubsub"
 )
 
 // listen collects the messages of topic, from a subscription of the test.

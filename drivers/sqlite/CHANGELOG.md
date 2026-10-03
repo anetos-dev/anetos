@@ -12,6 +12,11 @@ tagged `drivers/sqlite/vX.Y.Z`. The framework's own changes are in the
   of two vectors stored as little-endian float32s, for vector search
   (S2).
 
+### Changed
+- The module path is `anetos.dev/anetos/drivers/sqlite`
+  (was `anetos.dev/anetos/drivers/sqlite`);
+  the framework is named Anetos (M1).
+
 ## [0.2.0] - 2026-10-02
 
 Released with the framework's v0.2.0.
@@ -24,5 +29,5 @@ Released with the framework's v0.2.0.
 
 ### Added
 - SQLite through modernc.org/sqlite (pure Go, no C compiler): file and in-memory databases (one connection for `:memory:`), WAL and foreign keys on, busy timeout, UTC text times (F7).
-- Runs the `db/dbtest` conformance suite, and a `anetostest` app test
+- Runs the `db/dbtest` conformance suite, and an `anetostest` app test
   (F7, F8, F12).

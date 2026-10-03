@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
+	"anetos.dev/anetos/anetostest"
 	"anetos.dev/anetos/auth/password"
 	"anetos.dev/anetos/db"
-	"anetos.dev/anetos/anetostest"
 )
 
 // emailedLink returns the path of the last link emailed with subject:
