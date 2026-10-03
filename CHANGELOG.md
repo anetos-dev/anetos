@@ -174,24 +174,12 @@ All notable changes to this project are documented here. The format follows
   "Search by meaning" (S2).
 
 ### Changed
-- The framework is named **Anetos** (M1, D185); an app on v0.2 follows
-  the [upgrade guide](docs/site/upgrade/v0.3.md):
-  - module `anetos.dev/anetos` (was `anetos.dev/anetos`), command
-    `anetos`, package names `anetos` and `anetostest` (was `anetostest`),
-    environment variables `ANETOS_*` (was `ANETOS_*`);
-  - directives `//anetos:model`, `//anetos:skip`, `-- anetos:no-transaction`
-    and `-- anetos:no-split`; the old `anetos:` ones are plain comments now.
-    `anetos gen` won't overwrite `models_gen.go` files from `anetos gen`
-    until they're deleted;
-  - the encryption key derivation and the signing contexts carry the new
-    name: values encrypted by v0.2 (also under `APP_PREVIOUS_KEYS`) can't be
-    decrypted, and sessions, remember-me cookies (now `anetos_session`,
-    `anetos_remember`), password-reset and verification links and signed
-    storage URLs issued by v0.2 are invalid;
-  - the default `APP_NAME` is `anetos`, which names Redis key prefixes and
-    default pub/sub subscriptions; dead-letter attributes are `anetos.*`;
-    the migration lock and the local disk's temporary files
-    (`.anetos-tmp-`) have new names.
+- The framework is named **Anetos** (M1, D185): module `anetos.dev/anetos`,
+  command `anetos`, test package `anetostest`, environment variables
+  `ANETOS_*`. The encryption key derivation and the signing contexts carry
+  the name, so values encrypted by v0.2 (also under `APP_PREVIOUS_KEYS`)
+  can't be decrypted, and sessions, remember-me cookies, password-reset and
+  verification links and signed storage URLs issued by v0.2 are invalid.
 - On MariaDB 11.6+, error 1020 ("Record has changed since last read",
   from `innodb_snapshot_isolation`) is retried like a deadlock by the
   database cache and queue stores, and many-to-many `Attach`, `Detach`

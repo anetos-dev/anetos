@@ -12,11 +12,6 @@ tagged `drivers/mysql/vX.Y.Z`. The framework's own changes are in the
   searches get their candidates under selective filters (MariaDB's
   default is 20); MySQL ignores it (S2, D182).
 
-### Changed
-- The module path is `anetos.dev/anetos/drivers/mysql`
-  (was `anetos.dev/anetos/drivers/mysql`);
-  the framework is named Anetos (M1).
-
 ## [0.2.0] - 2026-10-02
 
 Released with the framework's v0.2.0.

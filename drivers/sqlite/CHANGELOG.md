@@ -12,11 +12,6 @@ tagged `drivers/sqlite/vX.Y.Z`. The framework's own changes are in the
   of two vectors stored as little-endian float32s, for vector search
   (S2).
 
-### Changed
-- The module path is `anetos.dev/anetos/drivers/sqlite`
-  (was `anetos.dev/anetos/drivers/sqlite`);
-  the framework is named Anetos (M1).
-
 ## [0.2.0] - 2026-10-02
 
 Released with the framework's v0.2.0.

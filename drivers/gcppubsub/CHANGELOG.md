@@ -7,11 +7,6 @@ tagged `drivers/gcppubsub/vX.Y.Z`. The framework's own changes are in the
 
 ## [Unreleased]
 
-### Changed
-- The module path is `anetos.dev/anetos/drivers/gcppubsub`
-  (was `anetos.dev/anetos/drivers/gcppubsub`);
-  the framework is named Anetos (M1).
-
 ## [0.2.0] - 2026-10-02
 
 The first release, with the framework's v0.2.0.

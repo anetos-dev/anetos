@@ -2,8 +2,7 @@
 
 > **Name.** *Anetos*, from Greek άνετος ("at ease, comfortable"), said
 > AH-neh-tos. Module `anetos.dev/anetos`, GitHub org `anetos-dev`, site
-> anetos.dev, command `anetos` (chosen at [M1](#v03--public-mvp), design D185;
-> "Anetos" was the working codename until then).
+> anetos.dev, command `anetos` (chosen at [M1](#v03--public-mvp), design D185).
 
 | | |
 |---|---|
@@ -296,7 +295,7 @@ apps with search and AI features. **This is the first public release.**
 | R1 Roles & permissions | ✅ Done 2026-10-02 (package `auth/rbac`: permissions in code, roles in code and in the database, global and scoped grants (teams), checks and middleware for the signed-in user with API token abilities as a ceiling, `AuthorizeRole` against escalation, `rbac:*` commands; `auth.CurrentID`; `examples/teams`; tested on SQLite, PostgreSQL 16 and 17, MySQL 8.0 and MariaDB) |
 | A3 AI in the app | ✅ Done 2026-10-02 (stored conversations with `Add`/`Reply`/`StreamReply`, usage records and per-user budgets (`TrackUsage`, `ratelimit.AllowN`), queued replies (`QueueAgents`, `QueueReply`, acting as the user with the new `auth.ActAs`), `ai.SSE` over the new `c.Events()` with the htmx SSE extension bundled, `make:agent`; `examples/assistant`, a help center whose agent searches its articles, checked in a browser against a stand-in OpenAI-compatible server; tested on SQLite, PostgreSQL 16 and 17, MySQL 8.0 and MariaDB. Files as model inputs went to the backlog) |
 | S2 Vectors & hybrid search | ✅ Done 2026-10-02 (`t.Vector`, `CreateEmbeddings` (companion `<table>_embeddings`), `q.Similar` and `q.Hybrid` (reciprocal rank fusion), `db.VectorSearch` capability; `ai.Embed`/`EmbedQuery` with an optional `Embedder` contract on the OpenAI, compatible and Gemini drivers and `AI_EMBEDDING_PROVIDER`/`AI_EMBEDDING_MODEL`; `ai.EmbeddingsFor` with `Sync` (queue job), `ai:embed`, `Search` and the agent `Tool`; `examples/assistant` searches its articles by meaning and words; tested on SQLite, PostgreSQL 16 and 17 with pgvector, MariaDB 11.8 (built from source), with the refusals on MySQL 8.0 and MariaDB 10.11. Embedding cassettes are hand-written. Found on MariaDB 11.8 and fixed: binary vector parameters, cascades skipping the vector index, snapshot-isolation errors in pivot writes) |
-| M1 Identity | 🟡 Partly done 2026-10-03: name, org, domain and rename (Anetos, from Greek άνετος, "at ease"; GitHub org `anetos-dev`; anetos.dev; module `anetos.dev/anetos`, a vanity import path; command `anetos`, package `anetostest`, `ANETOS_*` variables; upgrade guide v0.3). The logo/mascot is open |
+| M1 Identity | 🟡 Partly done 2026-10-03: name, org, domain and rename (Anetos, from Greek άνετος, "at ease"; GitHub org `anetos-dev`; anetos.dev; module `anetos.dev/anetos`, a vanity import path; command `anetos`, package `anetostest`, `ANETOS_*` variables). The logo/mascot is open |
 
 The search and AI work packages come first, so the public release has
 them (decided 2026-10-02; design §10.5, §14.4, D153–D159). They follow
@@ -314,6 +313,7 @@ them (decided 2026-10-02; design §15, D169–D174).
 | R1 | Roles & permissions | Package `auth/rbac`: permissions declared in code as typed constants; roles declared in code (super roles) and roles administrators store in the database, built from declared permissions; grants of roles and single permissions to users globally or in a scope (`team:42`), a global grant applying everywhere; checks of the signed-in user (`Authorize`/`AuthorizeIn`, `Can`, `HasRole`, `Require`/`RequireIn` middleware) with API token abilities as a ceiling, and of any user (`rbac.Of`); grants read once per unit of work; `AuthorizeRole` so no one gives more than they have; `Assignments`, `UsersWith`; `rbac:*` commands; `examples/teams`; guide, concept, reference |
 | A3 | AI in the app | Conversations stored in the database (`ai.Migrations`), usage and cost records with per-user budgets (on the rate limiter), queued replies (generation as a queue job, with retries: `QueueReply`), streaming to the browser (server-sent events, htmx-friendly), `make:agent`; an AI assistant with tools over its data in an example; guides |
 | S2 | Vectors & hybrid search | Embeddings in `ai` (`ai.Embed`, A2's providers), vector columns in migrations, `q.Similar(model, vector)` (PostgreSQL with pgvector, MariaDB 11.7+, SQLite by a scan for small data; refused on MySQL Community, whose `DISTANCE()` is HeatWave-only), `q.Hybrid(text, model, vector)` merging keyword and vector rankings by reciprocal rank fusion, a retrieval helper for agents (`ai.Embeddings`, its `Tool`), capability checks as in S1 |
+| I1 | Internationalization | Full i18n before the public release (added 2026-10-03): translation catalogs with plurals and fallbacks, the request's locale (middleware, `c.Locale()`, carried by queued jobs and mail), translated framework messages (validation, auth, errors, `make:auth` pages), localized numbers, currencies and dates, right-to-left support. Design to be agreed before it starts |
 | M1 | Identity | Final name, GitHub org, domain, logo/mascot; rename pass |
 | M1b | Release plumbing | Tag the modules independently; remove the `replace` directives from `cli`, the drivers, the plugins, `bench` and the examples' published `go.mod` files (a module with `replace` can't be `go install`ed), so `go install …/cli/cmd/anetos@latest` and `anetos new` without `--replace` work; serve the `go-import` meta tag on anetos.dev for `anetos.dev/anetos` and every path under it (the vanity import path, D185), pointing at `github.com/anetos-dev/anetos` |
 | M2 | Docs site | Choose the generator, publish versioned docs, full tutorial, guides for every feature |
@@ -357,7 +357,7 @@ Goal: modern SPA-style frontends without giving up server-side routing.
 
 WebSockets/broadcasting · debug dashboard (Telescope-like) · admin panel
 generator · notifications (mail, SMS, Slack channels) · multi-tenancy · feature
-flags · i18n (basic, a v0.2 stretch goal, and full) · search engine drivers behind `Search` (Meilisearch, Typesense, OpenSearch) · Inertia SSR · read/write DB splitting ·
+flags · search engine drivers behind `Search` (Meilisearch, Typesense, OpenSearch) · Inertia SSR · read/write DB splitting ·
 roles and permissions: scope hierarchies, roles a team defines for itself, `make:auth` with roles ·
 AI: MCP server (the app's tools to MCP clients) and client (remote tools for agents), provider failover, images and files as model inputs, speech and transcription, providers' own tools (web search, code execution), more providers (as plugins), Vertex AI, Bedrock and Azure OpenAI authentication for the drivers ·
 pub/sub ordering keys (Google) · more drivers (NATS, Kafka, SQS, RabbitMQ, GCS, Azure Blob), mostly as plugins.
@@ -411,7 +411,7 @@ something, and we fix the API rather than add the hook.
 | Naming/trademark conflict found late | Low | Medium | Name settled at M1 (D185): no ANETOS mark found in the US or Australia, nothing in software by that name; a professional search (EUIPO, WIPO, national offices) before any trademark filing, where the Greek meaning ("comfortable") may count as descriptive |
 | Competing with Goravel for "Laravel-like Go" | Medium | Medium | Different positioning: Go-native, typed, concurrency-first, stdlib-compatible |
 | AI provider APIs change fast; three provider drivers to maintain | High | Medium | A thin common contract with an escape hatch to each provider's own client; official SDKs in driver modules; recorded-response conformance tests; more providers as plugins |
-| Search and AI work delays the public release | Medium | High | Fixed MVP scope (S1, A1–A3, R1, S2), everything else in the backlog; re-estimate after A1 |
+| Search and AI work delays the public release | Medium | High | Fixed MVP scope (S1, A1–A3, R1, S2, I1), everything else in the backlog; re-estimate after A1 |
 | Search behaves differently per database (stemming, stop words, scores) | High | Low | One API, documented differences, capability checks at boot, tests on the deployed database |
 
 ## 9. Open questions
@@ -469,5 +469,6 @@ something, and we fix the API rather than add the hook.
 | 2026-10-02 | R1 (roles and permissions) added to v0.3 after A2 and before A3, at the user's request: multi-user apps need it from the first public release |
 | 2026-10-02 | R1 (roles and permissions) done; scope hierarchies, team-defined roles and `make:auth` with roles to the backlog |
 | 2026-10-02 | A3 (AI in the app) done; `ai.Queue` became queued replies on stored conversations (`QueueReply`); files as model inputs to the backlog |
+| 2026-10-03 | I1 (internationalization) added to v0.3, before the public release, from the backlog |
 | 2026-10-03 | Q1 decided: Anetos (`anetos-dev`, anetos.dev); M1 rename done, the logo/mascot still open; the `go-import` meta tag on anetos.dev added to M1b |
 | 2026-10-02 | S2 (vectors, hybrid search) done; `q.SearchSimilar` and `Search(…).Hybrid(…)` became `q.Similar` and `q.Hybrid` (a hybrid search needs the vector and its model); switching embedding models re-embeds in place (D161) |
