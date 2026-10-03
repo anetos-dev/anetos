@@ -55,7 +55,7 @@ test ends. The settings, from highest priority:
    jobs or streams (they are removed when the app shuts down);
    `MAIL_DRIVER=memory`, so emails are kept, not sent (see
    [Send email](mail.md#6-test)); and `STORAGE_DRIVER=memory`, so files
-   are kept in memory (see [Store files](storage.md#6-test));
+   are kept in memory (see [Store files](storage.md#7-test));
 3. the process environment;
 4. `.env.testing` next to `go.mod`, if there is one (for PostgreSQL or
    MySQL, all the `DB_*` settings: see

@@ -7,6 +7,12 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Module `drivers/gcs`: Google Cloud Storage disks (`gcs.Driver()`,
+  `STORAGE_DRIVER=gcs`, `STORAGE_GCS_*`), with Application Default
+  Credentials and V4 signed temporary URLs (G1, D199). The storage
+  package's error for a driver that wasn't passed to `storage.ForApp`
+  names the driver's module; a `File`'s `Info().Size` may be -1 (unknown
+  before reading), and `Disk.Serve` then sends no Content-Length.
 - Formatting in the user's language: `i18n.Number`, `Fixed`, `Percent`,
   `Currency` (CLDR data from `golang.org/x/text`; the language's digits,
   or the catalog's `format.numbering`), `i18n.Date`, `Time`, `DateTime`

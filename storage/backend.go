@@ -72,7 +72,9 @@ type File interface {
 type FileInfo struct {
 	// Path is the file's path on the disk.
 	Path string
-	// Size is its length in bytes.
+	// Size is its length in bytes. A File's Info may say -1 when the
+	// length isn't known before reading (a GCS object stored
+	// gzip-compressed, which is read decompressed).
 	Size int64
 	// ModTime is when it was last written.
 	ModTime time.Time

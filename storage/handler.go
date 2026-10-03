@@ -59,7 +59,9 @@ func (d *Disk) Serve(w http.ResponseWriter, r *http.Request, p string) {
 	if !info.ModTime.IsZero() {
 		h.Set("Last-Modified", info.ModTime.UTC().Format(http.TimeFormat))
 	}
-	h.Set("Content-Length", strconv.FormatInt(info.Size, 10))
+	if info.Size >= 0 {
+		h.Set("Content-Length", strconv.FormatInt(info.Size, 10))
+	}
 	if r.Method == http.MethodHead {
 		return
 	}

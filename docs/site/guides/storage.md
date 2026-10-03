@@ -7,8 +7,8 @@ since: v0.2.0
 
 Store files your app receives or makes: uploads, avatars, exports,
 invoices. Files go on **disks**: a local directory by default, or an
-S3-compatible bucket (Amazon S3, Cloudflare R2, MinIO, …), with the same
-code. Private files are read through temporary signed URLs. The complete
+S3-compatible bucket (Amazon S3, Cloudflare R2, MinIO, …) or a Google
+Cloud Storage bucket, with the same code. Private files are read through temporary signed URLs. The complete
 app is [`examples/files`](../../../examples/files).
 
 ## Before you start
@@ -20,6 +20,7 @@ with `STORAGE_DRIVER`:
 |---|---|---|
 | `local` (default) | In the directory `STORAGE_ROOT` (default `storage/app`) | One server, development |
 | `s3` | In an S3-compatible bucket (`drivers/s3`, `STORAGE_S3_*`) | Several servers, production |
+| `gcs` | In a Google Cloud Storage bucket (`drivers/gcs`, `STORAGE_GCS_*`) | Apps on Google Cloud |
 | `memory` | In the process | Tests (`anetostest` sets it) |
 
 A disk can also have a URL its files are served at, `STORAGE_URL`, and be
@@ -50,6 +51,9 @@ if err != nil {
 
 (Copied from [`examples/files`](../../../examples/files/main.go), region `setup`.)
 
+Pass the drivers of the stores you use: `s3.Driver()` for S3,
+`gcs.Driver()` for Google Cloud Storage (step 6), or both.
+
 The default disk is configured with `STORAGE_*`. Name more disks in
 `STORAGE_DISKS`, and configure each with `STORAGE_<NAME>_*`: the example's
 public avatars disk is
@@ -61,8 +65,8 @@ STORAGE_AVATARS_PUBLIC=true
 ```
 
 A named disk takes the default disk's driver unless it sets its own, and
-its S3 connection (region, endpoint, keys, path style) unless it sets any
-of them; its directory defaults to `storage/<name>`, and its bucket must
+its S3 connection (region, endpoint, keys, path style) or GCS
+credentials and signer unless it sets any of them; its directory defaults to `storage/<name>`, and its bucket must
 be set.
 
 ### 2. Store uploads
@@ -272,7 +276,67 @@ The bucket serves files itself, so the S3 driver stores the types a
 browser would run with `Content-Disposition: attachment`. A missing
 bucket is an error, not a missing file.
 
-### 6. Test
+### 6. Use Google Cloud Storage
+
+Pass `gcs.Driver()` to `storage.ForApp` (from `drivers/gcs`) and set:
+
+```env
+STORAGE_DRIVER=gcs
+STORAGE_GCS_BUCKET=example-uploads
+```
+
+On Cloud Run, GKE or Compute Engine that is all: the service account of
+the service or instance is used (Application Default Credentials).
+Elsewhere:
+
+- On your machine, `gcloud auth application-default login`, or
+- a service account key: `STORAGE_GCS_CREDENTIALS_FILE=/secrets/key.json`,
+  or its JSON in `STORAGE_GCS_CREDENTIALS` for platforms that keep
+  secrets in the environment. These two take service account keys only;
+  other credentials (workload identity federation, impersonation) go
+  through `GOOGLE_APPLICATION_CREDENTIALS`.
+
+The account needs the Storage Object Admin role on the bucket (Storage
+Object Viewer for a read-only disk).
+
+Temporary URLs are V4 signed URLs (up to 7 days). A service account key
+signs them itself, with no network call. Without one (Cloud Run, gcloud
+credentials), each URL is signed by a call to the IAM API (enable the
+IAM Service Account Credentials API, `iamcredentials.googleapis.com`), as
+the service's account or `STORAGE_GCS_SIGNER`:
+
+- On Cloud Run, give the service's account the Service Account Token
+  Creator role on itself.
+- With your gcloud credentials, set `STORAGE_GCS_SIGNER` to a service
+  account's email, on which *you* need that role.
+
+A page that links many files makes as many calls: sign links when they
+are clicked (a route that redirects to `TemporaryURL`) rather than for
+every row.
+
+`STORAGE_GCS_PREFIX` (a directory, ending in `/`) puts the disk's files
+under a prefix of the bucket, as with S3: a disk can read a folder of a
+bucket other tools write to (`STORAGE_REPORTS_GCS_PREFIX=exports/`).
+
+For local development without Google Cloud, run
+[fake-gcs-server](https://github.com/fsouza/fake-gcs-server) over HTTP
+and point the client at it; a service account key (any, even one of a
+test project) signs temporary URLs on the emulator:
+
+```sh
+fake-gcs-server -scheme http -port 4443 -external-url http://localhost:4443
+export STORAGE_EMULATOR_HOST=localhost:4443
+```
+
+Like S3, the bucket serves files itself: active types are stored with
+`Content-Disposition: attachment`, and a missing bucket is an error
+(when a file is read or listed). Objects other tools stored compressed
+(`Content-Encoding: gzip`, from `gsutil -z` or
+`gcloud storage cp --gzip-local`) are read decompressed, without range
+requests. The Cloud Storage client is large: the driver adds about
+40 MB to a binary, which matters for container images.
+
+### 7. Test
 
 `anetostest` sets `STORAGE_DRIVER=memory`: each test app's files are in
 memory. `app.PostMultipart` uploads files, and the temporary URLs are on
@@ -370,6 +434,8 @@ conformance suite each runs.
 | Files missing after a deploy | A local disk on a server whose disk is replaced | Use a persistent volume, or S3 |
 | Files differ between servers | A local disk on each server | Use S3 when several servers run the app |
 | `no disk named …` | `From(ctx, name)` for a disk not in `STORAGE_DISKS` | Add it to `STORAGE_DISKS` |
+| `gcs: signing a URL: …` | GCS credentials without a private key, and no account allowed to sign | Give the service account the Service Account Token Creator role on itself, or set `STORAGE_GCS_SIGNER` |
+| `could not find default credentials` (GCS) | No credentials outside Google Cloud | `gcloud auth application-default login`, or `STORAGE_GCS_CREDENTIALS_FILE` |
 | A stylesheet, script or SVG from a disk downloads instead of loading | Disks serve active types as downloads | Serve your own assets with `view.NewAssets`; disks are for files users give you |
 
 ## Next steps

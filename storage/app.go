@@ -219,8 +219,15 @@ func ForApp(app *anetos.App, drivers ...Driver) (*Storage, error) {
 			for j, d := range all {
 				names[j] = d.Name
 			}
-			return nil, fmt.Errorf("storage: %s is %q, but the drivers are [%s]; pass its driver to storage.ForApp (s3.Driver() from drivers/s3)",
-				key(name, "DRIVER"), cfg.Driver, strings.Join(names, ", "))
+			hint := "its driver"
+			switch cfg.Driver {
+			case "s3":
+				hint = "s3.Driver() from anetos.dev/anetos/drivers/s3"
+			case "gcs":
+				hint = "gcs.Driver() from anetos.dev/anetos/drivers/gcs"
+			}
+			return nil, fmt.Errorf("storage: %s is %q, but the drivers are [%s]; pass %s to storage.ForApp",
+				key(name, "DRIVER"), cfg.Driver, strings.Join(names, ", "), hint)
 		}
 		b, err := all[i].Open(app, name, DiskSource(app.Source(), name, all[i].Inherit), cfg)
 		if err != nil {

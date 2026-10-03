@@ -305,7 +305,7 @@ disk named in `STORAGE_DISKS`, say `avatars`, reads `STORAGE_AVATARS_*`
 | Key | Type | Default | Description | Since |
 |---|---|---|---|---|
 | `STORAGE_DISKS` | comma-separated names | none | More disks: lower-case letters, digits and `_`, starting with a letter | v0.2 |
-| `STORAGE_DRIVER` | `local` \| `memory` \| a driver's name (`s3`) | `local` | Where the disk's files are; `s3` needs `s3.Driver()` passed to `storage.ForApp`. Named disks default to the default disk's | v0.2 |
+| `STORAGE_DRIVER` | `local` \| `memory` \| a driver's name (`s3`, `gcs`) | `local` | Where the disk's files are; `s3` needs `s3.Driver()` passed to `storage.ForApp`, `gcs` `gcs.Driver()`. Named disks default to the default disk's | v0.2 |
 | `STORAGE_ROOT` | directory | `storage/app` (`storage/<name>` for a named disk) | The local driver's directory | v0.2 |
 | `STORAGE_URL` | URL | none | Where the disk's files are served: a CDN, a public bucket, or the route of the disk's handler. Needed for `URL`, and for `TemporaryURL` on local disks | v0.2 |
 | `STORAGE_PUBLIC` | bool | `false` | Anyone may read the files at `STORAGE_URL`, so `URL` works; otherwise only signed temporary URLs do | v0.2 |
@@ -315,6 +315,12 @@ disk named in `STORAGE_DISKS`, say `avatars`, reads `STORAGE_AVATARS_*`
 | `STORAGE_S3_ACCESS_KEY`, `STORAGE_S3_SECRET_KEY` | string | none | The credentials; without them, the AWS environment variables, shared credentials file or instance role. Named disks take the default disk's region, endpoint, keys and path style if they set none of them | v0.2 |
 | `STORAGE_S3_PATH_STYLE` | bool | `false` | The bucket in the URL's path (MinIO). Named disks take the default disk's region, endpoint, keys and path style if they set none of them | v0.2 |
 | `STORAGE_S3_PREFIX` | string ending in `/` | none | A prefix for the disk's keys in the bucket (`uploads/`) | v0.2 |
+| `STORAGE_GCS_BUCKET` | string | none (required with `gcs`) | The Cloud Storage bucket | v0.3 |
+| `STORAGE_GCS_PREFIX` | string ending in `/` | none | A prefix for the disk's objects in the bucket (`uploads/`) | v0.3 |
+| `STORAGE_GCS_CREDENTIALS_FILE` | path | none | A service account key file (JSON); without it or `STORAGE_GCS_CREDENTIALS`, Application Default Credentials (the service's account on Google Cloud, `GOOGLE_APPLICATION_CREDENTIALS`, gcloud). Named disks take the default disk's credentials and signer if they set none of them | v0.3 |
+| `STORAGE_GCS_CREDENTIALS` | secret (JSON) | none | A service account key's JSON, instead of a file. Both settings take service account keys only: other credentials go through `GOOGLE_APPLICATION_CREDENTIALS` | v0.3 |
+| `STORAGE_GCS_SIGNER` | email | the credentials' account | The service account that signs temporary URLs through the IAM API when the credentials have no private key (an error with a key, which signs for its own account) | v0.3 |
+| `STORAGE_EMULATOR_HOST` | host:port | none | Read by the Cloud Storage client: talk to an emulator (fake-gcs-server) without credentials | v0.3 |
 
 ## Redis
 

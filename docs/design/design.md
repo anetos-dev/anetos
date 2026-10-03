@@ -133,7 +133,7 @@ flowchart TB
             ML["Mail"]; ST["Storage"]; SE["Session"]; EV["Events"]; AU["Auth"]
         end
     end
-    Drivers["Driver modules<br/>postgres · mysql · sqlite · redis · gcp-pubsub · s3 · smtp · …"]
+    Drivers["Driver modules<br/>postgres · mysql · sqlite · redis · gcp-pubsub · s3 · gcs · smtp · …"]
     CLI --> Kernel --> Runtime
     Runtime --> Services --> Drivers
 ```
@@ -270,6 +270,7 @@ anetos.dev/anetos/       ← core module (github.com/anetos-dev/anetos)
 │   ├── redis/           shared client (redis.Connect), cache store with locks (B1), sessions (B2), queue (B5), pub/sub on Streams (B7)
 │   ├── gcppubsub/       Google Cloud Pub/Sub broker (B7)
 │   ├── s3/              S3-compatible storage backend on minio-go (B10)
+│   ├── gcs/             Google Cloud Storage backend on the official client (G1)
 │   ├── anthropic/ openai/ gemini/   AI providers on the official SDKs; openai also for OpenAI-compatible servers (A2)
 │   └── …
 ├── plugins/             ← first-party plugins, each a separate module, built only on the public API (B11)
@@ -1230,7 +1231,7 @@ Each service is an interface in the core module. Drivers are chosen in
 | Queue | `queue` | sync, memory, database | `drivers/redis`; SQS, NATS (plugins) | v0.2 (B5 done) |
 | Pub/sub | `pubsub` | memory (tests/dev) | `drivers/redis` (Streams), `drivers/gcppubsub`; NATS, Kafka (plugins) | v0.2 (B7 done) |
 | Mail | `mailer` | log (dev), SMTP, memory (tests) | `plugins/postmark`; Resend, SES, Mailgun (plugins) | v0.2 (B9 done) |
-| Storage | `storage` | local, memory | `drivers/s3` (S3-compatible, incl. R2/MinIO); GCS, Azure (plugins) | v0.2 (B10 done) |
+| Storage | `storage` | local, memory | `drivers/s3` (S3-compatible, incl. R2/MinIO), `drivers/gcs` (Google Cloud Storage); Azure (backlog) | v0.2 (B10 done); GCS v0.3 (G1 done) |
 | Password hashing | `auth/password` | argon2id, bcrypt | — | v0.2 (B3 done) |
 | Encryption | `encryption` | AES-GCM with `APP_KEY`, key rotation | — | v0.1 |
 | Rate limiting | `web/ratelimit` | on the app's cache | (the cache's stores) | v0.2 (B2 done) |
@@ -1374,6 +1375,11 @@ r.HandleStd(http.MethodGet, "/files/{path...}", st.Default().Handler())
   content (HTML, SVG, XML, scripts) as sandboxed downloads (D127).
 - **S3** is `drivers/s3`, on minio-go: AWS, R2, MinIO and other
   S3-compatible stores (D128).
+- **Google Cloud Storage** is `drivers/gcs`, on the official client
+  (`cloud.google.com/go/storage`): Application Default Credentials by
+  default (a service on Cloud Run needs no settings), a service account
+  key by file or JSON otherwise; V4 signed URLs signed by the key or,
+  without one, by the IAM API as the service account (D199).
 
 ### 14.4 AI (v0.3: A1–A3 done)
 
@@ -2326,6 +2332,7 @@ unless new information arrives), **Open**, **Superseded**.
 | D196 | Numbers use CLDR's default numbering system for the language (x/text), dates and the framework's numbers in messages (a plural's `{count}`, size rules' arguments) the same digits; a catalog's `format.numbering` picks another (`latn`) | Accepted | One digit system per page: CLDR's default for Bangla is Bangla digits, while many sites prefer Latin ones, so the default follows the standard and the app can choose |
 | D197 | `anetos lang:add <locale>` (alias `add lang`) copies `framework.yaml`, and `auth.yaml` when the app has `make:auth`'s English, from the module `anetos.dev/locales` fetched with `go mod download` (or `-from` a checkout) into `locales/<locale>/`, without keys the app's other catalogs for the locale define, keeping files the app has unless `-force`; the locales module's CI checks every folder against the core's and `make:auth`'s English | Accepted | The module proxy gives versions, checksums and caching for free; a separate module lets translations change between releases; copies are the app's (D194), so nothing changes behind its back |
 | D198 | `i18n.LanguageName` reads the locale's own catalog (`format.language`) rather than `x/text/language/display`; `i18n.Dir` derives the direction from the locale's script | Accepted | `display` adds about 2.4 MB to every binary for names the catalogs can carry; the script is in x/text's tables already |
+| D199 | `drivers/gcs` uses the official `cloud.google.com/go/storage` client: credentials from `STORAGE_GCS_CREDENTIALS_FILE` or `STORAGE_GCS_CREDENTIALS` (service account keys only, checked) or Application Default Credentials (every kind); uploads through the client's writer with a chunk sized to the file (one request up to 8 MB, a buffer rounded to 256 KiB; 8 MB chunks above), abandoned on a reader error or a canceled context by closing its stream with the error before `Close` (so nothing is stored); writes, deletes and copies retried on transient errors (whole-object replaces are idempotent in effect); `Open` pins the object's generation and fails a ranged read after `Seek` if that generation is gone, and reads objects stored gzip-compressed decompressed, unseekable, with a size of -1 (`FileInfo.Size` may be -1 from `Open`; `Serve` then sends no Content-Length); ETags are the generation, mod times to the second; the first "not found" checks the bucket (a 403 counts as checked); `Copy` is a server-side rewrite (any size); signed URLs are V4, signed locally by a key (the settings' or ADC's) or by the IAM API's signBlob with the request's context, as `STORAGE_GCS_SIGNER`, the credentials' or the instance's account, found once; tests run the suite against fake-gcs-server in process and over HTTP as an emulator, and, with `ANETOS_TEST_GCS_BUCKET`, a real bucket | Accepted | Cloud Run and GKE apps authenticate with no settings and sign URLs without a key file, which S3 interoperability keys can't; the generation is GCS's version of S3's If-Match; a dashboard reads buckets other tools write, where gzip-encoded objects are common, so they read as their content; the client's own signing ignored the context and retried without limit |
 
 ---
 
@@ -2389,4 +2396,5 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-03 | I1 internationalization designed: §10.6 and §14.5 added, §9 updated; D186–D195 added |
 | 2026-10-03 | I1a times and dates implemented: §10.6, §13.7 (D116: the scheduler's default zone) |
 | 2026-10-03 | I1b translations implemented: §9, §14.5 updated (the order per `LOCALE_URL` strategy, the device's choice before the user's preference, `?locale=` on pages, `/en/` canonical URLs, locale matching, the core catalog after English, `HTTPError.Key`, binding messages); D190 updated |
+| 2026-10-03 | G1 Google Cloud Storage driver implemented: §3, §5 (layout), §14 (drivers table), §14.3 updated; D199 added |
 | 2026-10-03 | I1c formatting and languages implemented: §14.5 updated (numbers, currencies, dates, relative times, `Dir`, `LanguageName`, `web.Alternates`, `lang:add` and `anetos.dev/locales`); D196–D198 added |
