@@ -285,4 +285,14 @@ func TestClock(t *testing.T) {
 	app.Get("/items").AssertSee("user ada")
 	app.Travel(3 * time.Hour) // SESSION_LIFETIME is 2h by default
 	app.Get("/items").AssertDontSee("user ada")
+
+	// The clock is in the app's zone.
+	dhaka := anetostest.New(t, setup, anetostest.Env(map[string]string{"APP_TIMEZONE": "Asia/Dhaka"}))
+	dhaka.Freeze(time.Date(2026, 3, 15, 20, 0, 0, 0, time.UTC))
+	if got := anetos.Today(dhaka.Context()); got != anetos.NewDate(2026, 3, 16) {
+		t.Errorf("Today in Dhaka = %v", got)
+	}
+	if loc := anetos.Now(dhaka.Context()).Location(); loc.String() != "Asia/Dhaka" {
+		t.Errorf("Now's zone = %v", loc)
+	}
 }

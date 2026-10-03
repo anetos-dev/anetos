@@ -51,6 +51,12 @@ type Config struct {
 	// job…) runs the same query this many times or more: an N+1. Unset
 	// means 5 in development and testing, off elsewhere; 0 disables it.
 	RepeatedQueries *int `env:"DB_REPEATED_QUERIES"`
+
+	// AllowLocalTimeZone lets the database session run in a time zone
+	// other than UTC, which [DB.Check] otherwise refuses: for a legacy
+	// database whose times are local. The app still writes UTC.
+	// DB_ALLOW_LOCAL_TIMEZONE, default false.
+	AllowLocalTimeZone bool `env:"DB_ALLOW_LOCAL_TIMEZONE"`
 }
 
 // Validate implements config.Validator.
@@ -318,6 +324,7 @@ type DB struct {
 	reqMu   sync.Mutex
 	reqs    []requirement // Require
 	checked bool          // Check passed
+	localTZ bool          // AllowLocalTimeZone
 	ftMu    sync.Mutex
 	ftWords *mysqlWords // what MySQL's full-text indexes skip, read once
 	vecDims sync.Map    // MariaDB: embeddings table → its vectors' size
@@ -331,6 +338,10 @@ func WithLogger(l *slog.Logger) Option { return func(d *DB) { d.log = l } }
 
 // WithQueryLog turns logging of every query on or off.
 func WithQueryLog(on bool) Option { return func(d *DB) { d.logAll = on } }
+
+// WithLocalTimeZone makes [DB.Check] accept, or not, a session time
+// zone other than UTC (DB_ALLOW_LOCAL_TIMEZONE).
+func WithLocalTimeZone(allow bool) Option { return func(d *DB) { d.localTZ = allow } }
 
 // WithSlowQuery sets the duration from which queries are logged as slow;
 // zero disables it.
@@ -370,6 +381,9 @@ func Open(drv Driver, cfg Config, opts ...Option) (*DB, error) {
 	}
 	if cfg.RepeatedQueries != nil {
 		opts = append(opts, WithRepeatedQueries(*cfg.RepeatedQueries))
+	}
+	if cfg.AllowLocalTimeZone {
+		opts = append(opts, WithLocalTimeZone(true))
 	}
 	return New(sqlDB, drv.Dialect, opts...), nil
 }
@@ -500,5 +514,5 @@ func (c *connCheck) Boot(ctx context.Context, _ *anetos.App) error {
 	if err := c.d.Ping(pingCtx); err != nil {
 		return fmt.Errorf("db: connect to %s: %w", c.name, err)
 	}
-	return c.d.Check(pingCtx) // search settings, requirements, search indexes
+	return c.d.Check(pingCtx) // time zone, search settings, requirements, search indexes
 }

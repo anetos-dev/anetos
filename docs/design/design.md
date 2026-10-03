@@ -584,8 +584,8 @@ works on any struct (job payloads, CLI input).
   `*validate.Errors` marshals to a JSON object in field order.
 - **Messages:** English defaults; a struct can override templates with
   `ValidationMessages() map[string]string` keyed by `key.rule` or `rule`.
-  Templates use `{label}`, `{0}`…, `{list}`. Translation arrives with i18n
-  (v0.2 stretch).
+  Templates use `{label}`, `{0}`…, `{list}`. They are catalog keys,
+  translated with the rest of the app (§14.5, I1b).
 - **HTML forms** (F10): a browser's form post that fails validation (422,
   or 400 with field errors) on a route with a session is redirected back
   with the errors and **old input** flashed; `view.Errors` and `view.Old`
@@ -807,6 +807,47 @@ database's objects follow fixed names.
 - **Scale:** database search serves most apps; search engines
   (Meilisearch, Typesense, OpenSearch) can later sit behind the same
   `Search` API as drivers (backlog).
+
+### 10.6 Times and dates (v0.3: I1a done)
+
+The rule is **UTC in storage, the user's time zone on display**, and the
+framework enforces the first half so an app can't drift into local time
+by forgetting a setting at the start. D43 already converts every time
+argument to UTC (query builder, `db.Create`, raw SQL), opens PostgreSQL
+and MySQL sessions in UTC and reads times back in UTC. I1a closes the
+remaining gaps (D186–D188):
+
+- **The session's time zone is checked at boot.** `DB.Check` asks the
+  server (PostgreSQL `SHOW TimeZone`; MySQL `@@session.time_zone`, and
+  `@@system_time_zone` when that is `SYSTEM`) and stops the app unless it
+  is UTC. The drivers open sessions with `timezone=UTC`/`time_zone='+00:00'`,
+  which win over server and role defaults, so a zone can only come from
+  `DB_URL`, and the message says so. `DB_ALLOW_LOCAL_TIMEZONE=true`
+  is the explicit way out, for a legacy database. SQLite has no session
+  zone; its `CURRENT_TIMESTAMP` is UTC.
+- **`anetos.Date` is a calendar date** (year, month, day) without a time
+  or a zone, for `DATE` columns, `<input type="date">` and JSON
+  (`"2026-10-03"`). A `time.Time` at midnight in Dhaka is 18:00 the day
+  before in UTC, so a date kept in a `time.Time` changes day when it is
+  stored; a `Date` can't. It is written as `YYYY-MM-DD` text and read from
+  text or from a time (the day in that time's own zone). The date rules
+  (`after`, `before`…) compare dates, with `now` meaning today in the
+  app's zone. It is in the root package because `validate`, `db`, `web`
+  and `i18n` all need it and `db` imports `validate`.
+- **`APP_TIMEZONE` (default `UTC`) is the app's zone** and the process's
+  local zone (`time.Local`), so `time.Now`, logs and formatting agree on
+  a laptop in Dhaka and a server in UTC; `TZ` is ignored. It is a
+  process-wide setting, written only while nothing else can read it: the
+  root package's `init` sets it from `APP_TIMEZONE` in the environment
+  (UTC when unset), in every binary that imports Anetos, and the first app
+  `New` creates sets it again if its configuration (a `.env` file) names
+  another zone, except in a test binary (`testing.Testing()`), where tests
+  create apps while others run. Later apps don't change it. `anetos.Now`
+  returns times in the app's zone either way, `SCHEDULE_TIMEZONE` defaults
+  to it, and `i18n` will show times in it when the user has no zone of
+  their own (§14.5). The
+  core embeds the time zone database (`time/tzdata`, about 450 KB), so
+  zones load in minimal containers.
 
 ---
 
@@ -1139,7 +1180,7 @@ events.Emit(ctx, OrderPlaced{OrderID: o.ID})
 ### 13.7 Scheduler
 
 ```go
-s, err := schedule.ForApp(app) // SCHEDULE_TIMEZONE, default UTC
+s, err := schedule.ForApp(app) // SCHEDULE_TIMEZONE, default APP_TIMEZONE (UTC)
 err = s.Add(schedule.Cron("*/5 * * * *"), "sync-inventory", tasks.SyncInventory)
 err = s.Add(schedule.DailyAt("02:00").In("Asia/Dhaka"), "prune-sessions", tasks.PruneSessions,
     schedule.WithoutOverlapping(), schedule.OnOneServer(), schedule.Timeout(10*time.Minute))
@@ -1487,6 +1528,92 @@ for ev, err := range support.Stream(ctx, question) { … }  // the answer as it'
   languages, a vector database of its own (roadmap non-goals). MCP
   (exposing the app's tools, using remote ones), provider failover,
   images, speech and transcription are in the backlog.
+
+### 14.5 Internationalization (v0.3: I1b, I1c)
+
+Every page, validation message, error page and email can speak the
+user's language, and adding a language to an app is adding a file
+(D189–D195).
+
+```yaml
+# locales/bn/app.yaml (or locales/bn.yaml)
+nav:
+  home: "হোম"
+welcome: "স্বাগতম, {name}"
+posts:
+  count:
+    one: "{count}টি পোস্ট"
+    other: "{count}টি পোস্ট"
+```
+
+```go
+// illustrative
+i18n.T(ctx, "welcome", "name", user.Name)  // "স্বাগতম, Ada"
+i18n.Plural(ctx, "posts.count", n)         // {count} filled with n
+i18n.Date(ctx, order.PlacedAt, i18n.Long)  // in the user's zone and language
+mailer.Send(i18n.ForUser(ctx, u), mails.Welcome{User: u}) // the user's mail language
+```
+
+- **Catalogs** are YAML files in the app's `locales/` folder, embedded in
+  the binary (`anetos new` writes `locales/locales.go`): one file per
+  locale (`bn.yaml`) or a folder of files (`bn/*.yaml`). Nested keys join
+  with dots. A value is a message, or a plural map with the CLDR
+  categories the language uses (`zero`, `one`, `two`, `few`, `many`,
+  `other`; `other` required). Placeholders are `{name}`, as in validation
+  messages. Locales are BCP 47 tags (`bn`, `pt-BR`).
+- **Lookup and fallback.** A key is looked up in the locale, its parents
+  (`bn-BD` → `bn`), `APP_FALLBACK_LOCALE` (default `en`), then the core
+  catalog; a missing key shows the key, and development logs it once.
+  The core's English catalog (validation, error pages, auth, dates)
+  is embedded in package `i18n`; an app overrides any of its keys by
+  defining the key. Without `i18n.ForApp`, `i18n.T` uses the core catalog,
+  so validation and error pages work in every app.
+- **The request's locale** is resolved on first use and kept for the
+  request, in this order: the URL, the signed-in user's preference, the
+  session, the `locale` cookie, `Accept-Language`, `APP_LOCALE` (default
+  `en`), each matched against the supported locales (`APP_LOCALES`;
+  default: `APP_LOCALE` and every locale with a catalog). `LOCALE_URL`
+  chooses the URL's part: `none` (default), `prefix` (`/bn/about`; the
+  default locale has none) or `subdomain` (`bn.example.com`; APP_URL's
+  host is the default). With a URL strategy the URL decides, and a GET for
+  a page without a locale in its URL, from someone who prefers another
+  supported locale, is redirected to that locale's URL. Route URLs
+  (`c.URL`, `view.URL`) keep the current locale, `view.Alternates` gives
+  the `hreflang` links, and `c.SetLocale` stores a choice in the session
+  and the cookie. An app can replace the resolution with its own function.
+- **Users' preferences.** A user model may implement `PreferredLocale()`,
+  `CommunicationLocale()` and `PreferredTimeZone()` (each optional): the
+  site shows the first, mail and notifications use the second (default:
+  the first), times are shown in the third (default `APP_TIMEZONE`).
+  `auth` makes the signed-in user's preference part of the request's
+  locale, and `i18n.ForUser(ctx, u)` returns ctx in the user's
+  communication locale and zone. Queue jobs carry the locale and zone of
+  the context that dispatched them, so a job, and mail rendered in it,
+  speaks the language of the request or user that caused it.
+- **The framework's messages** come from the catalog: validation messages
+  and field labels (`validation.attributes.<field>`, then the `label`
+  tag, then the humanized name), error pages, auth, rate-limit and CSRF
+  messages. A struct's `ValidationMessages` value that is a catalog key
+  is translated. `make:auth` writes its pages' strings to
+  `locales/en/auth.yaml`, which the app owns.
+- **Formatting (I1c).** Numbers, percentages and currencies come from
+  `golang.org/x/text`, which also has the CLDR plural rules. Dates use
+  CLDR-style patterns (`d MMMM y`) and month and day names from the
+  catalog's `format` section, so a language brings its own and the core
+  needs no date library: `i18n.Date`, `i18n.Time`, `i18n.DateTime` take a
+  `time.Time` (shown in the user's zone) or an `anetos.Date`; relative
+  times (`i18n.Ago`) are catalog keys. `i18n.Dir` gives `ltr` or `rtl` for
+  `<html dir>`, `i18n.LanguageName` the language's name, for prompts.
+- **Languages.** The core ships English only. Other languages live in an
+  open-source repository (`anetos-dev/locales`, a folder per locale with
+  CLDR-derived format data); `anetos add lang fr` copies a folder into
+  `locales/fr/`, where the app owns it. `lang:check` reports keys missing
+  from a locale, placeholders that differ from the fallback's, plural
+  forms the language needs, and keys used in the source (`i18n.T(ctx,
+  "…")` literals in `.go` and `.templ` files) that no catalog defines.
+- **Not in I1:** translating model content (a post's title in several
+  languages) is in the backlog. A search index has one language (§10.5),
+  so content in several languages needs an index per language.
 
 ---
 
@@ -2056,7 +2183,7 @@ unless new information arrives), **Open**, **Superseded**.
 | D113 | Subscriptions default to `<topic>.<APP_NAME>` and are prepared when the app boots (a provider), or when `Listen` runs after boot; Redis groups start at the stream's end; Google subscriptions must exist unless `PUBSUB_GCP_CREATE` (without it Prepare makes no API call, so least-privilege accounts work); Google IDs escape unsupported characters as `%XX` and are validated; topics have no prefix by default (`PUBSUB_PREFIX` exists for isolation, and tests) | Accepted | Each service gets every message and scales by running more processes; messages published between deploy and the first listener aren't lost; production infra (IAM, retention, dead-letter policies) belongs to infra tools, not app boot |
 | D114 | Retries and dead letters are the framework's: a failed message is redelivered after `Backoff` (10s doubling to 10m, jitter) until `MaxAttempts` (default unlimited), then published to `DeadLetter` with `anetos.*` attributes and acked, or dropped and logged without one (the dead-letter publish is retried for 10s before the message is nacked); `Permanent` errors (any error with `Permanent() bool`, so `queue.Permanent` too) and undecodable bodies skip the retries; `MaxAttempts` without delivery counts is logged once; `PubSub.Run` restarts failed listeners like the supervisor; messages stopped at shutdown are redelivered whatever MaxAttempts says | Accepted | Uniform across brokers; unlimited by default never drops data silently; Google's own retry policy and dead-letter policy apply where the framework can't (no delays; attempts only with a policy), documented |
 | D115 | Redis Streams: a failed message stays pending, its retry time in a per-group sorted set and its idle time set (`XCLAIM … IDLE … JUSTID`) so it can be claimed then (or after the ack timeout, to be put back to sleep if not due); claims use `XAUTOCLAIM … JUSTID`, and only due messages are claimed again without JUSTID, which counts the delivery; abandoned ones after the ack timeout (listener timeout + 30s); `Attempt` is the group's delivery count; streams are capped at about `PUBSUB_REDIS_MAXLEN`; consumers without pending messages are removed when they stop | Accepted | Backoffs of any length with exact delivery counts (waiting isn't a delivery); due retries are found in the sorted set directly, so many waiting messages don't delay them; each claim decision is one Lua script (remove a due retry time and claim; deliver a message without one only if this consumer owns it), so consumers sharing a group never both deliver a retry; retry times follow the server's clock; at-least-once survives crashed consumers; trimming bounds memory, at the documented cost of messages a slow group hasn't read |
-| D116 | Cron expressions are parsed by the framework (five fields, minute resolution, names, macros; day of month and day of week OR-ed when both are restricted, as in cron); a schedule's time zone is its own (`In`) or `SCHEDULE_TIMEZONE` (default UTC); times are matched on the wall clock, so a time a clock change skips doesn't run that day and one it repeats runs twice (a day whose midnight is skipped starts after the change); `*` fields (`*/n` too) count as unrestricted; the search looks 401 years ahead (the Gregorian cycle), so an expression that never matches is an error when added | Accepted | No dependency for ~150 lines; cron syntax is what developers know, the helpers cover the common cases readably; wall-clock matching is predictable and documented, while cron's special DST rules surprise; UTC by default avoids DST entirely |
+| D116 | Cron expressions are parsed by the framework (five fields, minute resolution, names, macros; day of month and day of week OR-ed when both are restricted, as in cron); a schedule's time zone is its own (`In`) or `SCHEDULE_TIMEZONE` (default the app's zone, D188); times are matched on the wall clock, so a time a clock change skips doesn't run that day and one it repeats runs twice (a day whose midnight is skipped starts after the change); `*` fields (`*/n` too) count as unrestricted; the search looks 401 years ahead (the Gregorian cycle), so an expression that never matches is an error when added | Accepted | No dependency for ~150 lines; cron syntax is what developers know, the helpers cover the common cases readably; wall-clock matching is predictable and documented, while cron's special DST rules surprise; UTC by default avoids DST entirely |
 | D117 | The scheduler is one supervised component (role `scheduler`, `StageScheduler`, restarted on failure), added when the app boots if it has tasks; tasks are named `func(ctx) error` with the app's values; it sleeps until the earliest next run and starts due runs in goroutines; missed runs (no scheduler running) are skipped and a late wake-up runs each task once; failures and panics are logged, never retried (`schedule.Dispatch` dispatches a queue job instead); `schedule:run` runs a task now | Accepted | No crontab or per-minute process (Laravel's `schedule:run`); one binary scales with `--only=scheduler`; catching up after downtime would run bursts of stale work; retries belong to the queue, which already has them; names make logs, locks and commands stable |
 | D118 | `OnOneServer` takes a cache lock per run, `schedule:<task>:<UTC minute>`, for an hour, never released; `WithoutOverlapping` takes `schedule:<task>:running` for the run, a 3-minute lease extended every minute while it goes, released when it ends; both need `cache.ForApp` (checked at boot, and by `Add` after it) and the memory store logs a warning for `OnOneServer`; skipped overlapping runs are logged as warnings | Accepted | Instances agree on a run by its scheduled minute, even with clock skew under an hour; keeping the run's lock stops a slow instance from running it again; a heartbeat lease is held exactly as long as the run lives (a fixed ttl either blocks the task for hours after a crash or lets a slow run overlap); locks are cache leases (D91), so any shared store works |
 | D119 | At shutdown the scheduler stops starting runs and gives running ones half of `APP_SHUTDOWN_TIMEOUT` (capped by `Supervisor.ShutdownDeadline` minus 2s; `WithShutdownGrace` without an app), then cancels their contexts and waits | Accepted | Same rule as the HTTP server and queue workers (D107); the stages share one deadline, so time a slow task uses is time listeners and workers don't get: long work belongs in a job (`schedule.Dispatch`) |
@@ -2126,6 +2253,16 @@ unless new information arrives), **Open**, **Superseded**.
 | D183 | On MariaDB, vectors travel as text (`VEC_FromText(?)`, written by the query builder) because prepared statements send byte parameters as strings in the connection's character set, which mangles binary vectors; vectors are scanned by source type (pgx returns pgvector's text as a string; MariaDB and SQLite return bytes), never by their first byte. The embeddings table has no foreign key there: a record's chunks are deleted by an `AFTER DELETE` trigger, because InnoDB's cascades skip MariaDB's vector index (which then loses rows) and a restricting key would block cascades from other tables; chunks a cascade leaves are pruned by `ai:embed` (`db.PruneChunks`), and until then the candidate query keeps only chunks of existing records (`EXISTS`), so they can't crowd live ones out. Chunk replacements lock the record and retry deadlocks. Error 1020 ("Record has changed since last read", `innodb_snapshot_isolation`, on since 11.6) is a transient error, retried by the cache, the queue and pivot writes | Accepted | Found against MariaDB 11.8: both failures were silent wrong answers, not errors |
 | D184 | Chunks are split by characters (default 2000, about 500 tokens): whole paragraphs (split on blank lines) while they fit, then a long paragraph's sentences (after `.!?` and a space, or a full-width `。！？`), then words; no overlap; linear in the text. A search returns each record with its nearest chunk (`Passage`), and a record found only by its words with the start of its text | Accepted | Character counts need no tokenizer per model; paragraph boundaries keep passages readable for the model and citable for the user |
 | D185 | The framework is named **Anetos** (Greek άνετος, "at ease, comfortable"; said AH-neh-tos). GitHub org `anetos-dev`, site anetos.dev, module `anetos.dev/anetos`, a vanity import path served by anetos.dev (§5); the command is `anetos`, the test package `anetostest`, environment variables `ANETOS_*`, and the framework's own SQL names, cookies and comment directives use `anetos` (`anetos_rank`, `__Host-anetos_session`, `//anetos:`). No short form: "anet" is taken (ArenaNet, Arista's ticker, a 3D-printer brand, a Go package). In writing it's *Anetos* or `anetos`, never "AnetOS" or "aNETos", which read as ".NET" or "a net OS". The encryption key derivation and the signing contexts carry the name too, so v0.2's encrypted values, sessions and signed links don't carry over; v0.2 was only tagged privately | Accepted | Roadmap Q1, M1. Chosen from about 70 screened names: the meaning fits the developer-comfort pitch and is an everyday Greek word; no ANETOS trademark was found in the US or Australia and nothing in software uses the name; the bare `anetos` GitHub org (dormant) and anetos.com (parked) are taken. A go- prefix (`goanetos`) reads as "goa-netos", next to the Goa framework, so the org is `anetos-dev` and the vanity path keeps "go" out of the name. Before any trademark filing: EUIPO/WIPO search, and the Greek meaning may count as descriptive in the EU |
+| D186 | The database session's time zone is checked when the app boots (`DB.Check`): PostgreSQL's `TimeZone`, MySQL's `time_zone` (the system zone when `SYSTEM`) must be UTC, or the app stops and says where a zone can come from; `DB_ALLOW_LOCAL_TIMEZONE=true` turns the check off | Accepted | D43 converts every value the app writes, but `CURRENT_TIMESTAMP`, `NOW()` and MySQL `TIMESTAMP` columns follow the session; a zone set in `DB_URL` would mix local and UTC times unnoticed |
+| D187 | `anetos.Date` is a calendar date (year, month, day) without time or zone: written as `YYYY-MM-DD` text, read from text or from a time (the day in the time's own zone), JSON and form text `2026-10-03`; the date rules compare it, `now` being today in the app's zone. It is in the root package | Accepted | A date kept in a `time.Time` changes day when converted to UTC (midnight in Dhaka is 18:00 the day before); root because `validate`, `db`, `web` and `i18n` need it and `db` imports `validate` |
+| D188 | `APP_TIMEZONE` (IANA name, default UTC) is the app's zone and `time.Local`: set by the root package's `init` from the environment, and by the first app's `New` from its configuration (not in test binaries); `anetos.Now` returns times in it, `SCHEDULE_TIMEZONE` defaults to it, `i18n` shows times in it by default; `time/tzdata` is embedded in the core | Accepted | Laptops and servers then format times alike; setting `time.Local` once, before goroutines start, avoids data races, and a process has one local zone; the zone database lets user zones load in minimal containers (about 450 KB) |
+| D189 | Translations are YAML catalogs in the app's `locales/` (a file per locale or a folder of files), embedded in the binary: nested keys joined with dots, `{name}` placeholders, plural maps keyed by CLDR category (`other` required). Lookup: the locale, its parents, `APP_FALLBACK_LOCALE`, the core's English catalog; a missing key shows the key. The core catalog is embedded in `i18n`, and an app overrides a core key by defining it | Accepted | A language is a file a developer can write and read (the user's experience with Buffalo); YAML over JSON for that; keys rather than generated functions keep the files the only thing to edit, with `lang:check` catching mistakes |
+| D190 | The request's locale: URL (`LOCALE_URL=none\|prefix\|subdomain`), the signed-in user's preference, session, `locale` cookie, `Accept-Language`, `APP_LOCALE`, matched against `APP_LOCALES`; resolved lazily once per request. With a URL strategy, the URL decides and a GET for a page without one is redirected to the visitor's preferred locale; the default locale has no prefix; route URLs keep the current locale; a choice is stored in the session and the cookie; the resolution is replaceable | Accepted | The developer picks prefix or subdomain URLs; cookie and session remember a visitor's choice by default; lazy resolution costs nothing on routes that never translate |
+| D191 | Users have a display locale, a communication locale (mail, notifications; default the display one) and a time zone, through optional methods on the user model; `auth` feeds the display locale to the request, `i18n.ForUser` switches ctx to the communication locale and zone; queue jobs carry the dispatching context's locale and zone | Accepted | A user may read the site in Bengali and want email in English; jobs run far from the request that caused them and must still speak its language |
+| D192 | The framework's own messages (validation, labels, error pages, auth, rate limits, CSRF) are catalog keys; a `ValidationMessages` value naming a catalog key is translated; `make:auth` writes its strings to the app's `locales/en/auth.yaml` | Accepted | One mechanism for every message; owned files for generated pages, as with the rest of `make:auth` |
+| D193 | Numbers, currencies and plural rules come from `golang.org/x/text`; dates are formatted from CLDR-style patterns and names in the catalog's `format` section (English in the core), relative times are catalog keys | Accepted | x/text has plural rules and number formats but no localized dates; keeping date data in the catalogs needs no date library and lets a language fix its own |
+| D194 | The core ships English only; other languages are folders in the open-source `anetos-dev/locales` repository, copied into the app by `anetos add lang <locale>`; `lang:check` reports missing keys, placeholder mismatches, missing plural forms and undefined keys used in the source | Accepted | Translations evolve apart from releases and an app owns what it ships; a check makes partial catalogs safe |
+| D195 | `go.yaml.in/yaml/v3` and `golang.org/x/text` join the core module's dependencies | Accepted | `i18n` is used by validation and every page, so it can't be a driver module; both are maintained (by the YAML organization, which took over go-yaml, and the Go team) |
 
 ---
 
@@ -2186,3 +2323,5 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-02 | A3 AI in the app implemented: §5, §6, §8.6, §12.1, §14.4, §15, §17.1 updated; D175–D179 added; files as model inputs to the backlog |
 | 2026-10-02 | S2 vectors and hybrid search implemented: §5, §10.5, §14.4 updated; D159, D161 accepted (D161: models switch in place); D180–D184 added |
 | 2026-10-03 | M1: the framework is named Anetos (`anetos.dev/anetos`); §5 updated (module path); D1 superseded; D185 added |
+| 2026-10-03 | I1 internationalization designed: §10.6 and §14.5 added, §9 updated; D186–D195 added |
+| 2026-10-03 | I1a times and dates implemented: §10.6, §13.7 (D116: the scheduler's default zone) |

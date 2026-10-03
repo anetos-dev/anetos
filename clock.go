@@ -11,19 +11,25 @@ import (
 // clock is the app's source of the time: the system clock, or a test's.
 type clock struct {
 	now atomic.Pointer[func() time.Time]
+	loc *time.Location // the app's zone; nil: time.Local
 }
 
 func (c *clock) read() time.Time {
+	t := time.Now()
 	if fn := c.now.Load(); fn != nil {
-		return (*fn)()
+		t = (*fn)()
 	}
-	return time.Now()
+	if c.loc != nil && t.Location() != c.loc {
+		t = t.In(c.loc) // keeps time.Now's monotonic reading when the zones match
+	}
+	return t
 }
 
 type clockKey struct{}
 
-// Now returns the time on the app's clock: the system's, unless a test
-// set another with [App.SetClock] (anetostest's Freeze and Travel). The
+// Now returns the time on the app's clock, in the app's zone
+// ([App.Location]): the system's, unless a test set another with
+// [App.SetClock] (anetostest's Freeze and Travel). The
 // framework reads the time an app can observe from it: model
 // timestamps, expiry of sessions, tokens, signed URLs and cache items in
 // memory, dates in validation rules, emails' Date. Durations, timeouts

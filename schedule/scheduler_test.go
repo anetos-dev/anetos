@@ -408,6 +408,15 @@ func TestForApp(t *testing.T) {
 		t.Errorf("Next = %s", next)
 	}
 
+	// Without SCHEDULE_TIMEZONE, schedules are in the app's zone.
+	zoned := newApp(t, config.Map{"APP_TIMEZONE": "Asia/Dhaka"})
+	zs, err := schedule.ForApp(zoned)
+	check(t, err)
+	check(t, zs.Add(schedule.DailyAt("02:00"), "nightly", func(context.Context) error { return nil }))
+	if next := zs.Tasks()[0].Next(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)); next.Format("15:04 MST") != "02:00 +06" {
+		t.Errorf("Next in the app's zone = %s", next)
+	}
+
 	run := func(name string, args ...string) (string, error) {
 		var out bytes.Buffer
 		for _, c := range app.Commands() {

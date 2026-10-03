@@ -74,10 +74,11 @@ columns), `sql.Null[T]`, and types implementing `sql.Scanner` and
 `driver.Valuer`. Times are always returned in UTC. NULL in a non-pointer
 field is an error that names the fix.
 
-Time arguments are converted to UTC before they are sent, also for `DATE`
-columns: build dates in UTC (`time.Date(2026, 3, 15, 0, 0, 0, 0,
-time.UTC)`) or a local midnight east of Greenwich becomes the previous
-day.
+Time arguments are converted to UTC before they are sent. Use
+`anetos.Date` for `DATE` columns: it is written as `2026-03-15` text and
+read back as the same day, while a `time.Time` at a local midnight east
+of Greenwich becomes the previous day in UTC. NULL reads as the zero
+`Date`. See [times and dates](../guides/times-and-dates.md).
 
 ## Hooks
 

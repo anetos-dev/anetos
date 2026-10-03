@@ -96,6 +96,7 @@ func TestSchemaFor(t *testing.T) {
 
 	type inner struct {
 		When  time.Time         `json:"when" validate:"required"`
+		Day   anetos.Date       `json:"day"`
 		Email string            `json:"email" validate:"email"`
 		Meta  map[string]int    `json:"meta" validate:"max:3"`
 		Any   any               `json:"any"`
@@ -109,7 +110,7 @@ func TestSchemaFor(t *testing.T) {
 		ID int `json:"id" validate:"min:1"`
 	}
 	want = `{"type":"object","properties":{` +
-		`"when":{"type":"string","format":"date-time"},"email":{"type":"string","format":"email"},` +
+		`"when":{"type":"string","format":"date-time"},"day":{"type":"string","format":"date"},"email":{"type":"string","format":"email"},` +
 		`"meta":{"type":"object","properties":{},"additionalProperties":{"type":"integer"},"maxProperties":3},"any":{},"raw":{},` +
 		`"bytes":{"type":"string"},"price":{"type":"string","enum":["1.5","2"]},` +
 		`"opt":{"type":["object","null"],"properties":{"N":{"type":"boolean"}},"additionalProperties":false},` +

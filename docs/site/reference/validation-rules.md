@@ -137,11 +137,14 @@ and bad input is rejected there with a 400.
 | `same:field` | any | Equal to *field* (same type required) |
 | `different:field` | any | Not equal to *field* |
 | `confirmed` | any | Equal to the field named `<Name>Confirmation` or keyed `<key>_confirmation` |
-| `after:now` / `after:field` | time | Later than now / than *field* |
-| `after_or_equal:…`, `before:…`, `before_or_equal:…` | time | As named |
+| `after:now` / `after:field` | `time.Time`, `anetos.Date` | Later than now / than *field* |
+| `after_or_equal:…`, `before:…`, `before_or_equal:…` | `time.Time`, `anetos.Date` | As named |
 
-If the other field of a date comparison is empty, the rule passes; give that
-field its own `required` rule.
+`now` is the app's clock (`anetos.Now`); for an `anetos.Date` it is today
+in the app's zone (`APP_TIMEZONE`). *field* must have the same type: a
+date compares with a date, a time with a time. If the other field of a
+date comparison is empty, the rule passes; give that field its own
+`required` rule.
 
 ## Files
 

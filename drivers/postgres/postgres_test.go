@@ -4,6 +4,7 @@ package postgres_test
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"anetos.dev/anetos/db"
@@ -36,6 +37,20 @@ func TestApp(t *testing.T) {
 		t.Skip("ANETOS_TEST_POSTGRES_URL not set")
 	}
 	dbtest.RunApp(t, postgres.Driver(), map[string]string{"DB_CONNECTION": "postgres", "DB_URL": url})
+}
+
+// TestLocalTimeZone checks that a session time zone set in DB_URL
+// stops the app at boot.
+func TestLocalTimeZone(t *testing.T) {
+	url := os.Getenv("ANETOS_TEST_POSTGRES_URL")
+	if url == "" {
+		t.Skip("ANETOS_TEST_POSTGRES_URL not set")
+	}
+	sep := "?"
+	if strings.Contains(url, "?") {
+		sep = "&"
+	}
+	dbtest.RunLocalTimeZone(t, postgres.Driver(), db.Config{Connection: "postgres", URL: url + sep + "timezone=Asia/Dhaka"})
 }
 
 func TestDSN(t *testing.T) {

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"anetos.dev/anetos"
 	"anetos.dev/anetos/db"
 )
 
@@ -46,6 +47,7 @@ var PostCols = struct {
 	Views       db.Column[int]
 	PublishedAt db.Column[*time.Time]
 	Checked     db.Column[time.Time]
+	Due         db.Column[anetos.Date]
 }{
 	ID:          db.Col[int64]("id"),
 	CreatedAt:   db.Col[time.Time]("created_at"),
@@ -66,6 +68,7 @@ var PostCols = struct {
 	Views:       db.Col[int]("views"),
 	PublishedAt: db.Col[*time.Time]("published_at"),
 	Checked:     db.Col[time.Time]("checked"),
+	Due:         db.Col[anetos.Date]("due"),
 }
 
 // PostRels are the relations of [Post], for With, Load and WhereHas.

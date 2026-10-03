@@ -18,6 +18,7 @@ Read by `anetos.New` into `anetos.AppConfig`.
 | `APP_SHUTDOWN_TIMEOUT` | duration | `30s` | Total graceful-shutdown budget: components first, then shutdown hooks. Hooks always keep the smaller of 5s and a fifth of it. Keep it at or below your platform's grace period (Kubernetes default: 30s) | v0.1 |
 | `APP_KEY` | `base64:…` (32 bytes) | empty | Encrypts and authenticates session cookies. Required by sessions, which fail at startup without it. Generate one with `go tool anetos key:generate`. Keep it secret | v0.1 |
 | `APP_PREVIOUS_KEYS` | list of keys | empty | Old keys that still decrypt, so `APP_KEY` can be rotated without logging everyone out | v0.1 |
+| `APP_TIMEZONE` | IANA time zone (`Asia/Dhaka`) | `UTC` | The app's zone: the process's local zone (so `time.Now`, logs and formatting agree on every machine), the zone of `anetos.Now` and the default of `SCHEDULE_TIMEZONE`. Times are stored in UTC whatever it is. `Local` isn't allowed. See [Times and dates](../guides/times-and-dates.md) | v0.3 |
 | `LOG_LEVEL` | `debug` \| `info` \| `warn` \| `error` | `info` | Minimum log level | v0.1 |
 | `LOG_FORMAT` | `text` \| `json` \| empty | empty | Log format; empty means JSON in production, text elsewhere | v0.1 |
 
@@ -168,6 +169,7 @@ keys with a prefix, e.g. `ANALYTICS_DB_HOST`) into `db.Config`.
 | `DB_LOG_QUERIES` | bool | on when `APP_ENV=development` | Log every query, with its arguments and duration, at debug level | v0.1 |
 | `DB_SLOW_QUERY` | duration | `500ms` | Log queries taking at least this long as warnings (without arguments). `0` disables | v0.1 |
 | `DB_REPEATED_QUERIES` | int | `5` when `APP_ENV` is `development` or `testing`, off elsewhere | Warn when a unit of work (a request, a job, a listener, a task) runs the same query this many times or more: an N+1. `0` disables; otherwise at least 2. See [Find N+1 queries](../guides/n-plus-one.md) | v0.2 |
+| `DB_ALLOW_LOCAL_TIMEZONE` | bool | `false` | Accept a database session time zone other than UTC (set in `DB_URL`), which the app otherwise refuses at boot so the database never writes local times next to the app's UTC ones. For a legacy database whose times are local; the app still writes UTC | v0.3 |
 
 ### Search
 
@@ -189,11 +191,13 @@ Driver specifics:
   `CURRENT_TIMESTAMP` (`2026-09-30 12:00:00.5`), so column defaults and
   values written by the app compare correctly.
 - **PostgreSQL** sessions use the UTC time zone unless `DB_URL` sets
-  `timezone`.
+  `timezone`, which the app then refuses at boot (see
+  `DB_ALLOW_LOCAL_TIMEZONE`).
 - **MySQL** connections always read times as UTC `time.Time`
   (`parseTime=true`, `loc=UTC`) and report matched rows for updates
   (`clientFoundRows=true`), also when `DB_URL` says otherwise; sessions use
-  `time_zone='+00:00'` unless `DB_URL` sets it.
+  `time_zone='+00:00'` unless `DB_URL` sets it, which the app then refuses
+  at boot (see `DB_ALLOW_LOCAL_TIMEZONE`).
 
 ## Cache
 
@@ -242,7 +246,7 @@ Read by `schedule.ForApp` (or `schedule.LoadConfig`) into
 
 | Key | Type | Default | Description | Since |
 |---|---|---|---|---|
-| `SCHEDULE_TIMEZONE` | IANA time zone (`Asia/Dhaka`) | `UTC` | The time zone of schedules without `.In(tz)`. Times that clock changes skip don't run that day; times they repeat run twice (see [Scheduling](../guides/scheduling.md#2-add-it-to-the-scheduler)) | v0.2 |
+| `SCHEDULE_TIMEZONE` | IANA time zone (`Asia/Dhaka`) | `APP_TIMEZONE` | The time zone of schedules without `.In(tz)`. Times that clock changes skip don't run that day; times they repeat run twice (see [Scheduling](../guides/scheduling.md#2-add-it-to-the-scheduler)) | v0.2 |
 
 ## Mail
 

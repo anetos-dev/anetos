@@ -50,7 +50,7 @@ rejected at startup, because JSON decoding could fill it from the body.
 | `bool` | `true`/`false`, `1`/`0`, `t`/`f`, `yes`/`no`, `on`/`off` (checkboxes), any case |
 | `int…`, `uint…`, `float…` | Decimal numbers within range |
 | `time.Duration` | Go durations: `30s`, `5m` |
-| `time.Time`, `netip.Addr`, any `encoding.TextUnmarshaler` | Whatever `UnmarshalText` accepts (RFC 3339 for `time.Time`) |
+| `time.Time`, `anetos.Date`, `netip.Addr`, any `encoding.TextUnmarshaler` | Whatever `UnmarshalText` accepts (RFC 3339 for `time.Time`, `2026-10-03` for `anetos.Date`, as `<input type="date">` sends; empty is the zero `Date`) |
 | `*T` of the above | Set only when a value is present |
 | `[]T` of the above | Repeated query/header/form values |
 | `*multipart.FileHeader`, `[]*multipart.FileHeader` | Uploaded files (`form` tag only) |

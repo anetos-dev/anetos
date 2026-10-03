@@ -15,6 +15,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"anetos.dev/anetos"
 )
 
 // Schema is a JSON Schema: what a tool's input or a structured output
@@ -171,8 +173,9 @@ type schemaResult struct {
 // required (present, not null, not blank), min, max, size and between
 // (lengths, values, item counts), in (an enum), and the formats email,
 // url, uuid, date, datetime, ipv4 and ipv6. Other rules are still
-// checked on the answer. time.Time is a date-time string, other
-// encoding.TextMarshalers strings, json.Number a number; interface
+// checked on the answer. time.Time is a date-time string, anetos.Date a
+// date string, other encoding.TextMarshalers strings, json.Number a
+// number; interface
 // values allow anything. Types with their own MarshalJSON or
 // UnmarshalJSON, and recursive types, are an error: their JSON shape
 // can't be known. Schemas are built once per type and shared: don't
@@ -210,6 +213,7 @@ type schemaBuilder struct {
 
 var (
 	timeType            = reflect.TypeFor[time.Time]()
+	dateType            = reflect.TypeFor[anetos.Date]()
 	textMarshalerType   = reflect.TypeFor[encoding.TextMarshaler]()
 	rawMessageType      = reflect.TypeFor[json.RawMessage]()
 	numberType          = reflect.TypeFor[json.Number]()
@@ -233,6 +237,9 @@ func (b *schemaBuilder) build(t reflect.Type, rules string, required bool) (*Sch
 	switch {
 	case t == timeType:
 		s.Type, s.Format = "string", "date-time"
+		return s, nil
+	case t == dateType:
+		s.Type, s.Format = "string", "date"
 		return s, nil
 	case t == rawMessageType:
 		s.Nullable = false // any value

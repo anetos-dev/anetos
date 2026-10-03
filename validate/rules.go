@@ -63,7 +63,7 @@ func kindOf(t reflect.Type) kind {
 	switch t {
 	case fileHeaderType:
 		return kFile
-	case timeType:
+	case timeType, dateType:
 		return kTime
 	}
 	switch t.Kind() {
@@ -889,18 +889,22 @@ func timeRule(ok func(cmp int) bool) *spec {
 		minParams: 1,
 		maxParams: 1,
 		build: func(b *builder) (runFn, error) {
+			typ := derefType(b.field.Type)
 			if b.params[0] == "now" {
 				return func(ctx context.Context, v, _ reflect.Value) (bool, error) {
-					t, _ := reflect.TypeAssert[time.Time](v)
-					return ok(t.Compare(anetos.Now(ctx))), nil // the app's clock
+					now := anetos.Now(ctx) // the app's clock
+					if typ == dateType {
+						now = anetos.Today(ctx).In(time.UTC) // today, in the app's zone
+					}
+					return ok(instant(v).Compare(now)), nil
 				}, nil
 			}
 			sib, err := findSibling(b.root, b.params[0])
 			if err != nil {
 				return nil, err
 			}
-			if derefType(sib.typ) != timeType {
-				return nil, fmt.Errorf("field %s is not a time.Time", b.params[0])
+			if derefType(sib.typ) != typ {
+				return nil, fmt.Errorf("field %s is not of type %s", b.params[0], typ)
 			}
 			b.args = []string{sib.label}
 			return func(_ context.Context, v, parent reflect.Value) (bool, error) {
@@ -908,12 +912,22 @@ func timeRule(ok func(cmp int) bool) *spec {
 				if isEmpty(other) {
 					return true, nil // nothing to compare against; the other field's own rules report it
 				}
-				t, _ := reflect.TypeAssert[time.Time](v)
-				u, _ := reflect.TypeAssert[time.Time](deref(other))
-				return ok(t.Compare(u)), nil
+				return ok(instant(v).Compare(instant(deref(other)))), nil
 			}, nil
 		},
 	}
+}
+
+var dateType = reflect.TypeFor[anetos.Date]()
+
+// instant returns a time.Time, or an anetos.Date as its midnight in
+// UTC, which orders dates as days.
+func instant(v reflect.Value) time.Time {
+	if d, ok := reflect.TypeAssert[anetos.Date](v); ok {
+		return d.In(time.UTC)
+	}
+	t, _ := reflect.TypeAssert[time.Time](v)
+	return t
 }
 
 // ---- files ----

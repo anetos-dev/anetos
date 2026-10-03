@@ -5,12 +5,14 @@ package validate
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"anetos.dev/anetos"
+	"anetos.dev/anetos/config"
 )
 
 // fieldErrors validates v and returns its messages, failing the test on
@@ -295,6 +297,48 @@ func TestTimeRules(t *testing.T) {
 	}
 }
 
+func TestDateRules(t *testing.T) {
+	type in struct {
+		From anetos.Date  `json:"from" validate:"required|after_or_equal:now"`
+		To   *anetos.Date `json:"to" validate:"after:From"`
+	}
+	// "now" is today in the app's zone: in Dhaka (UTC+6), 20:00 UTC on
+	// the 15th is already the 16th.
+	app, err := anetos.New(anetos.WithSource(config.Map{"APP_TIMEZONE": "Asia/Dhaka"}), anetos.WithLogger(slog.New(slog.DiscardHandler)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.SetClock(func() time.Time { return time.Date(2026, 3, 15, 20, 0, 0, 0, time.UTC) })
+	ctx := app.Context(context.Background())
+	today, tomorrow := anetos.NewDate(2026, 3, 16), anetos.NewDate(2026, 3, 17)
+	if err := Struct(ctx, &in{From: today, To: &tomorrow}); err != nil {
+		t.Errorf("today, tomorrow: %v", err)
+	}
+	fieldError := func(v *in, key string) string {
+		var errs *Errors
+		if !errors.As(Struct(ctx, v), &errs) {
+			return ""
+		}
+		return errs.Get(key)
+	}
+	if got := fieldError(&in{From: today.AddDays(-1)}, "from"); got != "The from field must be a date after or equal to now." {
+		t.Errorf("yesterday: %q", got)
+	}
+	if got := fieldError(&in{From: today, To: &today}, "to"); got == "" {
+		t.Error("to = from: no error")
+	}
+	if got := fieldError(&in{}, "from"); got != "The from field is required." {
+		t.Errorf("the zero date is missing: %q", got)
+	}
+	type mixed struct {
+		A anetos.Date `validate:"after:B"`
+		B time.Time
+	}
+	if err := Struct(ctx, &mixed{}); err == nil || !strings.Contains(err.Error(), "not of type anetos.Date") {
+		t.Errorf("a date compared with a time: %v", err)
+	}
+}
+
 func TestNested(t *testing.T) {
 	type address struct {
 		City string `json:"city" validate:"required"`
@@ -530,7 +574,7 @@ func TestCompileErrors(t *testing.T) {
 		{struct {
 			A time.Time `validate:"after:B"`
 			B string
-		}{}, `not a time.Time`},
+		}{}, `not of type time.Time`},
 		{struct {
 			A string `validate:"max_size:1MB"`
 		}{}, `does not apply`},

@@ -26,8 +26,9 @@ import (
 // Config configures the app's scheduler.
 type Config struct {
 	// Timezone is the time zone of schedules without [Schedule.In]: an
-	// IANA name. SCHEDULE_TIMEZONE, default UTC.
-	Timezone string `env:"SCHEDULE_TIMEZONE" default:"UTC"`
+	// IANA name. SCHEDULE_TIMEZONE, default the app's (APP_TIMEZONE,
+	// itself UTC by default).
+	Timezone string `env:"SCHEDULE_TIMEZONE"`
 }
 
 // LoadConfig reads the SCHEDULE_* settings.
@@ -104,7 +105,8 @@ func New(opts ...Option) *Scheduler {
 	return s
 }
 
-// ForApp returns the app's scheduler, configured from SCHEDULE_TIMEZONE:
+// ForApp returns the app's scheduler, configured from SCHEDULE_TIMEZONE
+// (default the app's zone, APP_TIMEZONE):
 // it runs as a component with the role "scheduler" (so `run
 // --only=scheduler` runs only it), stopping first after the HTTP server,
 // and adds the schedule:list and schedule:run commands. Tasks with
@@ -118,9 +120,11 @@ func ForApp(app *anetos.App) (*Scheduler, error) {
 	if err != nil {
 		return nil, err
 	}
-	loc, err := time.LoadLocation(cfg.Timezone)
-	if err != nil {
-		return nil, fmt.Errorf("schedule: SCHEDULE_TIMEZONE: %w", err)
+	loc := app.Location()
+	if cfg.Timezone != "" {
+		if loc, err = time.LoadLocation(cfg.Timezone); err != nil {
+			return nil, fmt.Errorf("schedule: SCHEDULE_TIMEZONE: %w", err)
+		}
 	}
 	if _, err := anetos.Resolve[*Scheduler](app); err == nil {
 		return nil, errors.New("schedule: ForApp called twice for one app")

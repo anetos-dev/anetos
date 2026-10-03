@@ -23,7 +23,7 @@ and [Seed the database](../guides/seeders.md) for walkthroughs.
 | `t.Boolean(name)` | `BOOLEAN` | `BOOLEAN` (TINYINT(1)) | `BOOLEAN` | `bool` |
 | `t.Float(name)` | `DOUBLE PRECISION` | `DOUBLE` | `REAL` | `float64` |
 | `t.Decimal(name, p, s)` | `NUMERIC(p, s)` | `DECIMAL(p, s)` | `TEXT` (exact, compares as text) | `string` or a decimal type (not `float64`) |
-| `t.Date(name)` | `DATE` | `DATE` | `DATE` | `time.Time` (build dates in UTC) |
+| `t.Date(name)` | `DATE` | `DATE` | `DATE` | `anetos.Date` (see [times and dates](../guides/times-and-dates.md)) |
 | `t.Timestamp(name)` | `TIMESTAMPTZ` | `DATETIME(6)` | `DATETIME` | `time.Time` |
 | `t.JSON(name)` | `JSONB` | `JSON` | `TEXT` | any, with `db:"name,json"` |
 | `t.Binary(name)` | `BYTEA` | `LONGBLOB` | `BLOB` | `[]byte` |

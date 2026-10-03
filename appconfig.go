@@ -81,6 +81,12 @@ type AppConfig struct {
 	// comma-separated.
 	PreviousKeys []Secret `env:"APP_PREVIOUS_KEYS"`
 
+	// TimeZone is the app's time zone, an IANA name ("Asia/Dhaka"):
+	// the process's local zone, the zone of [Now] and the default of
+	// SCHEDULE_TIMEZONE. Times are stored in UTC whatever it is.
+	// APP_TIMEZONE, default UTC; empty means UTC.
+	TimeZone string `env:"APP_TIMEZONE" default:"UTC"`
+
 	// Log configures the default logger. LOG_* variables.
 	Log LogConfig `prefix:"LOG_"`
 }
@@ -102,6 +108,7 @@ func DefaultAppConfig() AppConfig {
 		Name:            "anetos",
 		Env:             Production,
 		ShutdownTimeout: 30 * time.Second,
+		TimeZone:        "UTC",
 		Log:             LogConfig{Level: slog.LevelInfo},
 	}
 }
@@ -132,6 +139,9 @@ func (c AppConfig) Validate() error {
 		if _, err := appkey.Parse(string(k)); err != nil {
 			errs = append(errs, fmt.Errorf("APP_PREVIOUS_KEYS[%d]: %w", i, err))
 		}
+	}
+	if _, err := loadZone(c.TimeZone); err != nil {
+		errs = append(errs, fmt.Errorf("APP_TIMEZONE %q is not an IANA time zone (UTC, Asia/Dhaka, Europe/Paris)", c.TimeZone))
 	}
 	switch c.Log.Format {
 	case "", "text", "json":

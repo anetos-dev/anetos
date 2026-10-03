@@ -157,6 +157,11 @@ func New(opts ...Option) (*App, error) {
 		}
 	}
 
+	loc, err := appZone(cfg.TimeZone)
+	if err != nil {
+		return nil, fmt.Errorf("anetos: APP_TIMEZONE: %w", err)
+	}
+
 	log := o.logger
 	if log == nil {
 		log = newLogger(cfg, o.logOutput)
@@ -170,6 +175,7 @@ func New(opts ...Option) (*App, error) {
 		services: map[reflect.Type]any{},
 		commands: map[string]cmd.Command{},
 	}
+	a.clock.loc = loc
 	a.AddContextValue(clockKey{}, &a.clock)
 	a.AddContextValue(loggerKey{}, log)
 	a.addBuiltins()

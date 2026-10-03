@@ -100,8 +100,15 @@ before it is sent, and the drivers run their sessions in UTC (PostgreSQL
 `timestamp`/`DATETIME` columns without time zone agree with the app. On
 SQLite, which stores times as text, times are written in the format of
 its own `CURRENT_TIMESTAMP`, so text comparison and sorting match time
-order. One consequence: a date is a time at midnight, so build dates in
-UTC to keep their calendar day.
+order.
+
+The app can't drift into local time by a forgotten setting: when it
+boots, it checks the session's time zone and stops if a connection string
+set another one (unless `DB_ALLOW_LOCAL_TIMEZONE=true`). Calendar dates
+are `anetos.Date` values, which have no zone and so can't change day on
+the way to UTC. `APP_TIMEZONE` changes the zone the app works in (logs,
+schedules, `anetos.Now`), never the one it stores in. See
+[times and dates](../guides/times-and-dates.md).
 
 ## What it deliberately doesn't do
 

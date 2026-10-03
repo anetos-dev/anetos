@@ -61,7 +61,7 @@ In `setup`, after `cache.ForApp` (and `queue.ForApp`, for jobs):
 if _, err := cache.ForApp(app, redis.CacheDriver()); err != nil { // CACHE_STORE: memory, database or redis
 	return nil, err
 }
-s, err := schedule.ForApp(app) // SCHEDULE_TIMEZONE, default UTC
+s, err := schedule.ForApp(app) // SCHEDULE_TIMEZONE, default APP_TIMEZONE (UTC)
 if err != nil {
 	return nil, err
 }
@@ -132,7 +132,8 @@ isn't restricted, so `0 0 */2 * MON` is odd days that are Mondays.
 | `schedule.OnOneServer()` | Runs each run on one instance only, when several run the scheduler |
 | `schedule.Timeout(d)` | Cancels a run's context after `d` |
 
-**Time zones.** Schedules are in `SCHEDULE_TIMEZONE` (default `UTC`), or
+**Time zones.** Schedules are in `SCHEDULE_TIMEZONE` (default the app's
+zone, `APP_TIMEZONE`, itself `UTC` by default), or
 in the zone `.In("Asia/Dhaka")` gives one schedule. In a zone with
 daylight saving time, a time that the clock change skips doesn't run that
 day, and a time it repeats runs twice: schedule tasks that matter away

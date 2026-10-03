@@ -176,13 +176,19 @@ func (d *DB) dialectTitle() string {
 	return d.dialect.Name()
 }
 
-// Check runs the checks [Connect] runs when the app boots: the search
-// settings ([DB.CheckSearch]), the features' requirements
+// Check runs the checks [Connect] runs when the app boots: the session's
+// time zone ([DB.CheckTimeZone]), the search settings ([DB.CheckSearch]),
+// the features' requirements
 // ([DB.Require]), and that the search indexes were built for the
 // current settings (unless the command being run changes the schema,
 // such as migrate and search:reindex; see cmd.Command.ChangesSchema).
 // Call it after [Open] to check a DB the same way.
 func (d *DB) Check(ctx context.Context) error {
+	if !d.localTZ {
+		if err := d.CheckTimeZone(ctx); err != nil {
+			return err
+		}
+	}
 	if err := d.CheckSearch(ctx); err != nil {
 		return err
 	}

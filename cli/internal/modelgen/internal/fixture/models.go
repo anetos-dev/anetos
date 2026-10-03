@@ -12,6 +12,7 @@ import (
 	"net/netip"
 	"time"
 
+	"anetos.dev/anetos"
 	"anetos.dev/anetos/db"
 )
 
@@ -41,6 +42,7 @@ type Post struct {
 	Views       int               `db:"views,readonly"`
 	PublishedAt *time.Time        `db:"published_at"`
 	Checked     time.Time         // time.Time is a value
+	Due         anetos.Date       // a calendar date: a value
 	IP          netip.Addr        // an untagged struct that doesn't scan: not a column
 	Author      *Author           `rel:"belongs_to"`          // a relation: not a column
 	Comments    []Comment         `rel:"has_many,fk=post_id"` // a relation

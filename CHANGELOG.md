@@ -7,6 +7,15 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- `anetos.Date`, a calendar date without time or zone, for `DATE` columns,
+  forms (`<input type="date">`) and JSON; `NewDate`, `DateOf`, `Today`,
+  `ParseDate`; the date rules (`after`, `before`…) compare dates, `now`
+  being today in the app's zone. Guide "Times and dates" (I1a, D187).
+- `APP_TIMEZONE` (default `UTC`), the app's zone; `App.Location`,
+  `anetos.Location`. The time zone database is built in (`time/tzdata`)
+  (I1a, D188).
+- `DB.CheckTimeZone`, `DB_ALLOW_LOCAL_TIMEZONE` (`db.WithLocalTimeZone`),
+  `dbtest.RunLocalTimeZone` (I1a, D186).
 - Full-text search: `q.Search(text)` keeps the rows matching every word
   (as prefixes) of text in a search index's columns and orders them by
   relevance, with `Where`, soft deletes, `Paginate`, `Count` and the
@@ -174,6 +183,19 @@ All notable changes to this project are documented here. The format follows
   "Search by meaning" (S2).
 
 ### Changed
+- **BREAKING:** an app whose `DB_URL` sets a session time zone other than
+  UTC refuses to start, and so do its commands. Before:
+  `DB_URL=postgres://…/app?timezone=Asia/Dhaka` started. After: remove
+  `timezone=`/`time_zone=`, or set `DB_ALLOW_LOCAL_TIMEZONE=true` to keep
+  it ([upgrade guide](docs/site/upgrade/v0.3.md)) (I1a, D186).
+- Importing Anetos sets the process's local zone (`time.Local`) to
+  `APP_TIMEZONE` from the environment, UTC when unset, and the first app
+  to its configured zone; `TZ` is ignored. `time.Now()` and log times on
+  a machine in another zone change accordingly (I1a, D188).
+- `anetos.Now` and `App.Now` return times in the app's zone (I1a).
+- `SCHEDULE_TIMEZONE` defaults to the app's zone (`APP_TIMEZONE`, itself
+  UTC by default) (I1a).
+- `ai` schemas describe an `anetos.Date` as a `date` string (I1a).
 - The framework is named **Anetos** (M1, D185): module `anetos.dev/anetos`,
   command `anetos`, test package `anetostest`, environment variables
   `ANETOS_*`. The encryption key derivation and the signing contexts carry

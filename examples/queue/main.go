@@ -107,7 +107,7 @@ func setup(app *anetos.App) (*web.Server, error) {
 	if _, err := cache.ForApp(app, redis.CacheDriver()); err != nil { // CACHE_STORE: memory, database or redis
 		return nil, err
 	}
-	s, err := schedule.ForApp(app) // SCHEDULE_TIMEZONE, default UTC
+	s, err := schedule.ForApp(app) // SCHEDULE_TIMEZONE, default APP_TIMEZONE (UTC)
 	if err != nil {
 		return nil, err
 	}

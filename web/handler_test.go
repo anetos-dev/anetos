@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"anetos.dev/anetos"
 	"anetos.dev/anetos/validate"
 )
 
@@ -91,6 +92,32 @@ func TestBindForm(t *testing.T) {
 	}
 	if out.Page != 0 {
 		t.Error("form values must not fill query fields")
+	}
+}
+
+func TestBindDate(t *testing.T) {
+	type in struct {
+		Due  anetos.Date  `form:"due" query:"due"`
+		Done *anetos.Date `form:"done"`
+	}
+	r := newTestRouter()
+	r.Post("/tasks", H(func(_ *Ctx, v in) (in, error) { return v, nil }))
+	form := url.Values{"due": {"2026-10-03"}, "done": {""}}
+	got := do(t, r, "POST", "/tasks", strings.NewReader(form.Encode()), "Content-Type", "application/x-www-form-urlencoded")
+	if out := decode[in](t, got.body); out.Due != anetos.NewDate(2026, 10, 3) || out.Done != nil {
+		t.Errorf("form date: %+v (%s): an empty date input leaves a pointer nil", out, got.body)
+	}
+	r.Get("/tasks", H(func(_ *Ctx, v in) (in, error) { return v, nil }))
+	if out := decode[in](t, do(t, r, "GET", "/tasks?due=2026-10-05", nil).body); out.Due != anetos.NewDate(2026, 10, 5) {
+		t.Errorf("query date: %+v", out)
+	}
+	got = do(t, r, "POST", "/tasks", strings.NewReader(`{"due":"2026-10-04"}`), "Content-Type", "application/json")
+	if out := decode[in](t, got.body); out.Due != anetos.NewDate(2026, 10, 4) {
+		t.Errorf("JSON date: %+v", out)
+	}
+	got = do(t, r, "POST", "/tasks", strings.NewReader(url.Values{"due": {"03/10/2026"}}.Encode()), "Content-Type", "application/x-www-form-urlencoded")
+	if got.status != http.StatusBadRequest && got.status != http.StatusUnprocessableEntity {
+		t.Errorf("a bad date: %d %s", got.status, got.body)
 	}
 }
 
