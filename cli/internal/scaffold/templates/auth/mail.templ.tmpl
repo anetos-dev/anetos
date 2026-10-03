@@ -30,7 +30,7 @@ templ ResetPasswordMail(name, url string) {
 // authMail is the account emails' shell.
 templ authMail() {
 	<!DOCTYPE html>
-	<html lang={ i18n.Locale(ctx) }>
+	<html lang={ i18n.Locale(ctx) } dir={ i18n.Dir(ctx) }>
 		<body style="margin:0;padding:24px;background:#f4f4f5;font-family:Arial,sans-serif;color:#18181b">
 			<div style="max-width:560px;margin:0 auto;padding:24px;background:#ffffff;border-radius:8px">
 				{ children... }

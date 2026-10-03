@@ -5,6 +5,7 @@ package main
 import (
 	"bytes"
 	"testing"
+	"time"
 
 	"anetos.dev/anetos"
 	"anetos.dev/anetos/anetostest"
@@ -14,25 +15,29 @@ import (
 // region: test
 func TestLanguages(t *testing.T) {
 	app := anetostest.New(t, setup)
+	app.Freeze(time.Date(2026, time.January, 15, 12, 0, 0, 0, time.UTC))
 
 	// English by default; plurals follow the count.
-	app.Get("/?plants=1").AssertOK().AssertSee(`lang="en"`, "Welcome, Ada!", "You have 1 plant.")
+	app.Get("/?plants=1").AssertOK().AssertSee(`lang="en"`, "Welcome, Ada!", "You have 1 plant.",
+		"Today is Thursday, January 15, 2026.", "A seed pack costs BDT 1,250.00.", "Last watered 3 hours ago.")
 	app.Get("/?plants=3").AssertSee("You have 3 plants.")
 
-	// The browser's languages.
+	// The browser's languages: words, digits, dates and prices in Bangla.
 	app.WithHeader("Accept-Language", "bn-BD, en;q=0.8")
-	app.Get("/?name=Rafi&plants=2").AssertSee(`lang="bn"`, "স্বাগতম, Rafi!", "আপনার 2টি গাছ আছে।")
+	app.Get("/?name=Rafi&plants=2").AssertSee(`lang="bn"`, "স্বাগতম, Rafi!", "আপনার ২টি গাছ আছে।",
+		"আজ বৃহস্পতিবার, ১৫ জানুয়ারী, ২০২৬।", "১,২৫০.০০৳", "৩ ঘণ্টা আগে")
 
 	// Validation messages and labels in the visitor's language.
 	app.PostJSON("/signup", map[string]any{"email": "nope", "plant_count": 0}).AssertUnprocessable().
 		AssertJSONPath("errors.name", "নাম দিতে হবে।").
 		AssertJSONPath("errors.email", "ইমেইল একটি সঠিক ইমেইল ঠিকানা হতে হবে।").
-		AssertJSONPath("errors.plant_count", "গাছের সংখ্যা কমপক্ষে 1 হতে হবে।")
+		AssertJSONPath("errors.plant_count", "গাছের সংখ্যা কমপক্ষে ১ হতে হবে।")
 
 	// A chosen language (?locale=, the switcher's links) beats the
-	// browser's, and is remembered.
+	// browser's, and is remembered. The switcher names each language in
+	// itself.
 	app.Get("/?locale=en").AssertRedirect("/")
-	app.Get("/").AssertSee(`lang="en"`, "Welcome, Ada!", `href="/?locale=bn"`)
+	app.Get("/").AssertSee(`lang="en"`, "Welcome, Ada!", `href="/?locale=bn" hreflang="bn">বাংলা</a>`)
 }
 
 // endregion

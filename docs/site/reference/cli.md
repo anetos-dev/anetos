@@ -51,7 +51,7 @@ before `migrate`.
 | `app/models/` | Models (empty at first) |
 | `database/migrations/migrations.go` | The `All` migration set and `Seeders` |
 | `database/factories/factories.go` | The package for model factories (empty at first) |
-| `views/layout.templ`, `views/home.templ` | templ layout (`<html lang>` in the request's locale, flash messages, CSRF header for htmx) and home page, its text from the catalog |
+| `views/layout.templ`, `views/home.templ` | templ layout (`<html lang dir>` in the request's locale, `hreflang` links with `LOCALE_URL=prefix` or `subdomain`, flash messages, CSRF header for htmx) and home page, its text from the catalog |
 | `locales/locales.go`, `locales/en/app.yaml` | The translations, embedded: the home page's English text. Add a language with its folder (`locales/bn/app.yaml`); see [Translations](../guides/translations.md) |
 | `public/public.go`, `public/static/app.css` | `public.Assets`: the static files and htmx under `/assets` |
 
@@ -135,6 +135,32 @@ in `.env` and `.env.example`, and its tables in the database: drop them
 with a migration of your own if you want them gone (`migrate:rollback`
 rolls back a whole batch, your app's migrations included). Anetos stays
 at the version `anetos add` left it at.
+
+## `anetos lang:add [-from dir] [-version v] [-force] <locale>...`
+
+Copies the translations of the framework's messages for each locale
+from the module `anetos.dev/locales`
+([anetos-dev/locales](https://github.com/anetos-dev/locales)) into the
+project's `locales/<locale>/`, from the project's directory or below
+(v0.3). `anetos add lang <locale>...` does the same.
+
+1. Downloads the module (`go mod download`, version `-version`, default
+   `latest`), or uses the checkout `-from` names. The project's `go.mod`
+   doesn't change.
+2. Writes `framework.yaml` (validation messages, error pages, sign-in
+   messages, `format` and `relative`), and `auth.yaml` when the project
+   has `locales/en/auth.yaml` (`make:auth`'s pages and emails), without
+   the keys the project's other catalogs for the locale define (it lists
+   them). A file the project already has is kept, unless `-force`; an
+   identical one is reported as up to date.
+3. Prints the next step: `go run . lang:check`.
+
+Locale names match the module's folders regardless of case, and a
+regional locale matches its language's folder (`bn-BD` writes
+`locales/bn/`). With no locale, it lists those available. It fails
+(exit 1), before downloading or writing anything, without a `locales`
+folder or for a locale the module doesn't have. The download runs with
+`GOWORK=off`; without network, pass `-from`.
 
 ## Other commands
 

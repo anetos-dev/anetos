@@ -844,7 +844,7 @@ remaining gaps (D186–D188):
   another zone, except in a test binary (`testing.Testing()`), where tests
   create apps while others run. Later apps don't change it. `anetos.Now`
   returns times in the app's zone either way, `SCHEDULE_TIMEZONE` defaults
-  to it, and `i18n` will show times in it when the user has no zone of
+  to it, and `i18n` shows times in it when the user has no zone of
   their own (§14.5). The
   core embeds the time zone database (`time/tzdata`, about 450 KB), so
   zones load in minimal containers.
@@ -1529,7 +1529,7 @@ for ev, err := range support.Stream(ctx, question) { … }  // the answer as it'
   (exposing the app's tools, using remote ones), provider failover,
   images, speech and transcription are in the backlog.
 
-### 14.5 Internationalization (v0.3: I1b done; I1c)
+### 14.5 Internationalization (v0.3: I1 done)
 
 Every page, validation message, error page and email can speak the
 user's language, and adding a language to an app is adding a file
@@ -1632,20 +1632,44 @@ mailer.Send(i18n.ForUser(ctx, u), mails.Welcome{User: u}) // the user's mail lan
   for logs (`Error()` strings) stay English. `make:auth` writes its pages'
   and emails' strings to `locales/en/auth.yaml`, which the app owns, and
   sends its emails with `i18n.ForUser`.
-- **Formatting (I1c).** Numbers, percentages and currencies come from
-  `golang.org/x/text`, which also has the CLDR plural rules. Dates use
-  CLDR-style patterns (`d MMMM y`) and month and day names from the
-  catalog's `format` section, so a language brings its own and the core
-  needs no date library: `i18n.Date`, `i18n.Time`, `i18n.DateTime` take a
-  `time.Time` (shown in the user's zone) or an `anetos.Date`; relative
-  times (`i18n.Ago`) are catalog keys. `i18n.Dir` gives `ltr` or `rtl` for
-  `<html dir>`, `i18n.LanguageName` the language's name, for prompts.
-- **Languages.** The core ships English only. Other languages live in an
-  open-source repository (`anetos-dev/locales`, a folder per locale with
-  CLDR-derived format data); `anetos add lang fr` copies a folder into
-  `locales/fr/`, where the app owns it. `lang:check` reports keys missing
+- **Formatting (I1c).** `i18n.Number`, `Fixed`, `Percent` and `Currency`
+  come from `golang.org/x/text` (CLDR number data, plural rules). Digits
+  follow CLDR's numbering system for the language (Bangla digits for
+  `bn`), or the catalog's `format.numbering` (`latn`); dates, a plural's
+  `{count}` and the numbers of size rules' messages (ungrouped, exact)
+  use the same digits (D196). The `format` and `relative` sections come
+  from the locale's catalogs, then English (the app's, then the
+  core's), never from a fallback locale in another language. `Currency` takes an ISO 4217 code and an amount in main units,
+  rounds to the currency's digits, and places x/text's symbol with the
+  catalog's `format.currency` pattern, with CLDR's spacing next to a
+  symbol of letters. Dates use CLDR patterns (`d MMMM y`, a subset of
+  the fields) and month and day names from the catalog's `format`
+  section, so a language brings its own and the core needs no date
+  library: `i18n.Date` and `i18n.Format` take a `time.Time` (shown in
+  the context's zone, the user's) or an `anetos.Date` (shown as it is),
+  or a pointer to one, through a type constraint; `Time` and `DateTime` take a time; styles
+  `Short`, `Medium` (default), `Long`, `Full`. Relative times
+  (`i18n.Ago`, `i18n.Duration`, `i18n.DurationUp` for waits) are plural
+  catalog keys (`relative.units.<unit>`), measured from the app's clock. `i18n.Dir`
+  gives `ltr` or `rtl` (from the locale's script) for `<html dir>`;
+  `i18n.LanguageName` the language's own name from its catalog
+  (`format.language`), for switchers and prompts (D198).
+  `web.Alternates` lists the page's address per locale and `x-default`
+  for `hreflang` links, with URL strategies.
+- **Languages.** The core ships English only. Other languages' messages
+  live in the open-source module `anetos.dev/locales`
+  (`anetos-dev/locales`): a folder per locale with `framework.yaml` (the
+  core's keys, with CLDR-derived formats) and `auth.yaml` (`make:auth`'s
+  keys), checked in its CI against both English catalogs. `anetos
+  lang:add fr` (or `anetos add lang fr`) copies a folder into
+  `locales/fr/`, where the app owns it, leaving out the keys the app's
+  catalogs for the locale define (D197); v0.3 brings `bn`, `es` and
+  `fr`. `lang:check` reports keys missing
   from a locale, placeholders that differ from the fallback's, plural
-  forms the language needs, and keys used in the source (`i18n.T(ctx,
+  forms the language needs (and notes forms it never uses), framework
+  messages whose placeholders differ from English, month and day lists
+  of the wrong length, keys neither English nor the framework has (a
+  note), and keys used in the source (`i18n.T(ctx,
   "…")` literals in `.go` and `.templ` files) that no catalog defines.
 - **Not in I1:** translating model content (a post's title in several
   languages) is in the backlog. A search index has one language (§10.5),
@@ -2299,6 +2323,9 @@ unless new information arrives), **Open**, **Superseded**.
 | D193 | Numbers, currencies and plural rules come from `golang.org/x/text`; dates are formatted from CLDR-style patterns and names in the catalog's `format` section (English in the core), relative times are catalog keys | Accepted | x/text has plural rules and number formats but no localized dates; keeping date data in the catalogs needs no date library and lets a language fix its own |
 | D194 | The core ships English only; other languages are folders in the open-source `anetos-dev/locales` repository, copied into the app by `anetos add lang <locale>`; `lang:check` reports missing keys, placeholder mismatches, missing plural forms and undefined keys used in the source | Accepted | Translations evolve apart from releases and an app owns what it ships; a check makes partial catalogs safe |
 | D195 | `go.yaml.in/yaml/v3` and `golang.org/x/text` join the core module's dependencies | Accepted | `i18n` is used by validation and every page, so it can't be a driver module; both are maintained (by the YAML organization, which took over go-yaml, and the Go team) |
+| D196 | Numbers use CLDR's default numbering system for the language (x/text), dates and the framework's numbers in messages (a plural's `{count}`, size rules' arguments) the same digits; a catalog's `format.numbering` picks another (`latn`) | Accepted | One digit system per page: CLDR's default for Bangla is Bangla digits, while many sites prefer Latin ones, so the default follows the standard and the app can choose |
+| D197 | `anetos lang:add <locale>` (alias `add lang`) copies `framework.yaml`, and `auth.yaml` when the app has `make:auth`'s English, from the module `anetos.dev/locales` fetched with `go mod download` (or `-from` a checkout) into `locales/<locale>/`, without keys the app's other catalogs for the locale define, keeping files the app has unless `-force`; the locales module's CI checks every folder against the core's and `make:auth`'s English | Accepted | The module proxy gives versions, checksums and caching for free; a separate module lets translations change between releases; copies are the app's (D194), so nothing changes behind its back |
+| D198 | `i18n.LanguageName` reads the locale's own catalog (`format.language`) rather than `x/text/language/display`; `i18n.Dir` derives the direction from the locale's script | Accepted | `display` adds about 2.4 MB to every binary for names the catalogs can carry; the script is in x/text's tables already |
 
 ---
 
@@ -2362,3 +2389,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-03 | I1 internationalization designed: §10.6 and §14.5 added, §9 updated; D186–D195 added |
 | 2026-10-03 | I1a times and dates implemented: §10.6, §13.7 (D116: the scheduler's default zone) |
 | 2026-10-03 | I1b translations implemented: §9, §14.5 updated (the order per `LOCALE_URL` strategy, the device's choice before the user's preference, `?locale=` on pages, `/en/` canonical URLs, locale matching, the core catalog after English, `HTTPError.Key`, binding messages); D190 updated |
+| 2026-10-03 | I1c formatting and languages implemented: §14.5 updated (numbers, currencies, dates, relative times, `Dir`, `LanguageName`, `web.Alternates`, `lang:add` and `anetos.dev/locales`); D196–D198 added |

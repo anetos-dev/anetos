@@ -17,6 +17,9 @@
 //	make:agent <Name>         add an AI agent
 //	make:auth                 add accounts: registration, login, verification, reset, API tokens
 //	gen [-check] [packages]   generate typed columns for models (default ./...)
+//	add <module>[@version]    install a plugin
+//	remove <module>           uninstall a plugin
+//	lang:add <locale>...      add translations of the framework's messages (also: add lang)
 //	key:generate              print a new APP_KEY line
 //	version                   print the version
 package main
@@ -56,6 +59,7 @@ Commands:
   gen [-check] [packages]   generate typed columns for models (default ./...)
   add <module>[@version]    install a plugin (go get, plugins.go, .env.example)
   remove <module>           uninstall a plugin
+  lang:add <locale>...      add translations of the framework's messages to locales/ (also: add lang)
   key:generate              print a new APP_KEY line (append it to .env)
   version                   print the version
 
@@ -74,10 +78,15 @@ func run(args []string, stdout, stderr io.Writer) int {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 		return newProject(ctx, args[1:], stdout, stderr)
-	case "add", "remove":
+	case "add", "remove", "lang:add":
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
-		if args[0] == "add" {
+		switch {
+		case args[0] == "lang:add":
+			return langAdd(ctx, args[1:], stdout, stderr)
+		case args[0] == "add" && len(args) > 1 && args[1] == "lang":
+			return langAdd(ctx, args[2:], stdout, stderr)
+		case args[0] == "add":
 			return addPlugin(ctx, args[1:], stdout, stderr)
 		}
 		return removePlugin(ctx, args[1:], stdout, stderr)

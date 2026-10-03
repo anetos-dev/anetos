@@ -14,5 +14,5 @@ a JSON API where users have roles in teams and across them
 (`auth/rbac`). [`assistant`](assistant) is a help center with an AI
 assistant: stored conversations, answers streamed with htmx, replies
 from queue jobs and daily budgets. [`i18n`](i18n) speaks English and
-Bangla: catalogs, plurals, a language switcher, and validation messages
-in the visitor's language.
+Bangla: catalogs, plurals, dates, prices and relative times, a language
+switcher, and validation messages in the visitor's language.

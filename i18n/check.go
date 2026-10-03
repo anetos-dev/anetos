@@ -57,8 +57,9 @@ func (tr *Translator) checkCommand(fs.FS) cmd.Command {
 // Check writes a report of the catalogs' problems to w and returns how
 // many there are: keys of the fallback locale's catalog missing from a
 // supported locale, placeholders that differ from the fallback's, plural
-// forms a language needs that a message lacks, and keys in used (keys the
-// source uses) that no catalog defines. Framework messages a locale
+// forms a language needs that a message lacks, lists of month and day
+// names of the wrong length, and keys in used (keys the source uses)
+// that no catalog defines. Framework messages a locale
 // doesn't translate are noted, not counted.
 func (tr *Translator) Check(w io.Writer, used []string) int {
 	problems := 0
@@ -83,15 +84,27 @@ func (tr *Translator) Check(w io.Writer, used []string) int {
 			if len(missing) > 0 {
 				report("%s: %d key(s) missing: %s", locale, len(missing), listOf(missing))
 			}
+			var unknown []string
 			for _, k := range ownKeys {
 				want, ok := find(ref, k)
+				other := tr.fallback.String()
 				if !ok {
+					want, ok = find([]*catalog{tr.core}, k) // a framework message
+					other = "the framework's English"
+				}
+				if !ok {
+					if !optionalKeys[k] && !strings.HasPrefix(k, "validation.attributes.") && !strings.HasPrefix(k, "validation.values.") {
+						unknown = append(unknown, k)
+					}
 					continue
 				}
 				got, _ := find(own, k)
 				if a, b := placeholders(got), placeholders(want); !slices.Equal(a, b) {
-					report("%s: %s has placeholders %s; %s has %s", locale, k, listOrNone(a), tr.fallback, listOrNone(b))
+					report("%s: %s has placeholders %s; %s has %s", locale, k, listOrNone(a), other, listOrNone(b))
 				}
+			}
+			if len(unknown) > 0 { // a misspelled key, or one only this locale needs
+				fmt.Fprintf(w, "%s: note: %d key(s) %s and the framework don't have: %s\n", locale, len(unknown), tr.fallback, listOf(unknown))
 			}
 			var untranslated []string
 			for _, k := range slices.Sorted(maps.Keys(tr.core.msgs)) {
@@ -106,6 +119,11 @@ func (tr *Translator) Check(w io.Writer, used []string) int {
 		chain := own
 		if isRef {
 			chain = ref
+		}
+		for _, l := range formatLists {
+			if m, ok := find(chain, l.key); ok && len(m.list) != l.n {
+				report("%s: %s needs %d names, not %d", locale, l.key, l.n, len(m.list))
+			}
 		}
 		needs := pluralFormsOf(tag)
 		for _, k := range keysOf(chain) {
@@ -147,6 +165,19 @@ func (tr *Translator) Check(w io.Writer, used []string) int {
 	}
 	return problems
 }
+
+// formatLists are the lists of names in a catalog's format section, and
+// their lengths.
+var formatLists = []struct {
+	key string
+	n   int
+}{
+	{"format.months", 12}, {"format.months_short", 12}, {"format.months_standalone", 12},
+	{"format.days", 7}, {"format.days_short", 7}, {"format.periods", 2},
+}
+
+// optionalKeys are framework keys the English catalog leaves out.
+var optionalKeys = map[string]bool{"format.numbering": true, "format.months_standalone": true}
 
 // isEnglish reports whether tag's language is English (en, en-GB).
 func isEnglish(tag language.Tag) bool {

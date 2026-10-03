@@ -259,9 +259,9 @@ func (t *tracking) check(ctx context.Context) error {
 	wait := spent.RetryAfter()
 	return &web.HTTPError{
 		Status:  http.StatusTooManyRequests,
-		Message: i18n.T(context.Background(), "ai.usage_limit", "wait", humanDuration(wait)), // English, for logs
+		Message: i18n.T(context.Background(), "ai.usage_limit", "wait", i18n.DurationUp(context.Background(), wait)), // English, for logs
 		Key:     "ai.usage_limit",
-		Args:    []any{"wait", humanDuration(wait)},
+		Args:    []any{"wait", i18n.DurationUp(ctx, wait)},
 		Err:     &BudgetError{UserID: t.user, RetryAfter: wait},
 	}
 }
@@ -308,24 +308,6 @@ func (cl *Client) record(ctx context.Context, t *tracking, c *call, provider str
 	}
 	if err := db.Create(ctx, &rec); err != nil {
 		cl.logger().ErrorContext(ctx, "ai: recording usage failed", "user", t.user, "error", err)
-	}
-}
-
-// humanDuration says d for people: "3 hours", "12 minutes", "40 seconds".
-func humanDuration(d time.Duration) string {
-	unit := func(n int64, name string) string {
-		if n == 1 {
-			return "1 " + name
-		}
-		return fmt.Sprintf("%d %ss", n, name)
-	}
-	switch {
-	case d >= 2*time.Hour:
-		return unit(int64((d+time.Hour/2)/time.Hour), "hour")
-	case d >= 2*time.Minute:
-		return unit(int64((d+time.Minute/2)/time.Minute), "minute")
-	default:
-		return unit(max(int64((d+time.Second/2)/time.Second), 1), "second")
 	}
 }
 

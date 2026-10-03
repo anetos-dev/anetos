@@ -102,7 +102,7 @@ func TestTranslate(t *testing.T) {
 		{ctx, i18n.Plural(ctx, "posts.count", 1), "1 post"},
 		{ctx, i18n.Plural(ctx, "posts.count", 0), "0 posts"},
 		{ctx, i18n.Plural(ctx, "posts.count", -1), "-1 post"},
-		{bn, i18n.Plural(bn, "posts.count", 3), "3টি পোস্ট"},
+		{bn, i18n.Plural(bn, "posts.count", 3), "৩টি পোস্ট"},                 // Bangla digits
 		{ctx, i18n.Plural(ctx, "welcome", 2, "name", "Ada"), "Welcome, Ada"}, // a plain message
 	}
 	for i, c := range cases {
@@ -111,7 +111,7 @@ func TestTranslate(t *testing.T) {
 		}
 	}
 	ar := i18n.WithLocale(ctx, "ar")
-	for n, want := range map[int]string{0: "no items", 1: "one item", 2: "two items", 3: "3 items (few)", 11: "11 items (many)", 100: "100 items"} {
+	for n, want := range map[int]string{0: "no items", 1: "one item", 2: "two items", 3: "٣ items (few)", 11: "١١ items (many)", 100: "١٠٠ items"} {
 		if got := i18n.Plural(ar, "items", n); got != want {
 			t.Errorf("ar %d: %q, want %q", n, got, want)
 		}
@@ -492,5 +492,42 @@ func TestRootKeys(t *testing.T) {
 		if _, err := i18n.New(cfg, i18n.WithLocales(fstest.MapFS{"en.yaml": {Data: []byte(data)}})); err != nil {
 			t.Errorf("%q: %v", data, err)
 		}
+	}
+}
+
+func TestCheckFormat(t *testing.T) {
+	tr, err := i18n.New(i18n.Config{Locale: "en", Fallback: "en", URL: "none"}, i18n.WithLocales(fstest.MapFS{
+		"bn.yaml": {Data: []byte("format: {months: [a, b]}")},
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	if n := tr.Check(&out, nil); n != 1 || !strings.Contains(out.String(), "bn: format.months needs 12 names, not 2") {
+		t.Errorf("%d:\n%s", n, out.String())
+	}
+}
+
+func TestCheckFrameworkPlaceholders(t *testing.T) {
+	tr, err := i18n.New(i18n.Config{Locale: "en", Fallback: "en", URL: "none"}, i18n.WithLocales(fstest.MapFS{
+		"fr.yaml": {Data: []byte("validation:\n  min:\n    numeric: \"{label} au moins {min}\"\n  requird: \"x\"\nhttp:\n  request_id: \"ID\"\nformat:\n  numbering: \"latn\"")},
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	n := tr.Check(&out, nil)
+	r := out.String()
+	for _, want := range []string{
+		"fr: validation.min.numeric has placeholders {label}, {min}; the framework's English has {0}, {label}",
+		"fr: http.request_id has placeholders none; the framework's English has {id}",
+		"fr: note: 1 key(s) en and the framework don't have: validation.requird",
+	} {
+		if !strings.Contains(r, want) {
+			t.Errorf("report lacks %q:\n%s", want, r)
+		}
+	}
+	if n != 2 {
+		t.Errorf("%d problems:\n%s", n, r)
 	}
 }

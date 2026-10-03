@@ -11,11 +11,14 @@ import (
 // Layout is the page shell. Pages pass their content as children.
 templ Layout(title string) {
 	<!DOCTYPE html>
-	<html lang={ i18n.Locale(ctx) }>
+	<html lang={ i18n.Locale(ctx) } dir={ i18n.Dir(ctx) }>
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<title>{ title } · [[.Title]]</title>
+			for _, a := range web.Alternates(ctx) {
+				<link rel="alternate" hreflang={ a.Locale } href={ a.URL }/>
+			}
 			<link rel="stylesheet" href={ public.Assets.URL("app.css") }/>
 			<script src={ public.Assets.URL("htmx.min.js") } defer></script>
 		</head>

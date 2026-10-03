@@ -9,6 +9,9 @@ home:
   plants:
     one: "You have {count} plant."
     other: "You have {count} plants."
+  today: "Today is {date}."
+  price: "A seed pack costs {price}."
+  watered: "Last watered {when}."
 signup:
   title: "Sign up"
   submit: "Sign up"

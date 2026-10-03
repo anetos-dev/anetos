@@ -1,0 +1,39 @@
+# Bangla dates, numbers and relative times: the format and relative
+# sections of anetos.dev/locales's bn/framework.yaml, which
+# `go tool anetos lang:add bn` copies whole.
+format:
+  language: "বাংলা"
+  months: [জানুয়ারী, ফেব্রুয়ারী, মার্চ, এপ্রিল, মে, জুন, জুলাই, আগস্ট, সেপ্টেম্বর, অক্টোবর, নভেম্বর, ডিসেম্বর]
+  months_short: [জানু, ফেব, মার্চ, এপ্রি, মে, জুন, জুল, আগ, সেপ, অক্টো, নভে, ডিসে]
+  days: [রবিবার, সোমবার, মঙ্গলবার, বুধবার, বৃহস্পতিবার, শুক্রবার, শনিবার]
+  days_short: [রবি, সোম, মঙ্গল, বুধ, বৃহস্পতি, শুক্র, শনি]
+  periods: [AM, PM]
+  date:
+    short: "d/M/yy"
+    medium: "d MMM, y"
+    long: "d MMMM, y"
+    full: "EEEE, d MMMM, y"
+  time:
+    short: "h:mm a"
+    medium: "h:mm:ss a"
+    long: "h:mm:ss a z"
+    full: "h:mm:ss a zzzz"
+  datetime:
+    short: "{date}, {time}"
+    medium: "{date}, {time}"
+    long: "{date} এ {time}"
+    full: "{date} এ {time}"
+  currency: "{amount}{symbol}"
+  # Bangla digits (০১২৩), CLDR's default. For Latin digits: numbering: "latn".
+
+relative:
+  now: "এইমাত্র"
+  past: "{time} আগে"
+  future: "{time} পরে"
+  units:
+    second: {one: "{count} সেকেন্ড", other: "{count} সেকেন্ড"}
+    minute: {one: "{count} মিনিট", other: "{count} মিনিট"}
+    hour: {one: "{count} ঘণ্টা", other: "{count} ঘণ্টা"}
+    day: {one: "{count} দিন", other: "{count} দিন"}
+    month: {one: "{count} মাস", other: "{count} মাস"}
+    year: {one: "{count} বছর", other: "{count} বছর"}

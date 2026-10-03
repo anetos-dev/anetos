@@ -41,8 +41,9 @@ func T(ctx context.Context, key string, args ...any) string {
 }
 
 // Plural returns the form of key's plural message that fits n in ctx's
-// locale, with {count} filled with n and the other placeholders from
-// args, as for [T]:
+// locale, with {count} filled with n (formatted as [Number] does: 1,234
+// in English, ১,২৩৪ in Bangla) and the other placeholders from args, as
+// for [T]:
 //
 //	i18n.Plural(ctx, "posts.count", n) // posts.count: {one: "{count} post", other: "{count} posts"}
 //
@@ -59,7 +60,7 @@ func Plural(ctx context.Context, key string, n int, args ...any) string {
 		tr.missingKey(ctx, locale, key)
 		return key
 	}
-	args = append([]any{"count", n}, args...)
+	args = append([]any{"count", tr.formatCount(locale, n)}, args...)
 	if m.plural == nil {
 		return fill(m.text, args)
 	}

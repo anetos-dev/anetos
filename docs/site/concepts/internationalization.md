@@ -77,6 +77,31 @@ an AI agent's reply. The context carries the locale and the time zone, so:
 - anything that receives the context (a validation in a job, a message
   in a listener) speaks the same language.
 
+## Numbers, dates and languages
+
+Numbers, percentages and currency symbols come from `golang.org/x/text`,
+which carries CLDR's number data for every language: grouping (Indian
+lakhs for Bangla), separators, digits. The digits follow CLDR's choice
+for the language (Bangla digits for `bn`), and a catalog can ask for
+another numbering system; a plural's `{count}` and the numbers of size
+rules' validation messages are formatted the same way, so a sentence
+never mixes digit systems.
+
+x/text has no localized dates, and the date libraries that do are large.
+So a catalog's `format` section holds what dates need: month and day
+names and CLDR patterns for four styles. A language's file brings them,
+the core needs only its English, and a project fixes a pattern in its
+own catalog like any message. Times are shown in the context's zone, the
+signed-in user's, which is what makes "today" theirs; `anetos.Date`
+values have no zone and are shown as they are.
+
+The framework ships English only. Other languages' translations of its
+messages live apart, in `anetos.dev/locales`, where native speakers can
+improve them without waiting for a release. `anetos lang:add` copies a
+language into the project, through the Go module proxy (versioned and
+checksummed like any dependency), and from then on the files are the
+project's: no runtime dependency, nothing replaced behind its back.
+
 ## What it deliberately doesn't do
 
 - **No generated message functions.** Keys are strings, so a catalog is

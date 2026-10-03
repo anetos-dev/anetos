@@ -107,30 +107,35 @@ picks the form for a number and fills `{count}`:
 
 ```go
 // home greets the visitor in their language: ?name= and ?plants= fill
-// the messages.
+// the messages. Dates, prices and times follow the language too.
 func home(c *web.Ctx) error {
 	name := c.Query("name")
 	if name == "" {
 		name = "Ada"
 	}
 	plants, _ := strconv.Atoi(c.Query("plants"))
+	now := anetos.Now(c)
 	return c.Render(http.StatusOK, view.ComponentFunc(func(ctx context.Context, w io.Writer) error {
-		_, err := fmt.Fprintf(w, `<!doctype html><html lang="%s"><title>%s</title><h1>%s</h1><p>%s</p>%s`,
-			i18n.Locale(ctx),
+		_, err := fmt.Fprintf(w, `<!doctype html><html lang="%s" dir="%s"><title>%s</title><h1>%s</h1><p>%s</p><p>%s</p><p>%s</p><p>%s</p>%s`,
+			i18n.Locale(ctx), i18n.Dir(ctx),
 			html.EscapeString(i18n.T(ctx, "app.title")),
 			html.EscapeString(i18n.T(ctx, "home.welcome", "name", name)),
 			html.EscapeString(i18n.Plural(ctx, "home.plants", plants)),
+			html.EscapeString(i18n.T(ctx, "home.today", "date", i18n.Date(ctx, now, i18n.Full))),
+			html.EscapeString(i18n.T(ctx, "home.price", "price", i18n.Currency(ctx, 1250, "BDT"))),
+			html.EscapeString(i18n.T(ctx, "home.watered", "when", i18n.Ago(ctx, now.Add(-3*time.Hour)))),
 			switcher(ctx))
 		return err
 	}))
 }
 
-// switcher links to this page in each language the app supports.
+// switcher links to this page in each language the app supports, by the
+// language's own name.
 func switcher(ctx context.Context) string {
 	var b strings.Builder
 	b.WriteString("<nav>" + html.EscapeString(i18n.T(ctx, "nav.language")) + ":")
 	for _, l := range i18n.From(ctx).Supported() {
-		fmt.Fprintf(&b, ` <a href="%s" hreflang="%s">%s</a>`, html.EscapeString(web.LocaleURL(ctx, l)), l, l)
+		fmt.Fprintf(&b, ` <a href="%s" hreflang="%s">%s</a>`, html.EscapeString(web.LocaleURL(ctx, l)), l, html.EscapeString(i18n.LanguageName(ctx, l)))
 	}
 	b.WriteString("</nav>")
 	return b.String()
@@ -143,7 +148,7 @@ In templ, `ctx` is there already:
 
 ```go
 // illustrative (views/layout.templ)
-<html lang={ i18n.Locale(ctx) }>
+<html lang={ i18n.Locale(ctx) } dir={ i18n.Dir(ctx) }>
 	<h1>{ i18n.T(ctx, "home.welcome", "name", user.Name) }</h1>
 ```
 
@@ -212,7 +217,9 @@ func (u *User) PreferredTimeZone() string   { return u.TimeZone }   // i18n.Time
 
 With `auth.ForApp`, a signed-in user's `PreferredLocale` is the request's
 with `LOCALE_URL=none` (unless they chose another on this device), and
-`i18n.TimeZone(ctx)` is their zone. A settings page that saves their
+`i18n.TimeZone(ctx)` is their zone, which `i18n.Date` and `i18n.Time`
+show times in ([Numbers, dates and languages](formatting.md)). A settings
+page that saves their
 language should also call `c.SetLocale`, so the cookie follows. To write
 to a user, switch to their communication language first:
 
@@ -229,8 +236,19 @@ dispatched them, so a job dispatched by a Bangla page, or with
 ### 6. Translate the framework's messages
 
 The framework's own text (validation messages, error pages, sign-in
-messages) is in its English catalog. Define the same keys in a locale's
-catalog to translate them, or in `en` to change the English:
+messages, month names) is in its English catalog. For Bangla, French and
+Spanish, copy the community's translations into your catalogs, with
+`make:auth`'s pages and emails if you have them:
+
+```sh
+go tool anetos lang:add bn
+```
+
+([Numbers, dates and languages](formatting.md#1-add-a-languages-formats-and-messages).)
+It leaves out the keys your catalogs for the locale already define. For
+another language, or to change a message, define the same keys in a
+locale's catalog (or edit the copied file), or in `en` to change the
+English:
 
 ```yaml
 # locales/bn/validation.yaml
@@ -258,7 +276,8 @@ validation:
   are translated.
 
 `anetos make:auth` writes its pages' and emails' text to
-`locales/en/auth.yaml`: copy it to `locales/bn/auth.yaml` and translate.
+`locales/en/auth.yaml`: `lang:add` brings its translation, or copy it to
+`locales/bn/auth.yaml` and translate.
 
 ### 7. Check the catalogs
 
@@ -298,25 +317,29 @@ text:
 ```go
 func TestLanguages(t *testing.T) {
 	app := anetostest.New(t, setup)
+	app.Freeze(time.Date(2026, time.January, 15, 12, 0, 0, 0, time.UTC))
 
 	// English by default; plurals follow the count.
-	app.Get("/?plants=1").AssertOK().AssertSee(`lang="en"`, "Welcome, Ada!", "You have 1 plant.")
+	app.Get("/?plants=1").AssertOK().AssertSee(`lang="en"`, "Welcome, Ada!", "You have 1 plant.",
+		"Today is Thursday, January 15, 2026.", "A seed pack costs BDT 1,250.00.", "Last watered 3 hours ago.")
 	app.Get("/?plants=3").AssertSee("You have 3 plants.")
 
-	// The browser's languages.
+	// The browser's languages: words, digits, dates and prices in Bangla.
 	app.WithHeader("Accept-Language", "bn-BD, en;q=0.8")
-	app.Get("/?name=Rafi&plants=2").AssertSee(`lang="bn"`, "স্বাগতম, Rafi!", "আপনার 2টি গাছ আছে।")
+	app.Get("/?name=Rafi&plants=2").AssertSee(`lang="bn"`, "স্বাগতম, Rafi!", "আপনার ২টি গাছ আছে।",
+		"আজ বৃহস্পতিবার, ১৫ জানুয়ারী, ২০২৬।", "১,২৫০.০০৳", "৩ ঘণ্টা আগে")
 
 	// Validation messages and labels in the visitor's language.
 	app.PostJSON("/signup", map[string]any{"email": "nope", "plant_count": 0}).AssertUnprocessable().
 		AssertJSONPath("errors.name", "নাম দিতে হবে।").
 		AssertJSONPath("errors.email", "ইমেইল একটি সঠিক ইমেইল ঠিকানা হতে হবে।").
-		AssertJSONPath("errors.plant_count", "গাছের সংখ্যা কমপক্ষে 1 হতে হবে।")
+		AssertJSONPath("errors.plant_count", "গাছের সংখ্যা কমপক্ষে ১ হতে হবে।")
 
 	// A chosen language (?locale=, the switcher's links) beats the
-	// browser's, and is remembered.
+	// browser's, and is remembered. The switcher names each language in
+	// itself.
 	app.Get("/?locale=en").AssertRedirect("/")
-	app.Get("/").AssertSee(`lang="en"`, "Welcome, Ada!", `href="/?locale=bn"`)
+	app.Get("/").AssertSee(`lang="en"`, "Welcome, Ada!", `href="/?locale=bn" hreflang="bn">বাংলা</a>`)
 }
 ```
 

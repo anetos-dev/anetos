@@ -7,6 +7,31 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Formatting in the user's language: `i18n.Number`, `Fixed`, `Percent`,
+  `Currency` (CLDR data from `golang.org/x/text`; the language's digits,
+  or the catalog's `format.numbering`), `i18n.Date`, `Time`, `DateTime`
+  and `Format` (CLDR patterns and month and day names from the catalogs'
+  `format` section, times in the context's zone, `anetos.Date` as it
+  is, pointers to either; styles `Short`, `Medium`, `Long`, `Full`),
+  `i18n.Ago`, `Duration` and `DurationUp` (`relative.*` keys). Formats
+  come from the locale's catalogs or English, never from a fallback in
+  another language. Reference "Formats in catalogs", guide "Numbers,
+  dates and languages" (I1c, D193, D196).
+- `i18n.Dir` and `DirOf` (`rtl` for right-to-left scripts),
+  `i18n.LanguageName` (`format.language`), `i18n.LocalNumber`;
+  `web.Alternates` for `hreflang` links with `LOCALE_URL=prefix` or
+  `subdomain`; error pages and `anetos new`'s layout set `<html dir>`,
+  and the layout adds the `hreflang` links (I1c, D198).
+- `anetos lang:add <locale>…` (alias `anetos add lang`): copies the
+  framework's translations (`framework.yaml`, and `auth.yaml` for
+  `make:auth`'s pages) from the module `anetos.dev/locales` (bn, es, fr)
+  into `locales/<locale>/`, leaving out keys the app's catalogs for the
+  locale define (I1c, D197).
+- `lang:check` compares the placeholders of the framework's messages a
+  locale translates with the English ones, reports lists of month and
+  day names of the wrong length, and notes keys neither the fallback
+  locale nor the framework has (a misspelling) and plural forms a
+  language never uses (I1c).
 - Package `i18n`: translations in YAML catalogs (a file or a folder per
   locale, nested keys, `{name}` placeholders, CLDR plural forms), loaded
   by `i18n.ForApp(app, fsys)` with `APP_LOCALE`, `APP_FALLBACK_LOCALE`,
@@ -206,6 +231,13 @@ All notable changes to this project are documented here. The format follows
   "Search by meaning" (S2).
 
 ### Changed
+- `i18n.Plural` formats `{count}` for the locale (`1,234 posts`;
+  Bangla and Arabic digits for `bn` and `ar`), and the numbers in size
+  rules' validation messages (`min`, `max`, `size`, `between`…) follow
+  the locale's digits and decimal separator (not grouped); the AI budget
+  message's wait is in the user's language, rounded up
+  (`i18n.DurationUp`: 89 minutes is "2 hours", was "89 minutes") (I1c,
+  D196).
 - The framework's messages come from the i18n catalogs, in the request's
   language: validation messages and labels (`validation.*`), error page
   titles and texts (`http.*`, `<html lang>`), CSRF, sign-in and AI budget

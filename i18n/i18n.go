@@ -95,9 +95,14 @@ type Translator struct {
 	core      *catalog                  // the framework's, English
 	chains    sync.Map                  // locale → []*catalog
 	nchains   atomic.Int32
-	log       *slog.Logger
-	warn      bool     // log missing keys (development)
-	missing   sync.Map // locale + key → struct{}: logged once
+	// formatters: locale → *formatter (numbers and dates)
+	formatters  sync.Map
+	nformatters atomic.Int32
+	fchains     sync.Map // locale → []*catalog, for format and relative keys
+	nfchains    atomic.Int32
+	log         *slog.Logger
+	warn        bool     // log missing keys (development)
+	missing     sync.Map // locale + key → struct{}: logged once
 }
 
 // Option configures [New].

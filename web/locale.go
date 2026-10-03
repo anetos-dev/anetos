@@ -30,7 +30,7 @@ type localeSetup struct {
 	lower  []string // the supported locales, lower case, as in URLs
 	tags   []string // the same, canonical
 	secure bool     // APP_URL is https
-	base   *url.URL // APP_URL (subdomain URLs)
+	base   *url.URL // APP_URL, if set (subdomain URLs, Alternates)
 	domain string   // the locale cookie's domain (subdomain URLs)
 }
 
@@ -78,10 +78,10 @@ func localize(app *anetos.App) Middleware {
 		for _, l := range s.tags {
 			s.lower = append(s.lower, strings.ToLower(l))
 		}
-		if s.mode == i18n.URLSubdomain {
-			s.base, _ = url.Parse(app.Config().URL)
-			if s.base != nil {
-				s.domain = strings.ToLower(s.base.Hostname())
+		if u, err := url.Parse(app.Config().URL); err == nil && u.Host != "" {
+			s.base = u
+			if s.mode == i18n.URLSubdomain {
+				s.domain = strings.ToLower(u.Hostname())
 			}
 		}
 		cached.Store(s)
@@ -341,6 +341,51 @@ func LocaleURL(ctx context.Context, locale string) string {
 		q += "&"
 	}
 	return withQuery(st.path, q+"locale="+url.QueryEscape(loc))
+}
+
+// Alternate is the address of the current page in one locale, for a
+// <link rel="alternate" hreflang> element.
+type Alternate struct {
+	Locale string // a supported locale ("bn"), or "x-default"
+	URL    string // absolute when APP_URL is set
+}
+
+// Alternates returns the current page's address in each supported
+// locale, then "x-default" (the default locale's), for search engines,
+// with LOCALE_URL=prefix or subdomain:
+//
+//	for _, a := range web.Alternates(ctx) {
+//		<link rel="alternate" hreflang={ a.Locale } href={ a.URL }/>
+//	}
+//
+// Unlike [LocaleURL]'s links, these are the canonical addresses (no
+// /en/ prefix for the default locale). With LOCALE_URL=none, a page has
+// one address for every language, so it returns nil, as it does
+// without a translator.
+func Alternates(ctx context.Context) []Alternate {
+	st := localeFrom(ctx)
+	if st == nil || st.mode == i18n.URLNone {
+		return nil
+	}
+	pq := withQuery(st.path, st.query)
+	addr := func(loc string) string {
+		if st.mode == i18n.URLSubdomain {
+			return st.canonicalURL(loc, pq)
+		}
+		p := pq
+		if loc != st.tr.Default() {
+			p = "/" + strings.ToLower(loc) + pq
+		}
+		if st.base != nil {
+			return st.base.Scheme + "://" + st.base.Host + p
+		}
+		return p
+	}
+	out := make([]Alternate, 0, len(st.tags)+1)
+	for _, loc := range st.tags {
+		out = append(out, Alternate{Locale: loc, URL: addr(loc)})
+	}
+	return append(out, Alternate{Locale: "x-default", URL: addr(st.tr.Default())})
 }
 
 // canonicalURL returns path on loc's canonical host: APP_URL's for the

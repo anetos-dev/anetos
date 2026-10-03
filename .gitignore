@@ -18,6 +18,7 @@ coverage.*
 /examples/validation/validation
 /examples/teams/teams
 /examples/assistant/assistant
+/examples/i18n/i18n
 /examples/ai/ai
 
 # Local environment

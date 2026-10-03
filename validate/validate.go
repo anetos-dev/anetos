@@ -804,8 +804,14 @@ func (ch *check) text(ctx context.Context, fp *fieldPlan) string {
 		label = l
 	}
 	args := ch.args
+	sized := sizeRule(ch.key)
 	for i, a := range ch.args {
-		if v, ok := i18n.Lookup(ctx, "validation.values."+a); ok {
+		v, ok := i18n.Lookup(ctx, "validation.values."+a)
+		if !ok && sized { // "at least 3": the locale's digits
+			v = i18n.LocalNumber(ctx, a)
+			ok = v != a
+		}
+		if ok {
 			if &args[0] == &ch.args[0] {
 				args = slices.Clone(ch.args)
 			}
@@ -813,6 +819,18 @@ func (ch *check) text(ctx context.Context, fp *fieldPlan) string {
 		}
 	}
 	return format(msg, label, args)
+}
+
+// sizeRule reports whether key is a size rule's message, whose numeric
+// arguments are shown as numbers in the locale (other rules' arguments
+// are values to type, kept as they are).
+func sizeRule(key string) bool {
+	rule, _, _ := strings.Cut(strings.TrimPrefix(key, "validation."), ".")
+	switch rule {
+	case "min", "max", "size", "between", "digits", "digits_between", "decimal", "multiple_of":
+		return strings.HasPrefix(key, "validation.")
+	}
+	return false
 }
 
 // format fills {label}, {list} and {0}, {1}, … in a message template.

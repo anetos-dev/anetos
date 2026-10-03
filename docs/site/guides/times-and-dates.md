@@ -101,7 +101,9 @@ APP_TIMEZONE=Asia/Dhaka
 Storage doesn't change: times are UTC in the database whatever the app's
 zone. Keep `UTC` unless your app serves one region and you want its
 times in logs and schedules in local time. To show a time to a user in
-their own zone, convert it: `t.In(loc)`.
+their own zone and language, format it with `i18n.Date`, `i18n.Time` or
+`i18n.DateTime` ([Numbers, dates and languages](formatting.md)); to
+convert it yourself, `t.In(i18n.TimeZone(ctx))`.
 
 The zone database is built into the framework, so zone names work in
 containers without one (`FROM scratch`, distroless).

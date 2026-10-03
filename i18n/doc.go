@@ -35,5 +35,12 @@
 // locale and time zone of the context that dispatched them. [ForUser]
 // switches a context to a user's language and zone for mail.
 //
-// See docs/site/guides/translations.md.
+// [Number], [Fixed], [Percent] and [Currency] format numbers, [Date],
+// [Time], [DateTime] and [Format] dates in the context's time zone, and
+// [Ago] and [Duration] relative times, all in the context's locale: the
+// numbers with CLDR's data in golang.org/x/text, the dates with the names
+// and patterns of the catalogs' format section. [Dir] gives a locale's
+// writing direction and [LanguageName] its name.
+//
+// See docs/site/guides/translations.md and docs/site/guides/formatting.md.
 package i18n

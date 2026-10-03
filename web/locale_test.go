@@ -81,6 +81,13 @@ func localeServer(t *testing.T, env config.Map) *localeClient {
 		u, _ := c.URL("hello")
 		return c.Text(http.StatusOK, i18n.Locale(c)+" "+i18n.T(c, "hello")+" "+u+" "+web.LocaleURL(c, "bn")+" "+web.LocaleURL(c, "en"))
 	}).Name("hello")
+	pages.Get("/alternates", func(c *web.Ctx) error {
+		var b strings.Builder
+		for _, a := range web.Alternates(c) {
+			b.WriteString(a.Locale + "=" + a.URL + " ")
+		}
+		return c.Text(http.StatusOK, b.String())
+	})
 	pages.Get("/switch/{locale}", func(c *web.Ctx) error {
 		if err := c.SetLocale(c.Param("locale")); err != nil {
 			return err
@@ -206,6 +213,9 @@ func TestLocaleSubdomain(t *testing.T) {
 	if got := get("example.test", "/hello").body; !strings.HasPrefix(got, "en ") {
 		t.Errorf("example.test after choosing en: %q", got)
 	}
+	if got := get("bn.example.test", "/alternates").body; got != "en=http://example.test/alternates bn=http://bn.example.test/alternates x-default=http://example.test/alternates " {
+		t.Errorf("Alternates: %q", got)
+	}
 	// A host below another domain is not a locale's.
 	if got := get("bn.other.test", "/hello").body; !strings.HasPrefix(got, "en ") {
 		t.Errorf("bn.other.test: %q", got)
@@ -304,6 +314,9 @@ func TestLocalePrefixDetails(t *testing.T) {
 	if r := c.get("/limited", "Accept", "application/json"); !strings.Contains(r.body, "Try again in 1m.") {
 		t.Errorf("HTTPError Key and Args: %s", r.body)
 	}
+	if got := c.get("/bn/alternates?q=1").body; got != "en=/alternates?q=1 bn=/bn/alternates?q=1 x-default=/alternates?q=1 " {
+		t.Errorf("Alternates: %q", got)
+	}
 	// /en/… is not redirected for a POST: its body would be lost.
 	req, _ := http.NewRequest(http.MethodPost, c.srv.URL+"/en/names", strings.NewReader(`{"name":"Ada"}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -328,5 +341,8 @@ func TestLocaleQueryParameter(t *testing.T) {
 	}
 	if r := c.get("/hello"); !strings.Contains(r.header.Get("Vary"), "Accept-Language") {
 		t.Errorf("Vary: %v", r.header.Get("Vary"))
+	}
+	if got := c.get("/alternates").body; got != "" {
+		t.Errorf("Alternates with LOCALE_URL=none: %q", got)
 	}
 }

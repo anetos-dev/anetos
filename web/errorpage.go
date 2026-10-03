@@ -60,6 +60,7 @@ func redactedURL(u *url.URL) string {
 
 type errorPageData struct {
 	Lang      string // the page's language
+	Dir       string // its writing direction: ltr or rtl
 	Problems  string // the heading of the field errors
 	RequestID string // the request ID line
 	P         *problem
@@ -73,7 +74,7 @@ type errorPageData struct {
 
 func renderErrorPage(c *Ctx, p *problem) {
 	ctx := c.r.Context()
-	d := errorPageData{P: p, Debug: c.router.core.debug, Lang: i18n.Locale(ctx), Problems: i18n.T(ctx, "http.problems")}
+	d := errorPageData{P: p, Debug: c.router.core.debug, Lang: i18n.Locale(ctx), Dir: i18n.Dir(ctx), Problems: i18n.T(ctx, "http.problems")}
 	if p.RequestID != "" {
 		d.RequestID = i18n.T(ctx, "http.request_id", "id", p.RequestID)
 	}
@@ -119,7 +120,7 @@ func sortedHeaderKeys(h http.Header) []string {
 }
 
 var errorPage = template.Must(template.New("error").Parse(`<!doctype html>
-<html lang="{{.Lang}}">
+<html lang="{{.Lang}}" dir="{{.Dir}}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">

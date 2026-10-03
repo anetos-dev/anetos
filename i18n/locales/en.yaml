@@ -114,3 +114,42 @@ auth:
 
 ai:
   usage_limit: "You've reached your AI usage limit. Try again in {wait}."
+
+# Formats (CLDR): names and patterns for i18n.Date, Time, DateTime,
+# Format and Currency. A language's catalog brings its own.
+format:
+  language: "English" # the language's own name
+  months: [January, February, March, April, May, June, July, August, September, October, November, December]
+  months_short: [Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec]
+  days: [Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday]
+  days_short: [Sun, Mon, Tue, Wed, Thu, Fri, Sat]
+  periods: [AM, PM]
+  date:
+    short: "M/d/yy"
+    medium: "MMM d, y"
+    long: "MMMM d, y"
+    full: "EEEE, MMMM d, y"
+  time:
+    short: "h:mm a"
+    medium: "h:mm:ss a"
+    long: "h:mm:ss a z"
+    full: "h:mm:ss a zzzz"
+  datetime:
+    short: "{date}, {time}"
+    medium: "{date}, {time}"
+    long: "{date} at {time}"
+    full: "{date} at {time}"
+  currency: "{symbol}{amount}"
+
+# Relative times (i18n.Ago) and durations (i18n.Duration).
+relative:
+  now: "just now"
+  past: "{time} ago"
+  future: "in {time}"
+  units:
+    second: {one: "{count} second", other: "{count} seconds"}
+    minute: {one: "{count} minute", other: "{count} minutes"}
+    hour: {one: "{count} hour", other: "{count} hours"}
+    day: {one: "{count} day", other: "{count} days"}
+    month: {one: "{count} month", other: "{count} months"}
+    year: {one: "{count} year", other: "{count} years"}
