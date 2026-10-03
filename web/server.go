@@ -111,7 +111,9 @@ func WithConfig(cfg Config) ServerOption {
 //
 // The router comes with these global middleware, outermost first: Recover,
 // RequestIDs, RealIP, AccessLog (HTTP_ACCESS_LOG), SecureHeaders (HSTS in
-// production), CORS (when HTTP_CORS_ORIGINS is set), BodyLimit
+// production), CORS (when HTTP_CORS_ORIGINS is set), the request's locale
+// (with i18n.ForApp: the locale in the URL with LOCALE_URL, the redirects
+// to the visitor's locale, ?locale= switches; see [LocaleURL]), BodyLimit
 // (HTTP_MAX_BODY) and Timeout (HTTP_REQUEST_TIMEOUT). Unless
 // HTTP_HEALTH_ROUTES=false, it also serves GET /health/live and
 // GET /health/ready.
@@ -145,7 +147,7 @@ func NewServer(app *anetos.App, opts ...ServerOption) (*Server, error) {
 	if len(cfg.CORS.Origins) > 0 {
 		global = append(global, CORS(cfg.CORS))
 	}
-	global = append(global, BodyLimit(int64(cfg.MaxBody)), Timeout(cfg.RequestTimeout))
+	global = append(global, localize(app), BodyLimit(int64(cfg.MaxBody)), Timeout(cfg.RequestTimeout))
 	s.router.UseGlobal(global...)
 
 	if cfg.HealthRoutes {

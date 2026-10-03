@@ -19,6 +19,10 @@ Read by `anetos.New` into `anetos.AppConfig`.
 | `APP_KEY` | `base64:…` (32 bytes) | empty | Encrypts and authenticates session cookies. Required by sessions, which fail at startup without it. Generate one with `go tool anetos key:generate`. Keep it secret | v0.1 |
 | `APP_PREVIOUS_KEYS` | list of keys | empty | Old keys that still decrypt, so `APP_KEY` can be rotated without logging everyone out | v0.1 |
 | `APP_TIMEZONE` | IANA time zone (`Asia/Dhaka`) | `UTC` | The app's zone: the process's local zone (so `time.Now`, logs and formatting agree on every machine), the zone of `anetos.Now` and the default of `SCHEDULE_TIMEZONE`. Times are stored in UTC whatever it is. `Local` isn't allowed. See [Times and dates](../guides/times-and-dates.md) | v0.3 |
+| `APP_LOCALE` | locale (`en`, `bn`, `pt-BR`) | `en` | The default locale: of requests that ask for no supported one, and of code outside requests. Read by `i18n.ForApp` | v0.3 |
+| `APP_FALLBACK_LOCALE` | locale | `en` | Where a locale's missing messages come from, after its parents (`bn-BD`, then `bn`); the framework's English messages come last | v0.3 |
+| `APP_LOCALES` | list of locales | `APP_LOCALE` and every locale with a catalog | The locales requests can ask for. `APP_LOCALE` must be one of them | v0.3 |
+| `LOCALE_URL` | `none` \| `prefix` \| `subdomain` | `none` | Where a request's locale is in its URL: nowhere (the `locale` cookie, the session, the signed-in user's preference, `Accept-Language`), a path prefix (`/bn/about`; the default locale has none), or a subdomain (`bn.example.com`; needs `APP_URL`). See [Translations](../guides/translations.md#4-choose-how-visitors-get-their-language) | v0.3 |
 | `LOG_LEVEL` | `debug` \| `info` \| `warn` \| `error` | `info` | Minimum log level | v0.1 |
 | `LOG_FORMAT` | `text` \| `json` \| empty | empty | Log format; empty means JSON in production, text elsewhere | v0.1 |
 

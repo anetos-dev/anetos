@@ -43,6 +43,7 @@ import (
 	"anetos.dev/anetos/config"
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/encryption"
+	"anetos.dev/anetos/i18n"
 	"anetos.dev/anetos/session"
 )
 
@@ -213,6 +214,16 @@ func ForApp[U Authenticatable](app *anetos.App, users Users[U]) (*Auth[U], error
 	anetos.Provide(app, a)
 	anetos.Provide(app, appAuth{})
 	app.AddContextValue(actorKey{}, actor(a))
+	// The signed-in user's language and time zone (i18n.LocalePreference,
+	// i18n.TimeZonePreference) are the request's.
+	i18n.SetCurrentUser(app, func(ctx context.Context) (any, bool) {
+		st := stateFrom(ctx)
+		if st == nil {
+			return nil, false
+		}
+		u, err := st.get(ctx)
+		return u, err == nil && u != nil
+	})
 	return a, nil
 }
 

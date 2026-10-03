@@ -3,6 +3,7 @@
 package web
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,7 +13,10 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+	"time"
 
+	"anetos.dev/anetos"
+	"anetos.dev/anetos/i18n"
 	"anetos.dev/anetos/internal/convert"
 	"anetos.dev/anetos/validate"
 )
@@ -40,6 +44,7 @@ type fieldPlan struct {
 	src    source
 	name   string
 	set    convert.Setter // scalar (or element, for slices)
+	kind   string         // the value's kind, for messages: binding.<kind>
 	slice  bool
 	file   bool // *multipart.FileHeader
 	files  bool // []*multipart.FileHeader
@@ -243,14 +248,14 @@ func newFieldPlan(sf reflect.StructField, idx []int, s source, name string) (fie
 		if err != nil {
 			return fp, err
 		}
-		fp.set, fp.slice = set, true
+		fp.set, fp.slice, fp.kind = set, true, valueKind(t.Elem())
 		return fp, nil
 	}
 	set, err := convert.For(t)
 	if err != nil {
 		return fp, err
 	}
-	fp.set = set
+	fp.set, fp.kind = set, valueKind(t)
 	return fp, nil
 }
 
@@ -267,7 +272,7 @@ func (p *bindPlan) bind(c *Ctx, dst reflect.Value) error {
 		mt, _, _ := mime.ParseMediaType(ct)
 		switch {
 		case isJSONContentType(ct):
-			if err := decodeJSON(r.Body, dst.Interface()); err != nil {
+			if err := decodeJSON(r.Context(), r.Body, dst.Interface()); err != nil {
 				return err
 			}
 			for _, idx := range p.nonBody {
@@ -337,11 +342,11 @@ func (p *bindPlan) bind(c *Ctx, dst reflect.Value) error {
 			continue
 		}
 		if err := fp.apply(fv, vals); err != nil {
-			fieldErrs[fp.name] = err.Error()
+			fieldErrs[fp.name] = i18n.T(r.Context(), "binding."+fp.kind)
 		}
 	}
 	if len(fieldErrs) > 0 {
-		return &HTTPError{Status: http.StatusBadRequest, Message: "The request has invalid values.", Fields: fieldErrs}
+		return &HTTPError{Status: http.StatusBadRequest, Message: "The request has invalid values.", Key: "http.invalid_values", Fields: fieldErrs}
 	}
 	return nil
 }
@@ -382,7 +387,39 @@ func (fp *fieldPlan) apply(fv reflect.Value, vals []string) error {
 	return nil
 }
 
-func decodeJSON(body io.Reader, dst any) error {
+// valueKind names the kind of value a form, query, path or header value
+// is converted to, for its message when it can't be (binding.<kind>).
+func valueKind(t reflect.Type) string {
+	for t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	switch t {
+	case dateType:
+		return "date"
+	case timeType:
+		return "time"
+	case durationType:
+		return "duration"
+	}
+	switch t.Kind() {
+	case reflect.Bool:
+		return "bool"
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return "integer"
+	case reflect.Float32, reflect.Float64:
+		return "number"
+	}
+	return "value"
+}
+
+var (
+	dateType     = reflect.TypeFor[anetos.Date]()
+	timeType     = reflect.TypeFor[time.Time]()
+	durationType = reflect.TypeFor[time.Duration]()
+)
+
+func decodeJSON(ctx context.Context, body io.Reader, dst any) error {
 	dec := json.NewDecoder(body)
 	err := dec.Decode(dst)
 	if errors.Is(err, io.EOF) {
@@ -403,19 +440,22 @@ func decodeJSON(body io.Reader, dst any) error {
 		return &HTTPError{
 			Status:  http.StatusBadRequest,
 			Message: "The request has invalid values.",
-			Fields:  map[string]string{ute.Field: fmt.Sprintf("must be a %s", jsonKind(ute.Type))},
+			Key:     "http.invalid_values",
+			Fields:  map[string]string{ute.Field: i18n.T(ctx, "binding."+jsonKind(ute.Type))},
 			Err:     err,
 		}
 	}
 	return Error(http.StatusBadRequest, "The request body is not valid JSON.").Wrap(err)
 }
 
+// jsonKind names the kind of a JSON value a field needs, for its message
+// (binding.<kind>).
 func jsonKind(t reflect.Type) string {
 	switch t.Kind() {
 	case reflect.String:
 		return "string"
 	case reflect.Bool:
-		return "boolean"
+		return "bool"
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		return "integer"
@@ -426,7 +466,7 @@ func jsonKind(t reflect.Type) string {
 	case reflect.Struct, reflect.Map:
 		return "object"
 	}
-	return t.String()
+	return "value"
 }
 
 // formErrors keys validation errors of a form post by form field name, so

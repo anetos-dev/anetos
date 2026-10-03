@@ -16,6 +16,7 @@ import (
 	"anetos.dev/anetos/drivers/[[.DB]]"
 	"anetos.dev/anetos/events"
 	"anetos.dev/anetos/ext"
+	"anetos.dev/anetos/i18n"
 	"anetos.dev/anetos/mailer"
 	"anetos.dev/anetos/queue"
 	"anetos.dev/anetos/schedule"
@@ -24,6 +25,7 @@ import (
 	"anetos.dev/anetos/web"
 
 	"[[.Module]]/database/migrations"
+	"[[.Module]]/locales"
 	"[[.Module]]/routes"
 )
 
@@ -41,10 +43,14 @@ func main() {
 	app.Execute() // run (default), serve, migrate, routes:list, help, …
 }
 
-// setup connects the database and adds the migrations, the cache, the
-// queue and its workers, the mailer, file storage, the scheduler, the web
-// server, the routes and the plugins.
+// setup adds the translations and connects the database, then adds the
+// migrations, the cache, the queue and its workers, the mailer, file
+// storage, the scheduler, the web server, the routes and the plugins.
 func setup(app *anetos.App) (*web.Server, error) {
+	// Translations: locales/<locale>/*.yaml; APP_LOCALE, LOCALE_URL.
+	if _, err := i18n.ForApp(app, locales.FS); err != nil {
+		return nil, err
+	}
 	if _, err := db.Connect(context.Background(), app, [[.DB]].Driver()); err != nil {
 		return nil, err
 	}

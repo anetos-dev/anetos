@@ -1,0 +1,16 @@
+# Bangla: a folder of files for the locale. Keys missing here come from
+# English (APP_FALLBACK_LOCALE).
+app:
+  title: "গ্রিনহাউস"
+nav:
+  home: "হোম"
+  language: "ভাষা"
+home:
+  welcome: "স্বাগতম, {name}!"
+  plants:
+    one: "আপনার {count}টি গাছ আছে।"
+    other: "আপনার {count}টি গাছ আছে।"
+signup:
+  title: "নিবন্ধন"
+  submit: "নিবন্ধন করুন"
+  done: "ধন্যবাদ, {name}: আপনার নিবন্ধন হয়েছে।"

@@ -116,6 +116,13 @@ Messages can use `{label}`, the rule's parameters `{0}`, `{1}`, … and
 `{list}` (all parameters, comma-separated). A key that matches no rule is
 a startup error, so typos don't go unnoticed.
 
+Messages are in the request's language. The defaults, the labels and a
+`ValidationMessages` value that is a catalog key come from the
+translation catalogs (`validation.required`,
+`validation.attributes.email`): change them for every struct there, and
+translate them, as [Translations](translations.md#6-translate-the-frameworks-messages)
+shows.
+
 ### 5. Add a custom rule
 
 Register named rules in an `init` function, so they exist before routes are

@@ -463,8 +463,10 @@ func watched(rel string) bool {
 		base == "go.mod", base == "go.sum", base == ".env", strings.HasPrefix(base, ".env."):
 		return true
 	}
-	// Other files under public/ are embedded static files.
-	return strings.HasPrefix(filepath.ToSlash(rel), "public/")
+	// Other files under public/ are embedded static files; under
+	// locales/, the embedded translations.
+	slash := filepath.ToSlash(rel)
+	return strings.HasPrefix(slash, "public/") || strings.HasPrefix(slash, "locales/")
 }
 
 func snapshot(root string) map[string]fileState {

@@ -102,8 +102,15 @@ func (c *Ctx) Header(name string) string { return c.r.Header.Get(name) }
 // started.
 func (c *Ctx) SetHeader(name, value string) { c.w.Header().Set(name, value) }
 
-// URL builds the path of the named route. See [Router.URL].
-func (c *Ctx) URL(name string, args ...any) (string, error) { return c.router.URL(name, args...) }
+// URL builds the path of the named route in the request's locale. See
+// [URL].
+func (c *Ctx) URL(name string, args ...any) (string, error) {
+	path, err := c.router.URL(name, args...)
+	if err != nil {
+		return "", err
+	}
+	return LocalePath(c.r.Context(), path), nil
+}
 
 // WantsJSON reports whether the client prefers a JSON response: it accepts
 // JSON but not HTML, sent a JSON body, or made an XMLHttpRequest. Error

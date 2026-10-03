@@ -219,6 +219,19 @@ validate.Register("slug", "The {label} field must be a slug.", func(ctx context.
 
 ## Messages
 
+Messages come from the translation catalogs (package `i18n`), in the
+request's language: the framework's English ones unless a catalog defines
+the key. See [Translations](../guides/translations.md#6-translate-the-frameworks-messages).
+
+| Key | Is |
+|---|---|
+| `validation.<rule>` | A rule's message: `validation.required`, `validation.email` |
+| `validation.<rule>.string`, `.numeric`, `.array` | A size rule's message (`min`, `max`, `size`, `between`) for the field's kind |
+| `validation.<name>` | A custom rule's message, instead of the one given to `Register` |
+| `validation.custom` | A custom rule registered without a message |
+| `validation.attributes.<key>` | A field's label in messages (`email: "email address"`); else the `label` tag (translated if a catalog has it as a key), else the key humanized |
+| `validation.values.<parameter>` | A rule parameter shown in messages (`now`) |
+
 Templates can use `{label}`, `{0}`, `{1}`, … for parameters and `{list}` for
 all parameters joined with ", ". For rules that name other fields, the
 arguments are those fields' labels. Override per struct with:
@@ -231,7 +244,7 @@ func (SignUp) ValidationMessages() map[string]string {
 ```
 
 Keys are `key.rule` (one field) or `rule` (every field of this struct, not
-nested ones). A size rule's override key is the rule name (`min`), whatever
+nested ones). A value that is a catalog key is translated. A size rule's override key is the rule name (`min`), whatever
 the field's kind. A key naming an unknown rule, or a field and rule that
 don't exist on this struct, is a startup error.
 

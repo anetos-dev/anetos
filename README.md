@@ -25,7 +25,12 @@ and AI in the app (stored conversations, answers streamed to the page,
 replies from queue jobs, usage budgets; [`examples/assistant`](examples/assistant))
 and vector and hybrid search (embeddings kept next to the records, on
 PostgreSQL with pgvector, MariaDB 11.7+ or SQLite, and a search tool for
-agents) are done; the release work (name, docs site, deploy) is next.
+agents) are done. Internationalization is in progress: times stored in
+UTC with a database check, calendar dates and the app's time zone, and
+translations (YAML catalogs, the visitor's language from the URL, the
+user, a cookie or the browser, translated framework messages,
+[`examples/i18n`](examples/i18n)) are done; formatting of numbers and
+dates is next, then the release work (docs site, deploy).
 APIs will change.
 
 ## Documents

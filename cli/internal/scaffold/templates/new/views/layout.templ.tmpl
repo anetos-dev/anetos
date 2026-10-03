@@ -1,6 +1,7 @@
 package views
 
 import (
+	"anetos.dev/anetos/i18n"
 	"anetos.dev/anetos/view"
 	"anetos.dev/anetos/web"
 
@@ -10,7 +11,7 @@ import (
 // Layout is the page shell. Pages pass their content as children.
 templ Layout(title string) {
 	<!DOCTYPE html>
-	<html lang="en">
+	<html lang={ i18n.Locale(ctx) }>
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>

@@ -32,6 +32,7 @@ import (
 
 	"anetos.dev/anetos"
 	"anetos.dev/anetos/auth"
+	"anetos.dev/anetos/i18n"
 	"anetos.dev/anetos/internal/socialstub"
 	"anetos.dev/anetos/session"
 	"anetos.dev/anetos/web"
@@ -462,33 +463,33 @@ func (s *Social[U]) Callback(c *web.Ctx) error {
 	switch {
 	case !found || f.State == "" || q.Get("state") != f.State || s.now().Unix() > f.Expires:
 		return s.fail(c, errors.New("social: the callback's state doesn't match the session's (expired, replayed or forged)"),
-			"The sign-in didn't complete. Please try again.")
+			i18n.T(c, "auth.social_incomplete"))
 	case q.Get("error") != "":
-		msg := "The sign-in was canceled."
+		msg := i18n.T(c, "auth.social_canceled")
 		if q.Get("error") != "access_denied" {
-			msg = "The sign-in service reported an error. Please try again."
+			msg = i18n.T(c, "auth.social_error")
 		}
 		return s.fail(c, fmt.Errorf("social: %s: %s", q.Get("error"), q.Get("error_description")), msg)
 	case q.Get("code") == "":
-		return s.fail(c, errors.New("social: no code in the callback"), "The sign-in didn't complete. Please try again.")
+		return s.fail(c, errors.New("social: no code in the callback"), i18n.T(c, "auth.social_incomplete"))
 	}
 	ctx := context.WithValue(c, oauth2.HTTPClient, s.client)
 	prof, err := s.profile(ctx, p, q.Get("code"), f)
 	if err != nil {
-		return s.fail(c, err, "We couldn't sign you in with that account. Please try again.")
+		return s.fail(c, err, i18n.T(c, "auth.social_account"))
 	}
 	u, err := s.resolve(c, prof)
 	if refused, ok := errors.AsType[*ErrNoAccount](err); ok {
 		return s.fail(c, err, refused.Message)
 	}
 	if err != nil {
-		return s.fail(c, err, "We couldn't sign you in. Please try again.")
+		return s.fail(c, err, i18n.T(c, "auth.social_failed"))
 	}
 	if v := reflect.ValueOf(any(u)); !v.IsValid() || (v.Kind() == reflect.Pointer && v.IsNil()) {
-		return s.fail(c, errors.New("social: the Resolver returned no user and no error"), "We couldn't sign you in. Please try again.")
+		return s.fail(c, errors.New("social: the Resolver returned no user and no error"), i18n.T(c, "auth.social_failed"))
 	}
 	if err := s.auth.Login(c, u, f.Remember); err != nil {
-		return s.fail(c, err, "We couldn't sign you in. Please try again.")
+		return s.fail(c, err, i18n.T(c, "auth.social_failed"))
 	}
 	home := s.home
 	if home == "" {
@@ -503,7 +504,7 @@ func (s *Social[U]) fail(c *web.Ctx, err error, msg string) error {
 	if sess := session.From(c); sess != nil {
 		sess.FlashErrors(session.FieldError{Field: "social", Message: msg})
 	}
-	return c.Redirect(http.StatusSeeOther, s.auth.Config().LoginURL)
+	return c.Redirect(http.StatusSeeOther, web.LocalePath(c, s.auth.Config().LoginURL))
 }
 
 // config returns the provider's OAuth 2.0 configuration, discovering its

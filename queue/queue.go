@@ -20,6 +20,7 @@ import (
 
 	"anetos.dev/anetos"
 	"anetos.dev/anetos/db"
+	"anetos.dev/anetos/i18n"
 )
 
 // Job is work to do in the background. Its exported fields are encoded
@@ -476,11 +477,40 @@ func checkQueue(name string) error {
 	return nil
 }
 
-// envelope is a job's encoding.
+// envelope is a job's encoding. Locale and Zone are those of the
+// context that dispatched it (package i18n), when not the defaults: the
+// job runs in them.
 type envelope struct {
-	ID   string          `json:"id"`
-	Job  string          `json:"job"`
-	Data json.RawMessage `json:"data"`
+	ID     string          `json:"id"`
+	Job    string          `json:"job"`
+	Data   json.RawMessage `json:"data"`
+	Locale string          `json:"locale,omitempty"`
+	Zone   string          `json:"zone,omitempty"`
+}
+
+// localeOf returns the locale and time zone of ctx to carry in a job,
+// "" for the defaults.
+func localeOf(ctx context.Context) (locale, zone string) {
+	if l := i18n.Locale(ctx); l != i18n.From(ctx).Default() {
+		locale = l
+	}
+	if z := i18n.TimeZone(ctx); z != anetos.Location(ctx) {
+		zone = z.String()
+	}
+	return locale, zone
+}
+
+// inLocale returns ctx in a job's locale and time zone.
+func (e envelope) inLocale(ctx context.Context) context.Context {
+	if e.Locale != "" {
+		ctx = i18n.WithLocale(ctx, e.Locale)
+	}
+	if e.Zone != "" {
+		if loc, err := time.LoadLocation(e.Zone); err == nil {
+			ctx = i18n.WithTimeZone(ctx, loc)
+		}
+	}
+	return ctx
 }
 
 // Dispatch dispatches job on the queue in ctx (from [ForApp]):
@@ -521,7 +551,8 @@ func (q *Queue) dispatch(ctx context.Context, jt *jobType, value any, opts []Dis
 		return fmt.Errorf("queue: encode %s: %w", jt.name, err)
 	}
 	id := newID()
-	payload, err := json.Marshal(envelope{ID: id, Job: jt.name, Data: data})
+	locale, zone := localeOf(ctx)
+	payload, err := json.Marshal(envelope{ID: id, Job: jt.name, Data: data, Locale: locale, Zone: zone})
 	if err != nil {
 		return err
 	}

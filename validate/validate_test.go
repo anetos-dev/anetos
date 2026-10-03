@@ -9,10 +9,12 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"anetos.dev/anetos"
 	"anetos.dev/anetos/config"
+	"anetos.dev/anetos/i18n"
 )
 
 // fieldErrors validates v and returns its messages, failing the test on
@@ -743,4 +745,68 @@ func TestRequiredStructValues(t *testing.T) {
 	}
 	wantError(t, &in{}, "nested", "The nested field is required.")
 	wantValid(t, &in{Nested: inner{A: "x"}})
+}
+
+func TestTranslatedMessages(t *testing.T) {
+	tr, err := i18n.New(i18n.Config{Locale: "en", Fallback: "en", URL: "none"}, i18n.WithLocales(fstest.MapFS{
+		"bn.yaml": {Data: []byte(`
+validation:
+  required: "{label} দিতে হবে।"
+  after: "{label} {0}-এর পরে হতে হবে।"
+  slug_tr: "{label} সঠিক স্লাগ নয়।"
+  attributes:
+    email: "ইমেইল"
+  values:
+    now: "এখন"
+messages:
+  name_needed: "নাম লাগবে।"
+`)},
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	type in struct {
+		Email string    `json:"email" validate:"required"`
+		Name  string    `json:"name" validate:"required"`
+		When  time.Time `json:"when" validate:"after:now"`
+		Slug  string    `json:"slug" validate:"slug_tr"`
+	}
+	ctx := i18n.WithLocale(i18n.WithTranslator(context.Background(), tr), "bn")
+	var errs *Errors
+	if !errors.As(Struct(ctx, &in{When: time.Now().Add(-time.Hour), Slug: "Not A Slug"}), &errs) {
+		t.Fatal("no errors")
+	}
+	for key, want := range map[string]string{
+		"email": "ইমেইল দিতে হবে।",          // translated message and label
+		"name":  "name দিতে হবে।",           // label without a translation
+		"when":  "when এখন-এর পরে হতে হবে।", // translated argument
+		"slug":  "slug সঠিক স্লাগ নয়।",     // a custom rule's message from the catalog
+	} {
+		if got := errs.Get(key); got != want {
+			t.Errorf("%s: %q, want %q", key, got, want)
+		}
+	}
+	// English, in a context without a locale.
+	if !errors.As(Struct(context.Background(), &in{Slug: "Not A Slug"}), &errs) || errs.Get("slug") != "The slug field is not a slug." {
+		t.Errorf("English custom rule message: %v", errs)
+	}
+	// An override naming a catalog key is translated.
+	if !errors.As(Struct(ctx, &overridden{}), &errs) || errs.Get("name") != "নাম লাগবে।" {
+		t.Errorf("override key: %v", errs)
+	}
+}
+
+type overridden struct {
+	Name string `json:"name" validate:"required"`
+}
+
+func (overridden) ValidationMessages() map[string]string {
+	return map[string]string{"name.required": "messages.name_needed"}
+}
+
+func init() {
+	Register("slug_tr", "The {label} field is not a slug.", func(_ context.Context, f Field) (bool, error) {
+		s, _ := f.Value.(string)
+		return !strings.Contains(s, " "), nil
+	})
 }

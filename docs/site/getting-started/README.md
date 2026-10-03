@@ -41,7 +41,9 @@ go tool anetos dev      # http://localhost:8080
 ```
 
 `anetos dev` rebuilds and restarts the app when you save a file and
-reloads the page in your browser. Edit `views/home.templ` to see it.
+reloads the page in your browser. Edit `views/home.templ` to see it; its
+text is in `locales/en/app.yaml`, ready for other languages
+([Translations](../guides/translations.md)).
 
 ### 3. Add a model and its table
 

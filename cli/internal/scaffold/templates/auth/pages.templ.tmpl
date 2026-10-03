@@ -2,13 +2,15 @@ package views
 
 import (
 	"anetos.dev/anetos/auth"
+	"anetos.dev/anetos/i18n"
 	"anetos.dev/anetos/view"
 	"anetos.dev/anetos/web"
 
 	"[[.Module]]/app/models"
 )
 
-// The account pages (anetos make:auth): yours to change.
+// The account pages (anetos make:auth): yours to change. Their text is
+// in locales/en/auth.yaml.
 
 // SocialButton is a "Sign in with …" button.
 type SocialButton struct {
@@ -18,76 +20,76 @@ type SocialButton struct {
 
 // Register is the registration form.
 templ Register(social []SocialButton) {
-	@Layout("Register") {
-		<h1>Register</h1>
+	@Layout(i18n.T(ctx, "auth.register.title")) {
+		<h1>{ i18n.T(ctx, "auth.register.title") }</h1>
 		<form method="post" action={ web.URL(ctx, "register") }>
 			@view.CSRFField(ctx)
-			<label for="name">Name</label>
+			<label for="name">{ i18n.T(ctx, "auth.fields.name") }</label>
 			<input id="name" name="name" autocomplete="name" value={ view.Old(ctx, "name") }/>
 			@authError("name")
-			<label for="email">Email</label>
+			<label for="email">{ i18n.T(ctx, "auth.fields.email") }</label>
 			<input id="email" name="email" type="email" autocomplete="email" value={ view.Old(ctx, "email") }/>
 			@authError("email")
-			<label for="password">Password</label>
+			<label for="password">{ i18n.T(ctx, "auth.fields.password") }</label>
 			<input id="password" name="password" type="password" autocomplete="new-password"/>
 			@authError("password")
-			<label for="password_confirmation">Confirm password</label>
+			<label for="password_confirmation">{ i18n.T(ctx, "auth.fields.password_confirmation") }</label>
 			<input id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password"/>
-			<p><button type="submit">Register</button></p>
+			<p><button type="submit">{ i18n.T(ctx, "auth.register.submit") }</button></p>
 		</form>
 		@socialButtons(social)
-		<p>Already registered? <a href={ web.URL(ctx, "login") }>Log in</a></p>
+		<p>{ i18n.T(ctx, "auth.register.have_account") } <a href={ web.URL(ctx, "login") }>{ i18n.T(ctx, "auth.login.title") }</a></p>
 	}
 }
 
 // Login is the login form.
 templ Login(social []SocialButton) {
-	@Layout("Log in") {
-		<h1>Log in</h1>
+	@Layout(i18n.T(ctx, "auth.login.title")) {
+		<h1>{ i18n.T(ctx, "auth.login.title") }</h1>
 		<form method="post" action={ web.URL(ctx, "login") }>
 			@view.CSRFField(ctx)
-			<label for="email">Email</label>
+			<label for="email">{ i18n.T(ctx, "auth.fields.email") }</label>
 			<input id="email" name="email" type="email" autocomplete="email" value={ view.Old(ctx, "email") }/>
 			@authError("email")
-			<label for="password">Password</label>
+			<label for="password">{ i18n.T(ctx, "auth.fields.password") }</label>
 			<input id="password" name="password" type="password" autocomplete="current-password"/>
 			@authError("password")
-			<label><input type="checkbox" name="remember" value="1"/> Remember me</label>
-			<p><button type="submit">Log in</button></p>
+			<label><input type="checkbox" name="remember" value="1"/> { i18n.T(ctx, "auth.login.remember") }</label>
+			<p><button type="submit">{ i18n.T(ctx, "auth.login.submit") }</button></p>
 		</form>
 		@socialButtons(social)
-		<p><a href={ web.URL(ctx, "password.request") }>Forgot your password?</a> · <a href={ web.URL(ctx, "register") }>Register</a></p>
+		<p><a href={ web.URL(ctx, "password.request") }>{ i18n.T(ctx, "auth.forgot.title") }</a> · <a href={ web.URL(ctx, "register") }>{ i18n.T(ctx, "auth.register.title") }</a></p>
 	}
 }
 
 // ForgotPassword asks for the address to send a reset link to.
 templ ForgotPassword() {
-	@Layout("Forgot password") {
-		<h1>Forgot your password?</h1>
-		<p>Enter your email address: we'll email you a link to choose a new password.</p>
+	@Layout(i18n.T(ctx, "auth.forgot.title")) {
+		<h1>{ i18n.T(ctx, "auth.forgot.title") }</h1>
+		<p>{ i18n.T(ctx, "auth.forgot.intro") }</p>
 		<form method="post" action={ web.URL(ctx, "password.email") }>
 			@view.CSRFField(ctx)
-			<label for="email">Email</label>
+			<label for="email">{ i18n.T(ctx, "auth.fields.email") }</label>
 			<input id="email" name="email" type="email" autocomplete="email" value={ view.Old(ctx, "email") }/>
 			@authError("email")
-			<p><button type="submit">Email me a reset link</button></p>
+			<p><button type="submit">{ i18n.T(ctx, "auth.forgot.submit") }</button></p>
 		</form>
 	}
 }
 
 // ResetPassword is the new-password form of a reset link.
 templ ResetPassword(token string) {
-	@Layout("Reset password") {
-		<h1>Choose a new password</h1>
+	@Layout(i18n.T(ctx, "auth.reset.title")) {
+		<h1>{ i18n.T(ctx, "auth.reset.title") }</h1>
 		<form method="post" action={ web.URL(ctx, "password.update") }>
 			@view.CSRFField(ctx)
 			<input type="hidden" name="token" value={ token }/>
-			<label for="password">New password</label>
+			<label for="password">{ i18n.T(ctx, "auth.fields.new_password") }</label>
 			<input id="password" name="password" type="password" autocomplete="new-password"/>
 			@authError("password")
-			<label for="password_confirmation">Confirm password</label>
+			<label for="password_confirmation">{ i18n.T(ctx, "auth.fields.password_confirmation") }</label>
 			<input id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password"/>
-			<p><button type="submit">Reset password</button></p>
+			<p><button type="submit">{ i18n.T(ctx, "auth.reset.submit") }</button></p>
 		</form>
 	}
 }
@@ -95,22 +97,22 @@ templ ResetPassword(token string) {
 // Dashboard shows the account and its API tokens; newToken is a token
 // just created, shown once.
 templ Dashboard(u *models.User, tokens []auth.Token, newToken string) {
-	@Layout("Dashboard") {
-		<h1>Hello, { u.Name }</h1>
+	@Layout(i18n.T(ctx, "auth.dashboard.title")) {
+		<h1>{ i18n.T(ctx, "auth.dashboard.hello", "name", u.Name) }</h1>
 		if u.EmailVerifiedAt == nil {
-			<p>Please verify your email address: we emailed you a link.</p>
+			<p>{ i18n.T(ctx, "auth.dashboard.verify") }</p>
 			<form method="post" action={ web.URL(ctx, "verification.send") }>
 				@view.CSRFField(ctx)
-				<button type="submit">Send the link again</button>
+				<button type="submit">{ i18n.T(ctx, "auth.dashboard.resend") }</button>
 			</form>
 		}
 		<form method="post" action={ web.URL(ctx, "logout") }>
 			@view.CSRFField(ctx)
-			<button type="submit">Log out</button>
+			<button type="submit">{ i18n.T(ctx, "auth.dashboard.logout") }</button>
 		</form>
-		<h2>API tokens</h2>
+		<h2>{ i18n.T(ctx, "auth.tokens.title") }</h2>
 		if newToken != "" {
-			<p>Your new token (copy it now, it won't be shown again): <code>{ newToken }</code></p>
+			<p>{ i18n.T(ctx, "auth.tokens.new") } <code>{ newToken }</code></p>
 		}
 		<ul>
 			for _, t := range tokens {
@@ -118,17 +120,17 @@ templ Dashboard(u *models.User, tokens []auth.Token, newToken string) {
 					{ t.Name }
 					<form method="post" action={ web.URL(ctx, "tokens.destroy", t.ID) }>
 						@view.CSRFField(ctx)
-						<button type="submit">Revoke</button>
+						<button type="submit">{ i18n.T(ctx, "auth.tokens.revoke") }</button>
 					</form>
 				</li>
 			}
 		</ul>
 		<form method="post" action={ web.URL(ctx, "tokens.store") }>
 			@view.CSRFField(ctx)
-			<label for="token-name">Name</label>
+			<label for="token-name">{ i18n.T(ctx, "auth.tokens.name") }</label>
 			<input id="token-name" name="name"/>
 			@authError("name")
-			<p><button type="submit">Create token</button></p>
+			<p><button type="submit">{ i18n.T(ctx, "auth.tokens.create") }</button></p>
 		</form>
 	}
 }
@@ -138,7 +140,7 @@ templ socialButtons(buttons []SocialButton) {
 	if len(buttons) > 0 {
 		<p>
 			for _, b := range buttons {
-				<a href={ web.URL(ctx, "social.redirect", b.Name) }>Sign in with { b.Title }</a>
+				<a href={ web.URL(ctx, "social.redirect", b.Name) }>{ i18n.T(ctx, "auth.social.sign_in_with", "provider", b.Title) }</a>
 				{ " " }
 			}
 		</p>

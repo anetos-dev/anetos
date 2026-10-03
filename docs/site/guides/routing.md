@@ -125,7 +125,8 @@ middleware works.
 
 `web.NewServer` already installs these global middleware, outermost first:
 `Recover`, `RequestIDs`, `RealIP`, `AccessLog`, `SecureHeaders`, `CORS`
-(when configured), `BodyLimit` and `Timeout`. See the
+(when configured), the request's locale (with
+[translations](translations.md)), `BodyLimit` and `Timeout`. See the
 [configuration reference](../reference/configuration.md#http-server).
 To limit how often clients call a group of routes, add
 `ratelimit.Middleware` to it: see [Rate limiting](rate-limiting.md).

@@ -41,10 +41,12 @@
 //
 // # Messages
 //
-// Messages are in English, in the style of "The email field must be a
-// valid email address." A struct can replace them with a
-// ValidationMessages method returning templates keyed by "key.rule" or
-// "rule":
+// Messages are in the language of the context (package i18n): the
+// catalogs' validation.<rule> messages, English by default, in the style
+// of "The email field must be a valid email address." Labels come from
+// validation.attributes.<key> when a catalog has it. A struct can replace
+// messages with a ValidationMessages method returning templates (or
+// catalog keys, which are translated) keyed by "key.rule" or "rule":
 //
 //	func (Register) ValidationMessages() map[string]string {
 //		return map[string]string{
@@ -54,7 +56,8 @@
 //	}
 //
 // Templates may use {label}, the rule's parameters {0}, {1}, … and {list}
-// (all parameters joined with ", ").
+// (all parameters joined with ", "). A parameter the catalog has under
+// validation.values.<parameter> is translated ("now").
 //
 // # Custom rules
 //

@@ -1,10 +1,12 @@
 // Package mailers holds the app's emails: mailables, sent with
-// mailer.Send or mailer.Queue.
+// mailer.Send or mailer.Queue, in the language of the context they are
+// built with (i18n.ForUser for the recipient's).
 package mailers
 
 import (
 	"context"
 
+	"anetos.dev/anetos/i18n"
 	"anetos.dev/anetos/mailer"
 
 	"[[.Module]]/views"
@@ -17,10 +19,10 @@ type VerifyEmail struct {
 }
 
 // Build implements mailer.Mailable.
-func (m VerifyEmail) Build(context.Context) (*mailer.Message, error) {
+func (m VerifyEmail) Build(ctx context.Context) (*mailer.Message, error) {
 	return &mailer.Message{
 		To:      []mailer.Address{{Address: m.Email}}, // the name is in the body: any text, safe there
-		Subject: "Verify your email address",
+		Subject: i18n.T(ctx, "auth.mail.verify.subject"),
 		HTML:    views.VerifyEmailMail(m.Name, m.URL),
 	}, nil
 }
@@ -32,10 +34,10 @@ type ResetPassword struct {
 }
 
 // Build implements mailer.Mailable.
-func (m ResetPassword) Build(context.Context) (*mailer.Message, error) {
+func (m ResetPassword) Build(ctx context.Context) (*mailer.Message, error) {
 	return &mailer.Message{
 		To:      []mailer.Address{{Address: m.Email}}, // the name is in the body: any text, safe there
-		Subject: "Reset your password",
+		Subject: i18n.T(ctx, "auth.mail.reset.subject"),
 		HTML:    views.ResetPasswordMail(m.Name, m.URL),
 	}, nil
 }

@@ -306,7 +306,7 @@ func (a *Auth[U]) Require(next http.Handler) http.Handler {
 			web.WriteError(w, r, ErrUnauthenticated)
 		case r.Method == http.MethodGet && !web.WantsJSON(r) && r.Header.Get("HX-Request") == "":
 			session.From(r.Context()).Put(keyIntended, r.URL.RequestURI())
-			http.Redirect(w, r, a.cfg.LoginURL, http.StatusSeeOther)
+			http.Redirect(w, r, web.LocalePath(r.Context(), a.cfg.LoginURL), http.StatusSeeOther)
 		default:
 			web.WriteError(w, r, ErrUnauthenticated)
 		}
@@ -318,7 +318,7 @@ func (a *Auth[U]) Require(next http.Handler) http.Handler {
 func (a *Auth[U]) Guest(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if Check(r.Context()) {
-			http.Redirect(w, r, a.cfg.HomeURL, http.StatusSeeOther)
+			http.Redirect(w, r, web.LocalePath(r.Context(), a.cfg.HomeURL), http.StatusSeeOther)
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -327,17 +327,18 @@ func (a *Auth[U]) Guest(next http.Handler) http.Handler {
 
 // Intended returns the page a guest asked for before [Auth.Require] sent
 // them to the login page (removing it from the session), or fallback:
-// where to redirect after a login.
+// where to redirect after a login. A path of the app is in the
+// request's locale ([web.LocalePath]).
 func Intended(ctx context.Context, fallback string) string {
 	s := session.From(ctx)
 	if s == nil {
-		return fallback
+		return web.LocalePath(ctx, fallback)
 	}
 	var u string
 	if s.Pull(keyIntended, &u) && localPath(u) {
-		return u
+		return web.LocalePath(ctx, u)
 	}
-	return fallback
+	return web.LocalePath(ctx, fallback)
 }
 
 // actor finds users by ID for [ActAs]; ForApp puts the app's Auth in its

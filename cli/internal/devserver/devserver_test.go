@@ -33,7 +33,7 @@ func TestWatched(t *testing.T) {
 	for p, want := range map[string]bool{
 		"main.go": true, "views/home.templ": true, ".env": true, ".env.local": true, "go.mod": true,
 		"public/static/app.css": true, "views/home_templ.go": false, "app/models/models_gen.go": false,
-		"main_test.go": false, "README.md": false, "database/app.db": false,
+		"main_test.go": false, "README.md": false, "database/app.db": false, "locales/bn/app.yaml": true,
 	} {
 		if got := watched(p); got != want {
 			t.Errorf("watched(%s) = %v", p, got)

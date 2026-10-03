@@ -64,7 +64,7 @@ so optional inputs stay unset instead of failing to parse.
 
 | Situation | Status |
 |---|---|
-| Value can't be converted (`page=abc`), JSON type mismatch | 400, with `errors` per field |
+| Value can't be converted (`page=abc`), JSON type mismatch | 400, with `errors` per field: the catalog's `binding.<kind>` message in the request's language (`binding.integer`: "must be an integer"; also `bool`, `number`, `date`, `time`, `duration`, `string`, `list`, `object`, `value`) |
 | Malformed JSON or form | 400 |
 | Content type other than JSON or form, with a body | 415 |
 | Body larger than `HTTP_MAX_BODY` | 413 |

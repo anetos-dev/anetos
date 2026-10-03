@@ -15,6 +15,7 @@ import (
 	"anetos.dev/anetos/auth/password"
 	"anetos.dev/anetos/auth/social"
 	"anetos.dev/anetos/db"
+	"anetos.dev/anetos/i18n"
 	"anetos.dev/anetos/mailer"
 	"anetos.dev/anetos/queue"
 	"anetos.dev/anetos/validate"
@@ -89,7 +90,7 @@ func (h Accounts) RegisterPage(c *web.Ctx) error {
 func (h Accounts) Register(c *web.Ctx, in RegisterInput) (web.Responder, error) {
 	name := cleanName(in.Name)
 	if name == "" {
-		return nil, validate.Fail("name", "The name field is required.")
+		return nil, validate.Fail("name", i18n.T(c, "auth.errors.name_required"))
 	}
 	email := strings.ToLower(in.Email) // stored and looked up in lower case
 	taken, err := emailTaken(c, email)
@@ -97,7 +98,7 @@ func (h Accounts) Register(c *web.Ctx, in RegisterInput) (web.Responder, error) 
 		return nil, err
 	}
 	if taken {
-		return nil, validate.Fail("email", "The email has already been taken.")
+		return nil, validate.Fail("email", i18n.T(c, "auth.errors.email_taken"))
 	}
 	hash, err := password.Hash(in.Password)
 	if err != nil {
@@ -114,7 +115,7 @@ func (h Accounts) Register(c *web.Ctx, in RegisterInput) (web.Responder, error) 
 	})
 	if err != nil {
 		if taken, _ := emailTaken(c, email); taken { // registered meanwhile
-			return nil, validate.Fail("email", "The email has already been taken.")
+			return nil, validate.Fail("email", i18n.T(c, "auth.errors.email_taken"))
 		}
 		return nil, err
 	}
@@ -143,7 +144,8 @@ func cleanName(name string) string {
 
 // sendVerification emails u a link that verifies their address.
 func (h Accounts) sendVerification(ctx context.Context, u *models.User) error {
-	link, err := mailer.URL(ctx, "/verify-email?token="+url.QueryEscape(h.Auth.VerificationToken(u, u.Email)))
+	ctx = i18n.ForUser(ctx, u) // the user's language, for the email and its link
+	link, err := mailer.URL(ctx, web.LocalePath(ctx, "/verify-email?token="+url.QueryEscape(h.Auth.VerificationToken(u, u.Email))))
 	if err != nil {
 		return err
 	}
@@ -188,7 +190,7 @@ func SocialUser(ctx context.Context, p social.Profile) (*models.User, error) {
 		}
 	}
 	if p.Email == "" || !p.EmailVerified {
-		return nil, &social.ErrNoAccount{Message: "Your account there has no verified email address."}
+		return nil, &social.ErrNoAccount{Message: i18n.T(ctx, "auth.errors.social_no_email")}
 	}
 	var u *models.User
 	err = db.Tx(ctx, func(ctx context.Context) error { // the user and the link, or neither
@@ -206,7 +208,7 @@ func SocialUser(ctx context.Context, p social.Profile) (*models.User, error) {
 			return err
 		}
 		if u.EmailVerifiedAt == nil {
-			return &social.ErrNoAccount{Message: "An account with this email address exists. Log in with your password and verify the address first."}
+			return &social.ErrNoAccount{Message: i18n.T(ctx, "auth.errors.social_unverified")}
 		}
 		// Linked already to another account there: the address was
 		// reused, not the same person.
@@ -215,7 +217,7 @@ func SocialUser(ctx context.Context, p social.Profile) (*models.User, error) {
 			return err
 		}
 		if slices.ContainsFunc(links, func(l social.Account) bool { return l.Provider == p.Provider }) {
-			return &social.ErrNoAccount{Message: "The account with this email address signs in with another account there."}
+			return &social.ErrNoAccount{Message: i18n.T(ctx, "auth.errors.social_other_account")}
 		}
 		return social.Link(ctx, p, u.AuthID())
 	})
@@ -229,9 +231,9 @@ func (h Accounts) Login(c *web.Ctx, in LoginInput) (web.Responder, error) {
 	var throttled *auth.ThrottledError
 	switch {
 	case errors.Is(err, auth.ErrInvalidCredentials):
-		return nil, validate.Fail("email", "These credentials don't match our records.")
+		return nil, validate.Fail("email", i18n.T(c, "auth.errors.credentials"))
 	case errors.As(err, &throttled):
-		return nil, validate.Fail("email", "Too many login attempts. Try again in a minute.")
+		return nil, validate.Fail("email", i18n.T(c, "auth.errors.throttled"))
 	case err != nil:
 		return nil, err
 	}
@@ -243,7 +245,7 @@ func (h Accounts) Logout(c *web.Ctx) error {
 	if err := h.Auth.Logout(c); err != nil {
 		return err
 	}
-	return c.Redirect(http.StatusSeeOther, "/login")
+	return c.Redirect(http.StatusSeeOther, web.LocalePath(c, "/login"))
 }
 
 // VerifyEmail marks the address of the link as verified. A bad or
@@ -255,7 +257,7 @@ func (h Accounts) VerifyEmail(c *web.Ctx, in TokenQuery) (web.Responder, error) 
 		return nil, err
 	}
 	if email != u.Email {
-		return nil, web.Error(http.StatusBadRequest, "This link is for another email address.")
+		return nil, web.Error(http.StatusBadRequest, i18n.T(c, "auth.errors.link_other_email"))
 	}
 	if u.EmailVerifiedAt == nil {
 		now := anetos.Now(c).UTC()
@@ -263,7 +265,7 @@ func (h Accounts) VerifyEmail(c *web.Ctx, in TokenQuery) (web.Responder, error) 
 			return nil, err
 		}
 	}
-	c.Session().Flash("status", "Your email address is verified.")
+	c.Session().Flash("status", i18n.T(c, "auth.status.verified"))
 	return web.RedirectRoute("dashboard"), nil
 }
 
@@ -280,14 +282,14 @@ func (h Accounts) ResendVerification(c *web.Ctx) error {
 			return err
 		}
 		if !res.Allowed {
-			return web.Error(http.StatusTooManyRequests, "Too many emails. Try again later.")
+			return web.Error(http.StatusTooManyRequests, i18n.T(c, "auth.errors.too_many_emails"))
 		}
 		if err := h.sendVerification(c, u); err != nil {
 			return err
 		}
-		c.Session().Flash("status", "We've emailed you a new verification link.")
+		c.Session().Flash("status", i18n.T(c, "auth.status.verification_sent"))
 	}
-	return c.Redirect(http.StatusSeeOther, "/dashboard")
+	return c.Redirect(http.StatusSeeOther, web.LocalePath(c, "/dashboard"))
 }
 
 // ForgotPage shows the forgotten-password form.
@@ -308,17 +310,18 @@ func (h Accounts) SendReset(c *web.Ctx, in ForgotInput) (web.Responder, error) {
 	case err == nil && !res.Allowed:
 		// Enough links for now: answer as usual.
 	case err == nil:
-		link, err := mailer.URL(c, "/reset-password?token="+url.QueryEscape(h.Auth.PasswordResetToken(u)))
+		ctx := i18n.ForUser(c, u) // the user's language, for the email and its link
+		link, err := mailer.URL(ctx, web.LocalePath(ctx, "/reset-password?token="+url.QueryEscape(h.Auth.PasswordResetToken(u))))
 		if err != nil {
 			return nil, err
 		}
-		if err := mailer.Queue(c, mailers.ResetPassword{Name: u.Name, Email: u.Email, URL: link}); err != nil {
+		if err := mailer.Queue(ctx, mailers.ResetPassword{Name: u.Name, Email: u.Email, URL: link}); err != nil {
 			return nil, err
 		}
 	case !errors.Is(err, db.ErrNotFound):
 		return nil, err
 	}
-	c.Session().Flash("status", "If that address has an account, we've emailed it a link.")
+	c.Session().Flash("status", i18n.T(c, "auth.status.reset_sent"))
 	return web.RedirectRoute("login"), nil
 }
 
@@ -333,7 +336,7 @@ func (Accounts) ResetPage(c *web.Ctx) error {
 func (h Accounts) Reset(c *web.Ctx, in ResetInput) (web.Responder, error) {
 	u, err := h.Auth.CheckPasswordResetToken(c, in.Token)
 	if errors.Is(err, auth.ErrInvalidToken) {
-		return nil, validate.Fail("password", "This reset link is invalid or has expired. Ask for a new one.")
+		return nil, validate.Fail("password", i18n.T(c, "auth.errors.reset_invalid"))
 	}
 	if err != nil {
 		return nil, err
@@ -350,12 +353,12 @@ func (h Accounts) Reset(c *web.Ctx, in ResetInput) (web.Responder, error) {
 		return nil, err
 	}
 	if n == 0 {
-		return nil, validate.Fail("password", "This reset link is invalid or has expired. Ask for a new one.")
+		return nil, validate.Fail("password", i18n.T(c, "auth.errors.reset_invalid"))
 	}
 	if err := h.Auth.RevokeAllTokens(c, u); err != nil {
 		return nil, err
 	}
-	c.Session().Flash("status", "Your password has been reset. You can log in now.")
+	c.Session().Flash("status", i18n.T(c, "auth.status.password_reset"))
 	return web.RedirectRoute("login"), nil
 }
 
@@ -397,7 +400,7 @@ func (h Accounts) RevokeToken(c *web.Ctx, in TokenID) (web.Responder, error) {
 	if err := h.Auth.RevokeToken(c, u, in.ID); err != nil {
 		return nil, err
 	}
-	c.Session().Flash("status", "Token revoked.")
+	c.Session().Flash("status", i18n.T(c, "auth.status.token_revoked"))
 	return web.RedirectRoute("dashboard"), nil
 }
 

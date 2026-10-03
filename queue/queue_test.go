@@ -13,12 +13,14 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"anetos.dev/anetos"
 	"anetos.dev/anetos/cmd"
 	"anetos.dev/anetos/config"
 	"anetos.dev/anetos/encryption"
+	"anetos.dev/anetos/i18n"
 	"anetos.dev/anetos/queue"
 	"anetos.dev/anetos/queue/queuetest"
 )
@@ -872,5 +874,51 @@ func TestFuncJobDecodeFailure(t *testing.T) {
 	eventually(t, "the failed job", func() bool { return len(failedJobs(t, s)) == 1 })
 	if f := failedJobs(t, s)[0]; f.Attempts != 1 || !strings.Contains(f.Error, "decode reports.bad") {
 		t.Errorf("failed job = %+v", f)
+	}
+}
+
+// Jobs run in the locale and time zone of the context that dispatched
+// them.
+func TestJobsKeepLocale(t *testing.T) {
+	app := newApp(t, config.Map{"QUEUE_DRIVER": "memory", "QUEUE_POLL": "5ms"})
+	if _, err := i18n.ForApp(app, fstest.MapFS{"bn.yaml": {Data: []byte(`hi: "হ্যালো"`)}}); err != nil {
+		t.Fatal(err)
+	}
+	q, err := queue.ForApp(app)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var mu sync.Mutex
+	var seen []string
+	if err := queue.RegisterFunc(q, "locale", func(ctx context.Context, _ struct{}) error {
+		mu.Lock()
+		defer mu.Unlock()
+		seen = append(seen, i18n.Locale(ctx)+" "+i18n.TimeZone(ctx).String()+" "+i18n.T(ctx, "hi"))
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := q.Work(); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- app.Run(ctx) }()
+	dhaka, _ := time.LoadLocation("Asia/Dhaka")
+	base := app.Context(context.Background())
+	if err := queue.DispatchFunc(i18n.WithTimeZone(i18n.WithLocale(base, "bn"), dhaka), "locale", struct{}{}); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "the first job", func() bool { mu.Lock(); defer mu.Unlock(); return len(seen) == 1 })
+	if err := queue.DispatchFunc(base, "locale", struct{}{}); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "the second job", func() bool { mu.Lock(); defer mu.Unlock(); return len(seen) == 2 })
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if seen[0] != "bn Asia/Dhaka হ্যালো" || seen[1] != "en UTC hi" {
+		t.Errorf("jobs ran in %q", seen)
 	}
 }

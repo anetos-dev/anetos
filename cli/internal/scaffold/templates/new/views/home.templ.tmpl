@@ -1,14 +1,16 @@
 package views
 
-// Home is the home page.
+import "anetos.dev/anetos/i18n"
+
+// Home is the home page. Its text is in locales/en/app.yaml.
 templ Home() {
-	@Layout("Home") {
-		<h1>Welcome to [[.Title]]</h1>
-		<p>Edit <code>views/home.templ</code>; <code>go tool anetos dev</code> reloads the page.</p>
+	@Layout(i18n.T(ctx, "home.title")) {
+		<h1>{ i18n.T(ctx, "home.welcome", "app", "[[.Title]]") }</h1>
+		<p>{ i18n.T(ctx, "home.edit") }</p>
 		<ul>
-			<li><code>go tool anetos make:model Post --migration</code> adds a model and its migration.</li>
-			<li><code>go tool anetos make:handler Posts</code> adds a handler; route it in <code>routes/web.go</code>.</li>
-			<li><code>go run . migrate</code> applies the migrations; <code>go run . help</code> lists every command.</li>
+			<li><code>go tool anetos make:model Post --migration</code> { i18n.T(ctx, "home.model") }</li>
+			<li><code>go tool anetos make:handler Posts</code> { i18n.T(ctx, "home.handler") }</li>
+			<li><code>go run . migrate</code> { i18n.T(ctx, "home.migrate") }</li>
 		</ul>
 	}
 }

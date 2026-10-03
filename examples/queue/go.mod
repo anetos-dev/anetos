@@ -8,7 +8,11 @@ require (
 	anetos.dev/anetos/drivers/sqlite v0.0.0-00010101000000-000000000000
 )
 
-require golang.org/x/crypto v0.57.0 // indirect
+require (
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
+	golang.org/x/crypto v0.57.0 // indirect
+	golang.org/x/text v0.42.0 // indirect
+)
 
 require (
 	anetos.dev/anetos/plugins/postmark v0.0.0-00010101000000-000000000000

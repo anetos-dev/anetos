@@ -32,8 +32,9 @@ func (c *Ctx) Session() *session.Session {
 }
 
 // URL returns the path of the named route, like [Router.URL], for any
-// context of a request served by a [Router]. Components use it to link to
-// routes:
+// context of a request served by a [Router], in the request's locale
+// (with LOCALE_URL=prefix, "/bn/posts/1"; see [LocalePath]). Components
+// use it to link to routes:
 //
 //	<a href={ web.URL(ctx, "posts.show", post.ID) }>
 func URL(ctx context.Context, name string, args ...any) (string, error) {
@@ -41,7 +42,11 @@ func URL(ctx context.Context, name string, args ...any) (string, error) {
 	if st == nil || st.core == nil {
 		return "", fmt.Errorf("web: URL(%q) needs the context of a request served by a Router", name)
 	}
-	return (&Router{core: st.core}).URL(name, args...)
+	path, err := (&Router{core: st.core}).URL(name, args...)
+	if err != nil {
+		return "", err
+	}
+	return LocalePath(ctx, path), nil
 }
 
 // PageURL returns a link to page n of the current list: the current
@@ -120,11 +125,11 @@ func localPath(u string) bool {
 
 // ErrCSRF is the error [CSRF] reports for a request without a valid token:
 // 403 with a message asking to reload the page.
-var ErrCSRF = &HTTPError{Status: http.StatusForbidden, Message: "The page has expired. Reload it and try again."}
+var ErrCSRF = &HTTPError{Status: http.StatusForbidden, Message: "The page has expired. Reload it and try again.", Key: "http.csrf"}
 
 // ErrCrossOrigin is the error [CSRF] reports for a request sent by a page
 // of another site.
-var ErrCrossOrigin = &HTTPError{Status: http.StatusForbidden, Message: "Cross-origin request rejected."}
+var ErrCrossOrigin = &HTTPError{Status: http.StatusForbidden, Message: "Cross-origin request rejected.", Key: "http.cross_origin"}
 
 // CSRFOption configures [CSRF].
 type CSRFOption func(*http.CrossOriginProtection) error

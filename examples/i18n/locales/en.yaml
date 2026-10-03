@@ -1,0 +1,18 @@
+# English: one file for the locale.
+app:
+  title: "Greenhouse"
+nav:
+  home: "Home"
+  language: "Language"
+home:
+  welcome: "Welcome, {name}!"
+  plants:
+    one: "You have {count} plant."
+    other: "You have {count} plants."
+signup:
+  title: "Sign up"
+  submit: "Sign up"
+  done: "Thanks, {name}: you're signed up."
+validation:
+  attributes:
+    plant_count: "number of plants"

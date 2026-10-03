@@ -1,0 +1,68 @@
+# The account pages' and emails' English text (anetos make:auth): yours to
+# change. Translate it with a file of the same keys in another locale's
+# folder (locales/bn/auth.yaml).
+auth:
+  fields:
+    name: "Name"
+    email: "Email"
+    password: "Password"
+    password_confirmation: "Confirm password"
+    new_password: "New password"
+  register:
+    title: "Register"
+    submit: "Register"
+    have_account: "Already registered?"
+  login:
+    title: "Log in"
+    remember: "Remember me"
+    submit: "Log in"
+  forgot:
+    title: "Forgot your password?"
+    intro: "Enter your email address: we'll email you a link to choose a new password."
+    submit: "Email me a reset link"
+  reset:
+    title: "Choose a new password"
+    submit: "Reset password"
+  dashboard:
+    title: "Dashboard"
+    hello: "Hello, {name}"
+    verify: "Please verify your email address: we emailed you a link."
+    resend: "Send the link again"
+    logout: "Log out"
+  tokens:
+    title: "API tokens"
+    new: "Your new token (copy it now, it won't be shown again):"
+    revoke: "Revoke"
+    name: "Name"
+    create: "Create token"
+  social:
+    sign_in_with: "Sign in with {provider}"
+  errors:
+    name_required: "The name field is required."
+    email_taken: "The email has already been taken."
+    credentials: "These credentials don't match our records."
+    throttled: "Too many login attempts. Try again in a minute."
+    link_other_email: "This link is for another email address."
+    too_many_emails: "Too many emails. Try again later."
+    reset_invalid: "This reset link is invalid or has expired. Ask for a new one."
+    social_no_email: "Your account there has no verified email address."
+    social_unverified: "An account with this email address exists. Log in with your password and verify the address first."
+    social_other_account: "The account with this email address signs in with another account there."
+  status:
+    verified: "Your email address is verified."
+    verification_sent: "We've emailed you a new verification link."
+    reset_sent: "If that address has an account, we've emailed it a link."
+    password_reset: "Your password has been reset. You can log in now."
+    token_revoked: "Token revoked."
+  mail:
+    hello: "Hello {name},"
+    verify:
+      subject: "Verify your email address"
+      intro: "Please confirm your email address:"
+      button: "Verify my email address"
+      ignore: "If you didn't create an account, ignore this email."
+    reset:
+      subject: "Reset your password"
+      intro: "Someone asked to reset the password of your account. If it was you:"
+      button: "Choose a new password"
+      ignore: "The link expires soon, and works once. If you didn't ask, ignore this email: your password stays the same."

@@ -14,6 +14,7 @@ import (
 
 	"anetos.dev/anetos/auth"
 	"anetos.dev/anetos/db"
+	"anetos.dev/anetos/i18n"
 	"anetos.dev/anetos/web"
 	"anetos.dev/anetos/web/ratelimit"
 )
@@ -258,7 +259,9 @@ func (t *tracking) check(ctx context.Context) error {
 	wait := spent.RetryAfter()
 	return &web.HTTPError{
 		Status:  http.StatusTooManyRequests,
-		Message: fmt.Sprintf("You've reached your AI usage limit. Try again in %s.", humanDuration(wait)),
+		Message: i18n.T(context.Background(), "ai.usage_limit", "wait", humanDuration(wait)), // English, for logs
+		Key:     "ai.usage_limit",
+		Args:    []any{"wait", humanDuration(wait)},
 		Err:     &BudgetError{UserID: t.user, RetryAfter: wait},
 	}
 }

@@ -202,7 +202,13 @@ server rejects, fail the job at once.
 
 The job carries the rendered email, attachments included, and a job
 that fails for good keeps it in the failed jobs (`queue:failed`): think
-of that for emails with password reset links. For big attachments,
+of that for emails with password reset links.
+
+**Language.** An email is built and rendered in the language of the
+context it is sent or queued with: a request's, at first. To write in the
+recipient's language (and show times in their zone), pass
+`i18n.ForUser(ctx, user)`: it uses the user's `CommunicationLocale`, else
+their `PreferredLocale` ([Translations](translations.md#5-respect-users-preferences)). For big attachments,
 dispatch a job of your own that builds the email and calls
 `mailer.Send`.
 

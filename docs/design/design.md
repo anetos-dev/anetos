@@ -1529,7 +1529,7 @@ for ev, err := range support.Stream(ctx, question) { … }  // the answer as it'
   (exposing the app's tools, using remote ones), provider failover,
   images, speech and transcription are in the backlog.
 
-### 14.5 Internationalization (v0.3: I1b, I1c)
+### 14.5 Internationalization (v0.3: I1b done; I1c)
 
 Every page, validation message, error page and email can speak the
 user's language, and adding a language to an app is adding a file
@@ -1563,39 +1563,75 @@ mailer.Send(i18n.ForUser(ctx, u), mails.Welcome{User: u}) // the user's mail lan
   messages. Locales are BCP 47 tags (`bn`, `pt-BR`).
 - **Lookup and fallback.** A key is looked up in the locale, its parents
   (`bn-BD` → `bn`), `APP_FALLBACK_LOCALE` (default `en`), then the core
-  catalog; a missing key shows the key, and development logs it once.
+  catalog, which comes right after the app's English catalogs for an
+  English locale, so a non-English fallback never answers an English
+  visitor with a framework message in its language; a missing key shows
+  the key, and development logs it once. A plural message's form takes
+  the plural rules of the catalog it came from, and `<key>.<form>` names
+  one form.
   The core's English catalog (validation, error pages, auth, dates)
   is embedded in package `i18n`; an app overrides any of its keys by
   defining the key. Without `i18n.ForApp`, `i18n.T` uses the core catalog,
   so validation and error pages work in every app.
 - **The request's locale** is resolved on first use and kept for the
-  request, in this order: the URL, the signed-in user's preference, the
-  session, the `locale` cookie, `Accept-Language`, `APP_LOCALE` (default
-  `en`), each matched against the supported locales (`APP_LOCALES`;
-  default: `APP_LOCALE` and every locale with a catalog). `LOCALE_URL`
-  chooses the URL's part: `none` (default), `prefix` (`/bn/about`; the
-  default locale has none) or `subdomain` (`bn.example.com`; APP_URL's
-  host is the default). With a URL strategy the URL decides, and a GET for
-  a page without a locale in its URL, from someone who prefers another
-  supported locale, is redirected to that locale's URL. Route URLs
-  (`c.URL`, `view.URL`) keep the current locale, `view.Alternates` gives
-  the `hreflang` links, and `c.SetLocale` stores a choice in the session
-  and the cookie. An app can replace the resolution with its own function.
+  request (concurrent first uses wait for one resolution). Locales are
+  matched against the supported ones (`APP_LOCALES`; default:
+  `APP_LOCALE` and every locale with a catalog): the locale itself or its
+  nearest supported parent, else a supported locale of the same language
+  and script the matcher rates at least High (`fr-CH` → `fr-CA`; never
+  `zh` → `zh-Hant`, nor `hy` → `ru`, a fallback the matcher offers). `LOCALE_URL`
+  chooses the strategy:
+  - `none` (default): the `locale` cookie, the session, the signed-in
+    user's preference, `Accept-Language`, `APP_LOCALE`. The cookie and
+    session hold a choice made on this device (a switcher, `c.SetLocale`),
+    which beats the account's default; a settings page that changes the
+    preference calls `c.SetLocale` too. The cookie comes before the
+    session because every switch writes it, the session only
+    `c.SetLocale`. `?locale=bn` on a page request (a GET for HTML, not
+    htmx) for a supported locale sets the cookie and redirects without
+    the parameter, the rest of the query untouched. Responses carry
+    `Vary: Accept-Language, Cookie`.
+  - `prefix` (`/bn/about`; the default locale has none, and a GET for
+    `/en/about` remembers the choice and redirects to `/about`) or
+    `subdomain` (`bn.example.com`; APP_URL's host is the default, and
+    `en.example.com` remembers and redirects to it): the URL decides, so
+    each address has one language (search engines, shared links); else
+    `APP_LOCALE`. A page request without a locale in its URL, from someone
+    whose cookie or browser prefers another supported locale, is
+    redirected to that locale's URL; visiting a locale's URL remembers it
+    in the cookie. Redirect targets are built from the escaped path with a
+    single leading slash, so no path becomes another host.
+
+  Route URLs (`web.URL`, `c.URL`) keep the current locale,
+  `web.LocalePath` does it for a literal path, `web.LocaleURL` gives the
+  current page in another locale (a switcher's link), and `c.SetLocale`
+  stores a choice in the cookie and the session. The resolution is a
+  global middleware of the HTTP server, after CORS (so its redirects are
+  logged and carry the security headers) and before the body limit and
+  timeout (whose error pages are then translated), inactive
+  without `i18n.ForApp`; `i18n.WithResolver` lets other code supply its
+  own. The session and the signed-in user are consulted only if the
+  first use comes after their middleware, as in handlers.
 - **Users' preferences.** A user model may implement `PreferredLocale()`,
   `CommunicationLocale()` and `PreferredTimeZone()` (each optional): the
   site shows the first, mail and notifications use the second (default:
   the first), times are shown in the third (default `APP_TIMEZONE`).
   `auth` makes the signed-in user's preference part of the request's
-  locale, and `i18n.ForUser(ctx, u)` returns ctx in the user's
+  locale (with `LOCALE_URL=none`) and zone, and `i18n.ForUser(ctx, u)` returns ctx in the user's
   communication locale and zone. Queue jobs carry the locale and zone of
   the context that dispatched them, so a job, and mail rendered in it,
   speaks the language of the request or user that caused it.
 - **The framework's messages** come from the catalog: validation messages
   and field labels (`validation.attributes.<field>`, then the `label`
-  tag, then the humanized name), error pages, auth, rate-limit and CSRF
-  messages. A struct's `ValidationMessages` value that is a catalog key
-  is translated. `make:auth` writes its pages' strings to
-  `locales/en/auth.yaml`, which the app owns.
+  tag, then the humanized name), rule parameters
+  (`validation.values.<parameter>`), error pages (`http.status.<code>`,
+  `<html lang>`), conversion errors of binding (`binding.<kind>`), CSRF,
+  sign-in and AI budget messages. A struct's `ValidationMessages` value
+  that is a catalog key is translated, and a `web.HTTPError` with a `Key`
+  shows that key's message (its `Message` stays for logs). Errors meant
+  for logs (`Error()` strings) stay English. `make:auth` writes its pages'
+  and emails' strings to `locales/en/auth.yaml`, which the app owns, and
+  sends its emails with `i18n.ForUser`.
 - **Formatting (I1c).** Numbers, percentages and currencies come from
   `golang.org/x/text`, which also has the CLDR plural rules. Dates use
   CLDR-style patterns (`d MMMM y`) and month and day names from the
@@ -2257,7 +2293,7 @@ unless new information arrives), **Open**, **Superseded**.
 | D187 | `anetos.Date` is a calendar date (year, month, day) without time or zone: written as `YYYY-MM-DD` text, read from text or from a time (the day in the time's own zone), JSON and form text `2026-10-03`; the date rules compare it, `now` being today in the app's zone. It is in the root package | Accepted | A date kept in a `time.Time` changes day when converted to UTC (midnight in Dhaka is 18:00 the day before); root because `validate`, `db`, `web` and `i18n` need it and `db` imports `validate` |
 | D188 | `APP_TIMEZONE` (IANA name, default UTC) is the app's zone and `time.Local`: set by the root package's `init` from the environment, and by the first app's `New` from its configuration (not in test binaries); `anetos.Now` returns times in it, `SCHEDULE_TIMEZONE` defaults to it, `i18n` shows times in it by default; `time/tzdata` is embedded in the core | Accepted | Laptops and servers then format times alike; setting `time.Local` once, before goroutines start, avoids data races, and a process has one local zone; the zone database lets user zones load in minimal containers (about 450 KB) |
 | D189 | Translations are YAML catalogs in the app's `locales/` (a file per locale or a folder of files), embedded in the binary: nested keys joined with dots, `{name}` placeholders, plural maps keyed by CLDR category (`other` required). Lookup: the locale, its parents, `APP_FALLBACK_LOCALE`, the core's English catalog; a missing key shows the key. The core catalog is embedded in `i18n`, and an app overrides a core key by defining it | Accepted | A language is a file a developer can write and read (the user's experience with Buffalo); YAML over JSON for that; keys rather than generated functions keep the files the only thing to edit, with `lang:check` catching mistakes |
-| D190 | The request's locale: URL (`LOCALE_URL=none\|prefix\|subdomain`), the signed-in user's preference, session, `locale` cookie, `Accept-Language`, `APP_LOCALE`, matched against `APP_LOCALES`; resolved lazily once per request. With a URL strategy, the URL decides and a GET for a page without one is redirected to the visitor's preferred locale; the default locale has no prefix; route URLs keep the current locale; a choice is stored in the session and the cookie; the resolution is replaceable | Accepted | The developer picks prefix or subdomain URLs; cookie and session remember a visitor's choice by default; lazy resolution costs nothing on routes that never translate |
+| D190 | The request's locale, matched against `APP_LOCALES` (exact or parent, else High confidence); resolved lazily once per request by a global middleware of the HTTP server. `LOCALE_URL=none`: `locale` cookie, session, the signed-in user's preference, `Accept-Language`, `APP_LOCALE` (a choice made on the device beats the account's default); `?locale=` on a page request sets the cookie; `Vary: Accept-Language, Cookie`. `prefix`/`subdomain`: the URL decides, else `APP_LOCALE`; a page request without one is redirected to the locale the cookie or the browser prefers; the default locale has no prefix or subdomain (a GET for `/en/…` or `en.` remembers it and redirects); visiting a locale's URL sets the cookie. Route URLs keep the current locale; `c.SetLocale` stores a choice in the cookie and the session | Accepted | The developer picks prefix or subdomain URLs; cookie and session remember a visitor's choice by default; lazy resolution costs nothing on routes that never translate |
 | D191 | Users have a display locale, a communication locale (mail, notifications; default the display one) and a time zone, through optional methods on the user model; `auth` feeds the display locale to the request, `i18n.ForUser` switches ctx to the communication locale and zone; queue jobs carry the dispatching context's locale and zone | Accepted | A user may read the site in Bengali and want email in English; jobs run far from the request that caused them and must still speak its language |
 | D192 | The framework's own messages (validation, labels, error pages, auth, rate limits, CSRF) are catalog keys; a `ValidationMessages` value naming a catalog key is translated; `make:auth` writes its strings to the app's `locales/en/auth.yaml` | Accepted | One mechanism for every message; owned files for generated pages, as with the rest of `make:auth` |
 | D193 | Numbers, currencies and plural rules come from `golang.org/x/text`; dates are formatted from CLDR-style patterns and names in the catalog's `format` section (English in the core), relative times are catalog keys | Accepted | x/text has plural rules and number formats but no localized dates; keeping date data in the catalogs needs no date library and lets a language fix its own |
@@ -2325,3 +2361,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-03 | M1: the framework is named Anetos (`anetos.dev/anetos`); §5 updated (module path); D1 superseded; D185 added |
 | 2026-10-03 | I1 internationalization designed: §10.6 and §14.5 added, §9 updated; D186–D195 added |
 | 2026-10-03 | I1a times and dates implemented: §10.6, §13.7 (D116: the scheduler's default zone) |
+| 2026-10-03 | I1b translations implemented: §9, §14.5 updated (the order per `LOCALE_URL` strategy, the device's choice before the user's preference, `?locale=` on pages, `/en/` canonical URLs, locale matching, the core catalog after English, `HTTPError.Key`, binding messages); D190 updated |

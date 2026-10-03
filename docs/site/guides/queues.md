@@ -214,6 +214,11 @@ The name is stored with each job, like a struct job's type name, so it
 must stay the same across deploys. [Queued event listeners](events.md)
 are function jobs.
 
+A job runs in the locale and time zone of the context that dispatched it
+(`i18n.Locale`, `i18n.TimeZone`), so text it writes, such as an email,
+is in the language of the request, or of the user (`i18n.ForUser`), that
+caused it. See [Translations](translations.md).
+
 ### 4. Handle failed jobs
 
 A job that fails is retried after its backoff until it has used its

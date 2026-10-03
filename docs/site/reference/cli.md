@@ -40,7 +40,7 @@ before `migrate`.
 
 | Path | Holds |
 |---|---|
-| `main.go` | `anetos.New`, `db.Connect`, `migrate.ForApp`, `cache.ForApp`, `queue.ForApp` (with workers), `events.ForApp`, `mailer.ForApp`, `storage.ForApp`, `schedule.ForApp`, `web.NewServer`, `session.ForApp`, `routes.Register`, then `ext.Load(app, plugins())`, and `app.Execute()`; `//go:generate` lines for templ and `anetos gen` |
+| `main.go` | `anetos.New`, `i18n.ForApp` (the catalogs in `locales/`), `db.Connect`, `migrate.ForApp`, `cache.ForApp`, `queue.ForApp` (with workers), `events.ForApp`, `mailer.ForApp`, `storage.ForApp`, `schedule.ForApp`, `web.NewServer`, `session.ForApp`, `routes.Register`, then `ext.Load(app, plugins())`, and `app.Execute()`; `//go:generate` lines for templ and `anetos gen` |
 | `plugins.go` | The plugins, written by `anetos add` and `anetos remove` (an empty list at first) |
 | `main_test.go` | A test requesting the home page with `anetostest` |
 | `.env`, `.env.example` | Settings; `.env` has a fresh `APP_KEY` (file mode 0600) and stays out of git |
@@ -51,7 +51,8 @@ before `migrate`.
 | `app/models/` | Models (empty at first) |
 | `database/migrations/migrations.go` | The `All` migration set and `Seeders` |
 | `database/factories/factories.go` | The package for model factories (empty at first) |
-| `views/layout.templ`, `views/home.templ` | templ layout (flash messages, CSRF header for htmx) and home page |
+| `views/layout.templ`, `views/home.templ` | templ layout (`<html lang>` in the request's locale, flash messages, CSRF header for htmx) and home page, its text from the catalog |
+| `locales/locales.go`, `locales/en/app.yaml` | The translations, embedded: the home page's English text. Add a language with its folder (`locales/bn/app.yaml`); see [Translations](../guides/translations.md) |
 | `public/public.go`, `public/static/app.css` | `public.Assets`: the static files and htmx under `/assets` |
 
 ## `anetos dev`
@@ -158,6 +159,7 @@ at the version `anetos add` left it at.
 | `cache:clear` | `cache.ForApp` | Removes the app's cache items (keys with `CACHE_PREFIX`), locks included |
 | `queue:failed [--limit=N]`, `queue:retry <id>…\|all`, `queue:forget <id>…`, `queue:flush [--force]`, `queue:clear [--force] [queue]` | `queue.ForApp` | List, retry and delete failed jobs; delete the jobs waiting on a queue. `flush` and `clear` need `--force` in production. See [Queues](../guides/queues.md#4-handle-failed-jobs) |
 | `pubsub:publish <topic> <message>` | `pubsub.ForApp` | Publishes a message (its body as given) to a topic. See [Pub/sub listeners](../guides/pubsub.md#4-publish) |
+| `lang:check [dir]` | `i18n.ForApp` | Reports keys a supported locale lacks (against `APP_FALLBACK_LOCALE`'s), placeholders that differ, plural forms a language needs, and keys the `.go` and `.templ` files under `dir` (default `.`) use that no catalog has; notes the framework's messages a locale leaves in English. Exits 1 on a problem; doesn't boot the app. See [Translations](../guides/translations.md#7-check-the-catalogs) |
 | `schedule:list` | `schedule.ForApp` | Each task, its schedule, its next run and options. See [Scheduling](../guides/scheduling.md#4-check-and-run-tasks) |
 | `schedule:run <task>` | `schedule.ForApp` | Runs a task now, whatever its schedule (`WithoutOverlapping` applies, across processes only with a shared cache store; `OnOneServer` doesn't) |
 | `rbac:roles`, `rbac:user <user-id>`, `rbac:assign [--scope=kind:id] <user-id> <role>`, `rbac:unassign …` | `rbac.ForApp` | List the roles and their users; show a user's grants; give or take a role. See [Roles and permissions](../guides/roles-and-permissions.md) |

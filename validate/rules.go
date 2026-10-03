@@ -218,11 +218,9 @@ func compileRule(name string, params []string, sf reflect.StructField, root refl
 			}
 			return check{}, fmt.Errorf("unknown rule %q (register custom rules with validate.Register before routes are added)", name)
 		}
-		msg := cr.message
-		if msg == "" {
-			msg = messages["custom"]
-		}
-		return check{name: name, message: msg, args: params, custom: &cr, params: params}, nil
+		// The catalog's validation.<name> first, then the registered
+		// message, then validation.custom.
+		return check{name: name, key: "validation." + name, message: cr.message, args: params, custom: &cr, params: params}, nil
 	}
 
 	fk := kindOf(sf.Type)
@@ -257,7 +255,7 @@ func compileRule(name string, params []string, sf reflect.StructField, root refl
 	if s.sized {
 		key = name + "." + fk.String()
 	}
-	ch := check{name: name, implicit: s.implicit, message: messages[key], args: b.args}
+	ch := check{name: name, implicit: s.implicit, key: "validation." + key, args: b.args}
 	if s.implicit {
 		ch.fn = fn
 	} else {

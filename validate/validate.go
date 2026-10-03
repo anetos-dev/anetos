@@ -15,6 +15,8 @@ import (
 	"sync"
 	"time"
 	"unicode"
+
+	"anetos.dev/anetos/i18n"
 )
 
 // Field describes the field a custom [Rule] is checking.
@@ -46,8 +48,9 @@ var (
 
 // Register adds a named rule usable in validate tags, for example
 // "slug" or "starts_with_any:a,b". message is the default message; it may
-// use {label}, and {0}, {1}, … or {list} for the parameters. An empty
-// message means "The {label} field is invalid.".
+// use {label}, and {0}, {1}, … or {list} for the parameters. A catalog's
+// validation.<name> message replaces it (package i18n), and an empty
+// message means validation.custom: "The {label} field is invalid.".
 //
 // Like sql.Register, Register is meant to be called from an init function,
 // so rules exist before routes compile their validation plans. It panics if
@@ -99,20 +102,22 @@ type Plan struct {
 }
 
 type fieldPlan struct {
-	index  []int // from the plan's struct, possibly through embedded structs
-	key    string
-	label  string
-	checks []check
-	nested *Plan // struct or *struct
-	elem   *Plan // slice or array of struct or *struct
-	values *Plan // map with string keys and struct values
+	index    []int // from the plan's struct, possibly through embedded structs
+	key      string
+	label    string
+	labelTag bool // label comes from the label tag
+	checks   []check
+	nested   *Plan // struct or *struct
+	elem     *Plan // slice or array of struct or *struct
+	values   *Plan // map with string keys and struct values
 }
 
 // check is one compiled rule on one field.
 type check struct {
 	name     string
-	implicit bool // runs even when the field is empty (required and friends)
-	message  string
+	implicit bool   // runs even when the field is empty (required and friends)
+	key      string // the message's catalog key: validation.<rule>[.kind]
+	message  string // the struct's override, or a custom rule's message
 	args     []string
 	fn       func(ctx context.Context, fv, parent reflect.Value) (bool, error)
 	custom   *customRule
@@ -254,7 +259,7 @@ func (c *compiler) compile(t reflect.Type) (*Plan, error) {
 
 func (c *compiler) compileField(root reflect.Type, f field, overrides map[string]string, used map[string]bool) (*fieldPlan, error) {
 	sf := f.sf
-	fp := &fieldPlan{index: sf.Index, key: f.key, label: sf.Tag.Get("label")}
+	fp := &fieldPlan{index: sf.Index, key: f.key, label: sf.Tag.Get("label"), labelTag: sf.Tag.Get("label") != ""}
 	if fp.label == "" {
 		fp.label = humanize(fp.key)
 	}
@@ -268,10 +273,10 @@ func (c *compiler) compileField(root reflect.Type, f field, overrides map[string
 			return nil, err
 		}
 		if msg, ok := overrides[fp.key+"."+r.name]; ok {
-			ch.message = msg
+			ch.message, ch.key = msg, ""
 			used[fp.key+"."+r.name] = true
 		} else if msg, ok := overrides[r.name]; ok {
-			ch.message = msg
+			ch.message, ch.key = msg, ""
 		}
 		fp.checks = append(fp.checks, ch)
 	}
@@ -659,7 +664,7 @@ func (p *Plan) run(ctx context.Context, v reflect.Value, at path, errs *Errors) 
 				return err
 			}
 			if !ok {
-				errs.Add(at.key(fp.key), format(ch.message, fp.label, ch.args))
+				errs.Add(at.key(fp.key), ch.text(ctx, fp))
 				break
 			}
 		}
@@ -770,6 +775,44 @@ func isBlank(fv reflect.Value) bool {
 		return fv.IsZero()
 	}
 	return false // includes pointers to zero values: explicitly provided
+}
+
+// text returns the check's message for fp in ctx's language: the
+// catalog's message for its key (validation.<rule>), or the struct's
+// override (itself translated if it is a catalog key), or a custom rule's
+// message, with the field's label (validation.attributes.<key>, else the
+// label tag, translated if it is a key, else the humanized key) and the
+// rule's arguments (validation.values.<arg> where the catalog has one).
+func (ch *check) text(ctx context.Context, fp *fieldPlan) string {
+	msg := ch.message
+	switch {
+	case ch.key != "":
+		if m, ok := i18n.Lookup(ctx, ch.key); ok {
+			msg = m
+		} else if msg == "" {
+			msg, _ = i18n.Lookup(ctx, "validation.custom")
+		}
+	default:
+		if m, ok := i18n.Lookup(ctx, msg); ok {
+			msg = m
+		}
+	}
+	label := fp.label
+	if l, ok := i18n.Lookup(ctx, "validation.attributes."+fp.key); ok {
+		label = l
+	} else if l, ok := i18n.Lookup(ctx, fp.label); ok && fp.labelTag {
+		label = l
+	}
+	args := ch.args
+	for i, a := range ch.args {
+		if v, ok := i18n.Lookup(ctx, "validation.values."+a); ok {
+			if &args[0] == &ch.args[0] {
+				args = slices.Clone(ch.args)
+			}
+			args[i] = v
+		}
+	}
+	return format(msg, label, args)
 }
 
 // format fills {label}, {list} and {0}, {1}, … in a message template.

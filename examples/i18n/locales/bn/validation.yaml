@@ -1,0 +1,10 @@
+# The framework's validation messages in Bangla (the rest stay English).
+validation:
+  required: "{label} দিতে হবে।"
+  email: "{label} একটি সঠিক ইমেইল ঠিকানা হতে হবে।"
+  min:
+    numeric: "{label} কমপক্ষে {0} হতে হবে।"
+  attributes:
+    name: "নাম"
+    email: "ইমেইল"
+    plant_count: "গাছের সংখ্যা"

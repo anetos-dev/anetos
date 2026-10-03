@@ -149,6 +149,11 @@ func TestNewProject(t *testing.T) {
 	if out := app("help"); !strings.Contains(out, "migrate:status") || !strings.Contains(out, "serve") {
 		t.Errorf("help:\n%s", out)
 	}
+	// Every key the pages use is in the catalogs (lang:check reads the
+	// source from the project's folder).
+	if out := app("lang:check"); !strings.Contains(out, "lang:check: en OK") {
+		t.Errorf("lang:check:\n%s", out)
+	}
 	if out := app("schedule:list"); !strings.Contains(out, "No scheduled tasks.") {
 		t.Errorf("schedule:list:\n%s", out)
 	}

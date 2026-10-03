@@ -29,6 +29,7 @@ var authFiles = [][2]string{
 	{"routes.go.tmpl", "routes/auth.go"},
 	{"setup.go.tmpl", "auth.go"},
 	{"test.go.tmpl", "auth_test.go"},
+	{"locale.yaml.tmpl", "locales/en/auth.yaml"},
 }
 
 // authCall is what make:auth adds to setup in main.go, after the routes.
@@ -73,7 +74,7 @@ func MakeAuth(root string, now time.Time) (AuthResult, error) {
 	if mod == "" {
 		return res, errors.New("go.mod has no module line")
 	}
-	for _, dir := range []string{"app/models", "app/handlers", "views", "routes", "database/migrations"} {
+	for _, dir := range []string{"app/models", "app/handlers", "views", "routes", "database/migrations", "locales"} {
 		if _, err := os.Stat(filepath.Join(root, dir)); err != nil {
 			return res, fmt.Errorf("no %s directory: make:auth adds to a project made with anetos new", dir)
 		}

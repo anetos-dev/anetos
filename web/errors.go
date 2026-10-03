@@ -9,6 +9,9 @@ import (
 	"net/http"
 	"runtime/debug"
 	"sort"
+	"strconv"
+
+	"anetos.dev/anetos/i18n"
 )
 
 // HTTPError is an error with an HTTP status and a message that is safe to
@@ -25,6 +28,12 @@ type HTTPError struct {
 	Message string            // client-safe; defaults to the status text
 	Fields  map[string]string // per-field problems, e.g. from binding or validation
 	Err     error             // internal cause
+	// Key, if set, is a catalog key (package i18n) whose message is shown
+	// to clients in their language instead of Message, which logs keep.
+	Key string
+	// Args fill Key's placeholders: pairs of names and values, as for
+	// i18n.T.
+	Args []any
 }
 
 // Error returns an [HTTPError] with the given status and client-safe
@@ -202,24 +211,25 @@ type problemDebug struct {
 func newProblem(c *Ctx, err error, status int) *problem {
 	// err's own status may differ from the one chosen (e.g. an internal
 	// cancellation reported as 500); only show HTTPError details that match.
+	ctx := c.r.Context()
 	p := &problem{
 		Type:      "about:blank",
-		Title:     http.StatusText(status),
+		Title:     statusTitle(ctx, status),
 		Status:    status,
-		RequestID: RequestID(c.r.Context()),
-	}
-	if p.Title == "" {
-		p.Title = fmt.Sprintf("Error %d", status)
+		RequestID: RequestID(ctx),
 	}
 	if status < 500 || c.router.core.debug {
 		he, isHTTPError := errors.AsType[*HTTPError](err)
 		if isHTTPError {
 			p.Detail, p.Errors = he.Message, he.Fields
+			if he.Key != "" && i18n.Has(ctx, he.Key) {
+				p.Detail = i18n.T(ctx, he.Key, he.Args...)
+			}
 		}
 		if fe := FieldErrorer(nil); p.Errors == nil && errors.As(err, &fe) {
 			p.Errors = fe.FieldErrors()
 			if !isHTTPError {
-				p.Detail = "The given data was invalid."
+				p.Detail = i18n.T(ctx, "http.invalid_data")
 			}
 		}
 	}
@@ -234,6 +244,18 @@ func newProblem(c *Ctx, err error, status int) *problem {
 		p.Debug = d
 	}
 	return p
+}
+
+// statusTitle returns the title of status in ctx's language: the
+// catalog's http.status.<code>, else Go's status text, else "Error <code>".
+func statusTitle(ctx context.Context, status int) string {
+	if t, ok := i18n.Lookup(ctx, "http.status."+strconv.Itoa(status)); ok {
+		return t
+	}
+	if t := http.StatusText(status); t != "" {
+		return t
+	}
+	return fmt.Sprintf("Error %d", status)
 }
 
 func (p *problem) json() []byte {

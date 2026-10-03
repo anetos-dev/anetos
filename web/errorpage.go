@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"anetos.dev/anetos/i18n"
 )
 
 func marshalJSON(v any) ([]byte, error) {
@@ -57,17 +59,24 @@ func redactedURL(u *url.URL) string {
 }
 
 type errorPageData struct {
-	P       *problem
-	Debug   bool
-	Method  string
-	URL     string
-	Route   string
-	Headers [][2]string
-	Fields  []string
+	Lang      string // the page's language
+	Problems  string // the heading of the field errors
+	RequestID string // the request ID line
+	P         *problem
+	Debug     bool
+	Method    string
+	URL       string
+	Route     string
+	Headers   [][2]string
+	Fields    []string
 }
 
 func renderErrorPage(c *Ctx, p *problem) {
-	d := errorPageData{P: p, Debug: c.router.core.debug}
+	ctx := c.r.Context()
+	d := errorPageData{P: p, Debug: c.router.core.debug, Lang: i18n.Locale(ctx), Problems: i18n.T(ctx, "http.problems")}
+	if p.RequestID != "" {
+		d.RequestID = i18n.T(ctx, "http.request_id", "id", p.RequestID)
+	}
 	d.Fields = sortedKeys(p.Errors)
 	if d.Debug {
 		d.Method = c.r.Method
@@ -110,7 +119,7 @@ func sortedHeaderKeys(h http.Header) []string {
 }
 
 var errorPage = template.Must(template.New("error").Parse(`<!doctype html>
-<html lang="en">
+<html lang="{{.Lang}}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -140,10 +149,10 @@ var errorPage = template.Must(template.New("error").Parse(`<!doctype html>
   <div class="status">{{.P.Status}}</div>
   <h1>{{.P.Title}}</h1>
   {{with .P.Detail}}<p>{{.}}</p>{{end}}
-  {{if .Fields}}<section><h2>Problems</h2><table>
+  {{if .Fields}}<section><h2>{{.Problems}}</h2><table>
     {{range .Fields}}<tr><td>{{.}}</td><td>{{index $.P.Errors .}}</td></tr>{{end}}
   </table></section>{{end}}
-  {{with .P.RequestID}}<p class="status">Request ID: {{.}}</p>{{end}}
+  {{with .RequestID}}<p class="status">{{.}}</p>{{end}}
   {{if .Debug}}{{with .P.Debug}}
   <section class="debug"><h2>Error (debug mode)</h2><pre>{{.Error}}</pre>
     {{if .Chain}}<h2>Cause chain</h2><pre>{{range .Chain}}{{.}}

@@ -7,6 +7,29 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Package `i18n`: translations in YAML catalogs (a file or a folder per
+  locale, nested keys, `{name}` placeholders, CLDR plural forms), loaded
+  by `i18n.ForApp(app, fsys)` with `APP_LOCALE`, `APP_FALLBACK_LOCALE`,
+  `APP_LOCALES` and `LOCALE_URL`; `i18n.T`, `i18n.Plural`, `Lookup`, `Has`;
+  lookup through the locale's parents, the fallback locale and the
+  framework's English catalog; missing keys logged in development;
+  `lang:check`, `Translator.Check`. Guide "Translations", concept
+  "Internationalization", `examples/i18n` (I1b, D189–D195).
+- The request's locale, resolved on first use: with `LOCALE_URL=prefix`
+  or `subdomain`, the URL's (pages without one redirect to the visitor's
+  locale); with `none`, the `locale` cookie, the session, the signed-in
+  user's preference, `Accept-Language` (`?locale=` on pages switches;
+  `Vary: Accept-Language, Cookie`); `c.SetLocale`, `web.LocaleURL`,
+  `web.LocalePath`, `web.ErrUnsupportedLocale`; route URLs keep the
+  locale. Locales match exactly, by parent, or a close regional variant
+  (I1b, D190).
+- Users' preferences: `i18n.LocalePreference`, `CommunicationPreference`,
+  `TimeZonePreference`; `i18n.ForUser` for mail; `i18n.TimeZone`,
+  `WithLocale`, `WithTimeZone`, `WithResolver`, `SetCurrentUser`
+  (`auth.ForApp` calls it), `Preferences`. Queue jobs run in the locale
+  and time zone of the context that dispatched them (I1b, D191).
+- `web.HTTPError.Key` and `Args`: a catalog message shown to clients in
+  their language (I1b, D192).
 - `anetos.Date`, a calendar date without time or zone, for `DATE` columns,
   forms (`<input type="date">`) and JSON; `NewDate`, `DateOf`, `Today`,
   `ParseDate`; the date rules (`after`, `before`…) compare dates, `now`
@@ -183,6 +206,21 @@ All notable changes to this project are documented here. The format follows
   "Search by meaning" (S2).
 
 ### Changed
+- The framework's messages come from the i18n catalogs, in the request's
+  language: validation messages and labels (`validation.*`), error page
+  titles and texts (`http.*`, `<html lang>`), CSRF, sign-in and AI budget
+  messages (I1b, D192).
+- **BREAKING:** values that can't be converted while binding report the
+  catalog's `binding.<kind>` message. Before: `"page": "invalid integer
+  \"x\""`, `"draft": "must be a boolean"`. After: `"page": "must be an
+  integer"`, `"draft": "must be true or false"` (I1b).
+- `anetos new` writes `locales/` (`locales.go`, `en/app.yaml`) and calls
+  `i18n.ForApp`; its pages take their text from the catalog. `make:auth`
+  writes `locales/en/auth.yaml`, sends its emails with `i18n.ForUser`, and
+  needs the `locales` folder. `anetos dev` rebuilds when a catalog
+  changes (I1b).
+- `go.yaml.in/yaml/v3` and `golang.org/x/text` are dependencies of the core
+  module (I1b, D195).
 - **BREAKING:** an app whose `DB_URL` sets a session time zone other than
   UTC refuses to start, and so do its commands. Before:
   `DB_URL=postgres://…/app?timezone=Asia/Dhaka` started. After: remove
