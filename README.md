@@ -1,4 +1,9 @@
-# Anetos
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/anetos-logo-dark.svg">
+    <img alt="Anetos" src=".github/assets/anetos-logo.svg" width="320">
+  </picture>
+</p>
 
 > *Anetos* (Greek άνετος, "at ease, comfortable"; say **AH-neh-tos**).
 > Module `anetos.dev/anetos`, command `anetos`.
