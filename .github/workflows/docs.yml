@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: Apache-2.0
+# Rebuilds docs.anetos.dev when the pages change on main. The site is
+# built by anetos-dev/docs on Cloudflare Pages; DOCS_DEPLOY_HOOK is that
+# project's deploy hook URL (a repository secret). Without it, this does
+# nothing.
+name: Docs
+
+on:
+  push:
+    branches: [main]
+    paths: ["docs/site/**"]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger the docs build
+        env:
+          HOOK: ${{ secrets.DOCS_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "DOCS_DEPLOY_HOOK is not set; skipping."
+            exit 0
+          fi
+          curl -fsS -X POST "$HOOK" > /dev/null
+          echo "Docs build triggered."
