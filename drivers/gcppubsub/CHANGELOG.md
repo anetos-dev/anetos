@@ -7,6 +7,12 @@ tagged `drivers/gcppubsub/vX.Y.Z`. The framework's own changes are in the
 
 ## [Unreleased]
 
+### Security
+- OpenTelemetry (an indirect dependency of the Pub/Sub client) to v1.45.0,
+  for GHSA-8wmf-6v46-5gfg / CVE-2026-81870: exporter endpoints written to
+  OpenTelemetry's own Info logs. The driver doesn't configure OpenTelemetry,
+  so apps were only exposed if they enabled its verbose logging themselves.
+
 ## [0.2.0] - 2026-10-02
 
 The first release, with the framework's v0.2.0.
