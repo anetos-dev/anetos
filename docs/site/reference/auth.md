@@ -13,7 +13,7 @@ Packages `auth`, `auth/password`, `auth/social` and `auth/rbac`. How-to: [Authen
 | API | Does |
 |---|---|
 | `auth.Authenticatable` | `AuthID() string` and `AuthPassword() string`, implemented by the app's user type |
-| `auth.Users[U]{ByID, ByLogin, RememberToken, SetRememberToken, SetPassword}` | How to find users (required: `ByID`, `ByLogin`; they return `db.ErrNotFound` or `auth.ErrNoUser`), store remember-me tokens and upgraded hashes |
+| `auth.Users[U]{ByID, ByLogin, RememberToken, SetRememberToken, SetPassword, Disabled, SessionKey, SetSessionKey}` | How to find users (required: `ByID`, `ByLogin`; they return `db.ErrNotFound` or `auth.ErrNoUser`), store remember-me tokens and upgraded hashes; which accounts are disabled (`Disabled`, v0.3); the session key sessions are bound to (`SessionKey` and `SetSessionKey`, both or neither, v0.3) |
 | `auth.ForApp(app, users)` | `*auth.Auth[U]` from `AUTH_*` and `APP_KEY`; needs `cache.ForApp` first; provided to the app; once per app |
 | `auth.New(cfg, users, enc, opts...)` | Without an app; `auth.WithLogger`, `auth.WithInsecureCookies` |
 | `auth.Migrations()` | The `api_tokens` table, for `migrate.ForApp` |
@@ -41,6 +41,16 @@ Packages `auth`, `auth/password`, `auth/social` and `auth/rbac`. How-to: [Authen
 | `auth.CurrentID(ctx)` | The signed-in user's `AuthID`, `auth.ErrUnauthenticated`, or the load error, for code that works with any user type (v0.3) |
 | `a.ActAs(ctx, userID, opts...)`, `auth.ActAs(ctx, userID, opts...)` | A context whose signed-in user is that user (loaded with `Users.ByID` when asked for; none if it doesn't exist), for queue jobs and commands working for a user; no session (`Attempt`, `Login` and `Logout` refuse) and no token, unless `auth.WithAbilities(abilities)` gives it a token's limits. The function finds the app's Auth in ctx (v0.3) |
 | `auth.Intended(ctx, fallback)` | The page a guest asked for before logging in, or `fallback` |
+
+## Accounts
+
+| API | Does |
+|---|---|
+| `Users.Disabled`, `a.Disabled(u)` | A disabled user is signed out on their next request; `Attempt` (once the password checks out) and `Login` return `auth.ErrDisabled` (403); their remember-me cookies and API tokens stop working; `ActAs` treats them as a guest (v0.3) |
+| `a.SignOutEverywhere(ctx, u)`, `a.CanSignOutEverywhere()` | Ends every session and remember-me cookie of `u` by giving them a new session key (`Users.SetSessionKey`) and remember token; API tokens stay (v0.3) |
+| `a.Impersonate(ctx, u)` | Signs the current user in as `u`, keeping who they are in the session; not through API tokens, not nested, not for a disabled `u` (`ErrDisabled`) or oneself. Each request checks that the impersonator may still sign in; `Logout` ends both (leaving `u`'s remember-me token alone). The impersonator's remember-me cookie is removed. Check who may first (`rbac.AuthorizeOver`) (v0.3) |
+| `a.StopImpersonating(ctx)` | Signs the impersonator back in and returns them; `auth.ErrNotImpersonating` (409) without impersonation; if they can't sign in any more, signs out and returns why (v0.3) |
+| `auth.Impersonator(ctx)` | The ID of the user acting as the signed-in one, and whether there is one (v0.3) |
 
 ## Tokens
 
@@ -102,6 +112,9 @@ Package `auth/rbac` (v0.3). Concepts: [Roles and permissions](../concepts/roles-
 | `rbac.ForApp(app, permissions, roles...)` | `*rbac.Registry`, checked (unique names, roles of declared permissions); provided to the app and its contexts; caches grants per unit of work; adds the commands below; once per app |
 | `rbac.New(permissions, roles...)`, `rbac.WithRegistry(ctx, reg)`, `rbac.From(ctx)` | Without an app; `rbac.ErrNoRegistry` when the context has none |
 | `reg.Declare(permissions...)` | Adds permissions to the registry, for packages that bring their own (the admin); idempotent; call it at setup, before the app serves (v0.3) |
+| `rbac.AuthorizeOver(ctx, userID)` | nil if the signed-in user has every permission `userID` has in every scope (and a super role wherever they have one), else `auth.ErrForbidden`: for managing their account (v0.3) |
+| `rbac.GivenTo(ctx, userID)` | The roles and permissions given to a user, as stored (`rbac.Given{Scope, Role, Permission}`), by scope and name (v0.3) |
+| `rbac.RoleCounts(ctx)`, `rbac.Holders(ctx, role, limit)` | How many users have each role; who has a role, and where (`rbac.Holder{UserID, Scope}`) (v0.3) |
 | `reg.Permissions()`, `reg.Declared(p)`, `reg.Roles()`, `reg.Role(name)` | What was declared |
 | `rbac.Migrations()` | The `rbac_grants` and `rbac_roles` tables |
 

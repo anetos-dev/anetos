@@ -78,6 +78,18 @@ type Users[U Authenticatable] struct {
 	// Attempt uses it to upgrade old hashes (password.NeedsRehash) after
 	// a successful login.
 	SetPassword func(ctx context.Context, u U, hash string) error
+	// Disabled reports whether the user's account is disabled (a
+	// disabled_at column). Optional. A disabled user is signed out on
+	// their next request and can't sign in ([ErrDisabled]); their API
+	// tokens and remember-me cookies stop working.
+	Disabled func(u U) bool
+	// SessionKey returns the user's session key (a session_key column),
+	// "" if none yet. Optional: with SetSessionKey, it enables
+	// [Auth.SignOutEverywhere]. Sessions and remember-me cookies are
+	// bound to it, as to the password hash.
+	SessionKey func(u U) string
+	// SetSessionKey stores a new session key for the user.
+	SetSessionKey func(ctx context.Context, u U, key string) error
 }
 
 // Config holds the AUTH_* settings.
@@ -164,6 +176,9 @@ func New[U Authenticatable](cfg Config, users Users[U], enc *encryption.Encrypte
 	}
 	if (users.RememberToken == nil) != (users.SetRememberToken == nil) {
 		return nil, errors.New("auth: Users needs both RememberToken and SetRememberToken, or neither")
+	}
+	if (users.SessionKey == nil) != (users.SetSessionKey == nil) {
+		return nil, errors.New("auth: Users needs both SessionKey and SetSessionKey, or neither")
 	}
 	if enc == nil {
 		return nil, errors.New("auth: nil Encrypter")
@@ -252,6 +267,13 @@ var (
 	// ErrInvalidToken means a password-reset or verification token is
 	// malformed, expired or used. 400.
 	ErrInvalidToken error = &statusError{http.StatusBadRequest, "auth: invalid or expired token"}
+	// ErrDisabled is returned by Attempt (once the password checks out)
+	// and Login for a user whose account is disabled (Users.Disabled).
+	// 403.
+	ErrDisabled error = &statusError{http.StatusForbidden, "auth: this account is disabled"}
+	// ErrNotImpersonating is returned by StopImpersonating when the
+	// session isn't acting as anyone. 409.
+	ErrNotImpersonating error = &statusError{http.StatusConflict, "auth: not acting as another user"}
 )
 
 type statusError struct {
@@ -281,6 +303,21 @@ func notFound(err error) bool { return errors.Is(err, ErrNoUser) || errors.Is(er
 
 // fingerprint identifies a password hash without revealing it: stored in
 // the session, it signs the user out when the password changes.
+// sessionPrint is what sessions and remember-me cookies of u are bound
+// to: the password hash and, if any, the session key. Without a key, it
+// is the hash's fingerprint, as before keys.
+func (a *Auth[U]) sessionPrint(u U, hash string) string {
+	if a.users.SessionKey != nil {
+		if key := a.users.SessionKey(u); key != "" {
+			return fingerprint(hash + "\x00" + key)
+		}
+	}
+	return fingerprint(hash)
+}
+
+// disabled reports whether u's account is disabled.
+func (a *Auth[U]) disabled(u U) bool { return a.users.Disabled != nil && a.users.Disabled(u) }
+
 func fingerprint(hash string) string {
 	sum := sha256.Sum256([]byte("anetos/auth\x00" + hash))
 	return hex.EncodeToString(sum[:12])

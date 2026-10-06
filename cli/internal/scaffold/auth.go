@@ -217,11 +217,11 @@ func addSettings(file, block string) (bool, error) {
 // package directory ("" is the root, package main).
 var authNames = map[string][]string{
 	"app/models":   {"User", "Users", "UserCols"},
-	"app/handlers": {"Accounts", "RegisterInput", "LoginInput", "ForgotInput", "ResetInput", "TokenQuery", "NewTokenInput", "TokenID", "SocialUser", "emailTaken", "cleanName"},
+	"app/handlers": {"Accounts", "RegisterInput", "LoginInput", "ForgotInput", "ResetInput", "TokenQuery", "NewTokenInput", "TokenID", "SocialUser", "SendVerification", "SendPasswordReset", "emailTaken", "cleanName"},
 	"app/mailers":  {"VerifyEmail", "ResetPassword"},
 	"views":        {"SocialButton", "Register", "Login", "ForgotPassword", "ResetPassword", "Dashboard", "socialButtons", "authError", "VerifyEmailMail", "ResetPasswordMail", "authMail"},
 	"routes":       {"Auth"},
-	"":             {"setupAuth", "authRegister", "authLink", "TestRegisterAndVerify", "TestResendVerification", "TestRegisterValidation", "TestLoginAndLogout", "TestLoginReturnsToTheRequestedPage", "TestPasswordReset", "TestResetSignsOutAndRevokesTokens", "TestAPIToken", "TestSocialSignIn", "TestSocialSignInFindsVerifiedAccounts"},
+	"":             {"setupAuth", "authRegister", "authLink", "TestRegisterAndVerify", "TestResendVerification", "TestRegisterValidation", "TestLoginAndLogout", "TestDisabledAccount", "TestLoginReturnsToTheRequestedPage", "TestPasswordReset", "TestResetSignsOutAndRevokesTokens", "TestAPIToken", "TestSocialSignIn", "TestSocialSignInFindsVerifiedAccounts"},
 }
 
 func dirLabel(dir string) string {

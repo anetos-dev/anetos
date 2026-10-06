@@ -173,7 +173,8 @@ func (a *Auth[U]) TokenMiddleware(next http.Handler) http.Handler {
 			return
 		}
 		u, err := a.users.ByID(ctx, t.UserID)
-		if notFound(err) {
+		if notFound(err) || err == nil && a.disabled(u) {
+			w.Header().Set("WWW-Authenticate", `Bearer error="invalid_token"`)
 			web.WriteError(w, r, ErrUnauthenticated)
 			return
 		}

@@ -1,0 +1,25 @@
+{{define "content"}}{{$csrf := .CSRF}}{{with .Data}}
+<div class="head">
+  <h1>{{$.Title}}</h1>
+  <div class="tools">
+    {{if .EditURL}}<a class="button primary" href="{{.EditURL}}">Edit</a>{{end}}
+    {{with .Delete}}{{template "button" (button . $csrf)}}{{end}}
+  </div>
+</div>
+<dl class="details">
+  <dt>Name</dt><dd><code>{{.Role.Name}}</code></dd>
+  <dt>Defined in</dt><dd>{{if .Role.Custom}}The database: change it here{{else}}The app's code{{end}}</dd>
+</dl>
+<section class="part"><h2>Permissions</h2>
+{{if .Role.Super}}<p>Every permission (a super role).</p>
+{{else if .Groups}}{{range .Groups}}<p>{{if .Name}}<strong>{{.Name}}</strong>: {{end}}{{range $i, $p := .Perms}}{{if $i}}, {{end}}<code>{{$p.Name}}</code>{{end}}</p>{{end}}
+{{else}}<p class="empty">None.</p>{{end}}
+</section>
+<section class="part"><h2>Users</h2>
+{{if .Holders}}<div class="table"><table>
+<thead><tr><th>User</th><th>Where</th></tr></thead>
+<tbody>{{range .Holders}}<tr><td>{{if .URL}}<a href="{{.URL}}">{{.Name}}</a>{{else}}{{.Name}}{{end}}</td><td>{{if .Scope}}{{.Scope}}{{else}}Everywhere{{end}}</td></tr>{{end}}</tbody>
+</table></div>{{if .More}}<p class="none">And more.</p>{{end}}
+{{else}}<p class="empty">No one has this role.</p>{{end}}
+</section>
+{{end}}{{end}}

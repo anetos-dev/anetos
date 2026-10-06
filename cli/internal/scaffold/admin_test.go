@@ -50,9 +50,19 @@ func TestMakeAdmin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(res.Created, []string{"admin.go", "app/admin/admin.go", "admin_test.go"}) || !res.Wired || !res.RBAC ||
-		!slices.Equal(res.Env, []string{".env", ".env.example"}) {
+	if !slices.Equal(res.Created, []string{"admin.go", "app/admin/admin.go", "app/admin/users.go", "admin_test.go"}) || !res.Wired || !res.RBAC ||
+		!slices.Equal(res.Env, []string{".env", ".env.example"}) || !res.Users || !res.Disabled || !res.SessionKey || !res.Banner {
 		t.Errorf("result %+v", res)
+	}
+	if s := read(t, filepath.Join(dir, "app/admin/users.go")); !strings.Contains(s, `DisabledAt: "disabled_at",`) ||
+		!strings.Contains(s, "handlers.SendPasswordReset(ctx, a, u)") || !strings.Contains(s, "u.EmailVerifiedAt = nil") {
+		t.Errorf("users.go:\n%s", s)
+	}
+	if s := read(t, filepath.Join(dir, "views/layout.templ")); !strings.Contains(s, "\t\t\t@admin.Banner()") || !strings.Contains(s, "import (\n\t\"anetos.dev/anetos/admin\"\n") {
+		t.Errorf("layout.templ:\n%s", s)
+	}
+	if _, ok := addBanner([]byte("package views\n\ntempl X() {\n<div></div>\n}\n")); ok {
+		t.Error("addBanner without a body")
 	}
 	main := read(t, filepath.Join(dir, "main.go"))
 	if !strings.Contains(main, adminCall) || strings.Contains(main, authCall) {
@@ -178,8 +188,20 @@ type Post struct {
 	if res, err := MakeAdmin(dir); err != nil || res.Wired || read(t, filepath.Join(dir, "main.go")) != main {
 		t.Errorf("unwired: %+v, %v", res, err)
 	}
+	// A User model of an older make:auth: no disabling.
+	dir = fresh(true)
+	user := read(t, filepath.Join(dir, "app/models/user.go"))
+	user = strings.Replace(user, "\tDisabledAt      *time.Time `db:\"disabled_at\" json:\"disabled_at\"` // set: can't sign in\n", "", 1)
+	write(dir, "app/models/user.go", user)
+	if res, err := MakeAdmin(dir); err != nil || res.Disabled || !res.Users {
+		t.Errorf("an older User: %+v, %v", res, err)
+	}
+	if s := read(t, filepath.Join(dir, "app/admin/users.go")); strings.Contains(s, "DisabledAt") {
+		t.Errorf("users.go of an older User:\n%s", s)
+	}
 	// A failed write leaves nothing behind.
 	dir = fresh(true)
+	layoutBefore := read(t, filepath.Join(dir, "views/layout.templ"))
 	write(dir, "app/admin", "not a directory")
 	if res, err := MakeAdmin(dir); err == nil || len(res.Created) != 0 {
 		t.Errorf("failed write: %+v, %v", res, err)
@@ -189,6 +211,9 @@ type Post struct {
 	}
 	if strings.Contains(read(t, filepath.Join(dir, ".env")), "ADMIN_") {
 		t.Error("the settings were added")
+	}
+	if read(t, filepath.Join(dir, "views/layout.templ")) != layoutBefore {
+		t.Error("the layout was changed")
 	}
 }
 

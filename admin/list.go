@@ -3,6 +3,7 @@
 package admin
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"html/template"
@@ -262,10 +263,11 @@ func (r *res[T, F]) trash(c *web.Ctx) error { return r.list(c, true) }
 
 // showPage is a record's page.
 type showPage struct {
-	Lines   []line
-	EditURL string
-	Delete  *buttonView
-	Actions []buttonView
+	Lines    []line
+	Sections []section
+	EditURL  string
+	Delete   *buttonView
+	Actions  []buttonView
 }
 
 type line struct {
@@ -287,10 +289,10 @@ func (r *res[T, F]) show(c *web.Ctx) error {
 		sp.Lines = append(sp.Lines, line{cols[i].Title, v})
 	}
 	k := r.keyText(row)
-	if r.in.editable && r.can(c, "update") {
+	if r.in.editable && r.can(c, "update") && r.allowed(c, row, "update") {
 		sp.EditURL = r.url("/" + k + "/edit")
 	}
-	if r.in.delete && r.can(c, "delete") {
+	if r.in.delete && r.can(c, "delete") && r.allowed(c, row, "delete") {
 		msg := "Delete " + r.label(row) + "?"
 		if !r.in.soft {
 			msg += " This can't be undone."
@@ -298,8 +300,13 @@ func (r *res[T, F]) show(c *web.Ctx) error {
 		sp.Delete = &buttonView{Name: "delete", Title: "Delete", URL: r.url("/" + k + "/delete"), Confirm: msg, Danger: true}
 	}
 	for _, a := range r.Actions {
-		if (a.When == nil || a.When(row)) && r.can(c, a.Permission) {
+		if (a.When == nil || a.When(row)) && r.can(c, a.Permission) && r.allowed(c, row, "action:"+a.Name) {
 			sp.Actions = append(sp.Actions, buttonView{Name: a.Name, Title: a.Title, URL: r.url("/" + k + "/actions/" + a.Name), Confirm: a.Confirm, Danger: a.Danger})
+		}
+	}
+	if r.hooks.sections != nil {
+		if sp.Sections, err = r.hooks.sections(c, row); err != nil {
+			return err
 		}
 	}
 	label := r.label(row)
@@ -311,7 +318,10 @@ func (r *res[T, F]) destroy(c *web.Ctx) error {
 	if err != nil {
 		return err
 	}
-	if err := db.Delete(c, &row); err != nil {
+	if err := r.check(c, row, "delete"); err != nil {
+		return refused(c, err, r.url("/"+r.keyText(row)))
+	}
+	if err := r.delete(c, &row, !r.in.soft); err != nil {
 		return err
 	}
 	msg := r.label(row) + " deleted."
@@ -321,10 +331,30 @@ func (r *res[T, F]) destroy(c *web.Ctx) error {
 	return done(c, msg, r.url(""))
 }
 
+// delete deletes row: soft, or for good (and then the removed hook, in
+// the same transaction).
+func (r *res[T, F]) delete(ctx context.Context, row *T, forGood bool) error {
+	if !forGood {
+		return db.Delete(ctx, row)
+	}
+	return db.Tx(ctx, func(ctx context.Context) error {
+		if err := db.ForceDelete(ctx, row); err != nil {
+			return err
+		}
+		if r.hooks.removed != nil {
+			return r.hooks.removed(ctx, *row)
+		}
+		return nil
+	})
+}
+
 func (r *res[T, F]) restore(c *web.Ctx) error {
 	row, err := r.find(c, true)
 	if err != nil {
 		return err
+	}
+	if err := r.check(c, row, "delete"); err != nil {
+		return refused(c, err, r.url("/trash"))
 	}
 	if err := db.Restore(c, &row); err != nil {
 		return err
@@ -337,7 +367,10 @@ func (r *res[T, F]) forceDelete(c *web.Ctx) error {
 	if err != nil {
 		return err
 	}
-	if err := db.ForceDelete(c, &row); err != nil {
+	if err := r.check(c, row, "delete"); err != nil {
+		return refused(c, err, r.url("/trash"))
+	}
+	if err := r.delete(c, &row, true); err != nil {
 		return err
 	}
 	return done(c, r.label(row)+" deleted forever.", r.url("/trash"))
@@ -361,13 +394,20 @@ func (r *res[T, F]) action(c *web.Ctx) error {
 	if a.When != nil && !a.When(row) {
 		return failed(c, a.Title+" can't be done to "+r.label(row)+".", to)
 	}
-	if err := a.Run(c, &row); err != nil {
-		if msg, ok := userError(err); ok {
-			return failed(c, msg, to)
-		}
-		return err
+	if err := r.check(c, row, "action:"+a.Name); err != nil {
+		return refused(c, err, to)
 	}
-	return done(c, a.Title+": done.", to)
+	if err := a.Run(c, &row); err != nil {
+		return refused(c, err, to)
+	}
+	if a.then != nil {
+		to = a.then(c, row)
+	}
+	msg := a.Done
+	if msg == "" {
+		msg = a.Title + ": done."
+	}
+	return done(c, msg, to)
 }
 
 // bulk runs a bulk action, or deletes, on the selected records.
@@ -397,6 +437,10 @@ func (r *res[T, F]) bulk(c *web.Ctx) error {
 	}
 	q := r.query(c).WhereKeys(keys...)
 	name := req.PostForm.Get("action")
+	if r.hooks.guard != nil || name == "delete" && !r.in.soft && r.hooks.removed != nil {
+		// Record by record: the guard on each, the removed hook.
+		return r.bulkEach(c, q, name, len(keys), back)
+	}
 	var (
 		n     int64
 		err   error
@@ -430,6 +474,78 @@ func (r *res[T, F]) bulk(c *web.Ctx) error {
 		return err
 	}
 	return done(c, fmt.Sprintf("%s: %d of %d.", title, n, len(keys)), back)
+}
+
+// bulkEach runs a bulk action, or deletes, on the selected records the
+// guard allows, one by one for deleting.
+func (r *res[T, F]) bulkEach(c *web.Ctx, q *db.Q[T], name string, selected int, back string) error {
+	op, title := "delete", "Deleted"
+	var bulk *BulkAction[T]
+	if name == "delete" {
+		if !r.in.delete {
+			return web.Error(http.StatusNotFound, "")
+		}
+		if err := r.authorize(c, "delete"); err != nil {
+			return err
+		}
+	} else {
+		i := slices.IndexFunc(r.BulkActions, func(a BulkAction[T]) bool { return a.Name == name })
+		if i < 0 {
+			return web.Error(http.StatusNotFound, "")
+		}
+		bulk = &r.BulkActions[i]
+		if err := r.authorize(c, bulk.Permission); err != nil {
+			return err
+		}
+		op, title = "bulk:"+name, bulk.Title
+	}
+	rows, err := q.Get()
+	if err != nil {
+		return err
+	}
+	var ok []T
+	var refusal error
+	for _, row := range rows {
+		if err := r.check(c, row, op); err != nil {
+			if _, isUser := userError(err); !isUser {
+				return err
+			}
+			refusal = err
+			continue
+		}
+		ok = append(ok, row)
+	}
+	var n int64
+	err = db.Tx(c, func(ctx context.Context) error {
+		if bulk != nil {
+			keys := make([]any, len(ok))
+			for i := range ok {
+				_, keys[i], _ = db.KeyOf(&ok[i])
+			}
+			if len(keys) == 0 {
+				return nil
+			}
+			var err error
+			n, err = bulk.Run(ctx, r.query(ctx).WhereKeys(keys...))
+			return err
+		}
+		for i := range ok {
+			if err := r.delete(ctx, &ok[i], !r.in.soft); err != nil {
+				return err
+			}
+			n++
+		}
+		return nil
+	})
+	if err != nil {
+		return refused(c, err, back)
+	}
+	msg := fmt.Sprintf("%s: %d of %d.", title, n, selected)
+	if refusal != nil {
+		m, _ := userError(refusal)
+		msg += " Some were left: " + m
+	}
+	return done(c, msg, back)
 }
 
 // userError returns the message of a validation error, for the user.

@@ -19,9 +19,12 @@ import (
 
 // Session keys.
 const (
-	keyID       = "_auth.id"
-	keyHash     = "_auth.hash"
-	keyIntended = "_auth.intended"
+	keyID   = "_auth.id"
+	keyHash = "_auth.hash"
+	// The user acting as keyID's (Impersonate), and their fingerprint.
+	keyImpersonator     = "_auth.impersonator"
+	keyImpersonatorHash = "_auth.impersonator_hash"
+	keyIntended         = "_auth.intended"
 )
 
 // state is a request's authentication, in its context.
@@ -135,11 +138,23 @@ func (a *Auth[U]) load(ctx context.Context, st *state) (any, error) {
 			return nil, nil
 		case err != nil:
 			return nil, err
-		case fingerprint(u.AuthPassword()) != s.String(keyHash):
-			// The password changed since this session signed in: sign it
-			// out, as the password change did everywhere else.
+		case a.sessionPrint(u, u.AuthPassword()) != s.String(keyHash):
+			// The password changed since this session signed in, or the
+			// user was signed out everywhere: sign it out.
 			s.Invalidate()
 			return nil, nil
+		case a.disabled(u):
+			s.Invalidate()
+			return nil, nil
+		}
+		if s.String(keyImpersonator) != "" {
+			// Acting as u: only while the impersonator may still sign in.
+			if ok, err := a.impersonatorValid(ctx, s); err != nil {
+				return nil, err
+			} else if !ok {
+				s.Invalidate()
+				return nil, nil
+			}
 		}
 		return u, nil
 	}
@@ -150,6 +165,8 @@ func (a *Auth[U]) load(ctx context.Context, st *state) (any, error) {
 func (a *Auth[U]) forget(s *session.Session) {
 	s.Delete(keyID)
 	s.Delete(keyHash)
+	s.Delete(keyImpersonator)
+	s.Delete(keyImpersonatorHash)
 }
 
 // rememberValue is the remember-me cookie's content, encrypted.
@@ -184,13 +201,14 @@ func (a *Auth[U]) fromRemember(ctx context.Context, st *state, s *session.Sessio
 		return nil, err
 	}
 	tok := a.users.RememberToken(u)
-	if tok == "" || subtle.ConstantTimeCompare([]byte(tok), []byte(v.Token)) != 1 || v.Hash != fingerprint(u.AuthPassword()) {
-		a.clearRemember(st) // signed out everywhere, or the password changed
+	if tok == "" || subtle.ConstantTimeCompare([]byte(tok), []byte(v.Token)) != 1 ||
+		v.Hash != a.sessionPrint(u, u.AuthPassword()) || a.disabled(u) {
+		a.clearRemember(st) // signed out everywhere, the password changed, or disabled
 		return nil, nil
 	}
 	s.Regenerate()
 	s.Put(keyID, u.AuthID())
-	s.Put(keyHash, fingerprint(u.AuthPassword()))
+	s.Put(keyHash, a.sessionPrint(u, u.AuthPassword()))
 	return u, nil
 }
 
@@ -376,6 +394,8 @@ func (l idLoader[U]) load(ctx context.Context, _ *state) (any, error) {
 		return nil, nil // deleted since: a guest
 	case err != nil:
 		return nil, err
+	case l.a.disabled(u):
+		return nil, nil // disabled since: a guest
 	}
 	return u, nil
 }

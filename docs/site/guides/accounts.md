@@ -116,8 +116,8 @@ matter.
 
 | File | Holds |
 |---|---|
-| `app/models/user.go` | `User`, and `models.Users`: how `auth` finds users and stores their tokens. Add columns here and in a migration |
-| `app/handlers/auth.go` | `handlers.Accounts`: each page and form. Validation messages, redirects and what happens after registration are here; `SocialUser` finds or creates the user of a Google or GitHub account |
+| `app/models/user.go` | `User`, and `models.Users`: how `auth` finds users, which are disabled (`disabled_at`), and stores their tokens and session keys (`session_key`, replaced to sign them out everywhere). Add columns here and in a migration |
+| `app/handlers/auth.go` | `handlers.Accounts`: each page and form. Validation messages, redirects and what happens after registration are here; `SocialUser` finds or creates the user of a Google or GitHub account; `SendVerification` and `SendPasswordReset` email the links (the admin's buttons use them too) |
 | `views/auth.templ` | The pages, inside your `Layout` |
 | `app/mailers/auth.go`, `views/auth_mail.templ` | The verification and reset emails |
 | `routes/auth.go` | The routes and their names (`login`, `register`, `dashboard`, …), and the rate limits of the forgotten-password and verification forms |
@@ -146,6 +146,11 @@ logging in, registering and signing in with a provider lead); guests who open a 
 `AUTH_LOGIN_URL` and come back after logging in. To protect your own pages, put them in a group with
 `a.Middleware` and `a.Require`, as `routes/auth.go` does: `setupAuth`
 returns the `*auth.Auth`.
+
+Disabled users (`disabled_at` set, as the [admin](admin.md) does) are
+signed out at their next request and see "This account is disabled."
+when they sign in with the right password; their API tokens stop
+working.
 
 To do more when someone signs up (a welcome email, a trial), change
 `Register` and `SocialUser` in `app/handlers/auth.go`, which create

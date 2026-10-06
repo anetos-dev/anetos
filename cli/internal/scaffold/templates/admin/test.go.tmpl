@@ -23,6 +23,10 @@ func TestAdminAccess(t *testing.T) {
 		t.Fatal(err)
 	}
 	app.Get("/admin").AssertOK()
+[[- if .Users]]
+	app.Get("/admin/users").AssertOK().AssertSee("ada@example.com")
+	app.Get("/admin/roles").AssertOK().AssertSee("Administrator")
+[[- end]]
 
 	app.PostForm("/logout", nil)
 	app.Get("/admin").AssertRedirect("/login")

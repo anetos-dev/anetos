@@ -144,12 +144,29 @@ func cleanName(name string) string {
 
 // sendVerification emails u a link that verifies their address.
 func (h Accounts) sendVerification(ctx context.Context, u *models.User) error {
+	return SendVerification(ctx, h.Auth, u)
+}
+
+// SendVerification emails u a link that verifies their address, in their
+// language (the admin's "Send verification email" too).
+func SendVerification(ctx context.Context, a *auth.Auth[*models.User], u *models.User) error {
 	ctx = i18n.ForUser(ctx, u) // the user's language, for the email and its link
-	link, err := mailer.URL(ctx, web.LocalePath(ctx, "/verify-email?token="+url.QueryEscape(h.Auth.VerificationToken(u, u.Email))))
+	link, err := mailer.URL(ctx, web.LocalePath(ctx, "/verify-email?token="+url.QueryEscape(a.VerificationToken(u, u.Email))))
 	if err != nil {
 		return err
 	}
 	return mailer.Queue(ctx, mailers.VerifyEmail{Name: u.Name, Email: u.Email, URL: link}, queue.AfterCommit())
+}
+
+// SendPasswordReset emails u a link to choose a new password, in their
+// language (the admin's "Send password reset" too).
+func SendPasswordReset(ctx context.Context, a *auth.Auth[*models.User], u *models.User) error {
+	ctx = i18n.ForUser(ctx, u) // the user's language, for the email and its link
+	link, err := mailer.URL(ctx, web.LocalePath(ctx, "/reset-password?token="+url.QueryEscape(a.PasswordResetToken(u))))
+	if err != nil {
+		return err
+	}
+	return mailer.Queue(ctx, mailers.ResetPassword{Name: u.Name, Email: u.Email, URL: link}, queue.AfterCommit())
 }
 
 // LoginPage shows the login form.
@@ -232,6 +249,8 @@ func (h Accounts) Login(c *web.Ctx, in LoginInput) (web.Responder, error) {
 	switch {
 	case errors.Is(err, auth.ErrInvalidCredentials):
 		return nil, validate.Fail("email", i18n.T(c, "auth.errors.credentials"))
+	case errors.Is(err, auth.ErrDisabled):
+		return nil, validate.Fail("email", i18n.T(c, "auth.errors.disabled"))
 	case errors.As(err, &throttled):
 		return nil, validate.Fail("email", i18n.T(c, "auth.errors.throttled"))
 	case err != nil:
@@ -310,12 +329,7 @@ func (h Accounts) SendReset(c *web.Ctx, in ForgotInput) (web.Responder, error) {
 	case err == nil && !res.Allowed:
 		// Enough links for now: answer as usual.
 	case err == nil:
-		ctx := i18n.ForUser(c, u) // the user's language, for the email and its link
-		link, err := mailer.URL(ctx, web.LocalePath(ctx, "/reset-password?token="+url.QueryEscape(h.Auth.PasswordResetToken(u))))
-		if err != nil {
-			return nil, err
-		}
-		if err := mailer.Queue(ctx, mailers.ResetPassword{Name: u.Name, Email: u.Email, URL: link}); err != nil {
+		if err := SendPasswordReset(c, h.Auth, u); err != nil {
 			return nil, err
 		}
 	case !errors.Is(err, db.ErrNotFound):

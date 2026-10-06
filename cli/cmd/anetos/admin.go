@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"flag"
 	"fmt"
@@ -17,10 +18,11 @@ const makeAdminUsage = `Usage: anetos make:admin
 Adds the admin interface (module anetos.dev/anetos/admin) to a project
 with make:auth's accounts: setupAdmin (admin.go), which sets up roles
 and permissions (package auth/rbac) with an admin role and mounts the
-admin at ADMIN_PATH (/admin) or ADMIN_HOST, and the app/admin package,
-where make:admin:resource adds a resource per model. It adds the module
-to go.mod, the ADMIN_* settings to .env and .env.example, and calls
-setupAdmin from setup in main.go.
+admin at ADMIN_PATH (/admin) or ADMIN_HOST, with the users (app/admin/
+users.go) and roles; and the app/admin package, where make:admin:resource
+adds a resource per model. It adds the module to go.mod, the ADMIN_*
+settings to .env and .env.example, the banner shown while acting as a
+user to views/layout.templ, and calls setupAdmin from setup in main.go.
 `
 
 const makeAdminResourceUsage = `Usage: anetos make:admin:resource <Model>
@@ -84,12 +86,35 @@ func makeAdmin(ctx context.Context, args []string, stdout, stderr io.Writer) int
 	if res.Wired {
 		fmt.Fprintln(stdout, "updated main.go: setup calls setupAdmin")
 	}
+	if res.Banner {
+		fmt.Fprintln(stdout, "updated views/layout.templ: the banner shown while acting as a user")
+	}
 	finish := func(err error) int {
-		fmt.Fprintf(stderr, "anetos make:admin: %v\nThe files are written; once fixed, finish with:\n\tgo mod tidy && go build ./...\n", err)
+		fmt.Fprintf(stderr, "anetos make:admin: %v\nThe files are written; once fixed, finish with:\n\tgo mod tidy && go tool templ generate && go build ./...\n", err)
 		return 1
 	}
 	if err := runGo(ctx, root, stderr, "mod", "tidy"); err != nil {
 		return finish(err)
+	}
+	if res.Banner {
+		var templOut bytes.Buffer // templ reports progress on stderr: shown only if it fails
+		if err := runGoOut(ctx, root, &templOut, &templOut, "tool", "templ", "generate"); err != nil {
+			fmt.Fprint(stderr, templOut.String())
+			return finish(err)
+		}
+	} else {
+		fmt.Fprint(stdout, `
+views/layout.templ isn't anetos new's: show the banner of acting as a
+user yourself, at the top of <body>: @admin.Banner()
+`)
+	}
+	if res.Users && (!res.Disabled || !res.SessionKey) {
+		fmt.Fprint(stdout, `
+app/models/user.go is an older make:auth's: disabling accounts and
+signing users out everywhere need a disabled_at and a session_key column
+and auth.Users' Disabled, SessionKey and SetSessionKey (see the guide
+"Add an admin panel"). The rest works without them.
+`)
 	}
 	if !res.Wired {
 		fmt.Fprint(stdout, `

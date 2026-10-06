@@ -1,0 +1,27 @@
+{{define "content"}}{{with .Data}}
+<h1>{{$.Title}}</h1>
+<form method="post" action="{{.Action}}" class="edit" novalidate>
+<input type="hidden" name="_token" value="{{.CSRF}}">
+{{if .New}}<div class="field{{if index .Errors "name"}} invalid{{end}}">
+  <label for="f-name">Name <span class="req" aria-hidden="true">*</span></label>
+  <input id="f-name" name="name" value="{{.Name}}" required{{if index .Errors "name"}} aria-invalid="true" aria-describedby="e-name"{{end}}>
+  <p class="help">Lowercase letters, digits and . _ : -, like billing-manager. It can't change later.</p>
+  {{with index .Errors "name"}}<p class="error" id="e-name">{{.}}</p>{{end}}
+</div>{{else}}{{with index .Errors "name"}}<p class="flash error">{{.}}</p>{{end}}{{end}}
+<div class="field">
+  <label for="f-title">Title</label>
+  <input id="f-title" name="title" value="{{.Title}}">
+  <p class="help">Its name for people, like Billing manager.</p>
+</div>
+<fieldset class="field perms">
+  <legend>Permissions</legend>
+  {{range .Groups}}<div class="group">{{if .Name}}<strong>{{.Name}}</strong>{{end}}
+    {{range .Perms}}<label class="check"><input type="checkbox" name="permissions" value="{{.Name}}"{{if .Checked}} checked{{end}}{{if .Kept}} disabled{{end}}> <code>{{.Name}}</code>{{if .Kept}} <span class="none">(kept: you don't have it)</span>{{end}}</label>{{end}}
+  </div>{{else}}<p class="empty">You have no permissions to give.</p>{{end}}
+</fieldset>
+<div class="buttons">
+  <button type="submit" class="primary">{{.Submit}}</button>
+  <a class="button" href="{{.Cancel}}">Cancel</a>
+</div>
+</form>
+{{end}}{{end}}

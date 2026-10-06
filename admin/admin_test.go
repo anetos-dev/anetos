@@ -11,9 +11,11 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"anetos.dev/anetos"
 	"anetos.dev/anetos/anetostest"
+	"anetos.dev/anetos/audit"
 	"anetos.dev/anetos/auth"
 	"anetos.dev/anetos/auth/rbac"
 	"anetos.dev/anetos/cache"
@@ -27,7 +29,11 @@ import (
 
 type User struct {
 	db.Model
-	Name string `db:"name"`
+	Name            string     `db:"name"`
+	Email           string     `db:"email"`
+	DisabledAt      *time.Time `db:"disabled_at"`
+	EmailVerifiedAt *time.Time `db:"email_verified_at"`
+	SessionKey      string     `db:"session_key"`
 }
 
 func (u *User) AuthID() string       { return strconv.FormatInt(u.ID, 10) }
@@ -63,6 +69,10 @@ func init() {
 			s.Create("users", func(t *migrate.Table) {
 				t.ID()
 				t.String("name", 100)
+				t.String("email", 100).Default("")
+				t.Timestamp("disabled_at").Nullable()
+				t.Timestamp("email_verified_at").Nullable()
+				t.String("session_key", 64).Default("")
 				t.Timestamps()
 			}),
 			s.Create("posts", func(t *migrate.Table) {
@@ -103,7 +113,14 @@ var users = auth.Users[*User]{
 		}
 		return &u, err
 	},
-	ByLogin: func(context.Context, string) (*User, error) { return nil, auth.ErrNoUser },
+	ByLogin:    func(context.Context, string) (*User, error) { return nil, auth.ErrNoUser },
+	Disabled:   func(u *User) bool { return u.DisabledAt != nil },
+	SessionKey: func(u *User) string { return u.SessionKey },
+	SetSessionKey: func(ctx context.Context, u *User, key string) error {
+		u.SessionKey = key
+		_, err := db.Query[User](ctx).WhereKeys(u.ID).Update(db.C("session_key").Set(key))
+		return err
+	},
 }
 
 func postsResource() Resource[Post, PostForm] {
@@ -151,10 +168,17 @@ func setupWith(opts func(p *Panel) error) func(app *anetos.App) (*web.Server, er
 		if _, err := db.Connect(context.Background(), app, sqlite.Driver()); err != nil {
 			return nil, err
 		}
-		if _, err := migrate.ForApp(app, []*migrate.Set{migrations, auth.Migrations(), rbac.Migrations()}); err != nil {
+		if _, err := migrate.ForApp(app, []*migrate.Set{migrations, auth.Migrations(), rbac.Migrations(), audit.Migrations()}); err != nil {
 			return nil, err
 		}
 		if _, err := cache.ForApp(app); err != nil {
+			return nil, err
+		}
+		trail, err := audit.ForApp(app)
+		if err != nil {
+			return nil, err
+		}
+		if err := audit.Track[User](trail); err != nil {
 			return nil, err
 		}
 		a, err := auth.ForApp(app, users)
@@ -184,7 +208,20 @@ func setupWith(opts func(p *Panel) error) func(app *anetos.App) (*web.Server, er
 			}
 			return c.NoContent()
 		})
-		p, err := New(app, a, Title("Back office"))
+		// An app page with the banner, and a change made from it.
+		r.With(mws...).Get("/test/banner", func(c *web.Ctx) error { return c.Render(http.StatusOK, Banner()) })
+		r.With(append(mws, a.Require)...).Post("/test/rename", func(c *web.Ctx) error {
+			u, err := auth.Current[*User](c)
+			if err != nil {
+				return err
+			}
+			u.Name = c.Request().PostFormValue("name")
+			if err := db.Update(c, u); err != nil {
+				return err
+			}
+			return c.NoContent()
+		})
+		p, err := New(app, a, Title("Back office"), UserName(func(u *User) string { return u.Name }))
 		if err != nil {
 			return nil, err
 		}

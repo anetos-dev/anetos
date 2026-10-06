@@ -418,6 +418,27 @@ func testAuditBulk(t *testing.T, ctx context.Context) {
 	if anonymized != 1 || got.ActorID != "erased" || got.IP != "" {
 		t.Errorf("anonymized bulk entry: %d, %+v", anonymized, got)
 	}
+
+	// And entries of someone acting as the person, exactly them (MySQL's
+	// text collations ignore case and trailing spaces).
+	var acted []int64
+	for _, as := range []string{"user:abc", "user:ABC", "user:abc "} {
+		e := audit.Entry{OccurredAt: time.Now().UTC().Truncate(time.Microsecond), ActorType: "user", ActorID: "1", ActingAs: as,
+			Action: audit.Updated, SubjectType: "st_audited", SubjectID: "1", Changes: audit.Changes{}}
+		check(t, db.Create(ctx, &e))
+		acted = append(acted, e.ID)
+	}
+	anonymized, err = audit.Anonymize(ctx, audit.User("abc"))
+	check(t, err)
+	var as []string
+	for _, id := range acted {
+		e, err := db.Find[audit.Entry](ctx, id)
+		check(t, err)
+		as = append(as, e.ActingAs)
+	}
+	if anonymized != 1 || !slices.Equal(as, []string{"user:erased", "user:ABC", "user:abc "}) {
+		t.Errorf("anonymized acting_as: %d, %q", anonymized, as)
+	}
 }
 
 // recorder is a db.Watcher that records writes and can fail.

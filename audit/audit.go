@@ -96,7 +96,7 @@ func ForApp(app *anetos.App) (*Trail, error) {
 	app.AddCarrier(anetos.Carrier{
 		Name: "audit.actor",
 		Capture: func(ctx context.Context) string {
-			a, err := actorOf(ctx)
+			a, _, err := actorOf(ctx) // the impersonator, if any: the person
 			switch {
 			case err != nil:
 				// Who dispatched isn't known: the job's tracked writes
@@ -125,6 +125,13 @@ func ForApp(app *anetos.App) (*Trail, error) {
 
 // Config returns the log's settings.
 func (t *Trail) Config() Config { return t.cfg }
+
+// Enabled reports whether ctx has the app's audit log (audit.ForApp), for
+// code that records events only in apps that keep one.
+func Enabled(ctx context.Context) bool {
+	_, ok := ctx.Value(trailKey{}).(*Trail)
+	return ok
+}
 
 func trailFrom(ctx context.Context) (*Trail, error) {
 	if t, ok := ctx.Value(trailKey{}).(*Trail); ok {
@@ -164,7 +171,7 @@ type tracking struct {
 }
 
 // secretName matches column names redacted by default.
-var secretName = regexp.MustCompile(`(?i)password|passwd|secret|token|credential|api_?key|private_?key|recovery_code|(^|_)otp(_|$)`)
+var secretName = regexp.MustCompile(`(?i)password|passwd|secret|token|credential|api_?key|private_?key|session_?key|recovery_code|(^|_)otp(_|$)`)
 
 // Track logs the writes to model T's table, from now on: creates,
 // updates (the columns that changed, from what to what), soft deletes,
@@ -240,7 +247,7 @@ func (tr *tracking) Written(ctx context.Context, w *db.Write) error {
 	case db.OpForceDelete:
 		e.Changes.Old = tr.values(w.Before)
 	}
-	c.fill(&e.OccurredAt, &e.ActorType, &e.ActorID, &e.ViaKind, &e.ViaName, &e.RequestID, &e.IP)
+	c.fill(&e.OccurredAt, &e.ActorType, &e.ActorID, &e.ActingAs, &e.ViaKind, &e.ViaName, &e.RequestID, &e.IP)
 	if err := checkLengths(e.SubjectID, e.ActorID); err != nil {
 		return err
 	}
@@ -278,7 +285,7 @@ func (tr *tracking) writeBulk(ctx context.Context, c who, action string, b *db.B
 		return out
 	}
 	op.Before, op.After = rows(b.Before), rows(b.After)
-	c.fill(&op.OccurredAt, &op.ActorType, &op.ActorID, &op.ViaKind, &op.ViaName, &op.RequestID, &op.IP)
+	c.fill(&op.OccurredAt, &op.ActorType, &op.ActorID, &op.ActingAs, &op.ViaKind, &op.ViaName, &op.RequestID, &op.IP)
 	if err := checkLengths("", op.ActorID); err != nil {
 		return err
 	}
@@ -477,35 +484,45 @@ var errUnknownActor = errors.New("audit: who started this work isn't known: load
 
 // ActorOf returns who entries made with ctx are attributed to: the actor
 // set with [WithActor]; the signed-in user, or the one a job acts as
-// (auth.CurrentID); in a queue job or async event listener, the actor of
-// the work that started it; otherwise [System]. An error loading the user
-// is returned: the log doesn't guess.
-func ActorOf(ctx context.Context) (Actor, error) { return actorOf(ctx) }
+// (auth.CurrentID), or the user acting as them (auth.Impersonator); in a
+// queue job or async event listener, the actor of the work that started
+// it; otherwise [System]. An error loading the user is returned: the log
+// doesn't guess.
+func ActorOf(ctx context.Context) (Actor, error) {
+	a, _, err := actorOf(ctx)
+	return a, err
+}
 
-func actorOf(ctx context.Context) (Actor, error) {
+// actorOf returns the actor, and the user they act as ("" if none:
+// auth.Impersonate).
+func actorOf(ctx context.Context) (Actor, string, error) {
 	if a, ok := ctx.Value(actorKey{}).(Actor); ok {
-		return a, nil
+		return a, "", nil
 	}
 	id, err := auth.CurrentID(ctx)
 	switch {
 	case err == nil:
-		return User(id), nil
+		if by, ok := auth.Impersonator(ctx); ok {
+			return User(by), User(id).String(), nil
+		}
+		return User(id), "", nil
 	case !errors.Is(err, auth.ErrUnauthenticated):
-		return Actor{}, fmt.Errorf("audit: who is acting: %w", err)
+		return Actor{}, "", fmt.Errorf("audit: who is acting: %w", err)
 	}
 	switch a := ctx.Value(carriedKey{}).(type) {
 	case Actor:
-		return a, nil
+		return a, "", nil
 	case error:
-		return Actor{}, a
+		return Actor{}, "", a
 	}
-	return System, nil
+	return System, "", nil
 }
 
 // who is what an entry records about who did it and how.
 type who struct {
 	at        time.Time
 	actor     Actor
+	actingAs  string
 	viaKind   string
 	viaName   string
 	requestID string
@@ -513,11 +530,11 @@ type who struct {
 }
 
 func (t *Trail) contextOf(ctx context.Context) (who, error) {
-	a, err := actorOf(ctx)
+	a, as, err := actorOf(ctx)
 	if err != nil {
 		return who{}, err
 	}
-	w := who{at: anetos.Now(ctx).UTC().Truncate(time.Microsecond), actor: a, requestID: limit(web.RequestID(ctx), 100)}
+	w := who{at: anetos.Now(ctx).UTC().Truncate(time.Microsecond), actor: a, actingAs: as, requestID: limit(web.RequestID(ctx), 100)}
 	if u, ok := ctx.Value(unitKey{}).(anetos.Unit); ok {
 		w.viaKind, w.viaName = u.Kind, u.Name
 	} else if c, ok := cmd.Running(ctx); ok {
@@ -528,8 +545,8 @@ func (t *Trail) contextOf(ctx context.Context) (who, error) {
 	return w, nil
 }
 
-func (w who) fill(at *time.Time, actorType, actorID, viaKind, viaName, requestID, ip *string) {
-	*at, *actorType, *actorID = w.at, w.actor.Type, w.actor.ID
+func (w who) fill(at *time.Time, actorType, actorID, actingAs, viaKind, viaName, requestID, ip *string) {
+	*at, *actorType, *actorID, *actingAs = w.at, w.actor.Type, w.actor.ID, w.actingAs
 	*viaKind, *viaName, *requestID, *ip = w.viaKind, w.viaName, w.requestID, w.ip
 }
 

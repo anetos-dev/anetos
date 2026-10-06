@@ -16,8 +16,15 @@ admin interface of module `anetos.dev/anetos/admin`:
 - **Trash**: products use soft deletes, so deleted ones go to the trash,
   where they can be restored or deleted for good.
 - **Roles** ([`main.go`](main.go)): administrators may do everything;
-  editors manage products and may only look at categories, with the
-  admin's permissions (`admin.PermissionsOf`).
+  editors manage products and may only look at categories; support staff
+  look after the staff's accounts, with the admin's permissions
+  (`admin.PermissionsOf`). Roles stored in the database are made on the
+  roles pages (`admin.Roles`).
+- **Staff accounts** (`admin.Users`): disable and enable them, sign them
+  out everywhere, revoke their API tokens, give and take away roles, and
+  act as them (the app's home page shows the banner, `admin.Banner`).
+  No one manages someone with permissions they lack: support can't touch
+  an editor's account.
 - **Audit log**: products are tracked (package `audit`), so every change
   made in the admin is logged with who made it.
 
@@ -27,12 +34,13 @@ admin interface of module `anetos.dev/anetos/admin`:
 anetos key:generate >> .env   # APP_KEY, once (the anetos developer tool)
 export APP_ENV=development HTTP_ADDR=:8080
 go run . migrate
-go run . seed                 # admin@example.com and editor@example.com
+go run . seed                 # admin@, editor@ and support@example.com
 go run .
 ```
 
 Then open <http://localhost:8080/admin> and sign in as
-`admin@example.com` or `editor@example.com`, password `secret password`.
+`admin@example.com`, `editor@example.com` or `support@example.com`,
+password `secret password`.
 
 ## Tests
 

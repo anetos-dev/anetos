@@ -128,7 +128,7 @@ func cell(ctx context.Context, v any) template.HTML {
 		if x.IsZero() {
 			return ""
 		}
-		return template.HTML(template.HTMLEscapeString(x.In(anetos.Location(ctx)).Format("2006-01-02 15:04")))
+		return template.HTML(template.HTMLEscapeString(timeText(ctx, x)))
 	case DateTime:
 		return cell(ctx, x.Time)
 	case anetos.Date:

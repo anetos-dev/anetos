@@ -133,6 +133,37 @@ func AuthorizeRolesOf(ctx context.Context, scope Scope, userID string) error {
 	return nil
 }
 
+// AuthorizeOver returns nil if the signed-in user holds, in every scope,
+// every permission userID has there (and a super role wherever userID
+// has one), and [auth.ErrForbidden] otherwise: for managing their account
+// (editing it, disabling it, acting as them, their roles), so no one
+// takes over the account of someone with more power. It doesn't refuse
+// the user themselves; check that apart where it matters.
+func AuthorizeOver(ctx context.Context, userID string) error {
+	g, err := Current(ctx)
+	if err != nil {
+		return err
+	}
+	target, err := load(ctx, userID)
+	if err != nil {
+		return err
+	}
+	for s, l := range target.byScope {
+		if l.super {
+			if err := g.mayGive(s, Role{Super: true}); err != nil {
+				return err
+			}
+			continue
+		}
+		for p := range l.perms {
+			if !g.CanIn(s, p) {
+				return auth.ErrForbidden
+			}
+		}
+	}
+	return nil
+}
+
 // mayGive returns nil if the grants allow giving r in scope.
 func (g *Grants) mayGive(scope Scope, r Role) error {
 	if r.Super {

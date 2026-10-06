@@ -1,0 +1,75 @@
+package admin
+
+import (
+	"context"
+	"strings"
+
+	"anetos.dev/anetos/admin"
+	"anetos.dev/anetos/auth"
+	"anetos.dev/anetos/db"
+	"anetos.dev/anetos/validate"
+[[- if .Handlers]]
+
+	"[[.Module]]/app/handlers"
+[[- end]]
+	"[[.Module]]/app/models"
+)
+
+// UserForm is what the admin edits of a user (anetos make:admin). A
+// password is the user's own: send them a reset link instead.
+type UserForm struct {
+	Name  string `json:"name" validate:"required|max:100"`
+	Email string `json:"email" validate:"required|email|max:255"`
+}
+
+// Users is the admin's users (anetos make:admin), at /admin/users: their
+// list, their pages and editing them, with their accounts managed there:
+// disabling, verification, signing out everywhere, API tokens, roles,
+// acting as them. Users sign up themselves, so they aren't created here.
+func Users(p *admin.Panel, a *auth.Auth[*models.User]) error {
+	return admin.Users(p, admin.Resource[models.User, UserForm]{
+		Name: "users",
+		Columns: []admin.Column[models.User]{
+			admin.Field[models.User]("Name", "name"),
+			admin.Field[models.User]("Email", "email"),
+			admin.Field[models.User]("Signed up", "created_at"),
+		},
+		Search:   []string{"name", "email"},
+		Label:    func(u models.User) string { return u.Name },
+		NoCreate: true,
+		Edit:     func(u models.User) UserForm { return UserForm{Name: u.Name, Email: u.Email} },
+		Apply: func(ctx context.Context, in UserForm, u *models.User) error {
+			email := strings.ToLower(in.Email)
+			taken, err := db.Query[models.User](ctx).Where(models.UserCols.Email.Eq(email), models.UserCols.ID.Ne(u.ID)).Exists()
+			if err != nil {
+				return err
+			}
+			if taken {
+				return validate.Fail("email", "The email has already been taken.")
+			}
+[[- if .Verified]]
+			if email != u.Email {
+				u.EmailVerifiedAt = nil // a new address isn't verified
+			}
+[[- end]]
+			u.Name, u.Email = in.Name, email
+			return nil
+		},
+	}, admin.Accounts[*models.User]{
+		Auth: a,
+[[- if .Disabled]]
+		DisabledAt: "disabled_at",
+[[- end]]
+[[- if .Verified]]
+		VerifiedAt: "email_verified_at",
+[[- end]]
+[[- if .Handlers]]
+		SendVerification: func(ctx context.Context, u *models.User) error {
+			return handlers.SendVerification(ctx, a, u)
+		},
+		SendPasswordReset: func(ctx context.Context, u *models.User) error {
+			return handlers.SendPasswordReset(ctx, a, u)
+		},
+[[- end]]
+	})
+}

@@ -20,6 +20,29 @@ All notable changes to this project are documented here. The format follows
   embedded `html/template` with htmx and their own stylesheet, under a
   strict CSP. `anetos make:admin` and `anetos make:admin:resource
   <Model>`; guide "Add an admin panel", `examples/admin` (AD1a, D211–D214).
+- The admin's users and roles (AD1b, D215–D220): `admin.Users` adds the
+  app's users with their accounts managed on their pages (disable and
+  enable, verification and reset emails, sign out everywhere, API tokens,
+  roles and permissions by scope, acting as the user with a banner,
+  `admin.Banner`), only by those with every permission the user has;
+  `admin.Roles` lists the roles and manages those stored in the database;
+  `admin.UserName`; `admin.AssignRoles`. Every step is recorded in the
+  audit log. `make:admin` writes `app/admin/users.go`, adds the roles,
+  and puts the banner in `views/layout.templ`.
+- `auth`: disabled accounts (`Users.Disabled`, `auth.ErrDisabled`),
+  signing out everywhere (`Users.SessionKey`, `SetSessionKey`,
+  `Auth.SignOutEverywhere`), acting as another user
+  (`Auth.Impersonate`, `StopImpersonating`, `auth.Impersonator`,
+  `auth.ErrNotImpersonating`) (AD1b, D215–D217).
+- `rbac`: `AuthorizeOver` (may the signed-in user manage this user),
+  `GivenTo`, `RoleCounts`, `Holders` (AD1b, D218).
+- `audit`: entries name the user an actor was acting as (`ActingAs`, the
+  `acting_as` column, added by a new migration); `audit.Enabled`;
+  `session_key` columns are redacted by default (AD1b, D217).
+- `make:auth`: the users table has `disabled_at` and `session_key`, and
+  `models.Users` reads them; signing in to a disabled account says so;
+  `handlers.SendVerification` and `handlers.SendPasswordReset` are
+  exported for the admin (AD1b, D220).
 - `web.Router.Host(host)`: routes for one host, with absolute URLs;
   `RouteInfo.Host` (AD1, D214).
 - `rbac.Registry.Declare`: permissions declared by packages at setup

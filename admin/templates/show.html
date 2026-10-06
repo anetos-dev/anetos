@@ -11,4 +11,6 @@
 {{range .Lines}}<dt>{{.Title}}</dt><dd>{{if .Value}}{{.Value}}{{else}}<span class="none">—</span>{{end}}</dd>
 {{end}}
 </dl>
+{{range .Sections}}<section class="part"><h2>{{.Title}}</h2>{{.Body}}</section>
+{{end}}
 {{end}}{{end}}

@@ -6,8 +6,10 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"anetos.dev/anetos/admin"
+	"anetos.dev/anetos/auth"
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/validate"
 )
@@ -117,3 +119,34 @@ func categories() admin.Resource[Category, CategoryForm] {
 		},
 	}
 }
+
+// region: users-resource
+// UserForm is what the admin edits of a member of staff.
+type UserForm struct {
+	Name  string `json:"name" validate:"required|max:255"`
+	Email string `json:"email" validate:"required|email|max:255"`
+}
+
+// addUsers adds the staff to the admin, with their accounts: disabling,
+// signing out, API tokens, roles, acting as them.
+func addUsers(p *admin.Panel, a *auth.Auth[*User]) error {
+	return admin.Users(p, admin.Resource[User, UserForm]{
+		Name:     "users",
+		Title:    "Staff",
+		Singular: "Member",
+		Columns: []admin.Column[User]{
+			admin.Field[User]("Name", "name"),
+			admin.Field[User]("Email", "email"),
+		},
+		Search:   []string{"name", "email"},
+		Label:    func(u User) string { return u.Name },
+		NoCreate: true, // seed creates them; this shop has no sign-up
+		Edit:     func(u User) UserForm { return UserForm{Name: u.Name, Email: u.Email} },
+		Apply: func(_ context.Context, in UserForm, u *User) error {
+			u.Name, u.Email = in.Name, strings.ToLower(in.Email)
+			return nil
+		},
+	}, admin.Accounts[*User]{Auth: a, DisabledAt: "disabled_at"})
+}
+
+// endregion

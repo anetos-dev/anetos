@@ -11,6 +11,7 @@
 <script src="{{.AdminJS}}" defer></script>
 </head>
 <body hx-headers='{"X-CSRF-Token": "{{.CSRF}}"}'>
+{{.Banner}}
 <header class="top">
   <a class="brand" href="{{.Home}}">{{.Panel}}</a>
   {{if .User}}<span class="user">{{.User}}</span>{{end}}

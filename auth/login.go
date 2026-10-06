@@ -150,6 +150,9 @@ func (a *Auth[U]) login(ctx context.Context, u U, hash string, remember bool) er
 	if remember && a.users.RememberToken == nil {
 		return errNoRemember
 	}
+	if a.disabled(u) {
+		return ErrDisabled
+	}
 	var tok string
 	if remember {
 		if tok = a.users.RememberToken(u); tok == "" {
@@ -161,13 +164,15 @@ func (a *Auth[U]) login(ctx context.Context, u U, hash string, remember bool) er
 	}
 	s.Regenerate()
 	s.Put(keyID, u.AuthID())
-	s.Put(keyHash, fingerprint(hash))
+	s.Put(keyHash, a.sessionPrint(u, hash))
+	s.Delete(keyImpersonator)
+	s.Delete(keyImpersonatorHash)
 	st.set(u, nil)
 	if !remember {
 		a.clearRemember(st) // an earlier user's cookie mustn't stay
 		return nil
 	}
-	b, _ := json.Marshal(rememberValue{ID: u.AuthID(), Token: tok, Hash: fingerprint(hash),
+	b, _ := json.Marshal(rememberValue{ID: u.AuthID(), Token: tok, Hash: a.sessionPrint(u, hash),
 		Expires: a.now().Add(a.cfg.RememberLifetime).Unix()})
 	a.setRemember(st, a.enc.EncryptString(string(b), rememberContext))
 	return nil
@@ -189,10 +194,13 @@ func (a *Auth[U]) Logout(ctx context.Context) error {
 		return errActing
 	}
 	u, err := Current[U](ctx)
+	// Acting as u (Impersonate): logging out is the impersonator's, and
+	// mustn't sign u out of their remembered browsers.
+	acting := s.String(keyImpersonator) != ""
 	s.Invalidate()
 	a.clearRemember(st)
 	st.set(nil, nil)
-	if err == nil && a.users.SetRememberToken != nil && a.users.RememberToken(u) != "" {
+	if err == nil && !acting && a.users.SetRememberToken != nil && a.users.RememberToken(u) != "" {
 		return a.users.SetRememberToken(ctx, u, randomToken())
 	}
 	if errors.Is(err, ErrUnauthenticated) {

@@ -3,6 +3,7 @@
 package admin
 
 import (
+	"bytes"
 	"embed"
 	"html/template"
 	"io/fs"
@@ -46,7 +47,19 @@ var funcs = template.FuncMap{
 
 // pageNames are the admin's pages, each a template file defining
 // "content" for the layout.
-var pageNames = []string{"home", "list", "show", "form"}
+var pageNames = []string{"home", "list", "show", "form", "roles", "role", "roleform"}
+
+// parts are the templates of sections and the banner.
+var parts = template.Must(template.New("parts").Funcs(funcs).ParseFS(templateFS, "templates/parts.html"))
+
+// part renders one of the parts.
+func part(name string, data any) (template.HTML, error) {
+	var b bytes.Buffer
+	if err := parts.ExecuteTemplate(&b, name, data); err != nil {
+		return "", err
+	}
+	return template.HTML(b.String()), nil //nolint:gosec // html/template's output
+}
 
 // parsePages parses each page with the layout.
 func parsePages() (map[string]*template.Template, error) {

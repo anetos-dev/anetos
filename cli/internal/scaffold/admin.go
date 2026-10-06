@@ -38,6 +38,15 @@ type AdminResult struct {
 	RBAC bool
 	// Env are the settings files the ADMIN_* settings were added to.
 	Env []string
+	// Users says it wrote app/admin/users.go, the users resource.
+	Users bool
+	// Disabled and SessionKey say the User model has DisabledAt and
+	// SessionKey (make:auth since AD1b): disabling and signing out
+	// everywhere work.
+	Disabled, SessionKey bool
+	// Banner says the app's layout (views/layout.templ) now shows
+	// admin.Banner.
+	Banner bool
 }
 
 // adminCall is what make:admin puts in setup in place of make:auth's call.
@@ -98,10 +107,29 @@ func MakeAdmin(root string) (AdminResult, error) {
 			return res, fmt.Errorf("%s exists: make:admin writes nothing over the app's files", f[1])
 		}
 	}
-	if names, err := declared(filepath.Join(root, "app", "admin")); err != nil {
+	adminNames, err := declared(filepath.Join(root, "app", "admin"))
+	if err != nil {
 		return res, err
-	} else if names["Resources"] {
+	}
+	if adminNames["Resources"] {
 		return res, errors.New("app/admin already declares Resources")
+	}
+	// The users resource, for make:auth's User: with what it has.
+	fields, _, err := modelFields(filepath.Join(root, "app", "models"), "User")
+	if err != nil {
+		return res, err
+	}
+	has := func(name string) bool {
+		return slices.ContainsFunc(fields, func(f adminField) bool { return f.Name == name })
+	}
+	handlerNames, err := declared(filepath.Join(root, "app", "handlers"))
+	if err != nil {
+		return res, err
+	}
+	res.Users = has("Name") && has("Email") && !adminNames["Users"] && !adminNames["UserForm"]
+	res.Disabled, res.SessionKey = has("DisabledAt"), has("SessionKey")
+	if res.Users {
+		files = append(files, [2]string{"users.go.tmpl", "app/admin/users.go"})
 	}
 	res.RBAC, err = noRBAC(root)
 	if err != nil {
@@ -122,16 +150,22 @@ func MakeAdmin(root string) (AdminResult, error) {
 		envBefore[name] = b
 	}
 	data := struct {
-		Module string
-		RBAC   bool
-	}{mod, res.RBAC}
+		Module                                    string
+		RBAC, Users, Disabled, Verified, Handlers bool
+	}{mod, res.RBAC, res.Users, res.Disabled, has("EmailVerifiedAt"),
+		handlerNames["SendVerification"] && handlerNames["SendPasswordReset"]}
 	out := make([][]byte, len(files))
 	for i, f := range files {
 		if out[i], err = render("templates/admin/"+f[0], "", data); err != nil {
 			return res, err
 		}
 	}
+	layout := filepath.Join(root, "views", "layout.templ")
+	layoutBefore, layoutErr := os.ReadFile(layout)
 	undo := func(err error) (AdminResult, error) {
+		if res.Banner {
+			_ = os.WriteFile(layout, layoutBefore, 0o644)
+		}
 		for _, c := range res.Created {
 			_ = os.Remove(filepath.Join(root, filepath.FromSlash(c)))
 		}
@@ -159,6 +193,16 @@ func MakeAdmin(root string) (AdminResult, error) {
 			return undo(err)
 		}
 	}
+	// The banner while acting as a user, in the app's layout.
+	if layoutErr == nil {
+		if patched, ok := addBanner(layoutBefore); ok {
+			if err := os.WriteFile(layout, patched, 0o644); err != nil {
+				_ = os.WriteFile(layout, layoutBefore, 0o644)
+				return undo(err)
+			}
+			res.Banner = true
+		}
+	}
 	main := filepath.Join(root, "main.go")
 	src, err := os.ReadFile(main)
 	switch {
@@ -172,6 +216,27 @@ func MakeAdmin(root string) (AdminResult, error) {
 		return undo(err)
 	}
 	return res, nil
+}
+
+// bodyTag is the <body> line of an anetos new project's layout.
+var bodyTag = regexp.MustCompile(`(?m)^([ \t]*)<body[^\n]*>[ \t]*\n`)
+
+// addBanner adds admin.Banner after <body> in a templ layout, and its
+// import, and reports whether it did.
+func addBanner(src []byte) ([]byte, bool) {
+	s := string(src)
+	if strings.Contains(s, "admin.Banner()") {
+		return nil, false
+	}
+	loc := bodyTag.FindStringSubmatchIndex(s)
+	imp := strings.Index(s, "import (\n")
+	if loc == nil || imp < 0 || strings.Count(s, "<body") != 1 {
+		return nil, false
+	}
+	indent := s[loc[2]:loc[3]]
+	s = s[:loc[1]] + indent + "\t@admin.Banner() // while acting as a user (anetos make:admin)\n" + s[loc[1]:]
+	s = s[:imp] + "import (\n\t\"anetos.dev/anetos/admin\"\n" + s[imp+len("import (\n"):]
+	return []byte(s), true
 }
 
 // noRBAC reports whether no Go file of the project calls rbac.ForApp.

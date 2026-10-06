@@ -88,18 +88,9 @@ func listRoles(ctx context.Context, w io.Writer) error {
 	if err != nil {
 		return err
 	}
-	type count struct {
-		Name  string `db:"name"`
-		Users int64  `db:"users"`
-	}
-	counts, err := db.Select[count](db.Query[grant](ctx).Where(colKind.Eq(kindRole)).GroupBy("name"),
-		"name", "COUNT(DISTINCT user_id) AS users")
+	users, err := RoleCounts(ctx)
 	if err != nil {
 		return err
-	}
-	users := map[string]int64{}
-	for _, c := range counts {
-		users[c.Name] = c.Users
 	}
 	tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
 	fmt.Fprintln(tw, "ROLE\tDEFINED IN\tUSERS\tPERMISSIONS")

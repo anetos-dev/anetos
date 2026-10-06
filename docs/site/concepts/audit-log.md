@@ -75,8 +75,10 @@ can't.
 ## Who did it
 
 The actor is found from the context, in order: one set with
-`audit.WithActor`; the signed-in user, or the one a job acts as; the
-actor carried from the work that dispatched a queue job or emitted an
+`audit.WithActor`; the signed-in user, or the one a job acts as (and
+while someone acts as a user, `auth.Impersonate`, that someone, with
+the user in `acting_as`: the person who did it is the actor); the actor
+carried from the work that dispatched a queue job or emitted an
 event for an async listener (the kernel's carriers move it with the
 job); else `system`. If the user can't be loaded, the write fails rather
 than being attributed to no one.

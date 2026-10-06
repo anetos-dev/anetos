@@ -74,6 +74,11 @@ type Panel struct {
 	mounted  bool
 	base     string // the admin's path prefix
 	userName func(ctx context.Context) string
+	stop     web.HandlerFunc // stops acting as a user
+	// usersName is the users resource's name (Users), "" without.
+	usersName string
+	// userLabels names users by ID, with the users resource.
+	userLabels func(ctx context.Context, ids []string) (map[string]string, error)
 }
 
 // Option changes a [Panel].
@@ -85,6 +90,19 @@ func Title(title string) Option {
 	return func(p *Panel) {
 		if p.cfg.Title == "" {
 			p.cfg.Title = title
+		}
+	}
+}
+
+// UserName sets how the admin names the signed-in user in its pages;
+// by default, their AdminName or String method, else "User <id>".
+func UserName[U auth.Authenticatable](name func(u U) string) Option {
+	return func(p *Panel) {
+		p.userName = func(ctx context.Context) string {
+			if u, ok := auth.User[U](ctx); ok {
+				return name(u)
+			}
+			return ""
 		}
 	}
 }
@@ -123,6 +141,7 @@ func New[U auth.Authenticatable](app *anetos.App, a *auth.Auth[U], opts ...Optio
 		}
 		return "User " + u.AuthID()
 	}
+	p.stop = stopImpersonating(a, p)
 	for _, opt := range opts {
 		opt(p)
 	}
@@ -172,6 +191,9 @@ func (p *Panel) Mount(r *web.Router, mws ...web.Middleware) error {
 	p.assets = assets
 	// Assets need no session: they are the same for everyone.
 	r.Group(p.base).HandleStd(http.MethodGet, "/_assets/{file...}", assets).Name("admin.assets")
+	// Stopping acting as a user needs no admin permission: the user
+	// acted as may have none.
+	r.Group(p.base, append(slices.Clip(mws), secureHeaders)...).Post(stopPath, p.stop).Name("admin.impersonation.stop")
 	g := r.Group(p.base, append(slices.Clip(mws), secureHeaders, p.require, rbac.Require(Access))...)
 	g.Get("/", p.home).Name("admin.home")
 	for _, res := range p.res {
@@ -293,6 +315,7 @@ type page struct {
 	JS      string
 	AdminJS string
 	URL     string // the page's path and query
+	Banner  template.HTML
 	Data    any
 }
 
@@ -306,6 +329,11 @@ func (p *Panel) render(c *web.Ctx, name string, pg page) error {
 	pg.CSRF = view.CSRFToken(c)
 	pg.CSS, pg.JS, pg.AdminJS = p.assets.URL("admin.css"), p.assets.URL("htmx.min.js"), p.assets.URL("admin.js")
 	pg.URL = c.Request().URL.RequestURI()
+	banner, err := bannerHTML(c)
+	if err != nil {
+		return err
+	}
+	pg.Banner = banner
 	pg.Flash = view.Flash(c, "admin.status")
 	if pg.Error == "" {
 		pg.Error = view.Flash(c, "admin.error")

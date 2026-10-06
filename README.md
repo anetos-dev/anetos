@@ -40,11 +40,12 @@ pages, and Bangla, French and Spanish translations of the framework
 log: who created, changed (field by field), deleted and restored the rows
 of the models an app tracks, written in the change's transaction, with
 bulk writes as one entry ([`examples/audit`](examples/audit)). The admin
-interface is under way: its engine is done (module
-`anetos.dev/anetos/admin`, with `anetos make:admin`: lists, search,
-filters, forms, actions, a trash, a permission per resource;
-[`examples/admin`](examples/admin)); users, roles and activity pages are
-next, then the release work (deploy, docs). The docs are at [docs.anetos.dev](https://docs.anetos.dev).
+interface is under way (module `anetos.dev/anetos/admin`, with `anetos
+make:admin`; [`examples/admin`](examples/admin)): lists, search,
+filters, forms, actions, a trash, a permission per resource, and users
+(disable, sign out everywhere, API tokens, roles, acting as them) and
+roles; the dashboard, activity pages and two-factor sign-in are next,
+then the release work (deploy, docs). The docs are at [docs.anetos.dev](https://docs.anetos.dev).
 APIs will change.
 
 ## Documents

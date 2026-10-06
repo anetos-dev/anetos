@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"anetos.dev/anetos/anetostest"
 	"anetos.dev/anetos/auth"
@@ -97,6 +98,19 @@ func TestLoginAndLogout(t *testing.T) {
 	app.PostForm("/login", url.Values{"email": {"ada@example.com"}, "password": {"wrong"}}).AssertValidationErrors("email")
 	app.PostForm("/login", url.Values{"email": {"ada@example.com"}, "password": {"correct horse"}}).AssertRedirect("/dashboard")
 	app.Get("/dashboard").AssertOK()
+}
+
+func TestDisabledAccount(t *testing.T) {
+	app := authRegister(t)
+	// Disabled (an admin's "Disable"): signed out, and can't sign in.
+	if _, err := db.Query[models.User](app.Context()).Where(models.UserCols.Email.Eq("ada@example.com")).
+		Update(models.UserCols.DisabledAt.Set(new(time.Now().UTC()))); err != nil {
+		t.Fatal(err)
+	}
+	app.Get("/dashboard").AssertRedirect("/login")
+	app.Get("/login")
+	app.PostForm("/login", url.Values{"email": {"ada@example.com"}, "password": {"correct horse"}}).AssertValidationErrors("email")
+	app.Get("/login").AssertSee("This account is disabled.")
 }
 
 func TestLoginReturnsToTheRequestedPage(t *testing.T) {

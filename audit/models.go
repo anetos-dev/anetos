@@ -121,6 +121,9 @@ type Entry struct {
 	ActorType string `db:"actor_type" json:"actor_type"`
 	// ActorID identifies the actor within its type.
 	ActorID string `db:"actor_id" json:"actor_id"`
+	// ActingAs is the user the actor was acting as (auth.Impersonate),
+	// "user:42"; "" if none.
+	ActingAs string `db:"acting_as" json:"acting_as,omitempty"`
 	// Action is what happened: [Created], [Updated]… or the app's own.
 	Action string `db:"action" json:"action"`
 	// SubjectType and SubjectID are what it happened to.
@@ -182,6 +185,9 @@ type BulkOp struct {
 	ActorType string `db:"actor_type" json:"actor_type"`
 	// ActorID identifies the actor within its type.
 	ActorID string `db:"actor_id" json:"actor_id"`
+	// ActingAs is the user the actor was acting as (auth.Impersonate),
+	// "user:42"; "" if none.
+	ActingAs string `db:"acting_as" json:"acting_as,omitempty"`
 	// Action is [Created], [Updated], [Deleted], [Restored],
 	// [ForceDeleted] or [Upserted].
 	Action string `db:"action" json:"action"`
@@ -308,6 +314,29 @@ func Migrations() *migrate.Set {
 		},
 		func(s *migrate.Schema) error {
 			return errors.Join(s.Drop("audit_bulk_items"), s.Drop("audit_bulk"), s.Drop("audit_log"))
+		})
+	s.AddFunc("2026_10_07_000100_add_acting_as_to_audit_tables",
+		func(s *migrate.Schema) error {
+			for _, table := range []string{"audit_log", "audit_bulk"} {
+				if err := s.Alter(table, func(t *migrate.Table) { t.String("acting_as", 160).Default("") }); err != nil {
+					return err
+				}
+				if s.Dialect() == "mysql" {
+					// Compared byte for byte, as actor_id (Anonymize).
+					if err := s.Exec("ALTER TABLE " + table + " MODIFY acting_as VARBINARY(640) NOT NULL DEFAULT ''"); err != nil {
+						return err
+					}
+				}
+			}
+			return nil
+		},
+		func(s *migrate.Schema) error {
+			for _, table := range []string{"audit_log", "audit_bulk"} {
+				if err := s.Alter(table, func(t *migrate.Table) { t.DropColumn("acting_as") }); err != nil {
+					return err
+				}
+			}
+			return nil
 		})
 	return s
 }

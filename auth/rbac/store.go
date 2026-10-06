@@ -235,6 +235,82 @@ func checkRoles(ctx context.Context, roles []string) error {
 	return nil
 }
 
+// Given is a role or a permission given to a user in a scope.
+type Given struct {
+	// Scope is where it applies; Global for everywhere.
+	Scope Scope `json:"scope"`
+	// Role is the role's name, "" for a permission.
+	Role string `json:"role,omitempty"`
+	// Permission is the permission, "" for a role.
+	Permission Permission `json:"permission,omitempty"`
+}
+
+// GivenTo returns the roles and permissions given to a user (Assign,
+// Grant), by scope (global first) and name, as stored: roles no longer
+// declared or stored, and permissions no longer declared, included.
+func GivenTo(ctx context.Context, userID string) ([]Given, error) {
+	rows, err := db.Query[grant](ctx).Where(colUserID.Eq(userID)).
+		OrderBy(colScope.Asc(), colKind.Desc(), colName.Asc()).Get()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Given, 0, len(rows))
+	for _, row := range rows {
+		if row.UserID != userID {
+			continue // a database comparing without case or accents
+		}
+		g := Given{Scope: Scope(row.Scope)}
+		if row.Kind == kindRole {
+			g.Role = row.Name
+		} else {
+			g.Permission = Permission(row.Name)
+		}
+		out = append(out, g)
+	}
+	return out, nil
+}
+
+// RoleCounts returns how many users have each role, in any scope.
+func RoleCounts(ctx context.Context) (map[string]int64, error) {
+	type count struct {
+		Name  string `db:"name"`
+		Users int64  `db:"users"`
+	}
+	counts, err := db.Select[count](db.Query[grant](ctx).Where(colKind.Eq(kindRole)).GroupBy("name"),
+		"name", "COUNT(DISTINCT user_id) AS users")
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]int64, len(counts))
+	for _, c := range counts {
+		out[c.Name] = c.Users
+	}
+	return out, nil
+}
+
+// Holder is a user with a role, and where.
+type Holder struct {
+	// UserID is the user's AuthID.
+	UserID string `json:"user_id"`
+	// Scope is where they have it; Global for everywhere.
+	Scope Scope `json:"scope"`
+}
+
+// Holders returns who has a role, and where: at most limit of them, by
+// user and scope.
+func Holders(ctx context.Context, role string, limit int) ([]Holder, error) {
+	rows, err := db.Query[grant](ctx).Where(colKind.Eq(kindRole), colName.Eq(role)).
+		OrderBy(colUserID.Asc(), colScope.Asc()).Limit(limit).Get()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Holder, len(rows))
+	for i, row := range rows {
+		out[i] = Holder{UserID: row.UserID, Scope: Scope(row.Scope)}
+	}
+	return out, nil
+}
+
 // Assignment is a role of a user in a scope.
 type Assignment struct {
 	// UserID is the user's AuthID.

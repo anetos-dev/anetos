@@ -32,6 +32,8 @@ type user struct {
 	Password string
 	Remember string
 	Admin    bool
+	Disabled bool
+	Key      string // session key
 }
 
 func (u *user) AuthID() string       { return u.ID }
@@ -91,6 +93,16 @@ func (s *store) users() auth.Users[*user] {
 			defer s.mu.Unlock()
 			v := s.byID[u.ID]
 			v.Remember = tok
+			s.byID[u.ID] = v
+			return nil
+		},
+		Disabled:   func(u *user) bool { return u.Disabled },
+		SessionKey: func(u *user) string { return u.Key },
+		SetSessionKey: func(_ context.Context, u *user, key string) error {
+			s.mu.Lock()
+			defer s.mu.Unlock()
+			v := s.byID[u.ID]
+			v.Key = key
 			s.byID[u.ID] = v
 			return nil
 		},
@@ -215,6 +227,28 @@ func newAppWith(t *testing.T, s *store) (*auth.Auth[*user], *browser, *anetos.Ap
 			return err
 		}
 		return c.Text(http.StatusOK, id)
+	})
+	r.Post("/impersonate/{id}", func(c *web.Ctx) error {
+		u, err := s.users().ByID(c, c.Param("id"))
+		if err != nil {
+			return err
+		}
+		if err := a.Impersonate(c, u); err != nil {
+			return err
+		}
+		return c.NoContent()
+	})
+	r.Post("/stop", func(c *web.Ctx) error {
+		u, err := a.StopImpersonating(c)
+		if err != nil {
+			return err
+		}
+		return c.Text(http.StatusOK, u.ID)
+	})
+	r.Get("/whoami", func(c *web.Ctx) error {
+		id, _ := auth.CurrentID(c)
+		by, _ := auth.Impersonator(c)
+		return c.Text(http.StatusOK, id+" by "+by)
 	})
 	private := r.Group("", a.Require)
 	private.Get("/dashboard", func(c *web.Ctx) error {

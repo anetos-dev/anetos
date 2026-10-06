@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"html/template"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -95,6 +96,11 @@ type Action[T any] struct {
 	// Run does it. A *validate.Errors or validate.Fail error is shown
 	// to the user; other errors are server errors.
 	Run func(ctx context.Context, row *T) error
+	// Done is the message shown once it's done; default "<Title>: done."
+	Done string
+
+	// then is where to go once it's done; the record's page if nil.
+	then func(c *web.Ctx, row T) string
 }
 
 // BulkAction is something done to the records selected in the list.
@@ -192,8 +198,17 @@ func (in *resInfo) perms() []rbac.Permission { return PermissionsOf(in.Name) }
 // Add adds a resource to the panel and declares its permissions. Add the
 // resources before [Panel.Mount].
 func Add[T, F any](p *Panel, r Resource[T, F]) error {
+	res, err := build(p, r)
+	if err != nil {
+		return err
+	}
+	return p.add(res)
+}
+
+// build checks a resource and works out what the panel needs of it.
+func build[T, F any](p *Panel, r Resource[T, F]) (*res[T, F], error) {
 	if r.Name == "" {
-		return errors.New("admin: a resource needs a Name")
+		return nil, errors.New("admin: a resource needs a Name")
 	}
 	if r.Title == "" {
 		r.Title = humanize(r.Name)
@@ -202,19 +217,19 @@ func Add[T, F any](p *Panel, r Resource[T, F]) error {
 		r.Singular = singular(r.Title)
 	}
 	if (r.Edit == nil) != (r.Apply == nil) {
-		return fmt.Errorf("admin: resource %s needs both Edit and Apply, or neither", r.Name)
+		return nil, fmt.Errorf("admin: resource %s needs both Edit and Apply, or neither", r.Name)
 	}
 	cols, err := db.Columns[T]()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	table, key, err := db.KeyOf(new(T))
 	if err != nil {
-		return fmt.Errorf("admin: resource %s: %w", r.Name, err)
+		return nil, fmt.Errorf("admin: resource %s: %w", r.Name, err)
 	}
 	fields, err := columnFields(reflect.TypeFor[T]())
 	if err != nil {
-		return err
+		return nil, err
 	}
 	check := func(what, col string) error {
 		if col != "" && !slices.Contains(cols, col) {
@@ -224,20 +239,20 @@ func Add[T, F any](p *Panel, r Resource[T, F]) error {
 	}
 	for _, c := range slices.Concat(r.Columns, r.Details) {
 		if err := check("column", c.Column); err != nil {
-			return err
+			return nil, err
 		}
 		if c.Value == nil && c.Column == "" {
-			return fmt.Errorf("admin: resource %s: column %q needs a Column or a Value", r.Name, c.Title)
+			return nil, fmt.Errorf("admin: resource %s: column %q needs a Column or a Value", r.Name, c.Title)
 		}
 	}
 	for _, s := range r.Search {
 		if err := check("search column", s); err != nil {
-			return err
+			return nil, err
 		}
 	}
 	for _, f := range r.Filters {
 		if f.Name == "" || f.Apply == nil || slices.Contains([]string{"q", "sort", "page"}, f.Name) {
-			return fmt.Errorf("admin: resource %s: a filter needs a Name (not q, sort or page) and Apply", r.Name)
+			return nil, fmt.Errorf("admin: resource %s: a filter needs a Name (not q, sort or page) and Apply", r.Name)
 		}
 	}
 	checkPerm := func(what, name, perm string) error {
@@ -251,28 +266,28 @@ func Add[T, F any](p *Panel, r Resource[T, F]) error {
 	}
 	for _, a := range r.Actions {
 		if !nameRe.MatchString(a.Name) || a.Run == nil {
-			return fmt.Errorf("admin: resource %s: action %q needs a name (lowercase letters, digits, -) and Run", r.Name, a.Name)
+			return nil, fmt.Errorf("admin: resource %s: action %q needs a name (lowercase letters, digits, -) and Run", r.Name, a.Name)
 		}
 		if err := checkPerm("action", a.Name, a.Permission); err != nil {
-			return err
+			return nil, err
 		}
 	}
 	for _, a := range r.BulkActions {
 		if !nameRe.MatchString(a.Name) || a.Run == nil || a.Name == "delete" {
-			return fmt.Errorf("admin: resource %s: bulk action %q needs a name (lowercase letters, digits, -; not delete) and Run", r.Name, a.Name)
+			return nil, fmt.Errorf("admin: resource %s: bulk action %q needs a name (lowercase letters, digits, -; not delete) and Run", r.Name, a.Name)
 		}
 		if err := checkPerm("bulk action", a.Name, a.Permission); err != nil {
-			return err
+			return nil, err
 		}
 	}
 	soft, err := db.SoftDeleting[T]()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	var form []formSpec
 	if r.Edit != nil {
 		if form, err = formSpecs(reflect.TypeFor[F]()); err != nil {
-			return fmt.Errorf("admin: resource %s: %w", r.Name, err)
+			return nil, fmt.Errorf("admin: resource %s: %w", r.Name, err)
 		}
 	}
 	if r.Sort == "" && fields.pk != "" {
@@ -280,8 +295,15 @@ func Add[T, F any](p *Panel, r Resource[T, F]) error {
 	}
 	if s := strings.TrimPrefix(r.Sort, "-"); s != "" {
 		if err := check("sort", s); err != nil {
-			return err
+			return nil, err
 		}
+	}
+	names := map[string]bool{}
+	for _, a := range r.Actions {
+		if names[a.Name] {
+			return nil, fmt.Errorf("admin: resource %s: two actions named %q", r.Name, a.Name)
+		}
+		names[a.Name] = true
 	}
 	res := &res[T, F]{
 		Resource: r,
@@ -296,7 +318,7 @@ func Add[T, F any](p *Panel, r Resource[T, F]) error {
 			create: r.Edit != nil && !r.NoCreate, delete: !r.NoDelete,
 		},
 	}
-	return p.add(res)
+	return res, nil
 }
 
 // res is a Resource with what the panel works out from it.
@@ -308,6 +330,47 @@ type res[T, F any] struct {
 	keyType reflect.Type
 	fields  modelFields
 	form    []formSpec
+	hooks   hooks[T]
+}
+
+// hooks are what a resource built on Add (the users) adds to it.
+type hooks[T any] struct {
+	// guard refuses an operation on a record ("update", "delete",
+	// "action:<name>", or one of its own) with an error; a
+	// *validate.Errors one is shown to the user.
+	guard func(c *web.Ctx, row T, op string) error
+	// sections are more parts of a record's page.
+	sections func(c *web.Ctx, row T) ([]section, error)
+	// routes adds routes to the resource's group.
+	routes func(g *web.Router)
+	// removed runs when a record is deleted for good, in its
+	// transaction.
+	removed func(ctx context.Context, row T) error
+}
+
+// section is a part of a record's page.
+type section struct {
+	Title string
+	Body  template.HTML
+}
+
+// check runs the guard on an operation, if there is one.
+func (r *res[T, F]) check(c *web.Ctx, row T, op string) error {
+	if r.hooks.guard == nil {
+		return nil
+	}
+	return r.hooks.guard(c, row, op)
+}
+
+// allowed reports whether the guard lets an operation be offered.
+func (r *res[T, F]) allowed(c *web.Ctx, row T, op string) bool { return r.check(c, row, op) == nil }
+
+// refused answers a guarded operation: a message on to, or the error.
+func refused(c *web.Ctx, err error, to string) error {
+	if msg, ok := userError(err); ok {
+		return failed(c, msg, to)
+	}
+	return err
 }
 
 func (r *res[T, F]) info() *resInfo { return &r.in }
@@ -349,6 +412,9 @@ func (r *res[T, F]) mount(g *web.Router) {
 	}
 	if len(r.BulkActions) > 0 || r.in.delete {
 		need("view").Post("/bulk", r.bulk).Name(n + "bulk")
+	}
+	if r.hooks.routes != nil {
+		r.hooks.routes(g)
 	}
 }
 

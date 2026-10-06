@@ -96,3 +96,32 @@ func TestAdministrator(t *testing.T) {
 	app.PostForm("/logout", nil).AssertRedirect("/login")
 	app.Get("/admin").AssertRedirect("/login")
 }
+
+// region: test-users
+func TestStaffAccounts(t *testing.T) {
+	app := signIn(t, "admin@example.com")
+	eve, err := db.Query[User](app.Context()).Where(db.C("email").Eq("editor@example.com")).First()
+	if err != nil {
+		t.Fatal(err)
+	}
+	page := fmt.Sprintf("/admin/users/%d", eve.ID)
+
+	// Acting as Eve: the app as she sees it, with the banner.
+	app.PostForm(page+"/actions/impersonate", nil).AssertRedirect("/")
+	app.Get("/").AssertSee("Hello, Eve", "acting as <strong>Eve</strong>")
+	app.PostForm("/admin/impersonation/stop", nil).AssertRedirect(page)
+	app.Get("/").AssertSee("Hello, Ada").AssertDontSee("acting as")
+
+	// Disabled, Eve can't sign in.
+	app.PostForm(page+"/actions/disable", nil).Follow().AssertSee("Account disabled.")
+	app.PostForm("/logout", nil)
+	app.Get("/login")
+	app.PostForm("/login", url.Values{"email": {"editor@example.com"}, "password": {"secret password"}}).AssertValidationErrors("email")
+
+	// Support staff look after accounts, but not those with permissions
+	// they don't have, such as Eve's.
+	app.PostForm("/login", url.Values{"email": {"support@example.com"}, "password": {"secret password"}}).AssertRedirect("/admin")
+	app.PostForm(page+"/actions/enable", nil).Follow().AssertSee("You may not manage Eve")
+}
+
+// endregion

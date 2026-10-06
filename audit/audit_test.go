@@ -178,7 +178,7 @@ func TestVia(t *testing.T) {
 func TestSecretNames(t *testing.T) {
 	for name, want := range map[string]bool{
 		"password_hash": true, "api_token": true, "client_secret": true, "api_key": true, "apikey": true,
-		"private_key": true, "recovery_codes": true, "otp": true, "otp_secret": true, "credentials": true,
+		"private_key": true, "session_key": true, "recovery_codes": true, "otp": true, "otp_secret": true, "credentials": true,
 		"footprint": false, "title": false, "keyboard": false,
 	} {
 		if got := secretName.MatchString(name); got != want {

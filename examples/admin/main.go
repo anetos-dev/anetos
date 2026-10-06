@@ -3,7 +3,8 @@
 // Command admin is a shop's back office (package admin): staff sign in
 // and manage the products and categories, with roles and permissions
 // (package auth/rbac) and every change to a product in the audit log
-// (package audit). seed creates an administrator and an editor.
+// (package audit), and the staff's accounts and roles managed there. seed
+// creates an administrator, an editor and support staff.
 //
 //	anetos key:generate >> .env   # APP_KEY, once
 //	export APP_ENV=development HTTP_ADDR=:8080
@@ -48,11 +49,22 @@ var editor = slices.Concat(
 	admin.PermissionsOf("categories", "view"),
 )
 
+// support are the permissions of support staff: they look after the
+// staff's accounts, and may act as them to see what they see.
+var support = slices.Concat(
+	[]rbac.Permission{admin.Access, "admin.users.impersonate"},
+	admin.PermissionsOf("users", "view", "update"),
+)
+
 // roles are the staff's roles: administrators may do everything.
 var roles = []rbac.Role{
 	{Name: "admin", Title: "Administrator", Super: true},
 	{Name: "editor", Title: "Editor", Permissions: editor},
+	{Name: "support", Title: "Support", Permissions: support},
 }
+
+// permissions are those of the roles, each once.
+var permissions = slices.Compact(slices.Sorted(slices.Values(slices.Concat(editor, support))))
 
 // endregion
 
@@ -68,6 +80,13 @@ func setupAdmin(app *anetos.App, r *web.Router, sessions *session.Manager, a *au
 		return err
 	}
 	if err := admin.Add(p, categories()); err != nil {
+		return err
+	}
+	// The staff and the roles (roles.assign gives roles).
+	if err := addUsers(p, a); err != nil {
+		return err
+	}
+	if err := admin.Roles(p); err != nil {
 		return err
 	}
 	return p.Mount(r, sessions.Middleware, web.CSRF(), a.Middleware)
@@ -97,15 +116,15 @@ func setup(app *anetos.App) (*web.Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	if _, err := rbac.ForApp(app, editor, roles...); err != nil {
+	if _, err := rbac.ForApp(app, permissions, roles...); err != nil {
 		return nil, err
 	}
-	app.Command("seed", "Create an administrator (admin@example.com) and an editor (editor@example.com), password \"secret password\"",
+	app.Command("seed", "Create an administrator (admin@example.com), an editor (editor@example.com) and support staff (support@example.com), password \"secret password\"",
 		func(ctx context.Context, args *cmd.Args) error {
 			if err := seed(ctx); err != nil {
 				return err
 			}
-			fmt.Fprintln(args.Stdout, "Created admin@example.com and editor@example.com, password \"secret password\".")
+			fmt.Fprintln(args.Stdout, "Created admin@example.com, editor@example.com and support@example.com, password \"secret password\".")
 			return nil
 		})
 	srv, err := web.NewServer(app)
@@ -126,12 +145,30 @@ func setup(app *anetos.App) (*web.Server, error) {
 // pages are the sign-in page and signing out.
 func pages(r *web.Router, sessions *session.Manager, a *auth.Auth[*User]) {
 	g := r.Group("", sessions.Middleware, web.CSRF(), a.Middleware)
+	// The app's home page: who is signed in, and the banner while
+	// acting as someone (admin.Banner).
+	g.With(a.Require).Get("/", func(c *web.Ctx) error {
+		u, err := auth.Current[*User](c)
+		if err != nil {
+			return err
+		}
+		banner, err := view.String(c, admin.Banner())
+		if err != nil {
+			return err
+		}
+		return c.Render(http.StatusOK, view.Template(homePage, "home", struct {
+			Banner template.HTML
+			Name   string
+		}{template.HTML(banner), u.Name})) //nolint:gosec // the banner's own markup
+	}).Name("home")
 	g.Get("/login", func(c *web.Ctx) error {
 		return c.Render(http.StatusOK, view.Template(loginPage, "login", c))
 	}).Name("login")
 	g.Post("/login", web.H(func(c *web.Ctx, in LoginInput) (web.Responder, error) {
 		if _, err := a.Attempt(c, in.Email, in.Password, false); errors.Is(err, auth.ErrInvalidCredentials) {
 			return nil, validate.Fail("email", "These credentials don't match our records.")
+		} else if errors.Is(err, auth.ErrDisabled) {
+			return nil, validate.Fail("email", "This account is disabled.")
 		} else if err != nil {
 			return nil, err
 		}
@@ -150,6 +187,12 @@ type LoginInput struct {
 	Email    string `json:"email" validate:"required|email"`
 	Password string `json:"password" validate:"required"`
 }
+
+var homePage = template.Must(template.New("home").Parse(`<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Shop</title></head><body>
+{{.Banner}}
+<h1>Hello, {{.Name}}</h1>
+<p><a href="/admin">The admin</a></p>
+</body></html>`))
 
 var loginPage = template.Must(template.New("login").Funcs(template.FuncMap{
 	"csrf":  view.CSRFToken,
@@ -174,6 +217,7 @@ func seed(ctx context.Context) error {
 		for _, u := range []struct{ name, email, role string }{
 			{"Ada", "admin@example.com", "admin"},
 			{"Eve", "editor@example.com", "editor"},
+			{"Sam", "support@example.com", "support"},
 		} {
 			user := User{Name: u.name, Email: u.email, Password: hash}
 			if err := db.Create(ctx, &user); err != nil {

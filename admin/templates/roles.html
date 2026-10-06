@@ -1,0 +1,15 @@
+{{define "content"}}{{with .Data}}
+<div class="head">
+  <h1>{{$.Title}}</h1>
+  <div class="tools">{{if .NewURL}}<a class="button primary" href="{{.NewURL}}">New</a>{{end}}</div>
+</div>
+<div class="table"><table>
+<thead><tr><th>Role</th><th>Name</th><th>Defined in</th><th>Permissions</th><th>Users</th></tr></thead>
+<tbody>
+{{range .Rows}}<tr>
+  <td><a href="{{.URL}}">{{.Title}}</a></td><td><code>{{.Name}}</code></td>
+  <td>{{if .Custom}}The database{{else}}Code{{end}}</td><td>{{.Permissions}}</td><td>{{.Users}}</td>
+</tr>
+{{end}}
+</tbody></table></div>
+{{end}}{{end}}

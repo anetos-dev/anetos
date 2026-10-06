@@ -13,7 +13,9 @@ func init() {
 				t.String("email", 255).Unique()
 				t.String("password", 255)
 				t.String("remember_token", 100).Default("")
+				t.String("session_key", 100).Default("")
 				t.Timestamp("email_verified_at").Nullable()
+				t.Timestamp("disabled_at").Nullable()
 				t.Timestamps()
 			})
 		},

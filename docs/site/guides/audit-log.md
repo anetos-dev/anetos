@@ -85,7 +85,7 @@ Choose what each model's entries keep with options of `Track`:
 |---|---|
 | `audit.Except("view_count")` | The column is left out entirely: an update that changes only it isn't logged. Use it for counters and caches. |
 | `audit.Redact("diagnosis")` | The log records that the column changed, as `"[redacted]"`, not its values. |
-| `audit.Reveal("token_count")` | Columns whose names contain `password`, `secret` or `token` are redacted by default; this shows one. |
+| `audit.Reveal("token_count")` | Columns whose names say they hold a secret (`password`, `secret`, `token`, `credential`, an API, private or session key, a recovery code, an OTP) are redacted by default; this shows one. |
 
 ### 3. Change rows as usual
 
@@ -253,12 +253,19 @@ func (Handlers) Export(c *web.Ctx) error {
 
 (Copied from [`examples/audit/main.go`](../../../examples/audit/main.go), region `export`.)
 
+Code that records events only in apps that keep a log, such as a
+package of its own, checks `audit.Enabled(ctx)` first: `Record` fails
+without one.
+
 ### 7. Name who acts when it isn't a user
 
 Changes are attributed, in order, to:
 
 1. the actor you set with `audit.WithActor`;
-2. the signed-in user, or the one a job acts as (`auth.ActAs`);
+2. the signed-in user, or the one a job acts as (`auth.ActAs`); while
+   someone acts as a user (`auth.Impersonate`, the admin's "Act as
+   user"), that someone, with the user in the entry's `ActingAs`
+   (`"user:42"`; jobs dispatched meanwhile carry that someone alone);
 3. in a queue job or an async event listener, the actor of the work that
    started it: a job a user's request dispatched is attributed to that
    user (dispatching loads the signed-in user, once per request, to know
@@ -286,8 +293,9 @@ fails: the log doesn't guess who did it.
   `AUDIT_IP=full` keeps it whole. An IP address is personal data under
   the GDPR, so decide, and say so in your privacy notice.
 - **Erasure requests:** `audit:anonymize user 42` (or `audit.Anonymize`)
-  replaces the user with `erased` in every entry and drops those entries'
-  IP addresses. Entries *about* the person's own rows keep their values:
+  replaces the user with `erased` in every entry, as the actor and as the
+  user someone acted as, and drops the IP addresses of the entries they
+  made. Entries *about* the person's own rows keep their values:
   delete those with `db.Query[audit.Entry]` if the request covers them.
 
 ## How it works

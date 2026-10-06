@@ -1,0 +1,57 @@
+{{define "account"}}<dl class="details">
+{{if .Status}}<dt>Status</dt><dd>{{if .Disabled}}<span class="danger">{{.Status}}</span>{{else}}{{.Status}}{{end}}</dd>{{end}}
+{{if .Email}}<dt>Email</dt><dd>{{.Email}}</dd>{{end}}
+</dl>{{end}}
+
+{{define "roles"}}{{$csrf := .CSRF}}
+{{if .Grants}}
+<div class="table"><table>
+<thead><tr><th>Role or permission</th><th>Where</th><th></th></tr></thead>
+<tbody>
+{{range .Grants}}<tr>
+  <td>{{if .Role}}{{.Title}} <span class="none">({{.Role}})</span>{{else}}<code>{{.Permission}}</code>{{end}}</td>
+  <td>{{if .Scope}}{{.Scope}}{{else}}Everywhere{{end}}</td>
+  <td class="actions">{{if .RemoveURL}}<form method="post" action="{{.RemoveURL}}" class="inline" data-confirm="Take this away?">
+    <input type="hidden" name="_token" value="{{$csrf}}">
+    <input type="hidden" name="scope" value="{{.Scope}}">
+    {{if .Role}}<input type="hidden" name="role" value="{{.Role}}">{{else}}<input type="hidden" name="permission" value="{{.Permission}}">{{end}}
+    <button type="submit" class="danger">Take away</button>
+  </form>{{end}}</td>
+</tr>
+{{end}}
+</tbody></table></div>
+{{else}}<p class="empty">No roles or permissions.</p>{{end}}
+{{if .AssignURL}}<form method="post" action="{{.AssignURL}}" class="query assign">
+  <input type="hidden" name="_token" value="{{$csrf}}">
+  <label>Role <select name="role">{{range .Roles}}<option value="{{.Value}}">{{.Label}}</option>{{end}}</select></label>
+  <label>Where <input name="scope" placeholder="Everywhere, or team:42"></label>
+  <button type="submit">Give role</button>
+</form>{{end}}{{end}}
+
+{{define "tokens"}}{{$csrf := .CSRF}}
+{{if .Tokens}}
+<div class="table"><table>
+<thead><tr><th>Name</th><th>Abilities</th><th>Last used</th><th>Expires</th><th>Created</th><th></th></tr></thead>
+<tbody>
+{{range .Tokens}}<tr>
+  <td>{{.Name}}</td><td>{{.Abilities}}</td><td>{{.LastUsed}}</td><td>{{.Expires}}</td><td>{{.Created}}</td>
+  <td class="actions">{{if .RevokeURL}}<form method="post" action="{{.RevokeURL}}" class="inline" data-confirm="Revoke this token? Whatever uses it stops working.">
+    <input type="hidden" name="_token" value="{{$csrf}}">
+    <button type="submit" class="danger">Revoke</button>
+  </form>{{end}}</td>
+</tr>
+{{end}}
+</tbody></table></div>
+{{if .RevokeAll}}<form method="post" action="{{.RevokeAll}}" class="inline" data-confirm="Revoke every API token of this user?">
+  <input type="hidden" name="_token" value="{{$csrf}}">
+  <button type="submit" class="danger">Revoke all</button>
+</form>{{end}}
+{{else}}<p class="empty">No API tokens.</p>{{end}}{{end}}
+
+{{define "banner"}}<div class="anetos-acting" role="status" style="position:sticky;top:0;z-index:1000;display:flex;flex-wrap:wrap;gap:.5rem 1rem;align-items:center;justify-content:center;padding:.5rem 1rem;background:#7a2e0e;color:#fff;font:14px/1.4 system-ui,sans-serif">
+  <span>You're acting as <strong>{{.As}}</strong>{{if .By}} (signed in as {{.By}}){{end}}.</span>
+  {{if .Stop}}<form method="post" action="{{.Stop}}" style="margin:0">
+    <input type="hidden" name="_token" value="{{.CSRF}}">
+    <button type="submit" style="font:inherit;padding:.2rem .7rem;border:1px solid #fff;border-radius:4px;background:transparent;color:#fff;cursor:pointer">Stop acting as {{.As}}</button>
+  </form>{{end}}
+</div>{{end}}

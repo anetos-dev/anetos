@@ -130,6 +130,28 @@ func testRBAC(t *testing.T, ctx context.Context) {
 		t.Errorf("UsersWith(globex, view) = %v, want %v", users, want)
 	}
 
+	// What a user was given, as stored; how many have each role, and who.
+	given, err := rbac.GivenTo(ctx, "cy")
+	check(t, err)
+	if want := []rbac.Given{{Scope: rbac.Global, Permission: stView}, {Scope: globex, Permission: stDelete}}; !slices.Equal(given, want) {
+		t.Errorf("GivenTo(cy) = %v, want %v", given, want)
+	}
+	given, err = rbac.GivenTo(ctx, "bob")
+	check(t, err)
+	if want := []rbac.Given{{Scope: acme, Role: "editor"}, {Scope: acme, Role: "viewer"}, {Scope: globex, Role: "viewer"}}; !slices.Equal(given, want) {
+		t.Errorf("GivenTo(bob) = %v, want %v", given, want)
+	}
+	counts, err := rbac.RoleCounts(ctx)
+	check(t, err)
+	if counts["viewer"] != 1 || counts["owner"] != 1 || counts["admin"] != 1 || counts["editor"] != 1 {
+		t.Errorf("RoleCounts = %v", counts)
+	}
+	holders, err := rbac.Holders(ctx, "viewer", 10)
+	check(t, err)
+	if want := []rbac.Holder{{UserID: "bob", Scope: acme}, {UserID: "bob", Scope: globex}}; !slices.Equal(holders, want) {
+		t.Errorf("Holders(viewer) = %v, want %v", holders, want)
+	}
+
 	// Sync replaces a scope's roles; Unassign and Revoke take some away.
 	check(t, rbac.Sync(ctx, "bob", acme, "viewer"))
 	if can("bob", acme, stCreate) || !can("bob", acme, stView) || !can("bob", globex, stView) {
@@ -390,6 +412,41 @@ func testRBACRequests(t *testing.T, ctx context.Context, reg *rbac.Registry, acm
 	check(t, rbac.DeleteRole(ctx, "empty"))
 	check(t, rbac.RemoveUser(ctx, "hal"))
 	check(t, rbac.RemoveUser(ctx, "root2"))
+
+	// Who may manage whom: those with every permission the other has,
+	// in every scope (here bob is a viewer of acme, cy may view
+	// everywhere, root is a global admin).
+	for _, c := range []struct {
+		as, over string
+		ok       bool
+	}{
+		{"ada", "bob", true},   // an owner over a viewer of the same team
+		{"ada", "cy", false},   // cy may view everywhere, ada only in acme
+		{"ada", "root", false}, // a super role
+		{"bob", "ada", false},
+		{"root", "ada", true},
+		{"root", "root", true},
+		{"ada", "nobody", true},
+	} {
+		err := rbac.AuthorizeOver(a.ActAs(ctx, c.as), c.over)
+		if (err == nil) != c.ok || err != nil && !errors.Is(err, auth.ErrForbidden) {
+			t.Errorf("%s over %s: %v", c.as, c.over, err)
+		}
+	}
+	if err := rbac.AuthorizeOver(ctx, "bob"); !errors.Is(err, auth.ErrUnauthenticated) {
+		t.Errorf("AuthorizeOver for a guest: %v", err)
+	}
+
+	// A disabled user's tokens stop working.
+	dis, err := auth.New(cfg, auth.Users[stAuthUser]{
+		ByID:     func(_ context.Context, id string) (stAuthUser, error) { return stAuthUser{id}, nil },
+		ByLogin:  func(context.Context, string) (stAuthUser, error) { return stAuthUser{}, auth.ErrNoUser },
+		Disabled: func(u stAuthUser) bool { return u.id == "ada" },
+	}, enc)
+	check(t, err)
+	if code := call(dis.TokenMiddleware(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})), "/", full); code != http.StatusUnauthorized {
+		t.Errorf("a disabled user's token: %d", code)
+	}
 
 	// The commands.
 	app, err := anetos.New(anetos.WithSource(config.Map{}), anetos.WithLogOutput(io.Discard))

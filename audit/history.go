@@ -48,7 +48,7 @@ func Record(ctx context.Context, action string, subject Subject, properties map[
 		return err
 	}
 	e := Entry{Action: action, SubjectType: subject.Type, SubjectID: subject.ID, Properties: properties}
-	c.fill(&e.OccurredAt, &e.ActorType, &e.ActorID, &e.ViaKind, &e.ViaName, &e.RequestID, &e.IP)
+	c.fill(&e.OccurredAt, &e.ActorType, &e.ActorID, &e.ActingAs, &e.ViaKind, &e.ViaName, &e.RequestID, &e.IP)
 	if err := checkLengths(e.SubjectID, e.ActorID); err != nil {
 		return err
 	}
@@ -262,7 +262,8 @@ func Prune(ctx context.Context) (Pruned, error) {
 }
 
 // Anonymize replaces actor a with a placeholder ("erased") in every entry
-// and bulk entry, and drops those entries' IP addresses, for a request to
+// and bulk entry, as the actor and as the user acted as (ActingAs), and
+// drops the IP addresses of the entries a made, for a request to
 // erase a person's data; it records that it did ("audit.anonymized",
 // without the ID) and returns how many entries changed. Entries about the
 // person's own rows (their changes) are left: delete those with
@@ -286,7 +287,18 @@ func Anonymize(ctx context.Context, a Actor) (int64, error) {
 		if err != nil {
 			return err
 		}
-		total = n + m
+		// Entries of others acting as the person.
+		as := []db.Expr{db.C("acting_as").Eq(a.String())}
+		erased := db.Col[string]("acting_as").Set(Actor{Type: a.Type, ID: "erased"}.String())
+		k, err := db.Query[Entry](ctx).Where(as...).Update(erased)
+		if err != nil {
+			return err
+		}
+		l, err := db.Query[BulkOp](ctx).Where(as...).Update(erased)
+		if err != nil {
+			return err
+		}
+		total = n + m + k + l
 		return Record(ctx, "audit.anonymized", Subject{}, map[string]any{"actor_type": a.Type, "entries": total})
 	})
 	return total, err

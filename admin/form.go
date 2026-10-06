@@ -378,6 +378,9 @@ func (r *res[T, F]) edit(c *web.Ctx) error {
 		return err
 	}
 	show := r.url("/" + r.keyText(row))
+	if err := r.check(c, row, "update"); err != nil {
+		return refused(c, err, show)
+	}
 	return r.renderForm(c, "Edit "+r.label(row), show, show, "Save", r.Edit(row),
 		r.crumbs(navItem{Title: r.label(row), URL: show}, navItem{Title: "Edit"}))
 }
@@ -388,6 +391,12 @@ func (r *res[T, F]) update(c *web.Ctx, in F) (web.Responder, error) {
 		return nil, err
 	}
 	show := r.url("/" + r.keyText(row))
+	if err := r.check(c, row, "update"); err != nil {
+		if _, ok := userError(err); ok {
+			return web.ResponderFunc(func(c *web.Ctx) error { return refused(c, err, show) }), nil
+		}
+		return nil, err
+	}
 	if err := r.save(c, r.Edit(row), in, &row, false); errors.Is(err, errOutOfScope) {
 		return r.outOfScope(show + "/edit"), nil
 	} else if err != nil {

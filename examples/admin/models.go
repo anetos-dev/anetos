@@ -7,6 +7,7 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+	"time"
 
 	"anetos.dev/anetos/auth"
 	"anetos.dev/anetos/db"
@@ -16,9 +17,11 @@ import (
 // User is a member of staff, who signs in with an email and a password.
 type User struct {
 	db.Model
-	Name     string `db:"name" json:"name"`
-	Email    string `db:"email" json:"email"`
-	Password string `db:"password" json:"-"`
+	Name       string     `db:"name" json:"name"`
+	Email      string     `db:"email" json:"email"`
+	Password   string     `db:"password" json:"-"`
+	SessionKey string     `db:"session_key" json:"-"` // replaced to sign out everywhere
+	DisabledAt *time.Time `db:"disabled_at" json:"disabled_at"`
 }
 
 // AuthID implements auth.Authenticatable.
@@ -30,7 +33,9 @@ func (u *User) AuthPassword() string { return u.Password }
 // AdminName is the user's name in the admin's header.
 func (u *User) AdminName() string { return u.Name }
 
-// users tells package auth how to find users.
+// region: users
+// users tells package auth how to find users, which are disabled, and
+// how to sign them out everywhere.
 var users = auth.Users[*User]{
 	ByID: func(ctx context.Context, id string) (*User, error) {
 		n, err := strconv.ParseInt(id, 10, 64)
@@ -42,7 +47,15 @@ var users = auth.Users[*User]{
 	ByLogin: func(ctx context.Context, email string) (*User, error) {
 		return found(db.Query[User](ctx).Where(db.C("email").Eq(strings.ToLower(email))).First())
 	},
+	Disabled:   func(u *User) bool { return u.DisabledAt != nil },
+	SessionKey: func(u *User) string { return u.SessionKey },
+	SetSessionKey: func(ctx context.Context, u *User, key string) error {
+		_, err := db.Query[User](ctx).WhereKeys(u.ID).Update(db.C("session_key").Set(key))
+		return err
+	},
 }
+
+// endregion
 
 func found(u User, err error) (*User, error) {
 	if errors.Is(err, db.ErrNotFound) {
@@ -81,6 +94,8 @@ func init() {
 					t.String("name", 255)
 					t.String("email", 255).Unique()
 					t.String("password", 255)
+					t.String("session_key", 100).Default("")
+					t.Timestamp("disabled_at").Nullable()
 					t.Timestamps()
 				}),
 				s.Create("categories", func(t *migrate.Table) {

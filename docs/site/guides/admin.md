@@ -6,10 +6,10 @@ since: v0.3.0
 # Add an admin panel
 
 Give your staff pages to list, search, filter, create, edit and delete
-the app's records, with the admin interface of module
-`anetos.dev/anetos/admin`: no front-end build, permissions from
-[roles](roles-and-permissions.md), and every change in the
-[audit log](audit-log.md) for the models it tracks.
+the app's records, and to manage users and roles, with the admin
+interface of module `anetos.dev/anetos/admin`: no front-end build,
+permissions from [roles](roles-and-permissions.md), and every change in
+the [audit log](audit-log.md) for the models it tracks.
 
 ## Before you start
 
@@ -35,8 +35,9 @@ go run . migrate      # the roles tables
 It adds the module to `go.mod` and writes `admin.go`, with `setupAdmin`,
 which `setup` now calls after `setupAuth`: it sets up roles with an
 `admin` role that may do everything, creates the admin for the app's
-users, adds the resources of `app/admin`, and mounts it at `/admin` with
-the middleware of the app's pages. By hand, it looks like this:
+users, adds the users (`app/admin/users.go`), the roles and the resources
+of `app/admin`, and mounts it at `/admin` with the middleware of the
+app's pages. By hand, it looks like this:
 
 ```go
 // setupAdmin adds the admin, after the routes of the app's pages, with
@@ -50,6 +51,13 @@ func setupAdmin(app *anetos.App, r *web.Router, sessions *session.Manager, a *au
 		return err
 	}
 	if err := admin.Add(p, categories()); err != nil {
+		return err
+	}
+	// The staff and the roles (roles.assign gives roles).
+	if err := addUsers(p, a); err != nil {
+		return err
+	}
+	if err := admin.Roles(p); err != nil {
 		return err
 	}
 	return p.Mount(r, sessions.Middleware, web.CSRF(), a.Middleware)
@@ -199,11 +207,22 @@ var editor = slices.Concat(
 	admin.PermissionsOf("categories", "view"),
 )
 
+// support are the permissions of support staff: they look after the
+// staff's accounts, and may act as them to see what they see.
+var support = slices.Concat(
+	[]rbac.Permission{admin.Access, "admin.users.impersonate"},
+	admin.PermissionsOf("users", "view", "update"),
+)
+
 // roles are the staff's roles: administrators may do everything.
 var roles = []rbac.Role{
 	{Name: "admin", Title: "Administrator", Super: true},
 	{Name: "editor", Title: "Editor", Permissions: editor},
+	{Name: "support", Title: "Support", Permissions: support},
 }
+
+// permissions are those of the roles, each once.
+var permissions = slices.Compact(slices.Sorted(slices.Values(slices.Concat(editor, support))))
 ```
 
 (Copied from [`examples/admin`](../../../examples/admin/main.go), region `roles`.)
@@ -212,6 +231,131 @@ Users see only the resources they may view, and only the buttons of
 what they may do; the routes check the permissions too. An action needs
 `update` unless its `Permission` names another one: `"view"`,
 `"create"`, `"delete"`, or a permission of the app's own (with a dot).
+
+### 4. Manage users
+
+`make:admin` writes `app/admin/users.go`, which adds the app's users with
+`admin.Users`: a resource as any other (its columns, search and form),
+and account management on each user's page. By hand:
+
+```go
+// UserForm is what the admin edits of a member of staff.
+type UserForm struct {
+	Name  string `json:"name" validate:"required|max:255"`
+	Email string `json:"email" validate:"required|email|max:255"`
+}
+
+// addUsers adds the staff to the admin, with their accounts: disabling,
+// signing out, API tokens, roles, acting as them.
+func addUsers(p *admin.Panel, a *auth.Auth[*User]) error {
+	return admin.Users(p, admin.Resource[User, UserForm]{
+		Name:     "users",
+		Title:    "Staff",
+		Singular: "Member",
+		Columns: []admin.Column[User]{
+			admin.Field[User]("Name", "name"),
+			admin.Field[User]("Email", "email"),
+		},
+		Search:   []string{"name", "email"},
+		Label:    func(u User) string { return u.Name },
+		NoCreate: true, // seed creates them; this shop has no sign-up
+		Edit:     func(u User) UserForm { return UserForm{Name: u.Name, Email: u.Email} },
+		Apply: func(_ context.Context, in UserForm, u *User) error {
+			u.Name, u.Email = in.Name, strings.ToLower(in.Email)
+			return nil
+		},
+	}, admin.Accounts[*User]{Auth: a, DisabledAt: "disabled_at"})
+}
+```
+
+(Copied from [`examples/admin/admin.go`](../../../examples/admin/admin.go), region `users-resource`.)
+
+On a user's page, as the `Accounts` allow:
+
+- **Disable and enable.** Package `auth` refuses disabled users (its
+  `Users.Disabled`): they are signed out at their next request, can't
+  sign in, and their API tokens stop working.
+- **Verification:** mark the address verified, or email the link again;
+  email a password-reset link (`SendVerification`, `SendPasswordReset`,
+  which `make:auth` exports from `app/handlers`).
+- **Sign out everywhere:** every browser and device, at once. It replaces
+  the user's session key (`Users.SessionKey`, `SetSessionKey`).
+- **API tokens:** listed (name, abilities, last use), revoked one by one
+  or all at once.
+- **Roles and permissions,** by scope: given and taken away, by those
+  with `admin.roles.assign`, and only roles they could hold themselves.
+- **Act as user,** below.
+
+Disabling and signing out everywhere need two columns of the users table,
+which `make:auth` makes since v0.3, and the `auth.Users` that read them:
+
+```go
+// users tells package auth how to find users, which are disabled, and
+// how to sign them out everywhere.
+var users = auth.Users[*User]{
+	ByID: func(ctx context.Context, id string) (*User, error) {
+		n, err := strconv.ParseInt(id, 10, 64)
+		if err != nil {
+			return nil, auth.ErrNoUser
+		}
+		return found(db.Find[User](ctx, n))
+	},
+	ByLogin: func(ctx context.Context, email string) (*User, error) {
+		return found(db.Query[User](ctx).Where(db.C("email").Eq(strings.ToLower(email))).First())
+	},
+	Disabled:   func(u *User) bool { return u.DisabledAt != nil },
+	SessionKey: func(u *User) string { return u.SessionKey },
+	SetSessionKey: func(ctx context.Context, u *User, key string) error {
+		_, err := db.Query[User](ctx).WhereKeys(u.ID).Update(db.C("session_key").Set(key))
+		return err
+	},
+}
+```
+
+(Copied from [`examples/admin/models.go`](../../../examples/admin/models.go), region `users`.)
+
+An app made with an older `make:auth` adds `disabled_at` (a nullable
+timestamp) and `session_key` (a string) with a migration, the fields to
+`User`, and those three functions to `models.Users`.
+
+Changing a user needs every permission they have, in every scope: support
+staff can't edit, disable or act as an administrator. No one disables,
+deletes, acts as or changes the roles of themselves here. Each of these
+is recorded in the [audit log](audit-log.md) (`user.disabled`,
+`rbac.role_assigned`, …), when the app keeps one.
+
+### 5. Manage roles
+
+`admin.Roles(p)` adds the roles pages: every role, with its permissions
+and who has it. Roles declared in code are shown; roles stored in the
+database are created, edited and deleted here, from the permissions the
+admin has (no one makes a role with more than they have). Permissions:
+`admin.roles.view`, `.create`, `.update` and `.delete`.
+
+### 6. Act as a user
+
+To see what a user sees, an admin with `admin.users.impersonate` presses
+**Act as user**: they are signed in as the user, and the app's pages show
+a banner with a button that stops it. `make:admin` puts the banner in
+`views/layout.templ`; in your own layout, put it first in `<body>`:
+
+```templ
+// illustrative
+<body>
+	@admin.Banner()
+```
+
+While it lasts, the audit log attributes what is done to the admin,
+acting as the user (`ActingAs`); jobs it dispatches are attributed to the
+admin alone. Its start and its stop are logged (`user.impersonated`,
+`user.impersonation_ended`); signing out ends it too, unlogged. The admin
+can't act as disabled users, as those with permissions they lack, or as
+anyone while already acting as someone. Each request checks that the
+admin may still sign in (not that they still have
+`admin.users.impersonate`: taking it away ends nothing under way). The
+admin's remember-me cookie goes when it starts. An admin at a host of
+its own (`ADMIN_HOST`) doesn't offer it: the app's pages are on another
+host, with another session.
 
 ## How it works
 
@@ -283,6 +427,38 @@ func TestEditorManagesProducts(t *testing.T) {
 
 (Copied from [`examples/admin/main_test.go`](../../../examples/admin/main_test.go), region `test-products`.)
 
+And the accounts:
+
+```go
+func TestStaffAccounts(t *testing.T) {
+	app := signIn(t, "admin@example.com")
+	eve, err := db.Query[User](app.Context()).Where(db.C("email").Eq("editor@example.com")).First()
+	if err != nil {
+		t.Fatal(err)
+	}
+	page := fmt.Sprintf("/admin/users/%d", eve.ID)
+
+	// Acting as Eve: the app as she sees it, with the banner.
+	app.PostForm(page+"/actions/impersonate", nil).AssertRedirect("/")
+	app.Get("/").AssertSee("Hello, Eve", "acting as <strong>Eve</strong>")
+	app.PostForm("/admin/impersonation/stop", nil).AssertRedirect(page)
+	app.Get("/").AssertSee("Hello, Ada").AssertDontSee("acting as")
+
+	// Disabled, Eve can't sign in.
+	app.PostForm(page+"/actions/disable", nil).Follow().AssertSee("Account disabled.")
+	app.PostForm("/logout", nil)
+	app.Get("/login")
+	app.PostForm("/login", url.Values{"email": {"editor@example.com"}, "password": {"secret password"}}).AssertValidationErrors("email")
+
+	// Support staff look after accounts, but not those with permissions
+	// they don't have, such as Eve's.
+	app.PostForm("/login", url.Values{"email": {"support@example.com"}, "password": {"secret password"}}).AssertRedirect("/admin")
+	app.PostForm(page+"/actions/enable", nil).Follow().AssertSee("You may not manage Eve")
+}
+```
+
+(Copied from [`examples/admin/main_test.go`](../../../examples/admin/main_test.go), region `test-users`.)
+
 `make:admin` writes `admin_test.go`, which checks who gets in.
 
 ## Common problems
@@ -293,12 +469,16 @@ func TestEditorManagesProducts(t *testing.T) {
 | `rbac: unknown permission "admin.posts.view", in role "editor"` | A role in code names an admin permission the app's list lacks | Add `admin.PermissionsOf("posts")` to the permissions passed to `rbac.ForApp` |
 | 403 on every admin page | The user lacks `admin.access` | `go run . rbac:assign <user-id> admin`, or a role with `admin.Access` |
 | A resource isn't in the menu | The user lacks its `view` permission | Give `admin.<name>.view` |
+| `admin: Users: auth.Users.Disabled doesn't report users whose disabled_at is set` | `Accounts.DisabledAt` names a column `auth` doesn't read | Add `Disabled` to the app's `auth.Users` |
+| "You may not manage X: they have permissions you don't." | X has a permission the admin lacks somewhere | Have someone with more permissions do it |
+| No "Disable" or "Sign out everywhere" on a user's page | The users table or `auth.Users` lack `disabled_at` or the session key | Add them (step 4) |
 | `admin: resource posts: column "titel" is not a column of posts` | A column, search, or sort names a column the model doesn't have | Use the database's column name |
 | `form field X: a … can't be edited in a form` | The form struct has a field of a type forms don't render | Use a string, number, bool, `admin.DateTime` or `anetos.Date`, or tag it `admin:"-"` |
 
 ## Next steps
 
 - [Roles and permissions](roles-and-permissions.md)
+- [Accounts with make:auth](accounts.md)
 - [Keep an audit log](audit-log.md): who changed what in the admin
 - [CLI reference](../reference/cli.md#anetos-make): `make:admin` and
   `make:admin:resource`
