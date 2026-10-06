@@ -1957,7 +1957,8 @@ mailer.Send(i18n.ForUser(ctx, u), mails.Welcome{User: u}) // the user's mail lan
   messages whose placeholders differ from English, month and day lists
   of the wrong length, keys neither English nor the framework has (a
   note), and keys used in the source (`i18n.T(ctx,
-  "…")` literals in `.go` and `.templ` files) that no catalog defines.
+  "…")` literals in `.go` and `.templ` files) that no catalog defines;
+  a literal followed by `+` is a prefix some key must start with (D236).
 - **Not in I1:** translating model content (a post's title in several
   languages) is in the backlog. A search index has one language (§10.5),
   so content in several languages needs an index per language.
@@ -2295,6 +2296,9 @@ func TestCreatePost(t *testing.T) {
   redirects (by path or route name), headers, text (as is or
   HTML-escaped), JSON and JSON paths, validation errors (422 problem or
   flashed), session values. `Follow()` loads a redirect.
+  `anetostest.ActingAs(app, u)` signs a user in by writing the session a
+  password sign-in would (`auth.Auth.LoginSession`), so tests that switch
+  users needn't post the login form (D235).
 - **Data** (D77, D78): factories (`db/factory`) and generic database
   assertions (`AssertDatabaseHas[T]`, `…Missing`, `…Count`,
   `AssertSoftDeleted`) using the typed columns.
@@ -2678,6 +2682,9 @@ unless new information arrives), **Open**, **Superseded**.
 | D231 | Every app has a `version` command (`anetos.VersionText`), and `web.NewServer` a `health:check` command that asks the running server for `/health/ready` on `HTTP_ADDR` | Accepted | Knowing what runs is the first question in an incident; a distroless image has no shell or curl for `HEALTHCHECK`, and the binary already knows its address |
 | D232 | OpenAPI (M4) moves after the public release (2026-10-06), at the maintainer's suggestion, accepted by the user | Accepted | Apps can be built, deployed and secured without it; the tutorial, reference app and security pass matter more for the release, and OpenAPI is better designed once the API stability pass (M8) has settled handler signatures |
 | D233 | `Supervisor.Declare(roles...)`: a role is known before a component has it; `schedule.ForApp` declares `scheduler`, `pubsub.ForApp` `listeners` | Accepted | Their components come later (the scheduler with its first task), so `run --only=workers,scheduler` failed in an app without tasks, and a deployment written without `scheduler` would silently never run the tasks added later. Typos still fail: only what the app sets up is known |
+| D234 | The reference app (M3) is an issue tracker, `examples/tracker`, in the repository (compiled, linted and tested on every database by CI, like the other examples); the tutorial (M2) builds a smaller one, `examples/tutorial`, a reader's project exactly: `anetos new tracker`, `make:auth`, then the tutorial's changes. Each part of the tutorial adds code (new files, lines below earlier ones, or in place of generated lines it names) and never changes an earlier part's, so every block in it is a region of the final example, checked by `docs-check`; cli's `TestTutorialProject` checks that the files the tutorial doesn't change are the generators' output and that the lines it adds code after still exist. `examples/tutorial` has no SPDX headers, like the readers' projects | Accepted | A tutorial that stops compiling loses readers at once; snapshots per part would double the code to keep. Building the reference app found framework gaps (D235, D236, the generators' fixes) before users did |
+| D235 | `anetostest.ActingAs[U](app, u)` and `auth.Auth.LoginSession(s, u)`: a test signs a user in without the login form | Accepted | Tests of multi-user apps switch users constantly; posting the form (and hashing passwords) for each is slow and noisy. Writing the same session values as `Login` keeps the auth middleware's checks (session key, disabled accounts) in play |
+| D236 | `lang:check` treats a literal key followed by `+` (`i18n.T(ctx, "issues.status."+s)`) as a prefix that some catalog key must start with | Accepted | Keys made from a value (statuses, roles, priorities) are common; reporting the prefix as a missing key made `lang:check` fail on correct apps, and ignoring them would hide a missing group |
 
 ---
 
@@ -2752,3 +2759,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-06 | AD2a implemented (`queue.CountFailed`, `queue.FindFailed`); AD2b implemented: §12.3 security; D224–D226 added (`ADMIN_CONFIRM`, package `qr`) |
 | 2026-10-06 | AC1 (account settings) designed and implemented: §15 scaffolding; D227, D228 added |
 | 2026-10-06 | M5 (build and deploy) designed and implemented: §17, §21; D229–D233 added; OpenAPI (M4) moved after the release (D232) |
+| 2026-10-06 | M2 tutorial and M3 reference app: §18 (ActingAs); D234–D236 added |

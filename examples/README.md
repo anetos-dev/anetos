@@ -5,7 +5,12 @@ everything here, so code shown in the docs can't silently break. Doc pages
 copy tagged regions (`// region: name` … `// endregion`) from these files.
 See the [documentation guide](../docs/contributing/documentation-guide.md) §7.
 
-Most examples show one feature. [`saas`](saas) is a whole app, made with
+Most examples show one feature. [`tracker`](tracker) is the reference
+app: an issue tracker with projects, members and roles, issues with
+labels, comments, files and their history, search, emails from queue
+jobs, a weekday digest, an admin and a JSON API, tested on every
+database. [`tutorial`](tutorial) is the app the
+[tutorial](../docs/site/getting-started/tutorial/README.md) builds. [`saas`](saas) is a whole app, made with
 `anetos new` and `anetos make:auth`: accounts with a password, Google or
 GitHub, a welcome email from a queue job, a pub/sub listener and a
 scheduled task, in one binary that also runs split by role

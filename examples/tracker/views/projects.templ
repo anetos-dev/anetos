@@ -1,0 +1,265 @@
+// SPDX-License-Identifier: Apache-2.0
+
+package views
+
+import (
+	"anetos.dev/anetos/i18n"
+	"anetos.dev/anetos/view"
+	"anetos.dev/anetos/web"
+
+	"anetos.dev/anetos/examples/tracker/app/models"
+)
+
+// Projects lists the user's projects.
+templ Projects(rows []ProjectRow) {
+	@Layout(i18n.T(ctx, "projects.title")) {
+		<div class="title">
+			<h1>{ i18n.T(ctx, "projects.title") }</h1>
+			<a class="button" href={ web.URL(ctx, "projects.new") }>{ i18n.T(ctx, "projects.new") }</a>
+		</div>
+		if len(rows) == 0 {
+			<p>{ i18n.T(ctx, "projects.none") }</p>
+		}
+		<ul class="list">
+			for _, r := range rows {
+				<li>
+					<a href={ web.URL(ctx, "projects.show", r.Project.Key) }><strong>{ r.Project.Name }</strong></a>
+					<span class="key">{ r.Project.Key }</span>
+					if r.Project.Archived() {
+						<span class="badge">{ i18n.T(ctx, "projects.archived_badge") }</span>
+					}
+					<span class="muted">{ i18n.Plural(ctx, "projects.open_count", int(r.Open)) } · { i18n.Plural(ctx, "projects.closed_count", int(r.Done)) }</span>
+				</li>
+			}
+		</ul>
+	}
+}
+
+// NewProject is the form for a new project.
+templ NewProject() {
+	@Layout(i18n.T(ctx, "projects.new")) {
+		<h1>{ i18n.T(ctx, "projects.new") }</h1>
+		<form method="post" action={ web.URL(ctx, "projects.store") }>
+			@view.CSRFField(ctx)
+			<label for="name">{ i18n.T(ctx, "projects.fields.name") }</label>
+			<input id="name" name="name" required maxlength="100" value={ view.Old(ctx, "name") }/>
+			@fieldError("name")
+			<label for="key">{ i18n.T(ctx, "projects.fields.key") }</label>
+			<input id="key" name="key" required maxlength="10" pattern="[A-Z][A-Z0-9]+" value={ view.Old(ctx, "key") } aria-describedby="key-help"/>
+			<p id="key-help" class="muted">{ i18n.T(ctx, "projects.fields.key_help") }</p>
+			@fieldError("key")
+			<label for="description">{ i18n.T(ctx, "projects.fields.description") }</label>
+			<textarea id="description" name="description" rows="3">{ view.Old(ctx, "description") }</textarea>
+			@fieldError("description")
+			<p><button type="submit">{ i18n.T(ctx, "projects.create") }</button></p>
+		</form>
+	}
+}
+
+// ProjectPage is a project's issues, with filters, search and pages.
+templ ProjectPage(l IssueList) {
+	@Layout(l.Project.Name) {
+		<div class="title">
+			<h1>{ l.Project.Name } <span class="key">{ l.Project.Key }</span></h1>
+			if l.CanCreate {
+				<a class="button" href={ web.URL(ctx, "issues.new", l.Project.Key) }>{ i18n.T(ctx, "issues.new") }</a>
+			}
+			if l.CanManage {
+				<a href={ web.URL(ctx, "projects.settings", l.Project.Key) }>{ i18n.T(ctx, "projects.settings") }</a>
+			}
+		</div>
+		if l.Project.Archived() {
+			<p class="notice">{ i18n.T(ctx, "projects.archived") }</p>
+		}
+		if l.Project.Description != "" {
+			<p class="description">{ l.Project.Description }</p>
+		}
+		<nav class="tabs">
+			for _, s := range []string{"open", "closed", "all"} {
+				<a href={ templ.SafeURL(filterURL(ctx, l.Project, l.Filter, "status", s)) } aria-current?={ l.Filter.Status == s }>{ i18n.T(ctx, "issues.status_tabs." + s) }</a>
+			}
+		</nav>
+		<form class="filters" method="get" action={ web.URL(ctx, "projects.show", l.Project.Key) }>
+			<input type="hidden" name="status" value={ l.Filter.Status }/>
+			<input type="search" name="q" value={ l.Filter.Q } placeholder={ i18n.T(ctx, "issues.search") } aria-label={ i18n.T(ctx, "issues.search") }/>
+			<select name="label" aria-label={ i18n.T(ctx, "issues.fields.labels") }>
+				<option value="">{ i18n.T(ctx, "issues.any_label") }</option>
+				for _, lb := range l.Labels {
+					<option value={ lb.Name } selected?={ lb.Name == l.Filter.Label }>{ lb.Name }</option>
+				}
+			</select>
+			<select name="assignee" aria-label={ i18n.T(ctx, "issues.fields.assignee") }>
+				<option value="">{ i18n.T(ctx, "issues.anyone") }</option>
+				<option value="me" selected?={ l.Filter.Assignee == "me" }>{ i18n.T(ctx, "issues.me") }</option>
+				<option value="none" selected?={ l.Filter.Assignee == "none" }>{ i18n.T(ctx, "issues.nobody") }</option>
+				for _, u := range l.Assignees {
+					<option value={ idString(u.ID) } selected?={ idString(u.ID) == l.Filter.Assignee }>{ u.Name }</option>
+				}
+			</select>
+			<select name="sort" aria-label={ i18n.T(ctx, "issues.sort") }>
+				for _, s := range []string{"newest", "oldest", "updated", "priority"} {
+					<option value={ s } selected?={ s == l.Filter.Sort || s == "newest" && l.Filter.Sort == "" }>{ i18n.T(ctx, "issues.sorts." + s) }</option>
+				}
+			</select>
+			<button type="submit">{ i18n.T(ctx, "issues.filter") }</button>
+		</form>
+		if l.Page.Total == 0 {
+			<p>{ i18n.T(ctx, "issues.none") }</p>
+		}
+		<ul class="list issues">
+			for _, issue := range l.Page.Data {
+				@issueRow(l.Project, issue)
+			}
+		</ul>
+		<nav class="pages">
+			if l.Page.HasPrev() {
+				<a href={ web.PageURL(ctx, min(l.Page.CurrentPage-1, l.Page.LastPage)) } rel="prev">{ i18n.T(ctx, "pages.prev") }</a>
+			}
+			if l.Page.LastPage > 1 {
+				<span>{ i18n.T(ctx, "pages.of", "page", l.Page.CurrentPage, "last", l.Page.LastPage) }</span>
+			}
+			if l.Page.HasMore() {
+				<a href={ web.PageURL(ctx, l.Page.CurrentPage+1) } rel="next">{ i18n.T(ctx, "pages.next") }</a>
+			}
+		</nav>
+	}
+}
+
+// issueRow is an issue in a list.
+templ issueRow(project models.Project, issue models.Issue) {
+	<li class={ "issue", issue.Status }>
+		<span class={ "status", issue.Status }>{ i18n.T(ctx, "issues.statuses." + issue.Status) }</span>
+		<a href={ issueURL(ctx, project.Key, issue.Number) }>{ issue.Title }</a>
+		<span class="key">{ issue.Ref(project.Key) }</span>
+		for _, lb := range issue.Labels {
+			@labelChip(lb)
+		}
+		<span class="meta">
+			if issue.Priority != "normal" {
+				<span class={ "priority", issue.Priority }>{ i18n.T(ctx, "issues.priorities." + issue.Priority) }</span>
+			}
+			if issue.Assignee != nil {
+				{ issue.Assignee.Name }
+			}
+			<time datetime={ issue.CreatedAt.UTC().Format("2006-01-02T15:04:05Z") }>{ i18n.Ago(ctx, issue.CreatedAt) }</time>
+		</span>
+	</li>
+}
+
+// labelChip shows a label in its color.
+templ labelChip(l models.Label) {
+	<span class="label" style={ templ.SafeCSS("--label:" + l.Color) }>{ l.Name }</span>
+}
+
+// ProjectSettingsPage is a project's settings: its name, labels, members,
+// and archiving.
+templ ProjectSettingsPage(p ProjectSettings) {
+	@Layout(i18n.T(ctx, "projects.settings")) {
+		<p><a href={ web.URL(ctx, "projects.show", p.Project.Key) }>← { p.Project.Name }</a></p>
+		<h1>{ i18n.T(ctx, "projects.settings") }</h1>
+		<form method="post" action={ web.URL(ctx, "projects.update", p.Project.Key) }>
+			@view.CSRFField(ctx)
+			@view.MethodField("PUT")
+			<label for="name">{ i18n.T(ctx, "projects.fields.name") }</label>
+			<input id="name" name="name" required maxlength="100" value={ view.Old(ctx, "name", p.Project.Name) }/>
+			@fieldError("name")
+			<label for="description">{ i18n.T(ctx, "projects.fields.description") }</label>
+			<textarea id="description" name="description" rows="3">{ view.Old(ctx, "description", p.Project.Description) }</textarea>
+			@fieldError("description")
+			<p><button type="submit">{ i18n.T(ctx, "projects.save") }</button></p>
+		</form>
+		<h2>{ i18n.T(ctx, "members.title") }</h2>
+		@fieldError("role")
+		<table>
+			for _, m := range p.Members {
+				<tr>
+					<td>{ m.User.Name } <span class="muted">{ m.User.Email }</span></td>
+					if p.Project.Archived() {
+						<td>{ i18n.T(ctx, "members.roles." + m.Role) }</td>
+					} else {
+						<td>
+							<form class="inline" method="post" action={ web.URL(ctx, "members.update", p.Project.Key, m.User.ID) }>
+								@view.CSRFField(ctx)
+								@view.MethodField("PUT")
+								<select name="role" aria-label={ i18n.T(ctx, "members.role") }>
+									for _, r := range p.Roles {
+										<option value={ r } selected?={ r == m.Role }>{ i18n.T(ctx, "members.roles." + r) }</option>
+									}
+								</select>
+								<button type="submit">{ i18n.T(ctx, "members.change") }</button>
+							</form>
+						</td>
+						<td>
+							<form class="inline" method="post" action={ web.URL(ctx, "members.destroy", p.Project.Key, m.User.ID) }>
+								@view.CSRFField(ctx)
+								@view.MethodField("DELETE")
+								<button class="link" type="submit">
+									if m.User.ID == p.MeID {
+										{ i18n.T(ctx, "members.leave") }
+									} else {
+										{ i18n.T(ctx, "members.remove") }
+									}
+								</button>
+							</form>
+						</td>
+					}
+				</tr>
+			}
+		</table>
+		if !p.Project.Archived() {
+			<form method="post" action={ web.URL(ctx, "members.store", p.Project.Key) }>
+				@view.CSRFField(ctx)
+				<label for="email">{ i18n.T(ctx, "members.add") }</label>
+				<div class="row">
+					<input id="email" name="email" type="email" required placeholder="name@example.com" value={ view.Old(ctx, "email") }/>
+					<select name="role" aria-label={ i18n.T(ctx, "members.role") }>
+						for _, r := range p.Roles {
+							<option value={ r } selected?={ r == "member" }>{ i18n.T(ctx, "members.roles." + r) }</option>
+						}
+					</select>
+					<button type="submit">{ i18n.T(ctx, "members.add_button") }</button>
+				</div>
+				@fieldError("email")
+			</form>
+		}
+		<h2>{ i18n.T(ctx, "labels.title") }</h2>
+		<ul class="list">
+			for _, l := range p.Labels {
+				<li>
+					@labelChip(l)
+					if !p.Project.Archived() {
+						<form class="inline" method="post" action={ web.URL(ctx, "labels.destroy", p.Project.Key, l.ID) }>
+							@view.CSRFField(ctx)
+							@view.MethodField("DELETE")
+							<button class="link" type="submit">{ i18n.T(ctx, "labels.delete") }</button>
+						</form>
+					}
+				</li>
+			}
+		</ul>
+		if !p.Project.Archived() {
+			<form method="post" action={ web.URL(ctx, "labels.store", p.Project.Key) }>
+				@view.CSRFField(ctx)
+				<label for="label-name">{ i18n.T(ctx, "labels.add") }</label>
+				<div class="row">
+					<input id="label-name" name="label" required maxlength="50" value={ view.Old(ctx, "label") }/>
+					<input type="color" name="color" value={ view.Old(ctx, "color", "#6b7280") } aria-label={ i18n.T(ctx, "labels.color") }/>
+					<button type="submit">{ i18n.T(ctx, "labels.add_button") }</button>
+				</div>
+				@fieldError("label")
+				@fieldError("color")
+			</form>
+		}
+		<h2>{ i18n.T(ctx, "projects.archive_title") }</h2>
+		<form method="post" action={ web.URL(ctx, "projects.archive", p.Project.Key) }>
+			@view.CSRFField(ctx)
+			if p.Project.Archived() {
+				<p>{ i18n.T(ctx, "projects.archived") }</p>
+				<button type="submit">{ i18n.T(ctx, "projects.unarchive") }</button>
+			} else {
+				<p>{ i18n.T(ctx, "projects.archive_intro") }</p>
+				<button type="submit">{ i18n.T(ctx, "projects.archive") }</button>
+			}
+		</form>
+	}
+}

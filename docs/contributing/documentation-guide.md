@@ -192,7 +192,9 @@ when the behaviour differs.
 - Link related identifiers with `[Name]` doc links (Go 1.19+ syntax).
 - Every Go file starts with the license header `// SPDX-License-Identifier: Apache-2.0`
   on its first line, followed by a blank line, before any package doc comment.
-  Generated files (first line `// Code generated … DO NOT EDIT.`) are exempt.
+  Generated files (first line `// Code generated … DO NOT EDIT.`) are exempt,
+  and so is `examples/tutorial`: it is the project a reader of the tutorial
+  has, as `anetos new` writes it.
 - Unexported code gets comments where the *why* isn't obvious. No comments
   that just restate the code.
 

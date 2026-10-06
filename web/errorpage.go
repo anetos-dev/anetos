@@ -73,7 +73,7 @@ type errorPageData struct {
 }
 
 func renderErrorPage(c *Ctx, p *problem) {
-	ctx := c.r.Context()
+	ctx := c.ctx()
 	d := errorPageData{P: p, Debug: c.router.core.debug, Lang: i18n.Locale(ctx), Dir: i18n.Dir(ctx), Problems: i18n.T(ctx, "http.problems")}
 	if p.RequestID != "" {
 		d.RequestID = i18n.T(ctx, "http.request_id", "id", p.RequestID)

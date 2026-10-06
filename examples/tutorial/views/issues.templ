@@ -1,0 +1,86 @@
+package views
+
+// region: imports
+import (
+	"fmt"
+
+	"anetos.dev/anetos/db"
+	"anetos.dev/anetos/view"
+	"anetos.dev/anetos/web"
+
+	"tracker/app/models"
+)
+
+// endregion
+
+// region: list
+// IssuesPage lists a page of issues, with links to the pages around it.
+templ IssuesPage(page db.Page[models.Issue]) {
+	@Layout("Issues") {
+		<h1>Issues</h1>
+		<p><a href={ web.URL(ctx, "issues.new") }>New issue</a></p>
+		if page.Total == 0 {
+			<p>No issues yet.</p>
+		}
+		<ul class="issues">
+			for _, issue := range page.Data {
+				<li>
+					<span class={ "status", issue.Status }>{ issue.Status }</span>
+					<a href={ templ.URL(fmt.Sprintf("/issues/%d", issue.ID)) }>{ issue.Title }</a>
+					<small>#{ issue.ID } by { issue.Author.Name }</small>
+				</li>
+			}
+		</ul>
+		<nav>
+			if page.HasPrev() {
+				<a href={ web.PageURL(ctx, page.CurrentPage-1) }>Newer</a>
+			}
+			if page.HasMore() {
+				<a href={ web.PageURL(ctx, page.CurrentPage+1) }>Older</a>
+			}
+		</nav>
+	}
+}
+
+// endregion
+
+// region: form
+// IssueForm opens an issue, or edits one when issue.ID is set. After a
+// failed post, view.Old refills the fields and view.Errors has the
+// messages.
+templ IssueForm(issue models.Issue) {
+	@Layout("Issue") {
+		if issue.ID == 0 {
+			<h1>New issue</h1>
+			<form method="post" action={ web.URL(ctx, "issues.store") }>
+				@issueFields(issue)
+			</form>
+		} else {
+			<h1>Edit #{ issue.ID }</h1>
+			<form method="post" action={ web.URL(ctx, "issues.update", issue.ID) }>
+				@view.MethodField("PUT")
+				@issueFields(issue)
+			</form>
+		}
+	}
+}
+
+templ issueFields(issue models.Issue) {
+	@view.CSRFField(ctx)
+	<label for="title">Title</label>
+	<input id="title" name="title" value={ view.Old(ctx, "title", issue.Title) }/>
+	@fieldError("title")
+	<label for="body">Description</label>
+	<textarea id="body" name="body" rows="6">{ view.Old(ctx, "body", issue.Body) }</textarea>
+	@fieldError("body")
+	<p><button type="submit">Save</button></p>
+}
+
+// fieldError shows the message of a field that failed validation.
+templ fieldError(field string) {
+	if msg := view.Errors(ctx).Get(field); msg != "" {
+		<p class="error">{ msg }</p>
+	}
+}
+
+// endregion

@@ -1,0 +1,36 @@
+package views
+
+// region: imports
+import (
+	"fmt"
+
+	"tracker/app/models"
+)
+
+// endregion
+
+// region: page
+// SearchPage shows the issues that match q.
+templ SearchPage(q string, found []models.Issue) {
+	@Layout("Search") {
+		<h1>Search</h1>
+		<form method="get" role="search">
+			<input type="search" name="q" value={ q } aria-label="Search issues"/>
+			<button type="submit">Search</button>
+		</form>
+		if q != "" && len(found) == 0 {
+			<p>No issues match “{ q }”.</p>
+		}
+		<ul class="issues">
+			for _, issue := range found {
+				<li>
+					<span class={ "status", issue.Status }>{ issue.Status }</span>
+					<a href={ templ.URL(fmt.Sprintf("/issues/%d", issue.ID)) }>{ issue.Title }</a>
+					<small>#{ issue.ID } by { issue.Author.Name }</small>
+				</li>
+			}
+		</ul>
+	}
+}
+
+// endregion

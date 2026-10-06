@@ -331,6 +331,7 @@ type adminField struct {
 // adminResourceData is what resource.go.tmpl gets.
 type adminResourceData struct {
 	Module, Type, Words, Func, Name string
+	A                               string // the article of Words: a or an
 	Fields                          []adminField
 	Columns                         []struct{ Title, Column string }
 	Search                          string
@@ -370,8 +371,11 @@ func MakeAdminResource(root, name string) ([]string, error) {
 	}
 	plural := naming.Plural(naming.Snake(t))
 	d := adminResourceData{
-		Module: mod, Type: t, Words: strings.ReplaceAll(naming.Snake(t), "_", " "),
+		Module: mod, Type: t, Words: strings.ReplaceAll(naming.Snake(t), "_", " "), A: "a",
 		Func: identifier(plural), Name: strings.ReplaceAll(plural, "_", "-"),
+	}
+	if strings.ContainsRune("aeio", rune(d.Words[0])) { // an issue, an order; a user, a unit
+		d.A = "an"
 	}
 	rel := "app/admin/" + plural + ".go"
 	if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(rel))); err == nil {

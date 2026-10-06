@@ -290,7 +290,9 @@ go run . lang:check
 
 It reports, for each supported locale, the keys the fallback locale has
 that it lacks, placeholders that differ, plural forms its language needs,
-and keys the `.go` and `.templ` files use that no catalog has. It exits
+and keys the `.go` and `.templ` files use that no catalog has. A key the
+code completes at run time, `i18n.T(ctx, "issues.status."+s)`, counts as
+a prefix: some key must start with `issues.status.` (v0.3). It exits
 with status 1 when there is a problem, so it can run in CI, and it notes
 the framework messages a locale leaves in English.
 

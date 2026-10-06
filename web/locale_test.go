@@ -93,7 +93,27 @@ func localeServer(t *testing.T, env config.Map) *localeClient {
 		return c.NoContent()
 	})
 	pages.Get("/switch/{locale}", func(c *web.Ctx) error {
-		if err := c.SetLocale(c.Param("locale")); err != nil {
+		// A database driver watches the context's Done from a goroutine
+		// while the handler runs: SetLocale mustn't race with it.
+		stop := make(chan struct{})
+		watched := make(chan struct{})
+		go func() {
+			defer close(watched)
+			for {
+				select {
+				case <-stop:
+					return
+				case <-c.Done():
+					return
+				default:
+					_ = c.Value(struct{}{})
+				}
+			}
+		}()
+		err := c.SetLocale(c.Param("locale"))
+		close(stop)
+		<-watched
+		if err != nil {
 			return err
 		}
 		return c.Text(http.StatusOK, i18n.Locale(c)+" "+i18n.T(c, "hello"))

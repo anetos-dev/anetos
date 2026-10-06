@@ -317,7 +317,9 @@ func TestCheck(t *testing.T) {
 
 func TestCheckCommand(t *testing.T) {
 	dir := t.TempDir()
-	src := "package x\n\nfunc f() { _ = i18n.T(ctx, \"nav.home\"); _ = i18n.Plural(c.Context(), \"gone.key\", 2) }\n"
+	// Keys made at run time from a literal prefix match the catalogs'
+	// keys that start with it: nav.home for "nav." + page.
+	src := "package x\n\nfunc f() { _ = i18n.T(ctx, \"nav.home\"); _ = i18n.Plural(c.Context(), \"gone.key\", 2); _ = i18n.T(ctx, \"nav.\" + page); _ = i18n.T(ctx, \"tabs.\"+s); _ = i18n.T(ctx, \"validation.\"+rule) }\n"
 	if err := os.WriteFile(filepath.Join(dir, "x.go"), []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -332,7 +334,8 @@ func TestCheckCommand(t *testing.T) {
 		t.Fatal(err)
 	}
 	var out, errOut bytes.Buffer
-	if code := app.ExecuteArgs(t.Context(), []string{"lang:check", dir}, &out, &errOut); code != 1 || !strings.Contains(out.String(), "gone.key") || strings.Contains(out.String(), "welcome") {
+	if code := app.ExecuteArgs(t.Context(), []string{"lang:check", dir}, &out, &errOut); code != 1 ||
+		!strings.Contains(out.String(), "2 key(s) used in the source but in no catalog: gone.key, tabs.*") || strings.Contains(out.String(), "welcome") {
 		t.Errorf("lang:check = %d\n%s%s", code, out.String(), errOut.String())
 	}
 	out.Reset()

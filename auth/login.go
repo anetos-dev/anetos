@@ -138,6 +138,23 @@ func (a *Auth[U]) Login(ctx context.Context, u U, remember bool) error {
 	return a.login(ctx, u, u.AuthPassword(), remember)
 }
 
+// LoginSession writes a signed-in session for u into s, as [Auth.Login]
+// without remember-me would, but without a request: for tests (see
+// anetostest.ActingAs) and tools that prepare sessions. It returns
+// [ErrDisabled] for a disabled account.
+func (a *Auth[U]) LoginSession(s *session.Session, u U) error {
+	if a.disabled(u) {
+		return ErrDisabled
+	}
+	s.Regenerate()
+	s.Put(keyID, u.AuthID())
+	s.Put(keyHash, a.sessionPrint(u, u.AuthPassword()))
+	for _, k := range []string{keyImpersonator, keyImpersonatorHash, keyPending, keyConfirmed} {
+		s.Delete(k)
+	}
+	return nil
+}
+
 var errNoRemember = errors.New("auth: remember me needs Users.RememberToken and Users.SetRememberToken")
 
 // login signs u in, with hash as the password hash the session checks.

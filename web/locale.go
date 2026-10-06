@@ -294,7 +294,7 @@ var ErrUnsupportedLocale = &HTTPError{Status: http.StatusUnprocessableEntity, Me
 // [ErrUnsupportedLocale] for a locale the app doesn't support, and an
 // error without a translator (i18n.ForApp).
 func (c *Ctx) SetLocale(locale string) error {
-	st := localeFrom(c.r.Context())
+	st := localeFrom(c.ctx())
 	if st == nil {
 		return errors.New("web: SetLocale needs the app's translator (i18n.ForApp, before the server serves)")
 	}
@@ -303,10 +303,10 @@ func (c *Ctx) SetLocale(locale string) error {
 		return ErrUnsupportedLocale
 	}
 	setLocaleCookie(c.w, st, loc)
-	if s := session.From(c.r.Context()); s != nil {
+	if s := session.From(c.ctx()); s != nil {
 		s.Put(localeSessionKey, loc)
 	}
-	c.r = c.r.WithContext(i18n.WithLocale(c.r.Context(), loc))
+	c.setContext(i18n.WithLocale(c.ctx(), loc))
 	return nil
 }
 
@@ -316,7 +316,7 @@ func (c *Ctx) SetLocale(locale string) error {
 // settings page where a user chooses "the browser's language". This
 // request keeps its locale.
 func (c *Ctx) ForgetLocale() {
-	st := localeFrom(c.r.Context())
+	st := localeFrom(c.ctx())
 	if st == nil {
 		return
 	}
@@ -324,7 +324,7 @@ func (c *Ctx) ForgetLocale() {
 		Name: LocaleCookie, Value: "", Path: "/", Domain: st.domain,
 		MaxAge: -1, HttpOnly: true, Secure: st.secure, SameSite: http.SameSiteLaxMode,
 	})
-	if s := session.From(c.r.Context()); s != nil {
+	if s := session.From(c.ctx()); s != nil {
 		s.Delete(localeSessionKey)
 	}
 }

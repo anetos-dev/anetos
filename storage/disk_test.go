@@ -426,6 +426,15 @@ func TestServeHardening(t *testing.T) {
 	if w := serve("x.js"); w.Header().Get("Content-Type") != "application/octet-stream" || w.Header().Get("Content-Disposition") != "attachment; filename=x.js" {
 		t.Errorf("JavaScript served as %v", w.Header())
 	}
+	// A caller's attachment name stays; an inline disposition doesn't.
+	for set, want := range map[string]string{"attachment; filename=report.js": "attachment; filename=report.js", "inline": "attachment; filename=x.js"} {
+		w := httptest.NewRecorder()
+		w.Header().Set("Content-Disposition", set)
+		d.Serve(w, httptest.NewRequest(http.MethodGet, "/x.js", nil), "x.js")
+		if got := w.Header().Get("Content-Disposition"); got != want || w.Header().Get("Content-Type") != "application/octet-stream" {
+			t.Errorf("Serve with %q: %v", set, w.Header())
+		}
+	}
 	if w := serve("data.txt", "Range", "bytes=0-1"); w.Code != http.StatusPartialContent || w.Body.String() != "01" {
 		t.Errorf("one range: %d %q", w.Code, w.Body.String())
 	}

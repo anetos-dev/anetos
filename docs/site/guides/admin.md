@@ -421,6 +421,18 @@ a record's latest history. Permission: `admin.activity.view`: it shows
 what the log keeps, changed values included (fields the log leaves out,
 such as passwords, aren't there), so give it to those who may see them.
 
+`make:admin` adds `admin.Activity` and the `RecentActivity` widget to
+`admin.go` when the app keeps an audit log. If you add the log later, add
+them to `setupAdmin` yourself, before `p.Dashboard`:
+
+```go
+// illustrative
+widgets = append(widgets, admin.RecentActivity(10))
+if err := admin.Activity(p); err != nil {
+	return err
+}
+```
+
 ### 9. Watch jobs and scheduled tasks
 
 `admin.Jobs(p, q)` adds the jobs page: the queues' sizes, and the failed

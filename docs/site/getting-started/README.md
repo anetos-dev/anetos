@@ -6,7 +6,8 @@ since: v0.1.0
 # Getting started
 
 Create a project, run it with live reload, and add a model, a migration
-and a page. About fifteen minutes.
+and a page. About fifteen minutes. For a longer path, the
+[tutorial](tutorial/README.md) builds a whole app in an hour.
 
 ## Before you start
 
@@ -148,6 +149,8 @@ platform.
 
 ## Next steps
 
+- [Tutorial: build an issue tracker](tutorial/README.md): an app with
+  accounts, htmx, search, events, a queue and email, step by step
 - [Deploy](../guides/deployment.md)
 - [Commands](../guides/commands.md)
 - [Configuration](../guides/configuration.md)

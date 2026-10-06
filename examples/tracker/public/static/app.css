@@ -1,0 +1,60 @@
+:root { --fg: #1d1d1f; --muted: #6b7280; --line: #e5e7eb; --bg-soft: #f6f7f9; --accent: #1d4ed8; --ok: #15803d; --bad: #b91c1c; }
+* { box-sizing: border-box; }
+body { font-family: system-ui, sans-serif; max-width: 60rem; margin: 0 auto; padding: 0 1rem 3rem; line-height: 1.5; color: var(--fg); }
+a { color: var(--accent); }
+header { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; border-bottom: 1px solid var(--line); padding: .75rem 0; margin-bottom: 1.5rem; }
+header .brand { font-weight: 700; text-decoration: none; color: inherit; }
+header nav { display: flex; gap: 1rem; }
+header .search { margin-left: auto; }
+header form { margin: 0; }
+h1 { font-size: 1.6rem; margin: .5rem 0; }
+h2 { font-size: 1.15rem; margin-top: 2rem; }
+label { display: block; font-weight: 600; margin-top: .75rem; }
+label.check { font-weight: 400; display: flex; gap: .4rem; align-items: center; }
+input, select, textarea, button { font: inherit; }
+input:not([type=checkbox]):not([type=color]):not([type=file]), select, textarea { width: 100%; padding: .4rem .5rem; border: 1px solid #c7cbd1; border-radius: 6px; }
+button, .button { display: inline-block; padding: .4rem .8rem; border: 1px solid var(--fg); background: var(--fg); color: #fff; border-radius: 6px; cursor: pointer; text-decoration: none; }
+button.link { background: none; border: none; color: var(--accent); padding: 0; text-decoration: underline; }
+button.danger { color: var(--bad); }
+fieldset { border: 1px solid var(--line); border-radius: 6px; margin-top: .75rem; }
+table { border-collapse: collapse; width: 100%; }
+td { padding: .35rem .5rem; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.row { display: flex; gap: .5rem; align-items: center; }
+.row > * { flex: 1; }
+.row > button, .row > input[type=color] { flex: none; }
+.title { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; }
+.title h1 { margin-right: auto; }
+.inline { display: inline; }
+.muted, .meta { color: var(--muted); font-size: .9rem; }
+.key { color: var(--muted); font-family: ui-monospace, monospace; font-size: .85rem; }
+.flash { background: #e6f4ea; border: 1px solid #a8d5b5; padding: .5rem .75rem; border-radius: 6px; }
+.notice { background: #fff7e6; border: 1px solid #f3d19b; padding: .5rem .75rem; border-radius: 6px; }
+.error { color: var(--bad); margin: .25rem 0; }
+.badge { font-size: .75rem; border: 1px solid var(--line); border-radius: 999px; padding: 0 .5rem; color: var(--muted); }
+.list { list-style: none; padding: 0; }
+.list li { display: flex; flex-wrap: wrap; gap: .5rem; align-items: baseline; padding: .5rem 0; border-bottom: 1px solid var(--line); }
+.issues .meta { margin-left: auto; display: flex; gap: .75rem; }
+.status { font-size: .75rem; font-weight: 600; border-radius: 999px; padding: .05rem .55rem; color: #fff; background: var(--ok); }
+.status.closed { background: #6d28d9; }
+.priority { font-size: .8rem; font-weight: 600; }
+.priority.high { color: #c2410c; }
+.priority.urgent { color: var(--bad); }
+.priority.low { color: var(--muted); }
+.label { font-size: .75rem; border-radius: 999px; padding: .05rem .55rem; color: #fff; background: var(--label, #6b7280); }
+.tabs { display: flex; gap: 1rem; margin: 1rem 0 .5rem; }
+.tabs a[aria-current=true] { font-weight: 700; color: var(--fg); text-decoration: none; }
+.filters { display: flex; flex-wrap: wrap; gap: .5rem; }
+.filters input[type=search] { flex: 2 1 12rem; width: auto; }
+.filters select { flex: 1 1 8rem; width: auto; }
+.pages { display: flex; gap: 1rem; justify-content: center; margin-top: 1rem; }
+dl.meta { display: grid; grid-template-columns: max-content 1fr; gap: .25rem 1rem; }
+dl.meta dt { font-weight: 600; }
+dl.meta dd { margin: 0; }
+.body { white-space: pre-wrap; background: var(--bg-soft); border-radius: 6px; padding: .75rem 1rem; }
+.comments { list-style: none; padding: 0; }
+.comment { margin-bottom: 1rem; }
+.comment .meta { margin: 0 0 .25rem; }
+.activity { color: var(--muted); font-size: .9rem; }
+code { background: var(--bg-soft); padding: .1rem .3rem; border-radius: 3px; }
+.actions { display: flex; gap: 1rem; align-items: baseline; margin: 1rem 0; }
+form.inline select { width: auto; }

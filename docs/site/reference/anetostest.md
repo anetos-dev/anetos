@@ -76,6 +76,7 @@ an URL on another site fails the test. Requests go to the router as
 | `res.Follow()` | GET to the redirect's `Location`; fails the test for another site | the request's |
 | `app.WithHeader(name, value)` | Sets a header on every later request; returns app | |
 | `app.WithSession(func(*session.Session))` | Changes the session later requests carry; returns app. Needs `session.ForApp` in setup | |
+| `anetostest.ActingAs(app, u)` | Signs u in for later requests, as a password sign-in without remember-me would (`auth.Auth.LoginSession`), replacing whoever was signed in (and dropping a remember-me cookie); returns app. U is the type given to `auth.ForApp` (`*models.User`); needs `session.ForApp` and `auth.ForApp` in setup; a disabled user fails the test (v0.3) | |
 | `app.Session()` | The `*session.Session` the next request will carry (flash values and errors from the last response included), to read | |
 | `app.SocialSignIn(redirect, anetostest.SocialAccount{ID, Email, EmailVerified, Name, AvatarURL})` | GET redirect (the app's route to the provider, such as `/auth/google/redirect`), the stand-in provider's sign-in as the account, then GET the app's callback; returns the callback's response. Needs `FakeSocial`; `ID` is required | `text/html` |
 

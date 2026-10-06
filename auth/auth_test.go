@@ -736,3 +736,12 @@ func TestIPLimitCountsFailures(t *testing.T) {
 		}
 	}
 }
+
+// LoginSession refuses disabled users before touching the session (the
+// signed-in case is anetostest.ActingAs's test).
+func TestLoginSessionDisabled(t *testing.T) {
+	a, _ := newApp(t, newStore(t))
+	if err := a.LoginSession(nil, &user{ID: "9", Disabled: true}); !errors.Is(err, auth.ErrDisabled) {
+		t.Errorf("LoginSession of a disabled user = %v", err)
+	}
+}

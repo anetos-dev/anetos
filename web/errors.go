@@ -151,7 +151,7 @@ func DefaultErrorHandler(c *Ctx, err error) {
 	status := StatusOf(err)
 	log := c.Logger()
 
-	if status == statusClientClosed && c.r.Context().Err() == nil {
+	if status == statusClientClosed && c.ctx().Err() == nil {
 		// Canceled by something inside the app, not by the client, who is
 		// still waiting for an answer.
 		status = http.StatusInternalServerError
@@ -211,7 +211,7 @@ type problemDebug struct {
 func newProblem(c *Ctx, err error, status int) *problem {
 	// err's own status may differ from the one chosen (e.g. an internal
 	// cancellation reported as 500); only show HTTPError details that match.
-	ctx := c.r.Context()
+	ctx := c.ctx()
 	p := &problem{
 		Type:      "about:blank",
 		Title:     statusTitle(ctx, status),

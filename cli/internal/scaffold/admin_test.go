@@ -152,7 +152,17 @@ type Post struct {
 	if got := read(t, filepath.Join(dir, "app/admin/categories.go")); !strings.Contains(got, "return CategoryForm{}") || !strings.Contains(got, `Name: "categories"`) {
 		t.Errorf("categories.go:\n%s", got)
 	}
-	if list := read(t, filepath.Join(dir, "app/admin/admin.go")); !strings.Contains(list, "error{\n\tPosts,\n\tCategories,\n}") {
+	// Without dates, the standard library's imports stay in a group of
+	// their own; "an" before a vowel.
+	write(dir, "app/models/order.go", "package models\n\nimport \"anetos.dev/anetos/db\"\n\ntype Order struct {\n\tdb.Model\n\tTotal int64\n}\n")
+	if _, err := MakeAdminResource(dir, "Order"); err != nil {
+		t.Fatal(err)
+	}
+	if got := read(t, filepath.Join(dir, "app/admin/orders.go")); !strings.Contains(got, "import (\n\t\"context\"\n\n\t\"anetos.dev/anetos/admin\"\n\n") ||
+		!strings.Contains(got, "what the admin edits of an order:") {
+		t.Errorf("orders.go:\n%s", got)
+	}
+	if list := read(t, filepath.Join(dir, "app/admin/admin.go")); !strings.Contains(list, "error{\n\tPosts,\n\tCategories,\n\tOrders,\n}") {
 		t.Errorf("admin.go:\n%s", list)
 	}
 	if _, err := addResource([]byte("package admin\n"), "X"); err == nil {

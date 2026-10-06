@@ -1,0 +1,179 @@
+# The tracker's English text. Translate it with the same keys in another
+# locale's folder (locales/bn/app.yaml); go run . lang:check finds keys
+# a locale lacks. The account pages' text is in auth.yaml.
+home:
+  title: "Home"
+  welcome: "Track your team's issues"
+  intro: "Projects, issues, comments and files, with your team. Sign up to start a project."
+nav:
+  projects: "Projects"
+  settings: "Settings"
+  search: "Search issues"
+  logout: "Log out"
+  login: "Log in"
+  register: "Sign up"
+pages:
+  prev: "Previous"
+  next: "Next"
+  of: "Page {page} of {last}"
+projects:
+  title: "Projects"
+  new: "New project"
+  none: "No projects yet. Start one, or ask a project's owner to add you."
+  create: "Create project"
+  save: "Save"
+  settings: "Settings"
+  archived_badge: "archived"
+  archived: "This project is archived: its issues can be read, not changed."
+  archive_title: "Archive"
+  archive_intro: "An archived project's issues can be read, not changed. You can bring it back."
+  archive: "Archive this project"
+  unarchive: "Bring the project back"
+  open_count:
+    one: "{count} open"
+    other: "{count} open"
+  closed_count:
+    one: "{count} closed"
+    other: "{count} closed"
+  fields:
+    name: "Name"
+    key: "Key"
+    key_help: "2 to 10 capital letters and digits, starting with a letter: issues are named after it (WEB-12). It can't change."
+    description: "Description"
+  errors:
+    key_letter: "The key must start with a letter."
+  status:
+    created: "Project created. Add your team in its settings."
+    saved: "Project saved."
+    archived: "Project archived."
+    unarchived: "Project brought back."
+members:
+  title: "Members"
+  role: "Role"
+  change: "Change"
+  remove: "Remove"
+  leave: "Leave"
+  add: "Add someone by their email address"
+  add_button: "Add"
+  roles:
+    owner: "Owner"
+    member: "Member"
+    viewer: "Viewer"
+  errors:
+    no_account: "No one has an account with that address: ask them to sign up first."
+    last_owner: "A project needs an owner: make someone else owner first."
+  status:
+    added: "{name} is a member now."
+    saved: "Role changed."
+    removed: "Member removed."
+labels:
+  title: "Labels"
+  add: "New label"
+  add_button: "Add"
+  color: "Color"
+  delete: "Delete"
+  errors:
+    taken: "The project has a label with that name."
+    color: "Choose a color."
+  status:
+    created: "Label added."
+    deleted: "Label deleted."
+issues:
+  new: "New issue"
+  edit: "Edit"
+  edit_title: "Edit {ref}"
+  save: "Save"
+  close: "Close issue"
+  reopen: "Reopen"
+  delete: "Move to trash"
+  none: "No issues here."
+  search: "Search this project"
+  filter: "Filter"
+  sort: "Order"
+  any_label: "Any label"
+  anyone: "Anyone"
+  me: "Assigned to me"
+  nobody: "Nobody"
+  opened_by: "Opened by"
+  status_tabs:
+    open: "Open"
+    closed: "Closed"
+    all: "All"
+  statuses:
+    open: "Open"
+    closed: "Closed"
+  priorities:
+    low: "Low"
+    normal: "Normal"
+    high: "High"
+    urgent: "Urgent"
+  sorts:
+    newest: "Newest"
+    oldest: "Oldest"
+    updated: "Recently updated"
+    priority: "Priority"
+  fields:
+    title: "Title"
+    body: "Description"
+    priority: "Priority"
+    assignee: "Assignee"
+    labels: "Labels"
+  errors:
+    assignee: "Choose a member of the project."
+    labels: "Choose the project's labels."
+  status:
+    created: "{ref} opened."
+    saved: "Issue saved."
+    deleted: "{ref} moved to the trash."
+comments:
+  title: "Comments"
+  add: "Add a comment"
+  submit: "Comment"
+attachments:
+  title: "Files"
+  none: "No files."
+  file: "File"
+  upload: "Attach"
+  delete: "Delete"
+  status:
+    added: "{name} attached."
+    deleted: "{name} deleted."
+activity:
+  title: "History"
+  system: "The system"
+  created: "{who} opened the issue"
+  deleted: "{who} moved it to the trash"
+  closed: "{who} closed the issue"
+  reopened: "{who} reopened the issue"
+  assigned: "{who} assigned it to {new}"
+  unassigned: "{who} unassigned {old}"
+  priority: "{who} changed the priority from {old} to {new}"
+  renamed: "{who} changed the title from “{old}” to “{new}”"
+search:
+  title: "Search"
+  submit: "Search"
+  none: "No issues match “{q}”."
+dashboard:
+  assigned: "Assigned to you"
+  none: "Nothing assigned to you is open."
+settings:
+  notify: "Email me about my issues: assignments, comments, and a list every weekday morning"
+tokens:
+  read_only: "Read only: the token can view issues, not change them"
+mail:
+  hello: "Hello {name},"
+  view_issue: "View the issue"
+  assigned:
+    subject: "{ref} assigned to you: {title}"
+    body: "{by} assigned {ref} to you."
+  commented:
+    subject: "New comment on {ref}: {title}"
+    body: "{by} commented on {ref}, “{title}”:"
+  digest:
+    subject:
+      one: "{count} open issue assigned to you"
+      other: "{count} open issues assigned to you"
+    body:
+      one: "This issue assigned to you is open:"
+      other: "These {count} issues assigned to you are open:"
+    dashboard: "Go to your dashboard"

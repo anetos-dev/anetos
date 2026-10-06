@@ -1,0 +1,586 @@
+package handlers
+
+import (
+	"context"
+	"errors"
+	"net/http"
+	"net/url"
+	"slices"
+	"strings"
+	"time"
+	"unicode"
+
+	"anetos.dev/anetos"
+	"anetos.dev/anetos/auth"
+	"anetos.dev/anetos/auth/password"
+	"anetos.dev/anetos/auth/social"
+	"anetos.dev/anetos/db"
+	"anetos.dev/anetos/i18n"
+	"anetos.dev/anetos/mailer"
+	"anetos.dev/anetos/qr"
+	"anetos.dev/anetos/queue"
+	"anetos.dev/anetos/validate"
+	"anetos.dev/anetos/view"
+	"anetos.dev/anetos/web"
+	"anetos.dev/anetos/web/ratelimit"
+
+	"tracker/app/mailers"
+	"tracker/app/models"
+	"tracker/views"
+)
+
+// Accounts serves registration, login and logout, sign-in with Google
+// and GitHub, two-factor sign-in, password confirmation, email
+// verification, password reset and API tokens (anetos make:auth). Hashing, tokens, sessions and throttling are package
+// auth's, and the sign-in flow package social's; this is your code to
+// change.
+type Accounts struct {
+	Auth   *auth.Auth[*models.User]
+	Social *social.Social[*models.User]
+	// AllowEmailChange lets users change their email address on the
+	// settings page: the new one once they follow the link emailed to it.
+	AllowEmailChange bool
+	// AllowAccountDeletion lets users delete their own account, on the
+	// settings page.
+	AllowAccountDeletion bool
+}
+
+// RegisterInput is the registration form.
+type RegisterInput struct {
+	Name                 string `json:"name" validate:"required|max:100"`
+	Email                string `json:"email" validate:"required|email|max:255"`
+	Password             string `json:"password" validate:"required|min:8|max:1024|confirmed"`
+	PasswordConfirmation string `json:"password_confirmation"`
+}
+
+// LoginInput is the login form.
+type LoginInput struct {
+	Email    string `json:"email" validate:"required|email"`
+	Password string `json:"password" validate:"required"`
+	Remember bool   `json:"remember"`
+}
+
+// ForgotInput is the forgotten-password form.
+type ForgotInput struct {
+	Email string `json:"email" validate:"required|email"`
+}
+
+// ResetInput is the new-password form.
+type ResetInput struct {
+	Token                string `json:"token" validate:"required"`
+	Password             string `json:"password" validate:"required|min:8|max:1024|confirmed"`
+	PasswordConfirmation string `json:"password_confirmation"`
+}
+
+// TokenQuery reads ?token= from a link.
+type TokenQuery struct {
+	Token string `query:"token" validate:"required"`
+}
+
+// NewTokenInput is the API token form.
+type NewTokenInput struct {
+	Name string `json:"name" validate:"required|max:100"`
+}
+
+// TokenID reads {id} from the path.
+type TokenID struct {
+	ID int64 `path:"id"`
+}
+
+// CodeInput is a two-factor code: from the authenticator app, or a
+// recovery code.
+type CodeInput struct {
+	Code string `json:"code" validate:"required|max:30"`
+}
+
+// PasswordInput is the password confirmation form.
+type PasswordInput struct {
+	Password string `json:"password" validate:"required"`
+}
+
+// RegisterPage shows the registration form.
+func (h Accounts) RegisterPage(c *web.Ctx) error {
+	return c.Render(http.StatusOK, views.Register(h.socialButtons()))
+}
+
+// Register creates the account, emails the verification link and signs
+// the user in.
+func (h Accounts) Register(c *web.Ctx, in RegisterInput) (web.Responder, error) {
+	name := cleanName(in.Name)
+	if name == "" {
+		return nil, validate.Fail("name", i18n.T(c, "auth.errors.name_required"))
+	}
+	email := strings.ToLower(in.Email) // stored and looked up in lower case
+	taken, err := emailTaken(c, email)
+	if err != nil {
+		return nil, err
+	}
+	if taken {
+		return nil, validate.Fail("email", i18n.T(c, "auth.errors.email_taken"))
+	}
+	hash, err := password.Hash(in.Password)
+	if err != nil {
+		return nil, err
+	}
+	u := &models.User{Name: name, Email: email, Password: hash}
+	// The user and the email, or neither: the email is queued once the
+	// transaction commits.
+	err = db.Tx(c, func(ctx context.Context) error {
+		if err := db.Create(ctx, u); err != nil {
+			return err
+		}
+		return h.sendVerification(ctx, u)
+	})
+	if err != nil {
+		if taken, _ := emailTaken(c, email); taken { // registered meanwhile
+			return nil, validate.Fail("email", i18n.T(c, "auth.errors.email_taken"))
+		}
+		return nil, err
+	}
+	if err := h.Auth.Login(c, u, false); err != nil {
+		return nil, err
+	}
+	return web.RedirectRoute("dashboard"), nil
+}
+
+// emailTaken reports whether an account has the address.
+func emailTaken(ctx context.Context, email string) (bool, error) {
+	return db.Query[models.User](ctx).Where(models.UserCols.Email.Eq(email)).Exists()
+}
+
+// cleanName returns name on one line: control characters dropped, runs
+// of spaces made one.
+func cleanName(name string) string {
+	name = strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return ' '
+		}
+		return r
+	}, name)
+	return strings.Join(strings.Fields(name), " ")
+}
+
+// sendVerification emails u a link that verifies their address.
+func (h Accounts) sendVerification(ctx context.Context, u *models.User) error {
+	return SendVerification(ctx, h.Auth, u)
+}
+
+// SendVerification emails u a link that verifies their address, in their
+// language (the admin's "Send verification email" too).
+func SendVerification(ctx context.Context, a *auth.Auth[*models.User], u *models.User) error {
+	ctx = i18n.ForUser(ctx, u) // the user's language, for the email and its link
+	link, err := mailer.URL(ctx, web.LocalePath(ctx, "/verify-email?token="+url.QueryEscape(a.VerificationToken(u, u.Email))))
+	if err != nil {
+		return err
+	}
+	return mailer.Queue(ctx, mailers.VerifyEmail{Name: u.Name, Email: u.Email, URL: link}, queue.AfterCommit())
+}
+
+// SendPasswordReset emails u a link to choose a new password, in their
+// language (the admin's "Send password reset" too).
+func SendPasswordReset(ctx context.Context, a *auth.Auth[*models.User], u *models.User) error {
+	ctx = i18n.ForUser(ctx, u) // the user's language, for the email and its link
+	link, err := mailer.URL(ctx, web.LocalePath(ctx, "/reset-password?token="+url.QueryEscape(a.PasswordResetToken(u))))
+	if err != nil {
+		return err
+	}
+	return mailer.Queue(ctx, mailers.ResetPassword{Name: u.Name, Email: u.Email, URL: link}, queue.AfterCommit())
+}
+
+// LoginPage shows the login form.
+func (h Accounts) LoginPage(c *web.Ctx) error {
+	return c.Render(http.StatusOK, views.Login(h.socialButtons()))
+}
+
+// socialButtons returns a "Sign in with …" button per provider whose
+// SOCIAL_<NAME>_CLIENT_ID and _CLIENT_SECRET are set.
+func (h Accounts) socialButtons() []views.SocialButton {
+	var buttons []views.SocialButton
+	for _, name := range h.Social.Providers() {
+		buttons = append(buttons, views.SocialButton{Name: name, Title: h.Social.Title(name)})
+	}
+	return buttons
+}
+
+// SocialUser returns the user of an account signing in with Google or
+// GitHub: the one it is linked to; else the user with its verified email
+// address (who then signs in either way); else a new user, without a
+// password. An address the provider hasn't verified can't be trusted to
+// find anyone, and nor can one the user hasn't verified here: someone
+// could have registered it first, with a password, to take over the
+// account of whoever signs in with it later.
+func SocialUser(ctx context.Context, p social.Profile) (*models.User, error) {
+	id, linked, err := social.FindLink(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+	if linked {
+		u, err := models.Users.ByID(ctx, id)
+		if !errors.Is(err, db.ErrNotFound) {
+			return u, err
+		}
+		// The user was deleted: forget the link and start again.
+		if err := social.Unlink(ctx, id, p.Provider); err != nil {
+			return nil, err
+		}
+	}
+	if p.Email == "" || !p.EmailVerified {
+		return nil, &social.ErrNoAccount{Message: i18n.T(ctx, "auth.errors.social_no_email")}
+	}
+	var u *models.User
+	err = db.Tx(ctx, func(ctx context.Context) error { // the user and the link, or neither
+		u, err = models.Users.ByLogin(ctx, p.Email)
+		if errors.Is(err, db.ErrNotFound) {
+			now := anetos.Now(ctx).UTC()
+			name := cleanName(p.Name)
+			if name == "" {
+				name, _, _ = strings.Cut(p.Email, "@")
+			}
+			u = &models.User{Name: name, Email: strings.ToLower(p.Email), EmailVerifiedAt: &now}
+			err = db.Create(ctx, u)
+		}
+		if err != nil {
+			return err
+		}
+		if u.EmailVerifiedAt == nil {
+			return &social.ErrNoAccount{Message: i18n.T(ctx, "auth.errors.social_unverified")}
+		}
+		// Linked already to another account there: the address was
+		// reused, not the same person.
+		links, err := social.Links(ctx, u.AuthID())
+		if err != nil {
+			return err
+		}
+		if slices.ContainsFunc(links, func(l social.Account) bool { return l.Provider == p.Provider }) {
+			return &social.ErrNoAccount{Message: i18n.T(ctx, "auth.errors.social_other_account")}
+		}
+		return social.Link(ctx, p, u.AuthID())
+	})
+	return u, err
+}
+
+// Login signs the user in, throttling repeated failures (AUTH_THROTTLE),
+// and goes to the page they wanted, or the dashboard.
+func (h Accounts) Login(c *web.Ctx, in LoginInput) (web.Responder, error) {
+	_, err := h.Auth.Attempt(c, in.Email, in.Password, in.Remember)
+	var throttled *auth.ThrottledError
+	switch {
+	case errors.Is(err, auth.ErrInvalidCredentials):
+		return nil, validate.Fail("email", i18n.T(c, "auth.errors.credentials"))
+	case errors.Is(err, auth.ErrDisabled):
+		return nil, validate.Fail("email", i18n.T(c, "auth.errors.disabled"))
+	case errors.As(err, &throttled):
+		return nil, validate.Fail("email", i18n.T(c, "auth.errors.throttled"))
+	case errors.Is(err, auth.ErrTwoFactorRequired):
+		return web.RedirectRoute("two-factor.challenge"), nil // the password was right: now the code
+	case err != nil:
+		return nil, err
+	}
+	return web.Redirect(auth.Intended(c, "/dashboard")), nil
+}
+
+// ChallengePage asks for the two-factor code of a sign-in waiting for it.
+func (h Accounts) ChallengePage(c *web.Ctx) error {
+	if !h.Auth.TwoFactorPending(c) {
+		return c.Redirect(http.StatusSeeOther, web.LocalePath(c, "/login"))
+	}
+	return c.Render(http.StatusOK, views.TwoFactorChallenge())
+}
+
+// Challenge finishes the sign-in with the code of the user's
+// authenticator app, or a recovery code.
+func (h Accounts) Challenge(c *web.Ctx, in CodeInput) (web.Responder, error) {
+	_, err := h.Auth.AttemptTwoFactor(c, in.Code)
+	var throttled *auth.ThrottledError
+	switch {
+	case errors.Is(err, auth.ErrInvalidCode):
+		return nil, validate.Fail("code", i18n.T(c, "auth.errors.code"))
+	case errors.As(err, &throttled):
+		return nil, validate.Fail("code", i18n.T(c, "auth.errors.throttled"))
+	case errors.Is(err, auth.ErrNoPendingSignIn), errors.Is(err, auth.ErrDisabled):
+		c.Session().Flash("status", i18n.T(c, "auth.errors.sign_in_again"))
+		return web.RedirectRoute("login"), nil
+	case err != nil:
+		return nil, err
+	}
+	return web.Redirect(auth.Intended(c, "/dashboard")), nil
+}
+
+// ConfirmPage asks for the password again, before something sensitive.
+func (Accounts) ConfirmPage(c *web.Ctx) error {
+	return c.Render(http.StatusOK, views.ConfirmPassword())
+}
+
+// ConfirmPassword checks the password, which then holds for
+// AUTH_CONFIRM_TTL, and goes back to where it was asked for.
+func (h Accounts) ConfirmPassword(c *web.Ctx, in PasswordInput) (web.Responder, error) {
+	err := h.Auth.ConfirmPassword(c, in.Password)
+	var throttled *auth.ThrottledError
+	switch {
+	case errors.Is(err, auth.ErrInvalidCredentials):
+		return nil, validate.Fail("password", i18n.T(c, "auth.errors.password"))
+	case errors.As(err, &throttled):
+		return nil, validate.Fail("password", i18n.T(c, "auth.errors.throttled"))
+	case err != nil:
+		return nil, err
+	}
+	return web.Redirect(auth.Intended(c, "/dashboard")), nil
+}
+
+// TwoFactorPage shows two-factor sign-in: off, being set up (the QR code
+// to scan), or on; and the recovery codes once, just after they're made.
+func (h Accounts) TwoFactorPage(c *web.Ctx) error {
+	u, err := auth.Current[*models.User](c)
+	if err != nil {
+		return err
+	}
+	st, err := h.Auth.TwoFactor(u)
+	if err != nil {
+		return err
+	}
+	page := views.TwoFactorPage{Status: st, RecoveryCodes: strings.Fields(view.Flash(c, "recovery_codes"))}
+	if st.Started {
+		setup, err := h.Auth.StartedTwoFactor(u, u.Email)
+		if err != nil {
+			return err
+		}
+		svg, err := qr.SVG(setup.URI, qr.M, 200)
+		if err != nil {
+			return err
+		}
+		page.Secret, page.QR = setup.Secret, svg
+	}
+	return c.Render(http.StatusOK, views.TwoFactor(page))
+}
+
+// StartTwoFactor starts turning on two-factor sign-in: a new secret, for
+// the authenticator app.
+func (h Accounts) StartTwoFactor(c *web.Ctx) error {
+	u, err := auth.Current[*models.User](c)
+	if err != nil {
+		return err
+	}
+	if _, err := h.Auth.StartTwoFactor(c, u, u.Email); err != nil && !errors.Is(err, auth.ErrTwoFactorOn) {
+		return err
+	}
+	return c.RedirectRoute("two-factor")
+}
+
+// ConfirmTwoFactor turns on two-factor sign-in with a code of the app,
+// and shows the recovery codes.
+func (h Accounts) ConfirmTwoFactor(c *web.Ctx, in CodeInput) (web.Responder, error) {
+	u, err := auth.Current[*models.User](c)
+	if err != nil {
+		return nil, err
+	}
+	codes, err := h.Auth.ConfirmTwoFactor(c, u, in.Code)
+	var throttled *auth.ThrottledError
+	switch {
+	case errors.Is(err, auth.ErrInvalidCode):
+		return nil, validate.Fail("code", i18n.T(c, "auth.errors.code"))
+	case errors.As(err, &throttled):
+		return nil, validate.Fail("code", i18n.T(c, "auth.errors.throttled"))
+	case errors.Is(err, auth.ErrTwoFactorOn), errors.Is(err, auth.ErrTwoFactorOff):
+		return web.RedirectRoute("two-factor"), nil
+	case err != nil:
+		return nil, err
+	}
+	c.Session().Flash("recovery_codes", strings.Join(codes, " "))
+	c.Session().Flash("status", i18n.T(c, "auth.status.two_factor_on"))
+	return web.RedirectRoute("two-factor"), nil
+}
+
+// NewRecoveryCodes replaces the recovery codes, and shows the new ones.
+func (h Accounts) NewRecoveryCodes(c *web.Ctx) error {
+	u, err := auth.Current[*models.User](c)
+	if err != nil {
+		return err
+	}
+	codes, err := h.Auth.NewRecoveryCodes(c, u)
+	if err != nil && !errors.Is(err, auth.ErrTwoFactorOff) {
+		return err
+	}
+	c.Session().Flash("recovery_codes", strings.Join(codes, " "))
+	return c.RedirectRoute("two-factor")
+}
+
+// DisableTwoFactor turns off two-factor sign-in.
+func (h Accounts) DisableTwoFactor(c *web.Ctx) error {
+	u, err := auth.Current[*models.User](c)
+	if err != nil {
+		return err
+	}
+	if err := h.Auth.DisableTwoFactor(c, u); err != nil {
+		return err
+	}
+	c.Session().Flash("status", i18n.T(c, "auth.status.two_factor_off"))
+	return c.RedirectRoute("two-factor")
+}
+
+// Logout signs the user out.
+func (h Accounts) Logout(c *web.Ctx) error {
+	if err := h.Auth.Logout(c); err != nil {
+		return err
+	}
+	return c.Redirect(http.StatusSeeOther, web.LocalePath(c, "/login"))
+}
+
+// VerifyEmail marks the address of the link as verified. A bad or
+// expired link, or one for an address the user has since changed, is a
+// 400.
+func (h Accounts) VerifyEmail(c *web.Ctx, in TokenQuery) (web.Responder, error) {
+	u, email, err := h.Auth.CheckVerificationToken(c, in.Token)
+	if err != nil {
+		return nil, err
+	}
+	if email != u.Email {
+		return nil, web.Error(http.StatusBadRequest, i18n.T(c, "auth.errors.link_other_email"))
+	}
+	if u.EmailVerifiedAt == nil {
+		now := anetos.Now(c).UTC()
+		if _, err := db.Query[models.User](c).Where(models.UserCols.ID.Eq(u.ID)).Update(models.UserCols.EmailVerifiedAt.Set(&now)); err != nil {
+			return nil, err
+		}
+	}
+	c.Session().Flash("status", i18n.T(c, "auth.status.verified"))
+	return web.RedirectRoute("dashboard"), nil
+}
+
+// ResendVerification emails the verification link again.
+func (h Accounts) ResendVerification(c *web.Ctx) error {
+	u, err := auth.Current[*models.User](c)
+	if err != nil {
+		return err
+	}
+	if u.EmailVerifiedAt == nil {
+		// At most 6 an hour for one account, whatever the IP address.
+		res, err := ratelimit.Allow(c, "verification:"+u.AuthID(), ratelimit.PerHour(6))
+		if err != nil {
+			return err
+		}
+		if !res.Allowed {
+			return web.Error(http.StatusTooManyRequests, i18n.T(c, "auth.errors.too_many_emails"))
+		}
+		if err := h.sendVerification(c, u); err != nil {
+			return err
+		}
+		c.Session().Flash("status", i18n.T(c, "auth.status.verification_sent"))
+	}
+	return c.Redirect(http.StatusSeeOther, web.LocalePath(c, "/dashboard"))
+}
+
+// ForgotPage shows the forgotten-password form.
+func (Accounts) ForgotPage(c *web.Ctx) error {
+	return c.Render(http.StatusOK, views.ForgotPassword())
+}
+
+// SendReset emails a password reset link to the address, if it has an
+// account (and was sent fewer than 3 in the hour), and answers the same
+// either way, so the form doesn't reveal who has one.
+func (h Accounts) SendReset(c *web.Ctx, in ForgotInput) (web.Responder, error) {
+	res, err := ratelimit.Allow(c, "password-reset:"+strings.ToLower(in.Email), ratelimit.PerHour(3))
+	if err != nil {
+		return nil, err
+	}
+	u, err := models.Users.ByLogin(c, in.Email)
+	switch {
+	case err == nil && !res.Allowed:
+		// Enough links for now: answer as usual.
+	case err == nil:
+		if err := SendPasswordReset(c, h.Auth, u); err != nil {
+			return nil, err
+		}
+	case !errors.Is(err, db.ErrNotFound):
+		return nil, err
+	}
+	c.Session().Flash("status", i18n.T(c, "auth.status.reset_sent"))
+	return web.RedirectRoute("login"), nil
+}
+
+// ResetPage shows the new-password form of a reset link.
+func (Accounts) ResetPage(c *web.Ctx) error {
+	return c.Render(http.StatusOK, views.ResetPassword(view.Old(c, "token", c.Request().URL.Query().Get("token"))))
+}
+
+// Reset sets the new password. The link works once: it is tied to the
+// old password. The new one signs out every session and remembered
+// browser, and revokes the API tokens.
+func (h Accounts) Reset(c *web.Ctx, in ResetInput) (web.Responder, error) {
+	u, err := h.Auth.CheckPasswordResetToken(c, in.Token)
+	if errors.Is(err, auth.ErrInvalidToken) {
+		return nil, validate.Fail("password", i18n.T(c, "auth.errors.reset_invalid"))
+	}
+	if err != nil {
+		return nil, err
+	}
+	hash, err := password.Hash(in.Password)
+	if err != nil {
+		return nil, err
+	}
+	// Only if the password is still the one the link was made for: two
+	// uses of the link at once change it once.
+	n, err := db.Query[models.User](c).Where(models.UserCols.ID.Eq(u.ID), models.UserCols.Password.Eq(u.Password)).
+		Update(models.UserCols.Password.Set(hash))
+	if err != nil {
+		return nil, err
+	}
+	if n == 0 {
+		return nil, validate.Fail("password", i18n.T(c, "auth.errors.reset_invalid"))
+	}
+	if err := h.Auth.RevokeAllTokens(c, u); err != nil {
+		return nil, err
+	}
+	c.Session().Flash("status", i18n.T(c, "auth.status.password_reset"))
+	return web.RedirectRoute("login"), nil
+}
+
+// Dashboard shows the account and its API tokens.
+func (h Accounts) Dashboard(c *web.Ctx) error {
+	u, err := auth.Current[*models.User](c)
+	if err != nil {
+		return err
+	}
+	tokens, err := h.Auth.Tokens(c, u)
+	if err != nil {
+		return err
+	}
+	return c.Render(http.StatusOK, views.Dashboard(u, tokens, view.Flash(c, "token")))
+}
+
+// CreateToken issues an API token, shown once on the dashboard.
+func (h Accounts) CreateToken(c *web.Ctx, in NewTokenInput) (web.Responder, error) {
+	u, err := auth.Current[*models.User](c)
+	if err != nil {
+		return nil, err
+	}
+	// "*": every ability; name narrower ones and check them with
+	// auth.TokenCan. The token expires in 90 days.
+	plain, _, err := h.Auth.CreateToken(c, u, in.Name, []string{"*"}, 90*24*time.Hour)
+	if err != nil {
+		return nil, err
+	}
+	c.Session().Flash("token", plain)
+	return web.RedirectRoute("dashboard"), nil
+}
+
+// RevokeToken deletes one of the user's API tokens.
+func (h Accounts) RevokeToken(c *web.Ctx, in TokenID) (web.Responder, error) {
+	u, err := auth.Current[*models.User](c)
+	if err != nil {
+		return nil, err
+	}
+	if err := h.Auth.RevokeToken(c, u, in.ID); err != nil {
+		return nil, err
+	}
+	c.Session().Flash("status", i18n.T(c, "auth.status.token_revoked"))
+	return web.RedirectRoute("dashboard"), nil
+}
+
+// Me is GET /api/me, for API clients: Authorization: Bearer <token>.
+func (Accounts) Me(c *web.Ctx) error {
+	u, err := auth.Current[*models.User](c)
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, u)
+}

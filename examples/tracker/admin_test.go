@@ -1,0 +1,35 @@
+// SPDX-License-Identifier: Apache-2.0
+
+package main
+
+import (
+	"testing"
+
+	"anetos.dev/anetos/auth/rbac"
+	"anetos.dev/anetos/db"
+
+	"anetos.dev/anetos/examples/tracker/app/models"
+)
+
+// The admin's tests (anetos make:admin).
+
+func TestAdminAccess(t *testing.T) {
+	app := authRegister(t) // make:auth's: Ada, signed in
+	app.Get("/admin").AssertForbidden()
+
+	ada, err := db.Query[models.User](app.Context()).Where(models.UserCols.Email.Eq("ada@example.com")).First()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := rbac.Assign(app.Context(), ada.AuthID(), rbac.Global, "admin"); err != nil {
+		t.Fatal(err)
+	}
+	app.Get("/admin").AssertOK()
+	app.Get("/admin/jobs").AssertOK()
+	app.Get("/admin/schedule").AssertOK()
+	app.Get("/admin/users").AssertOK().AssertSee("ada@example.com")
+	app.Get("/admin/roles").AssertOK().AssertSee("Administrator")
+
+	app.PostForm("/logout", nil)
+	app.Get("/admin").AssertRedirect("/login")
+}

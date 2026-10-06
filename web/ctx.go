@@ -33,9 +33,10 @@ type Ctx struct {
 	r      *http.Request
 	router *Router
 	route  *Route
-	// streaming is the request with the context [Ctx.Events] gave it. It
-	// is atomic: database/sql watches a context's Done from goroutines.
-	streaming atomic.Pointer[http.Request]
+	// replaced is the request with a context the handler changed
+	// ([Ctx.SetLocale], [Ctx.Events]). It is atomic: database drivers
+	// watch a context's Done from goroutines of their own.
+	replaced atomic.Pointer[http.Request]
 }
 
 var _ context.Context = (*Ctx)(nil)
@@ -57,11 +58,15 @@ func (c *Ctx) Value(key any) any { return c.ctx().Value(key) }
 
 // Request returns the underlying request.
 func (c *Ctx) Request() *http.Request {
-	if r := c.streaming.Load(); r != nil {
+	if r := c.replaced.Load(); r != nil {
 		return r
 	}
 	return c.r
 }
+
+// setContext replaces the request's context, for the rest of the
+// request (the Ctx's context.Context methods included).
+func (c *Ctx) setContext(ctx context.Context) { c.replaced.Store(c.Request().WithContext(ctx)) }
 
 // Writer returns the response writer. Prefer the response helpers; if you
 // write directly, errors returned afterwards can only be logged.
@@ -77,7 +82,7 @@ func (c *Ctx) Route() *Route { return c.route }
 // route name.
 func (c *Ctx) Logger() *slog.Logger {
 	l := c.router.core.logger
-	if id := RequestID(c.r.Context()); id != "" {
+	if id := RequestID(c.ctx()); id != "" {
 		l = l.With("request_id", id)
 	}
 	if c.route != nil {
@@ -109,7 +114,7 @@ func (c *Ctx) URL(name string, args ...any) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return LocalePath(c.r.Context(), path), nil
+	return LocalePath(c.ctx(), path), nil
 }
 
 // WantsJSON reports whether the client prefers a JSON response: it accepts

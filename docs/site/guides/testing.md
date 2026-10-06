@@ -113,13 +113,23 @@ and return the response, so they chain. `Follow` loads the redirect's
 target (on the test site only). `AssertSee` finds text as it is or
 HTML-escaped, as templates write it.
 
-Put things in the session before a request, such as a signed-in user,
-with `WithSession`:
+Sign a user in with `anetostest.ActingAs`, for the requests that follow
+(v0.3): it writes the session a password sign-in would, so the test
+needn't post the login form. Call it again to switch users:
 
 ```go
 // illustrative
-app.WithSession(func(s *session.Session) { s.Put("user_id", user.ID) }).
-	Get("/dashboard").
+ada := anetostest.Create(app, factories.Users)
+anetostest.ActingAs(app, &ada).Get("/dashboard").AssertOK()
+```
+
+Put other things in the session before a request, such as a cart, with
+`WithSession`:
+
+```go
+// illustrative
+app.WithSession(func(s *session.Session) { s.Put("cart", "42") }).
+	Get("/checkout").
 	AssertOK()
 ```
 
@@ -422,7 +432,7 @@ over `.env.testing`.
 | `database is locked` | Two apps on one SQLite file: parallel tests, or an app made in a test and another in its subtest | Don't run those in parallel, or use in-memory SQLite |
 | A request hangs until the test times out | Code opened its own connection (or `db.Tx` on a new context) and waits for the test's transaction's locks; or two parallel tests insert the same unique value | Use the request's context; `anetostest.WithoutTransaction()` and clean up yourself; unique values from factories |
 | `current transaction is aborted` (PostgreSQL) | A handler went on after a failed statement | Test that path with `anetostest.WithoutTransaction()` |
-| `The request left the test's transaction unusable` | A timeout cancelled a query, or a schema change on MySQL | `anetostest.WithoutTransaction()` for that test |
+| `The request left the test's transaction unusable` | A timeout canceled a query, or a schema change on MySQL | `anetostest.WithoutTransaction()` for that test |
 | A queue worker doesn't find the test's rows | Workers use their own connections, outside the test's transaction | `QUEUE_DRIVER=sync`, or `anetostest.WithoutTransaction()` for that test |
 | 403 "The page has expired" | The form sent a `_token` field (it wins over the automatic token), or the route has no session middleware | Drop the field; add `sessions.Middleware` |
 | `subtest may have called FailNow on a parent test` | An app made in a test used in its subtest | Make the app in the subtest |

@@ -288,6 +288,9 @@ type appAuth struct{}
 // Config returns the configuration.
 func (a *Auth[U]) Config() Config { return a.cfg }
 
+// RememberCookie returns the remember-me cookie's name.
+func (a *Auth[U]) RememberCookie() string { return a.cookie }
+
 // CanRemember reports whether "remember me" is available: Users has
 // RememberToken and SetRememberToken.
 func (a *Auth[U]) CanRemember() bool { return a.users.RememberToken != nil }

@@ -82,7 +82,7 @@ func (c *Ctx) Events() (*EventStream, error) {
 	if err := inner.Flush(); err != nil {
 		return nil, fmt.Errorf("web: server-sent events need a response writer that flushes: %w", err)
 	}
-	c.streaming.Store(c.r.WithContext(WithoutTimeout(c.ctx())))
+	c.setContext(WithoutTimeout(c.ctx()))
 	return &EventStream{w: c.w, rc: inner}, nil
 }
 

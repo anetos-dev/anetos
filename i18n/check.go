@@ -59,7 +59,9 @@ func (tr *Translator) checkCommand(fs.FS) cmd.Command {
 // supported locale, placeholders that differ from the fallback's, plural
 // forms a language needs that a message lacks, lists of month and day
 // names of the wrong length, and keys in used (keys the source uses)
-// that no catalog defines. Framework messages a locale
+// that no catalog defines; a used key ending in "*" is a prefix
+// ("issues.status.*", from i18n.T(ctx, "issues.status."+s)), which some
+// key of the catalogs must start with. Framework messages a locale
 // doesn't translate are noted, not counted.
 func (tr *Translator) Check(w io.Writer, used []string) int {
 	problems := 0
@@ -151,7 +153,15 @@ func (tr *Translator) Check(w io.Writer, used []string) int {
 		}
 	}
 	var undefined []string
+	allKeys := append(slices.Clone(refKeys), keysOf([]*catalog{tr.core})...) // the framework's messages too
 	for _, k := range used {
+		if prefix, ok := strings.CutSuffix(k, "*"); ok { // "issues.status." + s
+			if !slices.ContainsFunc(allKeys, func(r string) bool { return strings.HasPrefix(r, prefix) }) &&
+				!slices.Contains(undefined, k) {
+				undefined = append(undefined, k)
+			}
+			continue
+		}
 		if m, _ := tr.lookup(tr.Default(), k); m == nil && !slices.Contains(undefined, k) {
 			undefined = append(undefined, k)
 		}
@@ -270,11 +280,14 @@ func listOrNone(names []string) string {
 	return "{" + strings.Join(names, "}, {") + "}"
 }
 
-// keyUse matches i18n.T(ctx, "key"…) and i18n.Plural(ctx, "key"…).
-var keyUse = regexp.MustCompile(`i18n\.(?:T|Plural)\(\s*[A-Za-z_][\w.]*(?:\(\))?\s*,\s*"([^"\\]+)"`)
+// keyUse matches i18n.T(ctx, "key"…) and i18n.Plural(ctx, "key"…); the
+// second group, a + after the key, makes it a prefix ("status." + s).
+var keyUse = regexp.MustCompile(`i18n\.(?:T|Plural)\(\s*[A-Za-z_][\w.]*(?:\(\))?\s*,\s*"([^"\\]+)"(\s*\+)?`)
 
 // sourceKeys returns the keys used literally in the .go and .templ files
 // under dir, skipping hidden, vendor, node_modules and testdata folders.
+// A key the source adds to ("issues.status." + s) is returned as a
+// prefix: "issues.status.*".
 func sourceKeys(dir string) ([]string, error) {
 	var keys []string
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
@@ -302,7 +315,11 @@ func sourceKeys(dir string) ([]string, error) {
 			return err
 		}
 		for _, m := range keyUse.FindAllSubmatch(data, -1) {
-			keys = append(keys, string(m[1]))
+			k := string(m[1])
+			if len(m[2]) > 0 {
+				k += "*" // the start of keys made at run time
+			}
+			keys = append(keys, k)
 		}
 		return nil
 	})

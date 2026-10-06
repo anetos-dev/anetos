@@ -1,0 +1,51 @@
+# A systemd unit for tracker (anetos new). Build the binary for the
+# server (go tool anetos build --target=linux/amd64, or linux/arm64),
+# copy it and this file there, then:
+#
+#   sudo install -D bin/tracker /opt/tracker/tracker
+#   sudo install -D -m 600 production.env /etc/tracker/env   # from deploy/production.env.example
+#   sudo cp deploy/tracker.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now tracker
+#
+# It runs as a user of its own, with /var/lib/tracker to write to
+# (files, the SQLite database). To update: copy the new binary and
+# systemctl restart tracker; migrations run before it starts.
+
+[Unit]
+Description=Tracker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+DynamicUser=yes
+StateDirectory=tracker
+WorkingDirectory=/var/lib/tracker
+Environment=APP_ENV=production
+Environment=STORAGE_ROOT=/var/lib/tracker/storage
+Environment=DB_DATABASE=/var/lib/tracker/app.db
+# The settings, which override the lines above: APP_KEY, APP_URL, the database…
+EnvironmentFile=/etc/tracker/env
+ExecStartPre=/opt/tracker/tracker migrate
+ExecStart=/opt/tracker/tracker run
+# Time for the migrations and the start; raise it for long migrations.
+TimeoutStartSec=5min
+Restart=on-failure
+RestartSec=2s
+# Stopping: SIGTERM, then the app finishes its work within
+# APP_SHUTDOWN_TIMEOUT (30s); systemd kills it after 45s.
+KillSignal=SIGTERM
+TimeoutStopSec=45s
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+
+[Install]
+WantedBy=multi-user.target

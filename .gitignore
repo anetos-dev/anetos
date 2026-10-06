@@ -20,6 +20,10 @@ coverage.*
 /examples/assistant/assistant
 /examples/i18n/i18n
 /examples/ai/ai
+/examples/audit/audit
+/examples/admin/admin
+/examples/tracker/tracker
+/examples/tutorial/tracker
 
 # Local environment
 .env

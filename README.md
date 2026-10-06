@@ -49,8 +49,11 @@ two-factor sign-in (TOTP, recovery codes) and password confirmation in
 `auth`, the admin can require both; `make:auth` adds a settings page for
 users (password, email, language, time zone). `anetos build` makes the
 production binary, and new projects come with a Dockerfile and a systemd
-unit ([Deploy](docs/site/guides/deployment.md)). The release work (the
-tutorial, a reference app, security) is next. The docs are at [docs.anetos.dev](https://docs.anetos.dev).
+unit ([Deploy](docs/site/guides/deployment.md)). The
+[tutorial](docs/site/getting-started/tutorial/README.md) builds an issue
+tracker step by step, and [`examples/tracker`](examples/tracker), the
+reference app, is a bigger one. The release work (security, performance,
+API stability) is next. The docs are at [docs.anetos.dev](https://docs.anetos.dev).
 APIs will change.
 
 ## Documents

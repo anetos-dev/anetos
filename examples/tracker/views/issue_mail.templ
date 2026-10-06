@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: Apache-2.0
+
+package views
+
+import "anetos.dev/anetos/i18n"
+
+// AssignedMail tells name that by assigned them the issue ref.
+templ AssignedMail(name, ref, title, by, url string) {
+	@authMail() {
+		<p>{ i18n.T(ctx, "mail.hello", "name", name) }</p>
+		<p>{ i18n.T(ctx, "mail.assigned.body", "by", by, "ref", ref) }</p>
+		<p><strong>{ title }</strong></p>
+		@mailButton(url, i18n.T(ctx, "mail.view_issue"))
+	}
+}
+
+// CommentedMail tells name about by's comment on the issue ref.
+templ CommentedMail(name, ref, title, by, body, url string) {
+	@authMail() {
+		<p>{ i18n.T(ctx, "mail.hello", "name", name) }</p>
+		<p>{ i18n.T(ctx, "mail.commented.body", "by", by, "ref", ref, "title", title) }</p>
+		<blockquote style="white-space:pre-wrap;border-left:3px solid #ddd;margin:0;padding-left:12px">{ body }</blockquote>
+		@mailButton(url, i18n.T(ctx, "mail.view_issue"))
+	}
+}
+
+// DigestMail lists the open issues assigned to name.
+templ DigestMail(name string, issues []DigestLine, url string) {
+	@authMail() {
+		<p>{ i18n.T(ctx, "mail.hello", "name", name) }</p>
+		<p>{ i18n.Plural(ctx, "mail.digest.body", len(issues)) }</p>
+		<ul>
+			for _, l := range issues {
+				<li><a href={ templ.SafeURL(l.URL) }>{ l.Ref }</a> { l.Title } ({ i18n.T(ctx, "issues.priorities." + l.Priority) })</li>
+			}
+		</ul>
+		@mailButton(url, i18n.T(ctx, "mail.digest.dashboard"))
+	}
+}
+
+// mailButton is a link that looks like a button, in emails.
+templ mailButton(url, text string) {
+	<p><a href={ templ.SafeURL(url) } style="display:inline-block;padding:10px 16px;background:#1d1d1f;color:#ffffff;text-decoration:none;border-radius:6px">{ text }</a></p>
+}

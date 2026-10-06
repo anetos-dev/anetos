@@ -7,6 +7,18 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- The tutorial, "Build an issue tracker" (M2, D234): seven parts, from
+  `anetos new` to deploying, in `docs/site/getting-started/tutorial`;
+  its code is `examples/tutorial`.
+- `examples/tracker`, the reference app (M3, D234): an issue tracker
+  with projects and roles, labels, comments with htmx, files, history,
+  search, emails from queue jobs, a weekday digest, an admin and a JSON
+  API, tested on every database.
+- `anetostest.ActingAs(app, u)` signs a user in for the requests that
+  follow (dropping an earlier user's remember-me cookie), and
+  `auth.Auth.LoginSession(s, u)` writes a signed-in session without a
+  request; `auth.Auth.RememberCookie` names the remember-me cookie (M3,
+  D235).
 - `anetos build` (M5, D229): the production build, with `templ
   generate` and `anetos gen` first, then a static binary
   (`CGO_ENABLED=0`, `-trimpath`, `-ldflags="-s -w"`) at
@@ -383,6 +395,23 @@ All notable changes to this project are documented here. The format follows
   "Search by meaning" (S2).
 
 ### Changed
+- `lang:check` treats a key the code completes at run time
+  (`i18n.T(ctx, "issues.status."+s)`) as a prefix some catalog key must
+  start with, instead of reporting it missing (M3, D236).
+- `anetos new` writes a stylesheet with basic styles for forms, buttons
+  and the header (M3).
+- `make:admin:resource` keeps the standard library's imports in their
+  own group, and writes "an" before a vowel (M3).
+- `storage.Disk.Serve` keeps an `attachment` Content-Disposition the
+  handler set, with the uploaded file's name, for files a browser would
+  run (it used to replace it with the stored name) (M3).
+- `lang:check` matches key prefixes against the framework's messages
+  too (`"validation."+rule`) (M3).
+- Fixed: `web.Ctx.SetLocale` raced with database drivers that watch the
+  request's context from goroutines of their own (SQLite's interrupt
+  watcher): the request's context is now replaced atomically, as
+  `Ctx.Events` already did, and error pages after `SetLocale` use the new
+  locale (M3).
 - Password-reset tokens stop working when the user's session key changes
   (signed out everywhere, or elsewhere), as well as when the password
   does (AC1).

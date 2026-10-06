@@ -1,0 +1,61 @@
+package views
+
+import "anetos.dev/anetos/i18n"
+
+// The account emails' HTML bodies (anetos make:auth), in the language of
+// the context they are rendered with; their text is in
+// locales/en/auth.yaml. Mail clients ignore most CSS: the styles are
+// inline. The text bodies are made from these.
+
+// VerifyEmailMail asks name to verify their address with url.
+templ VerifyEmailMail(name, url string) {
+	@authMail() {
+		<p>{ i18n.T(ctx, "auth.mail.hello", "name", name) }</p>
+		<p>{ i18n.T(ctx, "auth.mail.verify.intro") }</p>
+		<p><a href={ templ.SafeURL(url) } style="display:inline-block;padding:10px 16px;background:#1d1d1f;color:#ffffff;text-decoration:none;border-radius:6px">{ i18n.T(ctx, "auth.mail.verify.button") }</a></p>
+		<p>{ i18n.T(ctx, "auth.mail.verify.ignore") }</p>
+	}
+}
+
+// ResetPasswordMail sends name a password reset link, url.
+templ ResetPasswordMail(name, url string) {
+	@authMail() {
+		<p>{ i18n.T(ctx, "auth.mail.hello", "name", name) }</p>
+		<p>{ i18n.T(ctx, "auth.mail.reset.intro") }</p>
+		<p><a href={ templ.SafeURL(url) } style="display:inline-block;padding:10px 16px;background:#1d1d1f;color:#ffffff;text-decoration:none;border-radius:6px">{ i18n.T(ctx, "auth.mail.reset.button") }</a></p>
+		<p>{ i18n.T(ctx, "auth.mail.reset.ignore") }</p>
+	}
+}
+
+// ChangeEmailMail asks name to confirm their new address with url.
+templ ChangeEmailMail(name, url string) {
+	@authMail() {
+		<p>{ i18n.T(ctx, "auth.mail.hello", "name", name) }</p>
+		<p>{ i18n.T(ctx, "auth.mail.change_email.intro") }</p>
+		<p><a href={ templ.SafeURL(url) } style="display:inline-block;padding:10px 16px;background:#1d1d1f;color:#ffffff;text-decoration:none;border-radius:6px">{ i18n.T(ctx, "auth.mail.change_email.button") }</a></p>
+		<p>{ i18n.T(ctx, "auth.mail.change_email.ignore") }</p>
+	}
+}
+
+// EmailChangingMail tells name their account's address is changing to
+// newEmail, with url, which undoes it.
+templ EmailChangingMail(name, newEmail, url string) {
+	@authMail() {
+		<p>{ i18n.T(ctx, "auth.mail.hello", "name", name) }</p>
+		<p>{ i18n.T(ctx, "auth.mail.email_changing.intro", "email", newEmail) }</p>
+		<p>{ i18n.T(ctx, "auth.mail.email_changing.not_you") }</p>
+		<p><a href={ templ.SafeURL(url) } style="display:inline-block;padding:10px 16px;background:#b91c1c;color:#ffffff;text-decoration:none;border-radius:6px">{ i18n.T(ctx, "auth.mail.email_changing.button") }</a></p>
+	}
+}
+
+// authMail is the account emails' shell.
+templ authMail() {
+	<!DOCTYPE html>
+	<html lang={ i18n.Locale(ctx) } dir={ i18n.Dir(ctx) }>
+		<body style="margin:0;padding:24px;background:#f4f4f5;font-family:Arial,sans-serif;color:#18181b">
+			<div style="max-width:560px;margin:0 auto;padding:24px;background:#ffffff;border-radius:8px">
+				{ children... }
+			</div>
+		</body>
+	</html>
+}

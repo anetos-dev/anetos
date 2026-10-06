@@ -1,0 +1,81 @@
+package models
+
+import (
+	"context"
+	"strconv"
+	"strings"
+	"time"
+
+	"anetos.dev/anetos/auth"
+	"anetos.dev/anetos/db"
+)
+
+// User is an account (anetos make:auth). AuthID and AuthPassword are what
+// package auth needs; Users tells it how to find and update users.
+type User struct {
+	db.Model
+	Name            string     `db:"name" json:"name"`
+	Email           string     `db:"email" json:"email"` // stored in lower case
+	Password        string     `db:"password" json:"-"`  // password.Hash
+	RememberToken   string     `db:"remember_token" json:"-"`
+	SessionKey      string     `db:"session_key" json:"-"` // replaced to sign out everywhere
+	EmailVerifiedAt *time.Time `db:"email_verified_at" json:"email_verified_at"`
+	DisabledAt      *time.Time `db:"disabled_at" json:"disabled_at"` // set: can't sign in
+	TwoFactor       string     `db:"two_factor" json:"-"`            // two-factor sign-in, encrypted by package auth
+	PendingEmail    string     `db:"pending_email" json:"-"`         // a new address, until its link is followed
+	Locale          string     `db:"locale" json:"locale"`           // the language chosen in the settings, "" for the browser's
+	TimeZone        string     `db:"time_zone" json:"time_zone"`     // the time zone chosen in the settings, "" for the app's
+}
+
+// AuthID implements auth.Authenticatable.
+func (u *User) AuthID() string { return strconv.FormatInt(u.ID, 10) }
+
+// AuthPassword implements auth.Authenticatable.
+func (u *User) AuthPassword() string { return u.Password }
+
+// PreferredLocale implements i18n.LocalePreference: pages and emails are
+// in the language the user chose, if any.
+func (u *User) PreferredLocale() string { return u.Locale }
+
+// PreferredTimeZone implements i18n.TimeZonePreference: times are shown
+// in the zone the user chose, if any.
+func (u *User) PreferredTimeZone() string { return u.TimeZone }
+
+// Users tells package auth how to find users, which are disabled, and
+// how to store their tokens, session keys, upgraded password hashes and
+// two-factor sign-in.
+var Users = auth.Users[*User]{
+	ByID: func(ctx context.Context, id string) (*User, error) {
+		n, err := strconv.ParseInt(id, 10, 64)
+		if err != nil {
+			return nil, auth.ErrNoUser
+		}
+		u, err := db.Find[User](ctx, n) // db.ErrNotFound: no such user
+		return &u, err
+	},
+	ByLogin: func(ctx context.Context, email string) (*User, error) {
+		u, err := db.Query[User](ctx).Where(UserCols.Email.Eq(strings.ToLower(email))).First()
+		return &u, err
+	},
+	RememberToken: func(u *User) string { return u.RememberToken },
+	SetRememberToken: func(ctx context.Context, u *User, token string) error {
+		_, err := db.Query[User](ctx).Where(UserCols.ID.Eq(u.ID)).Update(UserCols.RememberToken.Set(token))
+		return err
+	},
+	SetPassword: func(ctx context.Context, u *User, hash string) error {
+		_, err := db.Query[User](ctx).Where(UserCols.ID.Eq(u.ID)).Update(UserCols.Password.Set(hash))
+		return err
+	},
+	Disabled:   func(u *User) bool { return u.DisabledAt != nil },
+	SessionKey: func(u *User) string { return u.SessionKey },
+	SetSessionKey: func(ctx context.Context, u *User, key string) error {
+		_, err := db.Query[User](ctx).Where(UserCols.ID.Eq(u.ID)).Update(UserCols.SessionKey.Set(key))
+		return err
+	},
+	TwoFactor: func(u *User) string { return u.TwoFactor },
+	SetTwoFactor: func(ctx context.Context, u *User, state string) error {
+		u.TwoFactor = state
+		_, err := db.Query[User](ctx).Where(UserCols.ID.Eq(u.ID)).Update(UserCols.TwoFactor.Set(state))
+		return err
+	},
+}

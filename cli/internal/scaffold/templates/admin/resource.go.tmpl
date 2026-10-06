@@ -3,16 +3,13 @@ package admin
 import (
 	"context"
 
-[[- if .Date]]
-
-	"anetos.dev/anetos"
-[[- end]]
-	"anetos.dev/anetos/admin"
+[[if .Date]]	"anetos.dev/anetos"
+[[end]]	"anetos.dev/anetos/admin"
 
 	"[[.Module]]/app/models"
 )
 
-// [[.Type]]Form is what the admin edits of a [[.Words]]: only these fields
+// [[.Type]]Form is what the admin edits of [[.A]] [[.Words]]: only these fields
 // can be changed. Add validate tags (required, max:255, email, …) and
 // admin tags (textarea, select=a|b, help=…, -) as the fields need.
 type [[.Type]]Form struct {

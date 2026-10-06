@@ -1,0 +1,69 @@
+// SPDX-License-Identifier: Apache-2.0
+
+package views
+
+import (
+	"anetos.dev/anetos/admin"
+	"anetos.dev/anetos/auth"
+	"anetos.dev/anetos/i18n"
+	"anetos.dev/anetos/view"
+	"anetos.dev/anetos/web"
+
+	"anetos.dev/anetos/examples/tracker/app/models"
+	"anetos.dev/anetos/examples/tracker/public"
+)
+
+// Layout is the page shell. Pages pass their content as children.
+templ Layout(title string) {
+	<!DOCTYPE html>
+	<html lang={ i18n.Locale(ctx) } dir={ i18n.Dir(ctx) }>
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ title } · Tracker</title>
+			for _, a := range web.Alternates(ctx) {
+				<link rel="alternate" hreflang={ a.Locale } href={ a.URL }/>
+			}
+			<link rel="stylesheet" href={ public.Assets.URL("app.css") }/>
+			<script src={ public.Assets.URL("htmx.min.js") } defer></script>
+		</head>
+		<body hx-headers={ `{"X-CSRF-Token": "` + view.CSRFToken(ctx) + `"}` }>
+			@admin.Banner() // while acting as a user (anetos make:admin)
+			<header>
+				<a class="brand" href={ web.URL(ctx, "home") }>Tracker</a>
+				if u, ok := auth.User[*models.User](ctx); ok {
+					<nav>
+						<a href={ web.URL(ctx, "projects.index") }>{ i18n.T(ctx, "nav.projects") }</a>
+						<a href={ web.URL(ctx, "dashboard") }>{ u.Name }</a>
+						<a href={ web.URL(ctx, "settings") }>{ i18n.T(ctx, "nav.settings") }</a>
+					</nav>
+					<form class="search" method="get" action={ web.URL(ctx, "search") } role="search">
+						<input type="search" name="q" placeholder={ i18n.T(ctx, "nav.search") } aria-label={ i18n.T(ctx, "nav.search") }/>
+					</form>
+					<form method="post" action={ web.URL(ctx, "logout") }>
+						@view.CSRFField(ctx)
+						<button class="link" type="submit">{ i18n.T(ctx, "nav.logout") }</button>
+					</form>
+				} else {
+					<nav>
+						<a href={ web.URL(ctx, "login") }>{ i18n.T(ctx, "nav.login") }</a>
+						<a href={ web.URL(ctx, "register") }>{ i18n.T(ctx, "nav.register") }</a>
+					</nav>
+				}
+			</header>
+			if msg := view.Flash(ctx, "status"); msg != "" {
+				<p class="flash" role="status">{ msg }</p>
+			}
+			<main>
+				{ children... }
+			</main>
+		</body>
+	</html>
+}
+
+// fieldError shows the validation message of a form's field, if any.
+templ fieldError(field string) {
+	if msg := view.Errors(ctx).Get(field); msg != "" {
+		<p class="error">{ msg }</p>
+	}
+}

@@ -1,0 +1,14 @@
+package views
+
+// region: mail
+// NewCommentMail is the email about a new comment.
+templ NewCommentMail(name, issue, by, body, url string) {
+	@authMail() {
+		<p>Hello { name },</p>
+		<p>{ by } commented on “{ issue }”:</p>
+		<blockquote>{ body }</blockquote>
+		<p><a href={ templ.SafeURL(url) }>See the issue</a></p>
+	}
+}
+
+// endregion

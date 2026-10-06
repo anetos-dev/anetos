@@ -34,6 +34,8 @@ Packages `auth`, `auth/password`, `auth/social` and `auth/rbac`. How-to: [Authen
 |---|---|
 | `a.Attempt(ctx, login, password, remember)` | Checks the password and signs in; `auth.ErrInvalidCredentials` (401), `*auth.ThrottledError` (429) past `AUTH_THROTTLE` attempts a minute per login or account and IP, or `AUTH_THROTTLE_IP` failures per IP; for a user with two-factor sign-in on, the user and `auth.ErrTwoFactorRequired` (401): the sign-in waits for a code (v0.3) |
 | `a.Login(ctx, u, remember)` | Signs `u` in: new session ID; with `remember`, the remember-me cookie; doesn't ask for a two-factor code |
+| `a.RememberCookie()` | The remember-me cookie's name (`__Host-anetos_remember`, `anetos_remember` with `WithInsecureCookies`) (v0.3) |
+| `a.LoginSession(s, u)` | Writes a signed-in session for `u` into the `*session.Session` without a request, as `Login` without remember-me would: for tests (`anetostest.ActingAs`) and tools; `auth.ErrDisabled` for a disabled user (v0.3) |
 | `a.SignIn(ctx, u, remember)` | `Login`, or for a user with two-factor sign-in on, `auth.ErrTwoFactorRequired` and a sign-in waiting for a code (10 minutes): for sign-in methods other than passwords (v0.3) |
 | `a.AttemptTwoFactor(ctx, code)` | Finishes the waiting sign-in with the authenticator app's code (each used once) or a recovery code (used up); `auth.ErrInvalidCode` (422), `auth.ErrNoPendingSignIn` (401: none, expired, or the password changed), `*auth.ThrottledError` past `AUTH_THROTTLE` a minute or 50 wrong codes a day for the user; `auth.ErrDisabled` (v0.3) |
 | `a.TwoFactorPending(ctx)` | Whether a sign-in waits for a code in the session (v0.3) |

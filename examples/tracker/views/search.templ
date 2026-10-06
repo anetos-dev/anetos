@@ -1,0 +1,28 @@
+// SPDX-License-Identifier: Apache-2.0
+
+package views
+
+import (
+	"anetos.dev/anetos/i18n"
+)
+
+// SearchPage shows the issues matching q in the user's projects.
+templ SearchPage(q string, results []SearchResult) {
+	@Layout(i18n.T(ctx, "search.title")) {
+		<h1>{ i18n.T(ctx, "search.title") }</h1>
+		<form method="get" role="search">
+			<div class="row">
+				<input type="search" name="q" value={ q } aria-label={ i18n.T(ctx, "nav.search") } autofocus/>
+				<button type="submit">{ i18n.T(ctx, "search.submit") }</button>
+			</div>
+		</form>
+		if q != "" && len(results) == 0 {
+			<p>{ i18n.T(ctx, "search.none", "q", q) }</p>
+		}
+		<ul class="list issues">
+			for _, r := range results {
+				@issueRow(r.Project, r.Issue)
+			}
+		</ul>
+	}
+}

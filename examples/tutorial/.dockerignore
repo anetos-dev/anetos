@@ -1,0 +1,13 @@
+# Kept out of the image's build (anetos new): secrets, build output and
+# local data.
+.git
+.env
+.env.*
+!.env.example
+*.env
+/bin/
+/tmp/
+/storage/
+**/*.db
+**/*.db-shm
+**/*.db-wal

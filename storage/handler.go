@@ -17,8 +17,9 @@ import (
 // Files a browser would run ([IsActive]: HTML, SVG, XML, JavaScript,
 // CSS) are sent as application/octet-stream attachments in a sandbox,
 // so an uploaded file can't run on the app's origin, not even through
-// <script src>. A missing file is a 404; other errors are logged and a
-// 500.
+// <script src>; an attachment Content-Disposition already set on w (to
+// name the download) is kept. A missing file is a 404; other errors are
+// logged and a 500.
 //
 //	disk.Serve(c.Writer(), c.Request(), invoice.Path) // in a handler, after checking access
 func (d *Disk) Serve(w http.ResponseWriter, r *http.Request, p string) {
@@ -43,7 +44,11 @@ func (d *Disk) Serve(w http.ResponseWriter, r *http.Request, p string) {
 	if IsActive(ct) {
 		ct = "application/octet-stream"
 		h.Set("Content-Security-Policy", "sandbox")
-		h.Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": baseName(p)}))
+		// An attachment disposition the caller set (with the uploaded
+		// file's name) stays; anything else becomes one.
+		if d, _, err := mime.ParseMediaType(h.Get("Content-Disposition")); err != nil || d != "attachment" {
+			h.Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": baseName(p)}))
+		}
 	}
 	h.Set("Content-Type", ct)
 	if strings.Count(r.Header.Get("Range"), ",") > 0 {

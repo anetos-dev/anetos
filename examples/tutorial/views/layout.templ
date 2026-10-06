@@ -1,0 +1,43 @@
+package views
+
+import (
+	"anetos.dev/anetos/i18n"
+	"anetos.dev/anetos/view"
+	"anetos.dev/anetos/web"
+
+	"tracker/public"
+)
+
+// Layout is the page shell. Pages pass their content as children.
+templ Layout(title string) {
+	<!DOCTYPE html>
+	<html lang={ i18n.Locale(ctx) } dir={ i18n.Dir(ctx) }>
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ title } · Tracker</title>
+			for _, a := range web.Alternates(ctx) {
+				<link rel="alternate" hreflang={ a.Locale } href={ a.URL }/>
+			}
+			<link rel="stylesheet" href={ public.Assets.URL("app.css") }/>
+			<script src={ public.Assets.URL("htmx.min.js") } defer></script>
+		</head>
+		<body hx-headers={ `{"X-CSRF-Token": "` + view.CSRFToken(ctx) + `"}` }>
+			// region: nav
+			<header>
+				<a href={ web.URL(ctx, "home") }>Tracker</a>
+				<a href={ web.URL(ctx, "issues.index") }>Issues</a>
+				<form method="get" action={ web.URL(ctx, "search") } role="search">
+					<input type="search" name="q" placeholder="Search issues" aria-label="Search issues"/>
+				</form>
+			</header>
+			// endregion
+			if msg := view.Flash(ctx, "status"); msg != "" {
+				<p class="flash" role="status">{ msg }</p>
+			}
+			<main>
+				{ children... }
+			</main>
+		</body>
+	</html>
+}

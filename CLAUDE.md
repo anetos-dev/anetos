@@ -33,7 +33,8 @@ minimum and the latest Go release (design D18).
 7. Reference the WP ID in commit messages and CHANGELOG entries.
 8. The project is licensed under Apache-2.0. Every Go file starts with
    `// SPDX-License-Identifier: Apache-2.0` on its first line (generated
-   files, starting with `// Code generated … DO NOT EDIT.`, are exempt). Don't copy code
+   files, starting with `// Code generated … DO NOT EDIT.`, are exempt, and
+   so is `examples/tutorial`, a reader's project as `anetos new` writes it). Don't copy code
    from sources with incompatible licenses (e.g. GPL) into the repo.
 
 ## Commands
@@ -59,9 +60,9 @@ them); otherwise they skip.
 
 Run `make check` before every commit.
 
-After changing a model in `examples/database`, `examples/forms` or
-`examples/saas`, or a `.templ` file in `examples/forms` or `examples/saas`,
-run `go generate ./...` there; after changing the generator's fixtures, run
+After changing a model or a `.templ` file in `examples/database`,
+`examples/forms`, `examples/saas`, `examples/tracker` or
+`examples/tutorial`, run `go generate ./...` there; after changing the generator's fixtures, run
 `go run ./cmd/anetos gen ./internal/modelgen/internal/...` in `cli/`.
 
 `cli/` tests create and build a project with `anetos new` (and download

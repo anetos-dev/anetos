@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: Apache-2.0
+
+package views
+
+import (
+	"anetos.dev/anetos/i18n"
+	"anetos.dev/anetos/web"
+)
+
+// Home is the page guests see. Its text is in locales/en/app.yaml.
+templ Home() {
+	@Layout(i18n.T(ctx, "home.title")) {
+		<h1>{ i18n.T(ctx, "home.welcome") }</h1>
+		<p>{ i18n.T(ctx, "home.intro") }</p>
+		<p>
+			<a class="button" href={ web.URL(ctx, "register") }>{ i18n.T(ctx, "nav.register") }</a>
+			{ " " }<a href={ web.URL(ctx, "login") }>{ i18n.T(ctx, "nav.login") }</a>
+		</p>
+	}
+}
