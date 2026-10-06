@@ -18,6 +18,7 @@ import (
 	"anetos.dev/anetos/anetostest"
 	"anetos.dev/anetos/audit"
 	"anetos.dev/anetos/auth"
+	"anetos.dev/anetos/auth/password"
 	"anetos.dev/anetos/auth/rbac"
 	"anetos.dev/anetos/cache"
 	"anetos.dev/anetos/db"
@@ -35,11 +36,23 @@ type User struct {
 	DisabledAt      *time.Time `db:"disabled_at"`
 	EmailVerifiedAt *time.Time `db:"email_verified_at"`
 	SessionKey      string     `db:"session_key"`
+	Password        string     `db:"password"`
+	TwoFactor       string     `db:"two_factor"`
 }
 
 func (u *User) AuthID() string       { return strconv.FormatInt(u.ID, 10) }
-func (u *User) AuthPassword() string { return "" }
-func (u *User) AdminName() string    { return u.Name }
+func (u *User) AuthPassword() string { return u.Password }
+
+// testPassword is the users' password ("secret"), hashed cheaply.
+var testPassword = func() string {
+	h, err := password.HashWith("secret", password.Params{Memory: 64, Time: 1, Threads: 1})
+	if err != nil {
+		panic(err)
+	}
+	return h
+}()
+
+func (u *User) AdminName() string { return u.Name }
 
 type Post struct {
 	db.Model
@@ -74,6 +87,8 @@ func init() {
 				t.Timestamp("disabled_at").Nullable()
 				t.Timestamp("email_verified_at").Nullable()
 				t.String("session_key", 64).Default("")
+				t.String("password", 255).Default("")
+				t.Text("two_factor").Nullable()
 				t.Timestamps()
 			}),
 			s.Create("posts", func(t *migrate.Table) {
@@ -120,6 +135,12 @@ var users = auth.Users[*User]{
 	SetSessionKey: func(ctx context.Context, u *User, key string) error {
 		u.SessionKey = key
 		_, err := db.Query[User](ctx).WhereKeys(u.ID).Update(db.C("session_key").Set(key))
+		return err
+	},
+	TwoFactor: func(u *User) string { return u.TwoFactor },
+	SetTwoFactor: func(ctx context.Context, u *User, st string) error {
+		u.TwoFactor = st
+		_, err := db.Query[User](ctx).WhereKeys(u.ID).Update(db.C("two_factor").Set(st))
 		return err
 	},
 }
@@ -210,6 +231,12 @@ func setupWith(opts func(p *Panel) error) func(app *anetos.App) (*web.Server, er
 			if err := a.Login(c, u, false); err != nil {
 				return err
 			}
+			// Confirmed, unless asked not to: dangerous actions go on.
+			if c.Query("confirm") != "no" && u.Password != "" {
+				if err := a.ConfirmPassword(c, "secret"); err != nil {
+					return err
+				}
+			}
 			return c.NoContent()
 		})
 		// An app page with the banner, and a change made from it.
@@ -254,7 +281,7 @@ var setup = setupWith(nil)
 // signs them in.
 func signIn(t *testing.T, app *anetostest.App, name string, perms ...rbac.Permission) *User {
 	t.Helper()
-	u := &User{Name: name}
+	u := &User{Name: name, Password: testPassword}
 	if err := db.Create(app.Context(), u); err != nil {
 		t.Fatal(err)
 	}

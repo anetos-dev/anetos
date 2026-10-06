@@ -17,6 +17,7 @@ import (
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/i18n"
 	"anetos.dev/anetos/mailer"
+	"anetos.dev/anetos/qr"
 	"anetos.dev/anetos/queue"
 	"anetos.dev/anetos/validate"
 	"anetos.dev/anetos/view"
@@ -29,8 +30,8 @@ import (
 )
 
 // Accounts serves registration, login and logout, sign-in with Google
-// and GitHub, email verification, password reset and API tokens (anetos
-// make:auth). Hashing, tokens, sessions and throttling are package
+// and GitHub, two-factor sign-in, password confirmation, email
+// verification, password reset and API tokens (anetos make:auth). Hashing, tokens, sessions and throttling are package
 // auth's, and the sign-in flow package social's; this is your code to
 // change.
 type Accounts struct {
@@ -78,6 +79,17 @@ type NewTokenInput struct {
 // TokenID reads {id} from the path.
 type TokenID struct {
 	ID int64 `path:"id"`
+}
+
+// CodeInput is a two-factor code: from the authenticator app, or a
+// recovery code.
+type CodeInput struct {
+	Code string `json:"code" validate:"required|max:30"`
+}
+
+// PasswordInput is the password confirmation form.
+type PasswordInput struct {
+	Password string `json:"password" validate:"required"`
 }
 
 // RegisterPage shows the registration form.
@@ -253,10 +265,150 @@ func (h Accounts) Login(c *web.Ctx, in LoginInput) (web.Responder, error) {
 		return nil, validate.Fail("email", i18n.T(c, "auth.errors.disabled"))
 	case errors.As(err, &throttled):
 		return nil, validate.Fail("email", i18n.T(c, "auth.errors.throttled"))
+	case errors.Is(err, auth.ErrTwoFactorRequired):
+		return web.RedirectRoute("two-factor.challenge"), nil // the password was right: now the code
 	case err != nil:
 		return nil, err
 	}
 	return web.Redirect(auth.Intended(c, "/dashboard")), nil
+}
+
+// ChallengePage asks for the two-factor code of a sign-in waiting for it.
+func (h Accounts) ChallengePage(c *web.Ctx) error {
+	if !h.Auth.TwoFactorPending(c) {
+		return c.Redirect(http.StatusSeeOther, web.LocalePath(c, "/login"))
+	}
+	return c.Render(http.StatusOK, views.TwoFactorChallenge())
+}
+
+// Challenge finishes the sign-in with the code of the user's
+// authenticator app, or a recovery code.
+func (h Accounts) Challenge(c *web.Ctx, in CodeInput) (web.Responder, error) {
+	_, err := h.Auth.AttemptTwoFactor(c, in.Code)
+	var throttled *auth.ThrottledError
+	switch {
+	case errors.Is(err, auth.ErrInvalidCode):
+		return nil, validate.Fail("code", i18n.T(c, "auth.errors.code"))
+	case errors.As(err, &throttled):
+		return nil, validate.Fail("code", i18n.T(c, "auth.errors.throttled"))
+	case errors.Is(err, auth.ErrNoPendingSignIn), errors.Is(err, auth.ErrDisabled):
+		c.Session().Flash("status", i18n.T(c, "auth.errors.sign_in_again"))
+		return web.RedirectRoute("login"), nil
+	case err != nil:
+		return nil, err
+	}
+	return web.Redirect(auth.Intended(c, "/dashboard")), nil
+}
+
+// ConfirmPage asks for the password again, before something sensitive.
+func (Accounts) ConfirmPage(c *web.Ctx) error {
+	return c.Render(http.StatusOK, views.ConfirmPassword())
+}
+
+// ConfirmPassword checks the password, which then holds for
+// AUTH_CONFIRM_TTL, and goes back to where it was asked for.
+func (h Accounts) ConfirmPassword(c *web.Ctx, in PasswordInput) (web.Responder, error) {
+	err := h.Auth.ConfirmPassword(c, in.Password)
+	var throttled *auth.ThrottledError
+	switch {
+	case errors.Is(err, auth.ErrInvalidCredentials):
+		return nil, validate.Fail("password", i18n.T(c, "auth.errors.password"))
+	case errors.As(err, &throttled):
+		return nil, validate.Fail("password", i18n.T(c, "auth.errors.throttled"))
+	case err != nil:
+		return nil, err
+	}
+	return web.Redirect(auth.Intended(c, "/dashboard")), nil
+}
+
+// TwoFactorPage shows two-factor sign-in: off, being set up (the QR code
+// to scan), or on; and the recovery codes once, just after they're made.
+func (h Accounts) TwoFactorPage(c *web.Ctx) error {
+	u, err := auth.Current[*models.User](c)
+	if err != nil {
+		return err
+	}
+	st, err := h.Auth.TwoFactor(u)
+	if err != nil {
+		return err
+	}
+	page := views.TwoFactorPage{Status: st, RecoveryCodes: strings.Fields(view.Flash(c, "recovery_codes"))}
+	if st.Started {
+		setup, err := h.Auth.StartedTwoFactor(u, u.Email)
+		if err != nil {
+			return err
+		}
+		svg, err := qr.SVG(setup.URI, qr.M, 200)
+		if err != nil {
+			return err
+		}
+		page.Secret, page.QR = setup.Secret, svg
+	}
+	return c.Render(http.StatusOK, views.TwoFactor(page))
+}
+
+// StartTwoFactor starts turning on two-factor sign-in: a new secret, for
+// the authenticator app.
+func (h Accounts) StartTwoFactor(c *web.Ctx) error {
+	u, err := auth.Current[*models.User](c)
+	if err != nil {
+		return err
+	}
+	if _, err := h.Auth.StartTwoFactor(c, u, u.Email); err != nil && !errors.Is(err, auth.ErrTwoFactorOn) {
+		return err
+	}
+	return c.RedirectRoute("two-factor")
+}
+
+// ConfirmTwoFactor turns on two-factor sign-in with a code of the app,
+// and shows the recovery codes.
+func (h Accounts) ConfirmTwoFactor(c *web.Ctx, in CodeInput) (web.Responder, error) {
+	u, err := auth.Current[*models.User](c)
+	if err != nil {
+		return nil, err
+	}
+	codes, err := h.Auth.ConfirmTwoFactor(c, u, in.Code)
+	var throttled *auth.ThrottledError
+	switch {
+	case errors.Is(err, auth.ErrInvalidCode):
+		return nil, validate.Fail("code", i18n.T(c, "auth.errors.code"))
+	case errors.As(err, &throttled):
+		return nil, validate.Fail("code", i18n.T(c, "auth.errors.throttled"))
+	case errors.Is(err, auth.ErrTwoFactorOn), errors.Is(err, auth.ErrTwoFactorOff):
+		return web.RedirectRoute("two-factor"), nil
+	case err != nil:
+		return nil, err
+	}
+	c.Session().Flash("recovery_codes", strings.Join(codes, " "))
+	c.Session().Flash("status", i18n.T(c, "auth.status.two_factor_on"))
+	return web.RedirectRoute("two-factor"), nil
+}
+
+// NewRecoveryCodes replaces the recovery codes, and shows the new ones.
+func (h Accounts) NewRecoveryCodes(c *web.Ctx) error {
+	u, err := auth.Current[*models.User](c)
+	if err != nil {
+		return err
+	}
+	codes, err := h.Auth.NewRecoveryCodes(c, u)
+	if err != nil && !errors.Is(err, auth.ErrTwoFactorOff) {
+		return err
+	}
+	c.Session().Flash("recovery_codes", strings.Join(codes, " "))
+	return c.RedirectRoute("two-factor")
+}
+
+// DisableTwoFactor turns off two-factor sign-in.
+func (h Accounts) DisableTwoFactor(c *web.Ctx) error {
+	u, err := auth.Current[*models.User](c)
+	if err != nil {
+		return err
+	}
+	if err := h.Auth.DisableTwoFactor(c, u); err != nil {
+		return err
+	}
+	c.Session().Flash("status", i18n.T(c, "auth.status.two_factor_off"))
+	return c.RedirectRoute("two-factor")
 }
 
 // Logout signs the user out.

@@ -8,6 +8,7 @@ auth:
     password: "Password"
     password_confirmation: "Confirm password"
     new_password: "New password"
+    code: "Code"
   register:
     title: "Register"
     submit: "Register"
@@ -29,6 +30,25 @@ auth:
     verify: "Please verify your email address: we emailed you a link."
     resend: "Send the link again"
     logout: "Log out"
+  challenge:
+    title: "Two-factor sign-in"
+    intro: "Enter the code your authenticator app shows, or one of your recovery codes."
+    submit: "Sign in"
+  confirm:
+    title: "Confirm your password"
+    intro: "This is a sensitive area: please type your password again."
+    submit: "Confirm"
+  two_factor:
+    title: "Two-factor sign-in"
+    off: "Two-factor sign-in is off: your password alone signs you in. Turn it on to also ask for a code from an authenticator app."
+    enable: "Turn on"
+    scan: "Scan this QR code with your authenticator app, then type the code it shows."
+    key: "Or type this key:"
+    confirm: "Turn on"
+    on: {one: "Two-factor sign-in is on. {count} recovery code left.", other: "Two-factor sign-in is on. {count} recovery codes left."}
+    codes: "Your recovery codes (keep them safe: each signs you in once without the app; they won't be shown again):"
+    new_codes: "New recovery codes"
+    disable: "Turn off"
   tokens:
     title: "API tokens"
     new: "Your new token (copy it now, it won't be shown again):"
@@ -49,12 +69,17 @@ auth:
     social_no_email: "Your account there has no verified email address."
     social_unverified: "An account with this email address exists. Log in with your password and verify the address first."
     social_other_account: "The account with this email address signs in with another account there."
+    code: "That code isn't right."
+    password: "That isn't your password."
+    sign_in_again: "Please log in again."
   status:
     verified: "Your email address is verified."
     verification_sent: "We've emailed you a new verification link."
     reset_sent: "If that address has an account, we've emailed it a link."
     password_reset: "Your password has been reset. You can log in now."
     token_revoked: "Token revoked."
+    two_factor_on: "Two-factor sign-in is on."
+    two_factor_off: "Two-factor sign-in is off."
   mail:
     hello: "Hello {name},"
     verify:

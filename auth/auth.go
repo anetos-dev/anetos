@@ -90,6 +90,14 @@ type Users[U Authenticatable] struct {
 	SessionKey func(u U) string
 	// SetSessionKey stores a new session key for the user.
 	SetSessionKey func(ctx context.Context, u U, key string) error
+	// TwoFactor returns the user's two-factor sign-in state, as stored
+	// (a two_factor column, text), "" if none. Optional: with
+	// SetTwoFactor, it enables two-factor sign-in ([Auth.StartTwoFactor]).
+	// Package auth writes it: the secret encrypted with APP_KEY, the
+	// recovery codes hashed.
+	TwoFactor func(u U) string
+	// SetTwoFactor stores the user's two-factor state ("" for none).
+	SetTwoFactor func(ctx context.Context, u U, state string) error
 }
 
 // Config holds the AUTH_* settings.
@@ -116,18 +124,32 @@ type Config struct {
 	// VerifyTTL is how long an email-verification token works.
 	// AUTH_VERIFY_TTL, default 24h.
 	VerifyTTL time.Duration `env:"AUTH_VERIFY_TTL" default:"24h"`
+	// ChallengeURL is where a sign-in waiting for a two-factor code
+	// asks for it ([ErrTwoFactorRequired]). AUTH_CHALLENGE_URL, default
+	// /two-factor-challenge.
+	ChallengeURL string `env:"AUTH_CHALLENGE_URL" default:"/two-factor-challenge"`
+	// TwoFactorURL is where users turn two-factor sign-in on and off.
+	// AUTH_TWO_FACTOR_URL, default /two-factor.
+	TwoFactorURL string `env:"AUTH_TWO_FACTOR_URL" default:"/two-factor"`
+	// ConfirmURL is where [Auth.RequireConfirmed] sends users to confirm
+	// their password. AUTH_CONFIRM_URL, default /confirm-password.
+	ConfirmURL string `env:"AUTH_CONFIRM_URL" default:"/confirm-password"`
+	// ConfirmTTL is how long a confirmed password holds.
+	// AUTH_CONFIRM_TTL, default 15m.
+	ConfirmTTL time.Duration `env:"AUTH_CONFIRM_TTL" default:"15m"`
 }
 
 // Validate implements config.Validator.
 func (c Config) Validate() error {
 	var errs []error
-	for name, u := range map[string]string{"AUTH_LOGIN_URL": c.LoginURL, "AUTH_HOME_URL": c.HomeURL} {
+	for name, u := range map[string]string{"AUTH_LOGIN_URL": c.LoginURL, "AUTH_HOME_URL": c.HomeURL,
+		"AUTH_CHALLENGE_URL": c.ChallengeURL, "AUTH_TWO_FACTOR_URL": c.TwoFactorURL, "AUTH_CONFIRM_URL": c.ConfirmURL} {
 		if !localPath(u) {
 			errs = append(errs, fmt.Errorf("%s %q must be a path on this site (starting with /)", name, u))
 		}
 	}
-	if c.RememberLifetime < time.Minute || c.ResetTTL < time.Minute || c.VerifyTTL < time.Minute {
-		errs = append(errs, errors.New("AUTH_REMEMBER_LIFETIME, AUTH_RESET_TTL and AUTH_VERIFY_TTL must be at least 1m"))
+	if c.RememberLifetime < time.Minute || c.ResetTTL < time.Minute || c.VerifyTTL < time.Minute || c.ConfirmTTL < time.Minute {
+		errs = append(errs, errors.New("AUTH_REMEMBER_LIFETIME, AUTH_RESET_TTL, AUTH_VERIFY_TTL and AUTH_CONFIRM_TTL must be at least 1m"))
 	}
 	if c.Throttle < 1 || c.ThrottleIP < 1 {
 		errs = append(errs, errors.New("AUTH_THROTTLE and AUTH_THROTTLE_IP must be at least 1"))
@@ -147,6 +169,7 @@ type Auth[U Authenticatable] struct {
 	log    *slog.Logger
 	secure bool   // remember cookie Secure
 	cookie string // remember cookie name
+	issuer string // two-factor setups' issuer
 	now    func() time.Time
 }
 
@@ -156,10 +179,15 @@ type Option func(*options)
 type options struct {
 	log    *slog.Logger
 	secure bool
+	issuer string
 }
 
 // WithLogger sets the logger. Default slog.Default().
 func WithLogger(l *slog.Logger) Option { return func(o *options) { o.log = l } }
+
+// WithIssuer names the app in users' authenticator apps (two-factor
+// sign-in). ForApp uses APP_NAME.
+func WithIssuer(name string) Option { return func(o *options) { o.issuer = name } }
 
 // WithInsecureCookies lets the remember-me cookie travel over plain HTTP,
 // for development and tests. ForApp uses it outside production-like
@@ -180,6 +208,9 @@ func New[U Authenticatable](cfg Config, users Users[U], enc *encryption.Encrypte
 	if (users.SessionKey == nil) != (users.SetSessionKey == nil) {
 		return nil, errors.New("auth: Users needs both SessionKey and SetSessionKey, or neither")
 	}
+	if (users.TwoFactor == nil) != (users.SetTwoFactor == nil) {
+		return nil, errors.New("auth: Users needs both TwoFactor and SetTwoFactor, or neither")
+	}
 	if enc == nil {
 		return nil, errors.New("auth: nil Encrypter")
 	}
@@ -191,7 +222,7 @@ func New[U Authenticatable](cfg Config, users Users[U], enc *encryption.Encrypte
 	if o.secure {
 		name = "__Host-" + name
 	}
-	return &Auth[U]{cfg: cfg, users: users, enc: enc, log: o.log, secure: o.secure, cookie: name, now: time.Now}, nil
+	return &Auth[U]{cfg: cfg, users: users, enc: enc, log: o.log, secure: o.secure, cookie: name, issuer: o.issuer, now: time.Now}, nil
 }
 
 // ForApp returns an Auth configured from the AUTH_* settings and APP_KEY,
@@ -213,7 +244,7 @@ func ForApp[U Authenticatable](app *anetos.App, users Users[U]) (*Auth[U], error
 	if err != nil {
 		return nil, fmt.Errorf("auth: %w", err)
 	}
-	opts := []Option{WithLogger(app.Logger().With("component", "auth"))}
+	opts := []Option{WithLogger(app.Logger().With("component", "auth")), WithIssuer(app.Config().Name)}
 	if m, err := anetos.Resolve[*session.Manager](app); err == nil {
 		if s := m.Config().Secure; s != nil && !*s {
 			opts = append(opts, WithInsecureCookies())

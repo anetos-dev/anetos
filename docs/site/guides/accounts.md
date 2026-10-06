@@ -6,8 +6,9 @@ since: v0.2.0
 # Add accounts with make:auth
 
 Give your app user accounts in one command: registration, login with
-"remember me" and throttling, sign-in with Google and GitHub, logout,
-email verification, password reset and API tokens, with their pages,
+"remember me" and throttling, sign-in with Google and GitHub,
+two-factor sign-in, logout, email verification, password reset and API
+tokens, with their pages,
 emails, routes, migration and tests. The code is written into your app, where you change it as you
 like; the parts that must be right (password hashing, tokens, sessions,
 throttling, the OAuth flow) stay in the [`auth`](authentication.md) and
@@ -55,7 +56,8 @@ to `setupAuth` to `setup` in `main.go`, after `routes.Register`:
 // illustrative: main.go after make:auth
 routes.Register(srv.Router(), sessions)
 // Accounts (anetos make:auth): registration, login with a password,
-// Google or GitHub, email verification, password reset and API tokens.
+// Google or GitHub, two-factor sign-in, email verification, password
+// reset and API tokens.
 if _, err := setupAuth(app, srv.Router(), sessions); err != nil {
 	return nil, err
 }
@@ -101,7 +103,8 @@ how to add another provider (Okta, Auth0, any OpenID Connect provider).
 ### 4. Run the tests
 
 `auth_test.go` registers, verifies the address by following the
-emailed link, logs in and out, resets the password, uses an API token,
+emailed link, logs in and out, turns on two-factor sign-in and signs in
+with a recovery code, resets the password, uses an API token,
 and signs in with Google and GitHub through a stand-in provider
 (`anetostest.FakeSocial`):
 
@@ -116,7 +119,7 @@ matter.
 
 | File | Holds |
 |---|---|
-| `app/models/user.go` | `User`, and `models.Users`: how `auth` finds users, which are disabled (`disabled_at`), and stores their tokens and session keys (`session_key`, replaced to sign them out everywhere). Add columns here and in a migration |
+| `app/models/user.go` | `User`, and `models.Users`: how `auth` finds users, which are disabled (`disabled_at`), and stores their tokens, session keys (`session_key`, replaced to sign them out everywhere) and two-factor state (`two_factor`, encrypted). Add columns here and in a migration |
 | `app/handlers/auth.go` | `handlers.Accounts`: each page and form. Validation messages, redirects and what happens after registration are here; `SocialUser` finds or creates the user of a Google or GitHub account; `SendVerification` and `SendPasswordReset` email the links (the admin's buttons use them too) |
 | `views/auth.templ` | The pages, inside your `Layout` |
 | `app/mailers/auth.go`, `views/auth_mail.templ` | The verification and reset emails |
@@ -130,6 +133,7 @@ The routes:
 |---|---|
 | `GET`, `POST /register` | Guests: create an account, email the verification link, sign in (10 posts a minute per client IP address) |
 | `GET`, `POST /login` | Guests: sign in (`AUTH_THROTTLE` limits failures) |
+| `GET`, `POST /two-factor-challenge` | Guests whose sign-in waits for a two-factor code: the authenticator app's, or a recovery code |
 | `GET`, `POST /forgot-password` | Guests: email a reset link (5 posts a minute per client IP address; 3 links an hour per address, the same answer after) |
 | `GET`, `POST /reset-password` | Guests: choose a new password with the link |
 | `GET /auth/{provider}/redirect`, `GET /auth/{provider}/callback` | Guests: sign in with Google or GitHub (404 for a provider whose settings aren't set) |
@@ -138,6 +142,8 @@ The routes:
 | `POST /logout` | Signed-in users |
 | `POST /email/verification-notification` | Signed-in users: email the link again (3 a minute per client IP address, 6 an hour per account) |
 | `POST /tokens`, `POST /tokens/{id}/delete` | Signed-in users: create (shown once) and revoke API tokens |
+| `GET`, `POST /confirm-password` | Signed-in users: type the password again before a sensitive page (`a.RequireConfirmed`), then go back |
+| `GET`, `POST /two-factor`, `POST /two-factor/confirm`, `/recovery-codes`, `/disable` | Signed-in users who confirmed their password lately: turn two-factor sign-in on (a QR code, then a code), get new recovery codes, turn it off. See [Two-factor sign-in](two-factor.md) |
 | `GET /api/me` | API clients, with `Authorization: Bearer <token>` |
 
 Signed-in users who open a guest page go to `AUTH_HOME_URL` (default
@@ -252,6 +258,7 @@ user has no other account of that provider linked.
 
 - [Authentication](authentication.md): the `auth` package.
 - [Social login](social-login.md): providers, linking and testing.
+- [Two-factor sign-in and password confirmation](two-factor.md).
 - [Send email](mail.md): send the emails with SMTP or Postmark.
 - [Authorization](authorization.md): policies.
 

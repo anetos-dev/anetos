@@ -10,7 +10,9 @@ import (
 	"testing"
 	"time"
 
+	"anetos.dev/anetos"
 	"anetos.dev/anetos/anetostest"
+	"anetos.dev/anetos/auth"
 	"anetos.dev/anetos/auth/password"
 	"anetos.dev/anetos/db"
 )
@@ -194,6 +196,41 @@ func TestResetLinkExpires(t *testing.T) {
 	app.Get("/reset-password?" + q.Encode())
 	app.PostForm("/reset-password", url.Values{"token": {q.Get("token")}, "password": {"new password"}, "password_confirmation": {"new password"}}).
 		AssertValidationErrors("password")
+}
+
+// endregion
+
+// region: test-two-factor
+// Two-factor sign-in: turned on with a code of the authenticator app
+// (auth.TwoFactorCode computes it), then asked for after the password.
+func TestTwoFactor(t *testing.T) {
+	app := anetostest.New(t, setup)
+	ada := createUser(t, app, "Ada", "ada@example.com", false)
+	app.Get("/login")
+	app.PostForm("/login", url.Values{"email": {"ada@example.com"}, "password": {"password1"}})
+
+	app.Get("/two-factor").AssertRedirect("/confirm-password") // the password again first
+	app.PostForm("/confirm-password", url.Values{"password": {"password1"}}).AssertRedirect("/two-factor")
+	app.PostForm("/two-factor", nil).AssertRedirect("/two-factor").Follow().AssertSee("<svg", "Or type this key")
+
+	ada, _ = users.ByID(app.Context(), ada.AuthID()) // with the secret stored
+	setup, err := anetos.MustResolve[*auth.Auth[*User]](app.App).StartedTwoFactor(ada, ada.Email)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code, _ := auth.TwoFactorCode(setup.Secret, app.Now())
+	app.PostForm("/two-factor/confirm", url.Values{"code": {code}}).AssertRedirect("/two-factor").
+		Follow().AssertSee("Your recovery codes", "On: 8 recovery codes left.")
+
+	app.PostForm("/logout", nil)
+	app.Get("/login")
+	app.PostForm("/login", url.Values{"email": {"ada@example.com"}, "password": {"password1"}}).AssertRedirect("/two-factor-challenge")
+	app.Get("/dashboard").AssertRedirect("/login") // not signed in yet
+	app.Get("/two-factor-challenge")
+	app.PostForm("/two-factor-challenge", url.Values{"code": {code}}).AssertValidationErrors("code") // used already
+	app.Travel(30 * time.Second)
+	code, _ = auth.TwoFactorCode(setup.Secret, app.Now())
+	app.PostForm("/two-factor-challenge", url.Values{"code": {code}}).AssertRedirect("/dashboard")
 }
 
 // endregion

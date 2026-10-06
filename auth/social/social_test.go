@@ -33,7 +33,7 @@ import (
 )
 
 type user struct {
-	ID, Email, Remember string
+	ID, Email, Remember, TwoF string
 }
 
 func (u *user) AuthID() string     { return u.ID }
@@ -58,7 +58,14 @@ func (s *users) auth() auth.Users[*user] {
 			}
 			return nil, auth.ErrNoUser
 		},
-		ByLogin:       func(context.Context, string) (*user, error) { return nil, auth.ErrNoUser },
+		ByLogin:   func(context.Context, string) (*user, error) { return nil, auth.ErrNoUser },
+		TwoFactor: func(u *user) string { return u.TwoF },
+		SetTwoFactor: func(_ context.Context, u *user, st string) error {
+			s.mu.Lock()
+			defer s.mu.Unlock()
+			s.byID[u.ID].TwoF = st
+			return nil
+		},
 		RememberToken: func(u *user) string { return u.Remember },
 		SetRememberToken: func(_ context.Context, u *user, tok string) error {
 			s.mu.Lock()
@@ -187,8 +194,11 @@ func (b *browser) get(target string) response {
 	return response{w.Code, w.Header().Get("Location"), w.Body.String(), w.Header()}
 }
 
-// lastSocial is the Social the last setup made.
-var lastSocial *social.Social[*user]
+// lastSocial is the Social the last setup made, and lastAuth its Auth.
+var (
+	lastSocial *social.Social[*user]
+	lastAuth   *auth.Auth[*user]
+)
 
 func setup(t *testing.T, p *provider, providers ...social.Provider) (*users, *browser) {
 	t.Helper()
@@ -220,7 +230,7 @@ func setup(t *testing.T, p *provider, providers ...social.Provider) (*users, *br
 	if err != nil {
 		t.Fatal(err)
 	}
-	lastSocial = s
+	lastSocial, lastAuth = s, a
 	srv, err := web.NewServer(app)
 	if err != nil {
 		t.Fatal(err)
@@ -264,6 +274,36 @@ func TestOIDCSignIn(t *testing.T) {
 	prof := store.seen[0]
 	if prof.Provider != "fake" || prof.Subject != "u-42" || !prof.EmailVerified || prof.Name != "Ada" || prof.Token.AccessToken != "at" {
 		t.Errorf("profile: %+v", prof)
+	}
+}
+
+// A user with two-factor sign-in on is asked for a code.
+func TestTwoFactor(t *testing.T) {
+	p := newProvider(t)
+	store, b := setup(t, p)
+	signIn(t, p, b, "fake")
+	var u *user
+	for _, x := range store.byID { // the one user
+		u = x
+	}
+	started, err := lastAuth.StartTwoFactor(b.ctx, u, u.Email)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code, err := auth.TwoFactorCode(started.Secret, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := lastAuth.ConfirmTwoFactor(b.ctx, store.byID[u.ID], code); err != nil {
+		t.Fatal(err)
+	}
+	jar, _ := cookiejar.New(nil)
+	b2 := &browser{t: t, h: b.h, ctx: b.ctx, jar: jar}
+	if res := signIn(t, p, b2, "fake"); res.code != http.StatusSeeOther || res.location != "/two-factor-challenge" {
+		t.Errorf("callback: %d %s", res.code, res.location)
+	}
+	if got := b2.get("/home"); got.code != http.StatusSeeOther {
+		t.Errorf("signed in without the code: %d", got.code)
 	}
 }
 

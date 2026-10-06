@@ -1,6 +1,7 @@
 {{define "account"}}<dl class="details">
 {{if .Status}}<dt>Status</dt><dd>{{if .Disabled}}<span class="danger">{{.Status}}</span>{{else}}{{.Status}}{{end}}</dd>{{end}}
 {{if .Email}}<dt>Email</dt><dd>{{.Email}}</dd>{{end}}
+{{if .TwoFactor}}<dt>Two-factor sign-in</dt><dd>{{.TwoFactor}}</dd>{{end}}
 </dl>{{end}}
 
 {{define "roles"}}{{$csrf := .CSRF}}

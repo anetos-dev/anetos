@@ -34,7 +34,8 @@ var authFiles = [][2]string{
 
 // authCall is what make:auth adds to setup in main.go, after the routes.
 const authCall = `	// Accounts (anetos make:auth): registration, login with a password,
-	// Google or GitHub, email verification, password reset and API tokens.
+	// Google or GitHub, two-factor sign-in, email verification, password
+	// reset and API tokens.
 	if _, err := setupAuth(app, srv.Router(), sessions); err != nil {
 		return nil, err
 	}
@@ -217,11 +218,11 @@ func addSettings(file, block string) (bool, error) {
 // package directory ("" is the root, package main).
 var authNames = map[string][]string{
 	"app/models":   {"User", "Users", "UserCols"},
-	"app/handlers": {"Accounts", "RegisterInput", "LoginInput", "ForgotInput", "ResetInput", "TokenQuery", "NewTokenInput", "TokenID", "SocialUser", "SendVerification", "SendPasswordReset", "emailTaken", "cleanName"},
+	"app/handlers": {"Accounts", "RegisterInput", "LoginInput", "ForgotInput", "ResetInput", "TokenQuery", "NewTokenInput", "TokenID", "CodeInput", "PasswordInput", "SocialUser", "SendVerification", "SendPasswordReset", "emailTaken", "cleanName"},
 	"app/mailers":  {"VerifyEmail", "ResetPassword"},
-	"views":        {"SocialButton", "Register", "Login", "ForgotPassword", "ResetPassword", "Dashboard", "socialButtons", "authError", "VerifyEmailMail", "ResetPasswordMail", "authMail"},
+	"views":        {"SocialButton", "Register", "Login", "ForgotPassword", "ResetPassword", "Dashboard", "TwoFactorChallenge", "ConfirmPassword", "TwoFactorPage", "TwoFactor", "socialButtons", "authError", "VerifyEmailMail", "ResetPasswordMail", "authMail"},
 	"routes":       {"Auth"},
-	"":             {"setupAuth", "authRegister", "authLink", "TestRegisterAndVerify", "TestResendVerification", "TestRegisterValidation", "TestLoginAndLogout", "TestDisabledAccount", "TestLoginReturnsToTheRequestedPage", "TestPasswordReset", "TestResetSignsOutAndRevokesTokens", "TestAPIToken", "TestSocialSignIn", "TestSocialSignInFindsVerifiedAccounts"},
+	"":             {"setupAuth", "authRegister", "authLink", "TestRegisterAndVerify", "TestResendVerification", "TestRegisterValidation", "TestLoginAndLogout", "TestTwoFactor", "TestDisabledAccount", "TestLoginReturnsToTheRequestedPage", "TestPasswordReset", "TestResetSignsOutAndRevokesTokens", "TestAPIToken", "TestSocialSignIn", "TestSocialSignInFindsVerifiedAccounts"},
 }
 
 func dirLabel(dir string) string {

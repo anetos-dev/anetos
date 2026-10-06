@@ -81,7 +81,7 @@ func usersApp(t *testing.T) (*anetostest.App, *mail) {
 // person creates a user with roles (none: no role).
 func person(t *testing.T, app *anetostest.App, name string, roles ...string) *User {
 	t.Helper()
-	u := &User{Name: name, Email: strings.ToLower(name) + "@example.com"}
+	u := &User{Name: name, Email: strings.ToLower(name) + "@example.com", Password: testPassword}
 	if err := db.Create(app.Context(), u); err != nil {
 		t.Fatal(err)
 	}
@@ -285,7 +285,10 @@ func TestImpersonation(t *testing.T) {
 	// While acting as someone, the admin's own pages show the banner too,
 	// and no one else can be acted as until it stops.
 	carl := person(t, app, "Carl")
-	app.PostForm(userURL(bob, "/actions/impersonate"), nil)
+	// Signing back in forgot the confirmed password.
+	app.PostForm(userURL(bob, "/actions/impersonate"), nil).AssertRedirect("/admin/confirm?back=%2Fadmin%2Fusers%2F" + bob.AuthID())
+	app.PostForm("/admin/confirm", url.Values{"password": {"secret"}, "back": {userURL(bob, "")}}).AssertRedirect(userURL(bob, ""))
+	app.PostForm(userURL(bob, "/actions/impersonate"), nil).AssertRedirect("/")
 	if err := rbac.Assign(app.Context(), bob.AuthID(), rbac.Global, "support"); err != nil {
 		t.Fatal(err)
 	}

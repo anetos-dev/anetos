@@ -20,6 +20,29 @@ All notable changes to this project are documented here. The format follows
   embedded `html/template` with htmx and their own stylesheet, under a
   strict CSP. `anetos make:admin` and `anetos make:admin:resource
   <Model>`; guide "Add an admin panel", `examples/admin` (AD1a, D211–D214).
+- Two-factor sign-in in package `auth` (AD2b, D224): TOTP codes from an
+  authenticator app and recovery codes, the state stored encrypted with
+  `APP_KEY` through `Users.TwoFactor` and `SetTwoFactor`;
+  `StartTwoFactor`, `StartedTwoFactor`, `ConfirmTwoFactor`,
+  `NewRecoveryCodes`, `DisableTwoFactor`, `TwoFactor`; `Attempt` and the
+  new `SignIn` return `ErrTwoFactorRequired` for users who have it on,
+  and `AttemptTwoFactor` finishes the sign-in (`AUTH_CHALLENGE_URL`,
+  `AUTH_TWO_FACTOR_URL`); `auth.TwoFactorCode` for tests. Social login
+  asks for the code too. Guide "Two-factor sign-in and password
+  confirmation", `examples/auth`.
+- Password confirmation (AD2b, D225): `Auth.ConfirmPassword`,
+  `PasswordConfirmed` and the `RequireConfirmed` middleware
+  (`AUTH_CONFIRM_URL`, `AUTH_CONFIRM_TTL`).
+- Package `qr`: QR codes as SVG (AD2b, D226).
+- The admin's protections (AD2b, D225, D226): the password asked again
+  before dangerous actions (`ADMIN_CONFIRM`, default on),
+  `ADMIN_TWO_FACTOR=required`, `ADMIN_ALLOW_IPS`; a user's page shows
+  their two-factor sign-in, which can be turned off for them.
+- `anetos make:auth` adds two-factor sign-in (the code after the
+  password, a page to turn it on with a QR code and off, recovery
+  codes) and the password confirmation page; a `two_factor` column in
+  the users table (AD2b). Apps made before add the column and the two
+  `Users` functions by hand.
 - The admin's dashboard and operations (AD2a, D221–D223): widgets on its
   first page (`Panel.Dashboard`, `admin.Widget` with figures, a bar chart
   as SVG, a table, any component and a link; built in `admin.SignUps`,
@@ -321,6 +344,11 @@ All notable changes to this project are documented here. The format follows
   "Search by meaning" (S2).
 
 ### Changed
+- `auth/social`'s callback signs in with `Auth.SignIn`: users with
+  two-factor sign-in on are sent to `AUTH_CHALLENGE_URL` for their code
+  (AD2b).
+- The admin asks for the user's password again before dangerous actions
+  (`ADMIN_CONFIRM=false` turns it off) (AD2b).
 - Writes to a table watched with `db.DB.Watch` (the audit log) run in a
   transaction, a savepoint inside an open one, so model hooks run inside
   it; on MySQL, `CreateMany` on such a table inserts rows one by one so

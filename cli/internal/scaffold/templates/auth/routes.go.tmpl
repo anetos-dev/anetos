@@ -12,9 +12,10 @@ import (
 )
 
 // Auth adds the account routes (anetos make:auth). Guests may register,
-// log in (with a password, Google or GitHub) and reset their password;
-// signed-in users have a dashboard, API tokens and logout; API clients
-// use /api with a token.
+// log in (with a password, Google or GitHub, then a two-factor code if
+// they have it on) and reset their password; signed-in users have a
+// dashboard, API tokens, two-factor sign-in and logout; API clients use
+// /api with a token.
 func Auth(r *web.Router, sessions *session.Manager, a *auth.Auth[*models.User], s *social.Social[*models.User]) {
 	h := handlers.Accounts{Auth: a, Social: s}
 	pages := r.Group("", sessions.Middleware, web.CSRF(), a.Middleware)
@@ -34,6 +35,9 @@ func Auth(r *web.Router, sessions *session.Manager, a *auth.Auth[*models.User], 
 	// whose settings aren't set).
 	guests.Get("/auth/{provider}/redirect", s.Redirect).Name("social.redirect")
 	guests.Get("/auth/{provider}/callback", s.Callback).Name("social.callback")
+	// The code of two-factor sign-in, after the password (AUTH_CHALLENGE_URL).
+	guests.Get("/two-factor-challenge", h.ChallengePage).Name("two-factor.challenge")
+	guests.Post("/two-factor-challenge", web.H(h.Challenge))
 
 	members := pages.Group("", a.Require) // guests go to AUTH_LOGIN_URL
 	members.Get("/dashboard", h.Dashboard).Name("dashboard")
@@ -42,6 +46,17 @@ func Auth(r *web.Router, sessions *session.Manager, a *auth.Auth[*models.User], 
 		Post("/email/verification-notification", h.ResendVerification).Name("verification.send")
 	members.Post("/tokens", web.H(h.CreateToken)).Name("tokens.store")
 	members.Post("/tokens/{id}/delete", web.H(h.RevokeToken)).Name("tokens.destroy")
+	members.Get("/confirm-password", h.ConfirmPage).Name("password.confirm") // AUTH_CONFIRM_URL
+	members.Post("/confirm-password", web.H(h.ConfirmPassword))
+
+	// Two-factor sign-in (AUTH_TWO_FACTOR_URL), once the password is
+	// confirmed again (AUTH_CONFIRM_TTL).
+	secure := members.Group("", a.RequireConfirmed)
+	secure.Get("/two-factor", h.TwoFactorPage).Name("two-factor")
+	secure.Post("/two-factor", h.StartTwoFactor).Name("two-factor.start")
+	secure.Post("/two-factor/confirm", web.H(h.ConfirmTwoFactor)).Name("two-factor.confirm")
+	secure.Post("/two-factor/recovery-codes", h.NewRecoveryCodes).Name("two-factor.recovery-codes")
+	secure.Post("/two-factor/disable", h.DisableTwoFactor).Name("two-factor.disable")
 
 	api := r.Group("/api", a.TokenMiddleware, a.Require) // Authorization: Bearer <token>
 	api.Get("/me", h.Me).Name("api.me")

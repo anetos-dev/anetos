@@ -13,9 +13,9 @@ Packages `auth`, `auth/password`, `auth/social` and `auth/rbac`. How-to: [Authen
 | API | Does |
 |---|---|
 | `auth.Authenticatable` | `AuthID() string` and `AuthPassword() string`, implemented by the app's user type |
-| `auth.Users[U]{ByID, ByLogin, RememberToken, SetRememberToken, SetPassword, Disabled, SessionKey, SetSessionKey}` | How to find users (required: `ByID`, `ByLogin`; they return `db.ErrNotFound` or `auth.ErrNoUser`), store remember-me tokens and upgraded hashes; which accounts are disabled (`Disabled`, v0.3); the session key sessions are bound to (`SessionKey` and `SetSessionKey`, both or neither, v0.3) |
+| `auth.Users[U]{ByID, ByLogin, RememberToken, SetRememberToken, SetPassword, Disabled, SessionKey, SetSessionKey, TwoFactor, SetTwoFactor}` | How to find users (required: `ByID`, `ByLogin`; they return `db.ErrNotFound` or `auth.ErrNoUser`), store remember-me tokens and upgraded hashes; which accounts are disabled (`Disabled`, v0.3); the session key sessions are bound to (`SessionKey` and `SetSessionKey`, both or neither, v0.3); the two-factor state, stored encrypted (`TwoFactor` and `SetTwoFactor`, both or neither, v0.3) |
 | `auth.ForApp(app, users)` | `*auth.Auth[U]` from `AUTH_*` and `APP_KEY`; needs `cache.ForApp` first; provided to the app; once per app |
-| `auth.New(cfg, users, enc, opts...)` | Without an app; `auth.WithLogger`, `auth.WithInsecureCookies` |
+| `auth.New(cfg, users, enc, opts...)` | Without an app; `auth.WithLogger`, `auth.WithInsecureCookies`, `auth.WithIssuer(name)` (two-factor setups' issuer; `ForApp` uses `APP_NAME`, v0.3) |
 | `auth.Migrations()` | The `api_tokens` table, for `migrate.ForApp` |
 
 ## Middleware
@@ -26,13 +26,18 @@ Packages `auth`, `auth/password`, `auth/social` and `auth/rbac`. How-to: [Authen
 | `a.Require` | Signed-in users only: guests asking for a page are redirected to `AUTH_LOGIN_URL`; others, and every request on routes without sessions, get 401 |
 | `a.Guest` | Guests only: signed-in users are redirected to `AUTH_HOME_URL` |
 | `a.TokenMiddleware` | Signs in the user of a `Bearer` API token; invalid tokens get 401; no token (or another scheme) passes as a guest |
+| `a.RequireConfirmed` | Users who confirmed their password in the last `AUTH_CONFIRM_TTL` only: others are sent to `AUTH_CONFIRM_URL`, to come back after (to the page for GET, else to the page the form was on); API clients and htmx requests get `auth.ErrPasswordNotConfirmed` (423). After `Require` (v0.3) |
 
 ## Signing in and out
 
 | API | Does |
 |---|---|
-| `a.Attempt(ctx, login, password, remember)` | Checks the password and signs in; `auth.ErrInvalidCredentials` (401), `*auth.ThrottledError` (429) past `AUTH_THROTTLE` attempts a minute per login or account and IP, or `AUTH_THROTTLE_IP` failures per IP |
-| `a.Login(ctx, u, remember)` | Signs `u` in: new session ID; with `remember`, the remember-me cookie |
+| `a.Attempt(ctx, login, password, remember)` | Checks the password and signs in; `auth.ErrInvalidCredentials` (401), `*auth.ThrottledError` (429) past `AUTH_THROTTLE` attempts a minute per login or account and IP, or `AUTH_THROTTLE_IP` failures per IP; for a user with two-factor sign-in on, the user and `auth.ErrTwoFactorRequired` (401): the sign-in waits for a code (v0.3) |
+| `a.Login(ctx, u, remember)` | Signs `u` in: new session ID; with `remember`, the remember-me cookie; doesn't ask for a two-factor code |
+| `a.SignIn(ctx, u, remember)` | `Login`, or for a user with two-factor sign-in on, `auth.ErrTwoFactorRequired` and a sign-in waiting for a code (10 minutes): for sign-in methods other than passwords (v0.3) |
+| `a.AttemptTwoFactor(ctx, code)` | Finishes the waiting sign-in with the authenticator app's code (each used once) or a recovery code (used up); `auth.ErrInvalidCode` (422), `auth.ErrNoPendingSignIn` (401: none, expired, or the password changed), `*auth.ThrottledError` past `AUTH_THROTTLE` a minute or 50 wrong codes a day for the user; `auth.ErrDisabled` (v0.3) |
+| `a.TwoFactorPending(ctx)` | Whether a sign-in waits for a code in the session (v0.3) |
+| `a.ConfirmPassword(ctx, password)`, `a.PasswordConfirmed(ctx)` | Checks the signed-in user's password again, which holds for `AUTH_CONFIRM_TTL`; `auth.ErrInvalidCredentials` (also without a password); `AUTH_THROTTLE` tries a minute for the user, from any address; not while acting as another user. For a user without a password, a sign-in through `SignIn` counts. Signing in or out, and acting as someone, forget it; never for API tokens (v0.3) |
 | `a.CanRemember()` | Whether "remember me" is available (`Users.RememberToken` set) |
 | `a.Logout(ctx)` | Empties the session, removes the cookie, replaces the remember token |
 | `auth.User[U](ctx)` | The signed-in user, and whether there is one |
@@ -51,6 +56,23 @@ Packages `auth`, `auth/password`, `auth/social` and `auth/rbac`. How-to: [Authen
 | `a.Impersonate(ctx, u)` | Signs the current user in as `u`, keeping who they are in the session; not through API tokens, not nested, not for a disabled `u` (`ErrDisabled`) or oneself. Each request checks that the impersonator may still sign in; `Logout` ends both (leaving `u`'s remember-me token alone). The impersonator's remember-me cookie is removed. Check who may first (`rbac.AuthorizeOver`) (v0.3) |
 | `a.StopImpersonating(ctx)` | Signs the impersonator back in and returns them; `auth.ErrNotImpersonating` (409) without impersonation; if they can't sign in any more, signs out and returns why (v0.3) |
 | `auth.Impersonator(ctx)` | The ID of the user acting as the signed-in one, and whether there is one (v0.3) |
+
+## Two-factor sign-in
+
+TOTP (RFC 6238: six digits, 30 seconds, HMAC-SHA-1) and recovery codes;
+see [Two-factor sign-in](../guides/two-factor.md). Needs
+`Users.TwoFactor` and `SetTwoFactor`. All v0.3.
+
+| API | Does |
+|---|---|
+| `a.CanTwoFactor()` | Whether two-factor sign-in is available |
+| `a.TwoFactor(u)` | `auth.TwoFactorStatus{On, Started, RecoveryCodes}`; an error if the state can't be read (`APP_KEY` changed) |
+| `a.StartTwoFactor(ctx, u, account)` | Stores a new secret, replacing a started setup; returns `auth.TwoFactorSetup{Secret, URI}` (base32 key, `otpauth://` URI with `APP_NAME` as issuer); `auth.ErrTwoFactorOn` (409) if on |
+| `a.StartedTwoFactor(u, account)` | The started setup again; `auth.ErrTwoFactorOff` if none, `ErrTwoFactorOn` once on |
+| `a.ConfirmTwoFactor(ctx, u, code)` | Turns it on with a current code; returns 8 recovery codes (`abcde-fghij`), to show once; ends `u`'s other sessions (with `Users.SessionKey`) and remember-me cookies, keeping the request's; `auth.ErrInvalidCode`, `ErrTwoFactorOff`, `ErrTwoFactorOn`; throttled |
+| `a.NewRecoveryCodes(ctx, u)` | Replaces the recovery codes; `auth.ErrTwoFactorOff` if off |
+| `a.DisableTwoFactor(ctx, u)` | Turns it off (or drops a started setup) |
+| `auth.TwoFactorCode(secret, t)` | The code an app shows at `t`, for tests |
 
 ## Tokens
 

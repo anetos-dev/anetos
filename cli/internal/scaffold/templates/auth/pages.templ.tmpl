@@ -110,6 +110,7 @@ templ Dashboard(u *models.User, tokens []auth.Token, newToken string) {
 			@view.CSRFField(ctx)
 			<button type="submit">{ i18n.T(ctx, "auth.dashboard.logout") }</button>
 		</form>
+		<p><a href={ web.URL(ctx, "two-factor") }>{ i18n.T(ctx, "auth.two_factor.title") }</a></p>
 		<h2>{ i18n.T(ctx, "auth.tokens.title") }</h2>
 		if newToken != "" {
 			<p>{ i18n.T(ctx, "auth.tokens.new") } <code>{ newToken }</code></p>
@@ -132,6 +133,92 @@ templ Dashboard(u *models.User, tokens []auth.Token, newToken string) {
 			@authError("name")
 			<p><button type="submit">{ i18n.T(ctx, "auth.tokens.create") }</button></p>
 		</form>
+	}
+}
+
+// TwoFactorChallenge asks for the two-factor code, after the password.
+templ TwoFactorChallenge() {
+	@Layout(i18n.T(ctx, "auth.challenge.title")) {
+		<h1>{ i18n.T(ctx, "auth.challenge.title") }</h1>
+		<p>{ i18n.T(ctx, "auth.challenge.intro") }</p>
+		<form method="post" action={ web.URL(ctx, "two-factor.challenge") }>
+			@view.CSRFField(ctx)
+			<label for="code">{ i18n.T(ctx, "auth.fields.code") }</label>
+			<input id="code" name="code" autocomplete="one-time-code" autofocus/>
+			@authError("code")
+			<p><button type="submit">{ i18n.T(ctx, "auth.challenge.submit") }</button></p>
+		</form>
+	}
+}
+
+// ConfirmPassword asks for the password again, before something
+// sensitive.
+templ ConfirmPassword() {
+	@Layout(i18n.T(ctx, "auth.confirm.title")) {
+		<h1>{ i18n.T(ctx, "auth.confirm.title") }</h1>
+		<p>{ i18n.T(ctx, "auth.confirm.intro") }</p>
+		<form method="post" action={ web.URL(ctx, "password.confirm") }>
+			@view.CSRFField(ctx)
+			<label for="password">{ i18n.T(ctx, "auth.fields.password") }</label>
+			<input id="password" name="password" type="password" autocomplete="current-password" autofocus/>
+			@authError("password")
+			<p><button type="submit">{ i18n.T(ctx, "auth.confirm.submit") }</button></p>
+		</form>
+	}
+}
+
+// TwoFactorPage is what the two-factor page shows.
+type TwoFactorPage struct {
+	Status        auth.TwoFactorStatus
+	Secret        string   // being set up: the key, to type in
+	QR            string   // being set up: the QR code, as SVG
+	RecoveryCodes []string // just made: shown once
+}
+
+// TwoFactor turns two-factor sign-in on and off.
+templ TwoFactor(p TwoFactorPage) {
+	@Layout(i18n.T(ctx, "auth.two_factor.title")) {
+		<h1>{ i18n.T(ctx, "auth.two_factor.title") }</h1>
+		if len(p.RecoveryCodes) > 0 {
+			<p>{ i18n.T(ctx, "auth.two_factor.codes") }</p>
+			<ul>
+				for _, c := range p.RecoveryCodes {
+					<li><code>{ c }</code></li>
+				}
+			</ul>
+		}
+		switch {
+			case p.Status.On:
+				<p>{ i18n.Plural(ctx, "auth.two_factor.on", p.Status.RecoveryCodes) }</p>
+				<form method="post" action={ web.URL(ctx, "two-factor.recovery-codes") }>
+					@view.CSRFField(ctx)
+					<button type="submit">{ i18n.T(ctx, "auth.two_factor.new_codes") }</button>
+				</form>
+				<form method="post" action={ web.URL(ctx, "two-factor.disable") }>
+					@view.CSRFField(ctx)
+					<button type="submit">{ i18n.T(ctx, "auth.two_factor.disable") }</button>
+				</form>
+			case p.Status.Started:
+				<p>{ i18n.T(ctx, "auth.two_factor.scan") }</p>
+				<p class="qr">
+					@templ.Raw(p.QR)
+				</p>
+				<p>{ i18n.T(ctx, "auth.two_factor.key") } <code>{ p.Secret }</code></p>
+				<form method="post" action={ web.URL(ctx, "two-factor.confirm") }>
+					@view.CSRFField(ctx)
+					<label for="code">{ i18n.T(ctx, "auth.fields.code") }</label>
+					<input id="code" name="code" autocomplete="one-time-code" inputmode="numeric"/>
+					@authError("code")
+					<p><button type="submit">{ i18n.T(ctx, "auth.two_factor.confirm") }</button></p>
+				</form>
+			default:
+				<p>{ i18n.T(ctx, "auth.two_factor.off") }</p>
+				<form method="post" action={ web.URL(ctx, "two-factor.start") }>
+					@view.CSRFField(ctx)
+					<button type="submit">{ i18n.T(ctx, "auth.two_factor.enable") }</button>
+				</form>
+		}
+		<p><a href={ web.URL(ctx, "dashboard") }>{ i18n.T(ctx, "auth.dashboard.title") }</a></p>
 	}
 }
 

@@ -488,7 +488,11 @@ func (s *Social[U]) Callback(c *web.Ctx) error {
 	if v := reflect.ValueOf(any(u)); !v.IsValid() || (v.Kind() == reflect.Pointer && v.IsNil()) {
 		return s.fail(c, errors.New("social: the Resolver returned no user and no error"), i18n.T(c, "auth.social_failed"))
 	}
-	if err := s.auth.Login(c, u, f.Remember); err != nil {
+	// Two-factor sign-in, if the user has it on, still asks for a code.
+	switch err := s.auth.SignIn(c, u, f.Remember); {
+	case errors.Is(err, auth.ErrTwoFactorRequired):
+		return c.Redirect(http.StatusSeeOther, web.LocalePath(c, s.auth.Config().ChallengeURL))
+	case err != nil:
 		return s.fail(c, err, i18n.T(c, "auth.social_failed"))
 	}
 	home := s.home

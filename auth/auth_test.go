@@ -34,6 +34,7 @@ type user struct {
 	Admin    bool
 	Disabled bool
 	Key      string // session key
+	TwoF     string // two-factor state
 }
 
 func (u *user) AuthID() string       { return u.ID }
@@ -104,6 +105,16 @@ func (s *store) users() auth.Users[*user] {
 			v := s.byID[u.ID]
 			v.Key = key
 			s.byID[u.ID] = v
+			return nil
+		},
+		TwoFactor: func(u *user) string { return u.TwoF },
+		SetTwoFactor: func(_ context.Context, u *user, st string) error {
+			s.mu.Lock()
+			defer s.mu.Unlock()
+			v := s.byID[u.ID]
+			v.TwoF = st
+			s.byID[u.ID] = v
+			u.TwoF = st
 			return nil
 		},
 		SetPassword: func(_ context.Context, u *user, hash string) error {
@@ -263,6 +274,7 @@ func newAppWith(t *testing.T, s *store) (*auth.Auth[*user], *browser, *anetos.Ap
 		return c.Text(http.StatusOK, "editable")
 	})
 	srv.Router().Group("/api", a.Require).Get("/me", func(c *web.Ctx) error { return c.NoContent() })
+	twoFactorRoutes(r, a, s)
 	private.Get("/admin", func(c *web.Ctx) error {
 		if err := auth.AuthorizeUser(c, func(_ context.Context, u *user) bool { return u.Admin }); err != nil {
 			return err

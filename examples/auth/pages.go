@@ -118,6 +118,7 @@ var pages = template.Must(template.New("").Funcs(template.FuncMap{"field": field
 <h1>Hello, {{.User.Name}}</h1>
 {{if not .User.EmailVerifiedAt}}<p>Please verify your email address: we sent you a link.</p>{{end}}
 <form method="post" action="/logout"><input type="hidden" name="_token" value="{{.CSRF}}"><button>Log out</button></form>
+<p><a href="/two-factor">Two-factor sign-in</a></p>
 <h2>API tokens</h2>
 {{if .NewToken}}<p>Your new token (copy it now, it won't be shown again): <code>{{.NewToken}}</code></p>{{end}}
 <ul>{{range .Tokens}}<li>{{.Name}}
@@ -127,6 +128,40 @@ var pages = template.Must(template.New("").Funcs(template.FuncMap{"field": field
 <label>Name <input name="name"></label>{{template "error" (field . "name")}}
 <button>Create token</button>
 </form></body></html>{{end}}
+
+{{define "challenge"}}{{template "top" "Two-factor sign-in"}}
+<h1>Two-factor sign-in</h1>
+<p>Enter the code your authenticator app shows, or one of your recovery codes.</p>
+<form method="post" action="/two-factor-challenge">
+<input type="hidden" name="_token" value="{{.CSRF}}">
+<label>Code <input name="code" autocomplete="one-time-code" autofocus></label>{{template "error" (field . "code")}}
+<button>Sign in</button>
+</form></body></html>{{end}}
+
+{{define "confirm"}}{{template "top" "Confirm your password"}}
+<h1>Confirm your password</h1>
+<form method="post" action="/confirm-password">
+<input type="hidden" name="_token" value="{{.CSRF}}">
+<label>Password <input name="password" type="password" autocomplete="current-password"></label>{{template "error" (field . "password")}}
+<button>Confirm</button>
+</form></body></html>{{end}}
+
+{{define "two-factor"}}{{template "top" "Two-factor sign-in"}}
+<h1>Two-factor sign-in</h1>
+{{if .Codes}}<p>Your recovery codes (each signs you in once without the app; they won't be shown again):</p>
+<ul>{{range .Codes}}<li><code>{{.}}</code></li>{{end}}</ul>{{end}}
+{{if .On}}<p>On: {{.Left}} recovery codes left.</p>
+<form method="post" action="/two-factor/disable"><input type="hidden" name="_token" value="{{.CSRF}}"><button>Turn off</button></form>
+{{else if .QR}}<p>Scan this with your authenticator app, then type the code it shows.</p>
+<p>{{.QR}}</p><p>Or type this key: <code>{{.Secret}}</code></p>
+<form method="post" action="/two-factor/confirm">
+<input type="hidden" name="_token" value="{{.CSRF}}">
+<label>Code <input name="code" autocomplete="one-time-code" inputmode="numeric"></label>{{template "error" (field . "code")}}
+<button>Turn on</button>
+</form>
+{{else}}<p>Off: your password alone signs you in.</p>
+<form method="post" action="/two-factor"><input type="hidden" name="_token" value="{{.CSRF}}"><button>Turn on</button></form>{{end}}
+</body></html>{{end}}
 
 {{define "admin"}}{{template "top" "Users"}}
 <h1>Users</h1>

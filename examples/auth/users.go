@@ -27,6 +27,7 @@ type User struct {
 	RememberToken   string     `db:"remember_token" json:"-"`
 	EmailVerifiedAt *time.Time `db:"email_verified_at" json:"email_verified_at"`
 	Admin           bool       `db:"admin" json:"admin"`
+	TwoFactor       string     `db:"two_factor" json:"-"` // two-factor sign-in, encrypted by package auth
 }
 
 // AuthID implements auth.Authenticatable.
@@ -42,6 +43,7 @@ var (
 	colPassword = db.Col[string]("password")
 	colRemember = db.Col[string]("remember_token")
 	colVerified = db.Col[*time.Time]("email_verified_at")
+	colTwoF     = db.Col[string]("two_factor")
 	colID       = db.Col[int64]("id")
 )
 
@@ -67,6 +69,14 @@ var users = auth.Users[*User]{
 	},
 	SetPassword: func(ctx context.Context, u *User, hash string) error {
 		_, err := db.Query[User](ctx).Where(colID.Eq(u.ID)).Update(colPassword.Set(hash))
+		return err
+	},
+	// Two-factor sign-in: package auth stores its state (the secret
+	// encrypted with APP_KEY, the recovery codes hashed) in a column.
+	TwoFactor: func(u *User) string { return u.TwoFactor },
+	SetTwoFactor: func(ctx context.Context, u *User, state string) error {
+		u.TwoFactor = state
+		_, err := db.Query[User](ctx).Where(colID.Eq(u.ID)).Update(colTwoF.Set(state))
 		return err
 	},
 }
@@ -163,6 +173,7 @@ func init() {
 				t.String("remember_token", 100).Default("")
 				t.Timestamp("email_verified_at").Nullable()
 				t.Boolean("admin").Default(false)
+				t.String("two_factor", 1024).Default("")
 				t.Timestamps()
 			})
 		},

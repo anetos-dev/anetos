@@ -49,12 +49,12 @@ func (r *rolesRes) url(suffix string) string { return r.p.base + "/roles" + suff
 func (r *rolesRes) mount(g *web.Router) {
 	need := func(kind string) *web.Router { return g.With(rbac.Require(r.in.perm(kind))) }
 	need("view").Get("/", r.index).Name("admin.roles.index")
-	need("create").Get("/new", r.create).Name("admin.roles.create")
-	need("create").Post("/", r.store).Name("admin.roles.store")
+	need("create").Get("/new", r.p.confirmFirst(r.create)).Name("admin.roles.create")
+	need("create").Post("/", r.p.confirmFirst(r.store)).Name("admin.roles.store")
 	need("view").Get("/{name}", r.show).Name("admin.roles.show")
-	need("update").Get("/{name}/edit", r.edit).Name("admin.roles.edit")
-	need("update").Post("/{name}", r.update).Name("admin.roles.update")
-	need("delete").Post("/{name}/delete", r.destroy).Name("admin.roles.destroy")
+	need("update").Get("/{name}/edit", r.p.confirmFirst(r.edit)).Name("admin.roles.edit")
+	need("update").Post("/{name}", r.p.confirmFirst(r.update)).Name("admin.roles.update")
+	need("delete").Post("/{name}/delete", r.p.confirmFirst(r.destroy)).Name("admin.roles.destroy")
 }
 
 // roleRow is a role in the list.

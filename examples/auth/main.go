@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Command auth is a small app with accounts: registration, login with
-// "remember me" and login throttling, logout, email verification,
-// password reset, API tokens and typed policies, over SQLite. The
+// "remember me" and login throttling, two-factor sign-in, logout, email
+// verification, password reset, API tokens and typed policies, over
+// SQLite. The
 // verification and reset links are emailed (MAIL_DRIVER=log writes them
 // to the log). anetos make:auth writes this kind of code into an app.
 //
@@ -17,6 +18,7 @@ package main
 import (
 	"context"
 	"errors"
+	"html/template"
 	"log"
 	"net/http"
 	"net/url"
@@ -32,8 +34,10 @@ import (
 	"anetos.dev/anetos/db/migrate"
 	"anetos.dev/anetos/drivers/sqlite"
 	"anetos.dev/anetos/mailer"
+	"anetos.dev/anetos/qr"
 	"anetos.dev/anetos/session"
 	"anetos.dev/anetos/validate"
+	"anetos.dev/anetos/view"
 	"anetos.dev/anetos/web"
 	"anetos.dev/anetos/web/ratelimit"
 )
@@ -118,6 +122,8 @@ func (h Accounts) Login(c *web.Ctx, in LoginInput) (web.Responder, error) {
 		return nil, validate.Fail("email", "These credentials don't match our records.")
 	case errors.As(err, &throttled):
 		return nil, validate.Fail("email", "Too many login attempts. Try again in a minute.")
+	case errors.Is(err, auth.ErrTwoFactorRequired):
+		return web.Redirect("/two-factor-challenge"), nil // the password was right: now the code
 	case err != nil:
 		return nil, err
 	}
@@ -129,6 +135,123 @@ func (h Accounts) Logout(c *web.Ctx) error {
 		return err
 	}
 	return c.Redirect(http.StatusSeeOther, "/login")
+}
+
+// endregion
+
+// CodeInput is a two-factor code: the authenticator app's, or a recovery
+// code.
+type CodeInput struct {
+	Code string `json:"code" validate:"required|max:30"`
+}
+
+// region: challenge
+// Challenge finishes a sign-in waiting for a code (after Login).
+func (h Accounts) Challenge(c *web.Ctx, in CodeInput) (web.Responder, error) {
+	_, err := h.auth.AttemptTwoFactor(c, in.Code)
+	var throttled *auth.ThrottledError
+	switch {
+	case errors.Is(err, auth.ErrInvalidCode):
+		return nil, validate.Fail("code", "That code isn't right.")
+	case errors.As(err, &throttled):
+		return nil, validate.Fail("code", "Too many tries. Try again in a minute.")
+	case errors.Is(err, auth.ErrNoPendingSignIn): // none, or it expired
+		return web.Redirect("/login"), nil
+	case err != nil:
+		return nil, err
+	}
+	return web.Redirect(auth.Intended(c, "/dashboard")), nil
+}
+
+// endregion
+
+// PasswordInput is the password confirmation form.
+type PasswordInput struct {
+	Password string `json:"password" validate:"required"`
+}
+
+// region: confirm
+// ConfirmPassword checks the password again (it holds for
+// AUTH_CONFIRM_TTL), then goes back to the page that asked for it.
+func (h Accounts) ConfirmPassword(c *web.Ctx, in PasswordInput) (web.Responder, error) {
+	switch err := h.auth.ConfirmPassword(c, in.Password); {
+	case errors.Is(err, auth.ErrInvalidCredentials):
+		return nil, validate.Fail("password", "That isn't your password.")
+	case err != nil:
+		return nil, err
+	}
+	return web.Redirect(auth.Intended(c, "/dashboard")), nil
+}
+
+// endregion
+
+// region: two-factor
+// TwoFactor shows two-factor sign-in: off, being set up (a QR code for
+// the authenticator app), or on; and the recovery codes, once.
+func (h Accounts) TwoFactor(c *web.Ctx) error {
+	u, err := auth.Current[*User](c)
+	if err != nil {
+		return err
+	}
+	st, err := h.auth.TwoFactor(u)
+	if err != nil {
+		return err
+	}
+	data := map[string]any{"On": st.On, "Left": st.RecoveryCodes, "Codes": strings.Fields(view.Flash(c, "codes"))}
+	if st.Started {
+		setup, err := h.auth.StartedTwoFactor(u, u.Email)
+		if err != nil {
+			return err
+		}
+		svg, err := qr.SVG(setup.URI, qr.M, 200) // otpauth://totp/…
+		if err != nil {
+			return err
+		}
+		data["Secret"], data["QR"] = setup.Secret, template.HTML(svg) //nolint:gosec // package qr's markup
+	}
+	return render(c, "two-factor", data)
+}
+
+// StartTwoFactor makes a new secret, shown by TwoFactor until confirmed.
+func (h Accounts) StartTwoFactor(c *web.Ctx) error {
+	u, err := auth.Current[*User](c)
+	if err != nil {
+		return err
+	}
+	if _, err := h.auth.StartTwoFactor(c, u, u.Email); err != nil && !errors.Is(err, auth.ErrTwoFactorOn) {
+		return err
+	}
+	return c.Redirect(http.StatusSeeOther, "/two-factor")
+}
+
+// ConfirmTwoFactor turns it on with a code of the app, and shows the
+// recovery codes, once.
+func (h Accounts) ConfirmTwoFactor(c *web.Ctx, in CodeInput) (web.Responder, error) {
+	u, err := auth.Current[*User](c)
+	if err != nil {
+		return nil, err
+	}
+	codes, err := h.auth.ConfirmTwoFactor(c, u, in.Code)
+	switch {
+	case errors.Is(err, auth.ErrInvalidCode):
+		return nil, validate.Fail("code", "That code isn't right.")
+	case err != nil:
+		return nil, err
+	}
+	c.Session().Flash("codes", strings.Join(codes, " "))
+	return web.Redirect("/two-factor"), nil
+}
+
+// DisableTwoFactor turns it off.
+func (h Accounts) DisableTwoFactor(c *web.Ctx) error {
+	u, err := auth.Current[*User](c)
+	if err != nil {
+		return err
+	}
+	if err := h.auth.DisableTwoFactor(c, u); err != nil {
+		return err
+	}
+	return c.Redirect(http.StatusSeeOther, "/two-factor")
 }
 
 // endregion
@@ -358,6 +481,8 @@ func routes(r *web.Router, sessions *session.Manager, a *auth.Auth[*User], s *so
 	guests.Post("/reset-password", web.H(h.Reset))
 	guests.Get("/auth/{provider}/redirect", s.Redirect) // "Sign in with …" links here
 	guests.Get("/auth/{provider}/callback", s.Callback)
+	guests.Get("/two-factor-challenge", h.page("challenge")) // AUTH_CHALLENGE_URL
+	guests.Post("/two-factor-challenge", web.H(h.Challenge))
 
 	members := pages.Group("", a.Require) // guests go to AUTH_LOGIN_URL
 	members.Get("/dashboard", h.Dashboard)
@@ -366,6 +491,15 @@ func routes(r *web.Router, sessions *session.Manager, a *auth.Auth[*User], s *so
 	members.Post("/tokens/{id}/delete", web.H(h.RevokeToken))
 	members.Get("/users/{id}", web.H(h.ShowUser))
 	members.Get("/admin", h.Admin)
+	members.Get("/confirm-password", h.page("confirm")) // AUTH_CONFIRM_URL
+	members.Post("/confirm-password", web.H(h.ConfirmPassword))
+
+	// Two-factor sign-in (AUTH_TWO_FACTOR_URL): the password again first.
+	secure := members.Group("", a.RequireConfirmed)
+	secure.Get("/two-factor", h.TwoFactor)
+	secure.Post("/two-factor", h.StartTwoFactor)
+	secure.Post("/two-factor/confirm", web.H(h.ConfirmTwoFactor))
+	secure.Post("/two-factor/disable", h.DisableTwoFactor)
 
 	api := r.Group("/api", a.TokenMiddleware, a.Require) // Authorization: Bearer <token>
 	api.Get("/me", h.Me)

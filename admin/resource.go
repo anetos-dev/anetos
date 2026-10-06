@@ -89,7 +89,8 @@ type Action[T any] struct {
 	// default), "view", "create" or "delete", or a permission of the
 	// app's own (one with a dot).
 	Permission string
-	// Danger shows it as a destructive action.
+	// Danger shows it as a destructive action, and asks for the user's
+	// password first (ADMIN_CONFIRM).
 	Danger bool
 	// When reports whether a record offers it; nil: every record.
 	When func(row T) bool
@@ -101,6 +102,8 @@ type Action[T any] struct {
 
 	// then is where to go once it's done; the record's page if nil.
 	then func(c *web.Ctx, row T) string
+	// sensitive asks for the password first, as Danger does.
+	sensitive bool
 }
 
 // BulkAction is something done to the records selected in the list.
@@ -113,7 +116,8 @@ type BulkAction[T any] struct {
 	Confirm string
 	// Permission is as for [Action]; "update" by default.
 	Permission string
-	// Danger shows it as a destructive action.
+	// Danger shows it as a destructive action, and asks for the user's
+	// password first (ADMIN_CONFIRM).
 	Danger bool
 	// Run does it to the selected records (rows is a query for them,
 	// within the resource's Query) and returns how many it changed.
@@ -395,7 +399,7 @@ func (r *res[T, F]) mount(g *web.Router) {
 	if r.in.soft && r.in.delete {
 		need("delete").Get("/trash", r.trash).Name(n + "trash")
 		need("delete").Post("/{id}/restore", r.restore).Name(n + "restore")
-		need("delete").Post("/{id}/force-delete", r.forceDelete).Name(n + "force-delete")
+		need("delete").Post("/{id}/force-delete", r.p.confirmFirst(r.forceDelete)).Name(n + "force-delete")
 	}
 	if r.in.create {
 		need("create").Get("/new", r.create).Name(n + "create")
@@ -407,7 +411,7 @@ func (r *res[T, F]) mount(g *web.Router) {
 		need("update").Post("/{id}", web.H(r.update)).Name(n + "update")
 	}
 	if r.in.delete {
-		need("delete").Post("/{id}/delete", r.destroy).Name(n + "destroy")
+		need("delete").Post("/{id}/delete", r.p.confirmFirst(r.destroy)).Name(n + "destroy")
 	}
 	// Actions check their own permissions, and need the view one too.
 	if len(r.Actions) > 0 {

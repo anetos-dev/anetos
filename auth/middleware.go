@@ -25,6 +25,10 @@ const (
 	keyImpersonator     = "_auth.impersonator"
 	keyImpersonatorHash = "_auth.impersonator_hash"
 	keyIntended         = "_auth.intended"
+	// A sign-in waiting for a two-factor code, and when the password was
+	// last confirmed.
+	keyPending   = "_auth.pending"
+	keyConfirmed = "_auth.confirmed"
 )
 
 // state is a request's authentication, in its context.
@@ -167,6 +171,7 @@ func (a *Auth[U]) forget(s *session.Session) {
 	s.Delete(keyHash)
 	s.Delete(keyImpersonator)
 	s.Delete(keyImpersonatorHash)
+	s.Delete(keyConfirmed)
 }
 
 // rememberValue is the remember-me cookie's content, encrypted.
@@ -207,6 +212,7 @@ func (a *Auth[U]) fromRemember(ctx context.Context, st *state, s *session.Sessio
 		return nil, nil
 	}
 	s.Regenerate()
+	s.Delete(keyConfirmed)
 	s.Put(keyID, u.AuthID())
 	s.Put(keyHash, a.sessionPrint(u, u.AuthPassword()))
 	return u, nil

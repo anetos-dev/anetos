@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"net/netip"
 	"regexp"
 	"slices"
 	"strings"
@@ -39,6 +40,23 @@ type Config struct {
 	// PerPage is how many records a list shows: ADMIN_PER_PAGE, default
 	// 25.
 	PerPage int `env:"ADMIN_PER_PAGE" default:"25"`
+	// Confirm asks users for their password again (auth's
+	// ConfirmPassword, valid for AUTH_CONFIRM_TTL) before dangerous
+	// actions: deleting, disabling, roles and permissions, acting as a
+	// user, forgetting every failed job, and actions marked Danger.
+	// ADMIN_CONFIRM, default true.
+	Confirm bool `env:"ADMIN_CONFIRM" default:"true"`
+	// TwoFactor is "required" to let in only users with two-factor
+	// sign-in on (the others are told to turn it on, at
+	// AUTH_TWO_FACTOR_URL), or "optional". ADMIN_TWO_FACTOR, default
+	// optional.
+	TwoFactor string `env:"ADMIN_TWO_FACTOR" default:"optional"`
+	// AllowIPs are the only addresses, or networks (10.0.0.0/8), the
+	// admin answers; others get 404. Empty for every address. The
+	// client's address is found behind trusted proxies only
+	// (HTTP_TRUSTED_PROXIES).
+	// ADMIN_ALLOW_IPS, comma-separated.
+	AllowIPs []string `env:"ADMIN_ALLOW_IPS"`
 }
 
 // Validate checks the settings.
@@ -55,6 +73,12 @@ func (c Config) Validate() error {
 	}
 	if c.PerPage < 1 || c.PerPage > 500 {
 		errs = append(errs, errors.New("admin: ADMIN_PER_PAGE must be between 1 and 500"))
+	}
+	if c.TwoFactor != "" && c.TwoFactor != "optional" && c.TwoFactor != "required" {
+		errs = append(errs, fmt.Errorf("admin: ADMIN_TWO_FACTOR %q must be optional or required", c.TwoFactor))
+	}
+	if _, err := parseAllowed(c.AllowIPs); err != nil {
+		errs = append(errs, err)
 	}
 	return errors.Join(errs...)
 }
@@ -83,6 +107,10 @@ type Panel struct {
 	activity bool
 	// userLabels names users by ID, with the users resource.
 	userLabels func(ctx context.Context, ids []string) (map[string]string, error)
+	// sec is what the admin needs of auth to protect itself.
+	sec security
+	// allowed are ADMIN_ALLOW_IPS's networks.
+	allowed []netip.Prefix
 }
 
 // Option changes a [Panel].
@@ -113,6 +141,9 @@ func UserName[U auth.Authenticatable](name func(u U) string) Option {
 
 var nameRe = regexp.MustCompile(`^[a-z][a-z0-9-]{0,49}$`)
 
+// reservedNames are the admin's own pages, which no resource can be.
+var reservedNames = []string{strings.Trim(confirmPath, "/"), strings.Trim(twoFactorPath, "/"), "impersonation"}
+
 // New creates the app's admin, for the users of a (the app's auth.Auth,
 // from auth.ForApp): it reads the ADMIN_* settings and declares
 // [Access] in the app's roles and permissions (rbac.ForApp must have run).
@@ -131,7 +162,13 @@ func New[U auth.Authenticatable](app *anetos.App, a *auth.Auth[U], opts ...Optio
 	if err := reg.Declare(Access); err != nil {
 		return nil, err
 	}
-	p := &Panel{app: app, cfg: cfg, require: a.Require, reg: reg, byName: map[string]resource{}}
+	p := &Panel{app: app, cfg: cfg, require: a.Require, reg: reg, byName: map[string]resource{}, sec: securityOf(a)}
+	if p.allowed, err = parseAllowed(cfg.AllowIPs); err != nil {
+		return nil, err
+	}
+	if cfg.TwoFactor == "required" && p.sec.twoFactorOn == nil {
+		return nil, errors.New("admin: ADMIN_TWO_FACTOR=required needs two-factor sign-in: auth.Users.TwoFactor and SetTwoFactor")
+	}
 	p.userName = func(ctx context.Context) string {
 		u, ok := auth.User[U](ctx)
 		if !ok {
@@ -194,12 +231,19 @@ func (p *Panel) Mount(r *web.Router, mws ...web.Middleware) error {
 	}
 	p.assets = assets
 	// Assets need no session: they are the same for everyone.
-	r.Group(p.base).HandleStd(http.MethodGet, "/_assets/{file...}", assets).Name("admin.assets")
+	r.Group(p.base, p.allowIPs).HandleStd(http.MethodGet, "/_assets/{file...}", assets).Name("admin.assets")
 	// Stopping acting as a user needs no admin permission: the user
 	// acted as may have none.
-	r.Group(p.base, append(slices.Clip(mws), secureHeaders)...).Post(stopPath, p.stop).Name("admin.impersonation.stop")
-	g := r.Group(p.base, append(slices.Clip(mws), secureHeaders, p.require, rbac.Require(Access))...)
+	r.Group(p.base, append([]web.Middleware{p.allowIPs}, append(slices.Clip(mws), secureHeaders)...)...).
+		Post(stopPath, p.stop).Name("admin.impersonation.stop")
+	signedIn := r.Group(p.base, append([]web.Middleware{p.allowIPs}, append(slices.Clip(mws), secureHeaders, p.require, rbac.Require(Access))...)...)
+	if p.cfg.TwoFactor == "required" {
+		signedIn.Get(twoFactorPath, p.twoFactorRequired).Name("admin.two-factor")
+	}
+	g := signedIn.Group("", p.requireTwoFactor)
 	g.Get("/", p.home).Name("admin.home")
+	g.Get(confirmPath, p.confirmPage).Name("admin.confirm")
+	g.Post(confirmPath, p.confirmPassword).Name("admin.confirm.store")
 	for _, res := range p.res {
 		res.mount(g.Group("/" + res.info().Name))
 	}
@@ -238,6 +282,9 @@ func (p *Panel) add(res resource) error {
 	}
 	if p.byName[in.Name] != nil {
 		return fmt.Errorf("admin: resource %q added twice", in.Name)
+	}
+	if slices.Contains(reservedNames, in.Name) {
+		return fmt.Errorf("admin: the resource name %q is the admin's own page", in.Name)
 	}
 	if err := p.reg.Declare(in.perms()...); err != nil {
 		return err
@@ -330,6 +377,7 @@ type page struct {
 	URL     string // the page's path and query
 	Banner  template.HTML
 	Data    any
+	status  int // 200 if 0
 }
 
 // render renders the named page in the admin's layout.
@@ -357,7 +405,11 @@ func (p *Panel) render(c *web.Ctx, name string, pg page) error {
 			pg.Nav = append(pg.Nav, navItem{in.Title, p.base + "/" + in.Name, strings.HasPrefix(c.Request().URL.Path, p.base+"/"+in.Name)})
 		}
 	}
-	return c.Render(http.StatusOK, view.Template(t, "layout", pg))
+	status := http.StatusOK
+	if pg.status != 0 {
+		status = pg.status
+	}
+	return c.Render(status, view.Template(t, "layout", pg))
 }
 
 // flash keeps a message for the next page.

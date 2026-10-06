@@ -3,11 +3,13 @@ package main
 import (
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"anetos.dev/anetos"
 	"anetos.dev/anetos/anetostest"
 	"anetos.dev/anetos/auth"
 	"anetos.dev/anetos/db"
@@ -98,6 +100,47 @@ func TestLoginAndLogout(t *testing.T) {
 	app.PostForm("/login", url.Values{"email": {"ada@example.com"}, "password": {"wrong"}}).AssertValidationErrors("email")
 	app.PostForm("/login", url.Values{"email": {"ada@example.com"}, "password": {"correct horse"}}).AssertRedirect("/dashboard")
 	app.Get("/dashboard").AssertOK()
+}
+
+// Two-factor sign-in: turned on with the authenticator app's code, then
+// asked for after the password; a recovery code works once.
+func TestTwoFactor(t *testing.T) {
+	app := authRegister(t)
+	app.Get("/two-factor").AssertRedirect("/confirm-password") // the password again first
+	app.PostForm("/confirm-password", url.Values{"password": {"wrong"}}).AssertValidationErrors("password")
+	app.PostForm("/confirm-password", url.Values{"password": {"correct horse"}}).AssertRedirect("/two-factor")
+	app.PostForm("/two-factor", nil).AssertRedirect("/two-factor")
+	app.Get("/two-factor").AssertOK().AssertSee("<svg")
+
+	a := anetos.MustResolve[*auth.Auth[*models.User]](app.App)
+	u, err := models.Users.ByLogin(app.Context(), "ada@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	setup, err := a.StartedTwoFactor(u, u.Email)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code, err := auth.TwoFactorCode(setup.Secret, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.PostForm("/two-factor/confirm", url.Values{"code": {"000000"}}).AssertValidationErrors("code")
+	page := app.PostForm("/two-factor/confirm", url.Values{"code": {code}}).AssertRedirect("/two-factor").Follow().AssertOK().Text()
+	recovery := regexp.MustCompile(`<code>([a-z2-7]{5}-[a-z2-7]{5})</code>`).FindAllStringSubmatch(page, -1)
+	if len(recovery) != 8 {
+		t.Fatalf("%d recovery codes shown", len(recovery))
+	}
+
+	app.PostForm("/logout", nil)
+	app.PostForm("/login", url.Values{"email": {"ada@example.com"}, "password": {"correct horse"}}).AssertRedirect("/two-factor-challenge")
+	app.Get("/dashboard").AssertRedirect("/login") // not yet
+	app.Get("/two-factor-challenge").AssertOK()
+	app.PostForm("/two-factor-challenge", url.Values{"code": {"000000"}}).AssertValidationErrors("code")
+	app.PostForm("/two-factor-challenge", url.Values{"code": {recovery[0][1]}}).AssertRedirect("/dashboard")
+	app.PostForm("/logout", nil)
+	app.PostForm("/login", url.Values{"email": {"ada@example.com"}, "password": {"correct horse"}})
+	app.PostForm("/two-factor-challenge", url.Values{"code": {recovery[0][1]}}).AssertValidationErrors("code") // used
 }
 
 func TestDisabledAccount(t *testing.T) {

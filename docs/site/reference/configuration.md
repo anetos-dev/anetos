@@ -348,6 +348,10 @@ Read by `auth.ForApp` (or `auth.LoadConfig`) into `auth.Config`.
 | `AUTH_THROTTLE_IP` | int | `50` | Failed logins allowed per minute from one IP address (IPv6: its /64), whatever the login | v0.2 |
 | `AUTH_RESET_TTL` | duration | `60m` | How long a password-reset token works | v0.2 |
 | `AUTH_VERIFY_TTL` | duration | `24h` | How long an email-verification token works | v0.2 |
+| `AUTH_CHALLENGE_URL` | path | `/two-factor-challenge` | Where a sign-in waiting for a two-factor code asks for it (social login sends users there) | v0.3 |
+| `AUTH_TWO_FACTOR_URL` | path | `/two-factor` | Where users turn two-factor sign-in on and off (the admin links there) | v0.3 |
+| `AUTH_CONFIRM_URL` | path | `/confirm-password` | Where `RequireConfirmed` sends users to confirm their password | v0.3 |
+| `AUTH_CONFIRM_TTL` | duration | `15m` | How long a confirmed password holds | v0.3 |
 
 The remember-me cookie is `HttpOnly`, `SameSite=Lax` and Secure like the
 session cookie; a Secure one is named `__Host-anetos_remember`.
@@ -374,6 +378,9 @@ See [Add an admin panel](../guides/admin.md).
 | `ADMIN_HOST` | string | empty | A host the admin answers on alone (`admin.example.com`, on any port; a port given here goes into its URLs); empty for every host | v0.3 |
 | `ADMIN_TITLE` | string | `APP_NAME` | The admin's name in its pages (overrides `admin.Title`) | v0.3 |
 | `ADMIN_PER_PAGE` | int | `25` | How many records a list shows, 1 to 500 (a resource's `PerPage` overrides it) | v0.3 |
+| `ADMIN_CONFIRM` | bool | `true` | Ask for the password again (`AUTH_CONFIRM_TTL`) before dangerous actions: deleting, disabling, roles and permissions, acting as a user, forgetting every failed job, actions marked `Danger` | v0.3 |
+| `ADMIN_TWO_FACTOR` | `optional`, `required` | `optional` | `required` lets in only users with two-factor sign-in on; the others are told to turn it on (`AUTH_TWO_FACTOR_URL`) | v0.3 |
+| `ADMIN_ALLOW_IPS` | list | empty | Addresses or networks (`10.0.0.0/8`), comma-separated, the admin answers; others get 404. The client's address is read behind trusted proxies only (`HTTP_TRUSTED_PROXIES`). Empty for every address | v0.3 |
 
 ## Social login
 

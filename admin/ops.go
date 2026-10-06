@@ -76,7 +76,7 @@ func (r *jobsRes) mount(g *web.Router) {
 	update.Post("/failed/{id}/retry", r.retry).Name("admin.jobs.retry")
 	update.Post("/failed/{id}/forget", r.forget).Name("admin.jobs.forget")
 	update.Post("/failed/retry-all", r.retryAll).Name("admin.jobs.retry-all")
-	update.Post("/failed/flush", r.flush).Name("admin.jobs.flush")
+	update.Post("/failed/flush", r.p.confirmFirst(r.flush)).Name("admin.jobs.flush")
 }
 
 // failedRow is a failed job in the list.

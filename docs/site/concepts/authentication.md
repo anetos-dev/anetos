@@ -40,6 +40,14 @@ checks what comes back, and asks your code which user the account
 belongs to (links are kept in `social_accounts`), then signs that user in
 like a password login.
 
+Two-factor sign-in adds a second step after either: the session holds a
+sign-in waiting for a code (not a signed-in user) for ten minutes, until
+the code of the user's authenticator app, or a recovery code, finishes
+it. The app's secret for that user is stored encrypted with `APP_KEY`;
+recovery codes, like API tokens, only as hashes. Before sensitive pages,
+the app can ask for the password again: the session remembers when it
+was last confirmed.
+
 ## What is stored, and what isn't
 
 Password-reset and email-verification links carry tokens that are
@@ -70,6 +78,6 @@ and permissions](roles-and-permissions.md).
 
 ## Related
 
-- [Authentication](../guides/authentication.md), [Authorization](../guides/authorization.md), [Roles and permissions](../guides/roles-and-permissions.md), [Social login](../guides/social-login.md)
+- [Authentication](../guides/authentication.md), [Authorization](../guides/authorization.md), [Roles and permissions](../guides/roles-and-permissions.md), [Social login](../guides/social-login.md), [Two-factor sign-in](../guides/two-factor.md)
 - [Authentication reference](../reference/auth.md)
 - [Sessions and flash messages](../guides/sessions.md)

@@ -402,6 +402,9 @@ func (r *res[T, F]) action(c *web.Ctx) error {
 	if err := r.check(c, row, "action:"+a.Name); err != nil {
 		return refused(c, err, to)
 	}
+	if (a.Danger || a.sensitive) && r.p.mustConfirm(c) {
+		return r.p.askConfirm(c, r.p.back(c, to))
+	}
 	if err := a.Run(c, &row); err != nil {
 		return refused(c, err, to)
 	}
@@ -440,8 +443,26 @@ func (r *res[T, F]) bulk(c *web.Ctx) error {
 		}
 		keys = append(keys, k)
 	}
-	q := r.query(c).WhereKeys(keys...)
 	name := req.PostForm.Get("action")
+	if r.p.mustConfirm(c) {
+		perm := ""
+		if name == "delete" && r.in.delete {
+			perm = "delete"
+		} else if i := slices.IndexFunc(r.BulkActions, func(a BulkAction[T]) bool { return a.Name == name && a.Danger }); i >= 0 {
+			perm = r.BulkActions[i].Permission
+			if perm == "" {
+				perm = "update"
+			}
+		}
+		if perm != "" {
+			// Allowed first: no password asked for what one can't do.
+			if err := r.authorize(c, perm); err != nil {
+				return err
+			}
+			return r.p.askConfirm(c, back)
+		}
+	}
+	q := r.query(c).WhereKeys(keys...)
 	if r.hooks.guard != nil || name == "delete" && !r.in.soft && r.hooks.removed != nil {
 		// Record by record: the guard on each, the removed hook.
 		return r.bulkEach(c, q, name, len(keys), back)

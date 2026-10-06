@@ -16,6 +16,7 @@ func init() {
 				t.String("session_key", 100).Default("")
 				t.Timestamp("email_verified_at").Nullable()
 				t.Timestamp("disabled_at").Nullable()
+				t.String("two_factor", 1024).Default("") // encrypted by package auth
 				t.Timestamps()
 			})
 		},

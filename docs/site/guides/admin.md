@@ -439,6 +439,29 @@ is for those who may see what jobs carry.
 scheduler of `anetos new`, and the activity when the app keeps an audit
 log.
 
+### 10. Protect it
+
+The admin asks for the password again before dangerous actions:
+deleting, disabling, giving and taking roles and permissions, editing
+roles, acting as a user, forgetting every failed job, and actions marked
+`Danger`. After it, the user does the action again; the password holds
+for `AUTH_CONFIRM_TTL` (15 minutes). Users who sign in without a
+password (Google, GitHub) confirm by signing out and in again; set
+`ADMIN_CONFIRM=false` to not ask at all.
+
+```env
+ADMIN_TWO_FACTOR=required          # only users with two-factor sign-in on
+ADMIN_ALLOW_IPS=10.0.0.0/8,203.0.113.7   # only these addresses; others get 404
+```
+
+With `ADMIN_TWO_FACTOR=required`, users without
+[two-factor sign-in](two-factor.md) are told to turn it on, at
+`AUTH_TWO_FACTOR_URL` (`make:auth`'s page). With `ADMIN_ALLOW_IPS`, the
+client's address is read behind trusted proxies only
+(`HTTP_TRUSTED_PROXIES`). A user's page shows whether they have
+two-factor sign-in on, and **Turn off two-factor sign-in** helps someone
+who lost their phone (not oneself).
+
 ## How it works
 
 The admin is a library, not a plugin: its pages need the app's own types
@@ -484,6 +507,9 @@ func TestEditorManagesProducts(t *testing.T) {
 	app.PostForm(path, form).Follow().AssertSee("Saved.", "$35.00")
 	app.PostForm(path+"/actions/archive", nil).Follow().AssertSee("Archive: done.", "archived")
 	app.Get("/admin/products?status=archived&q=GO").AssertSee("Go in Action")
+	// Deleting asks for the password again first (ADMIN_CONFIRM).
+	app.PostForm(path+"/delete", nil).AssertRedirect("/admin/confirm?back=" + url.QueryEscape("/admin/products?status=archived&q=GO"))
+	app.PostForm("/admin/confirm", url.Values{"password": {"secret password"}, "back": {path}}).AssertRedirect(path)
 	app.PostForm(path+"/delete", nil).Follow().AssertSee("Go in Action moved to the trash.")
 
 	// Every change is in the audit log, by Eve.
@@ -520,13 +546,17 @@ func TestStaffAccounts(t *testing.T) {
 	}
 	page := fmt.Sprintf("/admin/users/%d", eve.ID)
 
-	// Acting as Eve: the app as she sees it, with the banner.
+	// Acting as Eve: the app as she sees it, with the banner, once Ada
+	// confirmed her password.
+	app.PostForm("/admin/confirm", url.Values{"password": {"secret password"}}).AssertRedirect("/admin")
 	app.PostForm(page+"/actions/impersonate", nil).AssertRedirect("/")
 	app.Get("/").AssertSee("Hello, Eve", "acting as <strong>Eve</strong>")
 	app.PostForm("/admin/impersonation/stop", nil).AssertRedirect(page)
 	app.Get("/").AssertSee("Hello, Ada").AssertDontSee("acting as")
 
-	// Disabled, Eve can't sign in.
+	// Disabled, Eve can't sign in. Back as herself, Ada confirms her
+	// password again.
+	app.PostForm("/admin/confirm", url.Values{"password": {"secret password"}})
 	app.PostForm(page+"/actions/disable", nil).Follow().AssertSee("Account disabled.")
 	app.PostForm("/logout", nil)
 	app.Get("/login")

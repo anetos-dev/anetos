@@ -24,7 +24,9 @@ var errActing = errors.New("auth: the context acts as a user (ActAs): there is n
 // login, or this account, from this IP address, or AUTH_THROTTLE_IP
 // failures in a minute from this IP address. A success clears the
 // login's and account's counts, upgrades a weaker password hash (with
-// Users.SetPassword) and calls [Auth.Login].
+// Users.SetPassword) and signs the user in, as [Auth.SignIn] does: for a
+// user with two-factor sign-in on, it returns the user and
+// [ErrTwoFactorRequired], and the sign-in waits for a code.
 //
 //	u, err := a.Attempt(c, in.Email, in.Password, in.Remember)
 //	if errors.Is(err, auth.ErrInvalidCredentials) {
@@ -110,7 +112,7 @@ func (a *Auth[U]) Attempt(ctx context.Context, login, pw string, remember bool) 
 			}
 		}
 	}
-	return u, a.login(ctx, u, hash, remember)
+	return u, a.signIn(ctx, u, hash, remember)
 }
 
 // hit counts an attempt against limit and returns a *ThrottledError past
@@ -130,7 +132,8 @@ func (a *Auth[U]) hit(ctx context.Context, key string, limit ratelimit.Limit) er
 // seen before the login is useless) and remembers the user; with
 // remember, a remember-me cookie keeps them signed in for
 // AUTH_REMEMBER_LIFETIME after the session ends. Use it after
-// registration, or for sign-in methods other than passwords.
+// registration. It doesn't ask for a two-factor code: for sign-in
+// methods other than passwords, use [Auth.SignIn].
 func (a *Auth[U]) Login(ctx context.Context, u U, remember bool) error {
 	return a.login(ctx, u, u.AuthPassword(), remember)
 }
@@ -165,8 +168,9 @@ func (a *Auth[U]) login(ctx context.Context, u U, hash string, remember bool) er
 	s.Regenerate()
 	s.Put(keyID, u.AuthID())
 	s.Put(keyHash, a.sessionPrint(u, hash))
-	s.Delete(keyImpersonator)
-	s.Delete(keyImpersonatorHash)
+	for _, k := range []string{keyImpersonator, keyImpersonatorHash, keyPending, keyConfirmed} {
+		s.Delete(k)
+	}
 	st.set(u, nil)
 	if !remember {
 		a.clearRemember(st) // an earlier user's cookie mustn't stay

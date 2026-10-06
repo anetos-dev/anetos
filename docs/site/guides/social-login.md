@@ -228,6 +228,10 @@ in these tests.
 `Profile.Token` holds the provider's tokens, for calling its API with the
 scopes asked for; change `Provider.Scopes` to ask for more.
 
+A user with [two-factor sign-in](two-factor.md) on isn't signed in by
+the callback: it signs in with `a.SignIn`, and sends them to
+`AUTH_CHALLENGE_URL` for their code.
+
 > **Coming from Laravel?** This is Socialite's `redirect()` and `user()`
 > as two handlers, with the find-or-create step as your function.
 

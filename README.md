@@ -43,9 +43,11 @@ bulk writes as one entry ([`examples/audit`](examples/audit)). The admin
 interface is under way (module `anetos.dev/anetos/admin`, with `anetos
 make:admin`; [`examples/admin`](examples/admin)): lists, search,
 filters, forms, actions, a trash, a permission per resource, and users
-(disable, sign out everywhere, API tokens, roles, acting as them) and
-roles; the dashboard, activity pages and two-factor sign-in are next,
-then the release work (deploy, docs). The docs are at [docs.anetos.dev](https://docs.anetos.dev).
+(disable, sign out everywhere, API tokens, roles, acting as them),
+roles, a dashboard, the activity, failed jobs and scheduled tasks; with
+two-factor sign-in (TOTP, recovery codes) and password confirmation in
+`auth`, the admin can require both. The release work (deploy, docs) is
+next. The docs are at [docs.anetos.dev](https://docs.anetos.dev).
 APIs will change.
 
 ## Documents

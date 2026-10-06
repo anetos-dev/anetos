@@ -51,6 +51,9 @@ func TestEditorManagesProducts(t *testing.T) {
 	app.PostForm(path, form).Follow().AssertSee("Saved.", "$35.00")
 	app.PostForm(path+"/actions/archive", nil).Follow().AssertSee("Archive: done.", "archived")
 	app.Get("/admin/products?status=archived&q=GO").AssertSee("Go in Action")
+	// Deleting asks for the password again first (ADMIN_CONFIRM).
+	app.PostForm(path+"/delete", nil).AssertRedirect("/admin/confirm?back=" + url.QueryEscape("/admin/products?status=archived&q=GO"))
+	app.PostForm("/admin/confirm", url.Values{"password": {"secret password"}, "back": {path}}).AssertRedirect(path)
 	app.PostForm(path+"/delete", nil).Follow().AssertSee("Go in Action moved to the trash.")
 
 	// Every change is in the audit log, by Eve.
@@ -106,13 +109,17 @@ func TestStaffAccounts(t *testing.T) {
 	}
 	page := fmt.Sprintf("/admin/users/%d", eve.ID)
 
-	// Acting as Eve: the app as she sees it, with the banner.
+	// Acting as Eve: the app as she sees it, with the banner, once Ada
+	// confirmed her password.
+	app.PostForm("/admin/confirm", url.Values{"password": {"secret password"}}).AssertRedirect("/admin")
 	app.PostForm(page+"/actions/impersonate", nil).AssertRedirect("/")
 	app.Get("/").AssertSee("Hello, Eve", "acting as <strong>Eve</strong>")
 	app.PostForm("/admin/impersonation/stop", nil).AssertRedirect(page)
 	app.Get("/").AssertSee("Hello, Ada").AssertDontSee("acting as")
 
-	// Disabled, Eve can't sign in.
+	// Disabled, Eve can't sign in. Back as herself, Ada confirms her
+	// password again.
+	app.PostForm("/admin/confirm", url.Values{"password": {"secret password"}})
 	app.PostForm(page+"/actions/disable", nil).Follow().AssertSee("Account disabled.")
 	app.PostForm("/logout", nil)
 	app.Get("/login")

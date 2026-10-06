@@ -21,6 +21,7 @@ type User struct {
 	SessionKey      string     `db:"session_key" json:"-"` // replaced to sign out everywhere
 	EmailVerifiedAt *time.Time `db:"email_verified_at" json:"email_verified_at"`
 	DisabledAt      *time.Time `db:"disabled_at" json:"disabled_at"` // set: can't sign in
+	TwoFactor       string     `db:"two_factor" json:"-"`              // two-factor sign-in, encrypted by package auth
 }
 
 // AuthID implements auth.Authenticatable.
@@ -30,7 +31,8 @@ func (u *User) AuthID() string { return strconv.FormatInt(u.ID, 10) }
 func (u *User) AuthPassword() string { return u.Password }
 
 // Users tells package auth how to find users, which are disabled, and
-// how to store their tokens, session keys and upgraded password hashes.
+// how to store their tokens, session keys, upgraded password hashes and
+// two-factor sign-in.
 var Users = auth.Users[*User]{
 	ByID: func(ctx context.Context, id string) (*User, error) {
 		n, err := strconv.ParseInt(id, 10, 64)
@@ -57,6 +59,12 @@ var Users = auth.Users[*User]{
 	SessionKey: func(u *User) string { return u.SessionKey },
 	SetSessionKey: func(ctx context.Context, u *User, key string) error {
 		_, err := db.Query[User](ctx).Where(UserCols.ID.Eq(u.ID)).Update(UserCols.SessionKey.Set(key))
+		return err
+	},
+	TwoFactor: func(u *User) string { return u.TwoFactor },
+	SetTwoFactor: func(ctx context.Context, u *User, state string) error {
+		u.TwoFactor = state
+		_, err := db.Query[User](ctx).Where(UserCols.ID.Eq(u.ID)).Update(UserCols.TwoFactor.Set(state))
 		return err
 	},
 }

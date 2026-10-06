@@ -246,12 +246,13 @@ anetos.dev/anetos/       ← core module (github.com/anetos-dev/anetos)
 ├── session/             encrypted cookie sessions, flash, CSRF token (F10)
 ├── encryption/          AES-256-GCM with APP_KEY and key rotation (F10)
 ├── cache/               cache, memory and database stores, locks (B1); cache/cachetest: store conformance suite
-├── auth/                login, remember me, API tokens, reset/verification tokens, policies (B3); auth/password: argon2id; auth/social: OAuth/OIDC sign-in (B4); auth/rbac: roles and permissions (R1)
+├── auth/                login, remember me, API tokens, reset/verification tokens, policies (B3); two-factor sign-in, password confirmation (AD2b); auth/password: argon2id; auth/social: OAuth/OIDC sign-in (B4); auth/rbac: roles and permissions (R1)
 ├── audit/               the audit log: tracked models' writes, bulk entries, recorded events, history, retention, anonymization (AU1)
 ├── queue/               jobs, workers, sync/memory/database stores, failed jobs (B5); queue/queuetest: store conformance suite
 ├── events/              typed in-process events: sync, async (bounded pools), queued listeners (B6)
 ├── pubsub/              topics, subscriptions, typed listeners, memory broker (B7); pubsub/pubsubtest: broker conformance suite
 ├── schedule/            cron and fluent schedules, the scheduler component, overlap and single-instance locks (B8)
+├── qr/                  QR codes as SVG, for two-factor setup (AD2b)
 ├── mailer/              mailables, rendering, log/SMTP/memory transports, queued mail (B9)
 ├── storage/             disks: local (os.Root) and memory backends, signed URLs, file handler (B10); storage/storagetest: backend conformance suite
 ├── ai/                  provider contract, messages, Generate/GenerateObject/Stream, tools and agents, schemas, the fake (A1); stored conversations, usage and budgets, queued replies, SSE (A3); embeddings, Embeddings[T] sync and search, the search tool (S2); ai/aitest: provider conformance suite on recorded exchanges (A2)
@@ -1245,20 +1246,29 @@ running are logged. Counting and finding a failed job are optional store
 methods (`queue.FailedCounter`, `queue.FailedFinder`, with
 `queue.CountFailed` and `queue.FindFailed` reading the list otherwise).
 
-**Security (AD2b, D224–D226).** Two-factor sign-in with TOTP (RFC 6238)
-and recovery codes in package `auth`: `Users.TwoFactor` and
-`SetTwoFactor` store the secret, encrypted with `APP_KEY`, and the
-recovery codes, hashed; `Attempt` stops at `ErrTwoFactorRequired` for
-users who have it, and `AttemptTwoFactor` finishes signing in with a
-code (each code used once). Password confirmation:
-`Auth.ConfirmPassword`, `RequireConfirmed` and `PasswordConfirmed`
-(`AUTH_CONFIRM_URL`, `AUTH_CONFIRM_TTL`), which the admin asks for
-before dangerous actions (deleting, disabling, roles, acting as a user,
-actions marked `Danger`). `ADMIN_TWO_FACTOR=required` sends admins
-without two-factor sign-in to set it up; `ADMIN_ALLOW_IPS` lets in only
-some addresses. `make:auth` adds the pages: the code at sign-in, turning
-two-factor sign-in on and off (a QR code drawn as SVG), and confirming
-the password.
+**Security (AD2b, D224–D226).** Two-factor sign-in with TOTP (RFC 6238:
+six digits, 30-second steps, HMAC-SHA-1, a step either side, each step
+used once) and recovery codes (eight, 50 bits, hashed, each used once)
+in package `auth`: `Users.TwoFactor` and `SetTwoFactor` store one value,
+encrypted with `APP_KEY` for that user; `StartTwoFactor`,
+`StartedTwoFactor`, `ConfirmTwoFactor`, `NewRecoveryCodes`,
+`DisableTwoFactor`. `Attempt` (and `SignIn`, which package `social`
+uses) stops at `ErrTwoFactorRequired` for users who have it on, the
+session holding a sign-in that waits ten minutes; `AttemptTwoFactor`
+finishes it with a code (throttled per user: `AUTH_THROTTLE` a minute,
+50 wrong codes a day). Turning it on ends the user's other sessions and
+remember-me cookies. Password confirmation:
+`Auth.ConfirmPassword`, `PasswordConfirmed` and the `RequireConfirmed`
+middleware (`AUTH_CONFIRM_URL`, `AUTH_CONFIRM_TTL`, default 15 minutes;
+for users without a password, a fresh `SignIn` counts),
+which the admin asks for on its own page before dangerous actions
+(deleting, disabling, roles and permissions, acting as a user,
+forgetting every failed job, actions marked `Danger`; `ADMIN_CONFIRM`).
+`ADMIN_TWO_FACTOR=required` sends admins without two-factor sign-in to
+turn it on (`AUTH_TWO_FACTOR_URL`); `ADMIN_ALLOW_IPS` lets in only some
+addresses (others get 404). Package `qr` draws QR codes as SVG (for
+the setup). `make:auth` adds the pages: the code at sign-in, turning
+two-factor sign-in on and off, and confirming the password.
 
 ---
 
@@ -2628,6 +2638,9 @@ unless new information arrives), **Open**, **Superseded**.
 | D221 | The admin's first page is a dashboard of widgets (`admin.Widget{Title, Permission, Load}`), whose content is figures, a bar chart as inline SVG, a table, any `view.Component`, and a link; built-in widgets for sign-ups, queue health, AI usage and recent activity; a widget that fails says so in its place | Accepted | Apps put on it what matters to them, in Go; charts as SVG need no script under the admin's CSP; one failing query mustn't take the page down |
 | D222 | `admin.Activity(p)`: the audit log's entries and bulk writes, filtered, with a page per entry; a tracked model's records show their history on their pages; `admin.activity.view` | Accepted | Who did what is the audit log's; the admin is where people look for it |
 | D223 | `admin.Jobs(p, q)` (queue sizes, failed jobs: retry, forget, all) and `admin.Schedule(p, s)` (tasks, next and last run, run now in the background); the scheduler keeps each task's last run in the cache (`Scheduler.LastRun`), shared by processes with a shared cache store | Accepted | The commands (`queue:failed`, `schedule:list`) exist; operators want them where they work. The last run lives in the cache, not a table: it is a convenience, and the logs have the history |
+| D224 | Two-factor sign-in in package `auth`: TOTP (RFC 6238, as authenticator apps expect) and recovery codes; the state is one value the app stores (`Users.TwoFactor`/`SetTwoFactor`), encrypted with `APP_KEY` for the user; a password sign-in of a user who has it waits in the session for the code (`ErrTwoFactorRequired`, `AttemptTwoFactor`), as do other sign-ins through `SignIn`; codes are used once and throttled per user (a minute, and 50 wrong a day); turning it on ends the sessions and remember-me cookies signed in without it | Accepted | One column, no table: the app's user model holds it, as the remember token; encrypting it for the user keeps a database dump (or a copied value) from signing in; a waiting sign-in, not a signed-in user, so no page is reachable before the code |
+| D225 | Password confirmation: `ConfirmPassword`, `PasswordConfirmed`, `RequireConfirmed` (`AUTH_CONFIRM_URL`, `AUTH_CONFIRM_TTL` 15m), kept in the session and forgotten at sign-in, sign-out and impersonation; the admin confirms on its own page before dangerous actions (`ADMIN_CONFIRM`, default on), and the user does the action again | Accepted | A stolen session (or an unattended screen) can't do the worst things; asking before rather than replaying the post keeps the flow simple and safe |
+| D226 | `ADMIN_TWO_FACTOR=required` (users without two-factor sign-in are told to turn it on, at `AUTH_TWO_FACTOR_URL`) and `ADMIN_ALLOW_IPS` (addresses or networks; others get 404, the client address as `web.RealIP` finds it); package `qr` (byte mode, versions 1–40, SVG) in the core for the setup's QR code | Accepted | Settings rather than code: operators turn them on per deployment. A QR encoder is small, has no dependencies, and an app needs one for two-factor setup; a third-party module would have to reach every app made with `make:auth` |
 
 ---
 
@@ -2699,3 +2712,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-06 | AD1a implemented: D213's form function is `Apply`; `admin.PermissionsOf` for roles in code; `make:admin` sets up roles (`rbac.ForApp`) unless the app does |
 | 2026-10-06 | AD1b designed and implemented: §12.3 users and roles; D215–D220 added |
 | 2026-10-06 | AD2 designed: §12.3 dashboard, activity, jobs and tasks (AD2a, D221–D223) and security (AD2b, D224–D226) |
+| 2026-10-06 | AD2a implemented (`queue.CountFailed`, `queue.FindFailed`); AD2b implemented: §12.3 security; D224–D226 added (`ADMIN_CONFIRM`, package `qr`) |

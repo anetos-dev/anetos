@@ -35,6 +35,7 @@ type User struct {
 	RememberToken   string     `db:"remember_token" json:"-"`
 	EmailVerifiedAt *time.Time `db:"email_verified_at" json:"email_verified_at"`
 	Admin           bool       `db:"admin" json:"admin"`
+	TwoFactor       string     `db:"two_factor" json:"-"` // two-factor sign-in, encrypted by package auth
 }
 
 // AuthID implements auth.Authenticatable.
@@ -71,6 +72,14 @@ var users = auth.Users[*User]{
 	},
 	SetPassword: func(ctx context.Context, u *User, hash string) error {
 		_, err := db.Query[User](ctx).Where(colID.Eq(u.ID)).Update(colPassword.Set(hash))
+		return err
+	},
+	// Two-factor sign-in: package auth stores its state (the secret
+	// encrypted with APP_KEY, the recovery codes hashed) in a column.
+	TwoFactor: func(u *User) string { return u.TwoFactor },
+	SetTwoFactor: func(ctx context.Context, u *User, state string) error {
+		u.TwoFactor = state
+		_, err := db.Query[User](ctx).Where(colID.Eq(u.ID)).Update(colTwoF.Set(state))
 		return err
 	},
 }
@@ -113,6 +122,8 @@ guests.Get("/reset-password", h.page("reset"))
 guests.Post("/reset-password", web.H(h.Reset))
 guests.Get("/auth/{provider}/redirect", s.Redirect) // "Sign in with …" links here
 guests.Get("/auth/{provider}/callback", s.Callback)
+guests.Get("/two-factor-challenge", h.page("challenge")) // AUTH_CHALLENGE_URL
+guests.Post("/two-factor-challenge", web.H(h.Challenge))
 
 members := pages.Group("", a.Require) // guests go to AUTH_LOGIN_URL
 members.Get("/dashboard", h.Dashboard)
@@ -121,6 +132,15 @@ members.Post("/tokens", web.H(h.CreateToken))
 members.Post("/tokens/{id}/delete", web.H(h.RevokeToken))
 members.Get("/users/{id}", web.H(h.ShowUser))
 members.Get("/admin", h.Admin)
+members.Get("/confirm-password", h.page("confirm")) // AUTH_CONFIRM_URL
+members.Post("/confirm-password", web.H(h.ConfirmPassword))
+
+// Two-factor sign-in (AUTH_TWO_FACTOR_URL): the password again first.
+secure := members.Group("", a.RequireConfirmed)
+secure.Get("/two-factor", h.TwoFactor)
+secure.Post("/two-factor", h.StartTwoFactor)
+secure.Post("/two-factor/confirm", web.H(h.ConfirmTwoFactor))
+secure.Post("/two-factor/disable", h.DisableTwoFactor)
 
 api := r.Group("/api", a.TokenMiddleware, a.Require) // Authorization: Bearer <token>
 api.Get("/me", h.Me)
@@ -193,6 +213,8 @@ func (h Accounts) Login(c *web.Ctx, in LoginInput) (web.Responder, error) {
 		return nil, validate.Fail("email", "These credentials don't match our records.")
 	case errors.As(err, &throttled):
 		return nil, validate.Fail("email", "Too many login attempts. Try again in a minute.")
+	case errors.Is(err, auth.ErrTwoFactorRequired):
+		return web.Redirect("/two-factor-challenge"), nil // the password was right: now the code
 	case err != nil:
 		return nil, err
 	}
@@ -459,5 +481,6 @@ the user's other sessions are signed out once.
 - [Authorization](authorization.md)
 - [Roles and permissions](roles-and-permissions.md)
 - [Social login](social-login.md)
+- [Two-factor sign-in and password confirmation](two-factor.md)
 - [Rate limiting](rate-limiting.md)
 - [Sessions and flash messages](sessions.md)

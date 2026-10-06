@@ -1,0 +1,19 @@
+{{define "content"}}{{with .Data}}
+<h1>{{$.Title}}</h1>
+{{if .NoPassword}}<p class="empty">Your account has no password (you sign in another way): sign out and in again, then do this within a few minutes.</p>
+<p><a class="button" href="{{.Back}}">Back</a></p>
+{{else}}<p>This is a sensitive action: type your password again first. It holds for a while.</p>
+<form method="post" action="{{.Action}}" class="edit" novalidate>
+<input type="hidden" name="_token" value="{{$.CSRF}}">
+<input type="hidden" name="back" value="{{.Back}}">
+<div class="field{{if .Error}} invalid{{end}}">
+  <label for="f-password">Password</label>
+  <input id="f-password" name="password" type="password" autocomplete="current-password" required autofocus{{if .Error}} aria-invalid="true" aria-describedby="e-password"{{end}}>
+  {{with .Error}}<p class="error" id="e-password">{{.}}</p>{{end}}
+</div>
+<div class="buttons">
+  <button type="submit" class="primary">Confirm</button>
+  <a class="button" href="{{.Back}}">Cancel</a>
+</div>
+</form>{{end}}
+{{end}}{{end}}

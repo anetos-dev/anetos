@@ -269,15 +269,33 @@ func (u *userAdmin[T, U, F]) actions(p *Panel) []Action[T] {
 				return record(ctx, "user.signed_out_everywhere", u.subject(row), nil)
 			}})
 	}
+	if a := u.acc.Auth; a.CanTwoFactor() {
+		out = append(out, Action[T]{Name: "two-factor-off", Title: "Turn off two-factor sign-in", Danger: true,
+			Done:    "Two-factor sign-in turned off.",
+			Confirm: "Turn off this user's two-factor sign-in? Their password alone will sign them in, until they turn it on again.",
+			When: func(row T) bool {
+				st, err := a.TwoFactor(U(&row))
+				return err != nil || st.On || st.Started
+			},
+			Run: func(ctx context.Context, row *T) error {
+				return db.Tx(ctx, func(ctx context.Context) error {
+					if err := a.DisableTwoFactor(ctx, U(row)); err != nil {
+						return err
+					}
+					return record(ctx, "user.two_factor_disabled", u.subject(row), nil)
+				})
+			}})
+	}
 	// Not at a host of its own: the app's pages are on another host, whose
 	// session is another (cookies are the host's).
 	if u.impersonate != "" && p.cfg.Host == "" {
 		out = append(out, Action[T]{Name: "impersonate", Title: "Act as user", Permission: string(u.impersonate),
-			Confirm: "Act as this user? You'll see the app as they do, until you stop. It is logged.",
-			When:    func(row T) bool { return u.disabled == nil || timeOf(&row, u.disabled) == nil },
-			Run:     u.startImpersonating,
-			Done:    "You're acting as this user.",
-			then:    func(*web.Ctx, T) string { return u.acc.Auth.Config().HomeURL }})
+			Confirm:   "Act as this user? You'll see the app as they do, until you stop. It is logged.",
+			When:      func(row T) bool { return u.disabled == nil || timeOf(&row, u.disabled) == nil },
+			Run:       u.startImpersonating,
+			Done:      "You're acting as this user.",
+			sensitive: true,
+			then:      func(*web.Ctx, T) string { return u.acc.Auth.Config().HomeURL }})
 	}
 	return out
 }
@@ -321,11 +339,12 @@ func (u *userAdmin[T, U, F]) startImpersonating(ctx context.Context, row *T) err
 
 // selfOps are what no one does to themselves here.
 var selfOps = map[string]string{
-	"delete":             "You can't delete your own account here.",
-	"bulk:delete":        "You can't delete your own account here.",
-	"action:disable":     "You can't disable your own account.",
-	"action:impersonate": "You can't act as yourself.",
-	"roles":              "You can't change your own roles.",
+	"delete":                "You can't delete your own account here.",
+	"bulk:delete":           "You can't delete your own account here.",
+	"action:disable":        "You can't disable your own account.",
+	"action:impersonate":    "You can't act as yourself.",
+	"action:two-factor-off": "Turn off your own two-factor sign-in on your account's page.",
+	"roles":                 "You can't change your own roles.",
 }
 
 // guard lets the signed-in user change only users they have every
@@ -396,10 +415,11 @@ func (u *userAdmin[T, U, F]) removed(ctx context.Context, row T) error {
 
 // accountView is the account section.
 type accountView struct {
-	Status   string
-	Disabled bool
-	Email    string
-	Verified bool
+	Status    string
+	Disabled  bool
+	Email     string
+	Verified  bool
+	TwoFactor string
 }
 
 // grantView is a role or permission of the user.
@@ -439,7 +459,7 @@ type tokensView struct {
 func (u *userAdmin[T, U, F]) sections(c *web.Ctx, row T) ([]section, error) {
 	var out []section
 	p := u.res.p
-	if u.disabled != nil || u.verified != nil {
+	if u.disabled != nil || u.verified != nil || u.acc.Auth.CanTwoFactor() {
 		var av accountView
 		if u.disabled != nil {
 			av.Status = "Active"
@@ -451,6 +471,16 @@ func (u *userAdmin[T, U, F]) sections(c *web.Ctx, row T) ([]section, error) {
 			av.Email = "Not verified"
 			if t := timeOf(&row, u.verified); t != nil {
 				av.Email, av.Verified = "Verified on "+timeText(c, *t), true
+			}
+		}
+		if u.acc.Auth.CanTwoFactor() {
+			switch st, err := u.acc.Auth.TwoFactor(U(&row)); {
+			case err != nil:
+				av.TwoFactor = "Can't be read (was APP_KEY changed?)"
+			case st.On:
+				av.TwoFactor = fmt.Sprintf("On, %d recovery codes left", st.RecoveryCodes)
+			default:
+				av.TwoFactor = "Off"
 			}
 		}
 		body, err := part("account", av)
@@ -555,9 +585,9 @@ func (u *userAdmin[T, U, F]) routes(g *web.Router) {
 	n := "admin." + u.res.Name + "."
 	if u.res.p.reg != nil {
 		assign := g.With(rbac.Require(u.res.in.perm("view"), AssignRoles))
-		assign.Post("/{id}/roles", u.assignRole).Name(n + "roles.assign")
-		assign.Post("/{id}/roles/remove", u.removeRole).Name(n + "roles.remove")
-		assign.Post("/{id}/permissions/revoke", u.revokePermission).Name(n + "permissions.revoke")
+		assign.Post("/{id}/roles", u.res.p.confirmFirst(u.assignRole)).Name(n + "roles.assign")
+		assign.Post("/{id}/roles/remove", u.res.p.confirmFirst(u.removeRole)).Name(n + "roles.remove")
+		assign.Post("/{id}/permissions/revoke", u.res.p.confirmFirst(u.revokePermission)).Name(n + "permissions.revoke")
 	}
 	if !u.acc.NoTokens {
 		update := g.With(rbac.Require(u.res.in.perm("update")))
