@@ -1,0 +1,18 @@
+{{define "content"}}{{with .Data}}
+<h1>{{$.Title}}</h1>
+<dl class="details">
+  <dt>When</dt><dd>{{.Event.When}}</dd>
+  <dt>Who</dt><dd>{{if .Event.WhoURL}}<a href="{{.Event.WhoURL}}">{{.Event.Who}}</a>{{else}}{{.Event.Who}}{{end}}{{if .Event.ActingAs}}, acting as {{.Event.ActingAs}}{{end}}</dd>
+  <dt>What</dt><dd><code>{{.Event.Action}}</code> of {{.Event.Rows}} rows of <code>{{.Event.Record}}</code></dd>
+  {{if .Condition}}<dt>Where</dt><dd><code>{{.Condition}}</code></dd>{{end}}
+  {{if .Assignments}}<dt>Set</dt><dd><code>{{.Assignments}}</code></dd>{{end}}
+  {{if .Event.Via}}<dt>Through</dt><dd>{{.Event.Via}}</dd>{{end}}
+  {{if not .Op.Complete}}<dt>Values</dt><dd>Some rows' values weren't kept (AUDIT_BULK_MAX_VALUES).</dd>{{end}}
+</dl>
+<section class="part"><h2>Rows</h2>
+{{if .Rows}}<div class="table"><table>
+<thead><tr><th>Key</th><th>Before</th><th>After</th></tr></thead>
+<tbody>{{range .Rows}}<tr><td>{{if .URL}}<a href="{{.URL}}">{{.Key}}</a>{{else}}{{.Key}}{{end}}</td><td class="value">{{.Before}}</td><td class="value">{{.After}}</td></tr>{{end}}</tbody>
+</table></div>{{if .More}}<p class="none">And more.</p>{{end}}{{else}}<p class="empty">No rows.</p>{{end}}
+</section>
+{{end}}{{end}}

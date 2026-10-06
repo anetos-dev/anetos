@@ -297,6 +297,28 @@ func (s *DatabaseStore) Failed(ctx context.Context, offset, limit int) ([]Failed
 	return out, nil
 }
 
+// CountFailed implements [FailedCounter].
+func (s *DatabaseStore) CountFailed(ctx context.Context) (int64, error) {
+	type count struct {
+		N int64 `db:"n"`
+	}
+	c, err := db.RawFirst[count](s.conn(ctx), "SELECT COUNT(*) AS n FROM "+s.q(s.failed))
+	return c.N, err
+}
+
+// FindFailed implements [FailedFinder].
+func (s *DatabaseStore) FindFailed(ctx context.Context, id string) (FailedJob, bool, error) {
+	r, err := db.RawFirst[failedRow](s.conn(ctx), "SELECT "+s.q("id")+", "+s.q("queue")+", "+s.q("payload")+", "+s.q("error")+", "+
+		s.q("attempts")+", "+s.q("failed_at")+" FROM "+s.q(s.failed)+" WHERE "+s.q("id")+" = ?", id)
+	if errors.Is(err, db.ErrNotFound) || err == nil && r.ID != id {
+		return FailedJob{}, false, nil // MySQL compares without case
+	}
+	if err != nil {
+		return FailedJob{}, false, err
+	}
+	return FailedJob{ID: r.ID, Queue: r.Queue, Payload: []byte(r.Payload), Error: r.Error, Attempts: r.Attempts, FailedAt: time.UnixMilli(r.FailedAt)}, true, nil
+}
+
 // Retry implements [Store].
 func (s *DatabaseStore) Retry(ctx context.Context, id string) (bool, error) {
 	found := false

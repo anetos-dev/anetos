@@ -1,11 +1,32 @@
-{{define "content"}}
-<h1>{{.Title}}</h1>
-{{if .Data}}
+{{define "content"}}{{with .Data}}
+<h1>{{$.Title}}</h1>
+{{if .Widgets}}<div class="widgets">
+{{range .Widgets}}<section class="widget">
+  <h2>{{.Title}}</h2>
+  {{if .Error}}<p class="error">{{.Error}}</p>{{else}}
+  {{if .Stats}}<div class="stats">{{range .Stats}}<div class="stat{{if .Warn}} warn{{end}}"><span class="value">{{.Value}}</span><span class="label">{{.Label}}</span>{{if .Hint}}<span class="hint">{{.Hint}}</span>{{end}}</div>{{end}}</div>{{end}}
+  {{if .Bars}}<figure class="bars">
+    <svg viewBox="0 0 {{.Width}} 60" preserveAspectRatio="none" role="img" aria-label="{{.Title}}, {{.First}} to {{.Last}}">
+      {{range .Bars}}<rect x="{{.X}}" y="{{.Y}}" width="8" height="{{.Height}}"><title>{{.Label}}: {{.Value}}</title></rect>{{end}}
+    </svg>
+    <figcaption><span>{{.First}}</span><span>{{.Last}}</span></figcaption>
+  </figure>{{end}}
+  {{with .Table}}<div class="table"><table>
+    <thead><tr>{{range .Headers}}<th>{{.}}</th>{{end}}</tr></thead>
+    <tbody>{{range .Rows}}<tr>{{$url := .URL}}{{range $i, $c := .Cells}}<td>{{if and $url (eq $i 0)}}<a href="{{$url}}">{{$c}}</a>{{else}}{{$c}}{{end}}</td>{{end}}</tr>{{else}}<tr><td class="empty" colspan="{{len .Headers}}">Nothing yet.</td></tr>{{end}}</tbody>
+  </table></div>{{end}}
+  {{.HTML}}
+  {{with .Link}}<p class="more"><a href="{{.URL}}">{{.Title}} →</a></p>{{end}}
+  {{end}}
+</section>
+{{end}}
+</div>{{end}}
+{{if .Cards}}
 <ul class="cards">
-{{range .Data}}<li><a href="{{.URL}}"><span class="count">{{.Count}}</span><span>{{.Title}}</span></a></li>
+{{range .Cards}}<li><a href="{{.URL}}">{{if .Count}}<span class="count">{{.Count}}</span>{{end}}<span>{{.Title}}</span></a></li>
 {{end}}
 </ul>
-{{else}}
+{{else if not .Widgets}}
 <p class="empty">There is nothing here you may manage yet.</p>
 {{end}}
-{{end}}
+{{end}}{{end}}

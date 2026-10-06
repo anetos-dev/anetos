@@ -1,0 +1,16 @@
+{{define "content"}}{{$csrf := .CSRF}}{{with .Data}}
+<div class="head"><h1>{{$.Title}}</h1>
+  {{if .CanUpdate}}<div class="tools">
+    <form method="post" action="{{.Retry}}" class="inline"><input type="hidden" name="_token" value="{{$csrf}}"><button type="submit" class="primary">Retry</button></form>
+    <form method="post" action="{{.Forget}}" class="inline" data-confirm="Forget this failed job? It can't be retried after."><input type="hidden" name="_token" value="{{$csrf}}"><button type="submit" class="danger">Forget</button></form>
+  </div>{{end}}
+</div>
+<dl class="details">
+  <dt>Job</dt><dd><code>{{.Job.Job}}</code></dd>
+  <dt>ID</dt><dd><code>{{.Job.ID}}</code></dd>
+  <dt>Queue</dt><dd>{{.Job.Queue}}</dd>
+  <dt>Failed</dt><dd>{{.Job.FailedAt}}, after {{.Job.Attempts}} attempts</dd>
+</dl>
+<section class="part"><h2>Error</h2><pre>{{.Error}}</pre></section>
+<section class="part"><h2>Payload</h2><pre>{{.Payload}}</pre></section>
+{{end}}{{end}}

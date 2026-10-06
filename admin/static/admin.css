@@ -92,3 +92,22 @@ code { font-size: .9em; }
 .perms legend { font-weight: 500; margin-bottom: .25rem; }
 .perms .group { margin-bottom: .75rem; }
 .perms .check { display: flex; gap: .5rem; align-items: center; font-weight: 400; }
+.widgets { display: grid; grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+.widget { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 1rem 1.25rem; min-width: 0; }
+.widget h2 { font-size: 1rem; margin: 0 0 .75rem; }
+.stats { display: flex; flex-wrap: wrap; gap: 1rem 1.5rem; margin-bottom: .75rem; }
+.stat { display: flex; flex-direction: column; }
+.stat .value { font-size: 1.5rem; font-weight: 600; line-height: 1.2; }
+.stat .label { font-size: .85rem; }
+.stat .hint { font-size: .8rem; color: var(--muted); }
+.stat.warn .value { color: var(--danger); }
+.bars { margin: 0 0 .5rem; }
+.bars svg { display: block; width: 100%; height: 4rem; }
+.bars rect { fill: var(--accent); }
+.bars figcaption { display: flex; justify-content: space-between; font-size: .75rem; color: var(--muted); }
+.more { margin: .5rem 0 0; font-size: .9rem; }
+.tabs { display: flex; gap: .25rem; }
+.tabs a { padding: .35rem .75rem; border-radius: var(--radius); text-decoration: none; color: var(--text); }
+.tabs a[aria-current] { background: var(--accent); color: var(--accent-text); }
+pre { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: .75rem 1rem; overflow-x: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: .85rem; }
+td.value { font-family: ui-monospace, monospace; font-size: .85rem; overflow-wrap: anywhere; }

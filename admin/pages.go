@@ -47,7 +47,7 @@ var funcs = template.FuncMap{
 
 // pageNames are the admin's pages, each a template file defining
 // "content" for the layout.
-var pageNames = []string{"home", "list", "show", "form", "roles", "role", "roleform"}
+var pageNames = []string{"home", "list", "show", "form", "roles", "role", "roleform", "activity", "entry", "bulkop", "jobs", "job", "schedule"}
 
 // parts are the templates of sections and the banner.
 var parts = template.Must(template.New("parts").Funcs(funcs).ParseFS(templateFS, "templates/parts.html"))

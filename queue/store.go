@@ -113,6 +113,61 @@ func (f FailedJob) Job() string {
 	return e.Job
 }
 
+// FailedCounter is a [Store] that counts its failed jobs at once; the
+// memory, database and Redis stores are.
+type FailedCounter interface {
+	// CountFailed returns the number of failed jobs.
+	CountFailed(ctx context.Context) (int64, error)
+}
+
+// FailedFinder is a [Store] that finds a failed job by ID at once; the
+// memory, database and Redis stores are.
+type FailedFinder interface {
+	// FindFailed returns the failed job id, and whether there is one.
+	FindFailed(ctx context.Context, id string) (FailedJob, bool, error)
+}
+
+// CountFailed returns the number of failed jobs of st: at once if it is
+// a [FailedCounter], else by reading them.
+func CountFailed(ctx context.Context, st Store) (int64, error) {
+	if c, ok := st.(FailedCounter); ok {
+		return c.CountFailed(ctx)
+	}
+	var n int64
+	for offset := 0; ; offset += 500 {
+		jobs, err := st.Failed(ctx, offset, 500)
+		if err != nil {
+			return 0, err
+		}
+		n += int64(len(jobs))
+		if len(jobs) < 500 {
+			return n, nil
+		}
+	}
+}
+
+// FindFailed returns the failed job id of st, and whether there is one:
+// at once if st is a [FailedFinder], else by reading them.
+func FindFailed(ctx context.Context, st Store, id string) (FailedJob, bool, error) {
+	if f, ok := st.(FailedFinder); ok {
+		return f.FindFailed(ctx, id)
+	}
+	for offset := 0; ; offset += 500 {
+		jobs, err := st.Failed(ctx, offset, 500)
+		if err != nil {
+			return FailedJob{}, false, err
+		}
+		for _, j := range jobs {
+			if j.ID == id {
+				return j, true, nil
+			}
+		}
+		if len(jobs) < 500 {
+			return FailedJob{}, false, nil
+		}
+	}
+}
+
 // ErrLeaseLost is returned by a [Store] when a reservation has ended:
 // its lease ran out (and another worker may have reserved the job), or
 // the job was removed.

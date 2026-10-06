@@ -244,7 +244,12 @@ ID                                    FAILED AT            QUEUE     JOB        
 $ ./app queue:retry 01a0f614-9a28-7025-93a7-b8b88ecb37d0
 ```
 
-In production, `queue:flush` and `queue:clear` need `--force`.
+In production, `queue:flush` and `queue:clear` need `--force`. In code,
+`q.Store().Failed(ctx, offset, limit)` lists them, and
+`queue.CountFailed(ctx, q.Store())` and `queue.FindFailed(ctx, q.Store(), id)`
+count them and find one (at once with the built-in stores; a store of
+your own may implement `queue.FailedCounter` and `queue.FailedFinder`).
+The [admin](admin.md#9-watch-jobs-and-scheduled-tasks) shows them too.
 
 ### 5. Test
 

@@ -255,7 +255,8 @@ func (Handlers) Export(c *web.Ctx) error {
 
 Code that records events only in apps that keep a log, such as a
 package of its own, checks `audit.Enabled(ctx)` first: `Record` fails
-without one.
+without one. `audit.Tracked(ctx, table)` says whether the log tracks a
+table.
 
 ### 7. Name who acts when it isn't a user
 

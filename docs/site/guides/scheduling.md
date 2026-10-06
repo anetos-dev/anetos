@@ -182,6 +182,13 @@ with its error. `WithoutOverlapping` applies (it fails if the task is
 running), but only sees runs in other processes with a shared cache
 store; `OnOneServer` doesn't apply.
 
+Each run, scheduled or not, is kept in the cache as the task's last run:
+when it started, how long it took, its error, or that it was skipped
+because the previous run was still going. `s.LastRun(ctx, name)` returns
+it, and the [admin](admin.md)'s scheduled tasks page shows it. Processes
+see each other's runs with a shared cache store (`CACHE_STORE=database`
+or `redis`).
+
 ### 5. Test
 
 Test a task by running it with `RunTask`, as `schedule:run` does:

@@ -126,6 +126,21 @@ func ForApp(app *anetos.App) (*Trail, error) {
 // Config returns the log's settings.
 func (t *Trail) Config() Config { return t.cfg }
 
+// Tracked reports whether the app's audit log (in ctx) tracks table
+// ([Track]).
+func Tracked(ctx context.Context, table string) bool {
+	t, err := trailFrom(ctx)
+	if err != nil {
+		return false
+	}
+	for _, w := range t.db.Watchers(table) {
+		if _, ok := w.(*tracking); ok {
+			return true
+		}
+	}
+	return false
+}
+
 // Enabled reports whether ctx has the app's audit log (audit.ForApp), for
 // code that records events only in apps that keep one.
 func Enabled(ctx context.Context) bool {

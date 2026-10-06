@@ -77,6 +77,10 @@ type Panel struct {
 	stop     web.HandlerFunc // stops acting as a user
 	// usersName is the users resource's name (Users), "" without.
 	usersName string
+	// widgets are the dashboard's.
+	widgets []Widget
+	// activity says the activity pages are added.
+	activity bool
 	// userLabels names users by ID, with the users resource.
 	userLabels func(ctx context.Context, ids []string) (map[string]string, error)
 }
@@ -276,9 +280,12 @@ func (p *Panel) home(c *web.Ctx) error {
 	type card struct {
 		Title string
 		URL   string
-		Count int64
+		Count string
 	}
-	var cards []card
+	data := struct {
+		Widgets []widgetView
+		Cards   []card
+	}{Widgets: p.loadWidgets(c)}
 	for _, r := range p.res {
 		in := r.info()
 		if !rbac.Can(c, in.perm("view")) {
@@ -286,11 +293,17 @@ func (p *Panel) home(c *web.Ctx) error {
 		}
 		n, err := r.count(c)
 		if err != nil {
-			return err
+			// The card shows without its count; its page shows the error.
+			p.app.Logger().ErrorContext(c, "admin: counting a resource", "resource", in.Name, "error", err)
+			n = -1
 		}
-		cards = append(cards, card{in.Title, p.base + "/" + in.Name, n})
+		cd := card{Title: in.Title, URL: p.base + "/" + in.Name}
+		if n >= 0 {
+			cd.Count = thousands(n)
+		}
+		data.Cards = append(data.Cards, cd)
 	}
-	return p.render(c, "home", page{Title: p.cfg.Title, Data: cards})
+	return p.render(c, "home", page{Title: p.cfg.Title, Data: data})
 }
 
 // navItem is a link in the admin's navigation.

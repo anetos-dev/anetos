@@ -255,6 +255,23 @@ func testRetryForgetFlush(t *testing.T, ctx context.Context, s queue.Store, q st
 	if len(failed) != 3 || failed[0].ID != c || failed[1].ID != b || failed[2].ID != a {
 		t.Fatalf("Failed = %v, want c, b, a", ids(failed))
 	}
+	// Counted and found, by the store or by reading them (plain).
+	plain := struct{ queue.Store }{s}
+	for _, st := range []queue.Store{s, plain} {
+		if n, err := queue.CountFailed(ctx, st); err != nil || n != 3 {
+			t.Errorf("CountFailed = %d, %v; want 3", n, err)
+		}
+		j, ok, err := queue.FindFailed(ctx, st, b)
+		check(t, err)
+		if !ok || j.ID != b || j.Queue != q+"-b" || string(j.Payload) != `{"b":1}` || j.Error != `failed {"b":1}` || j.Attempts != 1 {
+			t.Errorf("FindFailed = %+v, %v", j, ok)
+		}
+		for _, other := range []string{"nope", b[:len(b)-1], b + "x", "%"} {
+			if _, ok, err := queue.FindFailed(ctx, st, other); err != nil || ok {
+				t.Errorf("FindFailed(%q) = %v, %v; want none", other, ok, err)
+			}
+		}
+	}
 	failed, err = s.Failed(ctx, 0, 2)
 	check(t, err)
 	if len(failed) != 2 || failed[0].ID != c {
@@ -304,6 +321,9 @@ func testRetryForgetFlush(t *testing.T, ctx context.Context, s queue.Store, q st
 	check(t, err)
 	if len(failed) != 0 {
 		t.Errorf("after Flush, Failed = %v", ids(failed))
+	}
+	if n, err := queue.CountFailed(ctx, s); err != nil || n != 0 {
+		t.Errorf("after Flush, CountFailed = %d, %v", n, err)
 	}
 	// A retried job that fails again replaces its record.
 	e := fail(t, ctx, s, q, `{"e":1}`)

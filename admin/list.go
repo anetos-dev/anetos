@@ -309,6 +309,11 @@ func (r *res[T, F]) show(c *web.Ctx) error {
 			return err
 		}
 	}
+	if h, err := r.p.history(c, r.table, &row); err != nil {
+		return err
+	} else if h != nil {
+		sp.Sections = append(sp.Sections, *h)
+	}
 	label := r.label(row)
 	return r.p.render(c, "show", page{Title: label, Crumbs: r.crumbs(navItem{Title: label}), Data: sp})
 }

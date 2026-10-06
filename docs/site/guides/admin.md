@@ -60,6 +60,14 @@ func setupAdmin(app *anetos.App, r *web.Router, sessions *session.Manager, a *au
 	if err := admin.Roles(p); err != nil {
 		return err
 	}
+	// The dashboard, and who did what (the audit log).
+	if err := admin.Activity(p); err != nil {
+		return err
+	}
+	err = p.Dashboard(lowStock(), admin.SignUps[Product]("New products", "created_at"), admin.RecentActivity(8))
+	if err != nil {
+		return err
+	}
 	return p.Mount(r, sessions.Middleware, web.CSRF(), a.Middleware)
 }
 ```
@@ -356,6 +364,80 @@ admin may still sign in (not that they still have
 admin's remember-me cookie goes when it starts. An admin at a host of
 its own (`ADMIN_HOST`) doesn't offer it: the app's pages are on another
 host, with another session.
+
+### 7. Put widgets on the dashboard
+
+The admin's first page shows widgets above the resources:
+`p.Dashboard(widgets...)`, before `Mount`. A widget loads its content
+when the page is shown: figures, a bar chart (drawn as SVG), a table
+whose rows link to the admin's pages, any `view.Component`, and a link.
+A widget that fails (or panics) says so in its place, the error is
+logged, and the rest of the page works. A widget's `Permission` must be
+declared, as a resource's are; the built-in ones' are declared for you.
+
+```go
+// lowStock is a dashboard widget: the active products running out.
+func lowStock() admin.Widget {
+	return admin.Widget{Title: "Low stock", Permission: "admin.products.view", Load: func(ctx context.Context) (admin.Content, error) {
+		low, err := db.Query[Product](ctx).Where(db.C("status").Eq("active"), db.C("stock").Lt(5)).
+			OrderBy(db.C("stock").Asc()).Limit(10).Get()
+		if err != nil {
+			return admin.Content{}, err
+		}
+		t := &admin.Table{Headers: []string{"Product", "In stock"}}
+		for _, p := range low {
+			t.Rows = append(t.Rows, []string{p.Name, strconv.Itoa(p.Stock)})
+			t.Links = append(t.Links, fmt.Sprintf("products/%d", p.ID)) // the admin's page
+		}
+		return admin.Content{
+			Stats: []admin.Stat{{Label: "Running out", Value: strconv.Itoa(len(low)), Warn: len(low) > 0}},
+			Table: t,
+			Link:  &admin.Link{Title: "Every active product", URL: "products?status=active&sort=stock"},
+		}, nil
+	}}
+}
+```
+
+(Copied from [`examples/admin/admin.go`](../../../examples/admin/admin.go), region `widget`.)
+
+Links and table rows without a leading `/` lead to the admin's own pages
+(`products/7`), and are left out if there is no such page. Built in:
+
+| Widget | Shows | Permission |
+|---|---|---|
+| `admin.SignUps[T](title, column)` | Model `T`'s records: in all, new in 7 and 30 days, and a bar a day for 30 days (UTC), by `column` (`"created_at"`) | `admin.access` |
+| `admin.QueueHealth(q, queues...)` | The jobs waiting on the default queue and on `queues`, and the failed ones | `admin.jobs.view` |
+| `admin.AIUsage()` | Tokens and cost of the app's AI calls in 24 hours and 30 days, and tokens a day (`ai.TrackUsage`) | `admin.access` |
+| `admin.RecentActivity(n)` | The audit log's latest `n` entries | `admin.activity.view` |
+
+### 8. See who did what
+
+`admin.Activity(p)` adds the activity pages, over the app's
+[audit log](audit-log.md): its entries and bulk writes, newest first,
+filtered by who (`user:42`), what (`updated`), which kind of record
+(`posts`) and which one, and when. An entry's page shows its changes,
+field by field. The pages of a resource whose model the log tracks show
+a record's latest history. Permission: `admin.activity.view`: it shows
+what the log keeps, changed values included (fields the log leaves out,
+such as passwords, aren't there), so give it to those who may see them.
+
+### 9. Watch jobs and scheduled tasks
+
+`admin.Jobs(p, q)` adds the jobs page: the queues' sizes, and the failed
+jobs with their error and payload, to retry or forget one by one or all
+at once (`admin.jobs.view`, `.update`). `admin.Schedule(p, s)` adds the
+scheduled tasks: each one's schedule, next run and last run (kept in the
+cache; see [Scheduling](scheduling.md#4-check-and-run-tasks)), and
+**Run now**, which runs the task in the background, as the scheduler
+does (`admin.schedule.view`, `.run`): a task running from this process
+isn't started again until it ends, and the app's shutdown waits for it
+until its deadline. Retrying, forgetting and running are recorded in the
+audit log. A failed job's page shows its payload, so `admin.jobs.view`
+is for those who may see what jobs carry.
+
+`make:admin` adds these when the app has them: the queue and the
+scheduler of `anetos new`, and the activity when the app keeps an audit
+log.
 
 ## How it works
 

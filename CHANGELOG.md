@@ -20,6 +20,23 @@ All notable changes to this project are documented here. The format follows
   embedded `html/template` with htmx and their own stylesheet, under a
   strict CSP. `anetos make:admin` and `anetos make:admin:resource
   <Model>`; guide "Add an admin panel", `examples/admin` (AD1a, D211–D214).
+- The admin's dashboard and operations (AD2a, D221–D223): widgets on its
+  first page (`Panel.Dashboard`, `admin.Widget` with figures, a bar chart
+  as SVG, a table, any component and a link; built in `admin.SignUps`,
+  `admin.QueueHealth`, `admin.AIUsage`, `admin.RecentActivity`); the
+  activity pages over the audit log, filtered, with an entry's changes
+  field by field and a record's history on its page (`admin.Activity`);
+  failed jobs to retry or forget (`admin.Jobs`); scheduled tasks with
+  their next and last run, run now in the background (`admin.Schedule`).
+  `make:admin` adds them as the app has a queue, a scheduler, an audit
+  log and AI usage.
+- `schedule`: each task's last run is kept in the cache
+  (`Scheduler.LastRun`, `schedule.Run`) (AD2a, D223).
+- `audit.Tracked(ctx, table)` (AD2a).
+- `queue.CountFailed` and `queue.FindFailed`, with the optional store
+  interfaces `queue.FailedCounter` and `queue.FailedFinder`, implemented
+  by the memory, database and Redis stores; `queuetest` checks them
+  (AD2a).
 - The admin's users and roles (AD1b, D215–D220): `admin.Users` adds the
   app's users with their accounts managed on their pages (disable and
   enable, verification and reset emails, sign out everywhere, API tokens,

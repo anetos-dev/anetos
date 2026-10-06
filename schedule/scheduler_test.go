@@ -568,3 +568,33 @@ func TestNilLocation(t *testing.T) {
 		t.Errorf("Next = %s", next)
 	}
 }
+
+// Each run is kept in the cache, the last one per task.
+func TestLastRun(t *testing.T) {
+	ctx := cache.WithCache(context.Background(), cache.New(cache.NewMemoryStore(), "t:"))
+	s, _, _ := newScheduler(t)
+	fail := errors.New("upstream down")
+	var calls atomic.Int32
+	check(t, s.Add(schedule.Hourly(), "sync", func(context.Context) error {
+		if calls.Add(1) == 1 {
+			return fail
+		}
+		return nil
+	}))
+	if _, ok, err := s.LastRun(ctx, "sync"); ok || err != nil {
+		t.Fatalf("LastRun before a run: %v, %v", ok, err)
+	}
+	if err := s.RunTask(ctx, "sync"); !errors.Is(err, fail) {
+		t.Fatal(err)
+	}
+	run, ok, err := s.LastRun(ctx, "sync")
+	if !ok || err != nil || run.Error != "upstream down" || run.At.IsZero() {
+		t.Errorf("after a failure: %+v, %v, %v", run, ok, err)
+	}
+	check(t, s.RunTask(ctx, "sync"))
+	if run, _, _ := s.LastRun(ctx, "sync"); run.Error != "" {
+		t.Errorf("after a success: %+v", run)
+	}
+	// Without a cache, runs aren't kept, and nothing fails.
+	check(t, s.RunTask(context.Background(), "sync"))
+}

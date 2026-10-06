@@ -55,3 +55,13 @@
     <button type="submit" style="font:inherit;padding:.2rem .7rem;border:1px solid #fff;border-radius:4px;background:transparent;color:#fff;cursor:pointer">Stop acting as {{.As}}</button>
   </form>{{end}}
 </div>{{end}}
+
+{{define "history"}}{{if .Error}}<p class="empty danger">{{.Error}}</p>{{else if .Rows}}<div class="table"><table>
+<thead><tr><th>When</th><th>Who</th><th>What</th></tr></thead>
+<tbody>{{range .Rows}}<tr>
+  <td>{{if .URL}}<a href="{{.URL}}">{{.When}}</a>{{else}}{{.When}}{{end}}</td>
+  <td>{{if .WhoURL}}<a href="{{.WhoURL}}">{{.Who}}</a>{{else}}{{.Who}}{{end}}{{if .ActingAs}} <span class="none">as {{.ActingAs}}</span>{{end}}</td>
+  <td><code>{{.Action}}</code></td>
+</tr>{{end}}</tbody></table></div>
+{{if .All}}<p class="more"><a href="{{.All}}">All its history →</a></p>{{end}}
+{{else}}<p class="empty">Nothing recorded yet.</p>{{end}}{{end}}

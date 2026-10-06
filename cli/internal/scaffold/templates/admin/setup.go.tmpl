@@ -8,6 +8,8 @@ import (
 	"anetos.dev/anetos/auth/rbac"
 	"anetos.dev/anetos/db/migrate"
 [[- end]]
+	"anetos.dev/anetos/queue"
+	"anetos.dev/anetos/schedule"
 	"anetos.dev/anetos/session"
 	"anetos.dev/anetos/web"
 
@@ -47,6 +49,36 @@ func setupAdmin(app *anetos.App, r *web.Router, sessions *session.Manager, a *au
 	}
 [[- end]]
 	if err := admin.Roles(p); err != nil {
+		return err
+	}
+	// The dashboard, and the operations' pages: the jobs, the scheduled
+	// tasks[[if .Audit]], the activity (the audit log)[[end]].
+	widgets := []admin.Widget{
+[[- if .Users]]
+		admin.SignUps[models.User]("Users", "created_at"),
+[[- end]]
+	}
+	if q, ok := anetos.Lookup[*queue.Queue](app); ok {
+		widgets = append(widgets, admin.QueueHealth(q))
+		if err := admin.Jobs(p, q); err != nil {
+			return err
+		}
+	}
+	if s, ok := anetos.Lookup[*schedule.Scheduler](app); ok {
+		if err := admin.Schedule(p, s); err != nil {
+			return err
+		}
+	}
+[[- if .AI]]
+	widgets = append(widgets, admin.AIUsage())
+[[- end]]
+[[- if .Audit]]
+	widgets = append(widgets, admin.RecentActivity(10))
+	if err := admin.Activity(p); err != nil {
+		return err
+	}
+[[- end]]
+	if err := p.Dashboard(widgets...); err != nil {
 		return err
 	}
 	for _, add := range appadmin.Resources {

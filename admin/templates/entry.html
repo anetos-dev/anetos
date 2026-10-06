@@ -1,0 +1,17 @@
+{{define "content"}}{{with .Data}}
+<h1>{{$.Title}}</h1>
+<dl class="details">
+  <dt>When</dt><dd>{{.Event.When}}</dd>
+  <dt>Who</dt><dd>{{if .Event.WhoURL}}<a href="{{.Event.WhoURL}}">{{.Event.Who}}</a>{{else}}{{.Event.Who}}{{end}}{{if .Event.ActingAs}}, acting as {{.Event.ActingAs}}{{end}}</dd>
+  <dt>What</dt><dd><code>{{.Event.Action}}</code></dd>
+  {{if .Event.Record}}<dt>Record</dt><dd>{{if .Event.RecordTo}}<a href="{{.Event.RecordTo}}">{{.Event.Record}}</a>{{else}}{{.Event.Record}}{{end}}{{if .History}} · <a href="{{.History}}">its history</a>{{end}}</dd>{{end}}
+  {{if .Event.Via}}<dt>Through</dt><dd>{{.Event.Via}}</dd>{{end}}
+  {{if .Entry.RequestID}}<dt>Request</dt><dd><code>{{.Entry.RequestID}}</code></dd>{{end}}
+  {{if .Entry.IP}}<dt>IP address</dt><dd>{{.Entry.IP}}</dd>{{end}}
+</dl>
+{{if .Changes}}<section class="part"><h2>Changes</h2><div class="table"><table>
+<thead><tr><th>Field</th><th>Before</th><th>After</th></tr></thead>
+<tbody>{{range .Changes}}<tr><td><code>{{.Column}}</code></td><td class="value">{{.Old}}</td><td class="value">{{.New}}</td></tr>{{end}}</tbody>
+</table></div></section>{{end}}
+{{if .Properties}}<section class="part"><h2>Details</h2><pre>{{.Properties}}</pre></section>{{end}}
+{{end}}{{end}}

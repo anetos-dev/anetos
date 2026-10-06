@@ -1,0 +1,36 @@
+{{define "content"}}{{with .Data}}
+<div class="head"><h1>{{$.Title}}</h1>
+  <nav class="tabs" aria-label="Kinds">
+    <a href="{{.Entries}}"{{if not .Filter.Kind}} aria-current="page"{{end}}>Changes and events</a>
+    <a href="{{.Bulk}}"{{if .Filter.Kind}} aria-current="page"{{end}}>Bulk writes</a>
+  </nav>
+</div>
+<form method="get" class="query">
+  {{if .Filter.Kind}}<input type="hidden" name="kind" value="bulk">{{end}}
+  <label>Who <input name="who" value="{{.Filter.Who}}" placeholder="user:42"></label>
+  <label>What <input name="action" value="{{.Filter.Action}}" placeholder="updated"></label>
+  <label>Kind of record <input name="type" value="{{.Filter.Type}}" placeholder="posts"></label>
+  <label>Record <input name="id" value="{{.Filter.ID}}" placeholder="7"></label>
+  <label>From <input type="date" name="from" value="{{.Filter.From}}"></label>
+  <label>To <input type="date" name="to" value="{{.Filter.To}}"></label>
+  <button type="submit">Filter</button>
+</form>
+{{template "events" .Rows}}
+<nav class="pages" aria-label="Pages">
+  <span></span>
+  {{if .Newest}}<a class="button" href="{{.Newest}}">Newest</a>{{end}}
+  {{if .Older}}<a class="button" href="{{.Older}}" rel="next">Older</a>{{end}}
+</nav>
+{{end}}{{end}}
+{{define "events"}}{{if .}}<div class="table"><table>
+<thead><tr><th>When</th><th>Who</th><th>What</th><th>Record</th><th>Through</th></tr></thead>
+<tbody>
+{{range .}}<tr>
+  <td>{{if .URL}}<a href="{{.URL}}">{{.When}}</a>{{else}}{{.When}}{{end}}</td>
+  <td>{{if .WhoURL}}<a href="{{.WhoURL}}">{{.Who}}</a>{{else}}{{.Who}}{{end}}{{if .ActingAs}} <span class="none">as {{.ActingAs}}</span>{{end}}</td>
+  <td><code>{{.Action}}</code></td>
+  <td>{{if .RecordTo}}<a href="{{.RecordTo}}">{{.Record}}</a>{{else}}{{.Record}}{{end}}{{if .Rows}} <span class="none">({{.Rows}} rows)</span>{{end}}</td>
+  <td class="none">{{.Via}}</td>
+</tr>
+{{end}}
+</tbody></table></div>{{else}}<p class="empty">Nothing matches.</p>{{end}}{{end}}

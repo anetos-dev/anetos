@@ -270,6 +270,23 @@ func (s *QueueStore) Failed(ctx context.Context, offset, limit int) ([]queue.Fai
 	return out, nil
 }
 
+// CountFailed implements [queue.FailedCounter].
+func (s *QueueStore) CountFailed(ctx context.Context) (int64, error) {
+	return s.client.ZCard(ctx, s.failedKey()).Result()
+}
+
+// FindFailed implements [queue.FailedFinder].
+func (s *QueueStore) FindFailed(ctx context.Context, id string) (queue.FailedJob, bool, error) {
+	h, err := s.client.HGetAll(ctx, s.failedJobKey(id)).Result()
+	if err != nil || len(h) == 0 {
+		return queue.FailedJob{}, false, err
+	}
+	attempts, _ := strconv.Atoi(h["attempts"])
+	at, _ := strconv.ParseInt(h["failed_at"], 10, 64)
+	return queue.FailedJob{ID: id, Queue: h["queue"], Payload: []byte(h["payload"]), Error: h["error"],
+		Attempts: attempts, FailedAt: time.UnixMilli(at)}, true, nil
+}
+
 // Retry implements [queue.Store].
 func (s *QueueStore) Retry(ctx context.Context, id string) (bool, error) {
 	n, err := qRetry.Run(ctx, s.client, []string{s.failedKey(), s.failedJobKey(id), s.jobKey(id)}, id, s.prefix+"q:").Int64()

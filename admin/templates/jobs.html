@@ -1,0 +1,18 @@
+{{define "content"}}{{$csrf := .CSRF}}{{with .Data}}
+<div class="head"><h1>{{$.Title}}</h1>
+  {{if and .CanUpdate .Failed}}<div class="tools">
+    <form method="post" action="{{.RetryAll}}" class="inline" data-confirm="Put every failed job back on its queue?"><input type="hidden" name="_token" value="{{$csrf}}"><button type="submit">Retry all</button></form>
+    <form method="post" action="{{.Flush}}" class="inline" data-confirm="Forget every failed job? They can't be retried after."><input type="hidden" name="_token" value="{{$csrf}}"><button type="submit" class="danger">Forget all</button></form>
+  </div>{{end}}
+</div>
+{{if .Sync}}<p class="empty">Jobs run at once, as they are dispatched (QUEUE_DRIVER=sync): none wait, and none are kept when they fail.</p>{{else}}
+<div class="stats">{{range .Queues}}<div class="stat"><span class="value">{{.Value}}</span><span class="label">{{.Label}}</span><span class="hint">{{.Hint}}</span></div>{{end}}</div>
+<section class="part"><h2>Failed jobs</h2>
+{{if .Failed}}<div class="table"><table>
+<thead><tr><th>Failed</th><th>Job</th><th>Queue</th><th>Attempts</th><th>Error</th></tr></thead>
+<tbody>{{range .Failed}}<tr><td><a href="{{.URL}}">{{.FailedAt}}</a></td><td><code>{{.Job}}</code></td><td>{{.Queue}}</td><td>{{.Attempts}}</td><td>{{.Error}}</td></tr>{{end}}</tbody>
+</table></div>
+<nav class="pages" aria-label="Pages"><span></span>{{if .Prev}}<a class="button" href="{{.Prev}}" rel="prev">Newer</a>{{end}}{{if .Next}}<a class="button" href="{{.Next}}" rel="next">Older</a>{{end}}</nav>
+{{else}}<p class="empty">No failed jobs.</p>{{end}}
+</section>{{end}}
+{{end}}{{end}}

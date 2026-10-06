@@ -150,3 +150,27 @@ func addUsers(p *admin.Panel, a *auth.Auth[*User]) error {
 }
 
 // endregion
+
+// region: widget
+// lowStock is a dashboard widget: the active products running out.
+func lowStock() admin.Widget {
+	return admin.Widget{Title: "Low stock", Permission: "admin.products.view", Load: func(ctx context.Context) (admin.Content, error) {
+		low, err := db.Query[Product](ctx).Where(db.C("status").Eq("active"), db.C("stock").Lt(5)).
+			OrderBy(db.C("stock").Asc()).Limit(10).Get()
+		if err != nil {
+			return admin.Content{}, err
+		}
+		t := &admin.Table{Headers: []string{"Product", "In stock"}}
+		for _, p := range low {
+			t.Rows = append(t.Rows, []string{p.Name, strconv.Itoa(p.Stock)})
+			t.Links = append(t.Links, fmt.Sprintf("products/%d", p.ID)) // the admin's page
+		}
+		return admin.Content{
+			Stats: []admin.Stat{{Label: "Running out", Value: strconv.Itoa(len(low)), Warn: len(low) > 0}},
+			Table: t,
+			Link:  &admin.Link{Title: "Every active product", URL: "products?status=active&sort=stock"},
+		}, nil
+	}}
+}
+
+// endregion

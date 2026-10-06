@@ -89,6 +89,14 @@ func setupAdmin(app *anetos.App, r *web.Router, sessions *session.Manager, a *au
 	if err := admin.Roles(p); err != nil {
 		return err
 	}
+	// The dashboard, and who did what (the audit log).
+	if err := admin.Activity(p); err != nil {
+		return err
+	}
+	err = p.Dashboard(lowStock(), admin.SignUps[Product]("New products", "created_at"), admin.RecentActivity(8))
+	if err != nil {
+		return err
+	}
 	return p.Mount(r, sessions.Middleware, web.CSRF(), a.Middleware)
 }
 

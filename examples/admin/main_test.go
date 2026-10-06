@@ -125,3 +125,12 @@ func TestStaffAccounts(t *testing.T) {
 }
 
 // endregion
+
+func TestDashboard(t *testing.T) {
+	app := signIn(t, "admin@example.com")
+	if err := db.Create(app.Context(), &Product{Name: "Last one", SKU: "last", Stock: 1, Status: "active"}); err != nil {
+		t.Fatal(err)
+	}
+	app.Get("/admin").AssertOK().AssertSee("Low stock", "Last one", "New products", "Recent activity", "Activity")
+	app.Get("/admin/activity").AssertOK().AssertSee("products #")
+}

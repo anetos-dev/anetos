@@ -23,6 +23,8 @@ func TestAdminAccess(t *testing.T) {
 		t.Fatal(err)
 	}
 	app.Get("/admin").AssertOK()
+	app.Get("/admin/jobs").AssertOK()
+	app.Get("/admin/schedule").AssertOK()
 [[- if .Users]]
 	app.Get("/admin/users").AssertOK().AssertSee("ada@example.com")
 	app.Get("/admin/roles").AssertOK().AssertSee("Administrator")

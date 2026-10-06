@@ -1214,9 +1214,51 @@ permissions are `admin.roles.view`, `.create`, `.update`, `.delete`, and
 `admin.roles.assign` to give and take away roles.
 
 `make:admin` writes `app/admin/users.go` for `make:auth`'s users, adds
-`admin.Roles`, and puts the banner in the app's layout. **AD2:** the
-dashboard's widgets, the activity views, failed jobs and scheduled tasks,
-two-factor sign-in and password confirmation.
+`admin.Roles`, and puts the banner in the app's layout.
+
+**Dashboard (AD2a, D221).** The admin's first page shows widgets above
+the resources: `p.Dashboard(widgets...)`. A widget has a title, the
+permission it needs (`admin.access` by default) and a `Load` function
+returning its content: figures (`Stat`), a bar chart (`Bar`, drawn as
+inline SVG: no script), a table, any `view.Component`, and a link. A
+widget that fails to load (or panics) says so in its place; the rest of
+the page works. Built in: `admin.SignUps[T](title, column)` (records, new in 7 and 30 days,
+sign-ups a day), `admin.QueueHealth(q, queues...)` (waiting and failed
+jobs), `admin.AIUsage()` (tokens and cost, from `ai_usage`) and
+`admin.RecentActivity(n)` (the audit log's latest entries).
+
+**Activity (AD2a, D222).** `admin.Activity(p)` adds pages over the audit
+log: entries and bulk writes, newest first, filtered by who, what, which
+kind of record, which record and when; an entry's page shows its changes
+field by field. A resource whose model is tracked shows a record's
+history on its page. Permission: `admin.activity.view`. Read only.
+
+**Jobs and scheduled tasks (AD2a, D223).** `admin.Jobs(p, q)`: the
+queues' sizes and the failed jobs (error, payload, attempts), retried or
+forgotten one by one or all at once (`admin.jobs.view`, `.update`).
+`admin.Schedule(p, s)`: the scheduled tasks, their schedule, next run and
+last run (the scheduler keeps each task's last run in the cache:
+`Scheduler.LastRun`; not known without a cache), and running one now, in
+the background: not twice at once from one process, and waited for at
+shutdown (`admin.schedule.view`, `.run`). Retrying, forgetting and
+running are logged. Counting and finding a failed job are optional store
+methods (`queue.FailedCounter`, `queue.FailedFinder`, with
+`queue.CountFailed` and `queue.FindFailed` reading the list otherwise).
+
+**Security (AD2b, D224–D226).** Two-factor sign-in with TOTP (RFC 6238)
+and recovery codes in package `auth`: `Users.TwoFactor` and
+`SetTwoFactor` store the secret, encrypted with `APP_KEY`, and the
+recovery codes, hashed; `Attempt` stops at `ErrTwoFactorRequired` for
+users who have it, and `AttemptTwoFactor` finishes signing in with a
+code (each code used once). Password confirmation:
+`Auth.ConfirmPassword`, `RequireConfirmed` and `PasswordConfirmed`
+(`AUTH_CONFIRM_URL`, `AUTH_CONFIRM_TTL`), which the admin asks for
+before dangerous actions (deleting, disabling, roles, acting as a user,
+actions marked `Danger`). `ADMIN_TWO_FACTOR=required` sends admins
+without two-factor sign-in to set it up; `ADMIN_ALLOW_IPS` lets in only
+some addresses. `make:auth` adds the pages: the code at sign-in, turning
+two-factor sign-in on and off (a QR code drawn as SVG), and confirming
+the password.
 
 ---
 
@@ -2583,6 +2625,9 @@ unless new information arrives), **Open**, **Superseded**.
 | D218 | Managing another user (edit, disable, sign out, act as, delete, roles) needs every permission they have in every scope, and a super role wherever they have one: `rbac.AuthorizeOver(ctx, userID)`. No one disables, acts as, deletes or changes the roles of themselves in the admin | Accepted | Without it, anyone allowed to edit users could take over an administrator's account (change the address, then reset the password) or act as them |
 | D219 | The admin's roles pages manage the roles stored in the database (`rbac.CreateRole`, `UpdateRole`, `DeleteRole`), with only the permissions the admin has globally; roles declared in code are shown, not edited. Permissions `admin.roles.view/create/update/delete/assign` | Accepted | As `AuthorizeRole` for assignments: no one makes a role with more than they have |
 | D220 | `admin.Users(p, r, admin.Accounts[U]{…})` adds the users resource: the app's `Resource[T, F]` plus account management from `Accounts` (the `auth.Auth[U]`, the disabled and verified columns, the app's mail hooks). `make:auth` adds `disabled_at` and `session_key` to the users table and the `Users` hooks, and exports `SendVerification` and `SendPasswordReset`; `make:admin` writes `app/admin/users.go` from the model, using what it has | Accepted | The app's users are its own model, so their columns and form stay app code; the account features need the auth types, which the library has |
+| D221 | The admin's first page is a dashboard of widgets (`admin.Widget{Title, Permission, Load}`), whose content is figures, a bar chart as inline SVG, a table, any `view.Component`, and a link; built-in widgets for sign-ups, queue health, AI usage and recent activity; a widget that fails says so in its place | Accepted | Apps put on it what matters to them, in Go; charts as SVG need no script under the admin's CSP; one failing query mustn't take the page down |
+| D222 | `admin.Activity(p)`: the audit log's entries and bulk writes, filtered, with a page per entry; a tracked model's records show their history on their pages; `admin.activity.view` | Accepted | Who did what is the audit log's; the admin is where people look for it |
+| D223 | `admin.Jobs(p, q)` (queue sizes, failed jobs: retry, forget, all) and `admin.Schedule(p, s)` (tasks, next and last run, run now in the background); the scheduler keeps each task's last run in the cache (`Scheduler.LastRun`), shared by processes with a shared cache store | Accepted | The commands (`queue:failed`, `schedule:list`) exist; operators want them where they work. The last run lives in the cache, not a table: it is a convenience, and the logs have the history |
 
 ---
 
@@ -2653,3 +2698,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-06 | AD1 admin interface designed: §12.3 added; D211–D214 added (D211 supersedes D210's installation through `anetos add`) |
 | 2026-10-06 | AD1a implemented: D213's form function is `Apply`; `admin.PermissionsOf` for roles in code; `make:admin` sets up roles (`rbac.ForApp`) unless the app does |
 | 2026-10-06 | AD1b designed and implemented: §12.3 users and roles; D215–D220 added |
+| 2026-10-06 | AD2 designed: §12.3 dashboard, activity, jobs and tasks (AD2a, D221–D223) and security (AD2b, D224–D226) |

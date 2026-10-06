@@ -326,7 +326,9 @@ func (s *Scheduler) RunTask(ctx context.Context, name string) error {
 	if s.app != nil {
 		ctx = s.app.Context(ctx)
 	}
+	start := time.Now()
 	err := s.runTask(ctx, t)
+	s.recordRun(ctx, t.name, start, err)
 	if p := (*panicError)(nil); errors.As(err, &p) {
 		s.log.ErrorContext(ctx, "schedule: task panicked", "task", t.name, "panic", p.value, "stack", string(p.stack))
 	}
@@ -533,6 +535,45 @@ func (s *Scheduler) checkLocks(ctx context.Context) error {
 	return nil
 }
 
+// Run is a task's run, as [Scheduler.LastRun] returns it.
+type Run struct {
+	// At is when it started.
+	At time.Time `json:"at"`
+	// Duration is how long it took.
+	Duration time.Duration `json:"duration"`
+	// Error is its error, "" if it succeeded.
+	Error string `json:"error,omitempty"`
+}
+
+// lastRunTTL is how long the cache keeps a task's last run.
+const lastRunTTL = 90 * 24 * time.Hour
+
+// recordRun keeps a task's last run in the cache, if there is one. A run
+// skipped because the previous one was still going isn't one: that one's
+// stays.
+func (s *Scheduler) recordRun(ctx context.Context, name string, start time.Time, err error) {
+	if errors.Is(err, ErrOverlap) {
+		return
+	}
+	run := Run{At: start.UTC(), Duration: time.Since(start).Round(time.Millisecond)}
+	if err != nil {
+		run.Error = err.Error()
+	}
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), lockCallTimeout)
+	defer cancel()
+	if err := cache.Set(ctx, "schedule:last:"+name, run, lastRunTTL); err != nil {
+		s.log.DebugContext(ctx, "schedule: keeping the last run", "task", name, "error", err)
+	}
+}
+
+// LastRun returns the last run of the task name, from the cache: kept by
+// whichever process ran it, so processes share it with a shared cache
+// store (CACHE_STORE=database or redis). It reports false if none is
+// known.
+func (s *Scheduler) LastRun(ctx context.Context, name string) (Run, bool, error) {
+	return cache.Get[Run](ctx, "schedule:last:"+name)
+}
+
 // fire runs t for its run at, unless another instance took the run
 // (OnOneServer) or the previous run is still going (WithoutOverlapping).
 func (s *Scheduler) fire(ctx context.Context, t *task, at time.Time) {
@@ -552,7 +593,9 @@ func (s *Scheduler) fire(ctx context.Context, t *task, at time.Time) {
 	start := time.Now()
 	log.Debug("schedule: task started")
 	var p *panicError
-	switch err := s.runTask(ctx, t); {
+	err := s.runTask(ctx, t)
+	s.recordRun(ctx, t.name, start, err)
+	switch {
 	case errors.Is(err, ErrOverlap):
 		log.Warn("schedule: skipped: the previous run is still going")
 	case errors.As(err, &p):

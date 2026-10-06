@@ -188,6 +188,22 @@ func (s *MemoryStore) Retry(_ context.Context, id string) (bool, error) {
 	return true, nil
 }
 
+// CountFailed implements [FailedCounter].
+func (s *MemoryStore) CountFailed(context.Context) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return int64(len(s.failed)), nil
+}
+
+// FindFailed implements [FailedFinder].
+func (s *MemoryStore) FindFailed(_ context.Context, id string) (FailedJob, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	f, ok := s.failed[id]
+	f.Payload = slices.Clone(f.Payload)
+	return f, ok, nil
+}
+
 // Forget implements [Store].
 func (s *MemoryStore) Forget(_ context.Context, id string) (bool, error) {
 	s.mu.Lock()

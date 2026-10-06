@@ -47,6 +47,10 @@ type AdminResult struct {
 	// Banner says the app's layout (views/layout.templ) now shows
 	// admin.Banner.
 	Banner bool
+	// Audit and AI say the app keeps an audit log (audit.ForApp) and
+	// tracks AI usage (TrackUsage): setupAdmin adds the activity and the
+	// AI usage widget.
+	Audit, AI bool
 }
 
 // adminCall is what make:admin puts in setup in place of make:auth's call.
@@ -135,6 +139,13 @@ func MakeAdmin(root string) (AdminResult, error) {
 	if err != nil {
 		return res, err
 	}
+	// The activity, with an audit log; AI usage, with tracked usage.
+	if res.Audit, err = projectCalls(root, "audit.ForApp("); err != nil {
+		return res, err
+	}
+	if res.AI, err = projectCalls(root, "TrackUsage("); err != nil {
+		return res, err
+	}
 	// The test signs in with make:auth's test helper, and gives the
 	// admin role.
 	if res.RBAC && rootNames["authRegister"] && !rootNames["TestAdminAccess"] {
@@ -150,10 +161,10 @@ func MakeAdmin(root string) (AdminResult, error) {
 		envBefore[name] = b
 	}
 	data := struct {
-		Module                                    string
-		RBAC, Users, Disabled, Verified, Handlers bool
+		Module                                               string
+		RBAC, Users, Disabled, Verified, Handlers, Audit, AI bool
 	}{mod, res.RBAC, res.Users, res.Disabled, has("EmailVerifiedAt"),
-		handlerNames["SendVerification"] && handlerNames["SendPasswordReset"]}
+		handlerNames["SendVerification"] && handlerNames["SendPasswordReset"], res.Audit, res.AI}
 	out := make([][]byte, len(files))
 	for i, f := range files {
 		if out[i], err = render("templates/admin/"+f[0], "", data); err != nil {
@@ -241,6 +252,12 @@ func addBanner(src []byte) ([]byte, bool) {
 
 // noRBAC reports whether no Go file of the project calls rbac.ForApp.
 func noRBAC(root string) (bool, error) {
+	found, err := projectCalls(root, "rbac.ForApp(")
+	return !found, err
+}
+
+// projectCalls reports whether a Go file of the project contains call.
+func projectCalls(root, call string) (bool, error) {
 	found := false
 	err := filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
 		if err != nil {
@@ -259,10 +276,10 @@ func noRBAC(root string) (bool, error) {
 		if err != nil {
 			return err
 		}
-		found = bytes.Contains(b, []byte("rbac.ForApp("))
+		found = bytes.Contains(b, []byte(call))
 		return nil
 	})
-	return !found, err
+	return found, err
 }
 
 // AdminReplace returns how the project at root gets the admin module from

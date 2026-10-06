@@ -1,0 +1,14 @@
+{{define "content"}}{{$csrf := .CSRF}}{{with .Data}}
+<h1>{{$.Title}}</h1>
+{{if .Tasks}}<div class="table"><table>
+<thead><tr><th>Task</th><th>When</th><th>Next run</th><th>Last run</th><th></th></tr></thead>
+<tbody>{{range .Tasks}}<tr>
+  <td><code>{{.Name}}</code>{{if .Options}}<br><span class="none">{{.Options}}</span>{{end}}</td>
+  <td>{{.Schedule}}</td><td>{{.Next}}</td>
+  <td>{{.Last}}{{if .Failed}}<br><span class="danger">Failed: {{.LastError}}</span>{{end}}{{if .Running}}<br><span class="none">Running now, from here</span>{{end}}</td>
+  <td class="actions">{{if $.Data.CanRun}}<form method="post" action="{{.RunURL}}" class="inline" data-confirm="Run {{.Name}} now?"><input type="hidden" name="_token" value="{{$csrf}}"><button type="submit" aria-label="Run {{.Name}} now">Run now</button></form>{{end}}</td>
+</tr>{{end}}</tbody>
+</table></div>
+<p class="none">Last runs are kept in the cache: with a cache of their own (the memory store), processes see only the runs they made.</p>
+{{else}}<p class="empty">No scheduled tasks.</p>{{end}}
+{{end}}{{end}}

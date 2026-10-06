@@ -183,7 +183,8 @@ type resInfo struct {
 	Name     string
 	Title    string
 	Singular string
-	soft     bool // the model embeds db.SoftDeletes
+	soft     bool     // the model embeds db.SoftDeletes
+	custom   []string // the permissions' kinds, if not view, create, update and delete
 	editable bool
 	create   bool
 	delete   bool
@@ -193,7 +194,7 @@ func (in *resInfo) perm(kind string) rbac.Permission {
 	return rbac.Permission("admin." + in.Name + "." + kind)
 }
 
-func (in *resInfo) perms() []rbac.Permission { return PermissionsOf(in.Name) }
+func (in *resInfo) perms() []rbac.Permission { return PermissionsOf(in.Name, in.custom...) }
 
 // Add adds a resource to the panel and declares its permissions. Add the
 // resources before [Panel.Mount].
@@ -374,6 +375,8 @@ func refused(c *web.Ctx, err error, to string) error {
 }
 
 func (r *res[T, F]) info() *resInfo { return &r.in }
+
+func (r *res[T, F]) tableName() string { return r.table }
 
 func (r *res[T, F]) query(ctx context.Context) *db.Q[T] {
 	q := db.Query[T](ctx)

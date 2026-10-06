@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"anetos.dev/anetos"
+	"anetos.dev/anetos/ai"
 	"anetos.dev/anetos/anetostest"
 	"anetos.dev/anetos/audit"
 	"anetos.dev/anetos/auth"
@@ -168,7 +169,7 @@ func setupWith(opts func(p *Panel) error) func(app *anetos.App) (*web.Server, er
 		if _, err := db.Connect(context.Background(), app, sqlite.Driver()); err != nil {
 			return nil, err
 		}
-		if _, err := migrate.ForApp(app, []*migrate.Set{migrations, auth.Migrations(), rbac.Migrations(), audit.Migrations()}); err != nil {
+		if _, err := migrate.ForApp(app, []*migrate.Set{migrations, auth.Migrations(), rbac.Migrations(), audit.Migrations(), ai.Migrations()}); err != nil {
 			return nil, err
 		}
 		if _, err := cache.ForApp(app); err != nil {
@@ -179,6 +180,9 @@ func setupWith(opts func(p *Panel) error) func(app *anetos.App) (*web.Server, er
 			return nil, err
 		}
 		if err := audit.Track[User](trail); err != nil {
+			return nil, err
+		}
+		if err := audit.Track[Post](trail); err != nil {
 			return nil, err
 		}
 		a, err := auth.ForApp(app, users)
