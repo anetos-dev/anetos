@@ -286,7 +286,9 @@ Broken examples are the fastest way to lose trust.
   code.
 - On release, `Unreleased` becomes the version heading. For each minor
   version before 1.0, `docs/site/upgrade/v0.N.md` collects every breaking
-  change with migration steps.
+  change with migration steps. Upgrade guides come newest first: the
+  site orders them by the version in their file name, and
+  `upgrade/README.md` lists them in the same order.
 - User docs mark new features with `since: v0.N.0` in front matter or an
   inline "Since v0.N" note.
 - **Versioned docs:** the docs site (v0.3+) publishes docs per minor
@@ -377,3 +379,4 @@ sketches as illustrative; never invent APIs in docs that don't exist in code.
 | 2026-09-30 | §6: struct fields and interface methods need doc comments; `make api-docs` checks |
 | 2026-10-01 | §7: regions of first-party plugins (`plugins/`) can be claimed like examples (B11) |
 | 2026-10-06 | §5.1, §12: every page has a `group` and a `weight`, the docs site's sidebar groups; `make docs-check` checks them (M2, D242) |
+| 2026-10-07 | §9: upgrade guides newest first |

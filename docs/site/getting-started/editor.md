@@ -7,7 +7,7 @@ weight: 11
 
 # Set up your editor
 
-An app's code is Go, and its pages are [templ](https://templ.guide)
+An Anetos app's code is Go, and its pages are [templ](https://templ.guide)
 files (`.templ`): HTML with Go expressions, compiled to Go. Your editor
 needs to know both.
 
