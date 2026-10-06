@@ -72,3 +72,25 @@ func TestConfigStringMasksSecrets(t *testing.T) {
 		t.Errorf("URL without a password changed: %s", s)
 	}
 }
+
+func TestTLSMode(t *testing.T) {
+	for _, c := range []struct {
+		cfg  db.Config
+		want string
+	}{
+		{db.Config{Host: "db.example.com"}, db.TLSVerify},
+		{db.Config{Host: "127.0.0.1"}, db.TLSNone},
+		{db.Config{Host: "/var/run/postgresql"}, db.TLSNone},
+		{db.Config{Host: "127.0.0.1", TLSCA: "/etc/ca.pem"}, db.TLSVerify},
+		{db.Config{Host: "db.example.com", TLS: db.TLSSkipVerify}, db.TLSSkipVerify},
+		{db.Config{URL: "postgres://x/y"}, ""},
+	} {
+		if got := c.cfg.TLSMode(); got != c.want {
+			t.Errorf("%v: %q, want %q", c.cfg, got, c.want)
+		}
+	}
+	_, err := db.LoadConfig(config.Map{"DB_TLS": "none", "DB_TLS_CA": "/etc/ca.pem"}, "")
+	if err == nil || !strings.Contains(err.Error(), "DB_TLS_CA is for checking the server's certificate") {
+		t.Errorf("DB_TLS_CA with DB_TLS=none: %v", err)
+	}
+}

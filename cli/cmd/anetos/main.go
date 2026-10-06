@@ -24,6 +24,7 @@
 //	add <module>[@version]    install a plugin
 //	remove <module>           uninstall a plugin
 //	lang:add <locale>...      add translations of the framework's messages (also: add lang)
+//	doctor                    check the project and the app's settings
 //	key:generate              print a new APP_KEY line
 //	version                   print the version
 package main
@@ -68,6 +69,7 @@ Commands:
   add <module>[@version]    install a plugin (go get, plugins.go, .env.example)
   remove <module>           uninstall a plugin
   lang:add <locale>...      add translations of the framework's messages to locales/ (also: add lang)
+  doctor [--strict] [--vuln]  check the project and the app's settings for unsafe values
   key:generate              print a new APP_KEY line (append it to .env)
   version                   print the version
 
@@ -116,6 +118,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 		return makeAdmin(ctx, args[1:], stdout, stderr)
+	case "doctor":
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		return doctor(ctx, args[1:], stdout, stderr)
 	case "make:admin:resource":
 		return makeAdminResource(args[1:], stdout, stderr)
 	case "make:handler", "make:model", "make:migration", "make:middleware", "make:agent":

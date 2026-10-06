@@ -73,11 +73,47 @@ func TestDSN(t *testing.T) {
 	if err != nil || !strings.HasPrefix(got, "u:p@ss@tcp(db:3306)/app?") || !strings.Contains(got, "parseTime=true") || !strings.Contains(got, "clientFoundRows=true") {
 		t.Errorf("DSN = %s, %v", got, err)
 	}
+	if !strings.Contains(got, "tls=true") {
+		t.Errorf("a remote host without TLS: %s", got)
+	}
+	for tlsMode, want := range map[string]string{"none": "tls=false", "skip-verify": "tls=skip-verify", "verify": "tls=true"} {
+		if got, _ := mysql.DSN(db.Config{Host: "db", TLS: tlsMode}); !strings.Contains(got, want) {
+			t.Errorf("DB_TLS=%s: %s", tlsMode, got)
+		}
+	}
+	if got, _ := mysql.DSN(db.Config{Host: "127.0.0.1"}); !strings.Contains(got, "tls=false") {
+		t.Errorf("a local host: %s", got)
+	}
+	if _, err := mysql.DSN(db.Config{Host: "db", TLSCA: "/nonexistent.pem"}); err == nil {
+		t.Error("a missing DB_TLS_CA accepted")
+	}
 	got, err = mysql.DSN(db.Config{URL: "u:p@tcp(h:1)/x?loc=Local"})
 	if err != nil || !strings.Contains(got, "parseTime=true") || strings.Contains(got, "Local") {
 		t.Errorf("DSN from URL = %s, %v", got, err)
 	}
 	if _, err := mysql.DSN(db.Config{URL: "not a dsn"}); err == nil {
 		t.Error("bad DSN accepted")
+	}
+}
+
+func TestInspectURL(t *testing.T) {
+	inspect := mysql.Driver().InspectURL
+	for url, want := range map[string]string{
+		"u:p@tcp(db.example.com:3306)/app":                                        "db.example.com none",
+		"u:p@tcp(db.example.com:3306)/app?tls=false":                              "db.example.com none",
+		"u:p@tcp(db.example.com:3306)/app?tls=preferred":                          "db.example.com none",
+		"u:p@tcp(db.example.com:3306)/app?tls=skip-verify":                        "db.example.com skip-verify",
+		"u:p@tcp(db.example.com:3306)/app?tls=true":                               "db.example.com verify",
+		"u:p@tcp(db.example.com:3306)/app?tls=true&allowFallbackToPlaintext=true": "db.example.com none",
+		"u:p@tcp([2001:db8::1]:3306)/app?tls=true":                                "2001:db8::1 verify",
+		"u:p@unix(/run/mysqld/mysqld.sock)/app":                                   "/run/mysqld/mysqld.sock none",
+	} {
+		host, mode, err := inspect(url)
+		if got := host + " " + mode; err != nil || got != want {
+			t.Errorf("%s: %q, %v; want %q", url, got, err, want)
+		}
+	}
+	if _, _, err := inspect("not a dsn"); err == nil {
+		t.Error("a bad DSN: no error")
 	}
 }

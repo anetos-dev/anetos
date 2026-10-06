@@ -62,14 +62,14 @@ func TestSearchSQL(t *testing.T) {
 		}
 		switch c.dialect.Name() {
 		case "postgres":
-			if !slices.Contains(args, any(`'go':* & 'generics':*`)) || !slices.Contains(args, any(c.cfg.Language)) {
+			if !slices.Contains(args, any(`'go' & 'generics':*`)) || !slices.Contains(args, any(c.cfg.Language)) {
 				t.Errorf("postgres args: %v", args)
 			}
 			if c.cfg.Ranking == "bm25" && (!slices.Contains(args, any("go generics")) || !slices.Contains(args, any("posts_search_bm25"))) {
 				t.Errorf("bm25 args: %v", args)
 			}
 		case "sqlite":
-			if !slices.Equal(args, []any{`"go"* "generics"*`}) {
+			if !slices.Equal(args, []any{`"go" "generics"*`}) {
 				t.Errorf("sqlite args: %v", args)
 			}
 		}
@@ -140,8 +140,9 @@ func TestMySQLTerms(t *testing.T) {
 		terms, want []string
 	}{
 		// Indexed words are required; skipped ones optional, and cut to
-		// the longest indexed length.
-		{[]string{"go", "rice", "generics", "the"}, []string{"go*", "+rice*", "generi*", "the*"}},
+		// the longest indexed length; skipped short ones left out (they
+		// could only match as prefixes).
+		{[]string{"go", "rice", "generics", "the"}, []string{"+rice*", "generi*", "the*"}},
 		// Skipped words alone are required.
 		{[]string{"go", "the"}, []string{"+go*", "+the*"}},
 		{[]string{"generics"}, []string{"+generi*"}},

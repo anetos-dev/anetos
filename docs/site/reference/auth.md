@@ -25,7 +25,7 @@ Packages `auth`, `auth/password`, `auth/social` and `auth/rbac`. How-to: [Authen
 | API | Does |
 |---|---|
 | `a.Middleware` | Makes the request's user available (from the session or a remember-me cookie); after the session middleware |
-| `a.Require` | Signed-in users only: guests asking for a page are redirected to `AUTH_LOGIN_URL`; others, and every request on routes without sessions, get 401 |
+| `a.Require` | Signed-in users only: guests asking for a page are redirected to `AUTH_LOGIN_URL`; others, and every request on routes without sessions, get 401. Responses to signed-in users get `Cache-Control: no-store` unless the handler sets another (v0.3) |
 | `a.Guest` | Guests only: signed-in users are redirected to `AUTH_HOME_URL` |
 | `a.TokenMiddleware` | Signs in the user of a `Bearer` API token; invalid tokens get 401; no token (or another scheme) passes as a guest |
 | `a.RequireConfirmed` | Users who confirmed their password in the last `AUTH_CONFIRM_TTL` only: others are sent to `AUTH_CONFIRM_URL`, to come back after (to the page for GET, else to the page the form was on); API clients and htmx requests get `auth.ErrPasswordNotConfirmed` (423). After `Require` (v0.3) |
@@ -39,9 +39,9 @@ Packages `auth`, `auth/password`, `auth/social` and `auth/rbac`. How-to: [Authen
 | `a.RememberCookie()` | The remember-me cookie's name (`__Host-anetos_remember`, `anetos_remember` with `WithInsecureCookies`) (v0.3) |
 | `a.LoginSession(s, u)` | Writes a signed-in session for `u` into the `*session.Session` without a request, as `Login` without remember-me would: for tests (`anetostest.ActingAs`) and tools; `auth.ErrDisabled` for a disabled user (v0.3) |
 | `a.SignIn(ctx, u, remember)` | `Login`, or for a user with two-factor sign-in on, `auth.ErrTwoFactorRequired` and a sign-in waiting for a code (10 minutes): for sign-in methods other than passwords (v0.3) |
-| `a.AttemptTwoFactor(ctx, code)` | Finishes the waiting sign-in with the authenticator app's code (each used once) or a recovery code (used up); `auth.ErrInvalidCode` (422), `auth.ErrNoPendingSignIn` (401: none, expired, or the password changed), `*auth.ThrottledError` past `AUTH_THROTTLE` a minute or 50 wrong codes a day for the user; `auth.ErrDisabled` (v0.3) |
+| `a.AttemptTwoFactor(ctx, code)` | Finishes the waiting sign-in with the authenticator app's code (each used once) or a recovery code (used up); `auth.ErrInvalidCode` (422), `auth.ErrNoPendingSignIn` (401: none, expired, or the password changed), `*auth.ThrottledError` past `AUTH_THROTTLE` a minute or 50 wrong codes a day (UTC) for the user; `auth.ErrDisabled` (v0.3) |
 | `a.TwoFactorPending(ctx)` | Whether a sign-in waits for a code in the session (v0.3) |
-| `a.ConfirmPassword(ctx, password)`, `a.PasswordConfirmed(ctx)` | Checks the signed-in user's password again, which holds for `AUTH_CONFIRM_TTL`; `auth.ErrInvalidCredentials` (also without a password); `AUTH_THROTTLE` tries a minute for the user, from any address; not while acting as another user. For a user without a password, a sign-in through `SignIn` counts. Signing in or out, and acting as someone, forget it; never for API tokens (v0.3) |
+| `a.ConfirmPassword(ctx, password)`, `a.PasswordConfirmed(ctx)` | Checks the signed-in user's password again, which holds for `AUTH_CONFIRM_TTL`; `auth.ErrInvalidCredentials` (also without a password); `AUTH_THROTTLE` tries a minute for the user, from any address, and 50 wrong passwords a day (UTC, shared with `ChangePassword`); not while acting as another user. For a user without a password, a sign-in through `SignIn` counts. Signing in or out, and acting as someone, forget it; never for API tokens (v0.3) |
 | `a.CanRemember()` | Whether "remember me" is available (`Users.RememberToken` set) |
 | `a.Logout(ctx)` | Empties the session, removes the cookie, replaces the remember token |
 | `auth.User[U](ctx)` | The signed-in user, and whether there is one |
@@ -56,7 +56,7 @@ Packages `auth`, `auth/password`, `auth/social` and `auth/rbac`. How-to: [Authen
 | API | Does |
 |---|---|
 | `Users.Disabled`, `a.Disabled(u)` | A disabled user is signed out on their next request; `Attempt` (once the password checks out) and `Login` return `auth.ErrDisabled` (403); their remember-me cookies and API tokens stop working; `ActAs` treats them as a guest (v0.3) |
-| `a.ChangePassword(ctx, u, current, new)` | Changes `u`'s password (needs `Users.SetPassword`), signing them out of their other sessions and remember-me cookies (`SignOutOthers`); `auth.ErrInvalidCredentials` for a wrong `current`; a user without a password sets one without `current` within `AUTH_CONFIRM_TTL` of signing in (`auth.ErrPasswordNotConfirmed` after); `AUTH_THROTTLE` tries a minute; not while acting as someone (v0.3) |
+| `a.ChangePassword(ctx, u, current, new)` | Changes `u`'s password (needs `Users.SetPassword`), signing them out of their other sessions and remember-me cookies (`SignOutOthers`); `auth.ErrInvalidCredentials` for a wrong `current`; a user without a password sets one without `current` within `AUTH_CONFIRM_TTL` of signing in (`auth.ErrPasswordNotConfirmed` after); `AUTH_THROTTLE` tries a minute, and 50 wrong passwords a day (UTC, shared with `ConfirmPassword`); not while acting as someone (v0.3) |
 | `a.SignOutOthers(ctx, u)` | Ends `u`'s other sessions (with `Users.SessionKey`), remember-me cookies and password-reset links, keeping the request's session if it is `u`'s (with a new session ID, and a new remember-me cookie if it had one) (v0.3) |
 | `a.SignOutEverywhere(ctx, u)`, `a.CanSignOutEverywhere()` | Ends every session and remember-me cookie of `u` by giving them a new session key (`Users.SetSessionKey`) and remember token; API tokens stay (v0.3) |
 | `a.Impersonate(ctx, u)` | Signs the current user in as `u`, keeping who they are in the session; not through API tokens, not nested, not for a disabled `u` (`ErrDisabled`) or oneself. Each request checks that the impersonator may still sign in; `Logout` ends both (leaving `u`'s remember-me token alone). The impersonator's remember-me cookie is removed. Check who may first (`rbac.AuthorizeOver`) (v0.3) |
@@ -87,7 +87,7 @@ see [Two-factor sign-in](../guides/two-factor.md). Needs
 | `a.PasswordResetToken(u)`, `a.CheckPasswordResetToken(ctx, token)` | Reset tokens: `AUTH_RESET_TTL`, until the password or the session key changes; `auth.ErrInvalidToken` (400) |
 | `a.VerificationToken(u, email)`, `a.CheckVerificationToken(ctx, token)` | Email-verification tokens: `AUTH_VERIFY_TTL`; returns the user and the address |
 | `a.EmailRevertToken(u, old, new)`, `a.CheckEmailRevertToken(ctx, token)` | Tokens for the link, sent to the old address, that undoes a change of email address: `AUTH_REVERT_TTL`; returns the user and both addresses (v0.3) |
-| `a.CreateToken(ctx, u, name, abilities, ttl)` | An API token (`<id>\|<secret>`, shown once) and its stored `auth.Token` |
+| `a.CreateToken(ctx, u, name, abilities, ttl)` | An API token (`<id>\|<secret>`, shown once) and its stored `auth.Token`; 403 while acting as another user (v0.3). Put the route behind `RequireConfirmed` |
 | `a.Tokens(ctx, u)`, `a.RevokeToken(ctx, u, id)`, `a.RevokeAllTokens(ctx, u)` | A user's API tokens; delete one, or all |
 | `auth.CurrentToken(ctx)`, `auth.TokenCan(ctx, ability)` | The request's API token; whether it (or a session user) may do `ability` (`"*"`: all) |
 

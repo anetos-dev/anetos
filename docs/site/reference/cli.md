@@ -64,7 +64,8 @@ before `migrate`.
 
 | Flag | Default | Meaning |
 |---|---|---|
-| `--addr` | `HTTP_ADDR` from `.env`, else `:8080`; without a host, on `127.0.0.1` only | Where to browse the app (`--addr=0.0.0.0:8080` to reach it from other machines) |
+| `--addr` | `HTTP_ADDR` from `.env`, else `:8080`; without a host, on `127.0.0.1` only | Where to browse the app (`--addr=0.0.0.0:8080` to reach it from other machines, with a warning: the dev server shows build errors and your code's paths) |
+| `--host` | `localhost`, `*.localhost`, IP addresses and `APP_URL`'s host | Another host name browsers may use (repeat the flag for more); requests for other names get 403, which stops DNS-rebinding pages from reading the app (v0.3) |
 | `-- args…` | `run` | Arguments for the app binary |
 
 Run it in the project (any directory under `go.mod`). On start and on
@@ -137,16 +138,19 @@ Install and uninstall [plugins](../guides/plugins.md), from the project's
 directory or below. Both rewrite `plugins.go` (generated: `DO NOT EDIT`),
 which `setup` passes to `ext.Load`.
 
-`anetos add` (version default `latest`):
+`anetos add [--yes] <module>[@version]` (version default `latest`):
 
-1. Prints the module and the version, and that plugins run with the
-   app's privileges; runs `go get <module>@<version>`.
+1. Prints the module and the version, and that a plugin is code that
+   runs with the app's privileges; runs `go get <module>@<version>`.
 2. Adds the package's `Plugin()` to `plugins.go`, after the others, and
    runs `go mod tidy` (the module becomes a direct requirement).
 3. Runs `go build`, so a module without a `Plugin() ext.Plugin`
    function, or one that doesn't compile against this version of
    Anetos, is refused.
-4. Runs the built app's `plugins:env` (stopped after 2 minutes), which loads the
+4. In a terminal, asks before going on (v0.3; `--yes`, or a stdin that
+   isn't a terminal, doesn't ask): the next step runs the plugin's
+   code on your machine, with your environment and `.env`.
+   Then runs the built app's `plugins:env` (stopped after 2 minutes), which loads the
    plugins without booting the app: if `ext.Load` refuses the plugin
    (its `Requires()`, its name, its settings' names), so does `anetos
    add`. Otherwise it appends the settings `.env.example` doesn't have
@@ -196,6 +200,27 @@ regional locale matches its language's folder (`bn-BD` writes
 folder or for a locale the module doesn't have. The download runs with
 `GOWORK=off`; without network, pass `-from`.
 
+## `anetos doctor [--strict] [--vuln]`
+
+Checks the project, then builds the app and runs its
+[`doctor` command](#the-doctor-command) (v0.3). Run it in the project.
+The project's checks:
+
+| Check | Finds |
+|---|---|
+| `.env` | a warning when the file is readable by other users of the machine (`chmod 600 .env`; Unix) |
+| `git` | a problem for each tracked file of settings with secrets (`.env`, `.env.*`, `*.env`, not `*.example`, `*.sample`, `*.dist`, nor the `.env.testing` that `anetos new` writes to be committed); a warning when an untracked `.env` isn't ignored. Skipped outside a git repository |
+
+`--vuln` also runs `govulncheck ./...` (install it with `go install
+golang.org/x/vuln/cmd/govulncheck@latest`); its findings fail the
+command. `--strict` makes warnings fail it too, and is passed to the
+app's `doctor`. Exit 1 when a check finds a problem, the app doesn't
+build, or the app's `doctor` fails. A project that doesn't use Anetos,
+or uses a version without `doctor` (before v0.3), gets the project's
+checks only, with a note. The app's checks use the settings
+of this machine (`.env` and the environment): run `./<app> doctor` with
+the production settings too, on the server.
+
 ## Other commands
 
 | Command | Does |
@@ -229,6 +254,7 @@ folder or for a locale the module doesn't have. The download runs with
 | `audit:anonymize <actor-type> <actor-id>` | `audit.ForApp` | Replaces an actor (`user 42`) with `erased` in the audit log, as the actor and as the user someone acted as, and drops the IP addresses of their entries, for erasure requests. See [Keep an audit log](../guides/audit-log.md#8-keep-entries-for-as-long-as-you-must-and-no-longer) |
 | `plugins:list` | `ext.Load` | Each plugin, its version constraint, its route prefix and what it adds (or that its settings are missing); doesn't boot the app. See [Use plugins](../guides/plugins.md) |
 | `plugins:env [plugin]` | `ext.Load` | The plugins' settings as `.env` lines with their defaults (double-quoted when they need it; `# required` after required ones); doesn't boot the app, so it works before they are set |
+| `doctor [--strict]` | every app | Runs the app's checks of its settings and prints what they find (v0.3; see [below](#the-doctor-command)). Exit 1 on a problem (`--strict`: on a warning too) |
 | `version` | every app | The app's version (`--version` of `anetos build`, else the git tag Go recorded), commit, commit time and `modified` if the files differed from it; the Anetos version; the Go version and system. Doesn't boot the app; the `main.go` of `anetos new` prints it before `setup`, so it needs no settings (`anetos.VersionText`) (v0.3) |
 | `help [command]`, `-h`, `--help` | every app | The command list, or a command's usage (`<command> -h` too, as the first argument); doesn't boot the app |
 
@@ -242,6 +268,48 @@ folder or for a locale the module doesn't have. The download runs with
 | `app.ExecuteArgs(ctx, args, stdout, stderr)` | Runs and returns the exit status (tests) |
 | `args.Parse(fs)` | Parses `args.Args` with a `flag.FlagSet`; bad flags give an error matching `cmd.ErrUsage` (exit 2) |
 | `cmd.Usagef(format, …)` | A usage error (exit 2) |
+
+### The doctor command
+
+`doctor` (v0.3) runs every check added with `app.AddCheck`, the ones
+features add as they are set up included, and prints one line per
+finding (`ok` for a check with none), then the counts. Checks that
+don't need services run first, without booting the app; then it boots
+the app (connecting to the database…), reporting a failed boot as a
+problem, and runs the others, with those added while it booted. An app
+that was booted already (in a test) stays open. Checks of deployment settings apply with `APP_ENV`
+production or staging only.
+
+```text
+Checking blog (APP_ENV=production).
+  ok       app
+  ok       db
+  warning  mail: MAIL_DRIVER=log in production: emails aren't sent; set MAIL_DRIVER=smtp (with MAIL_SMTP_URL) or a plugin's driver
+  ok       session
+  ok       http
+  note     cache: CACHE_STORE=memory: each instance of the app has its own cache, rate limits and locks (cache.WithLock); with more than one instance, use redis or database
+  ok       migrations
+0 problems, 1 warning, 1 note.
+```
+
+| Check | Added by | Finds |
+|---|---|---|
+| `app` | every app | In production and staging: `APP_KEY` not set (warning), `APP_URL` not set (warning) or `http://` for a host other than this machine (problem in production, warning in staging), `APP_DEBUG=true` in staging (warning; production refuses it) |
+| `db` | `db.Connect` | In production and staging: `DB_LOG_QUERIES=true` (warning); for PostgreSQL and MySQL, a server other than this machine reached without verifying its certificate (warning), from `DB_TLS` (`none`, `skip-verify`) or from `DB_URL`: PostgreSQL's `sslmode` must be `verify-full`, or `verify-ca` or `require` with an `sslrootcert` file (the server's own authority); MySQL's `tls` must be `true` or a registered configuration that checks certificates, without `allowFallbackToPlaintext`. With several hosts, the worst one counts. A `DB_URL` the driver can't read is a warning |
+| `migrations` | `migrate.ForApp` | After booting: migrations that haven't run (warning), applied ones the app no longer has (note) |
+| `session` | `session.ForApp` | `SESSION_SECURE=false` in production or staging (problem); `SESSION_SAME_SITE=none` (warning); `SESSION_DOMAIN` set (note) |
+| `http` | `web.NewServer` | `HTTP_TRUSTED_PROXIES` with `0.0.0.0/0` or `::/0` (problem) or a range wider than /8 (IPv4) or /16 (IPv6) (warning); `HTTP_CORS_ORIGINS=*` (warning); in production and staging, `HTTP_MAX_BODY`, `HTTP_REQUEST_TIMEOUT` or `HTTP_READ_HEADER_TIMEOUT` set to 0 (warning) |
+| `mail` | `mailer.ForApp` | `MAIL_DRIVER` `log` or `memory` in production or staging (warning); no `MAIL_FROM_ADDRESS` for a driver that sends (warning); `tls=none` in `MAIL_SMTP_URL` for a server other than this machine (warning) |
+| `cache` | `cache.ForApp` | `CACHE_STORE=memory` in production or staging (note) |
+| `queue` | `queue.ForApp` | In production and staging: `QUEUE_DRIVER=memory` (warning), `sync` (note) |
+
+| API | Does |
+|---|---|
+| `app.AddCheck(anetos.Check{Name, Booted, Run})` | Adds a check: `Run(ctx) []anetos.Finding`, nothing when all is well; `Booted` runs it after the app boots (for checks that need a service). Checks run in the order added, the booted ones last; a panic is reported as a problem. Panics without a name or `Run` |
+| `anetos.Finding{Severity, Message}` | What a check found; the message names the setting and says what to do |
+| `anetos.Note`, `anetos.Warning`, `anetos.Problem` | The severities: information; often a mistake; unsafe or broken (exit 1) |
+| `env.Deployed()` | Whether an `anetos.Environment` is production or staging |
+| `db.Driver.InspectURL` | For drivers: reads a `DB_URL`'s host and TLS mode (`db.TLSVerify`, `TLSSkipVerify`, `TLSNone`), for the `db` check |
 
 A command other than `run` and `serve` runs after `app.Boot`, with a
 context from `app.Context`; `app.Close` follows, also after a panic. The

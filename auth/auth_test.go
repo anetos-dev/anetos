@@ -264,6 +264,16 @@ func newAppWith(t *testing.T, s *store, env ...string) (*auth.Auth[*user], *brow
 		}
 		return c.Text(http.StatusOK, u.ID)
 	})
+	r.Post("/tokens", func(c *web.Ctx) error {
+		u, err := auth.Current[*user](c)
+		if err != nil {
+			return err
+		}
+		if _, _, err := a.CreateToken(c, u, "cli", []string{"*"}, 0); err != nil {
+			return err
+		}
+		return c.NoContent()
+	})
 	r.Get("/whoami", func(c *web.Ctx) error {
 		id, _ := auth.CurrentID(c)
 		by, _ := auth.Impersonator(c)
@@ -678,8 +688,8 @@ func TestRequireAndPolicies(t *testing.T) {
 		t.Errorf("htmx guest: %d", res.StatusCode)
 	}
 	login(b, "ada@example.com", "secret", false)
-	if res := b.do(http.MethodGet, "/posts/1", nil); res.StatusCode != http.StatusOK {
-		t.Errorf("own post: %d", res.StatusCode)
+	if res := b.do(http.MethodGet, "/posts/1", nil); res.StatusCode != http.StatusOK || res.Header.Get("Cache-Control") != "no-store" {
+		t.Errorf("own post: %d, Cache-Control %q", res.StatusCode, res.Header.Get("Cache-Control"))
 	}
 	if res := b.do(http.MethodGet, "/posts/2", nil); res.StatusCode != http.StatusForbidden {
 		t.Errorf("another's post: %d", res.StatusCode)

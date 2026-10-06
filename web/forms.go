@@ -146,9 +146,10 @@ func backURL(r *http.Request) string {
 }
 
 // localPath reports whether u is a path on this site: it must not be read
-// as another host ("//evil.example", "/\evil.example").
+// as another host ("//evil.example", "/\evil.example", "/\t/evil.example").
 func localPath(u string) bool {
-	return strings.HasPrefix(u, "/") && !strings.HasPrefix(u, "//") && !strings.HasPrefix(u, `/\`)
+	return strings.HasPrefix(u, "/") && !strings.HasPrefix(u, "//") && !strings.HasPrefix(u, `/\`) &&
+		!strings.ContainsFunc(u, func(r rune) bool { return r < 0x20 || r == 0x7f })
 }
 
 // ---- CSRF ----
@@ -242,9 +243,16 @@ func CSRF(opts ...CSRFOption) Middleware {
 // handlers still see the raw body. Multipart bodies (forms with files) are
 // not read: put _method in the form's action URL instead
 // (action="/posts/1?_method=PUT").
+//
+// Only HTML forms are overridden: posts whose body is URL-encoded or
+// multipart, and not sent by another site (Sec-Fetch-Site: cross-site;
+// for browsers without it, an Origin other than the request's host).
+// Other posts keep their method, so a cross-site "simple" request (a
+// text/plain post) can't reach a DELETE route that relies on CORS rather
+// than CSRF tokens.
 func MethodOverride(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
+		if r.Method != http.MethodPost || !isForm(r) || crossSite(r) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -263,6 +271,24 @@ func MethodOverride(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// crossSite reports whether another site's page sent r: Sec-Fetch-Site
+// says so or, for browsers that don't send it, the Origin isn't the
+// request's host ("null" included).
+func crossSite(r *http.Request) bool {
+	switch r.Header.Get("Sec-Fetch-Site") {
+	case "cross-site":
+		return true
+	case "":
+		origin := r.Header.Get("Origin")
+		if origin == "" {
+			return false // not a browser, or a same-origin GET-like request
+		}
+		u, err := url.Parse(origin)
+		return err != nil || u.Host == "" || !strings.EqualFold(u.Host, r.Host)
+	}
+	return false
 }
 
 // maxURLEncoded is the most of a URL-encoded body read into memory, as in

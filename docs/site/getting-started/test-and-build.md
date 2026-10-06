@@ -47,6 +47,10 @@ lists them).
 
 [Deploy](../guides/deployment.md) runs it on a server with systemd, in
 a container (the project has a `Dockerfile`), or on Fly.io and Render.
+Before going live, run `./bin/blog doctor` with the production
+settings: it reports unsafe ones (`SESSION_SECURE=false`, a database
+reached without TLS, the log mail driver…) and migrations that haven't
+run. See [Secure your app](../guides/security.md).
 
 Next: the [tutorial](tutorial/README.md) builds a whole app, step by
 step.

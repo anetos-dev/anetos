@@ -276,6 +276,8 @@ func TestPasswordReset(t *testing.T) {
 	app.PostForm("/reset-password", form).AssertRedirect("/login")
 	app.Get(authLink(t, sent[0].URL))
 	app.PostForm("/reset-password", form).AssertValidationErrors("password") // used once
+	// The link proved the address, never verified before, is hers.
+	anetostest.AssertDatabaseHas[models.User](app, models.UserCols.Email.Eq("ada@example.com"), models.UserCols.EmailVerifiedAt.NotNull())
 
 	app.PostForm("/login", url.Values{"email": {"ada@example.com"}, "password": {"new password"}}).AssertRedirect("/dashboard")
 }
@@ -283,8 +285,13 @@ func TestPasswordReset(t *testing.T) {
 // A new password signs out other browsers and revokes the API tokens.
 func TestResetSignsOutAndRevokesTokens(t *testing.T) {
 	app := authRegister(t)
+	app.Get("/dashboard")
+	app.PostForm("/confirm-password", url.Values{"password": {"correct horse"}})
 	app.PostForm("/tokens", url.Values{"name": {"cli"}})
 	token := app.Session().String("token")
+	if token == "" {
+		t.Fatal("no token")
+	}
 	app.PostForm("/logout", nil)
 	app.Get("/forgot-password")
 	app.PostForm("/forgot-password", url.Values{"email": {"ada@example.com"}})
@@ -298,6 +305,10 @@ func TestResetSignsOutAndRevokesTokens(t *testing.T) {
 
 func TestAPIToken(t *testing.T) {
 	app := authRegister(t)
+	// A token works without the browser: the password again first.
+	app.Get("/dashboard")
+	app.PostForm("/tokens", url.Values{"name": {"cli"}}).AssertRedirect("/confirm-password")
+	app.PostForm("/confirm-password", url.Values{"password": {"correct horse"}}).AssertRedirect("/dashboard")
 	app.PostForm("/tokens", url.Values{"name": {"cli"}}).AssertRedirect("/dashboard")
 	token := app.Session().String("token")
 	if token == "" {

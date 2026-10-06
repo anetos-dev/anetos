@@ -11,7 +11,9 @@
 // way, times are read as time.Time in UTC (parseTime=true, loc=UTC), and
 // updates report the rows they matched (clientFoundRows=true), which the db
 // package relies on. Sessions use UTC (time_zone='+00:00') unless the DSN
-// sets time_zone.
+// sets time_zone. Built from DB_HOST, the connection uses TLS as DB_TLS
+// says (db.Config.TLSMode): verified for any host but this machine's,
+// unless DB_TLS=skip-verify or none.
 //
 // For vector search on MariaDB 11.7+, each session sets mhnsw_ef_search
 // to 1000 (MariaDB's default is 20), so a vector index returns the
@@ -22,9 +24,15 @@ package mysql
 
 import (
 	"context"
+	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
 	"database/sql"
 	"database/sql/driver"
+	"encoding/hex"
+	"fmt"
 	"net"
+	"os"
 	"strconv"
 	"time"
 
@@ -35,7 +43,36 @@ import (
 // Driver returns the MySQL/MariaDB driver, selected by
 // DB_CONNECTION=mysql.
 func Driver() db.Driver {
-	return db.Driver{Name: "mysql", Dialect: db.MySQL(), Open: open}
+	return db.Driver{Name: "mysql", Dialect: db.MySQL(), Open: open, InspectURL: inspectURL}
+}
+
+// inspectURL reads a DB_URL's host and TLS mode, for the doctor command,
+// from the configuration the DSN selects: tls=true, or a registered
+// configuration that checks certificates, verifies; tls=skip-verify (or a
+// configuration with InsecureSkipVerify) doesn't; and tls=preferred,
+// tls=false, no TLS or allowFallbackToPlaintext may go in plain text. A
+// Unix socket is local.
+func inspectURL(dsn string) (host, mode string, err error) {
+	c, err := mysql.ParseDSN(dsn)
+	if err != nil {
+		return "", "", err
+	}
+	if c.Net == "unix" {
+		return c.Addr, db.TLSNone, nil
+	}
+	host = c.Addr
+	if h, _, err := net.SplitHostPort(c.Addr); err == nil {
+		host = h
+	}
+	switch {
+	case c.TLS == nil || c.AllowFallbackToPlaintext:
+		mode = db.TLSNone
+	case c.TLS.InsecureSkipVerify:
+		mode = db.TLSSkipVerify
+	default:
+		mode = db.TLSVerify
+	}
+	return host, mode, nil
 }
 
 func open(cfg db.Config) (*sql.DB, error) {
@@ -73,7 +110,27 @@ func (v vectorConnector) Connect(ctx context.Context) (driver.Conn, error) {
 	return c, nil
 }
 
-// DSN returns the go-sql-driver/mysql DSN for cfg.
+// registerCA registers a TLS configuration that trusts the CAs in the PEM
+// file at path and checks the server is host, and returns its name for
+// the DSN's tls parameter.
+func registerCA(path, host string) (string, error) {
+	pem, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("mysql: DB_TLS_CA: %w", err)
+	}
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(pem) {
+		return "", fmt.Errorf("mysql: DB_TLS_CA %s has no PEM certificates", path)
+	}
+	sum := sha256.Sum256(append([]byte(host+"\x00"), pem...))
+	name := "anetos-" + hex.EncodeToString(sum[:8])
+	err = mysql.RegisterTLSConfig(name, &tls.Config{RootCAs: pool, ServerName: host, MinVersion: tls.VersionTLS12})
+	return name, err
+}
+
+// DSN returns the go-sql-driver/mysql DSN for cfg. Built from DB_HOST and
+// the others, its tls follows cfg.TLSMode: true (or the CAs of
+// DB_TLS_CA), skip-verify, or false.
 func DSN(cfg db.Config) (string, error) {
 	var c *mysql.Config
 	if cfg.URL != "" {
@@ -92,6 +149,21 @@ func DSN(cfg db.Config) (string, error) {
 		c.DBName = cfg.Database
 		c.User = cfg.Username
 		c.Passwd = cfg.Password
+		switch cfg.TLSMode() {
+		case db.TLSVerify:
+			c.TLSConfig = "true"
+			if cfg.TLSCA != "" {
+				name, err := registerCA(cfg.TLSCA, cfg.Host)
+				if err != nil {
+					return "", err
+				}
+				c.TLSConfig = name
+			}
+		case db.TLSSkipVerify:
+			c.TLSConfig = "skip-verify"
+		default:
+			c.TLSConfig = "false"
+		}
 	}
 	c.ParseTime = true
 	c.Loc = time.UTC

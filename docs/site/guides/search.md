@@ -71,8 +71,11 @@ func (Notes) Index(c *web.Ctx, in ListNotes) (web.Responder, error) {
 
 (Copied from [`examples/forms/main.go`](../../../examples/forms/main.go), region `index`.)
 
-Each word matches as a prefix ("tea" finds "teas", "green te" finds
-"green tea"), in any of the indexed columns. Punctuation is ignored, and
+Each word of three letters or more matches as a prefix ("tea" finds
+"teas", "gree tea" finds "green tea"), in any of the indexed columns;
+shorter words match whole words only ("go" finds "go", not "golang"),
+and only the first ten words count (v0.3: so that a search box can't be
+made to scan most of the index). Punctuation is ignored, and
 text without words (an empty search box) leaves the query as it was.
 `Search` combines with `Where`, soft deletes, `Paginate`, `Count`,
 `Pluck` and the aggregates. Its ranking comes first; `OrderBy` terms,
@@ -135,14 +138,15 @@ func TestSearch(t *testing.T) {
 	anetostest.Create(app, NoteFactory.With(func(n *Note) { n.Title, n.Body = "Tea tasting", "Darjeeling first flush" }))
 	anetostest.Create(app, NoteFactory.With(func(n *Note) { n.Title, n.Body = "Ideas", "A blog about Go" }))
 
-	// Every word must match, as a prefix; title matches rank first.
+	// Every word must match, as a prefix from 3 letters; title matches
+	// rank first.
 	app.Get("/notes?q=tea").AssertOK().
 		AssertSee("<strong>Tea tasting</strong>", "<strong>Groceries</strong>", `value="tea"`).
 		AssertDontSee("<strong>Ideas</strong>")
 	if page := app.Get("/notes?q=tea").Text(); strings.Index(page, "Tea tasting") > strings.Index(page, "Groceries") {
 		t.Error("the title match isn't first")
 	}
-	app.Get("/notes?q=green+te").AssertSee("<strong>Groceries</strong>").AssertDontSee("<strong>Tea tasting</strong>")
+	app.Get("/notes?q=green+lent").AssertSee("<strong>Groceries</strong>").AssertDontSee("<strong>Tea tasting</strong>")
 	app.Get("/notes?q=coffee").AssertSee("No notes match “coffee”.")
 }
 ```

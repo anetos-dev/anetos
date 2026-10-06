@@ -132,7 +132,6 @@ guests.Post("/two-factor-challenge", web.H(h.Challenge))
 members := pages.Group("", a.Require) // guests go to AUTH_LOGIN_URL
 members.Get("/dashboard", h.Dashboard)
 members.Post("/logout", h.Logout)
-members.Post("/tokens", web.H(h.CreateToken))
 members.Post("/tokens/{id}/delete", web.H(h.RevokeToken))
 members.Get("/users/{id}", web.H(h.ShowUser))
 members.Get("/admin", h.Admin)
@@ -140,8 +139,10 @@ members.Post("/password", web.H(h.ChangePassword))
 members.Get("/confirm-password", h.page("confirm")) // AUTH_CONFIRM_URL
 members.Post("/confirm-password", web.H(h.ConfirmPassword))
 
-// Two-factor sign-in (AUTH_TWO_FACTOR_URL): the password again first.
+// Two-factor sign-in (AUTH_TWO_FACTOR_URL) and API tokens (they work
+// without the browser): the password again first.
 secure := members.Group("", a.RequireConfirmed)
+secure.Post("/tokens", web.H(h.CreateToken))
 secure.Get("/two-factor", h.TwoFactor)
 secure.Post("/two-factor", h.StartTwoFactor)
 secure.Post("/two-factor/confirm", web.H(h.ConfirmTwoFactor))
@@ -418,6 +419,11 @@ token's abilities; a user signed in with a session (your own pages and
 front end) may do anything. `a.Tokens` lists a user's tokens and
 `a.RevokeToken` deletes one.
 
+Put the route that creates tokens behind `a.RequireConfirmed`, as the
+example does: a token outlives the session, so someone holding a stolen
+session shouldn't be able to make one without the password. `CreateToken`
+refuses while an admin acts as the user (403), for the same reason (v0.3).
+
 ### 9. Test
 
 ```go
@@ -458,6 +464,7 @@ func TestAPIToken(t *testing.T) {
 	createUser(t, app, "Ada", "ada@example.com", false)
 	app.Get("/login")
 	app.PostForm("/login", url.Values{"email": {"ada@example.com"}, "password": {"password1"}})
+	app.PostForm("/confirm-password", url.Values{"password": {"password1"}}) // tokens need it
 	app.PostForm("/tokens", url.Values{"name": {"cli"}}).AssertRedirect("/dashboard")
 	token := app.Session().String("token") // flashed to show once
 

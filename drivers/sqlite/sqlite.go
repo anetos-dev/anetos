@@ -52,7 +52,11 @@ func cosine(_ *sqlite.FunctionContext, args []driver.Value) (driver.Value, error
 // DefaultPath is the database file used when DB_DATABASE is empty.
 const DefaultPath = "database/app.db"
 
-const params = "?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)&_time_format=sqlite&_txlock=immediate"
+// params are the connection's settings. _dqs=0 turns off SQLite's
+// double-quoted string literals: "name" is always an identifier, so a
+// misspelled column is an error rather than a string that matches
+// everything (a unique rule on "emial" would always pass).
+const params = "?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)&_time_format=sqlite&_txlock=immediate&_dqs=0"
 
 // Driver returns the SQLite driver, selected by DB_CONNECTION=sqlite.
 func Driver() db.Driver {

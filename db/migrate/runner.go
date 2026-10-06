@@ -119,8 +119,42 @@ func ForApp(app *anetos.App, sets []*Set, opts ...Option) (*Runner, error) {
 			return nil, fmt.Errorf("migrate: %w", err)
 		}
 	}
+	app.AddCheck(anetos.Check{Name: "migrations", Booted: true, Run: r.check})
 	anetos.Provide(app, r) // anetostest migrates with it
 	return r, nil
+}
+
+// check is the doctor's check of the migrations: pending ones, and
+// applied ones the app no longer has.
+func (r *Runner) check(ctx context.Context) []anetos.Finding {
+	all, err := r.Status(ctx)
+	if err != nil {
+		return []anetos.Finding{{Severity: anetos.Problem, Message: "can't read the migrations' status: " + err.Error()}}
+	}
+	var pending, missing []string
+	for _, s := range all {
+		switch {
+		case s.Missing:
+			missing = append(missing, s.ID)
+		case !s.Applied:
+			pending = append(pending, s.ID)
+		}
+	}
+	var out []anetos.Finding
+	if len(pending) > 0 {
+		out = append(out, anetos.Finding{Severity: anetos.Warning, Message: fmt.Sprintf("%d migration(s) haven't run (%s): run migrate", len(pending), listIDs(pending))})
+	}
+	if len(missing) > 0 {
+		out = append(out, anetos.Finding{Severity: anetos.Note, Message: fmt.Sprintf("%d applied migration(s) aren't in the app (%s): an older build, or a removed plugin", len(missing), listIDs(missing))})
+	}
+	return out
+}
+
+func listIDs(ids []string) string {
+	if len(ids) > 3 {
+		return strings.Join(ids[:3], ", ") + ", …"
+	}
+	return strings.Join(ids, ", ")
 }
 
 // Add adds sets to the runner, such as plugins' (ext.Load does): before

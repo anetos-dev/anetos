@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"maps"
 	"net/http"
 	"strings"
@@ -127,6 +128,38 @@ func RunApp(t *testing.T, drv db.Driver, env map[string]string) {
 	if n, err := db.Query[stAppItem](ctx).Count(); err != nil || n != 0 {
 		t.Errorf("after the tests: %d rows, %v", n, err)
 	}
+	t.Run("doctor", func(t *testing.T) {
+		drop()
+		doctor := func(args ...string) string {
+			t.Helper()
+			src := config.Map{"APP_ENV": "development"}
+			maps.Copy(src, env)
+			app, err := anetos.New(anetos.WithSource(src), anetos.WithLogger(slog.New(slog.DiscardHandler)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := db.Connect(context.Background(), app, drv); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := migrate.ForApp(app, []*migrate.Set{set}, migrate.WithTable("st_app_migrations")); err != nil {
+				t.Fatal(err)
+			}
+			var out bytes.Buffer
+			app.ExecuteArgs(context.Background(), args, &out, &out)
+			return strings.Join(strings.Fields(out.String()), " ")
+		}
+		if out := doctor("doctor"); !strings.Contains(out, "warning migrations: 1 migration(s) haven't run (2026_01_01_000000_create_st_app_items): run migrate") ||
+			!strings.Contains(out, "ok db") {
+			t.Errorf("before migrate:\n%s", out)
+		}
+		if out := doctor("migrate"); !strings.Contains(out, "create_st_app_items") {
+			t.Fatalf("migrate:\n%s", out)
+		}
+		if out := doctor("doctor"); !strings.Contains(out, "ok migrations") || !strings.Contains(out, "0 problems, 0 warnings") {
+			t.Errorf("after migrate:\n%s", out)
+		}
+		drop()
+	})
 	t.Run("search settings", func(t *testing.T) { runSearchApp(t, drv, env, d) })
 }
 

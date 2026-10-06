@@ -86,12 +86,15 @@ DB_CONNECTION=sqlite
 [[- else if eq .DB "postgres" -]]
 DB_CONNECTION=postgres
 # The connection string (DB_URL), or DB_HOST, DB_PORT, DB_DATABASE,
-# DB_USERNAME and DB_PASSWORD.
-DB_URL=postgres://[[.DBName]]:password@db.example.com:5432/[[.DBName]]?sslmode=require
+# DB_USERNAME and DB_PASSWORD (TLS on and verified unless the host is
+# local; DB_TLS, DB_TLS_CA). verify-full checks the server's certificate:
+# add sslrootcert=/path/ca.pem for a provider's own CA.
+DB_URL=postgres://[[.DBName]]:password@db.example.com:5432/[[.DBName]]?sslmode=verify-full
 [[- else -]]
 DB_CONNECTION=mysql
 # The connection string (DB_URL, the driver's DSN), or DB_HOST, DB_PORT,
-# DB_DATABASE, DB_USERNAME and DB_PASSWORD.
+# DB_DATABASE, DB_USERNAME and DB_PASSWORD (TLS on and verified unless
+# the host is local; DB_TLS, DB_TLS_CA).
 DB_URL=[[.DBName]]:password@tcp(db.example.com:3306)/[[.DBName]]?tls=true
 SEARCH_LANGUAGE=simple
 [[- end]]

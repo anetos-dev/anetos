@@ -12,6 +12,10 @@ tagged `drivers/sqlite/vX.Y.Z`. The framework's own changes are in the
   of two vectors stored as little-endian float32s, for vector search
   (S2).
 
+### Changed
+- Connections refuse double-quoted string literals (`_dqs=0`): `"x"` is
+  an identifier only, as in the SQL standard (M7).
+
 ## [0.2.0] - 2026-10-02
 
 Released with the framework's v0.2.0.

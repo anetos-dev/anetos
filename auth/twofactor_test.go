@@ -599,3 +599,62 @@ func TestEmailRevertToken(t *testing.T) {
 		t.Errorf("after 8 days: %v", err)
 	}
 }
+
+// Wrong passwords when confirming are capped a day too, beyond the
+// minute's budget: a stolen session can't guess for long.
+func TestConfirmPasswordDailyCap(t *testing.T) {
+	s := newStore(t)
+	a, b, app := newAppWith(t, s)
+	now := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
+	clock := func() time.Time { return now }
+	auth.SetNow(a, clock)
+	app.SetClock(clock)
+	login(b, "ada@example.com", "secret", false)
+	for i := range 50 {
+		if i%5 == 0 {
+			now = now.Add(time.Minute) // a fresh minute's budget
+		}
+		if res := b.do(http.MethodPost, "/confirm-password", url.Values{"password": {"wrong"}}); res.StatusCode != http.StatusUnauthorized {
+			t.Fatalf("wrong password %d: %d", i, res.StatusCode)
+		}
+	}
+	now = now.Add(time.Hour)
+	if res := b.do(http.MethodPost, "/confirm-password", url.Values{"password": {"secret"}}); res.StatusCode != http.StatusTooManyRequests {
+		t.Errorf("after 50 wrong passwords in a day: %d", res.StatusCode)
+	}
+	now = now.Add(24 * time.Hour)
+	login(b, "ada@example.com", "secret", false) // the session expired meanwhile
+	if res := b.do(http.MethodPost, "/confirm-password", url.Values{"password": {"secret"}}); res.StatusCode != http.StatusSeeOther {
+		t.Errorf("the next day: %d", res.StatusCode)
+	}
+}
+
+// Changes of the two-factor state read it again under its lock: a copy
+// of the user made before another change doesn't undo it.
+func TestTwoFactorStaleUser(t *testing.T) {
+	s := newStore(t)
+	a, b := newApp(t, s)
+	u, _ := s.users().ByID(b.ctx, "1")
+	started, err := a.StartTwoFactor(b.ctx, u, "ada")
+	if err != nil {
+		t.Fatal(err)
+	}
+	stale, _ := s.users().ByID(b.ctx, "1") // started, not confirmed
+	first, err := a.ConfirmTwoFactor(b.ctx, u, auth.TOTP(started.Secret, time.Now()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.ConfirmTwoFactor(b.ctx, stale, auth.TOTP(started.Secret, time.Now())); !errors.Is(err, auth.ErrTwoFactorOn) {
+		t.Errorf("confirming with a stale copy: %v, want ErrTwoFactorOn (new recovery codes would replace %d)", err, len(first))
+	}
+	stale, _ = s.users().ByID(b.ctx, "1") // on
+	if err := a.DisableTwoFactor(b.ctx, u); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.NewRecoveryCodes(b.ctx, stale); !errors.Is(err, auth.ErrTwoFactorOff) {
+		t.Errorf("new recovery codes with a stale copy: %v, want ErrTwoFactorOff (turning it back on)", err)
+	}
+	if fresh, _ := s.users().ByID(b.ctx, "1"); func() bool { st, _ := a.TwoFactor(fresh); return st.On }() {
+		t.Error("two-factor sign-in came back on")
+	}
+}

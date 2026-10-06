@@ -176,6 +176,7 @@ func NewServer(app *anetos.App, opts ...ServerOption) (*Server, error) {
 			return nil, err
 		}
 	}
+	s.addCheck(app)
 	anetos.Provide(app, s) // for plugins' routes (ext.Load)
 	return s, nil
 }

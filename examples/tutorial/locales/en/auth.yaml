@@ -119,7 +119,7 @@ auth:
     saved: "Saved."
     email_change_sent: "We've emailed a link to {email}. Your address changes once you follow it."
     email_changed: "Your email address is now {email}."
-    password_changed: "Password changed. You're signed out of your other browsers and devices."
+    password_changed: "Password changed. You're signed out of your other browsers and devices; API tokens keep working: revoke any you don't recognize on the dashboard."
     account_deleted: "Your account is deleted."
     email_reverted: "Your email address is {email} again. We've emailed it a link to choose a new password."
   mail:

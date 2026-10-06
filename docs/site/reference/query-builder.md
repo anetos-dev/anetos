@@ -28,7 +28,7 @@ Each method returns a new query; the original is unchanged.
 | `WithTrashed()`, `OnlyTrashed()` | Include / only soft-deleted rows |
 | `WhereKeys(ids...)` | `WHERE <primary key> IN (…)`; none matches nothing |
 | `Similar(model, v)`, `Hybrid(text, model, v)` | Vector search: records nearest `v` by their chunks of `model`; hybrid also ranks the full-text matches of `text` ([vector search](#vector-search)) |
-| `Search(text)` | Full-text search: rows matching every word of `text` (as prefixes), best first, then `OrderBy`'s order; needs a search index ([search](../guides/search.md)). Text without words changes nothing; `Distinct` and `GroupBy` queries search without the relevance order; Update, Delete and `CursorPaginate` refuse it. It replaces a `Similar` or `Hybrid`, and they replace it |
+| `Search(text)` | Full-text search: rows matching every word of `text` (as prefixes from three letters, whole below; ten words at most), best first, then `OrderBy`'s order; needs a search index ([search](../guides/search.md)). Text without words changes nothing; `Distinct` and `GroupBy` queries search without the relevance order; Update, Delete and `CursorPaginate` refuse it. It replaces a `Similar` or `Hybrid`, and they replace it |
 | `WhereHas(rel, conds...)`, `WhereDoesntHave(rel, conds...)` | `EXISTS (…)` / `NOT EXISTS (…)` on a relation's rows ([relations](models.md#relations)) |
 | `With(rels...)` | Loads relations of the rows, one query per relation ([relations](models.md#relations)) |
 | `ForUpdate()`, `ForShare()` | Row locks until the transaction ends (nothing on SQLite) |
@@ -40,7 +40,8 @@ Each method returns a new query; the original is unchanged.
 | `col.Eq(v)`, `Ne`, `Gt`, `Gte`, `Lt`, `Lte` | `=`, `<>`, `>`, `>=`, `<`, `<=`. `Eq(nil)` / `Ne(nil)` become `IS NULL` / `IS NOT NULL` |
 | `col.In(vs...)`, `col.NotIn(vs...)` | `IN (…)`; an empty `In` matches nothing, an empty `NotIn` everything |
 | `col.Between(lo, hi)` | `BETWEEN lo AND hi` |
-| `col.Like(p)`, `col.NotLike(p)` | `LIKE` (case sensitivity depends on the database) |
+| `col.Like(p)`, `col.NotLike(p)` | `LIKE` (case sensitivity depends on the database); `p` is a pattern: `%` and `_` in text from users widen it |
+| `col.Contains(s)`, `col.StartsWith(s)` | `LIKE` with `s` taken literally (`%`, `_` and `!` escaped, `ESCAPE '!'`): for search boxes (v0.3). `db.EscapeLike(s)` escapes for a raw `LIKE ? ESCAPE '!'` |
 | `col.IsNull()`, `col.NotNull()` | `IS NULL`, `IS NOT NULL` |
 | `db.And(...)`, `db.Or(...)`, `db.Not(c)` | Grouped with parentheses; `And()` is true, `Or()` is false |
 | `db.SQL(sql, args...)` | Any SQL, with `?` or `:name` placeholders |

@@ -315,12 +315,18 @@ func Check(ctx context.Context) bool {
 
 // Require lets only signed-in users through. Guests asking for a page are
 // redirected to AUTH_LOGIN_URL, and the page they wanted is remembered
-// for [Intended]; other requests (JSON, htmx) get 401.
+// for [Intended]; other requests (JSON, htmx) get 401. Responses to
+// signed-in users get "Cache-Control: no-store" (a handler may set
+// another), so browsers don't keep them after logout.
 func (a *Auth[U]) Require(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, err := Current[U](r.Context())
 		switch {
 		case err == nil:
+			// A signed-in user's page stays out of every cache, the
+			// browser's too, so it isn't shown again after logout on a
+			// shared computer. Handlers may set another.
+			w.Header().Set("Cache-Control", "no-store")
 			next.ServeHTTP(w, r)
 		case !errors.Is(err, ErrUnauthenticated):
 			web.WriteError(w, r, err)

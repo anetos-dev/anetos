@@ -81,6 +81,7 @@ func TestReadOnlyToken(t *testing.T) {
 	w := newWorld(t)
 	app := w.as(w.member)
 	app.Get("/dashboard").AssertSee(`name="read_only"`)
+	app.PostForm("/confirm-password", form("password", "correct horse")) // factories.Password
 	app.PostForm("/tokens", form("name", "CI", "read_only", "1")).AssertRedirect("/dashboard")
 	tokens, err := anetos.MustResolve[*auth.Auth[*models.User]](w.app.App).Tokens(w.app.Context(), &w.member)
 	if err != nil || len(tokens) != 1 || len(tokens[0].Abilities) != 1 || tokens[0].Abilities[0] != "issues.view" {

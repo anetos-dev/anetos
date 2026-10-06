@@ -106,7 +106,7 @@ func TestRealIP(t *testing.T) {
 		{"trusted peer uses XFF", "10.1.2.3:5000", []string{"X-Forwarded-For", "198.51.100.7"}, "198.51.100.7"},
 		{"skips trusted hops from the right", "10.1.2.3:5000", []string{"X-Forwarded-For", "6.6.6.6, 198.51.100.7, 10.9.9.9"}, "198.51.100.7"},
 		{"multiple XFF headers", "192.168.1.5:1", []string{"X-Forwarded-For", "198.51.100.1", "X-Forwarded-For", "10.0.0.1"}, "198.51.100.1"},
-		{"X-Real-IP fallback", "10.1.2.3:5000", []string{"X-Real-IP", "198.51.100.8"}, "198.51.100.8"},
+		{"X-Real-IP isn't read", "10.1.2.3:5000", []string{"X-Real-IP", "198.51.100.8"}, "10.1.2.3"},
 		{"malformed chain keeps peer", "10.1.2.3:5000", []string{"X-Forwarded-For", "nonsense"}, "10.1.2.3"},
 		{"ipv6 peer", "[2001:db8::1]:443", nil, "2001:db8::1"},
 	}

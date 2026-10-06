@@ -51,7 +51,6 @@ func Auth(r *web.Router, sessions *session.Manager, a *auth.Auth[*models.User], 
 	members.Post("/logout", h.Logout).Name("logout")
 	members.With(ratelimit.Middleware("verification", ratelimit.PerMinute(3))).
 		Post("/email/verification-notification", h.ResendVerification).Name("verification.send")
-	members.Post("/tokens", web.H(h.CreateToken)).Name("tokens.store")
 	members.Post("/tokens/{id}/delete", web.H(h.RevokeToken)).Name("tokens.destroy")
 	// The account settings (AUTH_SETTINGS_URL).
 	members.Get("/settings", h.Settings).Name("settings")
@@ -80,9 +79,9 @@ func Auth(r *web.Router, sessions *session.Manager, a *auth.Auth[*models.User], 
 	members.Get("/search", web.H(issues.Search)).Name("search")
 	// endregion
 
-	// Two-factor sign-in (AUTH_TWO_FACTOR_URL), a new email address and
-	// deleting the account, once the password is confirmed again
-	// (AUTH_CONFIRM_TTL).
+	// Two-factor sign-in (AUTH_TWO_FACTOR_URL), a new email address, API
+	// tokens and deleting the account, once the password is confirmed
+	// again (AUTH_CONFIRM_TTL).
 	secure := members.Group("", a.RequireConfirmed)
 	if h.AllowEmailChange {
 		secure.Post("/settings/email", web.H(h.ChangeEmail)).Name("settings.email")
@@ -90,6 +89,9 @@ func Auth(r *web.Router, sessions *session.Manager, a *auth.Auth[*models.User], 
 	if h.AllowAccountDeletion {
 		secure.Post("/settings/delete", h.DeleteAccount).Name("settings.delete")
 	}
+	// A token works without the browser, so it needs the password again
+	// too.
+	secure.Post("/tokens", web.H(h.CreateToken)).Name("tokens.store")
 	secure.Get("/two-factor", h.TwoFactorPage).Name("two-factor")
 	secure.Post("/two-factor", h.StartTwoFactor).Name("two-factor.start")
 	secure.Post("/two-factor/confirm", web.H(h.ConfirmTwoFactor)).Name("two-factor.confirm")

@@ -102,6 +102,15 @@ func ForApp(app *anetos.App, drivers ...Driver) (*Cache, error) {
 	}); err != nil {
 		return nil, errors.Join(err, store.Close())
 	}
+	if cfg.Store == "memory" {
+		env := app.Config().Env
+		app.AddCheck(anetos.Check{Name: "cache", Run: func(context.Context) []anetos.Finding {
+			if !env.Deployed() {
+				return nil
+			}
+			return []anetos.Finding{{Severity: anetos.Note, Message: "CACHE_STORE=memory: each instance of the app has its own cache, rate limits and locks (cache.WithLock); with more than one instance, use redis or database"}}
+		}})
+	}
 	app.AddContextValue(cacheKey{}, c)
 	anetos.Provide(app, c)
 	app.OnShutdown("cache", func(context.Context) error { return store.Close() })

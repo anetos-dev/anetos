@@ -19,6 +19,7 @@ import (
 
 	"anetos.dev/anetos"
 	"anetos.dev/anetos/config"
+	"anetos.dev/anetos/internal/netaddr"
 )
 
 // Config is a database connection's configuration. [Connect] reads it from
@@ -35,6 +36,20 @@ type Config struct {
 	Database string `env:"DB_DATABASE"`                 // database name; for SQLite, the file (default database/app.db)
 	Username string `env:"DB_USERNAME"`                 // user to connect as
 	Password string `env:"DB_PASSWORD"`                 // that user's password
+	// TLS secures connections built from DB_HOST (PostgreSQL, MySQL):
+	// "verify" (encrypt, and check the server's certificate and name),
+	// "skip-verify" (encrypt only), or "none". Empty: "none" for a local
+	// host (localhost, a loopback address, a Unix socket), "verify" for
+	// any other, so a remote database is never reached in plain text by
+	// default. With DB_URL, put the driver's own options in the URL.
+	// DB_TLS (v0.3).
+	TLS string `env:"DB_TLS"`
+	// TLSCA is a PEM file of the certificate authorities that sign the
+	// server's certificate, for "verify" when they aren't the system's
+	// (a managed database's own CA). Setting it means "verify" unless
+	// DB_TLS says otherwise, also for a local host (a tunnel); it can't
+	// be combined with "skip-verify" or "none". DB_TLS_CA.
+	TLSCA string `env:"DB_TLS_CA"`
 
 	// Pool settings, as for database/sql's DB.SetMaxOpenConns and friends.
 	MaxOpenConns    int           `env:"DB_MAX_OPEN_CONNS" default:"25"`     // connections open at most
@@ -72,10 +87,53 @@ func (c Config) Validate() error {
 	if c.SlowQuery < 0 {
 		errs = append(errs, errors.New("DB_SLOW_QUERY can't be negative"))
 	}
+	switch c.TLS {
+	case "", TLSVerify, TLSSkipVerify, TLSNone:
+	default:
+		errs = append(errs, fmt.Errorf("DB_TLS %q must be verify, skip-verify or none", c.TLS))
+	}
+	if c.TLSCA != "" && (c.TLS == TLSSkipVerify || c.TLS == TLSNone) {
+		errs = append(errs, fmt.Errorf("DB_TLS_CA is for checking the server's certificate, which DB_TLS=%s doesn't: use DB_TLS=verify", c.TLS))
+	}
+	if c.URL != "" && (c.TLS != "" || c.TLSCA != "") {
+		errs = append(errs, errors.New("DB_TLS and DB_TLS_CA apply to DB_HOST's connection: with DB_URL, set the driver's TLS options in the URL (sslmode=verify-full, tls=true)"))
+	}
 	if c.RepeatedQueries != nil && (*c.RepeatedQueries < 0 || *c.RepeatedQueries == 1) {
 		errs = append(errs, errors.New("DB_REPEATED_QUERIES must be 0 (off) or at least 2"))
 	}
 	return errors.Join(errs...)
+}
+
+// The values of [Config.TLS].
+const (
+	TLSVerify     = "verify"      // encrypt, and check the server's certificate and name
+	TLSSkipVerify = "skip-verify" // encrypt only: open to a man in the middle
+	TLSNone       = "none"        // plain text
+)
+
+// TLSMode returns the TLS the connection built from Host uses: TLS if
+// set, else [TLSVerify] with TLSCA set or a host other than this
+// machine, and [TLSNone] for a local host (localhost, a loopback
+// address, a Unix socket path). Drivers use it; with
+// URL set, the URL decides and it returns "".
+func (c Config) TLSMode() string {
+	switch {
+	case c.URL != "":
+		return ""
+	case c.TLS != "":
+		return c.TLS
+	case c.TLSCA != "":
+		return TLSVerify // a CA to check the server with, even through a tunnel
+	case LocalHost(c.Host):
+		return TLSNone
+	}
+	return TLSVerify
+}
+
+// LocalHost reports whether host is this machine: localhost, a loopback
+// address, or a Unix socket path.
+func LocalHost(host string) bool {
+	return host == "" || strings.HasPrefix(host, "/") || netaddr.Local(host)
 }
 
 // String describes the connection without secrets: the password, and
@@ -90,9 +148,9 @@ func (c Config) String() string {
 	if c.RepeatedQueries != nil {
 		repeated = strconv.Itoa(*c.RepeatedQueries)
 	}
-	return fmt.Sprintf("{Connection:%s URL:%s Host:%s Port:%d Database:%s Username:%s Password:%s "+
+	return fmt.Sprintf("{Connection:%s URL:%s Host:%s Port:%d Database:%s Username:%s Password:%s TLS:%s TLSCA:%s "+
 		"MaxOpenConns:%d MaxIdleConns:%d ConnMaxLifetime:%s ConnMaxIdleTime:%s LogQueries:%s SlowQuery:%s RepeatedQueries:%s}",
-		c.Connection, maskDSN(c.URL), c.Host, c.Port, c.Database, c.Username, mask(c.Password),
+		c.Connection, maskDSN(c.URL), c.Host, c.Port, c.Database, c.Username, mask(c.Password), c.TLS, c.TLSCA,
 		c.MaxOpenConns, c.MaxIdleConns, c.ConnMaxLifetime, c.ConnMaxIdleTime, logQueries, c.SlowQuery, repeated)
 }
 
@@ -303,6 +361,12 @@ type Driver struct {
 	Tune func(cfg *Config)
 	// Open opens a connection pool for cfg. It should not connect yet.
 	Open func(cfg Config) (*sql.DB, error)
+	// InspectURL, if set, reads a DB_URL in the driver's format: the
+	// server's host ("" or a path for a Unix socket) and how connections
+	// are secured, [TLSVerify], [TLSSkipVerify] or [TLSNone] (TLSNone
+	// when they may fall back to plain text). The doctor command uses it
+	// (v0.3).
+	InspectURL func(url string) (host, tls string, err error)
 }
 
 // DB is a database connection pool with its dialect. It is safe for
@@ -477,6 +541,10 @@ func Connect(ctx context.Context, app *anetos.App, drivers ...Driver) (*DB, erro
 	if repeated >= 2 {
 		app.AroundUnits(d.Track) // requests, jobs, listeners, tasks
 	}
+	env := app.Config().Env
+	app.AddCheck(anetos.Check{Name: "db", Run: func(context.Context) []anetos.Finding {
+		return checks(cfg, drivers[i], env)
+	}})
 	app.AddContextValue(dbKey{}, d)
 	anetos.Provide(app, d)
 	app.OnShutdown("db", func(context.Context) error { return d.Close() })
@@ -484,6 +552,41 @@ func Connect(ctx context.Context, app *anetos.App, drivers ...Driver) (*DB, erro
 }
 
 type dbKey struct{}
+
+// checks are the doctor's checks of the DB_* settings.
+func checks(cfg Config, d Driver, env anetos.Environment) []anetos.Finding {
+	if !env.Deployed() {
+		return nil
+	}
+	var out []anetos.Finding
+	if cfg.LogQueries != nil && *cfg.LogQueries {
+		out = append(out, anetos.Finding{Severity: anetos.Warning, Message: fmt.Sprintf("DB_LOG_QUERIES=true in %s: the log gets every query with its values (emails, token hashes, personal data); turn it off", env)})
+	}
+	if cfg.Connection == "sqlite" {
+		return out
+	}
+	host, mode, setting := cfg.Host, cfg.TLSMode(), "DB_TLS="+cfg.TLSMode()
+	if cfg.URL != "" {
+		if d.InspectURL == nil {
+			return out
+		}
+		var err error
+		if host, mode, err = d.InspectURL(cfg.URL); err != nil {
+			return append(out, anetos.Finding{Severity: anetos.Warning, Message: "DB_URL can't be read to check its TLS settings: " + err.Error()})
+		}
+		setting = "DB_URL"
+	}
+	if LocalHost(host) {
+		return out
+	}
+	switch mode {
+	case TLSNone:
+		out = append(out, anetos.Finding{Severity: anetos.Warning, Message: fmt.Sprintf("%s for %s: connections may go in plain text, the password and data readable on the network; verify the server's certificate (DB_TLS=verify, sslmode=verify-full, tls=true) unless the network is private", setting, host)})
+	case TLSSkipVerify:
+		out = append(out, anetos.Finding{Severity: anetos.Warning, Message: fmt.Sprintf("%s for %s: connections are encrypted, but the server's certificate isn't checked, so someone on the path can pose as it; verify it (DB_TLS=verify with DB_TLS_CA for a private CA)", setting, host)})
+	}
+	return out
+}
 
 // WithDB returns ctx with d as the database for queries made with it. Use
 // it in tests and for additional connections:

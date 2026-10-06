@@ -165,8 +165,11 @@ func ClientIPFrom(ctx context.Context) string {
 // RealIP determines the client IP behind reverse proxies. Forwarding
 // headers are trusted only when the direct peer is in trusted (for example
 // your load balancer's network); then X-Forwarded-For is read from the
-// right, skipping trusted proxies, falling back to X-Real-IP. Without
-// trusted proxies, headers are ignored, because any client can forge them.
+// right, skipping trusted proxies. X-Real-IP is not read: a proxy that
+// doesn't replace it passes the client's own through, so set
+// X-Forwarded-For at the proxy (nginx: proxy_set_header X-Forwarded-For
+// $proxy_add_x_forwarded_for). Without trusted proxies, headers are
+// ignored, because any client can forge them.
 // The result is available through [ClientIP].
 func RealIP(trusted []netip.Prefix) Middleware {
 	isTrusted := func(a netip.Addr) bool {
@@ -226,14 +229,8 @@ func forwardedClient(r *http.Request, isTrusted func(netip.Addr) bool) (netip.Ad
 			return a, true
 		}
 	}
-	if len(hops) > 0 {
-		// Every hop is a trusted proxy; X-Real-IP could have been set by
-		// the client and passed through, so don't use it.
-		return netip.Addr{}, false
-	}
-	if a, ok := parseHop(r.Header.Get("X-Real-IP")); ok {
-		return a, true
-	}
+	// Every hop is a trusted proxy, or there are none. X-Real-IP isn't
+	// read: a proxy that doesn't set it passes the client's own through.
 	return netip.Addr{}, false
 }
 

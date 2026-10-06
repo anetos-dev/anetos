@@ -7,6 +7,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -180,4 +181,26 @@ func TestDevLoop(t *testing.T) {
 	waitFor("the start error", func(code int, body string) bool {
 		return code == 500 && strings.Contains(body, "didn&#39;t start") && strings.Contains(body, "no server here")
 	})
+}
+
+// Only local names, IP addresses and the given hosts reach the dev
+// server (DNS rebinding).
+func TestAllowedHost(t *testing.T) {
+	for host, want := range map[string]bool{
+		"localhost:8080": true, "LOCALHOST": true, "app.localhost:8080": true, "127.0.0.1:8080": true,
+		"[::1]:8080": true, "192.168.1.20:8080": true, "blog.test:8080": true, "blog.test.": true,
+		"attacker.example:8080": false, "localhost.attacker.example": false, "": false, "blog.test.evil": false,
+	} {
+		if got := allowedHost(host, []string{"blog.test"}); got != want {
+			t.Errorf("allowedHost(%q) = %v, want %v", host, got, want)
+		}
+	}
+	d := &dev{opts: Options{}}
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Host = "attacker.example:8080"
+	d.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("foreign host: %d", rec.Code)
+	}
 }

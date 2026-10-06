@@ -63,6 +63,7 @@ type App struct {
 
 	cmdMu    sync.Mutex
 	commands map[string]cmd.Command
+	checks   []Check // AddCheck, for doctor
 
 	clock clock // Now
 
@@ -180,6 +181,7 @@ func New(opts ...Option) (*App, error) {
 	a.AddContextValue(clockKey{}, &a.clock)
 	a.AddContextValue(loggerKey{}, log)
 	a.addBuiltins()
+	a.AddCheck(Check{Name: "app", Run: a.appChecks})
 	return a, nil
 }
 

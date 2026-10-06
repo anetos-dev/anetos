@@ -341,8 +341,18 @@ func (d *DB) checkSearchIndexes(ctx context.Context) error {
 
 // ---- queries ----
 
-// maxSearchTerms bounds the words of a search; more are ignored.
-const maxSearchTerms = 32
+// maxSearchTerms bounds the words of a search; more are ignored. Each
+// word costs an index lookup: a long list of short words from anyone on
+// the internet would cost seconds.
+const maxSearchTerms = 10
+
+// minPrefixRunes is the shortest word matched as a prefix: "pay" finds
+// "payment", but "a" finds only "a" (as a prefix, it would expand to
+// most of the index).
+const minPrefixRunes = 3
+
+// prefix reports whether a search term is matched as a prefix.
+func prefix(term string) bool { return utf8.RuneCountInString(term) >= minPrefixRunes }
 
 // searchTerms splits text into lower-case words: runs of letters,
 // digits and combining marks (which some scripts' words contain), at
@@ -379,8 +389,9 @@ type searchSpec struct {
 //	posts, err := db.Query[Post](ctx).Where(published).Search(q).Paginate(page, 20)
 //
 // The model's table needs a search index (migrate.Table.SearchIndex).
-// Every word of text must match, as a prefix ("generic" finds
-// "generics"), in any indexed column; with a SEARCH_LANGUAGE other than
+// Every word of text must match in an indexed column: as a prefix for
+// words of three letters or more ("generic" finds "generics"), whole for
+// shorter ones; at most ten words count; with a SEARCH_LANGUAGE other than
 // simple, words are also stemmed. Punctuation is ignored, and text
 // without words leaves the query as it is. A second Search replaces the
 // first. Databases differ in which words they index: MySQL and MariaDB
@@ -422,13 +433,19 @@ func (q *Q[T]) newSearch(text string) (*searchSpec, error) {
 	case "postgres":
 		quoted := make([]string, len(terms))
 		for i, t := range terms {
-			quoted[i] = "'" + t + "':*" // terms have no quotes
+			quoted[i] = "'" + t + "'" // terms have no quotes
+			if prefix(t) {
+				quoted[i] += ":*"
+			}
 		}
 		spec.terms = []string{strings.Join(quoted, " & ")}
 	case "sqlite":
 		quoted := make([]string, len(terms))
 		for i, t := range terms {
-			quoted[i] = `"` + t + `"*`
+			quoted[i] = `"` + t + `"`
+			if prefix(t) {
+				quoted[i] += "*"
+			}
 		}
 		spec.terms = []string{strings.Join(quoted, " ")}
 	case "mysql":
@@ -511,7 +528,7 @@ func (e searchRank) build(b *sqlBuilder) {
 func searchTermsOfTSQuery(q string) []string {
 	var out []string
 	for part := range strings.SplitSeq(q, " & ") {
-		out = append(out, strings.TrimSuffix(strings.TrimPrefix(part, "'"), "':*"))
+		out = append(out, strings.TrimSuffix(strings.TrimSuffix(strings.TrimPrefix(part, "'"), ":*"), "'"))
 	}
 	return out
 }
@@ -565,13 +582,19 @@ func (d *DB) mysqlTerms(ctx context.Context, terms []string) ([]string, error) {
 		if r := []rune(t); len(r) > w.maxLen {
 			t = string(r[:w.maxLen])
 		}
-		if all || !skipped(terms[i]) {
-			out[i] = "+" + t + "*"
-		} else {
+		switch {
+		case all || !skipped(terms[i]):
+			out[i] = "+" + t
+			if all || prefix(terms[i]) {
+				out[i] += "*"
+			}
+		case prefix(terms[i]):
 			out[i] = t + "*"
 		}
+		// A short word the index skips, next to indexed ones, could only
+		// match as a prefix: it is left out.
 	}
-	return out, nil
+	return slices.DeleteFunc(out, func(t string) bool { return t == "" }), nil
 }
 
 // mysqlSkipped reads, once, which words the server's full-text indexes

@@ -77,8 +77,9 @@ go tool anetos add anetos.dev/anetos/plugins/postmark
 ```
 
 ```text
-Adding anetos.dev/anetos/plugins/postmark@latest. Plugins run with your app's privileges: add only code you trust.
+Adding anetos.dev/anetos/plugins/postmark@latest. A plugin is code compiled into your app, with its privileges, and anetos add runs it once to read its settings: add only code you trust.
 Installed anetos.dev/anetos/plugins/postmark v0.2.0.
+To read its settings, the app now runs with anetos.dev/anetos/plugins/postmark's code, with your environment and .env. Go on? [y/N] y
 Listed it in plugins.go.
 Added its settings to .env.example: POSTMARK_WEBHOOK_USER, POSTMARK_WEBHOOK_PASSWORD. Set them in .env.
 Next:
@@ -94,7 +95,8 @@ If the plugin isn't a plugin, doesn't compile, or the app refuses it
 `go.sum` and `plugins.go` are left as they were. If the plugin needs a
 newer Anetos than your app had, `go get` upgrades it, and `anetos add`
 says so. Add `@v1.2.3` to the module for a version other than the
-latest. (A project made with `anetos new --replace` takes Anetos's
+latest. Before the app runs with the plugin, `anetos add` asks (in a
+terminal; `--yes` skips the question). (A project made with `anetos new --replace` takes Anetos's
 first-party plugins from that checkout.)
 
 ### 3. Configure and migrate

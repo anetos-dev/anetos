@@ -103,7 +103,11 @@ model, upstream, failed).
 A tool runs with the context of the call: the request's, with its
 signed-in user. Inside, `auth.Current`, policies, permissions
 (`rbac.Authorize`) and scoped queries work as in a handler, so a model
-can do no more than the user could, whatever text it read. A tool's error with a 4xx status (not allowed, not found,
+can do no more than the user could, whatever text it read. Within that,
+text the model reads (a page, an email, a document) can steer it into
+calling the user's tools against their wishes (prompt injection): give
+an agent the tools its task needs, read-only where you can, and confirm
+with the user before tools that change or send things. A tool's error with a 4xx status (not allowed, not found,
 invalid) is told to the model as a web client would see it, never with
 its internal cause; any other error stops the call and is returned, as
 it would end a request.

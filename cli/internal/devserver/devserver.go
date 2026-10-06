@@ -18,11 +18,13 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
+	"net/netip"
 	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -39,6 +41,12 @@ type Options struct {
 	Poll     time.Duration // how often to look for changes; default 300ms
 	Out      io.Writer     // progress and the app's output
 	OnListen func(addr string)
+	// Hosts are the host names (without port) browsers may use besides
+	// localhost, *.localhost and IP addresses, such as APP_URL's
+	// ("blog.test"). Others get 403: a page on another site can't reach
+	// the dev server by pointing its own name at 127.0.0.1 (DNS
+	// rebinding).
+	Hosts []string
 }
 
 // Run serves the app with live reload until ctx is canceled.
@@ -287,6 +295,10 @@ const reloadPath = "/_anetos/dev/reload"
 const reloadScript = `<script>(()=>{const es=new EventSource("` + reloadPath + `");es.addEventListener("reload",()=>location.reload());})()</script>`
 
 func (d *dev) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if !allowedHost(r.Host, d.opts.Hosts) {
+		http.Error(w, "anetos dev: unknown host "+strconv.Quote(r.Host)+"; browse http://localhost (or add the name with --host)", http.StatusForbidden)
+		return
+	}
 	if r.URL.Path == reloadPath {
 		d.events(w, r)
 		return
@@ -562,4 +574,23 @@ func displayAddr(addr string) string {
 		host = "localhost"
 	}
 	return net.JoinHostPort(host, port)
+}
+
+// allowedHost reports whether a request's Host may reach the dev server:
+// localhost, a name under .localhost, an IP address, or one of hosts.
+// Other names could be an attacker's, resolved to 127.0.0.1 (DNS
+// rebinding), which would make their page same-origin with the app.
+func allowedHost(hostport string, hosts []string) bool {
+	h := hostport
+	if host, _, err := net.SplitHostPort(hostport); err == nil {
+		h = host
+	}
+	h = strings.ToLower(strings.TrimSuffix(strings.Trim(h, "[]"), "."))
+	if h == "localhost" || strings.HasSuffix(h, ".localhost") {
+		return true
+	}
+	if _, err := netip.ParseAddr(h); err == nil {
+		return true
+	}
+	return slices.ContainsFunc(hosts, func(a string) bool { return strings.EqualFold(a, h) })
 }

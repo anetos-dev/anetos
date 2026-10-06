@@ -154,13 +154,14 @@ The routes:
 | `GET`, `POST /login` | Guests: sign in (`AUTH_THROTTLE` limits failures) |
 | `GET`, `POST /two-factor-challenge` | Guests whose sign-in waits for a two-factor code: the authenticator app's, or a recovery code |
 | `GET`, `POST /forgot-password` | Guests: email a reset link (5 posts a minute per client IP address; 3 links an hour per address, the same answer after) |
-| `GET`, `POST /reset-password` | Guests: choose a new password with the link |
+| `GET`, `POST /reset-password` | Guests: choose a new password with the link. A reset signs the user out everywhere and revokes their API tokens (v0.3); for an address never verified, the link verifies it and turns off the two-factor sign-in and Google and GitHub links that whoever registered it first may have set up. Two uses of the link at once change the password once |
 | `GET /auth/{provider}/redirect`, `GET /auth/{provider}/callback` | Guests: sign in with Google or GitHub (404 for a provider whose settings aren't set) |
 | `GET /verify-email` | Anyone with the link: verify the address (400 if the link is bad, expired, or for an address the user has since changed) |
 | `GET /dashboard` | Signed-in users: the account and its API tokens |
 | `POST /logout` | Signed-in users |
 | `POST /email/verification-notification` | Signed-in users: email the link again (3 a minute per client IP address, 6 an hour per account) |
-| `POST /tokens`, `POST /tokens/{id}/delete` | Signed-in users: create (shown once) and revoke API tokens |
+| `POST /tokens` | Signed-in users who confirmed their password lately (v0.3): create an API token (shown once); refused while an admin acts as the user |
+| `POST /tokens/{id}/delete` | Signed-in users: revoke an API token |
 | `GET /settings`; `POST /settings/profile`, `/settings/password`, `/settings/preferences` | Signed-in users: their settings (below) |
 | `POST /settings/email` | Signed-in users who confirmed their password lately: a new email address (with `AllowEmailChange`; 5 tries an hour per account) |
 | `POST /settings/email/cancel` | Signed-in users: drop the change |

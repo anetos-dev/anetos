@@ -12,11 +12,17 @@ import (
 // LogTransport writes emails to a log instead of sending them: the
 // sender, recipients, subject and text body, at Info.
 type LogTransport struct {
-	log *slog.Logger
+	log    *slog.Logger
+	noBody bool
 }
 
 // NewLogTransport returns a transport that writes emails to log.
 func NewLogTransport(log *slog.Logger) *LogTransport { return &LogTransport{log: log} }
+
+// WithoutBodies returns the transport logging everything but the emails'
+// bodies, which may hold sign-in or reset links: what MAIL_DRIVER=log
+// does in production, where logs are read by more people.
+func (t *LogTransport) WithoutBodies() *LogTransport { return &LogTransport{log: t.log, noBody: true} }
 
 // Send implements [Transport].
 func (t *LogTransport) Send(ctx context.Context, m *Outgoing) error {
@@ -34,7 +40,11 @@ func (t *LogTransport) Send(ctx context.Context, m *Outgoing) error {
 		}
 		attrs = append(attrs, "attachments", strings.Join(names, ", "))
 	}
-	attrs = append(attrs, "text", m.Text)
+	if t.noBody {
+		attrs = append(attrs, "text", "(not logged in production)")
+	} else {
+		attrs = append(attrs, "text", m.Text)
+	}
 	t.log.InfoContext(ctx, "mail (log driver: not sent)", attrs...)
 	return nil
 }

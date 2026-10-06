@@ -8,6 +8,12 @@ tagged `drivers/mysql/vX.Y.Z`. The framework's own changes are in the
 ## [Unreleased]
 
 ### Added
+- TLS from `DB_TLS` for connections built from `DB_HOST`: `verify`
+  (`tls=true`, or a configuration with `DB_TLS_CA`'s authorities), the
+  default for a remote host; `skip-verify`; `none`, the default for this
+  machine. Before, connections had no TLS (M7, D246).
+- `Driver().InspectURL` reads a `DB_URL`'s host and TLS mode for the
+  `doctor` command (M7, D245).
 - On MariaDB 11.7+, each session sets `mhnsw_ef_search` to 1000, so vector
   searches get their candidates under selective filters (MariaDB's
   default is 20); MySQL ignores it (S2, D182).

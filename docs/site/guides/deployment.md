@@ -65,15 +65,18 @@ no `.env` file. `deploy/production.env.example` lists the ones to set:
 | `APP_ENV=production` | The default when unset; JSON logs, secure cookies, `APP_DEBUG` refused |
 | `APP_KEY` | A new key for production (`go tool anetos key:generate`), never the one in `.env`. Keep it secret: it encrypts sessions and two-factor secrets. When you change it, put the old one in `APP_PREVIOUS_KEYS` |
 | `APP_URL` | The public URL (`https://blog.example.com`), for links in emails and social sign-in |
-| `DB_CONNECTION`, `DB_URL` | The database, with TLS (`sslmode=require`, `tls=true`) |
+| `DB_CONNECTION`, `DB_URL` | The database, with TLS that checks the server (`sslmode=verify-full`, `tls=true`). With `DB_HOST` and the others instead of `DB_URL`, TLS is on and verified for any host but `localhost` (`DB_TLS`; `DB_TLS_CA` for a provider's own CA) |
 | `CACHE_STORE`, `SESSION_DRIVER`, `QUEUE_DRIVER` | `database` (or `redis`) so that every process shares them: with `memory`, a second process has its own cache and queue |
-| `MAIL_DRIVER`, `MAIL_FROM_ADDRESS` | `log` writes emails to the log (the app warns at start) |
+| `MAIL_DRIVER`, `MAIL_FROM_ADDRESS` | `log` sends nothing (the app warns at start); in production it logs who an email is for and its subject, never its body, which may hold sign-in links |
 | `HTTP_TRUSTED_PROXIES` | The address of the proxy in front of the app, so client IPs (rate limits, logs, the audit log) are the visitors' (step 5) |
 | `STORAGE_ROOT` or `STORAGE_DRIVER` | Uploaded files: a directory that survives deploys, or `s3`/`gcs` |
 
 The app checks them when it starts, for any command: a missing or
 wrong one stops it with a message naming the setting. Only `version`
-runs without them.
+runs without them. Settings that work but are unsafe
+(`SESSION_SECURE=false`, a database reached without verified TLS, the
+`log` mail driver) don't stop it: `blog doctor` reports them (v0.3; see
+[Secure your app](security.md)).
 
 ### 3. Run the migrations on each deploy
 
@@ -283,7 +286,10 @@ HTTP_TRUSTED_PROXIES=127.0.0.1
 ```
 
 `HTTP_TRUSTED_PROXIES` lets the app take the client's IP from
-`X-Forwarded-For`, but only on connections from those addresses. With
+`X-Forwarded-For`, but only on connections from those addresses. Caddy
+sets it; with nginx, add `proxy_set_header X-Forwarded-For
+$proxy_add_x_forwarded_for;` (the app doesn't read `X-Real-IP`, which a
+proxy that doesn't set it passes through from the client). With
 `docker run -p`, connections come from the Docker network's gateway
 (`172.17.0.1` by default); on a platform, from its proxy: trust its
 network. The request log's `ip` field shows the address while it isn't
@@ -329,14 +335,17 @@ stops when they are done; the others start after it. Put the
 `DB_*`: they are set here):
 
 ```yaml
-# compose.yaml:
-#   POSTGRES_PASSWORD=changeme docker compose up -d --build
+# compose.yaml. The database password goes in compose.env (chmod 600,
+# out of git), not on the command line:
+#   echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)" > compose.env
+#   docker compose --env-file compose.env up -d --build
 x-app: &app
   build: .
   image: blog
   env_file: production.env
   environment:
     DB_CONNECTION: postgres
+    # Plain text on the hosts' own network, with nothing else on it.
     DB_URL: postgres://blog:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/blog?sslmode=disable
   volumes:
     - app-data:/data
@@ -434,8 +443,9 @@ $ ./bin/blog health:check
 ok
 ```
 
-After a deploy, `blog version` (on the server, or
-`docker run --rm blog version`) tells which version runs.
+`./bin/blog doctor` with the same settings checks them, and says
+which migrations haven't run. After a deploy, `blog version` (on the
+server, or `docker run --rm blog version`) tells which version runs.
 
 ## Common problems
 
@@ -454,6 +464,7 @@ After a deploy, `blog version` (on the server, or
 
 ## Next steps
 
+- [Secure your app](security.md): the checklist before going live.
 - [Configuration](configuration.md) and the [settings reference](../reference/configuration.md).
 - [Migrations](migrations.md).
 - [The runtime supervisor](../concepts/runtime-supervisor.md): roles and graceful shutdown.

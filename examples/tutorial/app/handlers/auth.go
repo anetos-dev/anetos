@@ -505,7 +505,9 @@ func (Accounts) ResetPage(c *web.Ctx) error {
 
 // Reset sets the new password. The link works once: it is tied to the
 // old password. The new one signs out every session and remembered
-// browser, and revokes the API tokens.
+// browser, and revokes the API tokens. For an address never verified, the
+// link verifies it, and turns off two-factor sign-in and the links to
+// Google and GitHub that whoever registered it may have set up.
 func (h Accounts) Reset(c *web.Ctx, in ResetInput) (web.Responder, error) {
 	u, err := h.Auth.CheckPasswordResetToken(c, in.Token)
 	if errors.Is(err, auth.ErrInvalidToken) {
@@ -518,17 +520,49 @@ func (h Accounts) Reset(c *web.Ctx, in ResetInput) (web.Responder, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Only if the password is still the one the link was made for: two
-	// uses of the link at once change it once.
-	n, err := db.Query[models.User](c).Where(models.UserCols.ID.Eq(u.ID), models.UserCols.Password.Eq(u.Password)).
-		Update(models.UserCols.Password.Set(hash))
-	if err != nil {
-		return nil, err
-	}
-	if n == 0 {
+	errUsed := errors.New("the link was used meanwhile")
+	err = db.Tx(c, func(ctx context.Context) error {
+		// Only if the password is still the one the link was made for:
+		// two uses of the link at once change it once.
+		n, err := db.Query[models.User](ctx).Where(models.UserCols.ID.Eq(u.ID), models.UserCols.Password.Eq(u.Password)).
+			Update(models.UserCols.Password.Set(hash))
+		if err != nil {
+			return err
+		}
+		if n == 0 {
+			return errUsed
+		}
+		if u.EmailVerifiedAt == nil {
+			// The link proves the address is theirs. Someone else may have
+			// registered it first: undo what they could have set up.
+			now := anetos.Now(ctx).UTC()
+			if _, err := db.Query[models.User](ctx).Where(models.UserCols.ID.Eq(u.ID)).
+				Update(models.UserCols.EmailVerifiedAt.Set(&now), models.UserCols.PendingEmail.Set("")); err != nil {
+				return err
+			}
+			if h.Auth.CanTwoFactor() {
+				if err := h.Auth.DisableTwoFactor(ctx, u); err != nil {
+					return err
+				}
+			}
+			links, err := social.Links(ctx, u.AuthID())
+			if err != nil {
+				return err
+			}
+			for _, l := range links {
+				if err := social.Unlink(ctx, u.AuthID(), l.Provider); err != nil {
+					return err
+				}
+			}
+		}
+		// Other browsers are signed out (the password changed); API
+		// tokens too.
+		return h.Auth.RevokeAllTokens(ctx, u)
+	})
+	if errors.Is(err, errUsed) {
 		return nil, validate.Fail("password", i18n.T(c, "auth.errors.reset_invalid"))
 	}
-	if err := h.Auth.RevokeAllTokens(c, u); err != nil {
+	if err != nil {
 		return nil, err
 	}
 	c.Session().Flash("status", i18n.T(c, "auth.status.password_reset"))

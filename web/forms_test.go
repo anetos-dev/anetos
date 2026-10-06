@@ -499,3 +499,41 @@ func TestRouteIs(t *testing.T) {
 		t.Error("outside a request")
 	}
 }
+
+// Only HTML forms from this site are overridden: a text/plain post (a
+// cross-site "simple" request) or a cross-site form keeps its method.
+func TestMethodOverrideOnlyForms(t *testing.T) {
+	r := newTestRouter()
+	r.UseGlobal(MethodOverride)
+	r.Post("/account", func(c *Ctx) error { return c.Text(http.StatusOK, "post") })
+	r.Delete("/account", func(c *Ctx) error { return c.Text(http.StatusOK, "deleted") })
+	for _, tc := range []struct {
+		ct, site, origin, want string
+	}{
+		{"application/x-www-form-urlencoded", "", "", "deleted"},
+		{"application/x-www-form-urlencoded", "same-origin", "", "deleted"},
+		{"text/plain", "", "", "post"},
+		{"application/json", "", "", "post"},
+		{"application/x-www-form-urlencoded", "cross-site", "", "post"},
+		// Browsers without Sec-Fetch-Site: the Origin decides.
+		{"application/x-www-form-urlencoded", "", "http://example.com", "deleted"},
+		{"application/x-www-form-urlencoded", "", "https://evil.example", "post"},
+		{"application/x-www-form-urlencoded", "", "null", "post"},
+	} {
+		headers := []string{"Content-Type", tc.ct}
+		if tc.site != "" {
+			headers = append(headers, "Sec-Fetch-Site", tc.site)
+		}
+		if tc.origin != "" {
+			headers = append(headers, "Origin", tc.origin)
+		}
+		if res := do(t, r, http.MethodPost, "/account?_method=DELETE", strings.NewReader("x"), headers...); res.body != tc.want {
+			t.Errorf("%s from %q %q: %q, want %q", tc.ct, tc.site, tc.origin, res.body, tc.want)
+		}
+	}
+	for _, u := range []string{"/\t/evil.example", "/a\nb", "//evil.example", `/\evil.example`} {
+		if localPath(u) {
+			t.Errorf("localPath(%q) = true", u)
+		}
+	}
+}

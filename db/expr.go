@@ -169,6 +169,23 @@ func (c Column[T]) Like(pattern string) Expr { return cmpExpr{c.name, "LIKE", pa
 // NotLike is column NOT LIKE pattern.
 func (c Column[T]) NotLike(pattern string) Expr { return cmpExpr{c.name, "NOT LIKE", pattern} }
 
+// Contains is column LIKE '%s%' with s taken literally: its % and _
+// match themselves, so text from a search box can't widen the match.
+// Case sensitivity follows the database, as for [Column.Like].
+func (c Column[T]) Contains(s string) Expr { return likeExpr{c.name, "%" + EscapeLike(s) + "%"} }
+
+// StartsWith is column LIKE 's%' with s taken literally (see
+// [Column.Contains]).
+func (c Column[T]) StartsWith(s string) Expr { return likeExpr{c.name, EscapeLike(s) + "%"} }
+
+// EscapeLike escapes LIKE's wildcards (% and _) and its escape character
+// (!) in s, for a pattern used with ESCAPE '!':
+//
+//	db.SQL("title LIKE ? ESCAPE '!'", "%"+db.EscapeLike(q)+"%")
+func EscapeLike(s string) string {
+	return strings.NewReplacer("!", "!!", "%", "!%", "_", "!_").Replace(s)
+}
+
 // In is column IN (vs…). An empty list matches nothing.
 func (c Column[T]) In(vs ...T) Expr { return inExpr{c.name, c.vals(vs), false} }
 
@@ -211,6 +228,19 @@ func (c Column[T]) vals(vs []T) []any {
 
 // jsonValue is an argument encoded as JSON text when the query is built.
 type jsonValue struct{ v any }
+
+// likeExpr is column LIKE pattern ESCAPE '!', the pattern escaped with
+// EscapeLike.
+type likeExpr struct {
+	col, pattern string
+}
+
+func (e likeExpr) build(b *sqlBuilder) {
+	b.name(e.col)
+	b.write(" LIKE ")
+	b.arg(e.pattern)
+	b.write(" ESCAPE '!'")
+}
 
 type cmpExpr struct {
 	col string

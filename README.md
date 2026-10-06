@@ -52,8 +52,10 @@ production binary, and new projects come with a Dockerfile and a systemd
 unit ([Deploy](docs/site/guides/deployment.md)). The
 [tutorial](docs/site/getting-started/tutorial/README.md) builds an issue
 tracker step by step, and [`examples/tracker`](examples/tracker), the
-reference app, is a bigger one. The release work (security, performance,
-API stability) is next. The docs are at [docs.anetos.dev](https://docs.anetos.dev).
+reference app, is a bigger one. The framework had a security review
+([checklist](docs/security/checklist.md)); every app has a `doctor`
+command that checks its settings, and [SECURITY.md](SECURITY.md) says
+how to report a vulnerability. Performance and API stability are next. The docs are at [docs.anetos.dev](https://docs.anetos.dev).
 APIs will change.
 
 ## Documents
@@ -77,6 +79,7 @@ go tool anetos build       # bin/blog: one static binary, everything in it
 ./bin/blog                 # everything: web, queue workers and the scheduler
 ./bin/blog run --only=http # or split by role when you scale
 ./bin/blog run --only=workers
+./bin/blog doctor          # unsafe settings, pending migrations
 ./bin/blog help            # migrate, routes:list, your own commands, …
 docker build -t blog .     # or the image, from the generated Dockerfile
 ```

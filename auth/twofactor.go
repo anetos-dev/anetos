@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"anetos.dev/anetos/auth/password"
+	"anetos.dev/anetos/cache"
 	"anetos.dev/anetos/session"
 	"anetos.dev/anetos/web"
 	"anetos.dev/anetos/web/ratelimit"
@@ -63,8 +64,27 @@ const recoveryCodes = 8
 
 // codesPerDay caps a user's wrong two-factor codes at sign-in in a day,
 // beyond AUTH_THROTTLE a minute: someone with the password can't try
-// codes for long (at most about 0.015% a day to guess one).
+// codes for long (at most about 0.015% a day, UTC, to guess one).
 const codesPerDay = 50
+
+// confirmsPerDay caps a user's wrong passwords in a day when confirming
+// or changing it while signed in, beyond AUTH_THROTTLE a minute: someone
+// with a stolen session can't keep guessing the password, which unlocks
+// two-factor settings, the email address and API tokens.
+const confirmsPerDay = 50
+
+// dayAllowed returns a [*ThrottledError] when key has used up limit, without
+// counting this try: a day's budget counts failures only.
+func dayAllowed(ctx context.Context, key string, limit ratelimit.Limit) error {
+	res, err := ratelimit.Check(ctx, key, limit)
+	if err != nil {
+		return err
+	}
+	if !res.Allowed {
+		return &ThrottledError{RetryAfter: res.RetryAfter()}
+	}
+	return nil
+}
 
 // twoFactorState is a user's two-factor state, stored encrypted
 // (Users.TwoFactor).
@@ -245,13 +265,24 @@ func (a *Auth[U]) ConfirmTwoFactor(ctx context.Context, u U, code string) ([]str
 	if err := a.hit(ctx, key, limit); err != nil {
 		return nil, err
 	}
-	step, ok := checkTOTP(st.Secret, code, a.now(), 0)
-	if !ok {
-		return nil, ErrInvalidCode
-	}
-	codes, hashes := newRecoveryCodes()
-	st.Confirmed, st.Codes, st.LastStep = true, hashes, step
-	if err := a.saveTwoFactor(ctx, u, st); err != nil {
+	var codes []string
+	err = a.lockedTwoFactor(ctx, u, func(ctx context.Context, st *twoFactorState) error {
+		switch {
+		case st == nil:
+			return ErrTwoFactorOff // turned off meanwhile
+		case st.Confirmed:
+			return ErrTwoFactorOn
+		}
+		step, ok := checkTOTP(st.Secret, code, a.now(), 0)
+		if !ok {
+			return ErrInvalidCode
+		}
+		var hashes []string
+		codes, hashes = newRecoveryCodes()
+		st.Confirmed, st.Codes, st.LastStep = true, hashes, step
+		return a.saveTwoFactor(ctx, u, st)
+	})
+	if err != nil {
 		return nil, err
 	}
 	a.clearHits(ctx, limit, key)
@@ -320,7 +351,9 @@ func (a *Auth[U]) DisableTwoFactor(ctx context.Context, u U) error {
 	if a.users.TwoFactor == nil {
 		return errNoTwoFactor
 	}
-	return a.saveTwoFactor(ctx, u, nil)
+	return cache.WithLock(ctx, twoFactorLock(u.AuthID()), 10*time.Second, func(ctx context.Context) error {
+		return a.saveTwoFactor(ctx, u, nil)
+	})
 }
 
 // NewRecoveryCodes replaces u's recovery codes with new ones, and returns
@@ -329,16 +362,42 @@ func (a *Auth[U]) NewRecoveryCodes(ctx context.Context, u U) ([]string, error) {
 	if a.users.TwoFactor == nil {
 		return nil, errNoTwoFactor
 	}
-	st, err := a.twoFactor(u)
+	var codes []string
+	err := a.lockedTwoFactor(ctx, u, func(ctx context.Context, st *twoFactorState) error {
+		if st == nil || !st.Confirmed {
+			return ErrTwoFactorOff
+		}
+		var hashes []string
+		codes, hashes = newRecoveryCodes()
+		st.Codes = hashes
+		return a.saveTwoFactor(ctx, u, st)
+	})
 	if err != nil {
 		return nil, err
 	}
-	if st == nil || !st.Confirmed {
-		return nil, ErrTwoFactorOff
-	}
-	codes, hashes := newRecoveryCodes()
-	st.Codes = hashes
-	return codes, a.saveTwoFactor(ctx, u, st)
+	return codes, nil
+}
+
+// twoFactorLock names the lock of a user's two-factor state, which every
+// change of it holds (a code used, new recovery codes, two-factor sign-in
+// turned on or off), so concurrent changes don't overwrite each other.
+func twoFactorLock(id string) string { return "auth:2fa:" + id }
+
+// lockedTwoFactor runs fn holding u's two-factor lock, with the state
+// read again from the store: u may be older than a change made
+// meanwhile. fn saves through u.
+func (a *Auth[U]) lockedTwoFactor(ctx context.Context, u U, fn func(ctx context.Context, st *twoFactorState) error) error {
+	return cache.WithLock(ctx, twoFactorLock(u.AuthID()), 10*time.Second, func(ctx context.Context) error {
+		fresh, err := a.users.ByID(ctx, u.AuthID())
+		if err != nil {
+			return err
+		}
+		st, err := a.twoFactor(fresh)
+		if err != nil {
+			return err
+		}
+		return fn(ctx, st)
+	})
 }
 
 // SignIn signs u in, as [Auth.Login] does, unless they have two-factor
@@ -440,47 +499,62 @@ func (a *Auth[U]) AttemptTwoFactor(ctx context.Context, code string) (U, error) 
 	if err := a.hit(ctx, key, limit); err != nil {
 		return zero, err
 	}
-	u, err := a.users.ByID(ctx, p.ID)
-	if notFound(err) {
-		s.Delete(keyPending)
-		return zero, ErrNoPendingSignIn
-	}
+	// One code check at a time per user, from reading the state to
+	// storing it: two requests with the same code (or recovery code)
+	// can't both use it.
+	var (
+		u       U
+		hash    string
+		skipped bool // two-factor sign-in was turned off meanwhile
+	)
+	err := cache.WithLock(ctx, twoFactorLock(p.ID), 10*time.Second, func(ctx context.Context) error {
+		var err error
+		u, err = a.users.ByID(ctx, p.ID)
+		if notFound(err) {
+			s.Delete(keyPending)
+			return ErrNoPendingSignIn
+		}
+		if err != nil {
+			return err
+		}
+		hash = u.AuthPassword()
+		if a.sessionPrint(u, hash) != p.Print {
+			s.Delete(keyPending) // the password changed, or they signed out everywhere
+			return ErrNoPendingSignIn
+		}
+		st, err := a.twoFactor(u)
+		if err != nil {
+			return err
+		}
+		if st == nil || !st.Confirmed {
+			skipped = true // turned off meanwhile: the password was enough
+			return nil
+		}
+		if step, ok := checkTOTP(st.Secret, code, a.now(), st.LastStep); ok {
+			st.LastStep = step
+		} else if i := matchRecovery(st.Codes, code); i >= 0 {
+			st.Codes = append(st.Codes[:i:i], st.Codes[i+1:]...)
+		} else {
+			a.log.WarnContext(ctx, "auth: a wrong two-factor code", "user", p.ID)
+			if _, err := ratelimit.Hit(ctx, dayKey, perDay); err != nil {
+				return err
+			}
+			return ErrInvalidCode
+		}
+		// Stored before signing in: a code is used once, even if the
+		// rest fails.
+		return a.saveTwoFactor(ctx, u, st)
+	})
 	if err != nil {
 		return zero, err
 	}
-	hash := u.AuthPassword()
-	if a.sessionPrint(u, hash) != p.Print {
-		s.Delete(keyPending) // the password changed, or they signed out everywhere
-		return zero, ErrNoPendingSignIn
-	}
-	st, err := a.twoFactor(u)
-	if err != nil {
-		return zero, err
-	}
-	if st == nil || !st.Confirmed {
-		// Turned off meanwhile: the password was enough.
+	if skipped {
 		s.Delete(keyPending)
 		if err := a.login(ctx, u, hash, p.Remember); err != nil {
 			return zero, err
 		}
 		a.markFresh(ctx, u, hash)
 		return u, nil
-	}
-	if step, ok := checkTOTP(st.Secret, code, a.now(), st.LastStep); ok {
-		st.LastStep = step
-	} else if i := matchRecovery(st.Codes, code); i >= 0 {
-		st.Codes = append(st.Codes[:i:i], st.Codes[i+1:]...)
-	} else {
-		a.log.WarnContext(ctx, "auth: a wrong two-factor code", "user", p.ID)
-		if _, err := ratelimit.Hit(ctx, dayKey, perDay); err != nil {
-			return zero, err
-		}
-		return zero, ErrInvalidCode
-	}
-	// Stored before signing in: a code is used once, even if the rest
-	// fails.
-	if err := a.saveTwoFactor(ctx, u, st); err != nil {
-		return zero, err
 	}
 	a.clearHits(ctx, limit, key)
 	a.clearHits(ctx, perDay, dayKey)
@@ -609,7 +683,10 @@ var errConfirmActing = &statusError{http.StatusForbidden, "auth: a password can'
 // ([Auth.PasswordConfirmed]). It fails with [ErrInvalidCredentials] for a
 // wrong one (or a user without a password), [ErrUnauthenticated] for a
 // guest, and a [*ThrottledError] after AUTH_THROTTLE attempts in a
-// minute. Not while acting as another user ([Auth.Impersonate]).
+// minute, or 50 wrong passwords for the user in a day (UTC; wrong
+// passwords given to [Auth.ChangePassword] count too), so a stolen
+// session can't be used to guess the password. Not while acting as
+// another user ([Auth.Impersonate]).
 func (a *Auth[U]) ConfirmPassword(ctx context.Context, pw string) error {
 	s := session.From(ctx)
 	st := stateFrom(ctx)
@@ -628,6 +705,10 @@ func (a *Auth[U]) ConfirmPassword(ctx context.Context, pw string) error {
 	}
 	key := "auth:confirm\x00" + u.AuthID() // signed in already: from any address
 	limit := ratelimit.PerMinute(a.cfg.Throttle)
+	dayKey, perDay := "auth:confirm-day\x00"+u.AuthID(), ratelimit.PerDay(confirmsPerDay)
+	if err := dayAllowed(ctx, dayKey, perDay); err != nil {
+		return err
+	}
 	if err := a.hit(ctx, key, limit); err != nil {
 		return err
 	}
@@ -643,9 +724,13 @@ func (a *Auth[U]) ConfirmPassword(ctx context.Context, pw string) error {
 		return err
 	}
 	if !ok {
+		if _, err := ratelimit.Hit(ctx, dayKey, perDay); err != nil {
+			return err
+		}
 		return ErrInvalidCredentials
 	}
 	a.clearHits(ctx, limit, key)
+	a.clearHits(ctx, perDay, dayKey)
 	s.Put(keyConfirmed, confirmed{ID: u.AuthID(), At: a.now().Unix()})
 	return nil
 }

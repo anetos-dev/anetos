@@ -148,10 +148,19 @@ func testSearch(t *testing.T, ctx context.Context) {
 			t.Errorf("Search(go generics) = %q", got)
 		}
 	}
-	// A short word alone matches as a prefix ("le" finds "lentils"), on
-	// MySQL too.
-	if got := articleTitles(t, q().Search("le")); !slices.Equal(got, []string{"Cooking rice"}) {
-		t.Errorf("Search(le) = %q", got)
+	// A word shorter than three letters matches whole words only ("go",
+	// not "lentils" for "le"): as a prefix it could expand to most of the
+	// index. MySQL doesn't index such words, so there, alone, it matches
+	// as a prefix of longer ones.
+	if got := articleTitles(t, q().Search("go")); dialect != "mysql" && !slices.Contains(got, "Go generics") {
+		t.Errorf("Search(go) = %q", got)
+	}
+	want := []string{}
+	if dialect == "mysql" {
+		want = []string{"Cooking rice"}
+	}
+	if got := articleTitles(t, q().Search("le")); !slices.Equal(got, want) {
+		t.Errorf("Search(le) = %q, want %q", got, want)
 	}
 	// Scripts with combining marks, in the simple language.
 	if got := articleTitles(t, q().Search("বাংলা")); !slices.Equal(got, []string{"বাংলা লেখা"}) {

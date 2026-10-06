@@ -7,9 +7,11 @@
 //
 // The connection is built from DB_HOST, DB_PORT (default 5432),
 // DB_DATABASE, DB_USERNAME and DB_PASSWORD, or taken whole from DB_URL
-// (postgres://user:password@host:5432/app?sslmode=require); use DB_URL for
-// TLS and other connection parameters. Sessions use the UTC time zone
-// unless the URL sets timezone.
+// (postgres://user:password@host:5432/app?sslmode=verify-full). Built
+// from DB_HOST, the connection uses TLS as DB_TLS says
+// (db.Config.TLSMode): verified (sslmode=verify-full, with DB_TLS_CA's
+// CAs if set) for any host but this machine's, unless DB_TLS=skip-verify
+// or none. Sessions use the UTC time zone unless the URL sets timezone.
 //
 // For vector search (pgvector), each session sets hnsw.ef_search to
 // db.SimilarCandidates and, with pgvector 0.8+, hnsw.iterative_scan to
@@ -20,6 +22,7 @@ package postgres
 
 import (
 	"context"
+	"crypto/tls"
 	"database/sql"
 	"net"
 	"net/url"
@@ -34,7 +37,48 @@ import (
 
 // Driver returns the PostgreSQL driver, selected by DB_CONNECTION=postgres.
 func Driver() db.Driver {
-	return db.Driver{Name: "postgres", Dialect: db.Postgres(), Open: open}
+	return db.Driver{Name: "postgres", Dialect: db.Postgres(), Open: open, InspectURL: inspectURL}
+}
+
+// inspectURL reads a DB_URL's host and TLS mode, for the doctor command:
+// sslmode verify-full verifies; verify-ca verifies with sslrootcert
+// (without it, any certificate of a public authority passes, its name
+// unchecked); require skips verification (without sslrootcert); and
+// disable, allow and prefer (the default) may go in plain text. With
+// several hosts, it reports the worst of those not on this machine.
+func inspectURL(dsn string) (host, mode string, err error) {
+	cc, err := pgx.ParseConfig(dsn)
+	if err != nil {
+		return "", "", err
+	}
+	rank := map[string]int{db.TLSVerify: 0, db.TLSSkipVerify: 1, db.TLSNone: 2}
+	host, mode = cc.Host, tlsMode(cc.TLSConfig)
+	worst := -1
+	consider := func(h string, tc *tls.Config) {
+		m := tlsMode(tc)
+		if db.LocalHost(h) || rank[m] <= worst {
+			return
+		}
+		host, mode, worst = h, m, rank[m]
+	}
+	consider(cc.Host, cc.TLSConfig)
+	for _, f := range cc.Fallbacks {
+		consider(f.Host, f.TLSConfig)
+	}
+	return host, mode, nil
+}
+
+// tlsMode is the mode of one of pgx's connection attempts.
+func tlsMode(tc *tls.Config) string {
+	switch {
+	case tc == nil:
+		return db.TLSNone
+	case !tc.InsecureSkipVerify:
+		return db.TLSVerify // verify-full
+	case tc.VerifyPeerCertificate != nil && tc.RootCAs != nil:
+		return db.TLSVerify // verify-ca with the server's own authority
+	}
+	return db.TLSSkipVerify
 }
 
 func open(cfg db.Config) (*sql.DB, error) {
@@ -73,7 +117,9 @@ func withUTC(dsn string) string {
 	return strings.TrimSpace(dsn) + " timezone=UTC"
 }
 
-// DSN returns the connection URL for cfg.
+// DSN returns the connection URL for cfg. Built from DB_HOST and the
+// others, its sslmode follows cfg.TLSMode: verify-full (with sslrootcert
+// from DB_TLS_CA), require, or disable.
 func DSN(cfg db.Config) string {
 	if cfg.URL != "" {
 		return withUTC(cfg.URL)
@@ -96,6 +142,17 @@ func DSN(cfg db.Config) string {
 		if cfg.Password == "" {
 			u.User = url.User(cfg.Username)
 		}
+	}
+	switch cfg.TLSMode() {
+	case db.TLSVerify:
+		q.Set("sslmode", "verify-full")
+		if cfg.TLSCA != "" {
+			q.Set("sslrootcert", cfg.TLSCA)
+		}
+	case db.TLSSkipVerify:
+		q.Set("sslmode", "require")
+	default:
+		q.Set("sslmode", "disable")
 	}
 	q.Set("timezone", "UTC")
 	u.RawQuery = q.Encode()

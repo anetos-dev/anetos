@@ -8,6 +8,13 @@ tagged `drivers/postgres/vX.Y.Z`. The framework's own changes are in the
 ## [Unreleased]
 
 ### Added
+- TLS from `DB_TLS` for connections built from `DB_HOST`: `verify`
+  (`sslmode=verify-full`, with `DB_TLS_CA` as `sslrootcert`), the
+  default for a remote host; `skip-verify` (`require`); `none`
+  (`disable`), the default for this machine. Before, `sslmode` was
+  libpq's default, `prefer` (M7, D246).
+- `Driver().InspectURL` reads a `DB_URL`'s host and TLS mode for the
+  `doctor` command (M7, D245).
 - Each session sets pgvector's `hnsw.ef_search` to `db.SimilarCandidates`
   and, with pgvector 0.8+, `hnsw.iterative_scan` to `strict_order`, so
   vector searches get their 200 candidates after filters (by default the

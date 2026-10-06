@@ -177,6 +177,17 @@ func ForApp(app *anetos.App, drivers ...Driver) (*Queue, error) {
 		}
 		return nil, err
 	}
+	env := app.Config().Env
+	app.AddCheck(anetos.Check{Name: "queue", Run: func(context.Context) []anetos.Finding {
+		switch {
+		case !env.Deployed():
+		case cfg.Driver == "memory":
+			return []anetos.Finding{{Severity: anetos.Warning, Message: "QUEUE_DRIVER=memory: waiting jobs are lost when the app stops; use database or redis"}}
+		case cfg.Driver == "sync":
+			return []anetos.Finding{{Severity: anetos.Note, Message: "QUEUE_DRIVER=sync: jobs run at once, in the code that queues them (a request), once and without retries; use database or redis for background jobs"}}
+		}
+		return nil
+	}})
 	app.AddContextValue(queueKey{}, q)
 	anetos.Provide(app, q)
 	if store != nil {

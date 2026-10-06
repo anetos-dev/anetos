@@ -19,14 +19,17 @@ import (
 
 	"anetos.dev/anetos/cli/internal/scaffold"
 	"golang.org/x/mod/module"
+	"golang.org/x/term"
 )
 
-const addUsage = `Usage: anetos add <module>[@version]
+const addUsage = `Usage: anetos add [--yes] <module>[@version]
 
 Installs a plugin: go get the module (default @latest), list its
 Plugin() in plugins.go, tidy go.mod, check that the app builds, and add
 its settings to .env.example. Plugins are Go code compiled into your app, with its
-privileges: add only code you trust.
+privileges: add only code you trust. To read its settings, anetos add
+runs the app with the plugin, here and now, with your environment and
+.env; in a terminal it asks first (--yes doesn't).
 `
 
 const removeUsage = `Usage: anetos remove <module>
@@ -40,6 +43,7 @@ migration of your own if you don't want them.
 // addPlugin runs anetos add.
 func addPlugin(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("anetos add", flag.ContinueOnError)
+	yes := fs.Bool("yes", false, "don't ask before running the plugin's code")
 	pos, code := parse(fs, args, stderr, addUsage)
 	if code >= 0 {
 		return code
@@ -78,7 +82,7 @@ func addPlugin(ctx context.Context, args []string, stdout, stderr io.Writer) int
 		}
 		return 1
 	}
-	fmt.Fprintf(stdout, "Adding %s@%s. Plugins run with your app's privileges: add only code you trust.\n", mod, version)
+	fmt.Fprintf(stdout, "Adding %s@%s. A plugin is code compiled into your app, with its privileges, and anetos add runs it once to read its settings: add only code you trust.\n", mod, version)
 	coreBefore := moduleVersion(ctx, root, corePath)
 	if err := runGo(ctx, root, stderr, "get", mod+"@"+version); err != nil {
 		return fail(err)
@@ -107,6 +111,13 @@ func addPlugin(ctx context.Context, args []string, stdout, stderr io.Writer) int
 		return fail(fmt.Errorf("the app doesn't build with %s (does its package have a Plugin() ext.Plugin function?): %w", mod, err))
 	}
 
+	if !*yes && interactive() {
+		fmt.Fprintf(stdout, "To read its settings, the app now runs with %s's code, with your environment and .env. Go on? [y/N] ", mod)
+		answer, _ := bufio.NewReader(io.LimitReader(os.Stdin, 64)).ReadString('\n')
+		if a := strings.ToLower(strings.TrimSpace(answer)); a != "y" && a != "yes" {
+			return fail(errors.New("stopped: the plugin's code didn't run"))
+		}
+	}
 	// Load the plugin as the app does, and get its settings: plugins:env
 	// doesn't boot the app. ext.Load's errors (a version requirement, a
 	// name taken) refuse the plugin; others are the app's own.
@@ -338,4 +349,11 @@ func appendEnv(file, env string) ([]string, error) {
 		return nil, err
 	}
 	return added, f.Close()
+}
+
+// interactive reports whether stdin is a terminal, where anetos add asks
+// before running a plugin's code (not the null device, a pipe or a file,
+// which scripts and CI give commands).
+func interactive() bool {
+	return term.IsTerminal(int(os.Stdin.Fd()))
 }

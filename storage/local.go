@@ -24,7 +24,9 @@ const tmpPrefix = ".anetos-tmp-"
 
 // LocalBackend keeps files in a directory. It opens them through an
 // os.Root, so neither a path nor a symbolic link can reach outside the
-// directory. Content types come from the files' extensions.
+// directory. Content types come from the files' extensions. Files are
+// created readable by their owner and group only (0640, directories
+// 0750): uploads may be private.
 type LocalBackend struct {
 	root *os.Root
 }
@@ -32,7 +34,7 @@ type LocalBackend struct {
 // NewLocalBackend returns a backend for dir, which it creates if
 // needed. Close it when done.
 func NewLocalBackend(dir string) (*LocalBackend, error) {
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return nil, fmt.Errorf("storage: create %s: %w", dir, err)
 	}
 	root, err := os.OpenRoot(dir)
@@ -63,14 +65,14 @@ func (l *LocalBackend) Put(ctx context.Context, p string, r io.Reader, _ PutOpti
 	}
 	dir := path.Dir(p)
 	if dir != "." {
-		if err := l.root.MkdirAll(dir, 0o755); err != nil {
+		if err := l.root.MkdirAll(dir, 0o750); err != nil {
 			return localErr(err)
 		}
 	}
 	b := make([]byte, 8)
 	_, _ = rand.Read(b)
 	tmp := path.Join(dir, tmpPrefix+hex.EncodeToString(b))
-	f, err := l.root.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	f, err := l.root.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o640)
 	if err != nil {
 		return localErr(err)
 	}

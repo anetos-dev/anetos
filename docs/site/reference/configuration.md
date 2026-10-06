@@ -111,7 +111,7 @@ Read by `web.NewServer` (or `web.LoadConfig`) into `web.Config`.
 | `HTTP_SHUTDOWN_GRACE` | duration | `15s` | On shutdown, how long in-flight requests may finish before their contexts are canceled and connections closed. Capped at half of `APP_SHUTDOWN_TIMEOUT`, so later stages keep time to drain | v0.1 |
 | `HTTP_REQUEST_TIMEOUT` | duration | `30s` | Deadline on each request's context; expiry gives 503. `0` disables | v0.1 |
 | `HTTP_MAX_BODY` | size | `10MB` | Maximum request body (`512KB`, `10MB`, `1GB`; units are powers of 1024); larger gives 413. `0` disables | v0.1 |
-| `HTTP_TRUSTED_PROXIES` | list of IPs/CIDRs | empty | Peers whose `X-Forwarded-For`/`X-Real-IP` are trusted for the client IP | v0.1 |
+| `HTTP_TRUSTED_PROXIES` | list of IPs/CIDRs | empty | Peers whose `X-Forwarded-For` is trusted for the client IP (`X-Real-IP` isn't read since v0.3) | v0.1 |
 | `HTTP_ACCESS_LOG` | bool | `true` | One log line per request | v0.1 |
 | `HTTP_HEALTH_ROUTES` | bool | `true` | Serve `GET /health/live` and `GET /health/ready` | v0.1 |
 | `HTTP_CORS_ORIGINS` | list | empty (CORS off) | Allowed origins; `*` for any; `https://*.example.com` for subdomains | v0.1 |
@@ -168,6 +168,8 @@ keys with a prefix, e.g. `ANALYTICS_DB_HOST`) into `db.Config`.
 | `DB_DATABASE` | string | empty; SQLite: `database/app.db` | Database name, or the SQLite file (`:memory:` for an in-memory database) | v0.1 |
 | `DB_USERNAME` | string | empty | User | v0.1 |
 | `DB_PASSWORD` | string | empty | Password | v0.1 |
+| `DB_TLS` | `verify` \| `skip-verify` \| `none` | `verify` with `DB_TLS_CA` set or a remote host; `none` for a local host (localhost, loopback, Unix socket) | TLS of the connection built from `DB_HOST` (PostgreSQL `sslmode=verify-full`/`require`/`disable`, MySQL `tls=true`/`skip-verify`/`false`). With `DB_URL`, set it in the URL instead (setting both is refused) | v0.3 |
+| `DB_TLS_CA` | path | empty | PEM file of the CAs that sign the server's certificate, for `verify` when they aren't the system's; setting it means `verify` (also through a tunnel on localhost), and it is refused with `skip-verify` or `none` | v0.3 |
 | `DB_MAX_OPEN_CONNS` | int | `25` | Maximum open connections (in-memory SQLite always uses 1) | v0.1 |
 | `DB_MAX_IDLE_CONNS` | int | `25` | Maximum idle connections kept for reuse | v0.1 |
 | `DB_CONN_MAX_LIFETIME` | duration | `30m` | Connections are replaced after this long | v0.1 |

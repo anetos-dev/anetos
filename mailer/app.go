@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/mail"
+	"net/url"
 	"slices"
 	"strings"
 
@@ -64,10 +65,15 @@ type Driver struct {
 }
 
 // LogDriver writes emails to the app's log instead of sending them
-// (MAIL_DRIVER=log, the default): for development.
+// (MAIL_DRIVER=log, the default): for development. In production it
+// leaves the bodies out, which may hold sign-in or reset links.
 func LogDriver() Driver {
 	return Driver{Name: "log", Open: func(app *anetos.App, _ Config) (Transport, error) {
-		return NewLogTransport(app.Logger().With("component", "mailer")), nil
+		t := NewLogTransport(app.Logger().With("component", "mailer"))
+		if app.Config().Env.IsProduction() {
+			t = t.WithoutBodies()
+		}
+		return t, nil
 	}}
 }
 
@@ -138,10 +144,12 @@ func ForApp(app *anetos.App, drivers ...Driver) (*Mailer, error) {
 	}
 	switch {
 	case cfg.Driver == "log" && app.Config().Env.IsProduction():
-		log.Warn("mailer: MAIL_DRIVER is log in production: emails are written to the log, not sent")
+		log.Warn("mailer: MAIL_DRIVER is log in production: emails are not sent (the log has who they are for and their subject)")
 	case cfg.FromAddress == "" && cfg.Driver != "log" && cfg.Driver != "memory":
 		log.Warn("mailer: MAIL_FROM_ADDRESS isn't set: messages need a From of their own")
 	}
+	env := app.Config().Env
+	app.AddCheck(anetos.Check{Name: "mail", Run: func(context.Context) []anetos.Finding { return checks(cfg, env) }})
 	if c, ok := t.(io.Closer); ok {
 		app.OnShutdown("mailer", func(_ context.Context) error { return c.Close() })
 	}
@@ -164,3 +172,20 @@ func (r registrar) Register(app *anetos.App) error {
 }
 
 func (registrar) Boot(context.Context, *anetos.App) error { return nil }
+
+// checks are the doctor's checks of the MAIL_* settings.
+func checks(cfg Config, env anetos.Environment) []anetos.Finding {
+	var out []anetos.Finding
+	if env.Deployed() && (cfg.Driver == "log" || cfg.Driver == "memory") {
+		out = append(out, anetos.Finding{Severity: anetos.Warning, Message: fmt.Sprintf("MAIL_DRIVER=%s in %s: emails aren't sent; set MAIL_DRIVER=smtp (with MAIL_SMTP_URL) or a plugin's driver", cfg.Driver, env)})
+	}
+	if cfg.FromAddress == "" && cfg.Driver != "log" && cfg.Driver != "memory" {
+		out = append(out, anetos.Finding{Severity: anetos.Warning, Message: "MAIL_FROM_ADDRESS isn't set: every message needs a From of its own; set it"})
+	}
+	if cfg.Driver == "smtp" {
+		if u, err := url.Parse(string(cfg.SMTPURL)); err == nil && u.Query().Get("tls") == "none" && !isLocal(u.Hostname()) {
+			out = append(out, anetos.Finding{Severity: anetos.Warning, Message: fmt.Sprintf("MAIL_SMTP_URL has tls=none for %s: emails, with their reset and sign-in links, cross the network in plain text; drop tls=none unless the relay is on a private network", u.Hostname())})
+		}
+	}
+	return out
+}

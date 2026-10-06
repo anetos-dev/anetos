@@ -180,7 +180,7 @@ ignored.
 | `ai.Price{Input, Output, CacheRead, CacheWrite}` | Per million tokens; cache prices of 0 charge `Input`. `p.Cost(usage)` | v0.3 |
 | `UsageConfig.Prices` | `map[string]ai.Price` by model name: the response's model, else the requested one | v0.3 |
 | `UsageConfig.Budget` | `func(ctx, userID) (ai.Budget, error)`, once per call with a user | v0.3 |
-| `ai.Budget{Tokens, Cost, Per}` | Input and output tokens, or cost, per period (aligned to the clock: a day starts at midnight UTC); 0 for no limit. Checked before each request; a response can go past it. Changing a user's limit starts their count for the period over | v0.3 |
+| `ai.Budget{Tokens, Cost, Per}` | Input and output tokens, or cost, per period (aligned to the clock: a day starts at midnight UTC); 0 for no limit. Checked before each request; a response can go past it, and so can requests running at the same moment, which each pass the check before any is charged. Changing a user's limit starts their count for the period over | v0.3 |
 | `ai.UsageRecord` | A row of `ai_usage`: `UserID`, `ConversationID`, `Agent`, `Provider`, `Model`, the four token counts, `Cost`, `Estimated`, `CreatedAt`. A stream the reader left partway, or a request cut off by a timeout or a cancellation, is recorded and counted too, estimated at about four bytes a token for its input and the output it yielded (`Estimated`) | v0.3 |
 | `ai.TotalUsage(ctx, userID, since)` | `ai.UsageTotal{Usage, Cost, Responses}` since a time | v0.3 |
 

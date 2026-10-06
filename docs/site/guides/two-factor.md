@@ -276,7 +276,6 @@ guests.Post("/two-factor-challenge", web.H(h.Challenge))
 members := pages.Group("", a.Require) // guests go to AUTH_LOGIN_URL
 members.Get("/dashboard", h.Dashboard)
 members.Post("/logout", h.Logout)
-members.Post("/tokens", web.H(h.CreateToken))
 members.Post("/tokens/{id}/delete", web.H(h.RevokeToken))
 members.Get("/users/{id}", web.H(h.ShowUser))
 members.Get("/admin", h.Admin)
@@ -284,8 +283,10 @@ members.Post("/password", web.H(h.ChangePassword))
 members.Get("/confirm-password", h.page("confirm")) // AUTH_CONFIRM_URL
 members.Post("/confirm-password", web.H(h.ConfirmPassword))
 
-// Two-factor sign-in (AUTH_TWO_FACTOR_URL): the password again first.
+// Two-factor sign-in (AUTH_TWO_FACTOR_URL) and API tokens (they work
+// without the browser): the password again first.
 secure := members.Group("", a.RequireConfirmed)
+secure.Post("/tokens", web.H(h.CreateToken))
 secure.Get("/two-factor", h.TwoFactor)
 secure.Post("/two-factor", h.StartTwoFactor)
 secure.Post("/two-factor/confirm", web.H(h.ConfirmTwoFactor))

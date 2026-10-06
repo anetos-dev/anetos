@@ -68,6 +68,7 @@ func (a *App) Commands() []cmd.Command {
 }
 
 func (a *App) addBuiltins() {
+	a.commands["doctor"] = a.doctorCommand()
 	a.commands["version"] = cmd.Command{
 		Name:        "version",
 		Description: "Print the app's version, its commit, and the Anetos and Go versions it was built with",

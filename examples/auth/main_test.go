@@ -116,8 +116,12 @@ func TestResetRevokesTokens(t *testing.T) {
 	createUser(t, app, "Ada", "ada@example.com", false)
 	app.Get("/login")
 	app.PostForm("/login", url.Values{"email": {"ada@example.com"}, "password": {"password1"}})
+	app.PostForm("/confirm-password", url.Values{"password": {"password1"}})
 	app.PostForm("/tokens", url.Values{"name": {"cli"}})
 	token := app.Session().String("token")
+	if token == "" {
+		t.Fatal("no token")
+	}
 	app.PostForm("/logout", nil)
 
 	app.Get("/forgot-password")
@@ -154,6 +158,7 @@ func TestAPIToken(t *testing.T) {
 	createUser(t, app, "Ada", "ada@example.com", false)
 	app.Get("/login")
 	app.PostForm("/login", url.Values{"email": {"ada@example.com"}, "password": {"password1"}})
+	app.PostForm("/confirm-password", url.Values{"password": {"password1"}}) // tokens need it
 	app.PostForm("/tokens", url.Values{"name": {"cli"}}).AssertRedirect("/dashboard")
 	token := app.Session().String("token") // flashed to show once
 

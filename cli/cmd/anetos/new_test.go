@@ -220,6 +220,27 @@ func TestNewProject(t *testing.T) {
 		!strings.Contains(out, "create_users_table") || !strings.Contains(out, "create_api_tokens_table") {
 		t.Errorf("migrate:\n%s", out)
 	}
+	// doctor: the app's checks, in production; and anetos doctor, with
+	// the project's own, in development.
+	c := exec.Command(bin, "doctor", "--strict")
+	c.Dir = dir
+	c.Env = append(os.Environ(), "DB_DATABASE="+filepath.Join(dir, "app.db"), "APP_ENV=production", "APP_DEBUG=false", "APP_URL=https://blog.example.com")
+	b, err := c.CombinedOutput()
+	if out := strings.Join(strings.Fields(string(b)), " "); err == nil || !strings.Contains(out, "Checking blog (APP_ENV=production).") ||
+		!strings.Contains(out, "warning mail: MAIL_DRIVER=log in production") || !strings.Contains(out, "ok migrations") ||
+		!strings.Contains(out, "ok session") || !strings.Contains(out, "0 problems, 1 warning") {
+		t.Errorf("doctor --strict in production: %v\n%s", err, b)
+	}
+	if code, out, errOut := runCmd(t, "doctor"); code != 0 || !strings.Contains(out, "Checking the project (Anetos ") ||
+		!regexp.MustCompile(`ok\s+\.env`).MatchString(out) || !strings.Contains(out, "Checking blog (APP_ENV=development).") {
+		t.Errorf("anetos doctor: %d\n%s\n%s", code, out, errOut)
+	}
+	if err := os.Chmod(filepath.Join(dir, ".env"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if code, out, errOut := runCmd(t, "doctor", "--strict"); code != 1 || !strings.Contains(out, "warning  .env: other users of this machine can read it") {
+		t.Errorf("anetos doctor --strict with a readable .env: %d\n%s\n%s", code, out, errOut)
+	}
 	if out := app("routes:list"); !regexp.MustCompile(`GET\s+/\s+home`).MatchString(out) ||
 		!regexp.MustCompile(`DELETE\s+/api-keys/\{id\}\s+api-keys\.destroy`).MatchString(out) ||
 		!regexp.MustCompile(`GET\s+/admin/posts/\{id\}/edit\s+admin\.posts\.edit`).MatchString(out) {
@@ -230,7 +251,7 @@ func TestNewProject(t *testing.T) {
 	}
 	// version needs no settings: main prints it before setup (outside
 	// the project, without its .env and APP_KEY).
-	c := exec.Command(bin, "version")
+	c = exec.Command(bin, "version")
 	c.Dir = t.TempDir()
 	c.Env = append(os.Environ(), "APP_ENV=production", "APP_KEY=")
 	if b, err := c.CombinedOutput(); err != nil || !strings.HasPrefix(string(b), "blog v9.9.9\n") {

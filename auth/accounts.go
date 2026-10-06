@@ -31,7 +31,8 @@ var errNoSetPassword = errors.New("auth: ChangePassword needs Users.SetPassword"
 // fails with [ErrInvalidCredentials] for a wrong current password,
 // [ErrPasswordNotConfirmed] for a user without one who didn't sign in
 // lately, password.ErrTooLong, and a [*ThrottledError] after
-// AUTH_THROTTLE tries in a minute. Not while acting as another user.
+// AUTH_THROTTLE tries in a minute, or 50 wrong passwords in a day (UTC,
+// with [Auth.ConfirmPassword]'s). Not while acting as another user.
 // Check pw's length and the like before (validate rules).
 func (a *Auth[U]) ChangePassword(ctx context.Context, u U, current, pw string) error {
 	if a.users.SetPassword == nil {
@@ -42,6 +43,10 @@ func (a *Auth[U]) ChangePassword(ctx context.Context, u U, current, pw string) e
 	}
 	key := "auth:confirm\x00" + u.AuthID() // ConfirmPassword's: one budget of guesses
 	limit := ratelimit.PerMinute(a.cfg.Throttle)
+	dayKey, perDay := "auth:confirm-day\x00"+u.AuthID(), ratelimit.PerDay(confirmsPerDay)
+	if err := dayAllowed(ctx, dayKey, perDay); err != nil {
+		return err
+	}
 	if err := a.hit(ctx, key, limit); err != nil {
 		return err
 	}
@@ -51,6 +56,9 @@ func (a *Auth[U]) ChangePassword(ctx context.Context, u U, current, pw string) e
 			return err
 		}
 		if !ok {
+			if _, err := ratelimit.Hit(ctx, dayKey, perDay); err != nil {
+				return err
+			}
 			return ErrInvalidCredentials
 		}
 	} else if id, err := CurrentID(ctx); err != nil || id != u.AuthID() || !a.PasswordConfirmed(ctx) {
@@ -64,6 +72,7 @@ func (a *Auth[U]) ChangePassword(ctx context.Context, u U, current, pw string) e
 		return err
 	}
 	a.clearHits(ctx, limit, key)
+	a.clearHits(ctx, perDay, dayKey)
 	return a.SignOutOthers(ctx, u)
 }
 

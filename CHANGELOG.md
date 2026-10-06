@@ -7,6 +7,34 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- `doctor`, a command of every app (M7, D245): runs the checks of the
+  app's settings and prints problems, warnings and notes; exit 1 on a
+  problem (`--strict`: on a warning). Features add their checks as they
+  are set up: `APP_*` (key, URL, debug), `db.Connect` (TLS of a remote
+  database, the query log), `migrate.ForApp` (pending migrations, after
+  booting), `session.ForApp` (`SESSION_SECURE`, `SameSite`, domain),
+  `web.NewServer` (trusted proxies, CORS, limits), `mailer.ForApp`,
+  `cache.ForApp`, `queue.ForApp`. `app.AddCheck(anetos.Check{…})` adds
+  an app's or a plugin's; `anetos.Finding`, `Note`, `Warning`,
+  `Problem`; `Environment.Deployed()`; `db.Driver.InspectURL` reads a
+  `DB_URL`'s host and TLS mode (PostgreSQL and MySQL drivers).
+  **BREAKING:** an app that adds its own `doctor` command now fails at
+  start ("registered twice"): rename it.
+- `anetos doctor [--strict] [--vuln]` (M7, D245): checks `.env`'s
+  permissions and that git tracks no file of secrets, runs
+  `govulncheck` with `--vuln`, then builds the app and runs its
+  `doctor`.
+- `DB_TLS` (`verify`, `skip-verify`, `none`) and `DB_TLS_CA` (which
+  means `verify`, also through a tunnel on localhost) for connections
+  built from `DB_HOST` (M7, D246).
+- `Column.Contains(s)`, `Column.StartsWith(s)` and `db.EscapeLike(s)`:
+  `LIKE` conditions with the user's `%` and `_` taken literally (M7).
+- `anetos dev --host=<name>`: another host name the dev server answers
+  (M7, D247); `anetos add --yes` (M7, D249).
+- `SECURITY.md` (how to report a vulnerability, supported versions),
+  the framework's security review in `docs/security/checklist.md`, the
+  guide "Secure your app", and Dependabot for the CI's actions and the
+  modules' dependencies (M7, D249).
 - A starter theme (M10, D240): `anetos new` writes
   `public/static/app.css`, plain CSS with no build step, light and dark,
   styling plain HTML and a few classes (layout, cards, fields, buttons,
@@ -514,6 +542,56 @@ All notable changes to this project are documented here. The format follows
   (S1).
 - `Count`, `Exists` and the count of `Paginate` no longer order the rows
   they count (S1).
+
+### Security
+- A remote database is reached over TLS with its certificate checked by
+  default (`DB_TLS=verify` for any `DB_HOST` but this machine;
+  PostgreSQL used `sslmode=prefer`, MySQL no TLS). The production
+  settings `anetos new` writes use `sslmode=verify-full` (M7, D246).
+  Breaking for servers without TLS or with a private CA: see the
+  upgrade guide.
+- The client's address no longer comes from `X-Real-IP`, which a
+  client could set itself when a proxy didn't; only `X-Forwarded-For`
+  from `HTTP_TRUSTED_PROXIES` counts (M7, D247).
+- `web.MethodOverride` overrides only urlencoded and multipart form
+  posts, never cross-site ones (`Sec-Fetch-Site`, else an `Origin`
+  other than the host); local redirect paths refuse control characters
+  (M7, D247).
+- `auth.Require` sets `Cache-Control: no-store` on the responses it lets
+  through, so shared caches and the back button don't keep signed-in
+  pages (M7, D247).
+- `anetos dev` answers 403 to host names other than localhost, IP
+  addresses, `APP_URL`'s host and `--host` (DNS rebinding), and warns
+  when it listens beyond this machine (M7, D247).
+- Two-factor sign-in: two requests with the same TOTP or recovery code
+  at the same moment could both succeed; the check and its record now
+  run under a lock per user (`cache.WithLock`), which every change of
+  the state takes (`ConfirmTwoFactor`, `NewRecoveryCodes`,
+  `DisableTwoFactor`), reading it again, so a change made meanwhile
+  isn't undone (M7, D248).
+- `ConfirmPassword` and `ChangePassword` allow 50 wrong passwords per
+  account a day, so a stolen session can't be used to guess the
+  password (M7, D248).
+- `auth.CreateToken` refuses while acting as another user (403); the
+  code `make:auth` writes puts token creation behind
+  `RequireConfirmed`, and its password reset changes the password only
+  once per link (in a transaction), revokes API tokens and, for an
+  address never verified, verifies it and turns off two-factor sign-in
+  and social links (M7, D248). Existing apps: see the upgrade guide.
+- Search takes at most 10 terms, and matches a term as a prefix from 3
+  letters; on MySQL, short words InnoDB skips are dropped (M7).
+- SQLite connections refuse double-quoted strings (`_dqs=0`) (M7).
+- The `log` mail driver leaves out messages' bodies (and their links)
+  in production (M7).
+- Local storage writes files 0640 and folders 0750 (M7).
+- `anetos add` says that it runs the plugin's code to read its
+  settings, and asks first in a terminal (M7, D249).
+- The systemd unit `anetos new` writes is sandboxed further
+  (`systemd-analyze security`: 1.2), and its `.dockerignore` leaves out
+  `.env` files at any depth (M7).
+- CI: actions pinned by commit, checkouts without persisted
+  credentials, timeouts, govulncheck on the minimum and latest Go (M7,
+  D249).
 
 ## [0.2.0] - 2026-10-02
 

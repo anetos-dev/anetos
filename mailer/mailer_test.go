@@ -184,12 +184,16 @@ func TestLogTransport(t *testing.T) {
 			t.Errorf("logs lack %q:\n%s", want, logs.String())
 		}
 	}
-	// In production, the log driver is a warning.
+	// In production, the log driver is a warning, and bodies stay out of
+	// the log.
 	logs.Reset()
-	app = newApp(t, config.Map{"APP_ENV": "production"}, &logs)
+	app = newApp(t, config.Map{"APP_ENV": "production", "MAIL_FROM_ADDRESS": "shop@example.com"}, &logs)
 	_, err = mailer.ForApp(app)
 	check(t, err)
-	if !strings.Contains(logs.String(), "MAIL_DRIVER is log in production") {
+	check(t, mailer.Send(app.Context(context.Background()), &mailer.Message{To: []mailer.Address{{Address: "a@example.com"}},
+		Subject: "Reset", HTML: html("<p>https://example.com/reset?token=secret</p>")}))
+	if !strings.Contains(logs.String(), "MAIL_DRIVER is log in production") || !strings.Contains(logs.String(), "Reset") ||
+		strings.Contains(logs.String(), "token=secret") {
 		t.Errorf("logs:\n%s", logs.String())
 	}
 }

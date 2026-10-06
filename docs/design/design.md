@@ -2240,7 +2240,7 @@ planned.
 | `anetos key:generate` | Print a new `APP_KEY` line (F10) |
 | `anetos add <module>[@version]` / `anetos remove <module>` | Install or uninstall a plugin: `go get`, `plugins.go`, `go mod tidy`, a build check, `.env.example` (B11, §16.3, D151) |
 | `anetos build [-o] [--target] [--version] [--cgo]` | Production build (M5, D229): `templ generate` and `anetos gen` (for this system), then `go build -trimpath -ldflags="-s -w"` with `CGO_ENABLED=0` (`--cgo` for 1) for `--target` (os/arch), to `bin/<module name>`; an `-ldflags` after `--` is merged; `--version` sets the version `<app> version` prints (`-X`), else Go's VCS stamp |
-| `anetos doctor` | Check the environment and project (Go version, `APP_KEY`, debug in prod, pending migrations) |
+| `anetos doctor [--strict] [--vuln]` | Check the project (`.env`'s permissions, files of secrets in git; `govulncheck` with `--vuln`), then build the app and run its `doctor` (M7, D245) |
 | `anetos stub:publish` | Copy generator templates into the project for customization |
 
 Generators produce plain Go that the developer owns. The pages they
@@ -2259,7 +2259,7 @@ Implemented in F11 (package `cmd`, `App.Execute`; D69): `run [--only=…]`
 plus **custom commands**. Features add theirs: `cache:clear` (B1),
 `queue:failed`, `queue:retry`, `queue:forget`, `queue:flush`,
 `queue:clear` (B5), `pubsub:publish` (B7), `schedule:list`,
-`schedule:run` (B8), `plugins:list`, `plugins:env` (B11, `ext.Load`), `search:reindex` (S1), `rbac:roles`, `rbac:user`, `rbac:assign`, `rbac:unassign` (R1). `version` (every app) and `health:check` (`web.NewServer`) came with M5 (D231). Later: the shortcuts `work`, `listen`, `schedule`,
+`schedule:run` (B8), `plugins:list`, `plugins:env` (B11, `ext.Load`), `search:reindex` (S1), `rbac:roles`, `rbac:user`, `rbac:assign`, `rbac:unassign` (R1). `version` (every app) and `health:check` (`web.NewServer`) came with M5 (D231), `doctor` (every app, with the checks features add through `App.AddCheck`) with M7 (D245). Later: the shortcuts `work`, `listen`, `schedule`,
 and `down` / `up` (maintenance).
 
 ```go
@@ -2377,22 +2377,42 @@ func TestCreatePost(t *testing.T) {
 
 ## 20. Security defaults
 
-Secure by default, opt-out only when you mean it:
+Secure by default, opt-out only when you mean it. Reviewed in M7
+(v0.3): the review's checklist, with the risks accepted, is
+`docs/security/checklist.md`; apps have the guide "Secure your app".
 
 - CSRF protection on state-changing HTML routes (origin checks plus a
   masked session token, D65); `SameSite=Lax`, `Secure` (outside development)
   and `HttpOnly` cookies; encrypted session cookies with key rotation (D64).
-- argon2id password hashing; constant-time comparisons; signed URLs.
-- Security headers middleware on by default (HSTS in production, CSP helpers
-  for templ with nonces).
+  `_method` overrides only form posts that aren't cross-site (D247).
+- argon2id password hashing; constant-time comparisons; verification
+  and reset links carry tokens encrypted with `APP_KEY` (expiring,
+  bound to their purpose; a reset token dies with the password).
+  Two-factor codes are checked under a lock per user, and password
+  confirmations are capped per day (D248).
+- Security headers on by default (`nosniff`, `X-Frame-Options`,
+  `Referrer-Policy`, `Cross-Origin-Opener-Policy`; HSTS in production).
+  No Content-Security-Policy for app pages: a policy must fit the app's
+  scripts, and the dev server injects an inline reload script; the admin sets a strict one,
+  and the guide shows one that fits generated apps (D250). `auth.Require`
+  makes signed-in responses `no-store` (D247).
+- The client's address only from `X-Forwarded-For` sent by
+  `HTTP_TRUSTED_PROXIES` (D247).
 - Every query parameterized; the raw SQL API has no string-interpolation
-  helpers.
+  helpers; `Contains`/`StartsWith` escape `LIKE` wildcards; search caps
+  its terms.
+- A remote database is reached over TLS with its certificate verified,
+  unless `DB_TLS` says otherwise (D246).
 - templ escapes output by default.
 - Login and password-reset throttling built in.
 - Boot-time checks refuse `APP_DEBUG=true` in production and a malformed
   `APP_KEY`; features that need the key refuse to start without it (D67).
-  `anetos doctor` (F11) reports both.
-- govulncheck in CI; SECURITY.md with a disclosure process before v0.3.
+  The `doctor` command (every app) and `anetos doctor` report the
+  settings that boot can't refuse but are unsafe (D245).
+- govulncheck in CI on the minimum and latest Go; actions pinned by
+  commit; Dependabot; `SECURITY.md` with private reporting and a
+  disclosure process; `anetos add` asks before running a plugin's code
+  (D249).
 
 ---
 
@@ -2716,6 +2736,12 @@ unless new information arrives), **Open**, **Superseded**.
 | D242 | The docs site groups each section's pages: every page of getting-started, guides, concepts and reference has `group:` and `weight:` in its front matter; anetos-dev/docs's sync puts a grouped page in a folder of its section named after the group, with an index, keeping its URL (front matter `url`) and mapping its content path for the link render hook (`data/moved.json`); groups are ordered by their pages' weights. The files stay flat in `docs/site`; `make docs-check` (`internal/cmd/docnav`) checks the front matter | Accepted | Sections sorted by title were hard to navigate. Groups in the files' front matter keep the repository's links and GitHub's view unchanged and every URL stable; the order of reading is the writer's decision, made where the page is written |
 | D243 | The release plan changes (2026-10-07, with the user): v0.3 (search, AI, admin, deploy, starter experience, plus security and performance) is tagged for us and early testers; v0.4 is the API stack (`--stack=api`, API accounts, JSON CRUD, and OpenAPI, back from the backlog); v0.5 the design kits and the **public release** (with the API stability pass, release plumbing, versioned docs and launch moved from v0.3); v0.6 the front-end stacks (Vite, Inertia, Vue, React, Svelte). Supersedes D232 | Accepted | An API-only stack is a must for a public Go framework, and OpenAPI is what makes it credible; both, and the generators' markup (D244), change generated code, which apps own and never receive updates of, so they must settle before people generate real apps. The API stack goes before the kits because it is the must-have and defines how `anetos new` composes stacks; the front-end stacks build on its pieces. The risk is a later release: v0.4 and v0.5 have fixed scopes (no OpenAPI client generation), and anything new goes after the release |
 | D244 | Planned for v0.5: the generators' pages call components of a `views/ui` package that `anetos new` writes into the app (button, field, card, table, badge, alert, nav, pagination…), rather than writing class names; a design kit is a stylesheet plus its `views/ui`; `anetos css:use <kit>` swaps both, refusing to replace a changed `views/ui` without `--force` | Proposed | Copying every generator's templates per kit would multiply the work and the tests by six; components keep a kit to one file of CSS and a dozen small components, and let a switch restyle the generated pages. Markup the developer writes with their own classes can't be restyled by a tool, and the docs say so |
+| D245 | A `doctor` command in every app checks its settings: features add checks as they are set up (`app.AddCheck(anetos.Check{Name, Booted, Run})`, returning `anetos.Finding`s of severity `Note`, `Warning` or `Problem`); checks that need no service run first without booting, then the app boots for the `Booted` ones (pending migrations), a failed boot being a problem; deployment checks apply to production and staging (`Environment.Deployed`); exit 1 on a problem, or a warning with `--strict`. `anetos doctor` adds the project's checks (`.env` permissions, files of secrets tracked by git, `govulncheck` with `--vuln`) and runs the built app's `doctor` | Accepted | Boot already refuses settings that can't work; what remains are settings that work but are unsafe, which only the feature that reads them knows. Checks registered by the features keep the knowledge in one place and cover plugins; a command of the binary checks the settings where they are (the server), while the tool checks what only the project has (git, files). Notes and warnings don't fail by default, since a single-instance app legitimately uses the memory cache |
+| D246 | `DB_TLS` (`verify`, `skip-verify`, `none`) and `DB_TLS_CA` secure connections built from `DB_HOST`: empty means `none` for this machine (localhost, loopback, a socket) and `verify` for any other host. With `DB_URL`, the URL's options decide, and doctor reads them through `db.Driver.InspectURL` | Accepted | The drivers' defaults (PostgreSQL's `prefer`, MySQL's none) send passwords and data in plain text, or accept any certificate, to a remote server; managed databases all offer TLS. Breaking for servers without it, which say so at the first connection; `DB_URL` stays the escape hatch with the driver's full syntax |
+| D247 | HTTP hardening from the review: the client's address comes only from `X-Forwarded-For` of trusted proxies (`X-Real-IP` isn't read); `MethodOverride` only for urlencoded and multipart posts that aren't `Sec-Fetch-Site: cross-site`; `auth.Require` sets `Cache-Control: no-store`; the dev server answers only localhost, IP literals, `APP_URL`'s host and `--host` names (403 otherwise) and warns when listening beyond loopback | Accepted | `X-Real-IP` is set by some proxies and passed through by others, so trusting it let clients choose their address; one header, with the proxy appending, is unambiguous. A method override is for HTML forms, which is all that needs it. Signed-in pages must not be stored by shared caches. DNS rebinding lets any web page read a server on localhost by name |
+| D248 | Account hardening from the review: `AttemptTwoFactor` checks and records a code under `cache.WithLock` per user; `ConfirmPassword` and `ChangePassword` allow 50 wrong passwords per account a day; `CreateToken` refuses while impersonating; `make:auth` puts token creation behind `RequireConfirmed`, and its reset updates the password only if unchanged since the link (one transaction), revokes tokens and, for a never-verified address, verifies it and removes two-factor and social links. No limit per account across addresses for logins | Accepted | A TOTP code used twice at once is a replayed code; a stolen session must not be enough to guess the password or mint a token that outlives it. A per-account login limit would let anyone lock an account's owner out, so logins stay limited per login and address and per address |
+| D249 | Supply chain and disclosure: `SECURITY.md` (GitHub private vulnerability reporting; acknowledgement within 3 working days; fixes in the latest minor release until v1; advisories with credit); CI actions pinned by commit with Dependabot (actions and every published module, weekly), `persist-credentials: false`; govulncheck on the minimum and latest Go; `anetos add` says it runs the plugin's code to read its settings and asks first in a terminal (`--yes`; a stdin that isn't a terminal, the null device included, doesn't ask) | Accepted | A plugin is code with the app's privileges, but running it on the developer's machine during `add` was a surprise. Tags of actions can be moved by whoever controls them; commits can't. One supported line keeps fixes possible for a small team before v1 |
+| D250 | No Content-Security-Policy by default for app pages; the guide gives a policy that fits generated apps (`script-src 'self'`, inline styles allowed for htmx's indicators and the admin's banner), set in production only | Accepted | A default policy would break the apps' own inline scripts and the dev server's reload script, and a policy that allows them protects little; the admin, whose pages the framework controls, has a strict one. A nonce-based helper may come with the design kits (v0.5), which control the generated markup |
 
 ---
 
@@ -2793,3 +2819,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-06 | M2 tutorial and M3 reference app: §18 (ActingAs); D234–D236 added |
 | 2026-10-06 | M10 starter experience: §15 scaffolding, §17.1 updated; D237–D241 added (D237 replaces D150's `social.WithHomeURL`); M2 docs navigation: D242 |
 | 2026-10-07 | Release plan changed: §12.2, §17.1 updated; D243 (supersedes D232; D9's kits move to v0.6), D244 (proposed) added |
+| 2026-10-07 | M7 security: §20 rewritten (its CSP-helpers claim was wrong), §17.1, §17.2 updated; D245–D250 added |

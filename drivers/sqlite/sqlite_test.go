@@ -103,3 +103,19 @@ func TestAnetostestDatabases(t *testing.T) {
 		t.Error("the development database was created")
 	}
 }
+
+// A double-quoted name is always an identifier: a misspelled column is an
+// error, not a string literal that matches every row.
+func TestNoDoubleQuotedStrings(t *testing.T) {
+	d := open(t, cfgFor(":memory:"))
+	if _, err := d.SQL().Exec(`CREATE TABLE t (title TEXT)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.SQL().Exec(`INSERT INTO t (title) VALUES ('a')`); err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	if err := d.SQL().QueryRow(`SELECT count(*) FROM t WHERE "titel" = 'titel'`).Scan(&n); err == nil {
+		t.Errorf("an unknown column was read as a string: %d rows", n)
+	}
+}

@@ -97,7 +97,7 @@ per relation however many rows there are:
 func (Blog) ListPosts(c *web.Ctx, in ListPosts) (db.Page[Post], error) {
 	q := db.Query[Post](c).Where(PostCols.PublishedAt.NotNull())
 	if in.Search != "" {
-		q = q.Where(PostCols.Title.Like("%" + in.Search + "%"))
+		q = q.Where(PostCols.Title.Contains(in.Search)) // % and _ match themselves
 	}
 	if in.Author != nil {
 		q = q.Where(PostCols.AuthorID.Eq(*in.Author))

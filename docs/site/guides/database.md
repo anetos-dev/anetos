@@ -38,9 +38,14 @@ DB_USERNAME=blog
 DB_PASSWORD=secret
 ```
 
-For SQLite, `DB_DATABASE` is a file path (default `database/app.db`). Put
-TLS and other driver options in `DB_URL`, which replaces the individual
-settings. Every key is in the
+For SQLite, `DB_DATABASE` is a file path (default `database/app.db`).
+A database on another machine is reached over TLS that checks its
+certificate (`DB_TLS=verify`, the default for any host but `localhost`
+or a loopback address); `DB_TLS_CA` names a PEM file of your provider's
+certificate authority when the system doesn't know it, and
+`DB_TLS=none` turns TLS off for a private network you trust. Put other
+driver options in `DB_URL`, which replaces the individual settings
+(TLS included). Every key is in the
 [configuration reference](../reference/configuration.md#database).
 
 ### 2. Connect at startup
@@ -176,6 +181,7 @@ loop) blocks. A file in `t.TempDir()` behaves like production instead.
 | `db: DB_CONNECTION is "postgres", but the drivers passed to Connect are [sqlite]` | The driver isn't passed to `Connect` | Import the driver module and pass its `Driver()` |
 | `db: no database in context` | The context didn't come from the app | Use the request's `c`, a context from `app.Context`, or `db.WithDB` |
 | `connect to postgres: … connection refused` at startup | Wrong host or port, or the server isn't running | Check `DB_HOST`/`DB_PORT`; the error comes from the ping in `Connect` |
+| `… certificate signed by unknown authority`, `server does not support SSL`, `TLS requested but server does not support TLS` (v0.3) | A remote `DB_HOST` gets verified TLS by default | Set `DB_TLS_CA` to your provider's CA file, or `DB_TLS=none` on a private network (a Compose service, say) |
 | `database is locked` on SQLite | A write took longer than the 5s busy timeout | Keep transactions short; SQLite allows one writer at a time |
 
 ## Next steps

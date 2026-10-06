@@ -17,6 +17,7 @@ import (
 	"anetos.dev/anetos"
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/db/migrate"
+	"anetos.dev/anetos/session"
 	"anetos.dev/anetos/web"
 )
 
@@ -75,6 +76,8 @@ var (
 	colLastUsed = db.Col[*time.Time]("last_used_at")
 )
 
+var errTokenActing = &statusError{http.StatusForbidden, "auth: API tokens can't be created while acting as another user"}
+
 func hashSecret(secret string) string {
 	sum := sha256.Sum256([]byte(secret))
 	return hex.EncodeToString(sum[:])
@@ -82,10 +85,15 @@ func hashSecret(secret string) string {
 
 // CreateToken issues an API token for u with abilities ("*" for all),
 // expiring after ttl (0: never). It returns the token to give the client,
-// shown once (only its hash is stored), and the stored Token.
+// shown once (only its hash is stored), and the stored Token. Not while
+// acting as another user ([Auth.Impersonate]): a token would outlive the
+// impersonation and its checks (403).
 //
 //	plain, tok, err := a.CreateToken(c, u, "deploy script", []string{"deploy"}, 90*24*time.Hour)
 func (a *Auth[U]) CreateToken(ctx context.Context, u U, name string, abilities []string, ttl time.Duration) (string, *Token, error) {
+	if s := session.From(ctx); s != nil && s.String(keyImpersonator) != "" {
+		return "", nil, errTokenActing
+	}
 	secret := randomToken()
 	t := &Token{UserID: u.AuthID(), Name: name, Hash: hashSecret(secret), Abilities: slices.Clone(abilities)}
 	if t.Abilities == nil {

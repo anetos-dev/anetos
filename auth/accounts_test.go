@@ -137,6 +137,10 @@ func TestImpersonate(t *testing.T) {
 	if res := b.do(http.MethodPost, "/impersonate/3", nil); res.StatusCode < 400 {
 		t.Errorf("nested: %d", res.StatusCode)
 	}
+	// No API token for the user acted as: it would outlive the act.
+	if res := b.do(http.MethodPost, "/tokens", nil); res.StatusCode != http.StatusForbidden {
+		t.Errorf("a token while acting as another user: %d", res.StatusCode)
+	}
 	if res := b.do(http.MethodPost, "/stop", nil); res.StatusCode != http.StatusOK || res.Body != "2" {
 		t.Errorf("stop: %d %q", res.StatusCode, res.Body)
 	}
