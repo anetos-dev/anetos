@@ -59,10 +59,12 @@ func (m ChangeEmail) Build(ctx context.Context) (*mailer.Message, error) {
 }
 
 // EmailChanging tells an account's address that the user asked to change
-// it (anetos make:auth): if it wasn't them, they know.
+// it (anetos make:auth), with a link that undoes the change if it wasn't
+// them.
 type EmailChanging struct {
 	Name, Email string // Email is the current address
 	NewEmail    string
+	RevertURL   string // the link that undoes the change
 }
 
 // Build implements mailer.Mailable.
@@ -70,6 +72,6 @@ func (m EmailChanging) Build(ctx context.Context) (*mailer.Message, error) {
 	return &mailer.Message{
 		To:      []mailer.Address{{Address: m.Email}},
 		Subject: i18n.T(ctx, "auth.mail.email_changing.subject"),
-		HTML:    views.EmailChangingMail(m.Name, m.NewEmail),
+		HTML:    views.EmailChangingMail(m.Name, m.NewEmail, m.RevertURL),
 	}, nil
 }

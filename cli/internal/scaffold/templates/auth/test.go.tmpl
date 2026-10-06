@@ -201,6 +201,41 @@ func TestChangeEmail(t *testing.T) {
 	app.Get(authLink(t, sent[0].URL)).AssertStatus(http.StatusBadRequest) // used
 }
 
+// A change of address that wasn't the owner's: the link to the old
+// address undoes it, even once it's made, and secures the account.
+func TestRevertEmailChange(t *testing.T) {
+	app := authRegister(t)
+	app.Get(authLink(t, anetostest.Mailables[mailers.VerifyEmail](app)[0].URL))
+	app.PostForm("/confirm-password", url.Values{"password": {"correct horse"}})
+	app.PostForm("/settings/email", url.Values{"email": {"thief@example.com"}}).AssertRedirect("/settings")
+	app.Get(authLink(t, anetostest.Mailables[mailers.ChangeEmail](app)[0].URL)).AssertRedirect("/settings") // the change is made
+
+	revert := authLink(t, anetostest.Mailables[mailers.EmailChanging](app)[0].RevertURL)
+	app.Get(revert).AssertOK().AssertSee("ada@example.com", "thief@example.com")
+	q, _ := url.ParseQuery(revert[strings.Index(revert, "?")+1:])
+	app.PostForm("/settings/email/revert", url.Values{"token": {q.Get("token")}}).AssertRedirect("/login")
+	app.Get("/dashboard").AssertRedirect("/login") // everyone signed out
+
+	u, err := models.Users.ByLogin(app.Context(), "ada@example.com")
+	if err != nil || u.Password != "" || u.PendingEmail != "" || u.EmailVerifiedAt == nil {
+		t.Fatalf("after undoing: %+v, %v", u, err)
+	}
+	app.PostForm("/login", url.Values{"email": {"ada@example.com"}, "password": {"correct horse"}}).AssertValidationErrors("email")
+	resets := anetostest.Mailables[mailers.ResetPassword](app)
+	if len(resets) != 1 || resets[0].Email != "ada@example.com" {
+		t.Fatalf("reset emails: %+v", resets)
+	}
+	// The reset link works: the owner chooses a new password.
+	link := authLink(t, resets[0].URL)
+	rq, _ := url.ParseQuery(link[strings.Index(link, "?")+1:])
+	app.Get(link)
+	app.PostForm("/reset-password", url.Values{"token": {rq.Get("token")}, "password": {"brand new pass"}, "password_confirmation": {"brand new pass"}}).
+		AssertRedirect("/login")
+	app.PostForm("/login", url.Values{"email": {"ada@example.com"}, "password": {"brand new pass"}}).AssertRedirect("/dashboard")
+	// Once done, the link has nothing to undo.
+	app.PostForm("/settings/email/revert", url.Values{"token": {q.Get("token")}}).AssertStatus(http.StatusBadRequest)
+}
+
 func TestDisabledAccount(t *testing.T) {
 	app := authRegister(t)
 	// Disabled (an admin's "Disable"): signed out, and can't sign in.

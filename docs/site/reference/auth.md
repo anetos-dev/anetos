@@ -82,6 +82,7 @@ see [Two-factor sign-in](../guides/two-factor.md). Needs
 |---|---|
 | `a.PasswordResetToken(u)`, `a.CheckPasswordResetToken(ctx, token)` | Reset tokens: `AUTH_RESET_TTL`, until the password or the session key changes; `auth.ErrInvalidToken` (400) |
 | `a.VerificationToken(u, email)`, `a.CheckVerificationToken(ctx, token)` | Email-verification tokens: `AUTH_VERIFY_TTL`; returns the user and the address |
+| `a.EmailRevertToken(u, old, new)`, `a.CheckEmailRevertToken(ctx, token)` | Tokens for the link, sent to the old address, that undoes a change of email address: `AUTH_REVERT_TTL`; returns the user and both addresses (v0.3) |
 | `a.CreateToken(ctx, u, name, abilities, ttl)` | An API token (`<id>\|<secret>`, shown once) and its stored `auth.Token` |
 | `a.Tokens(ctx, u)`, `a.RevokeToken(ctx, u, id)`, `a.RevokeAllTokens(ctx, u)` | A user's API tokens; delete one, or all |
 | `auth.CurrentToken(ctx)`, `auth.TokenCan(ctx, ability)` | The request's API token; whether it (or a session user) may do `ability` (`"*"`: all) |

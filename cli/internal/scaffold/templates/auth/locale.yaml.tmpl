@@ -53,6 +53,10 @@ auth:
     delete: "Delete your account"
     delete_intro: "Your account and its API tokens are deleted for good, and you're signed out. This can't be undone."
     delete_button: "Delete my account"
+  revert:
+    title: "Undo the change of email address"
+    intro: "Your account's email address was set to change from {old} to {new}. If that wasn't you, someone has your password: undo it. The address goes back to {old}, your password is cleared, two-factor sign-in turned off, your API tokens and links to other accounts removed, and everyone signed out; then we email you a link to choose a new password."
+    submit: "Undo the change and secure my account"
   challenge:
     title: "Two-factor sign-in"
     intro: "Enter the code your authenticator app shows, or one of your recovery codes."
@@ -99,6 +103,8 @@ auth:
     sign_in_first: "Sign out and in again, then set your password within a few minutes."
     password_too_long: "That password is too long."
     choice: "Choose one of the list."
+    revert_invalid: "There is no change of email address to undo with this link."
+    revert_taken: "Your old address has another account now: contact us."
   status:
     verified: "Your email address is verified."
     verification_sent: "We've emailed you a new verification link."
@@ -112,6 +118,7 @@ auth:
     email_changed: "Your email address is now {email}."
     password_changed: "Password changed. You're signed out of your other browsers and devices."
     account_deleted: "Your account is deleted."
+    email_reverted: "Your email address is {email} again. We've emailed it a link to choose a new password."
   mail:
     hello: "Hello {name},"
     change_email:
@@ -122,7 +129,8 @@ auth:
     email_changing:
       subject: "Your email address is changing"
       intro: "Someone signed in to your account asked to change its email address to {email}. It changes once that address confirms."
-      not_you: "If it wasn't you, someone may have your password: sign in, change your password, and cancel the change in your settings if it's still waiting."
+      not_you: "If it wasn't you, someone has your password. Undo the change: this link puts your address back, signs everyone out and lets you choose a new password, even once the change is made."
+      button: "It wasn't me: undo the change"
     verify:
       subject: "Verify your email address"
       intro: "Please confirm your email address:"

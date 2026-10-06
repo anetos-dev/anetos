@@ -23,6 +23,10 @@ func Auth(r *web.Router, sessions *session.Manager, a *auth.Auth[*models.User], 
 	pages := r.Group("", sessions.Middleware, web.CSRF(), a.Middleware)
 	pages.Get("/verify-email", web.H(h.VerifyEmail)).Name("verification.verify")
 	pages.Get("/settings/email/verify", web.H(h.VerifyEmailChange)).Name("settings.email.verify") // the link to a new address
+	// The link to the old address, which undoes a change of address (it
+	// works even if changes were turned off since).
+	pages.Get("/settings/email/revert", h.RevertEmailPage).Name("settings.email.revert")
+	pages.With(ratelimit.Middleware("email-revert", ratelimit.PerMinute(10))).Post("/settings/email/revert", web.H(h.RevertEmail))
 
 	guests := pages.Group("", a.Guest) // signed-in users go to AUTH_HOME_URL
 	guests.Get("/register", h.RegisterPage).Name("register")

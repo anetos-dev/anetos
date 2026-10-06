@@ -17,13 +17,15 @@ import (
 const (
 	resetContext  = "anetos/auth\x00reset"
 	verifyContext = "anetos/auth\x00verify"
+	revertContext = "anetos/auth\x00revert"
 )
 
 type signed struct {
 	ID      string `json:"i"`
 	Expires int64  `json:"x"`
 	Hash    string `json:"h,omitempty"` // password and session key fingerprint (reset)
-	Email   string `json:"e,omitempty"` // address to verify
+	Email   string `json:"e,omitempty"` // address to verify; the new one (revert)
+	Old     string `json:"o,omitempty"` // the address to go back to (revert)
 }
 
 // PasswordResetToken returns a token for a link that lets u choose a new
@@ -82,6 +84,35 @@ func (a *Auth[U]) CheckVerificationToken(ctx context.Context, token string) (U, 
 		return zero, "", err
 	}
 	return u, v.Email, nil
+}
+
+// EmailRevertToken returns a token for a link, sent to u's address
+// oldEmail when they ask to change it to newEmail, that undoes the
+// change: for the owner of the old address, if the change wasn't theirs.
+// It works for AUTH_REVERT_TTL (7 days), after the change too.
+func (a *Auth[U]) EmailRevertToken(u U, oldEmail, newEmail string) string {
+	b, _ := json.Marshal(signed{ID: u.AuthID(), Expires: a.now().Add(a.cfg.RevertTTL).Unix(), Email: newEmail, Old: oldEmail})
+	return a.enc.EncryptString(string(b), revertContext)
+}
+
+// CheckEmailRevertToken returns the user, the old address and the new
+// one of a token from [Auth.EmailRevertToken], or [ErrInvalidToken].
+// Undo the change only if the user's address (or the one they asked for)
+// is still the new one.
+func (a *Auth[U]) CheckEmailRevertToken(ctx context.Context, token string) (u U, oldEmail, newEmail string, err error) {
+	var zero U
+	v, ok := a.open(token, revertContext)
+	if !ok || v.Email == "" || v.Old == "" {
+		return zero, "", "", ErrInvalidToken
+	}
+	u, err = a.users.ByID(ctx, v.ID)
+	if notFound(err) {
+		return zero, "", "", ErrInvalidToken
+	}
+	if err != nil {
+		return zero, "", "", err
+	}
+	return u, v.Old, v.Email, nil
 }
 
 func (a *Auth[U]) open(token, context string) (signed, bool) {

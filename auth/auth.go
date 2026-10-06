@@ -124,6 +124,10 @@ type Config struct {
 	// VerifyTTL is how long an email-verification token works.
 	// AUTH_VERIFY_TTL, default 24h.
 	VerifyTTL time.Duration `env:"AUTH_VERIFY_TTL" default:"24h"`
+	// RevertTTL is how long a link that undoes a change of email address
+	// works ([Auth.EmailRevertToken]). AUTH_REVERT_TTL, default 168h (7
+	// days).
+	RevertTTL time.Duration `env:"AUTH_REVERT_TTL" default:"168h"`
 	// ChallengeURL is where a sign-in waiting for a two-factor code
 	// asks for it ([ErrTwoFactorRequired]). AUTH_CHALLENGE_URL, default
 	// /two-factor-challenge.
@@ -153,8 +157,8 @@ func (c Config) Validate() error {
 			errs = append(errs, fmt.Errorf("%s %q must be a path on this site (starting with /)", name, u))
 		}
 	}
-	if c.RememberLifetime < time.Minute || c.ResetTTL < time.Minute || c.VerifyTTL < time.Minute || c.ConfirmTTL < time.Minute {
-		errs = append(errs, errors.New("AUTH_REMEMBER_LIFETIME, AUTH_RESET_TTL, AUTH_VERIFY_TTL and AUTH_CONFIRM_TTL must be at least 1m"))
+	if c.RememberLifetime < time.Minute || c.ResetTTL < time.Minute || c.VerifyTTL < time.Minute || c.ConfirmTTL < time.Minute || c.RevertTTL < time.Minute {
+		errs = append(errs, errors.New("AUTH_REMEMBER_LIFETIME, AUTH_RESET_TTL, AUTH_VERIFY_TTL, AUTH_CONFIRM_TTL and AUTH_REVERT_TTL must be at least 1m"))
 	}
 	if c.Throttle < 1 || c.ThrottleIP < 1 {
 		errs = append(errs, errors.New("AUTH_THROTTLE and AUTH_THROTTLE_IP must be at least 1"))

@@ -137,7 +137,8 @@ func (h Accounts) ChangeEmail(c *web.Ctx, in EmailInput) (web.Responder, error) 
 
 // sendEmailChange emails u's new address a link that makes it theirs,
 // and tells the old one (if it was verified: an unverified one may be
-// a stranger's), in u's language.
+// a stranger's), with a link that undoes the change (RevertEmail), in u's
+// language.
 func sendEmailChange(ctx context.Context, a *auth.Auth[*models.User], u *models.User) error {
 	ctx = i18n.ForUser(ctx, u)
 	token := a.VerificationToken(u, u.PendingEmail)
@@ -151,7 +152,11 @@ func sendEmailChange(ctx context.Context, a *auth.Auth[*models.User], u *models.
 	if u.EmailVerifiedAt == nil {
 		return nil
 	}
-	return mailer.Queue(ctx, mailers.EmailChanging{Name: u.Name, Email: u.Email, NewEmail: u.PendingEmail}, queue.AfterCommit())
+	revert, err := mailer.URL(ctx, web.LocalePath(ctx, "/settings/email/revert?token="+url.QueryEscape(a.EmailRevertToken(u, u.Email, u.PendingEmail))))
+	if err != nil {
+		return err
+	}
+	return mailer.Queue(ctx, mailers.EmailChanging{Name: u.Name, Email: u.Email, NewEmail: u.PendingEmail, RevertURL: revert}, queue.AfterCommit())
 }
 
 // CancelEmailChange drops a change of email address: its link stops
@@ -203,6 +208,94 @@ func (h Accounts) VerifyEmailChange(c *web.Ctx, in TokenQuery) (web.Responder, e
 	}
 	c.Session().Flash("status", i18n.T(c, "auth.status.email_changed", "email", email))
 	return web.RedirectRoute("settings"), nil
+}
+
+// RevertInput is the form that undoes a change of email address.
+type RevertInput struct {
+	Token string `json:"token" validate:"required"`
+}
+
+// RevertEmailPage asks the owner of an account's old address, from the
+// link emailed to it, to confirm undoing the change (a page, not the
+// link itself: mail scanners follow links).
+func (h Accounts) RevertEmailPage(c *web.Ctx) error {
+	token := c.Query("token")
+	u, old, email, err := h.Auth.CheckEmailRevertToken(c, token)
+	if err != nil {
+		return err
+	}
+	if u.Email != email && u.PendingEmail != email {
+		return web.Error(http.StatusBadRequest, i18n.T(c, "auth.errors.revert_invalid"))
+	}
+	return c.Render(http.StatusOK, views.RevertEmail(token, old, email))
+}
+
+// RevertEmail undoes a change of email address the owner of the old one
+// didn't make: someone else has the account, and its password. The old
+// address is the account's again (verified), the password is cleared,
+// two-factor sign-in turned off, links to Google and GitHub and API
+// tokens removed, everyone signed out; then the old address gets a link
+// to choose a new password.
+func (h Accounts) RevertEmail(c *web.Ctx, in RevertInput) (web.Responder, error) {
+	u, old, email, err := h.Auth.CheckEmailRevertToken(c, in.Token)
+	if err != nil {
+		return nil, err
+	}
+	if u.Email != email && u.PendingEmail != email {
+		return nil, web.Error(http.StatusBadRequest, i18n.T(c, "auth.errors.revert_invalid"))
+	}
+	if u.Email != old {
+		taken, err := db.Query[models.User](c).Where(models.UserCols.Email.Eq(old), models.UserCols.ID.Ne(u.ID)).Exists()
+		if err != nil {
+			return nil, err
+		}
+		if taken { // registered by someone else meanwhile
+			return nil, web.Error(http.StatusConflict, i18n.T(c, "auth.errors.revert_taken"))
+		}
+	}
+	now := anetos.Now(c).UTC()
+	err = db.Tx(c, func(ctx context.Context) error {
+		if _, err := db.Query[models.User](ctx).Where(models.UserCols.ID.Eq(u.ID)).Update(models.UserCols.Email.Set(old),
+			models.UserCols.PendingEmail.Set(""), models.UserCols.EmailVerifiedAt.Set(&now), models.UserCols.Password.Set("")); err != nil {
+			return err
+		}
+		u.Email, u.PendingEmail, u.EmailVerifiedAt, u.Password = old, "", &now, ""
+		if h.Auth.CanTwoFactor() {
+			if err := h.Auth.DisableTwoFactor(ctx, u); err != nil {
+				return err
+			}
+		}
+		links, err := social.Links(ctx, u.AuthID())
+		if err != nil {
+			return err
+		}
+		for _, l := range links {
+			if err := social.Unlink(ctx, u.AuthID(), l.Provider); err != nil {
+				return err
+			}
+		}
+		if err := h.Auth.RevokeAllTokens(ctx, u); err != nil {
+			return err
+		}
+		if err := h.Auth.SignOutEverywhere(ctx, u); err != nil {
+			return err
+		}
+		fresh, err := models.Users.ByID(ctx, u.AuthID()) // with its new session key, which the reset link is for
+		if err != nil {
+			return err
+		}
+		return SendPasswordReset(ctx, h.Auth, fresh)
+	})
+	if err != nil {
+		return nil, err
+	}
+	if id, err := auth.CurrentID(c); err == nil && id == u.AuthID() {
+		if err := h.Auth.Logout(c); err != nil {
+			return nil, err
+		}
+	}
+	c.Session().Flash("status", i18n.T(c, "auth.status.email_reverted", "email", old))
+	return web.RedirectRoute("login"), nil
 }
 
 // ChangePassword changes the password, and signs the user out of their

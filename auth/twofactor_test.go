@@ -570,3 +570,32 @@ func TestSignOutOthersEndsResetLinks(t *testing.T) {
 		t.Errorf("after SignOutOthers: %v", err)
 	}
 }
+
+func TestEmailRevertToken(t *testing.T) {
+	s := newStore(t)
+	a, b, app := newAppWith(t, s)
+	now := time.Now()
+	app.SetClock(func() time.Time { return now })
+	u, _ := s.users().ByID(b.ctx, "1")
+	tok := a.EmailRevertToken(u, "ada@example.com", "new@example.com")
+	got, old, nu, err := a.CheckEmailRevertToken(b.ctx, tok)
+	if err != nil || got.ID != "1" || old != "ada@example.com" || nu != "new@example.com" {
+		t.Fatalf("CheckEmailRevertToken = %v %q %q %v", got, old, nu, err)
+	}
+	// Not a verification token, nor the other way round.
+	if _, _, err := a.CheckVerificationToken(b.ctx, tok); !errors.Is(err, auth.ErrInvalidToken) {
+		t.Errorf("as a verification token: %v", err)
+	}
+	if _, _, _, err := a.CheckEmailRevertToken(b.ctx, a.VerificationToken(u, "new@example.com")); !errors.Is(err, auth.ErrInvalidToken) {
+		t.Errorf("a verification token: %v", err)
+	}
+	// AUTH_REVERT_TTL: 7 days.
+	now = now.Add(6 * 24 * time.Hour)
+	if _, _, _, err := a.CheckEmailRevertToken(b.ctx, tok); err != nil {
+		t.Errorf("after 6 days: %v", err)
+	}
+	now = now.Add(2 * 24 * time.Hour)
+	if _, _, _, err := a.CheckEmailRevertToken(b.ctx, tok); !errors.Is(err, auth.ErrInvalidToken) {
+		t.Errorf("after 8 days: %v", err)
+	}
+}

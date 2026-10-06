@@ -131,3 +131,16 @@ templ Settings(p SettingsPage) {
 	}
 }
 
+// RevertEmail asks the owner of an account's old address to confirm
+// undoing its change to newEmail.
+templ RevertEmail(token, oldEmail, newEmail string) {
+	@Layout(i18n.T(ctx, "auth.revert.title")) {
+		<h1>{ i18n.T(ctx, "auth.revert.title") }</h1>
+		<p>{ i18n.T(ctx, "auth.revert.intro", "old", oldEmail, "new", newEmail) }</p>
+		<form method="post" action={ web.URL(ctx, "settings.email.revert") }>
+			@view.CSRFField(ctx)
+			<input type="hidden" name="token" value={ token }/>
+			<p><button type="submit">{ i18n.T(ctx, "auth.revert.submit") }</button></p>
+		</form>
+	}
+}

@@ -23,7 +23,8 @@ All notable changes to this project are documented here. The format follows
 - An account settings page from `anetos make:auth` (AC1, D227):
   `/settings` (`AUTH_SETTINGS_URL`) for the name, the password, the
   language and time zone, the email address (the new one confirmed by a
-  link to it, the old one told; `Accounts.AllowEmailChange`, on) and
+  link to it; the old one told, with a link that undoes the change and
+  secures the account; `Accounts.AllowEmailChange`, on) and
   deleting the account (`Accounts.AllowAccountDeletion`, off); columns
   `pending_email`, `locale` and `time_zone`, and `User.PreferredLocale`
   and `PreferredTimeZone`. The admin links the user's name to it.
@@ -31,6 +32,8 @@ All notable changes to this project are documented here. The format follows
   other sessions and remember-me cookies ended; `auth.Auth.SignOutOthers`
   (AC1, D228).
 - `web.Ctx.ForgetLocale`: back to the user's or browser's language (AC1).
+- `auth.Auth.EmailRevertToken` and `CheckEmailRevertToken`, for the link
+  that undoes a change of email address (`AUTH_REVERT_TTL`) (AC1).
 - `i18n.TimeZones`: the time zones to choose from, from the IANA
   database's `zone.tab` (AC1, D228).
 - Two-factor sign-in in package `auth` (AD2b, D224): TOTP codes from an

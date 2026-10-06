@@ -150,6 +150,7 @@ The routes:
 | `POST /settings/email` | Signed-in users who confirmed their password lately: a new email address (with `AllowEmailChange`; 5 tries an hour per account) |
 | `POST /settings/email/cancel` | Signed-in users: drop the change |
 | `GET /settings/email/verify` | Anyone with the link emailed to the new address: make it the account's |
+| `GET`, `POST /settings/email/revert` | Anyone with the link emailed to the old address: undo the change and secure the account (10 posts a minute per client IP address) |
 | `POST /settings/delete` | Signed-in users who confirmed their password lately: delete the account (with `AllowAccountDeletion`) |
 | `GET`, `POST /confirm-password` | Signed-in users: type the password again before a sensitive page (`a.RequireConfirmed`), then go back |
 | `GET`, `POST /two-factor`, `POST /two-factor/confirm`, `/recovery-codes`, `/disable` | Signed-in users who confirmed their password lately: turn two-factor sign-in on (a QR code, then a code), get new recovery codes, turn it off. See [Two-factor sign-in](two-factor.md) |
@@ -186,11 +187,17 @@ working.
   what keeps someone with a stolen session from taking the account's
   sign-in and reset channel. The new address gets a link, and becomes
   theirs (verified) once it is followed, so a typo can't lock them out;
-  until then they sign in with the old one. The old address, if it was
-  verified, is told of the change, so its owner learns of it (if the
-  change wasn't theirs, someone has their password). Once it is made,
-  their other sessions and the reset links sent to the old address stop
-  working (`auth.SignOutOthers`). Turn it off with
+  until then they sign in with the old one. Once it is made, their other
+  sessions and the reset links sent to the old address stop working
+  (`auth.SignOutOthers`). The old address, if it was verified, is told
+  of the change, with a link that undoes it, for `AUTH_REVERT_TTL` (7
+  days), even once it is made: if the change wasn't theirs, someone has
+  their password, so undoing it also secures the account. The address
+  goes back (verified), the password is cleared, two-factor sign-in
+  turned off, API tokens and links to Google and GitHub removed,
+  everyone signed out, and the old address gets a link to choose a new
+  password. The link opens a page with a button, as mail scanners
+  follow links. Turn it off with
   `AllowEmailChange: false` in `routes/auth.go`, for apps whose
   addresses come from an organisation.
 - **Delete their account**, after typing their password again: the user,
