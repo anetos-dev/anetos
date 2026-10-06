@@ -104,8 +104,9 @@ writes an almost empty `app.css`. The pages' markup is the same, with
 the class names above, so you can style them yourself or put a CSS
 framework's classes in their place: link Bootstrap or Bulma's
 stylesheet from the layout, or set up Tailwind's command-line tool to
-write `public/static/app.css`. Ready-made starter kits for those, and
-for front-end stacks such as Vue or React, are planned for v0.4.
+write `public/static/app.css`. Ready-made design kits for Pico, Bootstrap,
+Bulma and Tailwind are planned for v0.5, and front-end stacks such as
+Vue or React for v0.6.
 
 ## How it works
 

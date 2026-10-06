@@ -70,7 +70,7 @@ response:
 | Plush templates | templ: compiled, type-checked, IDE support | §12 |
 | Features outside the core (e.g. Google login) were a lot of work | Social login built in; plugin system for everything else | §15, §16 |
 | Goroutines and channels not used at the core; pub/sub needed a separate app | Supervised runtime with workers, listeners, events and scheduler | §13 |
-| Vue integration was difficult | Vite + Inertia starter kits (v0.4) | §12 |
+| Vue integration was difficult | Vite + Inertia starter kits (v0.6) | §12 |
 
 ---
 
@@ -1083,7 +1083,20 @@ Implemented in F10 (packages `view`, `session`, `encryption`; helpers in
 - **Redirect back** goes to the same-origin `Referer` (else `/`); the
   session doesn't track pages. htmx requests get the 422 unless boosted.
 
-### 12.2 SPA-style (v0.4)
+### 12.2 API stack, design kits and SPA-style (v0.4–v0.6, D243)
+
+- **API stack (v0.4)**: `anetos new --stack=api` (no views, sessions or
+  CSRF; JSON errors; `/api/v1`), `make:auth` and `make:crud` writing JSON
+  endpoints in such a project, and an OpenAPI 3.1 spec generated from the
+  routes and the typed handlers (inputs from their tags, responses
+  declared), checked in CI. Designed when its work starts.
+- **Design kits (v0.5, D244)**: the generators' pages call a small
+  `views/ui` package the app owns; each kit (the starter theme, Pico,
+  Bootstrap, Bulma, Tailwind through its standalone CLI) is a stylesheet
+  plus its `views/ui`, chosen at `anetos new --css=…` and switched with
+  `anetos css:use`.
+
+SPA-style (v0.6):
 
 - **Vite integration**: in dev, proxy to the Vite server with HMR; in
   production, read the Vite manifest and serve hashed assets **embedded in
@@ -1092,7 +1105,9 @@ Implemented in F10 (packages `view`, `session`, `encryption`; helpers in
   props)`, shared props, partial reloads, validation errors mapped to Inertia's
   error bag, redirect semantics. Inertia's own client adapters cover Vue,
   React and Svelte.
-- `anetos new --stack=htmx|vue|react|svelte|api`.
+- `anetos new --stack=vue|react|svelte` (v0.6), on the API stack's
+  pieces, with session-cookie sign-in for single-page apps on the app's
+  own domain.
 
 ### 12.3 Admin interface (v0.3: AD1, AD2)
 
@@ -2218,7 +2233,7 @@ planned.
 
 | Command | Purpose |
 |---|---|
-| `anetos new <dir> [--module=…] [--db=…] [--css=…] [--stack=…]` | Create a project (F11); `--css=anetos\|none`, the starter theme or none (M10, D240); v0.4 adds `--stack` and stylesheets of CSS frameworks |
+| `anetos new <dir> [--module=…] [--db=…] [--css=…] [--stack=…]` | Create a project (F11); `--css=anetos\|none`, the starter theme or none (M10, D240); v0.4 adds `--stack=api`, v0.5 the design kits (`--css=pico\|bootstrap\|bulma\|tailwind`), v0.6 the front-end stacks |
 | `anetos dev` | Watch (polling) → `templ generate` → `anetos gen` → build → restart on a free port → browser reload; stable address through a proxy that shows build errors (F11) |
 | `anetos make:<thing>` | handler, model (`--migration`), migration, middleware (F11); auth (B14, §15); crud (M10, D241: a model, its table and the pages to list, show, create, edit and delete its rows); agent (A3: an `ai.Agent` with a typed tool in `app/agents`, D179); job, event, listener, mail, policy, task, command, test, plugin (later) |
 | `anetos gen` | Run code generators: typed model columns (F9), relation handles (v0.1.1). `-check` for CI |
@@ -2465,7 +2480,7 @@ unless new information arrives), **Open**, **Superseded**.
 | D6 | Multi-module monorepo; heavy drivers in separate modules | Accepted | Keeps dependency trees small |
 | D7 | Supervised runtime; one binary with roles | Accepted | Core differentiator |
 | D8 | Plugins compiled in; installed by code generation (`anetos add`) | Accepted | No runtime discovery in Go |
-| D9 | Vite + Inertia starter kits in v0.4, not v0.3 | Accepted | v0.3 = public MVP |
+| D9 | Vite + Inertia starter kits in v0.4, not v0.3 | Accepted (moved to v0.6 by D243) | v0.3 = public MVP |
 | D10 | Default dev DB: SQLite in pure Go (no CGO) | Accepted | Protects cross-compile and single-binary builds; implementation D38 |
 | D11 | Logging via `log/slog`; no custom logger | Accepted | |
 | D12 | Reflection only at startup/registration, never per request | Accepted | Principle 4. Clarified in F6: type inspection and tag parsing happen once; per request, precomputed plans read and set fields by index (bind and validation plans) |
@@ -2688,7 +2703,7 @@ unless new information arrives), **Open**, **Superseded**.
 | D229 | `anetos build` wraps `go build`: generation first (templ, `anetos gen`), `-trimpath -ldflags="-s -w"`, `CGO_ENABLED=0` unless `--cgo`, output `bin/<module name>`; `--target=os/arch` sets GOOS and GOARCH for `go build` only; the version is Go's VCS stamp, or `--version` (letters, digits, `. + - _ ~ /`) through `-X anetos.dev/anetos.buildVersion` | Accepted | A plain `go build` works, but forgets generation and the flags a production binary wants. A flag, not GOOS: with GOOS set, `go tool` builds the tool (and templ) for the target, which can't run here. Go already records the commit and tag, so only builds without the repository (a container's context has no `.git`) need `--version` |
 | D230 | `anetos new` writes a `Dockerfile` (Go image to distroless static, non-root, `/data`, a health check), a systemd unit and `deploy/production.env.example`, as files the developer owns; no deploy command or platform files | Accepted | These are the two ways most apps run; platforms (Fly.io, Render…) build from the Dockerfile, so the guide shows their config instead of generating files for each. Distroless static has CA certificates, time zones are built into the binary (D188), and nothing else is needed without cgo |
 | D231 | Every app has a `version` command (`anetos.VersionText`), and `web.NewServer` a `health:check` command that asks the running server for `/health/ready` on `HTTP_ADDR` | Accepted | Knowing what runs is the first question in an incident; a distroless image has no shell or curl for `HEALTHCHECK`, and the binary already knows its address |
-| D232 | OpenAPI (M4) moves after the public release (2026-10-06), at the maintainer's suggestion, accepted by the user | Accepted | Apps can be built, deployed and secured without it; the tutorial, reference app and security pass matter more for the release, and OpenAPI is better designed once the API stability pass (M8) has settled handler signatures |
+| D232 | OpenAPI (M4) moves after the public release (2026-10-06), at the maintainer's suggestion, accepted by the user | Superseded by D243 | Apps can be built, deployed and secured without it; the tutorial, reference app and security pass matter more for the release, and OpenAPI is better designed once the API stability pass (M8) has settled handler signatures |
 | D233 | `Supervisor.Declare(roles...)`: a role is known before a component has it; `schedule.ForApp` declares `scheduler`, `pubsub.ForApp` `listeners` | Accepted | Their components come later (the scheduler with its first task), so `run --only=workers,scheduler` failed in an app without tasks, and a deployment written without `scheduler` would silently never run the tasks added later. Typos still fail: only what the app sets up is known |
 | D234 | The reference app (M3) is an issue tracker, `examples/tracker`, in the repository (compiled, linted and tested on every database by CI, like the other examples); the tutorial (M2) builds a smaller one, `examples/tutorial`, a reader's project exactly: `anetos new tracker`, `make:auth`, then the tutorial's changes. Each part of the tutorial adds code (new files, lines below earlier ones, or in place of generated lines it names) and never changes an earlier part's, so every block in it is a region of the final example, checked by `docs-check`; cli's `TestTutorialProject` checks that the files the tutorial doesn't change are the generators' output and that the lines it adds code after still exist. `examples/tutorial` has no SPDX headers, like the readers' projects | Accepted | A tutorial that stops compiling loses readers at once; snapshots per part would double the code to keep. Building the reference app found framework gaps (D235, D236, the generators' fixes) before users did |
 | D235 | `anetostest.ActingAs[U](app, u)` and `auth.Auth.LoginSession(s, u)`: a test signs a user in without the login form | Accepted | Tests of multi-user apps switch users constantly; posting the form (and hashing passwords) for each is slow and noisy. Writing the same session values as `Login` keeps the auth middleware's checks (session key, disabled accounts) in play |
@@ -2696,9 +2711,11 @@ unless new information arrives), **Open**, **Superseded**.
 | D237 | The page signing in leads to (without a page asked for) is `AUTH_HOME_URL`; `auth.ForApp` takes options, among them `auth.DefaultHomeURL(path)`, the setting's default in code (applied only when `AUTH_HOME_URL` is unset or empty; validated like it). `make:auth`'s `setupAuth` passes `/dashboard`, and its handlers redirect to `Intended(c, a.Config().HomeURL)` after login, the two-factor code and password confirmation, and to `HomeURL` after registration; social sign-in already used `HomeURL`, so `setupAuth` drops `social.WithHomeURL("/dashboard")` (D150) | Accepted | Generated code hard-coded `/dashboard`, so `AUTH_HOME_URL` only moved `Guest`'s redirect, and changing the page meant editing four handlers. A default in code keeps a fresh app's behaviour with no setting to write, and deployments can still choose |
 | D238 | `session.Manager.Use(mw...)` adds middleware that run inside the manager's `Middleware` wherever it runs, after the session is loaded, for routes registered before and after (the chain is built per route on first use and rebuilt when the list changes, so no allocation per request); `make:auth`'s `setupAuth` calls `sessions.Use(a.Middleware)` | Accepted | The layout's account links need the signed-in user on every page, and `routes/web.go`'s groups are made before `setupAuth` exists. Making `auth.ForApp` do it silently would be magic; adding `a.Middleware` to every group by hand is forgotten. Both middleware are idempotent, so groups that also list them are fine |
 | D239 | `web.RouteIs(ctx, names...)` reports whether the request's route has one of the names, a trailing `.*` matching a prefix; `anetos new`'s layout marks the current nav link with it (`aria-current="page"`) | Accepted | Nav links need the current page without each handler passing it; route names are already the app's vocabulary for URLs |
-| D240 | `anetos new` writes a starter theme as the app's `public/static/app.css`: about 270 lines of plain CSS (color variables, light and dark by the system or `data-theme`, base element styles, a small set of classes: layout, page header, cards, fields, buttons, tables, badges, flash, pagination, details); the layout, `make:auth`'s and `make:crud`'s pages use those classes. `--css=none` writes an almost empty stylesheet and keeps the markup. Stylesheets of CSS frameworks (Bootstrap, Bulma, Tailwind) come with v0.4's starter kits (V3) | Accepted | An unstyled first page made the framework look unable to produce a usable app. A file the app owns (rather than one served by the framework) can be changed freely and never changes under the app; no build step or CDN keeps `anetos new` working offline and the binary self-contained. Tailwind needs a build tool; Bootstrap or Pico would add an outside dependency and their opinions to every app, so they are options for later, not the default |
+| D240 | `anetos new` writes a starter theme as the app's `public/static/app.css`: about 270 lines of plain CSS (color variables, light and dark by the system or `data-theme`, base element styles, a small set of classes: layout, page header, cards, fields, buttons, tables, badges, flash, pagination, details); the layout, `make:auth`'s and `make:crud`'s pages use those classes. `--css=none` writes an almost empty stylesheet and keeps the markup. Stylesheets of CSS frameworks (Bootstrap, Bulma, Pico, Tailwind) come with v0.5's design kits (D243, D244) | Accepted | An unstyled first page made the framework look unable to produce a usable app. A file the app owns (rather than one served by the framework) can be changed freely and never changes under the app; no build step or CDN keeps `anetos new` working offline and the binary self-contained. Tailwind needs a build tool; Bootstrap or Pico would add an outside dependency and their opinions to every app, so they are options for later, not the default |
 | D241 | `anetos make:crud <Model> <name:type[:optional\|:unique]>...` writes a model, its migration, a handler type with the seven actions (list with pages, show, new, create, edit, update, delete), a form struct with validate tags, templ views in the theme's markup, `routes.<Models>(r)`, the pages' English catalog and a test, then runs `anetos gen`, `templ generate` and `go build`; it adds the routes call to `Register`'s `pages` group and a `navLink` to the layout (found by their shape, else printed). Types: string, text, email, int, float, bool, date; strings, texts, emails and dates are required unless optional; unique only where blank values can't collide (required strings and emails, dates); a plural equal to the name, the framework's tables and the field `model` are refused | Accepted | The first hour of a framework is a model with pages; writing seven handlers, three views and a test by hand to see that is slow, and the scaffold teaches the conventions. Like `make:auth` (D145), the output is owned code and nothing is overwritten. Types the browser and binder handle without app code only: `datetime-local` has no zone, so times wait for a design |
 | D242 | The docs site groups each section's pages: every page of getting-started, guides, concepts and reference has `group:` and `weight:` in its front matter; anetos-dev/docs's sync puts a grouped page in a folder of its section named after the group, with an index, keeping its URL (front matter `url`) and mapping its content path for the link render hook (`data/moved.json`); groups are ordered by their pages' weights. The files stay flat in `docs/site`; `make docs-check` (`internal/cmd/docnav`) checks the front matter | Accepted | Sections sorted by title were hard to navigate. Groups in the files' front matter keep the repository's links and GitHub's view unchanged and every URL stable; the order of reading is the writer's decision, made where the page is written |
+| D243 | The release plan changes (2026-10-07, with the user): v0.3 (search, AI, admin, deploy, starter experience, plus security and performance) is tagged for us and early testers; v0.4 is the API stack (`--stack=api`, API accounts, JSON CRUD, and OpenAPI, back from the backlog); v0.5 the design kits and the **public release** (with the API stability pass, release plumbing, versioned docs and launch moved from v0.3); v0.6 the front-end stacks (Vite, Inertia, Vue, React, Svelte). Supersedes D232 | Accepted | An API-only stack is a must for a public Go framework, and OpenAPI is what makes it credible; both, and the generators' markup (D244), change generated code, which apps own and never receive updates of, so they must settle before people generate real apps. The API stack goes before the kits because it is the must-have and defines how `anetos new` composes stacks; the front-end stacks build on its pieces. The risk is a later release: v0.4 and v0.5 have fixed scopes (no OpenAPI client generation), and anything new goes after the release |
+| D244 | Planned for v0.5: the generators' pages call components of a `views/ui` package that `anetos new` writes into the app (button, field, card, table, badge, alert, nav, pagination…), rather than writing class names; a design kit is a stylesheet plus its `views/ui`; `anetos css:use <kit>` swaps both, refusing to replace a changed `views/ui` without `--force` | Proposed | Copying every generator's templates per kit would multiply the work and the tests by six; components keep a kit to one file of CSS and a dozen small components, and let a switch restyle the generated pages. Markup the developer writes with their own classes can't be restyled by a tool, and the docs say so |
 
 ---
 
@@ -2775,3 +2792,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-06 | M5 (build and deploy) designed and implemented: §17, §21; D229–D233 added; OpenAPI (M4) moved after the release (D232) |
 | 2026-10-06 | M2 tutorial and M3 reference app: §18 (ActingAs); D234–D236 added |
 | 2026-10-06 | M10 starter experience: §15 scaffolding, §17.1 updated; D237–D241 added (D237 replaces D150's `social.WithHomeURL`); M2 docs navigation: D242 |
+| 2026-10-07 | Release plan changed: §12.2, §17.1 updated; D243 (supersedes D232; D9's kits move to v0.6), D244 (proposed) added |

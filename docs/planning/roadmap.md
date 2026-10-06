@@ -2,7 +2,7 @@
 
 > **Name.** *Anetos*, from Greek άνετος ("at ease, comfortable"), said
 > AH-neh-tos. Module `anetos.dev/anetos`, GitHub org `anetos-dev`, site
-> anetos.dev, command `anetos` (chosen at [M1](#v03--public-mvp), design D185).
+> anetos.dev, command `anetos` (chosen at [M1](#v03--search-ai--starter-experience), design D185).
 
 | | |
 |---|---|
@@ -107,13 +107,24 @@ gracefully.
 |---|---|---|---|
 | **v0.1** | Foundation | Us | Build a CRUD app with forms, validation, a DB and migrations using only the docs |
 | **v0.2** | Batteries | Us + early testers | Auth, social login, queues, events, pub/sub listeners, scheduler, mail, storage, plugins |
-| **v0.3** | Search, AI & Public MVP | **Public release** | Full-text search, AI-capable apps (typed LLM calls, tools, streaming) and roles and permissions; anyone can go from zero to a deployed web app with auth |
-| **v0.4** | Frontend | Public | Vite + Inertia starter kits (Vue, React, Svelte) |
+| **v0.3** | Search, AI & starter experience | Us + early testers | Full-text search, AI-capable apps (typed LLM calls, tools, streaming), roles and permissions, an admin, a deploy story, and a new app that looks finished (theme, `make:crud`) |
+| **v0.4** | API stack | Us + early testers | API-only apps: `anetos new --stack=api`, token auth endpoints, JSON CRUD, an OpenAPI spec generated from typed handlers |
+| **v0.5** | Design kits & public release | **Public release** | Bootstrap, Bulma, Pico and Tailwind as kits a developer picks or switches to; API stability pass, release plumbing, versioned docs, launch |
+| **v0.6** | Frontend | Public | Vite + Inertia starter kits (Vue, React, Svelte) on top of the API stack |
 | **v1.0** | Stable | Public | API stability promise |
+
+The plan changed on 2026-10-07 (design D243): the public release moved from
+v0.3 to v0.5, so that it ships with an API-only stack (v0.4) and design
+kits (v0.5), and the front-end stacks follow it (v0.6). Generated code
+belongs to the app and never updates, so how the generators write
+markup (D244) and handlers (OpenAPI) must settle before people generate
+real apps.
 
 Estimated effort, part-time, with Claude Code assisting: v0.1 **6–10 weeks**,
 v0.2 **6–10 weeks**, v0.3 **4–6 weeks** (plus **4–6 weeks** for the search
-and AI work packages added on 2026-10-02), v0.4 **4–6 weeks**. These are rough;
+and AI work packages added on 2026-10-02), v0.4 **3–5 weeks** (OpenAPI is
+the least predictable part), v0.5 **3–5 weeks** with the launch work, v0.6
+**4–6 weeks**. These are rough;
 the data layer (F7–F9) is the least predictable. We'll re-estimate at the end
 of each milestone.
 
@@ -280,10 +291,12 @@ by role (D152).
 
 ---
 
-### v0.3 — Search, AI & Public MVP
+### v0.3 — Search, AI & starter experience
 
 Goal: good enough for strangers to build and deploy real apps, including
-apps with search and AI features. **This is the first public release.**
+apps with search and AI features. Tagged for us and early testers; the
+public release moved to v0.5 on 2026-10-07 (design D243), and with it
+the launch work (M1b, M8, M9, versioned docs) and the volunteer test.
 
 **Progress**
 
@@ -336,15 +349,15 @@ them (decided 2026-10-02; design §15, D169–D174).
 | AD2 | Admin dashboard, activity & security | In two parts (design §12.3, D221–D226): **AD2a** the dashboard, activity, failed jobs and scheduled tasks; **AD2b** two-factor sign-in, password confirmation and the IP allowlist. Dashboard widgets (users and sign-ups, queue health, AI usage, recent activity; apps add their own), activity views (filters, a history tab per record, by permission), failed jobs and scheduled tasks, two-factor sign-in (TOTP, recovery codes), password confirmation for dangerous actions, optional IP allowlist |
 | AC1 | Account settings | A settings page for signed-in users from `make:auth` (added 2026-10-06 at the user's request): name, password, language and time zone, email address, deleting the account (a switch, off by default); `auth.ChangePassword`; the admin links to it |
 | M1 | Identity | Final name, GitHub org, domain, logo/mascot; rename pass |
-| M1b | Release plumbing | Tag the modules independently; remove the `replace` directives from `cli`, the drivers, the plugins, `bench` and the examples' published `go.mod` files (a module with `replace` can't be `go install`ed), so `go install …/cli/cmd/anetos@latest` and `anetos new` without `--replace` work; serve the `go-import` meta tag on anetos.dev for `anetos.dev/anetos` and every path under it (the vanity import path, D185), pointing at `github.com/anetos-dev/anetos` |
-| M2 | Docs site | Choose the generator, publish versioned docs, full tutorial, guides for every feature |
+| M1b | Release plumbing (moved to v0.5) | Tag the modules independently; remove the `replace` directives from `cli`, the drivers, the plugins, `bench` and the examples' published `go.mod` files (a module with `replace` can't be `go install`ed), so `go install …/cli/cmd/anetos@latest` and `anetos new` without `--replace` work; serve the `go-import` meta tag on anetos.dev for `anetos.dev/anetos` and every path under it (the vanity import path, D185), pointing at `github.com/anetos-dev/anetos` |
+| M2 | Docs site | Choose the generator, full tutorial, guides for every feature; versioned docs at the public release (v0.5) |
 | M3 | Reference example app | A realistic app with tests, used as living documentation |
-| M4 | OpenAPI | Moved after the public release (2026-10-06, design D232): see the backlog |
+| M4 | OpenAPI | Moved to v0.4 (2026-10-07, design D243): AP4 |
 | M5 | Build & deploy | `anetos build`, generated Dockerfile, guides for VPS/systemd, Docker and common PaaS |
 | M6 | Performance | Published benchmarks with their method; CI regression gate |
 | M7 | Security | Self-audit against a checklist, SECURITY.md, dependency review, secure-defaults check in `anetos doctor` |
-| M8 | API stability pass | Review every exported identifier, add deprecations, CONTRIBUTING, CODE_OF_CONDUCT, issue templates, governance note |
-| M9 | Launch | Announcement post, awesome-go submission, community channels |
+| M8 | API stability pass (moved to v0.5) | Review every exported identifier, add deprecations, CONTRIBUTING, CODE_OF_CONDUCT, issue templates, governance note |
+| M9 | Launch (moved to v0.5) | Announcement post, awesome-go submission, community channels |
 | M10 | Starter experience | A new app is usable and good-looking in minutes (added 2026-10-06 at the user's request): a starter theme written by `anetos new` (`--css=none` without it), `make:crud` for a model's pages, `make:auth`'s pages in the theme with account links in the header, the page after signing in configurable (`AUTH_HOME_URL`, `auth.DefaultHomeURL`) |
 
 **Exit criteria**
@@ -354,15 +367,63 @@ them (decided 2026-10-02; design §15, D169–D174).
   tools and hybrid retrieval, streams its answers, and is tested with
   `anetostest.FakeAI`; a configuration its database can't support stops
   at boot with a clear message.
-- 3–5 volunteers who haven't seen Anetos before each go from nothing to a
-  deployed CRUD app with auth **in under 30 minutes** using only the docs. We
-  fix whatever slows them down.
+- A new project with `make:crud` and `make:auth` is styled, tested and
+  deployable without hand-written markup.
 - No known P0/P1 bugs; every public API documented; the example app's tests
   run in CI.
 
 ---
 
-### v0.4 — Frontend
+### v0.4 — API stack
+
+Goal: an API-only app is as quick to start as an HTML one, and its API is
+described by a spec generated from the code (design D243).
+
+| WP | Work package | Notes |
+|---|---|---|
+| AP1 | API project | `anetos new --stack=api` (the HTML stack is `--stack=web`, the default): no views, templ, htmx, theme, sessions or CSRF; JSON errors everywhere; `routes/api.go` under `/api/v1`; CORS settings; health check, Dockerfile and deploy files as today; a test that calls the API. `anetos new` learns to compose stacks, which the design kits (v0.5) and front-end stacks (v0.6) plug into |
+| AP2 | API accounts | `make:auth` in an API project: register, log in (issues a token, with abilities), log out (revokes it), `/me`, password change, password reset and email verification by email with links to the client app (`AUTH_CLIENT_URL`), two-factor codes at login, token management; throttling and the same security rules as the HTML pages; tests |
+| AP3 | JSON CRUD | `make:crud` in an API project (or `--api`): handlers for list (pages, sorting, filters), show, create, update and delete with validation (422), JSON shapes chosen on purpose rather than the model as is (an output struct per resource, so new columns never leak), routes, tests |
+| AP4 | OpenAPI | Was M4 (D232, superseded by D243). OpenAPI 3.1 generated from the routes: typed inputs (path, query, body, with their validate rules as schema constraints) and declared responses (a typed responder or a route option, settled before M8), errors as problem details, security schemes (bearer tokens with abilities); `routes:openapi` (or `anetos openapi`) writes the spec, `-check` in CI; optional served spec and docs page (a static page, no CDN). No client code generation. |
+| AP5 | Docs & example | Guide "Build an API", an API example app (the tracker's API as its own project, or a new small one), OpenAPI guide and reference; getting started gains the API path |
+
+**Exit criteria**
+
+- `anetos new shop --stack=api`, `make:auth`, `make:crud Product …` give a
+  tested API with token auth whose OpenAPI spec validates and documents
+  every route, on SQLite, PostgreSQL and MySQL.
+
+---
+
+### v0.5 — Design kits & public release
+
+Goal: the developer picks the look (or none) at `anetos new` and can switch
+it later; then the public release. **This is the first public release.**
+
+| WP | Work package | Notes |
+|---|---|---|
+| K1 | UI components | `anetos new` writes `views/ui`, a small set of templ components (button, field, card, table, badge, alert, nav, pagination…) in the app; the layout and the generators' pages (`make:auth`, `make:crud`, the tutorial) use them instead of raw class names (design D244), so a kit restyles the generated pages |
+| K2 | Kits without a build step | Pico, Bootstrap and Bulma (with Bootstrap's small script for menus): their CSS vendored into `public/`, embedded in the binary, no CDN; each kit's `views/ui` and layout; light and dark where the framework has it |
+| K3 | Tailwind | `anetos dev` and `anetos build` run Tailwind's standalone CLI (no Node): pinned version, checked download per platform, cached; `views/ui` with Tailwind classes |
+| K4 | Picking and switching | `anetos new --css=anetos\|none\|pico\|bootstrap\|bulma\|tailwind`; `anetos css:use <kit>` swaps the stylesheet and `views/ui` (refusing to overwrite a changed `views/ui` without `--force`). Pages written with their own class names keep them; the docs say so |
+| K5 | Docs | Guide per kit in "Style your app", screenshots in the docs |
+| M8 | API stability pass | From v0.3: review every exported identifier, add deprecations, CONTRIBUTING, CODE_OF_CONDUCT, issue templates, governance note |
+| M1b | Release plumbing | From v0.3: tag the modules, remove the `replace` directives from published `go.mod` files, the vanity import paths |
+| M2v | Versioned docs | From v0.3 (M2): docs per minor version from v0.5, `main` labeled "unreleased" |
+| M9 | Launch | From v0.3: announcement post, awesome-go submission, community channels |
+
+**Exit criteria**
+
+- 3–5 volunteers who haven't seen Anetos before each go from nothing to a
+  deployed app with auth **in under 30 minutes** using only the docs, one
+  of them with the API stack. We fix whatever slows them down.
+- Each kit's generated pages pass the generated tests and look right in
+  light and dark (checked in a browser).
+- No known P0/P1 bugs; every public API documented.
+
+---
+
+### v0.6 — Frontend
 
 Goal: modern SPA-style frontends without giving up server-side routing.
 
@@ -370,14 +431,14 @@ Goal: modern SPA-style frontends without giving up server-side routing.
 |---|---|---|
 | V1 | Vite integration | Dev-server proxy, manifest reading, assets embedded in the production binary |
 | V2 | Inertia adapter | Server-side protocol: shared props, partial reloads, validation errors, redirects (SSR later) |
-| V3 | Starter kits | `anetos new --stack=htmx\|vue\|react\|svelte\|api`, each with auth UI; `--css=bootstrap\|bulma\|tailwind` beside v0.3's starter theme (M10, D240), the generators' pages in their markup |
+| V3 | Starter kits | `anetos new --stack=vue\|react\|svelte`, each with auth UI on v0.4's API pieces, and sign-in by session cookie for single-page apps on the app's own domain |
 | V4 | Docs | A guide per stack, plus a migration guide from htmx to an SPA stack |
 
 ---
 
-### Backlog (after v0.4, unordered)
+### Backlog (after v0.6, unordered)
 
-OpenAPI (was M4: a spec generated from typed handlers, an optional docs UI) · WebSockets/broadcasting · debug dashboard (Telescope-like) · notifications (mail, SMS, Slack channels) · multi-tenancy · feature
+OpenAPI client code generation · WebSockets/broadcasting · debug dashboard (Telescope-like) · notifications (mail, SMS, Slack channels) · multi-tenancy · feature
 flags · search engine drivers behind `Search` (Meilisearch, Typesense, OpenSearch) · Inertia SSR · read/write DB splitting ·
 roles and permissions: scope hierarchies, roles a team defines for itself, `make:auth` with roles ·
 teams (a teams module extending auth, managed in the admin) · content review workflow (drafts, reviewers, a review queue in the admin) · soft deletes that cascade to related rows · audit log: tamper evidence (hash chain), database triggers for raw SQL on PostgreSQL, pivot writes ·
@@ -426,9 +487,9 @@ something, and we fix the API rather than add the hook.
 |---|---|---|---|
 | Data layer takes far longer than planned | High | High | Narrow v0.1 scope (relations in v0.1.x); keep the query API behind a small interface; fallback plan: adapter over Bun if we stall badly |
 | Scope creep | High | High | Non-goals list; backlog instead of "quick additions"; milestone reviews |
-| Single maintainer (bus factor, part-time) | High | High | Docs-first culture, ADRs, clean contribution path from v0.3 so others can join |
+| Single maintainer (bus factor, part-time) | High | High | Docs-first culture, ADRs, clean contribution path from the public release (v0.5) so others can join |
 | Go community wariness of frameworks | Medium | High | `net/http` compatibility everywhere, a way out of the framework at any point, honest benchmarks, no magic |
-| API churn upsets early users | Medium | Medium | Public release only at v0.3; API stability pass (M8); upgrade guides |
+| API churn upsets early users | Medium | Medium | Public release only at v0.5; API stability pass (M8); upgrade guides |
 | Third-party dependency risk (templ, drivers) | Medium | Medium | Views behind a renderer interface; heavy dependencies isolated in modules |
 | Naming/trademark conflict found late | Low | Medium | Name settled at M1 (D185): no ANETOS mark found in the US or Australia, nothing in software by that name; a professional search (EUIPO, WIPO, national offices) before any trademark filing, where the Greek meaning ("comfortable") may count as descriptive |
 | Competing with Goravel for "Laravel-like Go" | Medium | Medium | Different positioning: Go-native, typed, concurrency-first, stdlib-compatible |
@@ -445,7 +506,7 @@ something, and we fix the API rather than add the hook.
 | Q3 | ~~Minimum Go version~~ **Decided 2026-09-30:** the older of the two Go-supported releases, currently **Go 1.26**; CI tests minimum + latest (design D18) | Decided |
 | Q4 | ~~Docs site generator (VitePress, Hugo, Starlight…)~~ **Decided: Hugo with the Hextra theme**, hosted on Cloudflare Pages; the pages stay in `docs/site` (design D200) | Decided |
 | Q5 | ~~Which mail API driver is first-party first (Resend vs Postmark)~~ **Decided 2026-10-01: Postmark**, for its transactional focus, a stable documented API with error codes that tell permanent from temporary failures, and a test token (`POSTMARK_API_TEST`) that checks requests without sending; Resend can follow as a plugin | Decided |
-| Q6 | ~~Public repo from day one, or private until v0.3?~~ **Decided 2026-09-30:** private until ready for public release (v0.3). A private repo can use the working codename; GitHub redirects renamed repos, and the module path is a find-and-replace while nobody depends on it | Decided |
+| Q6 | ~~Public repo from day one, or private until v0.3?~~ **Decided 2026-09-30:** private until ready for public release (v0.3; v0.5 since 2026-10-07, D243). A private repo can use the working codename; GitHub redirects renamed repos, and the module path is a find-and-replace while nobody depends on it | Decided |
 | Q7 | ~~Search: the default `SEARCH_LANGUAGE`~~ **Decided 2026-10-02: `simple`**, with every word matched as a prefix; languages are opt-in, and an index built for another language stops the app until `search:reindex` (design D160) | Decided |
 | Q8 | ~~Embeddings: a column on the model's table, or a table per model~~ **Decided 2026-10-02: a table per model**, one row per chunk, filled by queue jobs (design D161) | Decided |
 
@@ -508,3 +569,4 @@ something, and we fix the API rather than add the hook.
 | 2026-10-06 | M5 (build and deploy) done; M4 (OpenAPI) moved to the backlog, after the public release; the order of the rest: M2 tutorial with M3, M7, M6, M8, M1b, M9 |
 | 2026-10-06 | M2's tutorial and M3 (reference app, an issue tracker chosen by the user) done |
 | 2026-10-06 | M10 (starter experience: theme, `make:crud`, account links, configurable home page) added and done; V3 gains the CSS frameworks; M2's docs navigation grouped |
+| 2026-10-07 | Release plan changed with the user (design D243): v0.4 the API stack (OpenAPI back from the backlog as AP4), v0.5 design kits and the public release (M1b, M8, M9, versioned docs and the volunteer test moved there), v0.6 the front-end stacks |

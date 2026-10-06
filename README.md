@@ -21,8 +21,8 @@ added the batteries: the cache, server-side sessions and rate limiting,
 authentication, social login, queues, events, pub/sub listeners, the
 scheduler, mail, file storage, plugins (`anetos add`), test fakes, N+1
 detection and `anetos make:auth`. [`examples/saas`](examples/saas)
-shows them in one app, run as one binary or split by role. v0.3, the
-first public release, is in progress: full-text search, AI (typed
+shows them in one app, run as one binary or split by role. v0.3 is in progress
+(the first public release is v0.5, after an API stack in v0.4): full-text search, AI (typed
 LLM calls, tools that run as the user, streaming, a test fake;
 Anthropic, OpenAI and compatible servers, and Gemini) and roles and
 permissions (global and per team, [`examples/teams`](examples/teams))
@@ -58,7 +58,7 @@ APIs will change.
 
 ## Documents
 
-- [Planning & roadmap](docs/planning/roadmap.md): vision, milestones v0.1–v0.4, work packages, risks
+- [Planning & roadmap](docs/planning/roadmap.md): vision, milestones v0.1–v0.6, work packages, risks
 - [Design document](docs/design/design.md): architecture, principles and decisions
 - [Documentation guide](docs/contributing/documentation-guide.md): how docs are written alongside code
 - [Benchmarks](docs/benchmarks/README.md): overhead compared with plain `net/http`

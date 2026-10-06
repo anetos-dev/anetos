@@ -241,7 +241,7 @@ pages apart.
 > **Coming from Laravel?** templ components play the role of Blade views
 > and components; `{ children... }` is `$slot`/`@yield`. `web.URL` is
 > `route()`, and `assets.URL` replaces `asset()`/`mix()` for files without
-> a build step (Vite arrives in v0.4).
+> a build step (Vite arrives in v0.6).
 
 ## Testing it
 
