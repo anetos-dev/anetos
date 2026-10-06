@@ -155,6 +155,8 @@ starting at the same time are safe: on PostgreSQL and MySQL the runner
 holds a lock in the database, so one instance migrates and the others
 wait and find nothing left to do. The lock needs its own connection, so
 the runner requires `DB_MAX_OPEN_CONNS` of at least 2 there.
+[Deploy](deployment.md#3-run-the-migrations-on-each-deploy) shows it
+with systemd, containers and hosting platforms.
 
 ## SQL migrations (optional)
 
@@ -238,6 +240,7 @@ if _, err := runner.Reset(app.Context()); err != nil {
 
 ## Next steps
 
+- [Deploy](deployment.md)
 - [Seed the database](seeders.md)
 - [Migrations reference](../reference/migrations.md)
 - [Define models and save data](models.md)

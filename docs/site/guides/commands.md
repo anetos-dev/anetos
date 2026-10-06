@@ -135,7 +135,7 @@ app runs one command: create a new one per call.
 |---|---|---|
 | `unknown command "migrate"` | `migrate.ForApp` wasn't called before `Execute` | Call it while setting up the app |
 | `command "x" registered twice` | Two commands with one name (`app.Command` panics, `app.AddCommand`, `migrate.ForApp` and `web.NewServer` return the error) | Register each once |
-| `unknown role "…"` | `--only` names a role no component has | Check `help run` and the roles of your components |
+| `unknown role "…"` | `--only` names a role no component has and no package declared (the error lists the known ones) | Check `help run` and the roles of your components |
 
 ## Next steps
 

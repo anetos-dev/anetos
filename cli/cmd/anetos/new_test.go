@@ -3,6 +3,7 @@
 package main
 
 import (
+	"debug/elf"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -144,8 +145,23 @@ func TestNewProject(t *testing.T) {
 
 	goRun("vet", "./...")
 	goRun("test", "./...")
-	bin := filepath.Join(dir, "tmp", "blog")
-	goRun("build", "-o", bin, ".")
+	// The production build: one static binary, at bin/blog by default.
+	if code, out, errOut := runCmd(t, "build", "--version=v9.9.9"); code != 0 || !strings.Contains(out, "built bin/blog (") {
+		t.Fatalf("build: %d\n%s\n%s", code, out, errOut)
+	}
+	bin := filepath.Join(dir, "bin", "blog")
+	// For another system: the generators still run on this one.
+	if code, out, errOut := runCmd(t, "build", "--target=linux/arm64", "-o", filepath.Join(dir, "bin", "blog-arm64")); code != 0 || !strings.Contains(out, "built bin/blog-arm64 (linux/arm64, ") {
+		t.Fatalf("build --target=linux/arm64: %d\n%s\n%s", code, out, errOut)
+	}
+	if f, err := elf.Open(filepath.Join(dir, "bin", "blog-arm64")); err != nil || f.Machine != elf.EM_AARCH64 {
+		t.Errorf("bin/blog-arm64: %v %v", err, f)
+	} else {
+		f.Close()
+	}
+	if code, out, errOut := runCmd(t, "build", "--target=windows/amd64"); code != 0 || !strings.Contains(out, "built bin/blog.exe (windows/amd64, ") {
+		t.Fatalf("build --target=windows/amd64: %d\n%s\n%s", code, out, errOut)
+	}
 	app := func(args ...string) string {
 		t.Helper()
 		c := exec.Command(bin, args...)
@@ -164,6 +180,17 @@ func TestNewProject(t *testing.T) {
 	if out := app("routes:list"); !regexp.MustCompile(`GET\s+/\s+home`).MatchString(out) ||
 		!regexp.MustCompile(`GET\s+/admin/posts/\{id\}/edit\s+admin\.posts\.edit`).MatchString(out) {
 		t.Errorf("routes:list:\n%s", out)
+	}
+	if out := app("version"); !strings.HasPrefix(out, "blog v9.9.9\nAnetos ") {
+		t.Errorf("version:\n%s", out)
+	}
+	// version needs no settings: main prints it before setup (outside
+	// the project, without its .env and APP_KEY).
+	c := exec.Command(bin, "version")
+	c.Dir = t.TempDir()
+	c.Env = append(os.Environ(), "APP_ENV=production", "APP_KEY=")
+	if b, err := c.CombinedOutput(); err != nil || !strings.HasPrefix(string(b), "blog v9.9.9\n") {
+		t.Errorf("version without settings: %v\n%s", err, b)
 	}
 	if out := app("help"); !strings.Contains(out, "migrate:status") || !strings.Contains(out, "serve") {
 		t.Errorf("help:\n%s", out)

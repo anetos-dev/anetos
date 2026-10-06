@@ -7,7 +7,9 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"os"
 
 	"anetos.dev/anetos"
 	"anetos.dev/anetos/cache"
@@ -33,6 +35,10 @@ import (
 //go:generate go tool anetos gen
 
 func main() {
+	if len(os.Args) == 2 && os.Args[1] == "version" {
+		fmt.Print(anetos.VersionText()) // without the settings setup needs
+		return
+	}
 	app, err := anetos.New() // reads .env and the environment
 	if err != nil {
 		log.Fatal(err)

@@ -7,8 +7,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"strings"
 	"testing"
@@ -309,5 +311,57 @@ func TestServerCommands(t *testing.T) {
 	cancel()
 	if code := <-done; code != 0 {
 		t.Errorf("serve: exit %d: %s", code, errOut.String())
+	}
+}
+
+// health:check asks the running server, as a container's health check
+// does from another process.
+func TestHealthCheckCommand(t *testing.T) {
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	port := l.Addr().(*net.TCPAddr).Port
+	l.Close()
+	env := config.Map{"HTTP_ADDR": fmt.Sprintf(":%d", port)}
+	app := newApp(t, env)
+	srv, err := web.NewServer(app)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, stop, wait := startServer(t, app, srv)
+
+	check := func(args ...string) (int, string) {
+		t.Helper()
+		other := newApp(t, env) // another process
+		if _, err := web.NewServer(other); err != nil {
+			t.Fatal(err)
+		}
+		var out, errOut bytes.Buffer
+		code := other.ExecuteArgs(context.Background(), append([]string{"health:check"}, args...), &out, &errOut)
+		return code, out.String() + errOut.String()
+	}
+	if code, out := check(); code != 0 || strings.TrimSpace(out) != "ok" {
+		t.Errorf("ready: %d %q", code, out)
+	}
+	if code, _ := check("--live", "--timeout=2s"); code != 0 {
+		t.Errorf("live: %d", code)
+	}
+	stop()
+	_ = wait()
+	if code, out := check("--timeout=0s"); code != 2 || !strings.Contains(out, "--timeout must be positive") {
+		t.Errorf("timeout 0: %d %q", code, out)
+	}
+	if code, out := check(); code != 1 || !strings.Contains(out, "health:check: Get \"http://127.0.0.1:") || strings.Count(out, "health:check") != 1 {
+		t.Errorf("stopped: %d %q", code, out)
+	}
+
+	off := newApp(t, config.Map{"HTTP_HEALTH_ROUTES": "false"})
+	if _, err := web.NewServer(off); err != nil {
+		t.Fatal(err)
+	}
+	var out, errOut bytes.Buffer
+	if code := off.ExecuteArgs(context.Background(), []string{"health:check"}, &out, &errOut); code != 1 || !strings.Contains(errOut.String(), "HTTP_HEALTH_ROUTES=false") {
+		t.Errorf("routes off: %d %q", code, errOut.String())
 	}
 }

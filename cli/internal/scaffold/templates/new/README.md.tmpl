@@ -35,3 +35,15 @@ each gets the app with a migrated database, and leaves no rows behind.
 [[if eq .DB "sqlite"]]It's an in-memory SQLite database, so there's nothing
 to set up.[[else]]`go test` reads the database settings from `.env.testing`,
 not `.env`: create the `[[.DBName]]_test` database first.[[end]]
+
+## Deploy
+
+```sh
+go tool anetos build    # bin/[[.Bin]]: one binary, everything in it
+```
+
+Copy the binary to the server with its settings
+(`deploy/production.env.example` lists them) and run `[[.Bin]] migrate`,
+then `[[.Bin]] run`; `deploy/[[.Name]].service` does that with systemd.
+Or build the image with `docker build -t [[.Image]] .` (the
+`Dockerfile`). See [Deploy](https://github.com/anetos-dev/anetos/blob/main/docs/site/guides/deployment.md).

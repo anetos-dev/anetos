@@ -7,6 +7,29 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- `anetos build` (M5, D229): the production build, with `templ
+  generate` and `anetos gen` first, then a static binary
+  (`CGO_ENABLED=0`, `-trimpath`, `-ldflags="-s -w"`) at
+  `bin/<module name>`; `--target=os/arch` for another system,
+  `--version` for builds without the git repository, `--cgo`, `-o`, and
+  `go build` flags after `--`.
+- `anetos new` writes a `Dockerfile` (built in the Go image, run on
+  distroless as a non-root user, `/data` for files and SQLite, a health
+  check), `.dockerignore`, a systemd unit (`deploy/<name>.service`) and
+  `deploy/production.env.example` (M5, D230). Its `main.go` prints the
+  version before `setup`, so `version` needs no settings.
+- The `version` command in every app (`anetos.VersionText`: the app's
+  version, commit, Anetos and Go versions) and `health:check` from
+  `web.NewServer` (asks the running server for `/health/ready`), for
+  container health checks (M5, D231). **BREAKING:** an app that adds
+  its own `version` or `health:check` command now fails at start
+  ("registered twice"): rename it, or drop it for the built-in one.
+- `supervisor.Supervisor.Declare`: roles known before a component has
+  them. `schedule.ForApp` declares `scheduler` and `pubsub.ForApp`
+  `listeners`, so `run --only=workers,scheduler` works in an app without
+  tasks yet (M5, D233).
+- Guide "Deploy": systemd, Docker and Compose, Fly.io, Render, HTTPS,
+  splitting roles (M5).
 - Module `anetos.dev/anetos/admin`: an admin interface. `admin.New(app,
   a)` for the users of an `auth.Auth[U]`, `admin.Add` with an
   `admin.Resource[T, F]` per model (list columns with sorting, search,

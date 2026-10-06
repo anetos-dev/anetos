@@ -32,6 +32,7 @@ func TestCreate(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, want := range []string{"go.mod", "main.go", "main_test.go", "plugins.go", ".env", ".env.example", ".gitignore",
+				"Dockerfile", ".dockerignore", "deploy/my-blog.service", "deploy/production.env.example",
 				"routes/web.go", "app/handlers/home.go", "views/layout.templ", "public/static/app.css", "database/migrations/migrations.go", "database/factories/factories.go"} {
 				if !slices.Contains(files, want) {
 					t.Errorf("missing %s in %v", want, files)
@@ -68,7 +69,45 @@ func TestCreate(t *testing.T) {
 			if !strings.Contains(read(t, filepath.Join(dir, "views/layout.templ")), "My Blog") {
 				t.Error("title not in layout")
 			}
+			// Deployment: the Dockerfile builds with the go line's Go, and
+			// SQLite's database lives on the data volume.
+			docker := read(t, filepath.Join(dir, "Dockerfile"))
+			if !strings.Contains(mod, "\ngo "+goMinor+".") || !strings.Contains(docker, "FROM golang:"+goMinor+" AS build") ||
+				!strings.Contains(docker, `ENTRYPOINT ["/app/my-blog"]`) || strings.Contains(docker, "DB_DATABASE") != (db == "sqlite") {
+				t.Errorf("Dockerfile:\n%s", docker)
+			}
+			unit := read(t, filepath.Join(dir, "deploy/my-blog.service"))
+			if !strings.Contains(unit, "ExecStart=/opt/my-blog/my-blog run") || strings.Contains(unit, "DB_DATABASE") != (db == "sqlite") {
+				t.Errorf("unit:\n%s", unit)
+			}
+			prod := read(t, filepath.Join(dir, "deploy/production.env.example"))
+			if !strings.Contains(prod, "APP_ENV=production") || !strings.Contains(prod, "DB_CONNECTION="+db) || strings.Contains(prod, "base64:") {
+				t.Errorf("production.env.example:\n%s", prod)
+			}
 		})
+	}
+}
+
+// The deploy files name the binary after the module, which may differ
+// from the directory, and Docker after the directory in lower case.
+func TestCreateDeployNames(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "MyBlog")
+	if _, err := Create(Project{Dir: dir, Module: "example.com/acme/shop/v2", DB: "postgres", Replace: "../../.."}); err != nil {
+		t.Fatal(err)
+	}
+	if unit := read(t, filepath.Join(dir, "deploy", "MyBlog.service")); !strings.Contains(unit, "sudo install -D bin/shop /opt/MyBlog/MyBlog") {
+		t.Errorf("unit:\n%s", unit)
+	}
+	if df := read(t, filepath.Join(dir, "Dockerfile")); !strings.Contains(df, "docker build -t myblog ") || strings.Contains(df, "DB_DATABASE") {
+		t.Errorf("Dockerfile:\n%s", df)
+	}
+	if ignore := read(t, filepath.Join(dir, ".dockerignore")); !strings.Contains(ignore, "**/*.db\n") || !strings.Contains(ignore, "*.env\n") {
+		t.Errorf(".dockerignore:\n%s", ignore)
+	}
+	for module, want := range map[string]string{"example.com/blog": "blog", "example.com/blog/v2": "blog", "blog": "blog", "v2": "v2", "example.com/v2x": "v2x"} {
+		if got := BinaryName(module); got != want {
+			t.Errorf("BinaryName(%q) = %q, want %q", module, got, want)
+		}
 	}
 }
 

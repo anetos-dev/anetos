@@ -254,3 +254,20 @@ func TestRunningCommand(t *testing.T) {
 		t.Error("Running without a command")
 	}
 }
+
+func TestVersionCommand(t *testing.T) {
+	app := newApp(t, config.Map{})
+	var booted bool
+	app.Use(bootProvider{&booted})
+	code, out, errOut := execute(t, app, "version")
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if code != 0 || len(lines) != 3 || !strings.HasPrefix(lines[1], "Anetos v") || !strings.HasPrefix(lines[2], "go1.") {
+		t.Fatalf("version: %d %q %q", code, out, errOut)
+	}
+	if booted {
+		t.Error("version booted the app")
+	}
+	if code, _, _ := execute(t, app, "version", "extra"); code != 2 {
+		t.Errorf("an argument: %d", code)
+	}
+}

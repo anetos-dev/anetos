@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"runtime/debug"
 	"slices"
 	"sort"
@@ -57,6 +58,7 @@ type Supervisor struct {
 	names    map[string]bool
 	state    runState
 	selected map[string]bool // roles chosen for this process; nil = all
+	declared map[string]bool // roles known without a component yet (Declare)
 	base     context.Context
 	stages   map[Stage]*stageCtl
 	fatal    chan error
@@ -140,7 +142,23 @@ func (s *Supervisor) Add(spec Spec) error {
 	return nil
 }
 
-// Roles returns the sorted set of roles declared by registered components.
+// Declare makes roles known before any component has them, so Run
+// accepts them: a feature whose components come later (the scheduler
+// once it has tasks) declares its role when it is set up, and a process
+// started with that role runs whatever it has, possibly nothing.
+func (s *Supervisor) Declare(roles ...string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.declared == nil {
+		s.declared = map[string]bool{}
+	}
+	for _, r := range roles {
+		s.declared[r] = true
+	}
+}
+
+// Roles returns the sorted set of roles of the registered components and
+// those declared with [Supervisor.Declare].
 func (s *Supervisor) Roles() []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -148,7 +166,10 @@ func (s *Supervisor) Roles() []string {
 }
 
 func (s *Supervisor) rolesLocked() []string {
-	set := map[string]bool{}
+	set := maps.Clone(s.declared)
+	if set == nil {
+		set = map[string]bool{}
+	}
 	for _, e := range s.entries {
 		for _, r := range e.spec.Roles {
 			set[r] = true
@@ -170,7 +191,8 @@ func (s *Supervisor) rolesLocked() []string {
 // Run returns nil after a clean shutdown, the failing component's error for
 // an escalated failure, and an error wrapping [ErrShutdownTimeout] if
 // components did not stop in time. Requesting a role that no component
-// declares is an error, which catches typos in --only flags.
+// has and no one declared ([Supervisor.Declare]) is an error, which
+// catches typos in --only flags.
 //
 // Context values from ctx are visible to components; its cancellation only
 // triggers shutdown, which the supervisor then performs in stage order.

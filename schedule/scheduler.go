@@ -131,6 +131,9 @@ func ForApp(app *anetos.App) (*Scheduler, error) {
 	}
 	s := New(WithLogger(app.Logger().With("component", "scheduler")), WithLocation(loc))
 	s.app = app
+	// run --only=scheduler works before the first task (the component
+	// comes with it).
+	app.Supervisor().Declare("scheduler")
 	for _, c := range s.commands() {
 		if err := app.AddCommand(c); err != nil {
 			return nil, err

@@ -166,6 +166,7 @@ func ForApp(app *anetos.App, drivers ...Driver) (*PubSub, error) {
 	p := New(broker, WithLogger(app.Logger().With("component", "pubsub")), WithName(app.Config().Name))
 	p.app = app
 	p.driver = cfg.Driver
+	app.Supervisor().Declare("listeners") // run --only=listeners before the first Listen
 	if err := app.AddCommand(p.publishCommand()); err != nil {
 		return nil, errors.Join(err, broker.Close())
 	}

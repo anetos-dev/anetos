@@ -10,7 +10,10 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"path"
 	"path/filepath"
+	"runtime"
+	"runtime/debug"
 	"slices"
 	"strings"
 	"syscall"
@@ -65,6 +68,22 @@ func (a *App) Commands() []cmd.Command {
 }
 
 func (a *App) addBuiltins() {
+	a.commands["version"] = cmd.Command{
+		Name:        "version",
+		Description: "Print the app's version, its commit, and the Anetos and Go versions it was built with",
+		ManagesApp:  true, // nothing to boot
+		Run: func(_ context.Context, args *cmd.Args) error {
+			fs := flag.NewFlagSet("version", flag.ContinueOnError)
+			if err := args.Parse(fs); err != nil {
+				return err
+			}
+			if fs.NArg() > 0 {
+				return cmd.Usagef("unexpected argument %q", fs.Arg(0))
+			}
+			fmt.Fprint(args.Stdout, VersionText())
+			return nil
+		},
+	}
 	a.commands["run"] = cmd.Command{
 		Name:        "run",
 		Usage:       "[--only=role,…]",
@@ -203,4 +222,77 @@ func (a *App) printCommands(bin string, w io.Writer) {
 	}
 	_ = tw.Flush()
 	fmt.Fprintf(w, "\nRun %q for a command's arguments.\n", bin+" help <command>")
+}
+
+// buildVersion is the app's version given to anetos build --version
+// (with -ldflags=-X), for builds without the repository's history (in a
+// container, say); it wins over the one Go records.
+var buildVersion string
+
+// VersionText describes the binary, as the version command prints it:
+// the app's version (anetos build --version, else the one Go records
+// from git), the commit, the Anetos and Go versions. It needs no
+// settings, so main can print it before setting the app up:
+//
+//	if len(os.Args) == 2 && os.Args[1] == "version" {
+//		fmt.Print(anetos.VersionText())
+//		return
+//	}
+//
+// It prints:
+//
+//	blog v1.2.0 (commit 1a2b3c4d5e6f, 2026-10-06T10:00:00Z)
+//	Anetos v0.3.0
+//	go1.26.8 linux/amd64
+func VersionText() string {
+	bi, ok := debug.ReadBuildInfo()
+	if !ok {
+		return "unknown (no build information)\nAnetos " + Version() + "\n" + runtime.Version() + " " + runtime.GOOS + "/" + runtime.GOARCH + "\n"
+	}
+	name := path.Base(bi.Main.Path)
+	if len(name) > 1 && name[0] == 'v' && strings.Trim(name[1:], "0123456789") == "" && path.Dir(bi.Main.Path) != "." {
+		name = path.Base(path.Dir(bi.Main.Path)) // example.com/blog/v2: blog
+	}
+	if name == "" || name == "." {
+		name = "app"
+	}
+	v := bi.Main.Version
+	if buildVersion != "" {
+		v = buildVersion
+	} else if v == "" {
+		v = "(devel)"
+	}
+	var rev, at string
+	modified := false
+	goos, goarch := runtime.GOOS, runtime.GOARCH
+	for _, s := range bi.Settings {
+		switch s.Key {
+		case "vcs.revision":
+			rev = s.Value
+		case "vcs.time":
+			at = s.Value
+		case "vcs.modified":
+			modified = s.Value == "true"
+		case "GOOS":
+			goos = s.Value
+		case "GOARCH":
+			goarch = s.Value
+		}
+	}
+	var details []string
+	if rev != "" {
+		details = append(details, "commit "+rev[:min(len(rev), 12)])
+	}
+	if at != "" {
+		details = append(details, at)
+	}
+	if modified {
+		details = append(details, "modified")
+		v = strings.TrimSuffix(v, "+dirty") // Go's mark of the same
+	}
+	line := name + " " + v
+	if len(details) > 0 {
+		line += " (" + strings.Join(details, ", ") + ")"
+	}
+	return line + "\nAnetos " + Version() + "\n" + bi.GoVersion + " " + goos + "/" + goarch + "\n"
 }

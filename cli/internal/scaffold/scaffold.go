@@ -46,6 +46,11 @@ type Project struct {
 // projectData is what the templates see.
 type projectData struct {
 	Name, Title, Module, DB, Key, Replace, DBName string
+	Bin                                           string // anetos build's binary (BinaryName)
+	Image                                         string // the name in lower case, for Docker and platforms
+	// GoMinor is the Go release of go.mod's go line ("1.26"), for the
+	// Dockerfile's golang image.
+	GoMinor string
 	// Replace paths, quoted for go.mod when needed.
 	ReplaceCore, ReplaceCLI, ReplaceDriver string
 	// ReplaceOthers are the checkout's other modules (drivers and
@@ -53,8 +58,31 @@ type projectData struct {
 	ReplaceOthers []Replacement
 }
 
+// goMinor is the Go release new projects need: go.mod.tmpl's go line.
+const goMinor = "1.26"
+
 // Replacement is a replace directive of a project's go.mod.
 type Replacement struct{ Path, Dir string }
+
+// dbEnvProd is the production settings' database lines.
+const dbEnvProd = `[[define "db-env-prod"]]
+[[- if eq .DB "sqlite" -]]
+DB_CONNECTION=sqlite
+# The database file is DB_DATABASE, which the Dockerfile and the systemd
+# unit set, in the data directory (keep it on a volume or disk).
+[[- else if eq .DB "postgres" -]]
+DB_CONNECTION=postgres
+# The connection string (DB_URL), or DB_HOST, DB_PORT, DB_DATABASE,
+# DB_USERNAME and DB_PASSWORD.
+DB_URL=postgres://[[.DBName]]:password@db.example.com:5432/[[.DBName]]?sslmode=require
+[[- else -]]
+DB_CONNECTION=mysql
+# The connection string (DB_URL, the driver's DSN), or DB_HOST, DB_PORT,
+# DB_DATABASE, DB_USERNAME and DB_PASSWORD.
+DB_URL=[[.DBName]]:password@tcp(db.example.com:3306)/[[.DBName]]?tls=true
+SEARCH_LANGUAGE=simple
+[[- end]]
+[[- end]]`
 
 const dbEnv = `[[define "db-env"]]
 [[- if eq .DB "sqlite" -]]
@@ -133,6 +161,7 @@ func Create(p Project) ([]string, error) {
 	data := projectData{
 		Name: name, Title: title(name), Module: p.Module, DB: p.DB,
 		Key: appkey.Generate(), Replace: p.Replace, DBName: naming.Snake(identifier(name)),
+		GoMinor: goMinor, Bin: BinaryName(p.Module), Image: strings.ToLower(name),
 	}
 	if p.Replace != "" {
 		data.ReplaceCore = modfile.AutoQuote(p.Replace)
@@ -172,8 +201,12 @@ func Create(p Project) ([]string, error) {
 			rel = ".env.testing"
 		case "gitignore":
 			rel = ".gitignore"
+		case "dockerignore":
+			rel = ".dockerignore"
+		case "deploy/app.service":
+			rel = "deploy/" + name + ".service"
 		}
-		out, err := render(src, dbEnv, data)
+		out, err := render(src, dbEnv+dbEnvProd, data)
 		if err != nil {
 			return err
 		}
@@ -305,4 +338,20 @@ func checkoutModules(checkout string) ([]Replacement, error) {
 		}
 	}
 	return mods, nil
+}
+
+// BinaryName is go build's name for a module's binary, which anetos
+// build writes to bin/: the path's last element, or the one before a
+// major version suffix (example.com/blog/v2: blog).
+func BinaryName(module string) string {
+	name := path.Base(module)
+	if len(name) > 1 && name[0] == 'v' && strings.Trim(name[1:], "0123456789") == "" {
+		if dir := path.Dir(module); dir != "." && dir != "/" {
+			name = path.Base(dir)
+		}
+	}
+	if name == "" || name == "." || name == "/" {
+		name = "app"
+	}
+	return name
 }

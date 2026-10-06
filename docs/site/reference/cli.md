@@ -54,6 +54,8 @@ before `migrate`.
 | `views/layout.templ`, `views/home.templ` | templ layout (`<html lang dir>` in the request's locale, `hreflang` links with `LOCALE_URL=prefix` or `subdomain`, flash messages, CSRF header for htmx) and home page, its text from the catalog |
 | `locales/locales.go`, `locales/en/app.yaml` | The translations, embedded: the home page's English text. Add a language with its folder (`locales/bn/app.yaml`); see [Translations](../guides/translations.md) |
 | `public/public.go`, `public/static/app.css` | `public.Assets`: the static files and htmx under `/assets` |
+| `Dockerfile`, `.dockerignore` | A container image (v0.3): `anetos build` in `golang:<go version>`, the binary alone in `gcr.io/distroless/static-debian12:nonroot` (user 65532), `/data` for the files (and the SQLite database), `HEALTHCHECK` with `health:check`. See [Deploy](../guides/deployment.md#run-it-in-a-container) |
+| `deploy/<name>.service`, `deploy/production.env.example` | A systemd unit (v0.3: migrations before start, restart on failure, sandboxed) and the production settings to fill in. See [Deploy](../guides/deployment.md#run-it-on-a-server-with-systemd) |
 
 ## `anetos dev`
 
@@ -80,6 +82,28 @@ wait for the new version. The proxy adds a small script to HTML pages
 build errors, and an app that stops or doesn't start, show as an error
 page until the next change. On Linux the app is stopped even if
 `anetos dev` is killed.
+
+## `anetos build`
+
+`anetos build [-o file] [--target=os/arch] [--version=v1.2.0] [--cgo] [-- go build flags]` (v0.3)
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `-o` | `bin/<name>`: the module path's last element, or the one before a `/v2` suffix (`.exe` for Windows) | The binary to write |
+| `--target` | `go env GOOS`/`GOARCH` | The system to build for: `linux/amd64`, `linux/arm64`, `windows/amd64`… The generators still run on this one |
+| `--version` | the version Go records from git: the tag of the commit (`v1.2.0`), else a pseudo-version (`v0.0.0-20261006100000-1a2b3c4d5e6f`); `(devel)` outside a repository | The app's version, for its `version` command: letters, digits and `. + - _ ~ /` |
+| `--cgo` | `false` | Build with `CGO_ENABLED=1` (only for a driver or package that needs cgo; SQLite doesn't) |
+| `-- flags…` | | More `go build` flags (`-tags=…`); an `-ldflags` is added to the build's own |
+
+Run it in the project. It runs `go tool templ generate` (if there are
+`.templ` files) and `anetos gen`, then `go build -trimpath
+-ldflags="-s -w" .` with `CGO_ENABLED=0`, and prints the binary, its
+system and size (`built bin/blog (linux/amd64, 18.3 MB)`). Use
+`--target` rather than `GOOS` and `GOARCH`: with those set, `go tool`
+builds the tool itself for the other system, which then can't run. The
+binary holds the migrations, views, `public/` and `locales/`: copy it
+alone. Built in a git repository, it records the commit (and whether
+files were changed) for `version`.
 
 ## `anetos make:*`
 
@@ -183,6 +207,7 @@ folder or for a locale the module doesn't have. The download runs with
 | (none), `run [--only=role,…]` | every app | Runs the components (all, or those with the roles, plus those without roles) until SIGINT/SIGTERM (exit 0) |
 | `serve` | `web.NewServer` | `run --only=http` |
 | `routes:list` | `web.NewServer` | Method, path and name of every route |
+| `health:check [--live] [--timeout=5s]` | `web.NewServer` | Asks the server running on `HTTP_ADDR` (on `127.0.0.1` when its host is empty, `0.0.0.0` or `[::]`) for `/health/ready` (`--live`: `/health/live`), for container health checks: prints `ok`, or exits 1. An error with `HTTP_HEALTH_ROUTES=false` (v0.3) |
 | `migrate`, `migrate:rollback`, `migrate:reset`, `migrate:fresh`, `migrate:status`, `db:seed` | `migrate.ForApp` | See the [migrations reference](migrations.md#commands) |
 | `search:reindex [table…]` | `migrate.ForApp` | Rebuilds the search indexes (all, or the tables') for `SEARCH_LANGUAGE` and `SEARCH_RANKING`. See [Search](../guides/search.md) |
 | `ai:embed [table…]` | `ai.EmbeddingsFor` | Embeds the records whose text or embedding model changed (all tables', or the named ones), a hundred at a time; unchanged chunks aren't embedded again. See [Search by meaning](../guides/semantic-search.md) |
@@ -198,6 +223,7 @@ folder or for a locale the module doesn't have. The download runs with
 | `audit:anonymize <actor-type> <actor-id>` | `audit.ForApp` | Replaces an actor (`user 42`) with `erased` in the audit log, as the actor and as the user someone acted as, and drops the IP addresses of their entries, for erasure requests. See [Keep an audit log](../guides/audit-log.md#8-keep-entries-for-as-long-as-you-must-and-no-longer) |
 | `plugins:list` | `ext.Load` | Each plugin, its version constraint, its route prefix and what it adds (or that its settings are missing); doesn't boot the app. See [Use plugins](../guides/plugins.md) |
 | `plugins:env [plugin]` | `ext.Load` | The plugins' settings as `.env` lines with their defaults (double-quoted when they need it; `# required` after required ones); doesn't boot the app, so it works before they are set |
+| `version` | every app | The app's version (`--version` of `anetos build`, else the git tag Go recorded), commit, commit time and `modified` if the files differed from it; the Anetos version; the Go version and system. Doesn't boot the app; the `main.go` of `anetos new` prints it before `setup`, so it needs no settings (`anetos.VersionText`) (v0.3) |
 | `help [command]`, `-h`, `--help` | every app | The command list, or a command's usage (`<command> -h` too, as the first argument); doesn't boot the app |
 
 | API | Does |

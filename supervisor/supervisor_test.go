@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -264,6 +265,34 @@ func TestUnknownRole(t *testing.T) {
 	err := s.Run(context.Background(), "htp")
 	if err == nil || err.Error() != `supervisor: unknown role "htp" (known roles: http)` {
 		t.Fatalf("Run = %v", err)
+	}
+}
+
+// A declared role is accepted before a component has it, and its
+// components added later start in a process that chose it.
+func TestDeclaredRole(t *testing.T) {
+	s := newTestSupervisor(time.Second)
+	mustAdd(t, s, Spec{Component: blocker("http", nil), Roles: []string{"http"}})
+	s.Declare("scheduler")
+	if got := s.Roles(); !slices.Equal(got, []string{"http", "scheduler"}) {
+		t.Errorf("Roles = %v", got)
+	}
+	if err := s.Run(context.Background(), "htp"); err == nil || err.Error() != `supervisor: unknown role "htp" (known roles: http, scheduler)` {
+		t.Fatalf("Run = %v", err)
+	}
+	s = newTestSupervisor(time.Second)
+	mustAdd(t, s, Spec{Component: blocker("http", nil), Roles: []string{"http"}})
+	s.Declare("scheduler")
+	ctx, cancel := context.WithCancel(context.Background())
+	done := runAsync(s, ctx, "scheduler")
+	mustAdd(t, s, Spec{Component: blocker("tasks", nil), Roles: []string{"scheduler"}})
+	waitFor(t, "tasks running", func() bool { return statusOf(s, "tasks").State == StateRunning })
+	if statusOf(s, "http").State != StatePending {
+		t.Errorf("http state = %v, want pending", statusOf(s, "http").State)
+	}
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatal(err)
 	}
 }
 

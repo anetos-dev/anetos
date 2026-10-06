@@ -132,7 +132,7 @@ Pages of posts (`Paginate` and `web.PageURL`) are in
 
 ```sh
 go test ./...
-go build -o bin/blog .
+go tool anetos build    # bin/blog
 ./bin/blog              # runs the app; ./bin/blog help lists the commands
 ```
 
@@ -141,12 +141,14 @@ go build -o bin/blog .
 in-memory database, like a browser would. Add a test for each page and
 form as you go.
 
-The binary embeds the views and static files. Set `APP_ENV=production`
-and the `APP_KEY` from your secrets in production, and run
-`./bin/blog migrate` before starting the new version.
+The binary embeds the migrations, views and static files: it is all a
+server needs, with its settings. [Deploy](../guides/deployment.md)
+shows how to run it on a server, in a container, or on a hosting
+platform.
 
 ## Next steps
 
+- [Deploy](../guides/deployment.md)
 - [Commands](../guides/commands.md)
 - [Configuration](../guides/configuration.md)
 - [`anetos` tool and app commands reference](../reference/cli.md)

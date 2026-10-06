@@ -1,0 +1,41 @@
+# The app's image (anetos new): one static binary on a distroless base,
+# run as a user without privileges. See the "Deploy" guide.
+#
+#   docker build -t [[.Image]] --build-arg VERSION=v1.0.0 .
+#   docker run --rm --env-file production.env [[.Image]] migrate
+#   docker run -d -p 8080:8080 --env-file production.env -v [[.Image]]-data:/data [[.Image]]
+#
+# The settings come from the environment (production.env: see
+# deploy/production.env.example); .env isn't in the image. RUN --mount
+# needs BuildKit, Docker's builder since version 23.
+
+FROM golang:[[.GoMinor]] AS build
+WORKDIR /src
+# The dependencies first: in BuildKit's cache, kept between builds on
+# the same machine.
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
+COPY . .
+# The version the app's version command prints (the image has no git history).
+ARG VERSION=""
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
+    go tool anetos build -o /out/[[.Name]] --version="$VERSION" && mkdir -p /out/data
+
+FROM gcr.io/distroless/static-debian12:nonroot
+WORKDIR /app
+COPY --from=build /out/[[.Name]] /app/[[.Name]]
+# /data holds the files of STORAGE_DRIVER=local[[if eq .DB "sqlite"]] and the SQLite database[[end]]:
+# mount a volume there.
+COPY --from=build --chown=65532:65532 /out/data /data
+ENV APP_ENV=production \
+    HTTP_ADDR=:8080 \
+    STORAGE_ROOT=/data/storage[[if eq .DB "sqlite"]] \
+    DB_DATABASE=/data/app.db[[end]]
+EXPOSE 8080
+USER 65532:65532
+# The server's readiness; turn it off for containers that don't serve
+# HTTP (run --only=workers).
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s CMD ["/app/[[.Name]]", "health:check"]
+ENTRYPOINT ["/app/[[.Name]]"]
+# Every component; run --only=http, workers, scheduler or listeners for one role.
+CMD ["run"]

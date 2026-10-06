@@ -386,6 +386,9 @@ func TestForApp(t *testing.T) {
 	if anetos.MustResolve[*pubsub.PubSub](app) != p {
 		t.Error("not provided")
 	}
+	if got := app.Supervisor().Roles(); len(got) != 1 || got[0] != "listeners" {
+		t.Errorf("roles before Listen = %v", got)
+	}
 	r := &recorder{}
 	check(t, pubsub.Listen(p, "orders.created", r.handle))
 	if got := app.Supervisor().Roles(); len(got) != 1 || got[0] != "listeners" {

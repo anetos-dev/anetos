@@ -51,8 +51,11 @@ theirs with `anetos.Roles("workers")`.
 `app.Run(ctx, "http")`.
 
 - Components **without** roles run in every process.
-- Asking for a role no component declares is an error, so typos in `--only`
-  fail loudly.
+- Asking for a role nothing declares is an error, so typos in `--only`
+  fail loudly. `schedule.ForApp` and `pubsub.ForApp` declare theirs
+  (`Supervisor.Declare`) before their components exist, so
+  `run --only=workers,scheduler` works in an app that has no task yet
+  and keeps working once it has one (v0.3).
 
 Split processes share work through shared stores: the database or Redis
 for the queue, the cache (database or Redis) for the scheduler's
@@ -129,5 +132,6 @@ immediately canceled.
 ## Related
 
 - [Run background tasks](../guides/background-tasks.md)
+- [Deploy](../guides/deployment.md): roles in processes and containers
 - [Application lifecycle](application-lifecycle.md)
 - Package docs: `supervisor`

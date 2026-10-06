@@ -377,6 +377,10 @@ func TestForApp(t *testing.T) {
 	nocache := newApp(t, nil)
 	s, err := schedule.ForApp(nocache)
 	check(t, err)
+	// The role is known before the first task: run --only=scheduler works.
+	if got := nocache.Supervisor().Roles(); len(got) != 1 || got[0] != "scheduler" {
+		t.Errorf("roles without tasks = %v", got)
+	}
 	check(t, s.Add(schedule.Daily(), "x", func(context.Context) error { return nil }, schedule.WithoutOverlapping()))
 	if err := nocache.Boot(context.Background()); err == nil || !strings.Contains(err.Error(), "cache.ForApp") {
 		t.Errorf("Boot = %v", err)

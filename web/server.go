@@ -7,6 +7,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -179,7 +180,8 @@ func NewServer(app *anetos.App, opts ...ServerOption) (*Server, error) {
 	return s, nil
 }
 
-// commands are the binary commands the server adds: serve and routes:list.
+// commands are the binary commands the server adds: serve, health:check
+// and routes:list.
 func (s *Server) commands(app *anetos.App) []cmd.Command {
 	return []cmd.Command{
 		{
@@ -195,6 +197,34 @@ func (s *Server) commands(app *anetos.App) []cmd.Command {
 					return cmd.Usagef("unexpected argument %q", fs.Arg(0))
 				}
 				return app.Run(ctx, "http")
+			},
+		},
+		{
+			Name:        "health:check",
+			Usage:       "[--live] [--timeout=5s]",
+			Description: "Ask the running server whether it is ready (or, with --live, alive), for container health checks; exits 1 if not",
+			ManagesApp:  true, // asks the server over HTTP: nothing to boot
+			Run: func(ctx context.Context, args *cmd.Args) error {
+				fs := flag.NewFlagSet("health:check", flag.ContinueOnError)
+				live := fs.Bool("live", false, "check /health/live instead of /health/ready")
+				timeout := fs.Duration("timeout", 5*time.Second, "how long to wait for the answer")
+				if err := args.Parse(fs); err != nil {
+					return err
+				}
+				if fs.NArg() > 0 {
+					return cmd.Usagef("unexpected argument %q", fs.Arg(0))
+				}
+				if *timeout <= 0 {
+					return cmd.Usagef("--timeout must be positive")
+				}
+				if !s.cfg.HealthRoutes {
+					return errors.New("the health routes are off (HTTP_HEALTH_ROUTES=false)")
+				}
+				path := "/health/ready"
+				if *live {
+					path = "/health/live"
+				}
+				return checkHealth(ctx, "http://"+localAddr(s.cfg.Addr)+path, *timeout, args.Stdout)
 			},
 		},
 		{
@@ -336,4 +366,38 @@ func units(app *anetos.App) Middleware {
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// localAddr is the address to reach a server listening on addr from the
+// same host: the loopback address for ":8080", "0.0.0.0:8080" or
+// "[::]:8080".
+func localAddr(addr string) string {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return addr
+	}
+	if ip := net.ParseIP(host); host == "" || ip != nil && ip.IsUnspecified() {
+		host = "127.0.0.1"
+	}
+	return net.JoinHostPort(host, port)
+}
+
+// checkHealth asks url, and fails unless it answers 200.
+func checkHealth(ctx context.Context, url string, timeout time.Duration, out io.Writer) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+	res, err := (&http.Client{Transport: &http.Transport{Proxy: nil}}).Do(req) // no proxy: the server is local
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("%s answered %s", url, res.Status)
+	}
+	fmt.Fprintln(out, "ok")
+	return nil
 }

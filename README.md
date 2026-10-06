@@ -47,8 +47,10 @@ filters, forms, actions, a trash, a permission per resource, and users
 roles, a dashboard, the activity, failed jobs and scheduled tasks; with
 two-factor sign-in (TOTP, recovery codes) and password confirmation in
 `auth`, the admin can require both; `make:auth` adds a settings page for
-users (password, email, language, time zone). The release work (deploy, docs) is
-next. The docs are at [docs.anetos.dev](https://docs.anetos.dev).
+users (password, email, language, time zone). `anetos build` makes the
+production binary, and new projects come with a Dockerfile and a systemd
+unit ([Deploy](docs/site/guides/deployment.md)). The release work (the
+tutorial, a reference app, security) is next. The docs are at [docs.anetos.dev](https://docs.anetos.dev).
 APIs will change.
 
 ## Documents
@@ -67,11 +69,12 @@ go tool anetos make:admin  # an admin at /admin; make:admin:resource Post adds p
 go run . migrate
 go tool anetos dev         # rebuild and reload on every change
 
-go build -o blog .
-./blog                     # everything: web, queue workers and the scheduler
-./blog run --only=http     # or split by role when you scale
-./blog run --only=workers
-./blog help                # migrate, routes:list, your own commands, …
+go tool anetos build       # bin/blog: one static binary, everything in it
+./bin/blog                 # everything: web, queue workers and the scheduler
+./bin/blog run --only=http # or split by role when you scale
+./bin/blog run --only=workers
+./bin/blog help            # migrate, routes:list, your own commands, …
+docker build -t blog .     # or the image, from the generated Dockerfile
 ```
 
 ## License

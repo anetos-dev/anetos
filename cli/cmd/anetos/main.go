@@ -10,6 +10,7 @@
 //
 //	new <directory>           create a project
 //	dev                       run the app with live reload
+//	build [-o file]           build the app for production: one binary
 //	make:handler <Name>       add a handler
 //	make:model <Name>         add a model (--migration: and its migration)
 //	make:migration <name>     add a migration
@@ -52,6 +53,7 @@ const usage = `Usage: anetos <command> [arguments]
 Commands:
   new <directory>           create a project
   dev                       run the app with live reload
+  build [-o file]           build the app for production: one static binary (bin/<name>)
   make:handler <Name>       add a handler to app/handlers
   make:model <Name>         add a model to app/models (--migration: and its migration)
   make:migration <name>     add a migration to database/migrations
@@ -96,6 +98,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return removePlugin(ctx, args[1:], stdout, stderr)
 	case "dev":
 		return dev(args[1:], stdout, stderr)
+	case "build":
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		return build(ctx, args[1:], stdout, stderr)
 	case "make:auth":
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()

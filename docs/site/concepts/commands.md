@@ -89,8 +89,8 @@ Scripts and orchestrators can rely on these codes: a failed
 
 `run --only=http` runs the components with the `http` role plus those
 without roles; `serve` is the same as `run --only=http`. Your own
-components get roles with `anetos.Roles`. A role no component declares is
-an error, so a typo in `--only` fails at startup. The same binary can run
+components get roles with `anetos.Roles`. A role no component has and no
+package declared is an error, so a typo in `--only` fails at startup. The same binary can run
 the web tier on some machines and background work on others. See
 [the runtime supervisor](runtime-supervisor.md).
 

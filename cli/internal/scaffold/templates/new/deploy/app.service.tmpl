@@ -1,0 +1,53 @@
+# A systemd unit for [[.Name]] (anetos new). Build the binary for the
+# server (go tool anetos build --target=linux/amd64, or linux/arm64),
+# copy it and this file there, then:
+#
+#   sudo install -D bin/[[.Bin]] /opt/[[.Name]]/[[.Name]]
+#   sudo install -D -m 600 production.env /etc/[[.Name]]/env   # from deploy/production.env.example
+#   sudo cp deploy/[[.Name]].service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now [[.Name]]
+#
+# It runs as a user of its own, with /var/lib/[[.Name]] to write to
+# (files[[if eq .DB "sqlite"]], the SQLite database[[end]]). To update: copy the new binary and
+# systemctl restart [[.Name]]; migrations run before it starts.
+
+[Unit]
+Description=[[.Title]]
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+DynamicUser=yes
+StateDirectory=[[.Name]]
+WorkingDirectory=/var/lib/[[.Name]]
+Environment=APP_ENV=production
+Environment=STORAGE_ROOT=/var/lib/[[.Name]]/storage
+[[- if eq .DB "sqlite"]]
+Environment=DB_DATABASE=/var/lib/[[.Name]]/app.db
+[[- end]]
+# The settings, which override the lines above: APP_KEY, APP_URL, the database…
+EnvironmentFile=/etc/[[.Name]]/env
+ExecStartPre=/opt/[[.Name]]/[[.Name]] migrate
+ExecStart=/opt/[[.Name]]/[[.Name]] run
+# Time for the migrations and the start; raise it for long migrations.
+TimeoutStartSec=5min
+Restart=on-failure
+RestartSec=2s
+# Stopping: SIGTERM, then the app finishes its work within
+# APP_SHUTDOWN_TIMEOUT (30s); systemd kills it after 45s.
+KillSignal=SIGTERM
+TimeoutStopSec=45s
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+
+[Install]
+WantedBy=multi-user.target

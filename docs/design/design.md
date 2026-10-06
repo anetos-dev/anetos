@@ -2219,7 +2219,7 @@ planned.
 | `anetos gen` | Run code generators: typed model columns (F9), relation handles (v0.1.1). `-check` for CI |
 | `anetos key:generate` | Print a new `APP_KEY` line (F10) |
 | `anetos add <module>[@version]` / `anetos remove <module>` | Install or uninstall a plugin: `go get`, `plugins.go`, `go mod tidy`, a build check, `.env.example` (B11, §16.3, D151) |
-| `anetos build` | Production build: `-trimpath`, version via ldflags, `CGO_ENABLED=0` by default |
+| `anetos build [-o] [--target] [--version] [--cgo]` | Production build (M5, D229): `templ generate` and `anetos gen` (for this system), then `go build -trimpath -ldflags="-s -w"` with `CGO_ENABLED=0` (`--cgo` for 1) for `--target` (os/arch), to `bin/<module name>`; an `-ldflags` after `--` is merged; `--version` sets the version `<app> version` prints (`-X`), else Go's VCS stamp |
 | `anetos doctor` | Check the environment and project (Go version, `APP_KEY`, debug in prod, pending migrations) |
 | `anetos stub:publish` | Copy generator templates into the project for customization |
 
@@ -2235,7 +2235,7 @@ Implemented in F11 (package `cmd`, `App.Execute`; D69): `run [--only=…]`
 plus **custom commands**. Features add theirs: `cache:clear` (B1),
 `queue:failed`, `queue:retry`, `queue:forget`, `queue:flush`,
 `queue:clear` (B5), `pubsub:publish` (B7), `schedule:list`,
-`schedule:run` (B8), `plugins:list`, `plugins:env` (B11, `ext.Load`), `search:reindex` (S1), `rbac:roles`, `rbac:user`, `rbac:assign`, `rbac:unassign` (R1). Later: the shortcuts `work`, `listen`, `schedule`,
+`schedule:run` (B8), `plugins:list`, `plugins:env` (B11, `ext.Load`), `search:reindex` (S1), `rbac:roles`, `rbac:user`, `rbac:assign`, `rbac:unassign` (R1). `version` (every app) and `health:check` (`web.NewServer`) came with M5 (D231). Later: the shortcuts `work`, `listen`, `schedule`,
 and `down` / `up` (maintenance).
 
 ```go
@@ -2371,14 +2371,35 @@ Secure by default, opt-out only when you mean it:
 
 ## 21. Build & deployment
 
-- `anetos build` → one static binary (`CGO_ENABLED=0`) with migrations,
-  compiled templ views and `public/` assets embedded.
-- `anetos new` generates a multi-stage **Dockerfile** (distroless or scratch
-  runtime) and an example **systemd** unit.
+Implemented in M5 (D229–D231, D233).
+
+- `anetos build` → one static binary (`CGO_ENABLED=0`, `-trimpath`,
+  `-s -w`) with migrations, compiled templ views, `public/` and
+  `locales/` embedded. The version comes from Go's VCS stamp (a tag, or
+  a pseudo-version; the commit, its time, `modified`) or from
+  `--version`, which sets `anetos.buildVersion` with `-X` for builds
+  without the repository (containers) (D229).
+- `anetos new` writes a multi-stage **Dockerfile** (`golang:<go
+  version>` → `gcr.io/distroless/static-debian12:nonroot`, user 65532,
+  `/data` for files and SQLite, `HEALTHCHECK` with `health:check`,
+  `--build-arg VERSION`), `.dockerignore`, a hardened **systemd** unit
+  (`deploy/<name>.service`: `DynamicUser`, `StateDirectory`, `migrate`
+  as `ExecStartPre`, `TimeoutStopSec` above `APP_SHUTDOWN_TIMEOUT`) and
+  `deploy/production.env.example` (D230).
+- Every app has `version` (no settings needed: `anetos new`'s `main`
+  prints `anetos.VersionText()` before `setup`); `web.NewServer` adds
+  `health:check` for health checks inside images without a shell or curl
+  (D231).
 - Configuration comes entirely from the environment (12-factor); `.env` is
   for dev.
-- Deployment guides (v0.3): single VPS (all roles in one process), Docker,
-  common PaaS, and scaling out by roles.
+- The guide "Deploy": the build, the production settings, migrations on
+  each deploy (written to work with the version still running), systemd,
+  Docker, Fly.io and Render, HTTPS with Caddy and
+  `HTTP_TRUSTED_PROXIES`, splitting roles, graceful shutdown against the
+  platform's grace period, a Compose example.
+- Features whose components come later declare their roles when set up
+  (`Supervisor.Declare`), so a deployment can name `scheduler` before
+  the app has tasks (D233).
 
 ---
 
@@ -2652,6 +2673,11 @@ unless new information arrives), **Open**, **Superseded**.
 | D226 | `ADMIN_TWO_FACTOR=required` (users without two-factor sign-in are told to turn it on, at `AUTH_TWO_FACTOR_URL`) and `ADMIN_ALLOW_IPS` (addresses or networks; others get 404, the client address as `web.RealIP` finds it); package `qr` (byte mode, versions 1–40, SVG) in the core for the setup's QR code | Accepted | Settings rather than code: operators turn them on per deployment. A QR encoder is small, has no dependencies, and an app needs one for two-factor setup; a third-party module would have to reach every app made with `make:auth` |
 | D227 | `make:auth` writes an account settings page (`/settings`, `AUTH_SETTINGS_URL`): name, password, language and time zone, email address (on by default: the password again, the new address pending until its link is followed, the old one told), deleting the account (off by default); the switches are fields of `handlers.Accounts` set in `routes/auth.go` | Accepted | Every app needs one, and it is app code (its fields are the app's), so it is generated like the other account pages. Asking for the password keeps a stolen session from taking the account's sign-in and reset channel; the new address pending until its link is followed keeps a typo from locking the user out and proves the address; its reset links and other sessions end (`SignOutOthers`); the old address is told, with a link (`Auth.EmailRevertToken`, `AUTH_REVERT_TTL`, 7 days) that undoes the change even once it is made and secures the account (password cleared, two-factor sign-in off, tokens and social links removed, everyone signed out, a reset link to the old address), since someone else had the password; deletion is a product decision, so it starts off. The switches decide which routes exist, so they live in code, not settings |
 | D228 | `Auth.ChangePassword` in package `auth` (the current password, throttled per user with `ConfirmPassword`; a user without a password sets one within `AUTH_CONFIRM_TTL` of signing in) and `Auth.SignOutOthers` (the user's other sessions, remember-me cookies and reset links end; the request's session gets a new ID and keeps its remember-me cookie); reset tokens bound to the session key too; `web.Ctx.ForgetLocale`; `i18n.TimeZones`, generated from the IANA database's `zone.tab` (one zone per region of each country) | Accepted | The parts that must be right stay in the framework, as for resets; the zones list needs no runtime zone database (the built-in one lacks the table of zones) |
+| D229 | `anetos build` wraps `go build`: generation first (templ, `anetos gen`), `-trimpath -ldflags="-s -w"`, `CGO_ENABLED=0` unless `--cgo`, output `bin/<module name>`; `--target=os/arch` sets GOOS and GOARCH for `go build` only; the version is Go's VCS stamp, or `--version` (letters, digits, `. + - _ ~ /`) through `-X anetos.dev/anetos.buildVersion` | Accepted | A plain `go build` works, but forgets generation and the flags a production binary wants. A flag, not GOOS: with GOOS set, `go tool` builds the tool (and templ) for the target, which can't run here. Go already records the commit and tag, so only builds without the repository (a container's context has no `.git`) need `--version` |
+| D230 | `anetos new` writes a `Dockerfile` (Go image to distroless static, non-root, `/data`, a health check), a systemd unit and `deploy/production.env.example`, as files the developer owns; no deploy command or platform files | Accepted | These are the two ways most apps run; platforms (Fly.io, Render…) build from the Dockerfile, so the guide shows their config instead of generating files for each. Distroless static has CA certificates, time zones are built into the binary (D188), and nothing else is needed without cgo |
+| D231 | Every app has a `version` command (`anetos.VersionText`), and `web.NewServer` a `health:check` command that asks the running server for `/health/ready` on `HTTP_ADDR` | Accepted | Knowing what runs is the first question in an incident; a distroless image has no shell or curl for `HEALTHCHECK`, and the binary already knows its address |
+| D232 | OpenAPI (M4) moves after the public release (2026-10-06), at the maintainer's suggestion, accepted by the user | Accepted | Apps can be built, deployed and secured without it; the tutorial, reference app and security pass matter more for the release, and OpenAPI is better designed once the API stability pass (M8) has settled handler signatures |
+| D233 | `Supervisor.Declare(roles...)`: a role is known before a component has it; `schedule.ForApp` declares `scheduler`, `pubsub.ForApp` `listeners` | Accepted | Their components come later (the scheduler with its first task), so `run --only=workers,scheduler` failed in an app without tasks, and a deployment written without `scheduler` would silently never run the tasks added later. Typos still fail: only what the app sets up is known |
 
 ---
 
@@ -2725,3 +2751,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-06 | AD2 designed: §12.3 dashboard, activity, jobs and tasks (AD2a, D221–D223) and security (AD2b, D224–D226) |
 | 2026-10-06 | AD2a implemented (`queue.CountFailed`, `queue.FindFailed`); AD2b implemented: §12.3 security; D224–D226 added (`ADMIN_CONFIRM`, package `qr`) |
 | 2026-10-06 | AC1 (account settings) designed and implemented: §15 scaffolding; D227, D228 added |
+| 2026-10-06 | M5 (build and deploy) designed and implemented: §17, §21; D229–D233 added; OpenAPI (M4) moved after the release (D232) |
