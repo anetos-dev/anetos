@@ -30,7 +30,8 @@ import (
 // library's http.ServeMux with hand-written code doing the same work;
 // "Router" is a bare web.Router; "Server" is the router of web.NewServer,
 // with its default middleware (recover, request IDs, real IP, security
-// headers, body limit, timeout; no access log).
+// headers, body limit, timeout; no access log; the units and locale steps
+// do nothing without their setup).
 
 func serve(b *testing.B, h http.Handler, newReq func() *http.Request, want int) {
 	b.Helper()
@@ -50,7 +51,7 @@ func get(target string) func() *http.Request {
 	return func() *http.Request { return httptest.NewRequest(http.MethodGet, target, nil) }
 }
 
-func newApp(b *testing.B, env config.Map) *anetos.App {
+func newApp(b testing.TB, env config.Map) *anetos.App {
 	b.Helper()
 	src := config.Map{"APP_ENV": "production", "HTTP_ACCESS_LOG": "false"}
 	maps.Copy(src, env)
@@ -62,7 +63,7 @@ func newApp(b *testing.B, env config.Map) *anetos.App {
 	return app
 }
 
-func newServer(b *testing.B, app *anetos.App) *web.Router {
+func newServer(b testing.TB, app *anetos.App) *web.Router {
 	b.Helper()
 	srv, err := web.NewServer(app)
 	if err != nil {
@@ -71,7 +72,7 @@ func newServer(b *testing.B, app *anetos.App) *web.Router {
 	return srv.Router()
 }
 
-func boot(b *testing.B, app *anetos.App) {
+func boot(b testing.TB, app *anetos.App) {
 	b.Helper()
 	if err := app.Boot(context.Background()); err != nil {
 		b.Fatal(err)
@@ -80,14 +81,16 @@ func boot(b *testing.B, app *anetos.App) {
 
 // ---- Hello world ----
 
-func BenchmarkHelloMux(b *testing.B) {
+func helloMux() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		_, _ = io.WriteString(w, "Hello, world!")
 	})
-	serve(b, mux, get("/"), http.StatusOK)
+	return mux
 }
+
+func BenchmarkHelloMux(b *testing.B) { serve(b, helloMux(), get("/"), http.StatusOK) }
 
 func helloRoutes(r *web.Router) {
 	r.Get("/", func(c *web.Ctx) error { return c.Text(http.StatusOK, "Hello, world!") })
@@ -130,7 +133,9 @@ func postReq() *http.Request {
 	return req
 }
 
-func BenchmarkJSONMux(b *testing.B) {
+func BenchmarkJSONMux(b *testing.B) { serve(b, jsonMux(), postReq, http.StatusCreated) }
+
+func jsonMux() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /authors/{id}/posts", func(w http.ResponseWriter, r *http.Request) {
 		id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
@@ -151,7 +156,7 @@ func BenchmarkJSONMux(b *testing.B) {
 		w.WriteHeader(http.StatusCreated)
 		_ = json.NewEncoder(w).Encode(post{ID: 1, AuthorID: id, Title: in.Title, Body: in.Body})
 	})
-	serve(b, mux, postReq, http.StatusCreated)
+	return mux
 }
 
 func jsonRoutes(r *web.Router) {
@@ -188,7 +193,7 @@ type postID struct {
 
 // dbApp returns an app connected to an in-memory SQLite database with one
 // post, and its router.
-func dbApp(b *testing.B) (*anetos.App, *web.Router, *db.DB) {
+func dbApp(b testing.TB) (*anetos.App, *web.Router, *db.DB) {
 	b.Helper()
 	app := newApp(b, config.Map{"DB_DATABASE": ":memory:"})
 	d, err := db.Connect(context.Background(), app, sqlite.Driver())

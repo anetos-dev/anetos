@@ -4,7 +4,6 @@ package session
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
@@ -413,12 +412,14 @@ type payload struct {
 
 // state is a loaded session and what came in, to detect changes.
 type state struct {
-	s       *Session
-	id      string // the ID that came in (server-side sessions)
-	had     bool   // a valid cookie came in
-	loaded  []byte // its payload without Last, for change detection
-	last    time.Time
-	expired bool // a cookie came in but was invalid or expired
+	s   *Session
+	id  string // the ID that came in (server-side sessions)
+	had bool   // a valid cookie came in
+	// consumes says the payload that came in had flashed values, errors
+	// or input, which this request uses up: saving changes it.
+	consumes bool
+	last     time.Time
+	expired  bool // a cookie came in but was invalid or expired
 }
 
 func (m *Manager) load(r *http.Request) (*state, error) {
@@ -437,7 +438,7 @@ func (m *Manager) load(r *http.Request) (*state, error) {
 			st.id = p.ID
 			st.had = true
 			st.last = time.Unix(p.Last, 0)
-			st.loaded = comparable(p)
+			st.consumes = len(p.Flash) > 0 || len(p.Errors) > 0 || len(p.Old) > 0
 		} else {
 			st.expired = true
 			m.log.Debug("session: starting a new session", "reason", why)
@@ -551,14 +552,6 @@ func (s *Session) toPayload() *payload {
 	return p
 }
 
-// comparable encodes p without its activity time.
-func comparable(p *payload) []byte {
-	q := *p
-	q.Last = 0
-	b, _ := json.Marshal(q)
-	return b
-}
-
 // empty reports whether saving p is pointless: nothing but identifiers.
 func (p *payload) empty() bool {
 	return len(p.Data) == 0 && p.Token == "" && len(p.Flash) == 0 && len(p.Errors) == 0 && len(p.Old) == 0
@@ -655,7 +648,7 @@ func (m *Manager) save(ctx context.Context, w http.ResponseWriter, st *state) {
 		}
 		return
 	}
-	changed := !st.had || !bytes.Equal(comparable(p), st.loaded)
+	changed := !st.had || st.consumes || s.changed()
 	if !changed && s.last.Sub(st.last) < m.refreshAfter() {
 		return
 	}

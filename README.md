@@ -55,7 +55,9 @@ tracker step by step, and [`examples/tracker`](examples/tracker), the
 reference app, is a bigger one. The framework had a security review
 ([checklist](docs/security/checklist.md)); every app has a `doctor`
 command that checks its settings, and [SECURITY.md](SECURITY.md) says
-how to report a vulnerability. Performance and API stability are next. The docs are at [docs.anetos.dev](https://docs.anetos.dev).
+how to report a vulnerability. [Benchmarks](docs/benchmarks/v0.3.md)
+compare it with plain `net/http`, chi, Gin and Echo, and the CI holds
+every change to allocation budgets and to the speed of its base branch. The docs are at [docs.anetos.dev](https://docs.anetos.dev).
 APIs will change.
 
 ## Documents

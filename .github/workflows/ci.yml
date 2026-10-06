@@ -59,6 +59,7 @@ jobs:
           go-version-file: ${{ matrix.go-version-file }}
       - run: make fmt-check spdx docs-check api-docs gen-check vet
       - run: make test
+      - run: make bench-check
 
   lint:
     runs-on: ubuntu-latest

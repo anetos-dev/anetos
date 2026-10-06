@@ -1,8 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Package bench compares Anetos with plain net/http on the same requests:
-// a hello-world response, a typed JSON handler with validation, and a
-// single-row database read. It is a module of its own; run it with
+// Package bench measures Anetos against the same work written by hand
+// with net/http and database/sql (hello, a typed JSON handler, a row by
+// key, a list of 20 rows), measures each part of the page an app made
+// with anetos new and make:auth serves and each middleware, and runs chi,
+// Gin and Echo on the same hello and JSON work. budget_test.go holds the
+// framework to its allocation budgets (make bench-check), and cmd/benchcmp
+// compares two runs (make bench-compare, and the CI on pull requests).
+// It is a module of its own, so the frameworks it compares with never
+// reach an app; run it with
 //
 //	cd bench && go test -run '^$' -bench . -benchmem -count 8 . | tee new.txt
 //

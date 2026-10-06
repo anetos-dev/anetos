@@ -4,9 +4,10 @@ package web
 
 import (
 	"context"
-	"crypto/rand"
 	"encoding/base32"
+	"encoding/binary"
 	"log/slog"
+	mrand "math/rand/v2"
 	"net"
 	"net/http"
 	"net/netip"
@@ -27,6 +28,9 @@ const RequestIDHeader = "X-Request-ID"
 // RequestID returns the request ID stored by the [RequestIDs] middleware,
 // or "".
 func RequestID(ctx context.Context) string {
+	if st := stateFrom(ctx); st != nil && st.requestID != "" {
+		return st.requestID
+	}
 	id, _ := ctx.Value(requestIDKey{}).(string)
 	return id
 }
@@ -43,16 +47,27 @@ func RequestIDs(next http.Handler) http.Handler {
 			id = newRequestID()
 		}
 		w.Header().Set(RequestIDHeader, id)
+		if st := stateFrom(r.Context()); st != nil { // in a router: no new context
+			st.requestID = id
+			next.ServeHTTP(w, r)
+			return
+		}
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), requestIDKey{}, id)))
 	})
 }
 
-var idEncoding = base32.StdEncoding.WithPadding(base32.NoPadding)
+var idEncoding = base32.NewEncoding("abcdefghijklmnopqrstuvwxyz234567").WithPadding(base32.NoPadding)
 
+// newRequestID returns 16 random characters (80 bits), lowercase base32.
+// They needn't be unguessable, only unique: the runtime's generator is
+// enough, and cheaper than crypto/rand.
 func newRequestID() string {
 	var b [10]byte
-	_, _ = rand.Read(b[:])
-	return strings.ToLower(idEncoding.EncodeToString(b[:]))
+	binary.LittleEndian.PutUint64(b[:8], mrand.Uint64())
+	binary.LittleEndian.PutUint16(b[8:], uint16(mrand.Uint32()))
+	var out [16]byte
+	idEncoding.Encode(out[:], b[:])
+	return string(out[:])
 }
 
 func validRequestID(id string) bool {
@@ -143,7 +158,7 @@ type clientIPKey struct{}
 // ClientIP returns the client's IP address: the one determined by the
 // [RealIP] middleware if it ran, otherwise the host part of r.RemoteAddr.
 func ClientIP(r *http.Request) string {
-	if ip, ok := r.Context().Value(clientIPKey{}).(string); ok {
+	if ip := ClientIPFrom(r.Context()); ip != "" {
 		return ip
 	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
@@ -158,6 +173,9 @@ func ClientIP(r *http.Request) string {
 // request's context, or "" outside one. It is for code that has the
 // context but not the request, such as package audit.
 func ClientIPFrom(ctx context.Context) string {
+	if st := stateFrom(ctx); st != nil && st.clientIP != "" {
+		return st.clientIP
+	}
 	ip, _ := ctx.Value(clientIPKey{}).(string)
 	return ip
 }
@@ -184,7 +202,11 @@ func RealIP(trusted []netip.Prefix) Middleware {
 				}
 			}
 			if ip.IsValid() {
-				r = r.WithContext(context.WithValue(r.Context(), clientIPKey{}, ip.Unmap().String()))
+				if st := stateFrom(r.Context()); st != nil { // in a router: no new context
+					st.clientIP = ip.Unmap().String()
+				} else {
+					r = r.WithContext(context.WithValue(r.Context(), clientIPKey{}, ip.Unmap().String()))
+				}
 			}
 			next.ServeHTTP(w, r)
 		})

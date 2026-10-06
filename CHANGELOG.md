@@ -7,6 +7,18 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Benchmarks of v0.3 (M6, D251–D253): the page of an app made with
+  `anetos new` and `make:auth` and the cost of each of its parts, each
+  middleware, a list of 20 rows, and chi, Gin and Echo doing the same
+  hello and JSON work; results, method and analysis in
+  `docs/benchmarks/v0.3.md`, and the concept page "Performance".
+- The performance gate (M6, D251): allocation budgets of requests and
+  queries (`bench/budget_test.go`, `make bench-check`, in `make check`
+  and every CI run), and on pull requests a comparison with the base
+  branch run in turns on one runner (the `Benchmarks` workflow,
+  `scripts/bench-compare.sh`, `bench/cmd/benchcmp`, `make
+  bench-compare`), failing on more allocations or a median over 20%
+  slower in every sample; the label `benchmark-ok` accepts one.
 - `doctor`, a command of every app (M7, D245): runs the checks of the
   app's settings and prints problems, warnings and notes; exit 1 on a
   problem (`--strict`: on a warning). Features add their checks as they
@@ -449,6 +461,17 @@ All notable changes to this project are documented here. The format follows
   "Search by meaning" (S2).
 
 ### Changed
+- Faster requests (M6, D252): a signed-in page 13–15% faster with about
+  a fifth fewer allocations. `RequestIDs`, `RealIP` and the locale
+  middleware keep their results in the router's request state instead
+  of a context value each (a sub-request served through the router
+  again gets a state of its own); request IDs come from `math/rand/v2`
+  (the same format; they were never secrets); a session notes its changes
+  rather than encoding itself twice per request to compare (storing a
+  value it already holds still writes nothing); `encryption` caches the
+  keys of the last 1024 to 2048 messages it sealed or opened; the row scanner
+  reuses its scanners, so `Query.Get` allocates no more than a
+  hand-written scan.
 - `make:auth`'s pages use the starter theme (a card for the forms,
   cards on the dashboard and settings), and it adds `AccountMenu` to the
   layout's header (log in and register, or the user's name, settings and

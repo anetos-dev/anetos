@@ -12,7 +12,7 @@ your code can hook in.
 
 ```mermaid
 flowchart TB
-    A["http.Server<br/>(the http component)"] --> G["Global middleware<br/>Recover → RequestIDs → RealIP → AccessLog →<br/>SecureHeaders → CORS → BodyLimit → Timeout"]
+    A["http.Server<br/>(the http component)"] --> G["Global middleware<br/>Recover → RequestIDs → RealIP → AccessLog →<br/>SecureHeaders → CORS → locale → BodyLimit → Timeout"]
     G --> M["ServeMux routing"]
     M -->|match| R["Route middleware<br/>(Use / Group / With)"]
     M -->|no match| F["404 / 405 / OPTIONS"]
@@ -95,5 +95,6 @@ response can't be changed any more.
 ## Related
 
 - [Routing](../guides/routing.md)
+- [Performance](performance.md): what each step costs
 - [Handlers and requests](../guides/handlers.md)
 - [Configuration reference](../reference/configuration.md#http-server)

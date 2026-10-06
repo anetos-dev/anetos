@@ -26,6 +26,7 @@ func TestStore(t *testing.T) {
 	for name, fn := range map[string]func(*testing.T){
 		"NoCookieUntilUsed":         TestNoCookieUntilUsed,
 		"ValuesPersist":             TestValuesPersist,
+		"UnchangedSessionNotSaved":  TestUnchangedSessionNotSaved,
 		"Flash":                     TestFlash,
 		"IdleExpiryAndRefresh":      TestIdleExpiryAndRefresh,
 		"CSRFToken":                 TestCSRFToken,

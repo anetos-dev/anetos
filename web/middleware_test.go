@@ -211,3 +211,37 @@ func TestResponseWriterFlushAndUnwrap(t *testing.T) {
 		t.Errorf("flush/unwrap: started=%v status=%d flushed=%v", rw.started(), rw.Status(), rec.Flushed)
 	}
 }
+
+// In a router, RequestIDs and RealIP keep their results in its request
+// state; a request a handler serves through the router again (a
+// sub-request) has its own, and doesn't change the outer request's.
+func TestRequestStateSubrequest(t *testing.T) {
+	r := NewRouter(WithLogger(slog.New(slog.DiscardHandler)))
+	r.UseGlobal(RequestIDs, RealIP(nil))
+	var innerID, innerIP string
+	r.Get("/inner", func(c *Ctx) error {
+		innerID, innerIP = RequestID(c), ClientIP(c.Request())
+		return c.Text(http.StatusOK, "inner")
+	})
+	r.Get("/outer", func(c *Ctx) error {
+		id, ip := RequestID(c), ClientIP(c.Request())
+		sub := httptest.NewRequestWithContext(c, http.MethodGet, "/inner", nil)
+		sub.RemoteAddr = "192.0.2.9:1234"
+		r.ServeHTTP(httptest.NewRecorder(), sub)
+		if RequestID(c) != id || ClientIP(c.Request()) != ip {
+			t.Errorf("after a sub-request: %q %q, want %q %q", RequestID(c), ClientIP(c.Request()), id, ip)
+		}
+		return c.Text(http.StatusOK, id+" "+ip)
+	})
+	req := httptest.NewRequest(http.MethodGet, "/outer", nil)
+	req.RemoteAddr = "198.51.100.7:4321"
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	id := rec.Header().Get(RequestIDHeader)
+	if rec.Body.String() != id+" 198.51.100.7" || len(id) != 16 {
+		t.Errorf("outer: %q, header %q", rec.Body, id)
+	}
+	if innerID == id || len(innerID) != 16 || innerIP != "192.0.2.9" {
+		t.Errorf("inner: %q %q", innerID, innerIP)
+	}
+}

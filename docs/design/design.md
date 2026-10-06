@@ -2452,19 +2452,41 @@ Implemented in M5 (D229–D231, D233).
 
 ## 22. Performance strategy
 
-- **Budgets:** Anetos overhead compared with plain `net/http` for (a) hello
-  world, (b) a typed JSON handler with binding and validation, and (c) a
-  single-row DB read. The v0.1 baseline is in `docs/benchmarks/` (code in
-  `bench/`): the router and typed handlers add about 0.3–1.3µs, the default
-  middleware about 3µs, and `db.Find` about 5µs over hand-written
-  `database/sql`. Targets are set from it and tracked from then on.
+Reviewed in M6 (v0.3; D251–D253). Numbers, method and code:
+`docs/benchmarks/` (code in `bench/`), the concept page "Performance".
+
+- **Reference:** Anetos's overhead over the same work written by hand
+  with `net/http` and `database/sql`, for (a) hello world, (b) a typed
+  JSON handler with binding and validation, (c) a single-row DB read,
+  (d) a list of 20 rows; and the cost of each part of the page an app
+  made with `anetos new` and `make:auth` serves (server middleware with
+  the access log, the request's locale, the session cookie, CSRF, the
+  signed-in user, the list, the rendering), which has no hand-written
+  equivalent. Other routers and frameworks (chi, Gin, Echo) doing the
+  same hello and JSON work are measured beside them (D253).
 - **Rules:** no per-request reflection; bind plans and route data
-  precomputed at boot; pooled `Ctx` and buffers; no allocations in the
-  router's hot path where avoidable.
-- **CI:** `go test -bench` on every PR against `main`, with a regression gate
-  (initially a warning, blocking from v0.3).
-- **Honesty:** published benchmarks include their method, hardware and code,
-  and compare fairly (the same work done in each framework).
+  precomputed at boot; pooled render buffers (`Ctx` isn't pooled, D24); per-request state in
+  one context value (the router's request state holds the request ID,
+  the client IP and the locale, D252) rather than a context per
+  middleware; nothing encoded or derived twice per request (sessions
+  track their changes; the keys of recent encrypted messages are
+  cached, D252).
+- **Budgets (blocking):** `bench/budget_test.go` fails when a request or
+  query allocates more than its budget: the allocations beyond the
+  hand-written equivalent (router, server, JSON, `db.Find`), exactly,
+  and in all for the page's parts (with headroom, as the standard
+  library's own allocations differ between Go releases; growth within
+  it is left to the pull-request comparison). It runs in `make check` and
+  on both CI Go versions (D251).
+- **Regression gate (blocking, pull requests):** the benchmarks of the
+  base branch and the pull request are built and run in turns on one
+  runner (`scripts/bench-compare.sh`, `bench/cmd/benchcmp`); more
+  allocations, or a median over 20% slower with every sample slower,
+  fail the check (its own workflow, `bench.yml`, which runs again
+  when a label changes); the label `benchmark-ok` accepts one (D251).
+- **Honesty:** published benchmarks include their method, hardware and
+  code, compare the same work, and say what they leave out (the
+  network, Fiber, a hand-written page).
 
 ---
 
@@ -2742,6 +2764,9 @@ unless new information arrives), **Open**, **Superseded**.
 | D248 | Account hardening from the review: `AttemptTwoFactor` checks and records a code under `cache.WithLock` per user; `ConfirmPassword` and `ChangePassword` allow 50 wrong passwords per account a day; `CreateToken` refuses while impersonating; `make:auth` puts token creation behind `RequireConfirmed`, and its reset updates the password only if unchanged since the link (one transaction), revokes tokens and, for a never-verified address, verifies it and removes two-factor and social links. No limit per account across addresses for logins | Accepted | A TOTP code used twice at once is a replayed code; a stolen session must not be enough to guess the password or mint a token that outlives it. A per-account login limit would let anyone lock an account's owner out, so logins stay limited per login and address and per address |
 | D249 | Supply chain and disclosure: `SECURITY.md` (GitHub private vulnerability reporting; acknowledgement within 3 working days; fixes in the latest minor release until v1; advisories with credit); CI actions pinned by commit with Dependabot (actions and every published module, weekly), `persist-credentials: false`; govulncheck on the minimum and latest Go; `anetos add` says it runs the plugin's code to read its settings and asks first in a terminal (`--yes`; a stdin that isn't a terminal, the null device included, doesn't ask) | Accepted | A plugin is code with the app's privileges, but running it on the developer's machine during `add` was a surprise. Tags of actions can be moved by whoever controls them; commits can't. One supported line keeps fixes possible for a small team before v1 |
 | D250 | No Content-Security-Policy by default for app pages; the guide gives a policy that fits generated apps (`script-src 'self'`, inline styles allowed for htmx's indicators and the admin's banner), set in production only | Accepted | A default policy would break the apps' own inline scripts and the dev server's reload script, and a policy that allows them protects little; the admin, whose pages the framework controls, has a strict one. A nonce-based helper may come with the design kits (v0.5), which control the generated markup |
+| D251 | The performance gate has two parts. Allocation budgets (`bench/budget_test.go`, `make bench-check`, every CI run on both Go versions): the allocations a request or query makes beyond the same work written by hand with `net/http`/`database/sql` (router, server middleware, JSON handler, `db.Find`), exact, and the page's parts in all, with headroom for the standard library's differences between Go releases. Time on pull requests: the base and head benchmarks built and run in turns, five rounds, on the same runner; a regression is more allocations, or a median more than 20% slower with every sample slower than every base sample; the check fails (`bench.yml`, which runs again when a label is added or removed), and the label `benchmark-ok` lets an accepted one through | Accepted | Times on shared CI runners vary by 10–20% between identical builds, so absolute time targets can't be enforced there and the planned "warning, then blocking" time gate would be noise. Allocations are deterministic and the main lever the framework controls; comparing two builds in turns on one machine cancels most of the runner's variance, and the non-overlap rule keeps chance failures rare (1 in 252 per benchmark with five samples each, and the threshold makes them rarer still) |
+| D252 | M6 optimizations: `RequestIDs`, `RealIP` and the locale middleware keep their results in the router's request state when they run in a router (one context value per request, not one each); request IDs come from `math/rand/v2` and are encoded straight into lowercase (the same 16 base32 characters; they are identifiers, not secrets; the gain is mostly the context value and two allocations, crypto/rand being cheap on current systems); a session tracks changes through its methods rather than encoding its payload twice per request to compare; `encryption` caches the AEADs of the last 1024 to 2048 messages it sealed or opened (two generations, by key ID and salt; only after a successful open); a router serving a request a handler made from its own (a sub-request) gives it a state of its own, inheriting the outer one's values; the row scanner reuses its time and JSON scanners and stops boxing times | Accepted | Measured before and after on one machine (`docs/benchmarks/v0.3.md`): a signed-in page 13–15% faster with 20–23% fewer allocations, the session's part 29% faster (one cookie: the cache's best case), the server's middleware 16% faster on hello, and `Query.Get` no more allocations than a hand-written scan. Each change is local, keeps behaviour (a session that a method changed is saved; a value Put again unchanged isn't) and has tests |
+| D253 | The published comparison measures other frameworks bare (no middleware) doing the same hello and JSON work as `BenchmarkHelloRouter` and `BenchmarkJSONRouter`: chi (handlers decoding by hand), Gin and Echo (their binding with go-playground/validator); Fiber isn't measured, since it runs on fasthttp and can't serve the same in-process requests. They are dependencies of the `bench` module only, never of an app | Accepted | People choosing a framework ask how it compares; measuring the same work in-process, in one module anyone can run, is fairer than numbers from elsewhere, and the hand-written `net/http` versions remain the reference. The differences are a microsecond or less, which the docs say plainly |
 
 ---
 
@@ -2820,3 +2845,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-06 | M10 starter experience: §15 scaffolding, §17.1 updated; D237–D241 added (D237 replaces D150's `social.WithHomeURL`); M2 docs navigation: D242 |
 | 2026-10-07 | Release plan changed: §12.2, §17.1 updated; D243 (supersedes D232; D9's kits move to v0.6), D244 (proposed) added |
 | 2026-10-07 | M7 security: §20 rewritten (its CSP-helpers claim was wrong), §17.1, §17.2 updated; D245–D250 added |
+| 2026-10-07 | M6 performance: §22 rewritten (budgets, the gate, the comparison); D251–D253 added |

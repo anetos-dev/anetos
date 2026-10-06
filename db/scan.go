@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -75,6 +76,8 @@ type rowScanner struct {
 	discard  any
 	fixTimes bool         // see needsTimeFix
 	extra    map[int]*any // result columns that aren't fields, read by the caller
+	times    []timeScanner
+	jsons    []jsonScanner // reused from row to row, as dest is
 }
 
 func newRowScanner(d *DB, t reflect.Type, rows *sql.Rows) (*rowScanner, error) {
@@ -86,7 +89,14 @@ func newRowScanner(d *DB, t reflect.Type, rows *sql.Rows) (*rowScanner, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &rowScanner{plan: p, dest: make([]any, len(cols)), fixTimes: needsTimeFix(d.dialect)}, nil
+	s := &rowScanner{plan: p, dest: make([]any, len(cols)), fixTimes: needsTimeFix(d.dialect)}
+	if s.fixTimes && (p.value && p.valueTime || slices.ContainsFunc(p.dest, func(t scanTarget) bool { return t.time })) {
+		s.times = make([]timeScanner, len(cols))
+	}
+	if slices.ContainsFunc(p.dest, func(t scanTarget) bool { return t.json }) {
+		s.jsons = make([]jsonScanner, len(cols))
+	}
+	return s, nil
 }
 
 // scan reads the current row into v, a settable value of the scanned type.
@@ -94,7 +104,8 @@ func (s *rowScanner) scan(rows *sql.Rows, v reflect.Value) error {
 	if s.plan.value {
 		s.dest[0] = v.Addr().Interface()
 		if s.fixTimes && s.plan.valueTime {
-			s.dest[0] = &timeScanner{v}
+			s.times[0].v = v
+			s.dest[0] = &s.times[0]
 		}
 	} else {
 		for i, t := range s.plan.dest {
@@ -105,9 +116,11 @@ func (s *rowScanner) scan(rows *sql.Rows, v reflect.Value) error {
 					s.dest[i] = p
 				}
 			case t.json:
-				s.dest[i] = &jsonScanner{fieldAlloc(v, t.index).Addr().Interface()}
+				s.jsons[i].dst = fieldAlloc(v, t.index).Addr().Interface()
+				s.dest[i] = &s.jsons[i]
 			case t.time && s.fixTimes:
-				s.dest[i] = &timeScanner{fieldAlloc(v, t.index)}
+				s.times[i].v = fieldAlloc(v, t.index)
+				s.dest[i] = &s.times[i]
 			default:
 				s.dest[i] = fieldAlloc(v, t.index).Addr().Interface()
 			}
@@ -201,10 +214,15 @@ func (ts *timeScanner) Scan(src any) error {
 		return fmt.Errorf("db: can't read %T as a time", src)
 	}
 	t = t.UTC()
-	if ts.v.Kind() == reflect.Pointer {
-		ts.v.Set(reflect.ValueOf(&t))
-	} else {
-		ts.v.Set(reflect.ValueOf(t))
+	switch dst := ts.v.Addr().Interface().(type) { // no boxing of t
+	case *time.Time:
+		*dst = t
+	case **time.Time:
+		p := new(time.Time) // not &t, which would put every t on the heap
+		*p = t
+		*dst = p
+	default:
+		return fmt.Errorf("db: can't read a time into %s", ts.v.Type())
 	}
 	return nil
 }

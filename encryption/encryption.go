@@ -9,7 +9,9 @@
 //
 // Messages are sealed with AES-256-GCM under a key derived for each
 // message (HKDF-SHA256 with a random salt), so there is no practical limit
-// on how many messages one key can encrypt. The context string is
+// on how many messages one key can encrypt. The keys of recent messages
+// are cached (the last 1024 to 2048), so opening the same message again,
+// as a session cookie on each request, skips the derivation. The context string is
 // authenticated with the message: a ciphertext made for one purpose can't
 // be used for another. Keys rotate by moving the old key to
 // APP_PREVIOUS_KEYS: new messages use APP_KEY, old ones still decrypt.
@@ -26,6 +28,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"sync"
 
 	"anetos.dev/anetos"
 	"anetos.dev/anetos/internal/appkey"
@@ -49,6 +52,53 @@ const (
 // Encrypter encrypts with its first key and decrypts with any of them.
 type Encrypter struct {
 	keys []key
+
+	// derived caches the keys of recent messages, by key ID and salt: a
+	// browser sends the same session cookie with each request, and the
+	// derivation is most of the cost of opening it. Two generations: when
+	// the current one is full, it becomes the old one, so the cache keeps
+	// between derivedMax and twice as many of the most recent.
+	mu           sync.Mutex
+	derived, old map[[idSize + saltSize]byte]cipher.AEAD
+}
+
+// derivedMax is the size of a generation of the cache.
+const derivedMax = 1024
+
+// cached returns the AEAD of key k and salt from the cache, or derives
+// it; remember adds a derived one, once it opened a message (so forged
+// messages can't fill the cache).
+func (e *Encrypter) cached(k key, salt []byte) (cipher.AEAD, [idSize + saltSize]byte, bool) {
+	id := cacheID(k, salt)
+	e.mu.Lock()
+	a, ok := e.derived[id]
+	if !ok {
+		a, ok = e.old[id]
+	}
+	e.mu.Unlock()
+	if ok {
+		return a, id, true
+	}
+	return k.aead(salt), id, false
+}
+
+func cacheID(k key, salt []byte) [idSize + saltSize]byte {
+	var id [idSize + saltSize]byte
+	copy(id[:], k.id[:])
+	copy(id[idSize:], salt)
+	return id
+}
+
+func (e *Encrypter) remember(id [idSize + saltSize]byte, a cipher.AEAD) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if len(e.derived) >= derivedMax {
+		e.old, e.derived = e.derived, nil
+	}
+	if e.derived == nil {
+		e.derived = make(map[[idSize + saltSize]byte]cipher.AEAD, derivedMax)
+	}
+	e.derived[id] = a
 }
 
 type key struct {
@@ -116,8 +166,10 @@ func (e *Encrypter) Encrypt(plaintext []byte, context string) []byte {
 	out[0] = version
 	copy(out[1:], k.id[:])
 	salt := out[1+idSize:]
-	_, _ = rand.Read(salt) // never fails
-	return k.aead(salt).Seal(out, zeroNonce[:], plaintext, []byte(context))
+	_, _ = rand.Read(salt)             // never fails
+	aead := k.aead(salt)               // a new salt: never cached
+	e.remember(cacheID(k, salt), aead) // the next request opens what this one sealed
+	return aead.Seal(out, zeroNonce[:], plaintext, []byte(context))
 }
 
 // Decrypt opens a ciphertext made by Encrypt with the same context. It
@@ -133,9 +185,13 @@ func (e *Encrypter) Decrypt(ciphertext []byte, context string) ([]byte, error) {
 		if string(k.id[:]) != string(id) {
 			continue
 		}
-		plain, err := k.aead(salt).Open(nil, zeroNonce[:], ciphertext[1+idSize+saltSize:], []byte(context))
+		aead, id, hit := e.cached(k, salt)
+		plain, err := aead.Open(nil, zeroNonce[:], ciphertext[1+idSize+saltSize:], []byte(context))
 		if err != nil {
 			return nil, ErrInvalid
+		}
+		if !hit {
+			e.remember(id, aead)
 		}
 		return plain, nil
 	}

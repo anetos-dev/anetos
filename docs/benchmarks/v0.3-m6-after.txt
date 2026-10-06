@@ -1,0 +1,180 @@
+goos: linux
+goarch: amd64
+pkg: anetos.dev/anetos/bench
+cpu: Intel(R) Xeon(R) Processor @ 2.10GHz
+BenchmarkHelloMux-2        	  150754	      3876 ns/op	    6104 B/op	      18 allocs/op
+BenchmarkHelloRouter-2     	  126112	      4354 ns/op	    6632 B/op	      24 allocs/op
+BenchmarkHelloServer-2     	   83528	      6793 ns/op	    7592 B/op	      41 allocs/op
+BenchmarkJSONMux-2         	   89716	      6518 ns/op	    7407 B/op	      32 allocs/op
+BenchmarkJSONRouter-2      	   79545	      8465 ns/op	    8144 B/op	      41 allocs/op
+BenchmarkJSONServer-2      	   47185	     11309 ns/op	    9104 B/op	      58 allocs/op
+BenchmarkDBReadMux-2       	   29074	     19900 ns/op	    8186 B/op	      68 allocs/op
+BenchmarkDBReadServer-2    	   17712	     33707 ns/op	   12341 B/op	     126 allocs/op
+BenchmarkDBReadRouter-2    	   22844	     26768 ns/op	   10619 B/op	      98 allocs/op
+BenchmarkQueryRowScan-2    	   45698	     14227 ns/op	    1775 B/op	      47 allocs/op
+BenchmarkQueryFind-2       	   32406	     19537 ns/op	    3488 B/op	      69 allocs/op
+BenchmarkPage/Server-2     	   43440	     14674 ns/op	   10046 B/op	      61 allocs/op
+BenchmarkPage/Session-2    	   26244	     23036 ns/op	   15006 B/op	      99 allocs/op
+BenchmarkPage/CSRF-2       	   26302	     22405 ns/op	   14997 B/op	      99 allocs/op
+BenchmarkPage/SignedIn-2   	    8911	     56379 ns/op	   19837 B/op	     190 allocs/op
+BenchmarkPage/Full-2       	    3102	    170498 ns/op	   40178 B/op	     559 allocs/op
+BenchmarkMiddleware/RequestIDs-2         	  128792	      4735 ns/op	    6712 B/op	      28 allocs/op
+BenchmarkMiddleware/RealIP-2             	  135034	      4645 ns/op	    6680 B/op	      26 allocs/op
+BenchmarkMiddleware/SecureHeaders-2      	  113244	      5159 ns/op	    6792 B/op	      29 allocs/op
+BenchmarkMiddleware/BodyLimit-2          	  131233	      4518 ns/op	    6696 B/op	      25 allocs/op
+BenchmarkMiddleware/Timeout-2            	  109353	      5466 ns/op	    7272 B/op	      30 allocs/op
+BenchmarkMiddleware/AccessLog-2          	   90871	      6580 ns/op	    7200 B/op	      27 allocs/op
+BenchmarkMiddleware/Recover-2            	  122376	      4461 ns/op	    6632 B/op	      24 allocs/op
+BenchmarkQueryListScan-2                 	   10000	     65339 ns/op	   17752 B/op	     337 allocs/op
+BenchmarkQueryList-2                     	    7212	     72885 ns/op	   17415 B/op	     332 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: anetos.dev/anetos/bench
+cpu: Intel(R) Xeon(R) Processor @ 2.10GHz
+BenchmarkHelloMux-2        	  140288	      3919 ns/op	    6104 B/op	      18 allocs/op
+BenchmarkHelloRouter-2     	  129145	      4326 ns/op	    6632 B/op	      24 allocs/op
+BenchmarkHelloServer-2     	   91959	      6505 ns/op	    7592 B/op	      41 allocs/op
+BenchmarkJSONMux-2         	   95368	      6363 ns/op	    7407 B/op	      32 allocs/op
+BenchmarkJSONRouter-2      	   76293	      7797 ns/op	    8144 B/op	      41 allocs/op
+BenchmarkJSONServer-2      	   56701	     10532 ns/op	    9103 B/op	      58 allocs/op
+BenchmarkDBReadMux-2       	   31946	     19452 ns/op	    8186 B/op	      68 allocs/op
+BenchmarkDBReadServer-2    	   18538	     32514 ns/op	   12342 B/op	     126 allocs/op
+BenchmarkDBReadRouter-2    	   24291	     25693 ns/op	   10619 B/op	      98 allocs/op
+BenchmarkQueryRowScan-2    	   46886	     12772 ns/op	    1775 B/op	      47 allocs/op
+BenchmarkQueryFind-2       	   33684	     17713 ns/op	    3488 B/op	      69 allocs/op
+BenchmarkPage/Server-2     	   46447	     12886 ns/op	   10046 B/op	      61 allocs/op
+BenchmarkPage/Session-2    	   26588	     22303 ns/op	   15005 B/op	      99 allocs/op
+BenchmarkPage/CSRF-2       	   27518	     22123 ns/op	   14994 B/op	      99 allocs/op
+BenchmarkPage/SignedIn-2   	    9814	     55958 ns/op	   19828 B/op	     190 allocs/op
+BenchmarkPage/Full-2       	    3607	    159746 ns/op	   40184 B/op	     559 allocs/op
+BenchmarkMiddleware/RequestIDs-2         	  125072	      4671 ns/op	    6712 B/op	      28 allocs/op
+BenchmarkMiddleware/RealIP-2             	  139346	      4514 ns/op	    6680 B/op	      26 allocs/op
+BenchmarkMiddleware/SecureHeaders-2      	  122022	      5054 ns/op	    6792 B/op	      29 allocs/op
+BenchmarkMiddleware/BodyLimit-2          	  140248	      4378 ns/op	    6696 B/op	      25 allocs/op
+BenchmarkMiddleware/Timeout-2            	  118726	      5335 ns/op	    7272 B/op	      30 allocs/op
+BenchmarkMiddleware/AccessLog-2          	   91778	      6690 ns/op	    7200 B/op	      27 allocs/op
+BenchmarkMiddleware/Recover-2            	  145322	      4277 ns/op	    6632 B/op	      24 allocs/op
+BenchmarkQueryListScan-2                 	    7916	     71991 ns/op	   17752 B/op	     337 allocs/op
+BenchmarkQueryList-2                     	    8727	     73125 ns/op	   17415 B/op	     332 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: anetos.dev/anetos/bench
+cpu: Intel(R) Xeon(R) Processor @ 2.10GHz
+BenchmarkHelloMux-2        	  138817	      3843 ns/op	    6104 B/op	      18 allocs/op
+BenchmarkHelloRouter-2     	  147930	      4265 ns/op	    6632 B/op	      24 allocs/op
+BenchmarkHelloServer-2     	   92706	      6629 ns/op	    7592 B/op	      41 allocs/op
+BenchmarkJSONMux-2         	   92625	      6479 ns/op	    7407 B/op	      32 allocs/op
+BenchmarkJSONRouter-2      	   80204	      7593 ns/op	    8143 B/op	      41 allocs/op
+BenchmarkJSONServer-2      	   57478	     10811 ns/op	    9103 B/op	      58 allocs/op
+BenchmarkDBReadMux-2       	   29845	     19890 ns/op	    8186 B/op	      68 allocs/op
+BenchmarkDBReadServer-2    	   18015	     33020 ns/op	   12341 B/op	     126 allocs/op
+BenchmarkDBReadRouter-2    	   23534	     25633 ns/op	   10619 B/op	      98 allocs/op
+BenchmarkQueryRowScan-2    	   48658	     12220 ns/op	    1776 B/op	      47 allocs/op
+BenchmarkQueryFind-2       	   34182	     17167 ns/op	    3488 B/op	      69 allocs/op
+BenchmarkPage/Server-2     	   46066	     12563 ns/op	   10046 B/op	      61 allocs/op
+BenchmarkPage/Session-2    	   25810	     23546 ns/op	   15006 B/op	      99 allocs/op
+BenchmarkPage/CSRF-2       	   28580	     21528 ns/op	   14996 B/op	      99 allocs/op
+BenchmarkPage/SignedIn-2   	   11115	     54018 ns/op	   19828 B/op	     190 allocs/op
+BenchmarkPage/Full-2       	    3316	    161568 ns/op	   40196 B/op	     559 allocs/op
+BenchmarkMiddleware/RequestIDs-2         	  123972	      4674 ns/op	    6712 B/op	      28 allocs/op
+BenchmarkMiddleware/RealIP-2             	  130246	      4695 ns/op	    6680 B/op	      26 allocs/op
+BenchmarkMiddleware/SecureHeaders-2      	   93464	      5557 ns/op	    6792 B/op	      29 allocs/op
+BenchmarkMiddleware/BodyLimit-2          	  129196	      4602 ns/op	    6696 B/op	      25 allocs/op
+BenchmarkMiddleware/Timeout-2            	  110586	      5551 ns/op	    7272 B/op	      30 allocs/op
+BenchmarkMiddleware/AccessLog-2          	   87170	      6821 ns/op	    7200 B/op	      27 allocs/op
+BenchmarkMiddleware/Recover-2            	  128074	      4412 ns/op	    6632 B/op	      24 allocs/op
+BenchmarkQueryListScan-2                 	    9637	     64879 ns/op	   17752 B/op	     337 allocs/op
+BenchmarkQueryList-2                     	    8292	     74552 ns/op	   17447 B/op	     332 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: anetos.dev/anetos/bench
+cpu: Intel(R) Xeon(R) Processor @ 2.10GHz
+BenchmarkHelloMux-2        	  147507	      4001 ns/op	    6104 B/op	      18 allocs/op
+BenchmarkHelloRouter-2     	  135205	      4138 ns/op	    6632 B/op	      24 allocs/op
+BenchmarkHelloServer-2     	   89551	      7080 ns/op	    7592 B/op	      41 allocs/op
+BenchmarkJSONMux-2         	   93546	      6542 ns/op	    7406 B/op	      32 allocs/op
+BenchmarkJSONRouter-2      	   73417	      8049 ns/op	    8144 B/op	      41 allocs/op
+BenchmarkJSONServer-2      	   57207	     10937 ns/op	    9102 B/op	      58 allocs/op
+BenchmarkDBReadMux-2       	   23552	     22584 ns/op	    8186 B/op	      68 allocs/op
+BenchmarkDBReadServer-2    	   18051	     33085 ns/op	   12343 B/op	     126 allocs/op
+BenchmarkDBReadRouter-2    	   22100	     27172 ns/op	   10618 B/op	      98 allocs/op
+BenchmarkQueryRowScan-2    	   45429	     12655 ns/op	    1776 B/op	      47 allocs/op
+BenchmarkQueryFind-2       	   35578	     17090 ns/op	    3488 B/op	      69 allocs/op
+BenchmarkPage/Server-2     	   47086	     12391 ns/op	   10046 B/op	      61 allocs/op
+BenchmarkPage/Session-2    	   27768	     21683 ns/op	   15001 B/op	      99 allocs/op
+BenchmarkPage/CSRF-2       	   27740	     21702 ns/op	   14992 B/op	      99 allocs/op
+BenchmarkPage/SignedIn-2   	    9044	     56767 ns/op	   19829 B/op	     190 allocs/op
+BenchmarkPage/Full-2       	    3548	    162877 ns/op	   40178 B/op	     559 allocs/op
+BenchmarkMiddleware/RequestIDs-2         	  128269	      5087 ns/op	    6712 B/op	      28 allocs/op
+BenchmarkMiddleware/RealIP-2             	  108778	      4601 ns/op	    6680 B/op	      26 allocs/op
+BenchmarkMiddleware/SecureHeaders-2      	  122964	      5105 ns/op	    6792 B/op	      29 allocs/op
+BenchmarkMiddleware/BodyLimit-2          	  133440	      4533 ns/op	    6696 B/op	      25 allocs/op
+BenchmarkMiddleware/Timeout-2            	  109638	      5596 ns/op	    7272 B/op	      30 allocs/op
+BenchmarkMiddleware/AccessLog-2          	   85490	      6980 ns/op	    7200 B/op	      27 allocs/op
+BenchmarkMiddleware/Recover-2            	  140449	      4396 ns/op	    6632 B/op	      24 allocs/op
+BenchmarkQueryListScan-2                 	   10000	     64229 ns/op	   17752 B/op	     337 allocs/op
+BenchmarkQueryList-2                     	    8155	     71188 ns/op	   17415 B/op	     332 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: anetos.dev/anetos/bench
+cpu: Intel(R) Xeon(R) Processor @ 2.10GHz
+BenchmarkHelloMux-2        	  138510	      3775 ns/op	    6104 B/op	      18 allocs/op
+BenchmarkHelloRouter-2     	  130623	      4158 ns/op	    6632 B/op	      24 allocs/op
+BenchmarkHelloServer-2     	   90988	      6943 ns/op	    7592 B/op	      41 allocs/op
+BenchmarkJSONMux-2         	   93252	      6840 ns/op	    7407 B/op	      32 allocs/op
+BenchmarkJSONRouter-2      	   69769	      8097 ns/op	    8143 B/op	      41 allocs/op
+BenchmarkJSONServer-2      	   57021	     10663 ns/op	    9103 B/op	      58 allocs/op
+BenchmarkDBReadMux-2       	   31401	     19081 ns/op	    8186 B/op	      68 allocs/op
+BenchmarkDBReadServer-2    	   17731	     34008 ns/op	   12342 B/op	     126 allocs/op
+BenchmarkDBReadRouter-2    	   23678	     26781 ns/op	   10619 B/op	      98 allocs/op
+BenchmarkQueryRowScan-2    	   46460	     12641 ns/op	    1775 B/op	      47 allocs/op
+BenchmarkQueryFind-2       	   33874	     17515 ns/op	    3488 B/op	      69 allocs/op
+BenchmarkPage/Server-2     	   46489	     12681 ns/op	   10046 B/op	      61 allocs/op
+BenchmarkPage/Session-2    	   26095	     23158 ns/op	   15001 B/op	      99 allocs/op
+BenchmarkPage/CSRF-2       	   27094	     22777 ns/op	   14995 B/op	      99 allocs/op
+BenchmarkPage/SignedIn-2   	    9952	     55309 ns/op	   19829 B/op	     190 allocs/op
+BenchmarkPage/Full-2       	    3571	    162757 ns/op	   40189 B/op	     559 allocs/op
+BenchmarkMiddleware/RequestIDs-2         	  115071	      4735 ns/op	    6712 B/op	      28 allocs/op
+BenchmarkMiddleware/RealIP-2             	  137642	      4804 ns/op	    6680 B/op	      26 allocs/op
+BenchmarkMiddleware/SecureHeaders-2      	  120619	      5108 ns/op	    6792 B/op	      29 allocs/op
+BenchmarkMiddleware/BodyLimit-2          	  137479	      4470 ns/op	    6696 B/op	      25 allocs/op
+BenchmarkMiddleware/Timeout-2            	  108382	      5630 ns/op	    7272 B/op	      30 allocs/op
+BenchmarkMiddleware/AccessLog-2          	   88382	      6625 ns/op	    7200 B/op	      27 allocs/op
+BenchmarkMiddleware/Recover-2            	  130264	      4492 ns/op	    6632 B/op	      24 allocs/op
+BenchmarkQueryListScan-2                 	    9970	     64308 ns/op	   17752 B/op	     337 allocs/op
+BenchmarkQueryList-2                     	    8654	     73221 ns/op	   17448 B/op	     332 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: anetos.dev/anetos/bench
+cpu: Intel(R) Xeon(R) Processor @ 2.10GHz
+BenchmarkHelloMux-2        	  139128	      3825 ns/op	    6104 B/op	      18 allocs/op
+BenchmarkHelloRouter-2     	  143524	      4280 ns/op	    6632 B/op	      24 allocs/op
+BenchmarkHelloServer-2     	   92312	      6669 ns/op	    7592 B/op	      41 allocs/op
+BenchmarkJSONMux-2         	   92424	      6824 ns/op	    7407 B/op	      32 allocs/op
+BenchmarkJSONRouter-2      	   77982	      7929 ns/op	    8143 B/op	      41 allocs/op
+BenchmarkJSONServer-2      	   56928	     10650 ns/op	    9102 B/op	      58 allocs/op
+BenchmarkDBReadMux-2       	   31388	     18779 ns/op	    8186 B/op	      68 allocs/op
+BenchmarkDBReadServer-2    	   18116	     32601 ns/op	   12343 B/op	     126 allocs/op
+BenchmarkDBReadRouter-2    	   24241	     25173 ns/op	   10618 B/op	      98 allocs/op
+BenchmarkQueryRowScan-2    	   47764	     12830 ns/op	    1776 B/op	      47 allocs/op
+BenchmarkQueryFind-2       	   33070	     17750 ns/op	    3488 B/op	      69 allocs/op
+BenchmarkPage/Server-2     	   45122	     12995 ns/op	   10046 B/op	      61 allocs/op
+BenchmarkPage/Session-2    	   26632	     22546 ns/op	   15001 B/op	      99 allocs/op
+BenchmarkPage/CSRF-2       	   28156	     21459 ns/op	   14994 B/op	      99 allocs/op
+BenchmarkPage/SignedIn-2   	   10000	     54354 ns/op	   19828 B/op	     190 allocs/op
+BenchmarkPage/Full-2       	    3691	    159959 ns/op	   40175 B/op	     559 allocs/op
+BenchmarkMiddleware/RequestIDs-2         	  121039	      4914 ns/op	    6712 B/op	      28 allocs/op
+BenchmarkMiddleware/RealIP-2             	  125858	      4886 ns/op	    6680 B/op	      26 allocs/op
+BenchmarkMiddleware/SecureHeaders-2      	  110646	      5149 ns/op	    6792 B/op	      29 allocs/op
+BenchmarkMiddleware/BodyLimit-2          	  113806	      4738 ns/op	    6696 B/op	      25 allocs/op
+BenchmarkMiddleware/Timeout-2            	   94376	      5603 ns/op	    7272 B/op	      30 allocs/op
+BenchmarkMiddleware/AccessLog-2          	   81693	      6731 ns/op	    7200 B/op	      27 allocs/op
+BenchmarkMiddleware/Recover-2            	  127734	      4694 ns/op	    6632 B/op	      24 allocs/op
+BenchmarkQueryListScan-2                 	    8562	     68930 ns/op	   17752 B/op	     337 allocs/op
+BenchmarkQueryList-2                     	    9241	     71557 ns/op	   17447 B/op	     332 allocs/op
+PASS

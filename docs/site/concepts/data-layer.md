@@ -146,4 +146,5 @@ schedules, `anetos.Now`), never the one it stores in. See
 - [Transactions](../guides/transactions.md)
 - [The audit log](audit-log.md)
 - [Raw SQL](../guides/raw-sql.md)
+- [Performance](performance.md): what queries cost
 - [Models reference](../reference/models.md), [Query builder reference](../reference/query-builder.md)

@@ -271,7 +271,9 @@ func TestSMTP(t *testing.T) {
 			if r.from != "shop@example.com" || strings.Join(r.rcpt, ",") != "a@example.com,b@example.com" || r.tls != tt.wantTLS || r.authed != tt.wantAuth {
 				t.Errorf("received %+v", r)
 			}
-			if !strings.Contains(r.data, "Subject: Hello\n") || strings.Contains(r.data, "b@example.com") {
+			// The Bcc is left out ("<b@example.com>": a random Message-ID
+			// may end in "b@example.com").
+			if !strings.Contains(r.data, "Subject: Hello\n") || strings.Contains(r.data, "<b@example.com>") {
 				t.Errorf("data:\n%s", r.data)
 			}
 		})

@@ -8,11 +8,11 @@ MODULES  ?= $(patsubst %/go.mod,%,$(shell find . -name go.mod -not -path './.git
 EACH      = for m in $(MODULES); do echo "== $$m"; (cd $$m &&
 DONE      = ) || exit 1; done
 
-.PHONY: all check fmt fmt-check vet lint test test-short cover bench vuln spdx docs-check api-docs gen-check tidy help
+.PHONY: all check fmt fmt-check vet lint test test-short cover bench bench-check bench-compare vuln spdx docs-check api-docs gen-check tidy help
 
 all: check ## Run every check CI runs
 
-check: fmt-check spdx docs-check api-docs gen-check vet lint test ## fmt, SPDX headers, doc snippets, API doc comments, generated code, vet, lint, race tests
+check: fmt-check spdx docs-check api-docs gen-check vet lint test bench-check ## fmt, SPDX headers, doc snippets, API doc comments, generated code, vet, lint, race tests, allocation budgets
 
 fmt: ## Format all Go code
 	gofmt -s -w .
@@ -37,6 +37,13 @@ cover: ## Coverage summary per module (driver modules report db package coverage
 
 bench: ## Benchmarks
 	@$(EACH) $(GO) test -run='^$$' -bench=. -benchmem ./... $(DONE)
+
+bench-check: ## Allocation budgets of requests and queries (bench/budget_test.go, without the race detector)
+	@cd bench && $(GO) test -count=1 -run '^TestBudgets$$' .
+
+BASE ?= main
+bench-compare: ## Compare the benchmarks with BASE (default main) on this machine; fails on a regression
+	@BASE=$(BASE) ./scripts/bench-compare.sh
 
 vuln: ## govulncheck (install: go install golang.org/x/vuln/cmd/govulncheck@latest)
 	@$(EACH) govulncheck ./... $(DONE)

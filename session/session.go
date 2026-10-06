@@ -23,6 +23,7 @@
 package session
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/subtle"
@@ -55,6 +56,10 @@ type Session struct {
 	errsNew []FieldError        // flashed by this request
 	oldNow  map[string][]string // input flashed by the previous request
 	oldNew  map[string][]string // input flashed by this request
+
+	// dirty says a method changed what is saved, so the middleware writes
+	// the session back; a session nothing changed isn't encoded again.
+	dirty bool
 }
 
 // FieldError is a validation message for one form field.
@@ -85,6 +90,13 @@ func New() *Session {
 	return &Session{id: randomString(16), created: now, last: now, data: map[string]json.RawMessage{}}
 }
 
+// changed reports whether a method changed what is saved.
+func (s *Session) changed() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.dirty
+}
+
 // ID returns the session's random identifier. It changes on [Session.Regenerate].
 func (s *Session) ID() string {
 	s.mu.Lock()
@@ -101,6 +113,9 @@ func (s *Session) Put(key string, v any) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if old, ok := s.data[key]; !ok || !bytes.Equal(old, b) || slices.Contains(s.flashNow, key) {
+		s.dirty = true
+	}
 	s.data[key] = b
 	s.flashNow = slices.DeleteFunc(s.flashNow, func(k string) bool { return k == key })
 }
@@ -142,7 +157,10 @@ func (s *Session) Has(key string) bool {
 func (s *Session) Delete(key string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	delete(s.data, key)
+	if _, ok := s.data[key]; ok {
+		s.dirty = true
+		delete(s.data, key)
+	}
 }
 
 // Pull decodes the value under key into dst and removes it.
@@ -163,6 +181,7 @@ func (s *Session) Flash(key string, v any) {
 	defer s.mu.Unlock()
 	if !slices.Contains(s.flashNew, key) {
 		s.flashNew = append(s.flashNew, key)
+		s.dirty = true
 	}
 }
 
@@ -171,6 +190,7 @@ func (s *Session) Flash(key string, v any) {
 func (s *Session) Reflash() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.dirty = true
 	for _, k := range s.flashNow {
 		if !slices.Contains(s.flashNew, k) {
 			s.flashNew = append(s.flashNew, k)
@@ -193,6 +213,7 @@ func (s *Session) Keep(keys ...string) {
 		if i := slices.Index(s.flashNow, k); i >= 0 {
 			s.flashNow = slices.Delete(s.flashNow, i, i+1)
 			s.flashNew = append(s.flashNew, k)
+			s.dirty = true
 		}
 	}
 }
@@ -202,6 +223,7 @@ func (s *Session) Keep(keys ...string) {
 func (s *Session) Clear() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.dirty = true
 	s.data = map[string]json.RawMessage{}
 	s.flashNow, s.flashNew = nil, nil
 	s.errsNow, s.errsNew, s.oldNow, s.oldNew = nil, nil, nil, nil
@@ -214,6 +236,7 @@ func (s *Session) Clear() {
 func (s *Session) Regenerate() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.dirty = true
 	s.id = randomString(16)
 	if s.token != "" {
 		s.token = randomString(tokenSize)
@@ -248,6 +271,7 @@ func (s *Session) Token() string {
 	s.mu.Lock()
 	if s.token == "" {
 		s.token = randomString(tokenSize)
+		s.dirty = true
 	}
 	raw, _ := base64.RawURLEncoding.DecodeString(s.token)
 	s.mu.Unlock()
@@ -281,6 +305,7 @@ func (s *Session) RegenerateToken() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.token = randomString(tokenSize)
+	s.dirty = true
 }
 
 // ---- Form errors and old input ----
@@ -291,6 +316,9 @@ func (s *Session) RegenerateToken() {
 func (s *Session) FlashErrors(errs ...FieldError) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if len(errs) > 0 {
+		s.dirty = true
+	}
 	s.errsNew = append(s.errsNew, errs...)
 }
 
@@ -316,6 +344,7 @@ func (s *Session) FlashInput(values url.Values) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.dirty = true
 	s.oldNew = old
 }
 

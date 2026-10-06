@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: Apache-2.0
+# Pull requests: the benchmarks against the base branch, built and run in
+# turns on the same runner (scripts/bench-compare.sh, design D251). More
+# allocations, or a median over 20% slower with every sample slower,
+# fail the check. To accept a regression, add the label "benchmark-ok":
+# adding or removing a label runs the check again with the labels as
+# they are then. The table is in the job's summary.
+name: Benchmarks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bench-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: stable
+      - name: Compare with the base branch
+        continue-on-error: ${{ contains(github.event.pull_request.labels.*.name, 'benchmark-ok') }}
+        env:
+          BASE: origin/${{ github.base_ref }}
+          OUT: ${{ runner.temp }}/bench
+        run: mkdir -p "$OUT" && ./scripts/bench-compare.sh
+      - name: Summary
+        if: always()
+        env:
+          OUT: ${{ runner.temp }}/bench
+        run: if [ -f "$OUT/summary.md" ]; then cat "$OUT/summary.md" >> "$GITHUB_STEP_SUMMARY"; fi

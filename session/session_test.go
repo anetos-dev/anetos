@@ -657,3 +657,52 @@ func TestUse(t *testing.T) {
 		t.Errorf("after a second Use: %s", got)
 	}
 }
+
+// A session is written back only when something changed it: reading,
+// storing the same value again or deleting a missing key don't; a flash
+// used up, a new value or a new token do.
+func TestUnchangedSessionNotSaved(t *testing.T) {
+	c := newClient(t, DefaultConfig())
+	c.get(func(s *Session) { s.Put("name", "Ada"); s.Token() })
+	for name, fn := range map[string]func(s *Session){
+		"read":           func(s *Session) { _ = s.String("name"); _ = s.Token(); _ = s.Has("x") },
+		"same value":     func(s *Session) { s.Put("name", "Ada") },
+		"missing delete": func(s *Session) { s.Delete("nothing") },
+		"keep nothing":   func(s *Session) { s.Keep("nothing") },
+		"no errors":      func(s *Session) { s.FlashErrors() },
+	} {
+		if res := c.get(fn); len(res.Cookies()) != 0 {
+			t.Errorf("%s: cookie written: %v", name, res.Header["Set-Cookie"])
+		}
+	}
+	// In order: each changes the session.
+	steps := []struct {
+		name string
+		fn   func(s *Session)
+	}{
+		{"new value", func(s *Session) { s.Put("name", "Grace") }},
+		{"delete", func(s *Session) { s.Delete("name") }},
+		{"new token", func(s *Session) { s.RegenerateToken() }},
+		{"flash", func(s *Session) { s.Flash("status", "Saved.") }},
+		{"flash used up", func(s *Session) {}},
+		{"errors", func(s *Session) { s.FlashErrors(FieldError{Field: "a", Message: "b"}) }},
+		{"errors used up", func(s *Session) {}},
+		{"regenerate", func(s *Session) { s.Regenerate() }},
+		{"flash again", func(s *Session) { s.Flash("status", "Saved.") }},
+		{"the flashed value stored to keep", func(s *Session) { s.Put("status", "Saved.") }},
+		{"flash to keep", func(s *Session) { s.Flash("kept", "Yes.") }},
+		{"kept", func(s *Session) { s.Keep("kept") }},
+		{"reflashed", func(s *Session) { s.Reflash() }},
+		{"used up at last", func(s *Session) {}},
+	}
+	for _, step := range steps {
+		if res := c.get(step.fn); len(res.Cookies()) == 0 {
+			t.Errorf("%s: no cookie written", step.name)
+		}
+	}
+	c.get(func(s *Session) {
+		if s.String("status") != "Saved." {
+			t.Error("a flashed value stored again with Put was dropped")
+		}
+	})
+}

@@ -266,6 +266,7 @@ func (r *Router) register(rt *Route, h http.Handler) {
 	h = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if st := stateFrom(req.Context()); st != nil {
 			st.route = rt
+			st.served = true
 		}
 		next.ServeHTTP(w, req)
 	})
@@ -336,8 +337,17 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if hp == nil {
 		hp = r.core.build()
 	}
-	if stateFrom(req.Context()) == nil {
-		req = req.WithContext(context.WithValue(req.Context(), stateKey{}, &requestState{core: r.core, url: req.URL}))
+	if st := stateFrom(req.Context()); st == nil || st.served {
+		// A new request, or one a handler serves through a router again
+		// (a sub-request): it gets a state of its own, inheriting what
+		// the request it comes from knew, as context values would, so
+		// its middleware doesn't overwrite the outer request's ID,
+		// client IP or locale.
+		ns := &requestState{core: r.core, url: req.URL}
+		if st != nil {
+			ns.requestID, ns.clientIP, ns.locale = st.requestID, st.clientIP, st.locale
+		}
+		req = req.WithContext(context.WithValue(req.Context(), stateKey{}, ns))
 	}
 	(*hp).ServeHTTP(w, req)
 }
@@ -603,6 +613,14 @@ type requestState struct {
 	route *Route
 	core  *routerCore
 	url   *url.URL // the request's URL, for PageURL
+
+	// Set by RequestIDs and RealIP running in the router, which keeps
+	// them here rather than in two more context values.
+	requestID string
+	clientIP  string
+	locale    *localeState // set by the server's locale middleware
+
+	served bool // a route's handler runs: a router serving it again starts a state of its own
 }
 
 type stateKey struct{}

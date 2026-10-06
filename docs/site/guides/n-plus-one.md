@@ -181,6 +181,7 @@ queries skip counting.
 
 - [Relations](relations.md): `With`, `db.Load`, `WhereHas`.
 - [Queries](queries.md): `WhereIn` and aggregates.
+- [Performance](../concepts/performance.md): where a page's time goes.
 - [Configuration reference](../reference/configuration.md#database):
   `DB_REPEATED_QUERIES`.
 

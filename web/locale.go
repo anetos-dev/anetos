@@ -46,6 +46,9 @@ type localeState struct {
 type localeStateKey struct{}
 
 func localeFrom(ctx context.Context) *localeState {
+	if rs := stateFrom(ctx); rs != nil && rs.locale != nil {
+		return rs.locale
+	}
 	s, _ := ctx.Value(localeStateKey{}).(*localeState)
 	return s
 }
@@ -152,7 +155,15 @@ func localize(app *anetos.App) Middleware {
 					}
 				}
 			}
-			ctx := i18n.WithTranslator(context.WithValue(r.Context(), localeStateKey{}, st), tr)
+			ctx := r.Context()
+			if rs := stateFrom(ctx); rs != nil { // in a router: no new context value
+				rs.locale = st
+			} else {
+				ctx = context.WithValue(ctx, localeStateKey{}, st)
+			}
+			if i18n.From(ctx) != tr { // the server's requests have it from the app
+				ctx = i18n.WithTranslator(ctx, tr)
+			}
 			ctx = i18n.WithResolver(ctx, func(ctx context.Context) (string, *time.Location) {
 				user, zone := i18n.Preferences(ctx)
 				switch {

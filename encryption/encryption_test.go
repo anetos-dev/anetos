@@ -4,8 +4,10 @@ package encryption_test
 
 import (
 	"bytes"
+	"encoding/base64"
 	"errors"
 	"strings"
+	"sync"
 	"testing"
 
 	"anetos.dev/anetos"
@@ -126,5 +128,42 @@ func BenchmarkEncrypt(b *testing.B) {
 	msg := bytes.Repeat([]byte("x"), 512)
 	for b.Loop() {
 		enc.Decrypt(enc.Encrypt(msg, "c"), "c") //nolint:errcheck // benchmark
+	}
+}
+
+// Keys derived for messages are cached once a message opens, bounded,
+// and never for forged ones; cached or not, opening checks everything.
+func TestDerivedKeyCache(t *testing.T) {
+	k, _ := encryption.ParseKey(encryption.GenerateKey())
+	e, _ := encryption.New(k)
+	msg := e.EncryptString("hello", "ctx")
+	for range 3 {
+		if got, err := e.DecryptString(msg, "ctx"); err != nil || got != "hello" {
+			t.Fatalf("DecryptString = %q, %v", got, err)
+		}
+	}
+	if _, err := e.DecryptString(msg, "other"); err == nil {
+		t.Error("a cached key opened a message for another context")
+	}
+	b, _ := base64.RawURLEncoding.DecodeString(msg)
+	b[len(b)-1] ^= 1
+	if _, err := e.DecryptString(base64.RawURLEncoding.EncodeToString(b), "ctx"); err == nil {
+		t.Error("a tampered message opened")
+	}
+	var wg sync.WaitGroup
+	for range 4 {
+		wg.Go(func() {
+			for range 600 { // more than the cache holds
+				m := e.EncryptString("x", "ctx")
+				if got, err := e.DecryptString(m, "ctx"); err != nil || got != "x" {
+					t.Errorf("DecryptString = %q, %v", got, err)
+					return
+				}
+			}
+		})
+	}
+	wg.Wait()
+	if got, err := e.DecryptString(msg, "ctx"); err != nil || got != "hello" {
+		t.Errorf("after the cache was emptied: %q, %v", got, err)
 	}
 }
