@@ -41,7 +41,20 @@ type Project struct {
 	Module  string // Go module path; default: the directory's name
 	DB      string // sqlite, postgres or mysql
 	Replace string // local Anetos checkout to use through replace directives ("" to download)
+	// CSS is the stylesheet: "anetos" (the default, "" too), Anetos's
+	// starter theme, or "none", an empty public/static/app.css for the
+	// app's own (the markup keeps the theme's few class names).
+	CSS string
 }
+
+// Stylesheets are the values of [Project.CSS].
+var Stylesheets = []string{"anetos", "none"}
+
+// noCSS is public/static/app.css with --css=none.
+const noCSS = `/* The app's styles. The pages' markup is plain HTML with a few class
+ * names (container, topbar, nav, card, field, button, badge, flash…):
+ * style them, or replace them with your CSS framework's. */
+`
 
 // projectData is what the templates see.
 type projectData struct {
@@ -145,6 +158,13 @@ func Create(p Project) ([]string, error) {
 	default:
 		return nil, fmt.Errorf("anetos new: --db must be one of %s", strings.Join(Databases, ", "))
 	}
+	switch p.CSS {
+	case "":
+		p.CSS = "anetos"
+	case "anetos", "none":
+	default:
+		return nil, fmt.Errorf("anetos new: --css must be one of %s", strings.Join(Stylesheets, ", "))
+	}
 	if entries, err := os.ReadDir(p.Dir); err == nil && len(entries) > 0 {
 		return nil, fmt.Errorf("anetos new: %s exists and isn't empty", p.Dir)
 	}
@@ -209,6 +229,9 @@ func Create(p Project) ([]string, error) {
 		out, err := render(src, dbEnv+dbEnvProd, data)
 		if err != nil {
 			return err
+		}
+		if rel == "public/static/app.css" && p.CSS == "none" {
+			out = []byte(noCSS)
 		}
 		mode := os.FileMode(0o644)
 		if rel == ".env" {

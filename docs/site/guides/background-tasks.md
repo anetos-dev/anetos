@@ -1,6 +1,8 @@
 ---
 title: Run background tasks
 since: v0.1.0
+group: "Background work"
+weight: 403
 ---
 
 # Run background tasks

@@ -22,7 +22,7 @@ own and can change:
 |---|---|
 | `app/models/user.go` | `User`, and `models.Users`, which tells package `auth` how to find and update users |
 | `app/handlers/auth.go`, `app/handlers/settings.go` | Registration, sign-in (with a password, Google or GitHub), email verification, password reset, two-factor sign-in, API tokens, the settings page |
-| `views/auth.templ`, `views/settings.templ` | Their pages |
+| `views/auth.templ`, `views/settings.templ` | Their pages, and `AccountMenu`, the header's links to log in, register and log out, which `make:auth` adds to `views/layout.templ` |
 | `routes/auth.go` | Their routes. Pages for signed-in users go in its `members` group |
 | `auth_test.go` | Their tests |
 
@@ -34,8 +34,9 @@ tables.
 Open http://localhost:8080/register and sign up. The app sends a link to
 verify your address: in development, emails go to the log
 (`MAIL_DRIVER=log`), so look in the terminal where `anetos dev` runs and
-open the link. You land on `/dashboard`; `/settings` changes your name,
-password, language and time zone.
+open the link. You land on `/dashboard` (`AUTH_HOME_URL` sets another
+page; part 3 shows how); `/settings` changes your name, password,
+language and time zone.
 
 `go test ./...` now runs the accounts' tests too.
 

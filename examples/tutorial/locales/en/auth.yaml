@@ -18,6 +18,7 @@ auth:
     title: "Log in"
     remember: "Remember me"
     submit: "Log in"
+    no_account: "No account yet?"
   forgot:
     title: "Forgot your password?"
     intro: "Enter your email address: we'll email you a link to choose a new password."
@@ -47,8 +48,8 @@ auth:
     language_auto: "Your browser's"
     time_zone: "Time zone"
     time_zone_app: "The site's"
-    two_factor_on: "On."
-    two_factor_off: "Off."
+    two_factor_on: "On"
+    two_factor_off: "Off"
     two_factor_manage: "Manage"
     delete: "Delete your account"
     delete_intro: "Your account and its API tokens are deleted for good, and you're signed out. This can't be undone."
@@ -78,11 +79,13 @@ auth:
     disable: "Turn off"
   tokens:
     title: "API tokens"
+    intro: "Programs that use the API send a token in their requests' Authorization header: Bearer, then the token."
     new: "Your new token (copy it now, it won't be shown again):"
     revoke: "Revoke"
     name: "Name"
     create: "Create token"
   social:
+    or: "Or"
     sign_in_with: "Sign in with {provider}"
   errors:
     name_required: "The name field is required."

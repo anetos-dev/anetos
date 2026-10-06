@@ -1,6 +1,8 @@
 package views
 
 import (
+	"strings"
+
 	"anetos.dev/anetos/i18n"
 	"anetos.dev/anetos/view"
 	"anetos.dev/anetos/web"
@@ -8,7 +10,9 @@ import (
 	"[[.Module]]/public"
 )
 
-// Layout is the page shell. Pages pass their content as children.
+// Layout is the page shell: the header with the app's links, the flash
+// message, then the page, which passes its content as children. Its
+// styles are public/static/app.css.
 templ Layout(title string) {
 	<!DOCTYPE html>
 	<html lang={ i18n.Locale(ctx) } dir={ i18n.Dir(ctx) }>
@@ -23,13 +27,30 @@ templ Layout(title string) {
 			<script src={ public.Assets.URL("htmx.min.js") } defer></script>
 		</head>
 		<body hx-headers={ `{"X-CSRF-Token": "` + view.CSRFToken(ctx) + `"}` }>
-			<header><a href={ web.URL(ctx, "home") }>[[.Title]]</a></header>
-			if msg := view.Flash(ctx, "status"); msg != "" {
-				<p class="flash" role="status">{ msg }</p>
-			}
-			<main>
+			<header class="topbar">
+				<div class="container">
+					<a class="brand" href={ web.URL(ctx, "home") }>[[.Title]]</a>
+					<nav class="nav" aria-label={ i18n.T(ctx, "nav.label") }>
+						@navLink("home", i18n.T(ctx, "nav.home"))
+					</nav>
+				</div>
+			</header>
+			<main class="container">
+				if msg := view.Flash(ctx, "status"); msg != "" {
+					<p class="flash" role="status">{ msg }</p>
+				}
 				{ children... }
 			</main>
+			<footer class="site-footer">
+				<div class="container"><p>[[.Title]]</p></div>
+			</footer>
 		</body>
 	</html>
+}
+
+// navLink links to the named route, marked as the current page when the
+// request is for a route of its group: for posts.index, the routes named
+// posts.something (posts.show, posts.edit…).
+templ navLink(route, label string) {
+	<a href={ web.URL(ctx, route) } if web.RouteIs(ctx, route, strings.TrimSuffix(route, ".index")+".*") { aria-current="page" }>{ label }</a>
 }

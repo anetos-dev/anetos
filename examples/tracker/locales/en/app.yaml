@@ -6,12 +6,9 @@ home:
   welcome: "Track your team's issues"
   intro: "Projects, issues, comments and files, with your team. Sign up to start a project."
 nav:
+  label: "Main"
   projects: "Projects"
-  settings: "Settings"
   search: "Search issues"
-  logout: "Log out"
-  login: "Log in"
-  register: "Sign up"
 pages:
   prev: "Previous"
   next: "Next"

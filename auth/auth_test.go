@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"maps"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
@@ -743,5 +744,53 @@ func TestLoginSessionDisabled(t *testing.T) {
 	a, _ := newApp(t, newStore(t))
 	if err := a.LoginSession(nil, &user{ID: "9", Disabled: true}); !errors.Is(err, auth.ErrDisabled) {
 		t.Errorf("LoginSession of a disabled user = %v", err)
+	}
+}
+
+// DefaultHomeURL is HomeURL's default; AUTH_HOME_URL, when set, wins.
+func TestDefaultHomeURL(t *testing.T) {
+	for _, tc := range []struct {
+		env  config.Map
+		opt  string
+		want string
+	}{
+		{config.Map{}, "", "/"},
+		{config.Map{}, "/dashboard", "/dashboard"},
+		{config.Map{"AUTH_HOME_URL": ""}, "/dashboard", "/dashboard"},
+		{config.Map{"AUTH_HOME_URL": "/issues"}, "/dashboard", "/issues"},
+	} {
+		src := config.Map{"APP_ENV": "testing", "APP_KEY": encryption.GenerateKey()}
+		maps.Copy(src, tc.env)
+		app, err := anetos.New(anetos.WithSource(src), anetos.WithLogOutput(io.Discard))
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = app.Close() })
+		if _, err := cache.ForApp(app); err != nil {
+			t.Fatal(err)
+		}
+		var opts []auth.Option
+		if tc.opt != "" {
+			opts = append(opts, auth.DefaultHomeURL(tc.opt))
+		}
+		a, err := auth.ForApp(app, newStore(t).users(), opts...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := a.Config().HomeURL; got != tc.want {
+			t.Errorf("%v, DefaultHomeURL(%q): HomeURL %q, want %q", tc.env, tc.opt, got, tc.want)
+		}
+	}
+	// A default that isn't a path of the app is refused.
+	app, err := anetos.New(anetos.WithSource(config.Map{"APP_ENV": "testing", "APP_KEY": encryption.GenerateKey()}), anetos.WithLogOutput(io.Discard))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = app.Close() })
+	if _, err := cache.ForApp(app); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := auth.ForApp(app, newStore(t).users(), auth.DefaultHomeURL("https://example.com/")); err == nil || !strings.Contains(err.Error(), "AUTH_HOME_URL") {
+		t.Errorf("an absolute URL: %v", err)
 	}
 }

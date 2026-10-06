@@ -1,6 +1,8 @@
 ---
 title: Runtime supervisor
 since: v0.1.0
+group: "The app"
+weight: 101
 ---
 
 # Runtime supervisor

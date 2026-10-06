@@ -31,7 +31,7 @@ func authRegister(t *testing.T) *anetostest.App {
 	app.PostForm("/register", url.Values{
 		"name": {"Ada"}, "email": {"Ada@Example.com"},
 		"password": {"correct horse"}, "password_confirmation": {"correct horse"},
-	}).AssertRedirect("/dashboard")
+	}).AssertRedirect("/projects") // auth.DefaultHomeURL, in auth.go
 	return app
 }
 
@@ -89,7 +89,7 @@ func TestRegisterValidation(t *testing.T) {
 	app.PostForm("/register", url.Values{
 		"name": {"  Grace \r\nBcc: x@example.com "}, "email": {"grace@example.com"},
 		"password": {"correct horse"}, "password_confirmation": {"correct horse"},
-	}).AssertRedirect("/dashboard")
+	}).AssertRedirect("/projects")
 	anetostest.AssertDatabaseHas[models.User](app, models.UserCols.Name.Eq("Grace Bcc: x@example.com"))
 }
 
@@ -100,7 +100,7 @@ func TestLoginAndLogout(t *testing.T) {
 
 	app.Get("/login").AssertOK()
 	app.PostForm("/login", url.Values{"email": {"ada@example.com"}, "password": {"wrong"}}).AssertValidationErrors("email")
-	app.PostForm("/login", url.Values{"email": {"ada@example.com"}, "password": {"correct horse"}}).AssertRedirect("/dashboard")
+	app.PostForm("/login", url.Values{"email": {"ada@example.com"}, "password": {"correct horse"}}).AssertRedirect("/dashboard") // the page asked for above
 	app.Get("/dashboard").AssertOK()
 }
 
@@ -162,7 +162,7 @@ func TestSettings(t *testing.T) {
 	app.Get("/dashboard").AssertOK() // this session stays signed in
 	app.PostForm("/logout", nil)
 	app.PostForm("/login", url.Values{"email": {"ada@example.com"}, "password": {"correct horse"}}).AssertValidationErrors("email")
-	app.PostForm("/login", url.Values{"email": {"ada@example.com"}, "password": {"new password"}}).AssertRedirect("/dashboard")
+	app.PostForm("/login", url.Values{"email": {"ada@example.com"}, "password": {"new password"}}).AssertRedirect("/projects")
 
 	app.PostForm("/settings/preferences", url.Values{"locale": {"xx"}, "time_zone": {"Asia/Dhaka"}}).AssertValidationErrors("locale")
 	app.PostForm("/settings/preferences", url.Values{"locale": {"en"}, "time_zone": {"Mars/Base"}}).AssertValidationErrors("time_zone")
@@ -279,7 +279,7 @@ func TestPasswordReset(t *testing.T) {
 	app.Get(authLink(t, sent[0].URL))
 	app.PostForm("/reset-password", form).AssertValidationErrors("password") // used once
 
-	app.PostForm("/login", url.Values{"email": {"ada@example.com"}, "password": {"new password"}}).AssertRedirect("/dashboard")
+	app.PostForm("/login", url.Values{"email": {"ada@example.com"}, "password": {"new password"}}).AssertRedirect("/projects")
 }
 
 // A new password signs out other browsers and revokes the API tokens.
@@ -333,12 +333,12 @@ func TestSocialSignIn(t *testing.T) {
 	app := anetostest.New(t, setup, anetostest.FakeSocial())
 	app.Get("/login").AssertSee("Sign in with Google", "Sign in with GitHub")
 	grace := anetostest.SocialAccount{ID: "g-1", Email: "Grace@Example.com", EmailVerified: true, Name: "Grace"}
-	app.SocialSignIn("/auth/google/redirect", grace).AssertRedirect("/dashboard")
+	app.SocialSignIn("/auth/google/redirect", grace).AssertRedirect("/projects")
 	app.Get("/dashboard").AssertSee("Hello, Grace").AssertDontSee("Please verify")
 	app.PostForm("/logout", nil)
 
 	// The same account again: the same user.
-	app.SocialSignIn("/auth/google/redirect", grace).AssertRedirect("/dashboard")
+	app.SocialSignIn("/auth/google/redirect", grace).AssertRedirect("/projects")
 	anetostest.AssertDatabaseCount[models.User](app, 1)
 	anetostest.AssertDatabaseHas[models.User](app, models.UserCols.Email.Eq("grace@example.com"))
 }
@@ -351,7 +351,7 @@ func TestSocialSignInFindsVerifiedAccounts(t *testing.T) {
 	app.PostForm("/register", url.Values{
 		"name": {"Ada"}, "email": {"ada@example.com"},
 		"password": {"correct horse"}, "password_confirmation": {"correct horse"},
-	}).AssertRedirect("/dashboard")
+	}).AssertRedirect("/projects")
 	app.PostForm("/logout", nil)
 	ada := anetostest.SocialAccount{ID: "42", Email: "ada@example.com", EmailVerified: true, Name: "Ada L."}
 
@@ -364,7 +364,7 @@ func TestSocialSignInFindsVerifiedAccounts(t *testing.T) {
 
 	// Verified here: the account is found, and linked.
 	app.Get(authLink(t, anetostest.Mailables[mailers.VerifyEmail](app)[0].URL)) // signs nobody in
-	app.SocialSignIn("/auth/github/redirect", ada).AssertRedirect("/dashboard")
+	app.SocialSignIn("/auth/github/redirect", ada).AssertRedirect("/projects")
 	app.Get("/dashboard").AssertSee("Hello, Ada")
 	app.PostForm("/logout", nil)
 	anetostest.AssertDatabaseCount[models.User](app, 1)

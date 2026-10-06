@@ -1,6 +1,8 @@
 ---
 title: Testing reference
 since: v0.1.0
+group: "Features"
+weight: 402
 ---
 
 # Testing reference

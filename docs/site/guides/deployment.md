@@ -1,6 +1,8 @@
 ---
 title: Deploy
 since: v0.3.0
+group: "Production"
+weight: 800
 ---
 
 # Deploy

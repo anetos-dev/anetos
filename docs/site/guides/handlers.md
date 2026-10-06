@@ -1,6 +1,8 @@
 ---
 title: Handlers and requests
 since: v0.1.0
+group: "Basics"
+weight: 101
 ---
 
 # Handlers and requests

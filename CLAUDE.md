@@ -41,7 +41,7 @@ minimum and the latest Go release (design D18).
 
 ```bash
 make check     # everything CI runs: gofmt, SPDX headers, doc snippets, generated code, vet, lint, race tests
-make docs-check  # doc code blocks match examples/ regions
+make docs-check  # doc code blocks match examples/ regions; pages have a sidebar group and weight
 make api-docs  # every exported identifier (fields, interface methods too) has a doc comment
 make test      # go test -race ./...
 make lint      # golangci-lint (v2 config in .golangci.yml)

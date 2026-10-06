@@ -1,6 +1,8 @@
 ---
 title: Query builder reference
 since: v0.1.0
+group: "Data"
+weight: 301
 ---
 
 # Query builder reference

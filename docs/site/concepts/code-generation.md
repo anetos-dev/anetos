@@ -1,6 +1,8 @@
 ---
 title: Code generation
 since: v0.1.0
+group: "The app"
+weight: 104
 ---
 
 # Code generation

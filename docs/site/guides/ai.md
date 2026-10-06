@@ -1,6 +1,8 @@
 ---
 title: Add AI to your app
 since: v0.3.0
+group: "Working with AI"
+weight: 700
 ---
 
 # Add AI to your app

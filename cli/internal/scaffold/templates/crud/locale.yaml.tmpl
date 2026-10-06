@@ -1,0 +1,29 @@
+# The [[.PluralW]] pages' English text (anetos make:crud): yours to change.
+# Translate it with a file of the same keys in another locale's folder
+# (locales/bn/[[.Key]].yaml).
+[[.Key]]:
+  title: "[[.TitleW]]"
+  one: "[[.OneW]] #{id}"
+  new: "New [[.Words]]"
+  editing: "Edit [[.Words]]"
+  edit: "Edit"
+  delete: "Delete"
+  save: "Save"
+  cancel: "Cancel"
+  back: "All [[.PluralW]]"
+  empty: "No [[.PluralW]] yet."
+  actions: "Actions"
+  pages: "Pages"
+  previous: "Previous"
+  next: "Next"
+  page: "Page {page} of {pages}"
+  created: "[[.OneW]] created."
+  updated: "[[.OneW]] saved."
+  deleted: "[[.OneW]] deleted."
+  created_at: "Created"
+  answer_yes: "Yes"
+  answer_no: "No"
+  fields:
+[[- range .Fields]]
+    "[[.Name]]": "[[.Label]]"
+[[- end]]

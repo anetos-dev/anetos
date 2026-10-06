@@ -88,7 +88,7 @@ func (h Accounts) RegisterPage(c *web.Ctx) error {
 }
 
 // Register creates the account, emails the verification link and signs
-// the user in.
+// the user in, then goes to AUTH_HOME_URL.
 func (h Accounts) Register(c *web.Ctx, in RegisterInput) (web.Responder, error) {
 	name := cleanName(in.Name)
 	if name == "" {
@@ -128,7 +128,7 @@ func (h Accounts) Register(c *web.Ctx, in RegisterInput) (web.Responder, error) 
 	if err := h.Auth.Login(c, u, false); err != nil {
 		return nil, err
 	}
-	return web.RedirectRoute("dashboard"), nil
+	return web.Redirect(web.LocalePath(c, h.Auth.Config().HomeURL)), nil // AUTH_HOME_URL
 }
 
 // region: dispatch
@@ -242,7 +242,8 @@ func SocialUser(ctx context.Context, p social.Profile) (*models.User, error) {
 }
 
 // Login signs the user in, throttling repeated failures (AUTH_THROTTLE),
-// and goes to the page they wanted, or the dashboard.
+// and goes to the page they wanted, or AUTH_HOME_URL (the dashboard,
+// unless set).
 func (h Accounts) Login(c *web.Ctx, in LoginInput) (web.Responder, error) {
 	_, err := h.Auth.Attempt(c, in.Email, in.Password, in.Remember)
 	var throttled *auth.ThrottledError
@@ -254,7 +255,7 @@ func (h Accounts) Login(c *web.Ctx, in LoginInput) (web.Responder, error) {
 	case err != nil:
 		return nil, err
 	}
-	return web.Redirect(auth.Intended(c, "/dashboard")), nil
+	return web.Redirect(auth.Intended(c, h.Auth.Config().HomeURL)), nil
 }
 
 // Logout signs the user out.

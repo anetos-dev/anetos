@@ -1,6 +1,8 @@
 ---
 title: Add full-text search
 since: v0.3.0
+group: "Features"
+weight: 502
 ---
 
 # Add full-text search

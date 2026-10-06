@@ -1,6 +1,8 @@
 ---
 title: AI
 since: v0.3.0
+group: "Working with AI"
+weight: 500
 ---
 
 # AI

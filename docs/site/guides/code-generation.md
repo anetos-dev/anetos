@@ -1,6 +1,8 @@
 ---
 title: Generate typed columns
 since: v0.1.0
+group: "Data"
+weight: 208
 ---
 
 # Generate typed columns

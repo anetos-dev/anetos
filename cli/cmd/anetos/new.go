@@ -15,9 +15,10 @@ import (
 	"anetos.dev/anetos/cli/internal/scaffold"
 )
 
-const newUsage = `Usage: anetos new <directory> [--module=path] [--db=sqlite|postgres|mysql]
+const newUsage = `Usage: anetos new <directory> [--module=path] [--db=sqlite|postgres|mysql] [--css=anetos|none]
 
-Creates an Anetos project: routes, handlers, templ views with a layout,
+Creates an Anetos project: routes, handlers, templ views with a layout
+styled by Anetos's starter theme (--css=none: no styles),
 sessions and CSRF protection, migrations, static files with htmx, a test,
 and a .env with a fresh APP_KEY. Then it downloads the dependencies and
 generates the views (skip with --skip-install).
@@ -27,6 +28,7 @@ func newProject(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	fs := flag.NewFlagSet("anetos new", flag.ContinueOnError)
 	module := fs.String("module", "", "Go module path (default: the directory's name)")
 	dbName := fs.String("db", "sqlite", "database: sqlite, postgres or mysql")
+	css := fs.String("css", "anetos", "stylesheet: anetos (a starter theme, no build step) or none")
 	replace := fs.String("replace", "", "use a local Anetos checkout at this path (for framework development)")
 	skip := fs.Bool("skip-install", false, "don't download dependencies or generate code")
 	pos, code := parse(fs, args, stderr, newUsage)
@@ -38,7 +40,7 @@ func newProject(ctx context.Context, args []string, stdout, stderr io.Writer) in
 		return 2
 	}
 	dir := pos[0]
-	files, err := scaffold.Create(scaffold.Project{Dir: dir, Module: *module, DB: *dbName, Replace: *replace})
+	files, err := scaffold.Create(scaffold.Project{Dir: dir, Module: *module, DB: *dbName, Replace: *replace, CSS: *css})
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1

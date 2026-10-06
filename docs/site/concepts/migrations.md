@@ -1,6 +1,8 @@
 ---
 title: Migrations
 since: v0.1.0
+group: "Data"
+weight: 301
 ---
 
 # Migrations

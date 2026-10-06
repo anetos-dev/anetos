@@ -1,6 +1,8 @@
 ---
 title: Use plugins
 since: v0.2.0
+group: "Extending"
+weight: 900
 ---
 
 # Use plugins

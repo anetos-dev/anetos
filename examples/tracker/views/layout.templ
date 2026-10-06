@@ -9,11 +9,13 @@ import (
 	"anetos.dev/anetos/view"
 	"anetos.dev/anetos/web"
 
-	"anetos.dev/anetos/examples/tracker/app/models"
 	"anetos.dev/anetos/examples/tracker/public"
 )
 
-// Layout is the page shell. Pages pass their content as children.
+// Layout is the page shell: the header with the app's links, the flash
+// message, then the page, which passes its content as children. Its
+// styles are public/static/app.css: anetos new's starter theme, with the
+// tracker's own at the end.
 templ Layout(title string) {
 	<!DOCTYPE html>
 	<html lang={ i18n.Locale(ctx) } dir={ i18n.Dir(ctx) }>
@@ -29,38 +31,29 @@ templ Layout(title string) {
 		</head>
 		<body hx-headers={ `{"X-CSRF-Token": "` + view.CSRFToken(ctx) + `"}` }>
 			@admin.Banner() // while acting as a user (anetos make:admin)
-			<header>
-				<a class="brand" href={ web.URL(ctx, "home") }>Tracker</a>
-				if u, ok := auth.User[*models.User](ctx); ok {
-					<nav>
-						<a href={ web.URL(ctx, "projects.index") }>{ i18n.T(ctx, "nav.projects") }</a>
-						<a href={ web.URL(ctx, "dashboard") }>{ u.Name }</a>
-						<a href={ web.URL(ctx, "settings") }>{ i18n.T(ctx, "nav.settings") }</a>
-					</nav>
-					<form class="search" method="get" action={ web.URL(ctx, "search") } role="search">
-						<input type="search" name="q" placeholder={ i18n.T(ctx, "nav.search") } aria-label={ i18n.T(ctx, "nav.search") }/>
-					</form>
-					<form method="post" action={ web.URL(ctx, "logout") }>
-						@view.CSRFField(ctx)
-						<button class="link" type="submit">{ i18n.T(ctx, "nav.logout") }</button>
-					</form>
-				} else {
-					<nav>
-						<a href={ web.URL(ctx, "login") }>{ i18n.T(ctx, "nav.login") }</a>
-						<a href={ web.URL(ctx, "register") }>{ i18n.T(ctx, "nav.register") }</a>
-					</nav>
-				}
+			<header class="topbar">
+				<div class="container">
+					<a class="brand" href={ web.URL(ctx, "home") }>Tracker</a>
+					if auth.Check(ctx) {
+						<nav class="nav" aria-label={ i18n.T(ctx, "nav.label") }>
+							<a href={ web.URL(ctx, "projects.index") } if web.RouteIs(ctx, "projects.*", "issues.*", "labels.*", "members.*") { aria-current="page" }>{ i18n.T(ctx, "nav.projects") }</a>
+						</nav>
+						<form method="get" action={ web.URL(ctx, "search") } role="search">
+							<input type="search" name="q" placeholder={ i18n.T(ctx, "nav.search") } aria-label={ i18n.T(ctx, "nav.search") }/>
+						</form>
+					}
+					@AccountMenu() // anetos make:auth's
+				</div>
 			</header>
-			if msg := view.Flash(ctx, "status"); msg != "" {
-				<p class="flash" role="status">{ msg }</p>
-			}
-			<main>
+			<main class="container">
+				if msg := view.Flash(ctx, "status"); msg != "" {
+					<p class="flash" role="status">{ msg }</p>
+				}
 				{ children... }
 			</main>
 		</body>
 	</html>
 }
-
 // fieldError shows the validation message of a form's field, if any.
 templ fieldError(field string) {
 	if msg := view.Errors(ctx).Get(field); msg != "" {

@@ -1,6 +1,8 @@
 ---
 title: Pub/sub listeners
 since: v0.2.0
+group: "Background work"
+weight: 404
 ---
 
 # Pub/sub listeners

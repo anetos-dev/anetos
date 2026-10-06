@@ -30,7 +30,7 @@ func TestIssuePage(t *testing.T) {
 	app.WithHeader("HX-Request", "true")
 	app.PostForm("/issues/1/comments", url.Values{"body": {"Fixed."}}).
 		AssertOK().
-		AssertSee(`<li class="comment">`, "Fixed.").
+		AssertSee(`<article class="card comment">`, "Fixed.").
 		AssertDontSee("<html")
 	app.WithHeader("HX-Request", "")
 

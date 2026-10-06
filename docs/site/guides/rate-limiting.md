@@ -1,6 +1,8 @@
 ---
 title: Rate limiting
 since: v0.2.0
+group: "Accounts and security"
+weight: 306
 ---
 
 # Rate limiting

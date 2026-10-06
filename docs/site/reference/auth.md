@@ -1,6 +1,8 @@
 ---
 title: Authentication reference
 since: v0.2.0
+group: "Features"
+weight: 400
 ---
 
 # Authentication reference
@@ -14,7 +16,7 @@ Packages `auth`, `auth/password`, `auth/social` and `auth/rbac`. How-to: [Authen
 |---|---|
 | `auth.Authenticatable` | `AuthID() string` and `AuthPassword() string`, implemented by the app's user type |
 | `auth.Users[U]{ByID, ByLogin, RememberToken, SetRememberToken, SetPassword, Disabled, SessionKey, SetSessionKey, TwoFactor, SetTwoFactor}` | How to find users (required: `ByID`, `ByLogin`; they return `db.ErrNotFound` or `auth.ErrNoUser`), store remember-me tokens and upgraded hashes; which accounts are disabled (`Disabled`, v0.3); the session key sessions are bound to (`SessionKey` and `SetSessionKey`, both or neither, v0.3); the two-factor state, stored encrypted (`TwoFactor` and `SetTwoFactor`, both or neither, v0.3) |
-| `auth.ForApp(app, users)` | `*auth.Auth[U]` from `AUTH_*` and `APP_KEY`; needs `cache.ForApp` first; provided to the app; once per app |
+| `auth.ForApp(app, users, opts...)` | `*auth.Auth[U]` from `AUTH_*` and `APP_KEY`; needs `cache.ForApp` first; provided to the app; once per app. Options as `New`'s, after its own, and `auth.DefaultHomeURL(path)`: `AUTH_HOME_URL`'s default (v0.3) |
 | `auth.New(cfg, users, enc, opts...)` | Without an app; `auth.WithLogger`, `auth.WithInsecureCookies`, `auth.WithIssuer(name)` (two-factor setups' issuer; `ForApp` uses `APP_NAME`, v0.3) |
 | `auth.Migrations()` | The `api_tokens` table, for `migrate.ForApp` |
 

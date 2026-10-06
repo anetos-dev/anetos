@@ -1,0 +1,17 @@
+package models
+
+import (
+[[- if .HasDate]]
+	"anetos.dev/anetos"
+[[- end]]
+	"anetos.dev/anetos/db"
+)
+
+// [[.Model]] is a row of the [[.Table]] table (anetos make:crud). `go tool anetos
+// gen` writes its typed columns ([[.Model]]Cols) to models_gen.go.
+type [[.Model]] struct {
+	db.Model // id, created_at, updated_at
+[[- range .Fields]]
+	[[.Go]] [[.GoType]] `db:"[[.Name]]"`
+[[- end]]
+}

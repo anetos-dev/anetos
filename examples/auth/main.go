@@ -127,7 +127,7 @@ func (h Accounts) Login(c *web.Ctx, in LoginInput) (web.Responder, error) {
 	case err != nil:
 		return nil, err
 	}
-	return web.Redirect(auth.Intended(c, "/dashboard")), nil // the page they wanted, if any
+	return web.Redirect(auth.Intended(c, h.auth.Config().HomeURL)), nil // the page they wanted, or AUTH_HOME_URL
 }
 
 func (h Accounts) Logout(c *web.Ctx) error {
@@ -160,7 +160,7 @@ func (h Accounts) Challenge(c *web.Ctx, in CodeInput) (web.Responder, error) {
 	case err != nil:
 		return nil, err
 	}
-	return web.Redirect(auth.Intended(c, "/dashboard")), nil
+	return web.Redirect(auth.Intended(c, h.auth.Config().HomeURL)), nil
 }
 
 // endregion
@@ -207,7 +207,7 @@ func (h Accounts) ConfirmPassword(c *web.Ctx, in PasswordInput) (web.Responder, 
 	case err != nil:
 		return nil, err
 	}
-	return web.Redirect(auth.Intended(c, "/dashboard")), nil
+	return web.Redirect(auth.Intended(c, h.auth.Config().HomeURL)), nil
 }
 
 // endregion
@@ -469,7 +469,9 @@ func setup(app *anetos.App) (*web.Server, error) {
 		return nil, err
 	}
 	// region: setup
-	a, err := auth.ForApp(app, users) // AUTH_* settings
+	// AUTH_* settings. Signing in leads to /dashboard, unless
+	// AUTH_HOME_URL names another page.
+	a, err := auth.ForApp(app, users, auth.DefaultHomeURL("/dashboard"))
 	if err != nil {
 		return nil, err
 	}

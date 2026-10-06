@@ -1,6 +1,8 @@
 ---
 title: Seed the database
 since: v0.1.0
+group: "Data"
+weight: 207
 ---
 
 # Seed the database

@@ -1,0 +1,116 @@
+package handlers
+
+import (
+	"net/http"
+[[if .HasDate]]
+	"anetos.dev/anetos"
+[[- end]]
+	"anetos.dev/anetos/db"
+	"anetos.dev/anetos/i18n"
+	"anetos.dev/anetos/web"
+
+	"[[.Module]]/app/models"
+	"[[.Module]]/views"
+)
+
+// [[.Plural]] serves the [[.PluralW]] pages (anetos make:crud): the list, a
+// [[.Words]]'s page, and the forms to create, edit and delete one. Yours to
+// change; routes/[[.Table]].go routes them.
+type [[.Plural]] struct{}
+
+// [[.Model]]List is the input of the list: the page number, from ?page=.
+type [[.Model]]List struct {
+	Page int `query:"page"`
+}
+
+// [[.Model]]ID reads {id} from the path.
+type [[.Model]]ID struct {
+	ID int64 `path:"id"`
+}
+
+// [[.Model]]Input is the [[.Words]] form. Its validate tags are checked before
+// the handler runs: an invalid form goes back with its errors and what
+// was typed.
+type [[.Model]]Input struct {
+	ID int64 `path:"id"` // when editing
+[[- range .Fields]]
+	[[.Go]] [[.GoType]] `json:"[[.Name]]"[[with .Rules $.Table]] validate:"[[.]]"[[end]]`
+[[- end]]
+}
+
+// fill copies the form to the row.
+func (in [[.Model]]Input) fill(row *models.[[.Model]]) {
+[[- range .Fields]]
+	row.[[.Go]] = in.[[.Go]]
+[[- end]]
+}
+
+// Index lists the [[.PluralW]], newest first, 20 a page.
+func ([[.Plural]]) Index(c *web.Ctx, in [[.Model]]List) (web.Responder, error) {
+	page, err := db.Query[models.[[.Model]]](c).OrderBy(models.[[.Model]]Cols.ID.Desc()).Paginate(in.Page, 20)
+	if err != nil {
+		return nil, err
+	}
+	return web.View(views.[[.Plural]]Page(page)), nil
+}
+
+// Show shows a [[.Words]]; one that doesn't exist is a 404 (db.ErrNotFound).
+func ([[.Plural]]) Show(c *web.Ctx, in [[.Model]]ID) (web.Responder, error) {
+	row, err := db.Find[models.[[.Model]]](c, in.ID)
+	if err != nil {
+		return nil, err
+	}
+	return web.View(views.[[.Model]]Page(row)), nil
+}
+
+// New shows the form for a new [[.Words]].
+func ([[.Plural]]) New(c *web.Ctx) error {
+	return c.Render(http.StatusOK, views.[[.Model]]Form(models.[[.Model]]{}))
+}
+
+// Create saves a new [[.Words]].
+func ([[.Plural]]) Create(c *web.Ctx, in [[.Model]]Input) (web.Responder, error) {
+	var row models.[[.Model]]
+	in.fill(&row)
+	if err := db.Create(c, &row); err != nil {
+		return nil, err
+	}
+	c.Session().Flash("status", i18n.T(c, "[[.Key]].created"))
+	return web.RedirectRoute("[[.Path]].show", row.ID), nil
+}
+
+// Edit shows the form to edit a [[.Words]].
+func ([[.Plural]]) Edit(c *web.Ctx, in [[.Model]]ID) (web.Responder, error) {
+	row, err := db.Find[models.[[.Model]]](c, in.ID)
+	if err != nil {
+		return nil, err
+	}
+	return web.View(views.[[.Model]]Form(row)), nil
+}
+
+// Update saves the changes to a [[.Words]].
+func ([[.Plural]]) Update(c *web.Ctx, in [[.Model]]Input) (web.Responder, error) {
+	row, err := db.Find[models.[[.Model]]](c, in.ID)
+	if err != nil {
+		return nil, err
+	}
+	in.fill(&row)
+	if err := db.Update(c, &row); err != nil {
+		return nil, err
+	}
+	c.Session().Flash("status", i18n.T(c, "[[.Key]].updated"))
+	return web.RedirectRoute("[[.Path]].show", row.ID), nil
+}
+
+// Delete deletes a [[.Words]].
+func ([[.Plural]]) Delete(c *web.Ctx, in [[.Model]]ID) (web.Responder, error) {
+	row, err := db.Find[models.[[.Model]]](c, in.ID)
+	if err != nil {
+		return nil, err
+	}
+	if err := db.Delete(c, &row); err != nil {
+		return nil, err
+	}
+	c.Session().Flash("status", i18n.T(c, "[[.Key]].deleted"))
+	return web.RedirectRoute("[[.Path]].index"), nil
+}

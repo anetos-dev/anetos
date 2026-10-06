@@ -1,6 +1,8 @@
 ---
 title: Relations and eager loading
 since: v0.1.1
+group: "Data"
+weight: 204
 ---
 
 # Relations and eager loading

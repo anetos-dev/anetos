@@ -1,6 +1,8 @@
 ---
 title: Application lifecycle
 since: v0.1.0
+group: "The app"
+weight: 100
 ---
 
 # Application lifecycle

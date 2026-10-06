@@ -1,6 +1,8 @@
 ---
 title: One binary
 since: v0.1.0
+group: "The app"
+weight: 102
 ---
 
 # One binary

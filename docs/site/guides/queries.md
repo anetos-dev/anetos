@@ -1,6 +1,8 @@
 ---
 title: Query data
 since: v0.1.0
+group: "Data"
+weight: 203
 ---
 
 # Query data

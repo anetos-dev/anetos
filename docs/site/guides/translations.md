@@ -1,6 +1,8 @@
 ---
 title: Translations
 since: v0.3.0
+group: "Languages and time"
+weight: 600
 ---
 
 # Translations

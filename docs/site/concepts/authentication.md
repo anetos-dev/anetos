@@ -1,6 +1,8 @@
 ---
 title: Authentication and authorization
 since: v0.2.0
+group: "Accounts and security"
+weight: 400
 ---
 
 # Authentication and authorization

@@ -1,6 +1,8 @@
 ---
 title: Write a plugin
 since: v0.2.0
+group: "Extending"
+weight: 901
 ---
 
 # Write a plugin

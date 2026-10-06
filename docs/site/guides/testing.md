@@ -1,6 +1,8 @@
 ---
 title: Test your app
 since: v0.1.0
+group: "Basics"
+weight: 109
 ---
 
 # Test your app

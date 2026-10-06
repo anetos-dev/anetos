@@ -1,6 +1,8 @@
 ---
 title: Add accounts with make:auth
 since: v0.2.0
+group: "Accounts and security"
+weight: 300
 ---
 
 # Add accounts with make:auth
@@ -44,6 +46,7 @@ created database/migrations/2026_10_02_090000_create_users_table.go
 updated .env: SOCIAL_* settings
 updated .env.example: SOCIAL_* settings
 updated main.go: setup calls setupAuth
+updated views/layout.templ: the header shows AccountMenu
 wrote app/models/models_gen.go
 ```
 
@@ -67,6 +70,18 @@ if _, err := setupAuth(app, srv.Router(), sessions); err != nil {
 
 If your `setup` no longer has that statement, `make:auth` says so and
 you add the call yourself.
+
+It also adds `@AccountMenu()` to the layout's header (after the nav's
+`</nav>`): links to log in and register for guests; the user's name
+(to the dashboard), the settings and a logout button for signed-in
+users. `setupAuth` calls `sessions.Use(a.Middleware)`, so every page
+with a session knows who is signed in, the home page of `routes/web.go`
+included. A layout without that nav gets nothing, and `make:auth` prints
+the line to add where you like.
+
+The pages use the starter theme's classes ([Style your
+app](styling.md)): a centered card for the forms, cards on the
+dashboard and the settings page.
 
 ### 2. Migrate and try it
 
@@ -156,10 +171,14 @@ The routes:
 | `GET`, `POST /two-factor`, `POST /two-factor/confirm`, `/recovery-codes`, `/disable` | Signed-in users who confirmed their password lately: turn two-factor sign-in on (a QR code, then a code), get new recovery codes, turn it off. See [Two-factor sign-in](two-factor.md) |
 | `GET /api/me` | API clients, with `Authorization: Bearer <token>` |
 
-Signed-in users who open a guest page go to `AUTH_HOME_URL` (default
-`/`; set `AUTH_HOME_URL=/dashboard` to send them to the dashboard, where
-logging in, registering and signing in with a provider lead); guests who open a member page go to
-`AUTH_LOGIN_URL` and come back after logging in. To protect your own pages, put them in a group with
+Logging in, registering and signing in with a provider lead to the page
+the user asked for before logging in, or else to `AUTH_HOME_URL`:
+`/dashboard`, the default `setupAuth` gives in `auth.go`
+(`auth.DefaultHomeURL("/dashboard")`). To send users elsewhere, set
+`AUTH_HOME_URL=/projects` in the environment, or change the default in
+`auth.go`; the setting wins, so each deployment can choose. Signed-in
+users who open a guest page go there too; guests who open a member page
+go to `AUTH_LOGIN_URL` and come back after logging in. To protect your own pages, put them in a group with
 `a.Middleware` and `a.Require`, as `routes/auth.go` does: `setupAuth`
 returns the `*auth.Auth`.
 

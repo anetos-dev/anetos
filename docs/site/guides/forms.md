@@ -1,6 +1,8 @@
 ---
 title: Handle HTML forms
 since: v0.1.0
+group: "Basics"
+weight: 104
 ---
 
 # Handle HTML forms

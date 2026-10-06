@@ -1,6 +1,8 @@
 ---
 title: Cache values
 since: v0.2.0
+group: "Production"
+weight: 801
 ---
 
 # Cache values

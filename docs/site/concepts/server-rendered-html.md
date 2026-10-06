@@ -1,6 +1,8 @@
 ---
 title: Server-rendered HTML
 since: v0.1.0
+group: "Web"
+weight: 201
 ---
 
 # Server-rendered HTML

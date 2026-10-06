@@ -1,6 +1,8 @@
 ---
 title: Numbers, dates and languages
 since: v0.3.0
+group: "Languages and time"
+weight: 601
 ---
 
 # Numbers, dates and languages

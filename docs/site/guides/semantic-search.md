@@ -1,6 +1,8 @@
 ---
 title: Search by meaning
 since: v0.3.0
+group: "Working with AI"
+weight: 702
 ---
 
 # Search by meaning

@@ -1,6 +1,8 @@
 ---
 title: Configuration
 since: v0.1.0
+group: "The app"
+weight: 103
 ---
 
 # Configuration

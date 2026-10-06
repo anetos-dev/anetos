@@ -9,6 +9,12 @@ weight: 3
 You add the issues: a model and its table, pages to list, open and edit
 them, and a test.
 
+> **Tip:** `go tool anetos make:crud Issue title:string body:text`
+> writes a model, its table, and pages to list, show, create, edit and
+> delete its rows, in one command ([Add pages for a
+> model](../crud.md)). Here you write them by hand, to see each piece
+> and make issues your own: they have an author and a status.
+
 ## The model and its table
 
 ```sh
@@ -243,21 +249,28 @@ The list:
 // IssuesPage lists a page of issues, with links to the pages around it.
 templ IssuesPage(page db.Page[models.Issue]) {
 	@Layout("Issues") {
-		<h1>Issues</h1>
-		<p><a href={ web.URL(ctx, "issues.new") }>New issue</a></p>
+		<div class="page-header">
+			<h1>Issues</h1>
+			<a class="button" href={ web.URL(ctx, "issues.new") }>New issue</a>
+		</div>
 		if page.Total == 0 {
-			<p>No issues yet.</p>
+			<p class="empty">No issues yet.</p>
+		} else {
+			<div class="table-wrap">
+				<table>
+					<tbody>
+						for _, issue := range page.Data {
+							<tr>
+								<td><span class={ "badge", templ.KV("success", issue.Status == "open") }>{ issue.Status }</span></td>
+								<td><a href={ templ.URL(fmt.Sprintf("/issues/%d", issue.ID)) }>{ issue.Title }</a></td>
+								<td class="muted">#{ issue.ID } by { issue.Author.Name }</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
 		}
-		<ul class="issues">
-			for _, issue := range page.Data {
-				<li>
-					<span class={ "status", issue.Status }>{ issue.Status }</span>
-					<a href={ templ.URL(fmt.Sprintf("/issues/%d", issue.ID)) }>{ issue.Title }</a>
-					<small>#{ issue.ID } by { issue.Author.Name }</small>
-				</li>
-			}
-		</ul>
-		<nav>
+		<nav class="pagination">
 			if page.HasPrev() {
 				<a href={ web.PageURL(ctx, page.CurrentPage-1) }>Newer</a>
 			}
@@ -280,30 +293,36 @@ for new issues and edits:
 // messages.
 templ IssueForm(issue models.Issue) {
 	@Layout("Issue") {
-		if issue.ID == 0 {
-			<h1>New issue</h1>
-			<form method="post" action={ web.URL(ctx, "issues.store") }>
-				@issueFields(issue)
-			</form>
-		} else {
-			<h1>Edit #{ issue.ID }</h1>
-			<form method="post" action={ web.URL(ctx, "issues.update", issue.ID) }>
-				@view.MethodField("PUT")
-				@issueFields(issue)
-			</form>
-		}
+		<div class="narrow">
+			if issue.ID == 0 {
+				<h1>New issue</h1>
+				<form method="post" action={ web.URL(ctx, "issues.store") } class="card">
+					@issueFields(issue)
+				</form>
+			} else {
+				<h1>Edit #{ issue.ID }</h1>
+				<form method="post" action={ web.URL(ctx, "issues.update", issue.ID) } class="card">
+					@view.MethodField("PUT")
+					@issueFields(issue)
+				</form>
+			}
+		</div>
 	}
 }
 
 templ issueFields(issue models.Issue) {
 	@view.CSRFField(ctx)
-	<label for="title">Title</label>
-	<input id="title" name="title" value={ view.Old(ctx, "title", issue.Title) }/>
-	@fieldError("title")
-	<label for="body">Description</label>
-	<textarea id="body" name="body" rows="6">{ view.Old(ctx, "body", issue.Body) }</textarea>
-	@fieldError("body")
-	<p><button type="submit">Save</button></p>
+	<div class="field">
+		<label for="title">Title</label>
+		<input id="title" name="title" value={ view.Old(ctx, "title", issue.Title) }/>
+		@fieldError("title")
+	</div>
+	<div class="field">
+		<label for="body">Description</label>
+		<textarea id="body" name="body" rows="6">{ view.Old(ctx, "body", issue.Body) }</textarea>
+		@fieldError("body")
+	</div>
+	<button type="submit">Save</button>
 }
 
 // fieldError shows the message of a field that failed validation.
@@ -317,7 +336,10 @@ templ fieldError(field string) {
 (Copied from [`examples/tutorial/views/issues.templ`](../../../../examples/tutorial/views/issues.templ), region `form`.)
 
 `view.CSRFField` adds the token that protects forms from other sites;
-HTML forms can't send PUT, so `view.MethodField` says it.
+HTML forms can't send PUT, so `view.MethodField` says it. The classes
+(`page-header`, `table-wrap`, `badge`, `card`, `field`…) are the
+starter theme's, in `public/static/app.css` ([Style your
+app](../../guides/styling.md)).
 
 ## The routes
 
@@ -339,10 +361,26 @@ members.Put("/issues/{id}", web.H(issues.Update)).Name("issues.update")
 Each route has a name, which `web.URL` and `web.RedirectRoute` use, so
 URLs are written once. Guests who open these pages go to the login page.
 
+Link to the list from the header: in `views/layout.templ`, add a line
+to the nav, below the home page's:
+
+```templ
+@navLink("issues.index", "Issues")
+```
+
+(Copied from [`examples/tutorial/views/layout.templ`](../../../../examples/tutorial/views/layout.templ), region `nav-issues`.)
+
+`navLink` (in the layout) marks the link as the current page on the
+issue pages, whose route names start with `issues.`.
+
 ## Try it
 
 Open http://localhost:8080/issues. Open an issue with an empty title
 (the form says what's wrong), then with one. Edit it.
+
+> **Tip:** Signing in leads to `/dashboard`. To land on the issues
+> instead, add `AUTH_HOME_URL=/issues` to `.env`, or change the default
+> in `auth.go`: `auth.DefaultHomeURL("/issues")`.
 
 ## Test it
 

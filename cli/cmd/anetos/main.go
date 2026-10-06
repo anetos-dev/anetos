@@ -16,6 +16,7 @@
 //	make:migration <name>     add a migration
 //	make:middleware <Name>    add a middleware
 //	make:agent <Name>         add an AI agent
+//	make:crud <Model> <fields>  add a model with pages to list, show, create, edit and delete it
 //	make:auth                 add accounts: registration, login, verification, reset, API tokens
 //	make:admin                add the admin interface (after make:auth)
 //	make:admin:resource <Model>  add a model to the admin
@@ -59,6 +60,7 @@ Commands:
   make:migration <name>     add a migration to database/migrations
   make:middleware <Name>    add a middleware to app/middleware
   make:agent <Name>         add an AI agent to app/agents
+  make:crud <Model> <field:type>...  add a model, its table, and pages to list, show, create, edit and delete it
   make:auth                 add accounts: registration, login, email verification, password reset, API tokens
   make:admin                add the admin interface at /admin (after make:auth)
   make:admin:resource <Model>  add a model to the admin (app/admin)
@@ -106,6 +108,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 		return makeAuth(ctx, args[1:], stdout, stderr)
+	case "make:crud":
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		return makeCrud(ctx, args[1:], stdout, stderr)
 	case "make:admin":
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()

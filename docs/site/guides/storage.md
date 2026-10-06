@@ -1,6 +1,8 @@
 ---
 title: Store files
 since: v0.2.0
+group: "Features"
+weight: 501
 ---
 
 # Store files

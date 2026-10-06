@@ -49,6 +49,36 @@ func URL(ctx context.Context, name string, args ...any) (string, error) {
 	return LocalePath(ctx, path), nil
 }
 
+// RouteIs reports whether the request was routed to one of the named
+// routes. A name ending in ".*" matches the names that start with what
+// comes before the star: "issues.*" matches issues.index and
+// issues.show. Layouts use it to mark the current page's link:
+//
+//	<a href={ web.URL(ctx, "issues.index") } if web.RouteIs(ctx, "issues.*") { aria-current="page" }>
+//
+// Outside a request served by a [Router], or for a route without a name,
+// it returns false.
+func RouteIs(ctx context.Context, names ...string) bool {
+	st := stateFrom(ctx)
+	if st == nil || st.route == nil {
+		return false
+	}
+	name := st.route.RouteName()
+	if name == "" {
+		return false
+	}
+	for _, n := range names {
+		if prefix, ok := strings.CutSuffix(n, ".*"); ok {
+			if strings.HasPrefix(name, prefix+".") {
+				return true
+			}
+		} else if n == name {
+			return true
+		}
+	}
+	return false
+}
+
 // PageURL returns a link to page n of the current list: the current
 // page's query string with its "page" parameter set to n, the other
 // parameters (a search, a filter, per_page) kept as they were. It is

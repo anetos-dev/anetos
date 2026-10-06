@@ -1,6 +1,8 @@
 ---
 title: Scheduling
 since: v0.2.0
+group: "Background work"
+weight: 402
 ---
 
 # Scheduling

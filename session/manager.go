@@ -18,6 +18,8 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -153,6 +155,9 @@ type Manager struct {
 
 	store  cache.Store // nil: the cookie holds the session
 	prefix string      // of the store's keys
+
+	mu    sync.Mutex                                        // Use's writes
+	inner atomic.Pointer[[]func(http.Handler) http.Handler] // Use's middleware
 }
 
 // Option configures [NewManager].
@@ -314,6 +319,7 @@ func (m *Manager) Store() (cache.Store, string) { return m.store, m.prefix }
 // Cache-Control) and "Vary: Cookie". If the same Manager's middleware
 // already runs for the request, it does nothing.
 func (m *Manager) Middleware(next http.Handler) http.Handler {
+	var cached atomic.Pointer[chained] // next, inside Use's middleware
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if owner, _ := r.Context().Value(managerKey{}).(*Manager); owner == m {
 			next.ServeHTTP(w, r) // this manager already runs for the request
@@ -330,9 +336,47 @@ func (m *Manager) Middleware(next http.Handler) http.Handler {
 		}
 		sw := &saver{ResponseWriter: w, m: m, st: st, ctx: context.WithoutCancel(r.Context())}
 		ctx := context.WithValue(NewContext(r.Context(), st.s), managerKey{}, m)
-		next.ServeHTTP(sw, r.WithContext(ctx))
+		h := next
+		if mws := m.inner.Load(); mws != nil {
+			c := cached.Load()
+			if c == nil || c.mws != mws {
+				c = &chained{mws: mws, h: next}
+				for _, mw := range slices.Backward(*mws) {
+					c.h = mw(c.h)
+				}
+				cached.Store(c)
+			}
+			h = c.h
+		}
+		h.ServeHTTP(sw, r.WithContext(ctx))
 		sw.save()
 	})
+}
+
+// chained is a route's handler inside the middleware of [Manager.Use].
+type chained struct {
+	mws *[]func(http.Handler) http.Handler // the list it was built with
+	h   http.Handler
+}
+
+// Use adds middleware that run inside [Manager.Middleware] wherever it
+// runs, in order: after the session is loaded, before the route's other
+// middleware. It is for what every page with a session needs, whichever
+// group it is in, such as the signed-in user (make:auth's setupAuth calls
+// sessions.Use(a.Middleware), so the home page's header knows who is
+// signed in). It applies to the routes registered before it and after;
+// call it while setting up the app, before serving. The middleware may
+// run again in a route's group: they must allow that, as auth's and the
+// session's do.
+func (m *Manager) Use(mw ...func(http.Handler) http.Handler) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var list []func(http.Handler) http.Handler
+	if cur := m.inner.Load(); cur != nil {
+		list = append(list, *cur...)
+	}
+	list = append(list, mw...)
+	m.inner.Store(&list)
 }
 
 type managerKey struct{}

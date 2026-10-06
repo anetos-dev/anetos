@@ -1,6 +1,8 @@
 ---
 title: Find N+1 queries
 since: v0.2.0
+group: "Production"
+weight: 802
 ---
 
 # Find N+1 queries

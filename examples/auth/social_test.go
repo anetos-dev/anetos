@@ -18,13 +18,13 @@ func TestSocialSignIn(t *testing.T) {
 
 	// A new account: a user is created, with the address verified.
 	grace := anetostest.SocialAccount{ID: "g-1", Email: "grace@example.com", EmailVerified: true, Name: "Grace"}
-	app.SocialSignIn("/auth/google/redirect", grace).AssertRedirect("/") // AUTH_HOME_URL
+	app.SocialSignIn("/auth/google/redirect", grace).AssertRedirect("/dashboard") // AUTH_HOME_URL
 	app.Get("/dashboard").AssertSee("Hello, Grace").AssertDontSee("Please verify")
 	app.PostForm("/logout", nil)
 
 	// The same account again, with a new address: the linked user.
 	grace.Email = "grace@new.example"
-	app.SocialSignIn("/auth/google/redirect", grace).AssertRedirect("/")
+	app.SocialSignIn("/auth/google/redirect", grace).AssertRedirect("/dashboard")
 	n, err := db.RawFirst[int64](app.Context(), "SELECT COUNT(*) FROM users")
 	if err != nil || n != 1 {
 		t.Errorf("users: %d, %v", n, err)
@@ -44,7 +44,7 @@ func TestSocialLinking(t *testing.T) {
 
 	// A verified address finds the existing, verified user.
 	app.SocialSignIn("/auth/github/redirect", anetostest.SocialAccount{ID: "s-ada", Email: "ada@example.com", EmailVerified: true}).
-		AssertRedirect("/")
+		AssertRedirect("/dashboard")
 	app.Get("/dashboard").AssertSee("Hello, Ada")
 	app.PostForm("/logout", nil)
 

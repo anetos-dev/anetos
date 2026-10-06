@@ -1,6 +1,8 @@
 ---
 title: Raw SQL
 since: v0.1.0
+group: "Data"
+weight: 206
 ---
 
 # Raw SQL

@@ -1,6 +1,8 @@
 ---
 title: Connect to a database
 since: v0.1.0
+group: "Data"
+weight: 200
 ---
 
 # Connect to a database

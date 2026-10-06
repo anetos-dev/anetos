@@ -1,6 +1,8 @@
 ---
 title: Times and dates
 since: v0.3.0
+group: "Languages and time"
+weight: 602
 ---
 
 # Times and dates

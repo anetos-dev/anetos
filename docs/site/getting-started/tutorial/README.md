@@ -1,6 +1,7 @@
 ---
 title: "Tutorial: build an issue tracker"
 since: v0.3.0
+weight: 30
 ---
 
 # Tutorial: build an issue tracker
@@ -12,8 +13,9 @@ use most of what an Anetos app is made of: models and migrations,
 handlers and routes, templ views and forms, accounts, htmx, full-text
 search, events, queue jobs, email, and tests.
 
-It takes about an hour. Parts 1 to 3 and 7 make a deployable app with
-accounts, in about half of that.
+The whole tutorial takes about an hour. Short on time? Parts 1 to 3,
+then 7, take about 30 minutes and give you an app with accounts and
+issues, ready to deploy.
 
 | Part | You add |
 |---|---|

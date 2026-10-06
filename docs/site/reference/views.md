@@ -1,6 +1,8 @@
 ---
 title: Views, sessions and forms reference
 since: v0.1.0
+group: "Web"
+weight: 201
 ---
 
 # Views, sessions and forms reference
@@ -17,6 +19,7 @@ helpers of package `web`. See [Render HTML with templ](../guides/views.md),
 | `c.Render(status, component)` | Renders a component (templ or `view.Component`) into a buffer and writes it as `text/html; charset=utf-8`; a render error becomes an error response |
 | `web.View(component)` | Responder rendering the component with 200 |
 | `web.URL(ctx, name, args...)` | `(string, error)`: path of a named route, from any request context (use in components); a trailing `url.Values` argument becomes the query string |
+| `web.RouteIs(ctx, names...)` | Whether the request's route has one of the names; `"issues.*"` matches the names starting with `issues.`. False outside a request or for an unnamed route (v0.3). The layout of `anetos new` marks the current page's link with it |
 | `web.PageURL(ctx, page)` | A relative link (`?…&page=N`) to page N of the current list, keeping the request's other query parameters as written; `?page=N` outside a request |
 | `c.IsHTMX()` | Whether `HX-Request: true`; adds `Vary: HX-Request` |
 | `c.HTMX()` | `web.HTMX`: `Request`, `Boosted`, `HistoryRestore`, `Target`, `Trigger`, `TriggerName`, `CurrentURL`; adds `Vary: HX-Request` |
@@ -71,6 +74,7 @@ Form posts key errors by `form` name where it differs from the `json` name.
 | `session.Migrations(table)` | The database driver's table, for `migrate.ForApp` |
 | `session.NewManager(cfg, enc, opts...)` | Manager from a `session.Config` and an `*encryption.Encrypter`; `session.WithLogger`, `session.WithStore(store, prefix)` (any `cache.Store`) |
 | `m.Middleware` | Loads the session into the request context and saves it when the response starts; adds `Cache-Control: private` (if unset) and `Vary: Cookie` for requests with a session. Does nothing if the same manager already runs for the request |
+| `m.Use(mw...)` | Middleware that run inside `m.Middleware`, wherever it runs (every group with sessions), after the session is loaded and before the group's other middleware, in order; for routes registered before and after. Call it at setup. `make:auth`'s `setupAuth` calls `sessions.Use(a.Middleware)`, so every page knows the signed-in user (v0.3) |
 | `m.CookieName()` | `SESSION_COOKIE`, with the `__Host-` prefix when Secure, without Domain, with Path `/` |
 | `session.From(ctx)` | The session, or nil |
 | `session.New()`, `session.NewContext(ctx, s)` | A session for tests |

@@ -1,6 +1,8 @@
 ---
 title: Authentication
 since: v0.2.0
+group: "Accounts and security"
+weight: 301
 ---
 
 # Authentication
@@ -94,7 +96,9 @@ up the same way.
 ### 2. Set up auth and protect routes
 
 ```go
-a, err := auth.ForApp(app, users) // AUTH_* settings
+// AUTH_* settings. Signing in leads to /dashboard, unless
+// AUTH_HOME_URL names another page.
+a, err := auth.ForApp(app, users, auth.DefaultHomeURL("/dashboard"))
 if err != nil {
 	return nil, err
 }
@@ -219,7 +223,7 @@ func (h Accounts) Login(c *web.Ctx, in LoginInput) (web.Responder, error) {
 	case err != nil:
 		return nil, err
 	}
-	return web.Redirect(auth.Intended(c, "/dashboard")), nil // the page they wanted, if any
+	return web.Redirect(auth.Intended(c, h.auth.Config().HomeURL)), nil // the page they wanted, or AUTH_HOME_URL
 }
 
 func (h Accounts) Logout(c *web.Ctx) error {

@@ -25,14 +25,18 @@ func setupAuth(app *anetos.App, r *web.Router, sessions *session.Manager) (*auth
 	if err := runner.Add(auth.Migrations(), social.Migrations()); err != nil {
 		return nil, err
 	}
-	a, err := auth.ForApp(app, models.Users)
+	// Signing in leads to the dashboard, unless AUTH_HOME_URL names
+	// another page (or this default changes).
+	a, err := auth.ForApp(app, models.Users, auth.DefaultHomeURL("/dashboard"))
 	if err != nil {
 		return nil, err
 	}
+	// Every page with a session knows who is signed in (the layout's
+	// AccountMenu), the pages of routes/web.go included.
+	sessions.Use(a.Middleware)
 	// Each provider is on once its SOCIAL_<NAME>_CLIENT_ID and
 	// _CLIENT_SECRET are set; users come back to APP_URL/auth/<name>/callback.
-	s, err := social.ForApp(app, a, handlers.SocialUser, social.Configured(app, social.Google(), social.GitHub()),
-		social.WithHomeURL("/dashboard"))
+	s, err := social.ForApp(app, a, handlers.SocialUser, social.Configured(app, social.Google(), social.GitHub()))
 	if err != nil {
 		return nil, err
 	}

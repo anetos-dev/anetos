@@ -1,6 +1,8 @@
 ---
 title: Render HTML with templ
 since: v0.1.0
+group: "Basics"
+weight: 102
 ---
 
 # Render HTML with templ

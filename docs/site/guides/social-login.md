@@ -1,6 +1,8 @@
 ---
 title: Social login
 since: v0.2.0
+group: "Accounts and security"
+weight: 302
 ---
 
 # Social login
@@ -159,8 +161,8 @@ names, in URLs) and `s.Title(name)` (their names for people, "Google"):
 
 A failed or canceled sign-in returns to `AUTH_LOGIN_URL` with an error on
 the `social` field (`view.Errors(ctx).Get("social")`); a successful one
-goes to the page the user wanted, or `AUTH_HOME_URL`
-(`social.WithHomeURL("/dashboard")` sets another).
+goes to the page the user wanted, or `AUTH_HOME_URL`, as a login does
+(`social.WithHomeURL("/welcome")` sets another for social sign-ins).
 
 ### 3. Test
 
@@ -178,13 +180,13 @@ func TestSocialSignIn(t *testing.T) {
 
 	// A new account: a user is created, with the address verified.
 	grace := anetostest.SocialAccount{ID: "g-1", Email: "grace@example.com", EmailVerified: true, Name: "Grace"}
-	app.SocialSignIn("/auth/google/redirect", grace).AssertRedirect("/") // AUTH_HOME_URL
+	app.SocialSignIn("/auth/google/redirect", grace).AssertRedirect("/dashboard") // AUTH_HOME_URL
 	app.Get("/dashboard").AssertSee("Hello, Grace").AssertDontSee("Please verify")
 	app.PostForm("/logout", nil)
 
 	// The same account again, with a new address: the linked user.
 	grace.Email = "grace@new.example"
-	app.SocialSignIn("/auth/google/redirect", grace).AssertRedirect("/")
+	app.SocialSignIn("/auth/google/redirect", grace).AssertRedirect("/dashboard")
 	n, err := db.RawFirst[int64](app.Context(), "SELECT COUNT(*) FROM users")
 	if err != nil || n != 1 {
 		t.Errorf("users: %d, %v", n, err)

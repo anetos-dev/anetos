@@ -617,3 +617,43 @@ func TestLoadAndEdit(t *testing.T) {
 		t.Error("oversized Edit accepted")
 	}
 }
+
+// Use's middleware run inside the session middleware, in order, for
+// handlers wrapped before and after; nested session middleware run them
+// once.
+func TestUse(t *testing.T) {
+	c := newClient(t, DefaultConfig())
+	var trail []string
+	mark := func(name string) func(http.Handler) http.Handler {
+		return func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if From(r.Context()) == nil {
+					t.Errorf("%s: no session", name)
+				}
+				trail = append(trail, name)
+				next.ServeHTTP(w, r)
+			})
+		}
+	}
+	handler := http.HandlerFunc(func(http.ResponseWriter, *http.Request) { trail = append(trail, "handler") })
+	before := c.m.Middleware(handler)
+	serve := func(h http.Handler) string {
+		trail = nil
+		h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil))
+		return strings.Join(trail, ",")
+	}
+	if got := serve(before); got != "handler" {
+		t.Errorf("without Use: %s", got)
+	}
+	c.m.Use(mark("a"), mark("b"))
+	after := c.m.Middleware(c.m.Middleware(handler))
+	for _, h := range []http.Handler{before, after, before} {
+		if got := serve(h); got != "a,b,handler" {
+			t.Errorf("with Use: %s", got)
+		}
+	}
+	c.m.Use(mark("c"))
+	if got := serve(before); got != "a,b,c,handler" {
+		t.Errorf("after a second Use: %s", got)
+	}
+}

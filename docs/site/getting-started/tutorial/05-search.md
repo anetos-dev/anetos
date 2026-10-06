@@ -99,22 +99,28 @@ import (
 templ SearchPage(q string, found []models.Issue) {
 	@Layout("Search") {
 		<h1>Search</h1>
-		<form method="get" role="search">
+		<form method="get" role="search" class="cluster">
 			<input type="search" name="q" value={ q } aria-label="Search issues"/>
 			<button type="submit">Search</button>
 		</form>
 		if q != "" && len(found) == 0 {
-			<p>No issues match “{ q }”.</p>
+			<p class="empty">No issues match “{ q }”.</p>
 		}
-		<ul class="issues">
-			for _, issue := range found {
-				<li>
-					<span class={ "status", issue.Status }>{ issue.Status }</span>
-					<a href={ templ.URL(fmt.Sprintf("/issues/%d", issue.ID)) }>{ issue.Title }</a>
-					<small>#{ issue.ID } by { issue.Author.Name }</small>
-				</li>
-			}
-		</ul>
+		if len(found) > 0 {
+			<div class="table-wrap">
+				<table>
+					<tbody>
+						for _, issue := range found {
+							<tr>
+								<td><span class={ "badge", templ.KV("success", issue.Status == "open") }>{ issue.Status }</span></td>
+								<td><a href={ templ.URL(fmt.Sprintf("/issues/%d", issue.ID)) }>{ issue.Title }</a></td>
+								<td class="muted">#{ issue.ID } by { issue.Author.Name }</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		}
 	}
 }
 ```
@@ -129,20 +135,16 @@ members.Get("/search", web.H(issues.Search)).Name("search")
 
 (Copied from [`examples/tutorial/routes/auth.go`](../../../../examples/tutorial/routes/auth.go), region `routes-search`.)
 
-Last, a search box on every page. In `views/layout.templ`, replace the
-`<header>` line with:
+Last, a search box on every page. In `views/layout.templ`, add it to
+the header, below the nav's closing `</nav>`:
 
 ```templ
-<header>
-	<a href={ web.URL(ctx, "home") }>Tracker</a>
-	<a href={ web.URL(ctx, "issues.index") }>Issues</a>
-	<form method="get" action={ web.URL(ctx, "search") } role="search">
-		<input type="search" name="q" placeholder="Search issues" aria-label="Search issues"/>
-	</form>
-</header>
+<form method="get" action={ web.URL(ctx, "search") } role="search">
+	<input type="search" name="q" placeholder="Search issues" aria-label="Search issues"/>
+</form>
 ```
 
-(Copied from [`examples/tutorial/views/layout.templ`](../../../../examples/tutorial/views/layout.templ), region `nav`.)
+(Copied from [`examples/tutorial/views/layout.templ`](../../../../examples/tutorial/views/layout.templ), region `nav-search`.)
 
 ## Test it
 

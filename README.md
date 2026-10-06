@@ -66,7 +66,8 @@ APIs will change.
 ## Developer experience
 
 ```bash
-anetos new blog && cd blog # templ views, sessions, CSRF, SQLite by default
+anetos new blog && cd blog # templ views in a starter theme (light/dark), sessions, CSRF, SQLite
+go tool anetos make:crud Post title:string body:text published:bool  # pages to list, show, create, edit, delete
 go tool anetos make:auth   # accounts: password, Google, GitHub, API tokens
 go tool anetos make:admin  # an admin at /admin; make:admin:resource Post adds posts
 go run . migrate

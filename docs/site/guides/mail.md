@@ -1,6 +1,8 @@
 ---
 title: Send email
 since: v0.2.0
+group: "Features"
+weight: 500
 ---
 
 # Send email

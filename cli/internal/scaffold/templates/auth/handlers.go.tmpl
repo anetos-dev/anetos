@@ -104,7 +104,7 @@ func (h Accounts) RegisterPage(c *web.Ctx) error {
 }
 
 // Register creates the account, emails the verification link and signs
-// the user in.
+// the user in, then goes to AUTH_HOME_URL.
 func (h Accounts) Register(c *web.Ctx, in RegisterInput) (web.Responder, error) {
 	name := cleanName(in.Name)
 	if name == "" {
@@ -140,7 +140,7 @@ func (h Accounts) Register(c *web.Ctx, in RegisterInput) (web.Responder, error) 
 	if err := h.Auth.Login(c, u, false); err != nil {
 		return nil, err
 	}
-	return web.RedirectRoute("dashboard"), nil
+	return web.Redirect(web.LocalePath(c, h.Auth.Config().HomeURL)), nil // AUTH_HOME_URL
 }
 
 // emailTaken reports whether an account has the address.
@@ -260,7 +260,8 @@ func SocialUser(ctx context.Context, p social.Profile) (*models.User, error) {
 }
 
 // Login signs the user in, throttling repeated failures (AUTH_THROTTLE),
-// and goes to the page they wanted, or the dashboard.
+// and goes to the page they wanted, or AUTH_HOME_URL (the dashboard,
+// unless set).
 func (h Accounts) Login(c *web.Ctx, in LoginInput) (web.Responder, error) {
 	_, err := h.Auth.Attempt(c, in.Email, in.Password, in.Remember)
 	var throttled *auth.ThrottledError
@@ -276,7 +277,7 @@ func (h Accounts) Login(c *web.Ctx, in LoginInput) (web.Responder, error) {
 	case err != nil:
 		return nil, err
 	}
-	return web.Redirect(auth.Intended(c, "/dashboard")), nil
+	return web.Redirect(auth.Intended(c, h.Auth.Config().HomeURL)), nil
 }
 
 // ChallengePage asks for the two-factor code of a sign-in waiting for it.
@@ -303,7 +304,7 @@ func (h Accounts) Challenge(c *web.Ctx, in CodeInput) (web.Responder, error) {
 	case err != nil:
 		return nil, err
 	}
-	return web.Redirect(auth.Intended(c, "/dashboard")), nil
+	return web.Redirect(auth.Intended(c, h.Auth.Config().HomeURL)), nil
 }
 
 // ConfirmPage asks for the password again, before something sensitive.
@@ -324,7 +325,7 @@ func (h Accounts) ConfirmPassword(c *web.Ctx, in PasswordInput) (web.Responder, 
 	case err != nil:
 		return nil, err
 	}
-	return web.Redirect(auth.Intended(c, "/dashboard")), nil
+	return web.Redirect(auth.Intended(c, h.Auth.Config().HomeURL)), nil
 }
 
 // TwoFactorPage shows two-factor sign-in: off, being set up (the QR code

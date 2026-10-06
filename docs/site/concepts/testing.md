@@ -1,6 +1,8 @@
 ---
 title: Testing model
 since: v0.1.0
+group: "The app"
+weight: 105
 ---
 
 # Testing model

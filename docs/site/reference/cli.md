@@ -1,6 +1,8 @@
 ---
 title: anetos tool and app commands reference
 since: v0.1.0
+group: "Tools"
+weight: 100
 ---
 
 # `anetos` tool and app commands reference
@@ -27,6 +29,7 @@ success, 1 on errors, 2 for bad usage.
 |---|---|---|
 | `--module` | the directory's name | Go module path |
 | `--db` | `sqlite` | `sqlite`, `postgres` or `mysql`: the driver in `main.go` and the `DB_*` settings in `.env` |
+| `--css` | `anetos` | The stylesheet, `public/static/app.css` (v0.3): `anetos`, the starter theme (light and dark, no build step), or `none`, a near-empty file for your own CSS or a CSS framework; the pages' markup is the same ([Style your app](../guides/styling.md)) |
 | `--skip-install` | `false` | Only write the files |
 | `--replace` | | A local Anetos checkout, used through `replace` directives (framework development): the core, the tool, and every driver and plugin module of the checkout, so `go get` and `anetos add` take them from it too |
 
@@ -46,14 +49,14 @@ before `migrate`.
 | `.env`, `.env.example` | Settings; `.env` has a fresh `APP_KEY` (file mode 0600) and stays out of git |
 | `.env.testing` | PostgreSQL and MySQL projects: the test database's settings (`<name>_test`) |
 | `README.md`, `.gitignore` | How to run it; what stays out of git |
-| `routes/web.go` | Routes: assets, and the page group with sessions and CSRF |
+| `routes/web.go` | Routes: assets, and the page group with sessions and CSRF (`pages`), which `make:crud` adds its routes to |
 | `app/handlers/home.go` | The home page handler |
 | `app/models/` | Models (empty at first) |
 | `database/migrations/migrations.go` | The `All` migration set and `Seeders` |
 | `database/factories/factories.go` | The package for model factories (empty at first) |
-| `views/layout.templ`, `views/home.templ` | templ layout (`<html lang dir>` in the request's locale, `hreflang` links with `LOCALE_URL=prefix` or `subdomain`, flash messages, CSRF header for htmx) and home page, its text from the catalog |
+| `views/layout.templ`, `views/home.templ` | templ layout (`<html lang dir>` in the request's locale, `hreflang` links with `LOCALE_URL=prefix` or `subdomain`, the header with the app's name and its nav (`navLink`, which marks the current page with `web.RouteIs`), flash messages, CSRF header for htmx) and home page, its text from the catalog |
 | `locales/locales.go`, `locales/en/app.yaml` | The translations, embedded: the home page's English text. Add a language with its folder (`locales/bn/app.yaml`); see [Translations](../guides/translations.md) |
-| `public/public.go`, `public/static/app.css` | `public.Assets`: the static files and htmx under `/assets` |
+| `public/public.go`, `public/static/app.css` | `public.Assets`: the static files and htmx under `/assets`; the stylesheet (`--css`) |
 | `Dockerfile`, `.dockerignore` | A container image (v0.3): `anetos build` in `golang:<go version>`, the binary alone in `gcr.io/distroless/static-debian12:nonroot` (user 65532), `/data` for the files (and the SQLite database), `HEALTHCHECK` with `health:check`. See [Deploy](../guides/deployment.md#run-it-in-a-container) |
 | `deploy/<name>.service`, `deploy/production.env.example` | A systemd unit (v0.3: migrations before start, restart on failure, sandboxed) and the production settings to fill in. See [Deploy](../guides/deployment.md#run-it-on-a-server-with-systemd) |
 
@@ -108,9 +111,11 @@ files were changed) for `version`.
 ## `anetos make:*`
 
 Run anywhere in a project. Existing files are never overwritten
-(`make:auth` adds one call to `setup` in `main.go`; `make:admin` changes
-it and adds a line to `views/layout.templ`; `make:admin:resource` adds a
-line to `app/admin/admin.go`).
+(`make:auth` adds one call to `setup` in `main.go` and one line to
+`views/layout.templ`; `make:crud` adds one line to `routes/web.go` and
+one to `views/layout.templ`; `make:admin` changes `setup` and adds a
+line to `views/layout.templ`; `make:admin:resource` adds a line to
+`app/admin/admin.go`).
 
 | Command | Writes |
 |---|---|
@@ -118,8 +123,9 @@ line to `app/admin/admin.go`).
 | `make:model <Name> [--migration]` | `app/models/<name>.go`: a model embedding `db.Model`, then its typed columns (`anetos gen`); with `--migration`, also `create_<table>_table` |
 | `make:migration <name>` | `database/migrations/<YYYY_MM_DD_HHMMSS>_<name>.go`: `create_posts_table` creates a table; `add_x_to_posts_table` (the last `to`, `from`, `in` or `on`) gets commented `Alter` code for that table; other names get empty functions. The timestamp is always after the newest migration's, so migrations made in the same second keep their order |
 | `make:middleware <Name>` | `app/middleware/<name>.go`: a `func(http.Handler) http.Handler` |
+| `make:crud <Model> <field:type[:optional\|:unique]>...` | A model with its table and the pages to list, show, create, edit and delete its rows (v0.3): `app/models/<model>.go`, a `create_<table>_table` migration, `app/handlers/<table>.go` (`handlers.<Models>`: `Index` with 20 rows a page, `Show`, `New`, `Create`, `Edit`, `Update`, `Delete`; the form `<Model>Input` with its validate tags), `views/<table>.templ` (the list, the page, the form, in the starter theme's markup), `routes/<table>.go` (`routes.<Models>(r)`: `/<table>`, named `<table>.index`, `.new`, `.store`, `.show`, `.edit`, `.update`, `.destroy`), `locales/en/<table>.yaml` (the pages' text) and `<table>_test.go`; then `anetos gen`, `templ generate` and `go build ./...`. Types: `string` (255), `text`, `email`, `int` (`int64`), `float` (`float64`), `bool`, `date` (`anetos.Date`). Strings, emails, texts and dates are required unless `:optional`; `:unique` (required strings and emails, dates) adds a unique index and the `unique` rule. Refused: a plural that is the name (`News`), the tables of the framework and `make:auth` (`users`, `api_tokens`…), and the field `model`. Adds `<Models>(pages)` at the end of `Register` in `routes/web.go` and a `navLink` to the list before the header's `</nav>` in `views/layout.templ` (else it prints what to add). Writes nothing if a file or the migration exists or a name is taken. See [Add pages for a model](../getting-started/crud.md) |
 | `make:agent <Name>` | `app/agents/<name>.go`: an `ai.Agent` with a typed tool; prints how to set up `ai.ForApp` if `main.go` doesn't call it (v0.3) |
-| `make:auth` | Accounts, with sign-in with Google and GitHub: `app/models/user.go` (`User` with `disabled_at` and `session_key` since v0.3, `models.Users`), `app/handlers/auth.go` (`handlers.Accounts`, `handlers.SocialUser`, `handlers.SendVerification` and `SendPasswordReset` since v0.3), `app/mailers/auth.go` and `views/auth_mail.templ` (verification and reset emails), `views/auth.templ` (pages), `routes/auth.go` (`routes.Auth`), `auth.go` (`setupAuth`), `auth_test.go`, and a `create_users_table` migration; the empty `SOCIAL_GOOGLE_*` and `SOCIAL_GITHUB_*` settings appended to `.env` and `.env.example` (unless there); then `go mod tidy`, `anetos gen`, `templ generate` and `go build ./...`, and a `setupAuth` call in `setup` after its `routes.Register(srv.Router(), sessions)` statement (else it prints the call to add). Writes nothing if one of the files or a `create_users_table` migration exists, or a name the files declare is taken in its package; removes what it wrote if a write fails. See [Add accounts with make:auth](../guides/accounts.md) |
+| `make:auth` | Accounts, with sign-in with Google and GitHub: `app/models/user.go` (`User` with `disabled_at` and `session_key` since v0.3, `models.Users`), `app/handlers/auth.go` (`handlers.Accounts`, `handlers.SocialUser`, `handlers.SendVerification` and `SendPasswordReset` since v0.3), `app/mailers/auth.go` and `views/auth_mail.templ` (verification and reset emails), `views/auth.templ` (pages, and `AccountMenu`, the header's account links, since v0.3), `routes/auth.go` (`routes.Auth`), `auth.go` (`setupAuth`: `auth.DefaultHomeURL("/dashboard")` and `sessions.Use(a.Middleware)` since v0.3), `auth_test.go`, and a `create_users_table` migration; the empty `SOCIAL_GOOGLE_*` and `SOCIAL_GITHUB_*` settings appended to `.env` and `.env.example` (unless there); then `go mod tidy`, `anetos gen`, `templ generate` and `go build ./...`, and a `setupAuth` call in `setup` after its `routes.Register(srv.Router(), sessions)` statement (else it prints the call to add), and `@AccountMenu()` after the `</nav>` line of the layout's header (v0.3; else it prints the line to add). Writes nothing if one of the files or a `create_users_table` migration exists, or a name the files declare is taken in its package; removes what it wrote if a write fails. See [Add accounts with make:auth](../guides/accounts.md) |
 | `make:admin` | The admin interface (v0.3), after `make:auth`: adds the module `anetos.dev/anetos/admin` (`go get`; in a project whose core module is replaced by a checkout, from the checkout), writes `admin.go` (`setupAdmin`: roles and permissions with `rbac.ForApp` and an `admin` role, unless a Go file of the project already calls `rbac.ForApp`; then `admin.New`, the users, `admin.Roles`, the dashboard (`admin.SignUps` of the users, `admin.QueueHealth`, `admin.AIUsage` if the project tracks AI usage, `admin.RecentActivity` if it keeps an audit log), `admin.Jobs` and `admin.Schedule` (for the app's queue and scheduler), `admin.Activity` (with an audit log), the resources of `app/admin`, and `Mount` with the pages' middleware), `app/admin/admin.go` (`Resources`, empty), `app/admin/users.go` (`Users`: `admin.Users` for `models.User`, with the columns and `handlers.SendVerification` and `SendPasswordReset` the model and handlers have) and `admin_test.go` (with `rbac.ForApp` and `make:auth`'s tests); adds `@admin.Banner()` after `<body>` in `views/layout.templ` (else it prints the line to add); appends the empty `ADMIN_PATH` and `ADMIN_HOST` to `.env` and `.env.example`; replaces `make:auth`'s `setupAuth` call in `setup` with one that keeps its `*auth.Auth` and calls `setupAdmin` (else it prints the calls to add); then `go mod tidy`, `templ generate` and `go build ./...`. Restores `go.mod` and `go.sum` if it fails before writing. See [Add an admin panel](../guides/admin.md) |
 | `make:admin:resource <Model>` | `app/admin/<models>.go` (v0.3): the admin's resource for a model of `app/models`, named after the type (`Post`: `posts` at `/admin/posts`, function `Posts`): columns (the ID and the first four fields the form edits, or the first five without `db.Model`; `created_at`), search over its first three string fields, and a form struct `<Model>Form` with the fields of types a form can edit (strings, numbers, bools, `time.Time` as `admin.DateTime`, `anetos.Date`, and pointers to them), leaving out the key, the timestamps, JSON and read-only columns and names like password, token or secret; adds the function to `Resources` in `app/admin/admin.go` |
 

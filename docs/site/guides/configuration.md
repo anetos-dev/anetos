@@ -1,6 +1,8 @@
 ---
 title: Configure your application
 since: v0.1.0
+group: "Basics"
+weight: 107
 ---
 
 # Configure your application

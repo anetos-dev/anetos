@@ -54,6 +54,9 @@ type AuthResult struct {
 	// Wired says main.go now calls setupAuth; when false, the app must
 	// call it itself.
 	Wired bool
+	// Menu says the layout (views/layout.templ) now shows AccountMenu in
+	// its header; when false, the app adds it where it wants it.
+	Menu bool
 	// Env are the settings files (.env, .env.example) the SOCIAL_*
 	// settings were added to.
 	Env []string
@@ -164,8 +167,49 @@ func MakeAuth(root string, now time.Time) (AuthResult, error) {
 	}
 	wired, err := wireAuth(filepath.Join(root, "main.go"))
 	res.Wired = wired
+	if err != nil {
+		return res, err
+	}
+	res.Menu, err = addAccountMenu(filepath.Join(root, "views", "layout.templ"))
 	return res, err
 }
+
+// accountMenu is the line make:auth adds to the layout's header.
+const accountMenu = "@AccountMenu()"
+
+// addAccountMenu adds @AccountMenu() to the layout's header, on the line
+// after the header's </nav>, as anetos new writes it, and reports
+// whether the layout shows it. It leaves a layout without such a line
+// alone, reporting false.
+func addAccountMenu(layout string) (bool, error) {
+	src, err := os.ReadFile(layout)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if bytes.Contains(src, []byte(accountMenu)) {
+		return true, nil
+	}
+	header := bytes.Index(src, []byte("<header"))
+	end := bytes.Index(src, []byte("</header>"))
+	if header < 0 || end < header {
+		return false, nil
+	}
+	m := navClose.FindSubmatchIndex(src[header:end])
+	if m == nil {
+		return false, nil
+	}
+	at := header + m[1] // after the line's newline
+	indent := src[header+m[2] : header+m[3]]
+	line := append(append(append([]byte(nil), indent...), accountMenu...), '\n')
+	patched := append(append(append([]byte(nil), src[:at]...), line...), src[at:]...)
+	return true, os.WriteFile(layout, patched, 0o644)
+}
+
+// navClose is a line closing a <nav>.
+var navClose = regexp.MustCompile(`(?m)^([ \t]*)</nav>[ \t]*\r?\n`)
 
 // socialSettings are the settings of sign-in with Google and GitHub.
 const socialSettings = `
@@ -222,7 +266,7 @@ var authNames = map[string][]string{
 	"app/models":   {"User", "Users", "UserCols"},
 	"app/handlers": {"Accounts", "RegisterInput", "LoginInput", "ForgotInput", "ResetInput", "TokenQuery", "NewTokenInput", "TokenID", "CodeInput", "PasswordInput", "ProfileInput", "EmailInput", "NewPasswordInput", "PreferencesInput", "RevertInput", "sendEmailChange", "SocialUser", "SendVerification", "SendPasswordReset", "emailTaken", "cleanName"},
 	"app/mailers":  {"VerifyEmail", "ResetPassword", "ChangeEmail", "EmailChanging"},
-	"views":        {"SocialButton", "Register", "Login", "ForgotPassword", "ResetPassword", "Dashboard", "TwoFactorChallenge", "ConfirmPassword", "TwoFactorPage", "TwoFactor", "Choice", "SettingsPage", "Settings", "RevertEmail", "ChangeEmailMail", "EmailChangingMail", "socialButtons", "authError", "VerifyEmailMail", "ResetPasswordMail", "authMail"},
+	"views":        {"AccountMenu", "SocialButton", "Register", "Login", "ForgotPassword", "ResetPassword", "Dashboard", "TwoFactorChallenge", "ConfirmPassword", "TwoFactorPage", "TwoFactor", "Choice", "SettingsPage", "Settings", "RevertEmail", "ChangeEmailMail", "EmailChangingMail", "socialButtons", "authError", "VerifyEmailMail", "ResetPasswordMail", "authMail"},
 	"routes":       {"Auth"},
 	"":             {"setupAuth", "authRegister", "authLink", "TestRegisterAndVerify", "TestResendVerification", "TestRegisterValidation", "TestLoginAndLogout", "TestTwoFactor", "TestSettings", "TestChangeEmail", "TestRevertEmailChange", "TestDisabledAccount", "TestLoginReturnsToTheRequestedPage", "TestPasswordReset", "TestResetSignsOutAndRevokesTokens", "TestAPIToken", "TestSocialSignIn", "TestSocialSignInFindsVerifiedAccounts"},
 }

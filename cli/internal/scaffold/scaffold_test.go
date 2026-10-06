@@ -111,6 +111,24 @@ func TestCreateDeployNames(t *testing.T) {
 	}
 }
 
+// The stylesheet is the starter theme, or nearly empty with --css=none.
+func TestCreateCSS(t *testing.T) {
+	for css, want := range map[string]string{"": "--primary:", "anetos": "--primary:", "none": "The app's styles."} {
+		dir := filepath.Join(t.TempDir(), "a")
+		if _, err := Create(Project{Dir: dir, DB: "sqlite", CSS: css}); err != nil {
+			t.Fatal(err)
+		}
+		got := read(t, filepath.Join(dir, "public", "static", "app.css"))
+		if !strings.Contains(got, want) || (css == "none" && got != noCSS) {
+			t.Errorf("--css=%s:\n%s", css, got)
+		}
+		// The markup is the same: the classes are the theme's.
+		if l := read(t, filepath.Join(dir, "views", "layout.templ")); !strings.Contains(l, `<header class="topbar">`) {
+			t.Errorf("--css=%s: layout:\n%s", css, l)
+		}
+	}
+}
+
 func TestCreateErrors(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "x"), nil, 0o644); err != nil {
@@ -127,6 +145,7 @@ func TestCreateErrors(t *testing.T) {
 		{Dir: filepath.Join(t.TempDir(), "fmt"), DB: "sqlite"},
 		{Dir: filepath.Join(t.TempDir(), "embed"), DB: "sqlite"},
 		{Dir: filepath.Join(t.TempDir(), "a"), DB: "sqlite", Replace: t.TempDir()},
+		{Dir: filepath.Join(t.TempDir(), "a"), DB: "sqlite", CSS: "bootstrap"}, // not yet
 	} {
 		if _, err := Create(p); err == nil {
 			t.Errorf("%+v accepted", p)

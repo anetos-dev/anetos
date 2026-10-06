@@ -1,6 +1,8 @@
 ---
 title: Commands
 since: v0.1.0
+group: "Basics"
+weight: 108
 ---
 
 # Commands

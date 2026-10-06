@@ -1,6 +1,8 @@
 ---
 title: Migrations reference
 since: v0.1.0
+group: "Data"
+weight: 302
 ---
 
 # Migrations reference

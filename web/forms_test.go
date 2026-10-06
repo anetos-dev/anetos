@@ -14,6 +14,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -470,5 +471,31 @@ func TestPageURL(t *testing.T) {
 	}
 	if u := PageURL(context.Background(), 2); u != "?page=2" {
 		t.Errorf("outside a request: %q", u)
+	}
+}
+
+func TestRouteIs(t *testing.T) {
+	r := NewRouter()
+	var got []bool
+	check := func(c *Ctx) error {
+		got = append(got, RouteIs(c, "issues.index"), RouteIs(c, "issues.*"), RouteIs(c, "home", "issues.show"), RouteIs(c, "issue*"), RouteIs(c))
+		return c.NoContent()
+	}
+	r.Get("/issues", check).Name("issues.index")
+	r.Get("/issues/{id}", check).Name("issues.show")
+	r.Get("/unnamed", check)
+	for path, want := range map[string][]bool{
+		"/issues":   {true, true, false, false, false}, // issue* isn't a prefix: .* is
+		"/issues/1": {false, true, true, false, false},
+		"/unnamed":  {false, false, false, false, false},
+	} {
+		got = nil
+		r.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, path, nil))
+		if !slices.Equal(got, want) {
+			t.Errorf("%s: %v, want %v", path, got, want)
+		}
+	}
+	if RouteIs(context.Background(), "issues.*") {
+		t.Error("outside a request")
 	}
 }

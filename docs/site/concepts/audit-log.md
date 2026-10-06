@@ -1,6 +1,8 @@
 ---
 title: The audit log
 since: v0.3.0
+group: "Accounts and security"
+weight: 402
 ---
 
 # The audit log

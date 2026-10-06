@@ -105,8 +105,10 @@ type Config struct {
 	// LoginURL is where [Auth.Require] sends guests. AUTH_LOGIN_URL,
 	// default /login.
 	LoginURL string `env:"AUTH_LOGIN_URL" default:"/login"`
-	// HomeURL is where [Auth.Guest] sends signed-in users, and
-	// [Intended]'s usual fallback. AUTH_HOME_URL, default /.
+	// HomeURL is the app's page for signed-in users: where [Auth.Guest]
+	// sends them, and where signing in leads when there's no page they
+	// wanted ([Intended]'s usual fallback). AUTH_HOME_URL, default /
+	// ([DefaultHomeURL] sets another default).
 	HomeURL string `env:"AUTH_HOME_URL" default:"/"`
 	// RememberLifetime is how long "remember me" lasts.
 	// AUTH_REMEMBER_LIFETIME, default 720h (30 days).
@@ -189,6 +191,7 @@ type options struct {
 	log    *slog.Logger
 	secure bool
 	issuer string
+	home   string
 }
 
 // WithLogger sets the logger. Default slog.Default().
@@ -197,6 +200,13 @@ func WithLogger(l *slog.Logger) Option { return func(o *options) { o.log = l } }
 // WithIssuer names the app in users' authenticator apps (two-factor
 // sign-in). ForApp uses APP_NAME.
 func WithIssuer(name string) Option { return func(o *options) { o.issuer = name } }
+
+// DefaultHomeURL sets HomeURL's default, for [ForApp]: the page users go
+// to after signing in when AUTH_HOME_URL isn't set, instead of /.
+// make:auth's setupAuth gives /dashboard. AUTH_HOME_URL still wins, so
+// each deployment can choose. [New] takes its Config as it is and
+// ignores it.
+func DefaultHomeURL(path string) Option { return func(o *options) { o.home = path } }
 
 // WithInsecureCookies lets the remember-me cookie travel over plain HTTP,
 // for development and tests. ForApp uses it outside production-like
@@ -238,11 +248,22 @@ func New[U Authenticatable](cfg Config, users Users[U], enc *encryption.Encrypte
 // and provides it to the app. Login throttling needs the app's cache
 // (cache.ForApp, called first). An app has one Auth: its session keys and
 // cookie are fixed, so a second one would read the first one's users.
-func ForApp[U Authenticatable](app *anetos.App, users Users[U]) (*Auth[U], error) {
+// The options come after ForApp's own (the app's logger, APP_NAME as the
+// issuer, insecure cookies outside production); [DefaultHomeURL] sets
+// where users go after signing in, unless AUTH_HOME_URL is set.
+func ForApp[U Authenticatable](app *anetos.App, users Users[U], opts ...Option) (*Auth[U], error) {
 	if _, ok := anetos.Lookup[appAuth](app); ok {
 		return nil, errors.New("auth: ForApp was already called for this app; an app has one Auth")
 	}
-	cfg, err := LoadConfig(app.Source())
+	var o options
+	for _, opt := range opts {
+		opt(&o)
+	}
+	src := app.Source()
+	if v, _ := src.Lookup("AUTH_HOME_URL"); v == "" && o.home != "" { // AUTH_HOME_URL wins
+		src = config.Layers(config.Map{"AUTH_HOME_URL": o.home}, src)
+	}
+	cfg, err := LoadConfig(src)
 	if err != nil {
 		return nil, err
 	}
@@ -253,15 +274,15 @@ func ForApp[U Authenticatable](app *anetos.App, users Users[U]) (*Auth[U], error
 	if err != nil {
 		return nil, fmt.Errorf("auth: %w", err)
 	}
-	opts := []Option{WithLogger(app.Logger().With("component", "auth")), WithIssuer(app.Config().Name)}
+	base := []Option{WithLogger(app.Logger().With("component", "auth")), WithIssuer(app.Config().Name)}
 	if m, err := anetos.Resolve[*session.Manager](app); err == nil {
 		if s := m.Config().Secure; s != nil && !*s {
-			opts = append(opts, WithInsecureCookies())
+			base = append(base, WithInsecureCookies())
 		}
 	} else if env := app.Config().Env; env.IsDevelopment() || env.IsTesting() {
-		opts = append(opts, WithInsecureCookies())
+		base = append(base, WithInsecureCookies())
 	}
-	a, err := New(cfg, users, enc, opts...)
+	a, err := New(cfg, users, enc, append(base, opts...)...)
 	if err != nil {
 		return nil, err
 	}

@@ -1,6 +1,8 @@
 ---
 title: Build an AI assistant
 since: v0.3.0
+group: "Working with AI"
+weight: 701
 ---
 
 # Build an AI assistant

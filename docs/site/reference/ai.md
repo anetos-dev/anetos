@@ -1,6 +1,8 @@
 ---
 title: AI reference
 since: v0.3.0
+group: "Features"
+weight: 401
 ---
 
 # AI reference

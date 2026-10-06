@@ -22,8 +22,10 @@ and throttling, sign-in with Google and GitHub, logout, email
 verification, password reset and API tokens. It writes the User model,
 the handlers, the pages and emails, the routes, the users table's
 migration, setupAuth (auth.go) and its tests, adds the SOCIAL_*
-settings to .env and .env.example, then calls setupAuth from setup in
-main.go. The code is yours to change; hashing, tokens, sessions and
+settings to .env and .env.example, calls setupAuth from setup in
+main.go, and adds the account links (AccountMenu) to the layout's
+header. Signing in leads to /dashboard: AUTH_HOME_URL, or the default in
+auth.go, sets another page. The code is yours to change; hashing, tokens, sessions and
 throttling stay in package auth, the sign-in flow in package social.
 `
 
@@ -61,6 +63,9 @@ func makeAuth(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	if res.Wired {
 		fmt.Fprintln(stdout, "updated main.go: setup calls setupAuth")
 	}
+	if res.Menu {
+		fmt.Fprintln(stdout, "updated views/layout.templ: the header shows AccountMenu")
+	}
 	// The modules the new imports need, the User model's typed columns,
 	// the pages' Go code, and a check that it all builds.
 	finish := func(err error) int {
@@ -96,6 +101,15 @@ setupAuth yourself in setup, after the routes:
 	if _, err := setupAuth(app, srv.Router(), sessions); err != nil {
 		return nil, err
 	}
+`)
+	}
+	if !res.Menu {
+		fmt.Fprint(stdout, `
+views/layout.templ has no header with a nav, as a new project's: add the
+links to log in, register and log out (views/auth.templ) where you want
+them:
+
+	@AccountMenu()
 `)
 	}
 	fmt.Fprint(stdout, `

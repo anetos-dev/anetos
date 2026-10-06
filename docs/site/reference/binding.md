@@ -1,6 +1,8 @@
 ---
 title: Request binding reference
 since: v0.1.0
+group: "Web"
+weight: 200
 ---
 
 # Request binding reference

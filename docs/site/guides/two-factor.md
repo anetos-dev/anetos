@@ -1,6 +1,8 @@
 ---
 title: Two-factor sign-in and password confirmation
 since: v0.3.0
+group: "Accounts and security"
+weight: 303
 ---
 
 # Two-factor sign-in and password confirmation
@@ -182,7 +184,7 @@ func (h Accounts) Login(c *web.Ctx, in LoginInput) (web.Responder, error) {
 	case err != nil:
 		return nil, err
 	}
-	return web.Redirect(auth.Intended(c, "/dashboard")), nil // the page they wanted, if any
+	return web.Redirect(auth.Intended(c, h.auth.Config().HomeURL)), nil // the page they wanted, or AUTH_HOME_URL
 }
 
 func (h Accounts) Logout(c *web.Ctx) error {
@@ -213,7 +215,7 @@ func (h Accounts) Challenge(c *web.Ctx, in CodeInput) (web.Responder, error) {
 	case err != nil:
 		return nil, err
 	}
-	return web.Redirect(auth.Intended(c, "/dashboard")), nil
+	return web.Redirect(auth.Intended(c, h.auth.Config().HomeURL)), nil
 }
 ```
 
@@ -244,7 +246,7 @@ func (h Accounts) ConfirmPassword(c *web.Ctx, in PasswordInput) (web.Responder, 
 	case err != nil:
 		return nil, err
 	}
-	return web.Redirect(auth.Intended(c, "/dashboard")), nil
+	return web.Redirect(auth.Intended(c, h.auth.Config().HomeURL)), nil
 }
 ```
 

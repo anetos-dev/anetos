@@ -1,6 +1,8 @@
 ---
 title: HTTP request lifecycle
 since: v0.1.0
+group: "Web"
+weight: 200
 ---
 
 # HTTP request lifecycle

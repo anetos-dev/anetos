@@ -1,6 +1,8 @@
 ---
 title: Sessions and flash messages
 since: v0.1.0
+group: "Basics"
+weight: 106
 ---
 
 # Sessions and flash messages

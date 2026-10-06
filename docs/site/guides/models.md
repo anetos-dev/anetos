@@ -1,6 +1,8 @@
 ---
 title: Define models and save data
 since: v0.1.0
+group: "Data"
+weight: 201
 ---
 
 # Define models and save data

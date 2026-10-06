@@ -117,6 +117,8 @@ these kinds; don't mix them.
 ---
 title: Send email from a queued job
 since: v0.2.0
+group: "Background work"
+weight: 406
 ---
 
 # Send email from a queued job
@@ -144,6 +146,19 @@ Symptom → cause → fix.
 ## Next steps
 Related guides.
 ```
+
+Every page of `getting-started/`, `guides/`, `concepts/` and
+`reference/` (but the folders' `README.md`) has a `group:` and a
+`weight:` in its front matter. The docs site shows each group as a
+folder of the sidebar (the page's URL stays `/guides/<file>/`); the
+weight orders the pages in their group, and the groups by their
+pages' weights. Give a group's pages weights next to each other (the
+groups of guides are hundreds: Basics 100–199, Data 200–299…), and put
+a new page where a reader would look for it in the order of work, not
+the alphabet. A group's name mustn't be a page's file name (the group
+"Installation" next to `installation.md` would take its URL). Pages of
+a subfolder (the tutorial's parts) have a weight only. `make
+docs-check` checks all this (`internal/cmd/docnav`).
 
 ### 5.2 Concept page
 
@@ -341,6 +356,7 @@ Reviewers check:
 - [ ] Links work; no duplicated explanations.
 - [ ] Glossary terms used correctly.
 - [ ] `since` version set; CHANGELOG entry present.
+- [ ] `group` and `weight` place the page where a reader looks for it (§5.1).
 
 ---
 
@@ -360,3 +376,4 @@ sketches as illustrative; never invent APIs in docs that don't exist in code.
 | 2026-09-29 | Initial guide |
 | 2026-09-30 | §6: struct fields and interface methods need doc comments; `make api-docs` checks |
 | 2026-10-01 | §7: regions of first-party plugins (`plugins/`) can be claimed like examples (B11) |
+| 2026-10-06 | §5.1, §12: every page has a `group` and a `weight`, the docs site's sidebar groups; `make docs-check` checks them (M2, D242) |

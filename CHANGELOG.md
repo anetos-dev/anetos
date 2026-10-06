@@ -7,6 +7,32 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- A starter theme (M10, D240): `anetos new` writes
+  `public/static/app.css`, plain CSS with no build step, light and dark,
+  styling plain HTML and a few classes (layout, cards, fields, buttons,
+  tables, badges, flash messages, pagination); the layout has a header
+  with the app's nav. `anetos new --css=none` writes an almost empty
+  stylesheet instead. Guide "Style your app".
+- `anetos make:crud <Model> <field:type>...` (M10, D241): a model, its
+  migration, handlers to list (with pages), show, create, edit and delete
+  rows, a form with validation, templ views in the theme, routes, the
+  pages' English text and a test; the routes join `routes/web.go`'s page
+  group and the layout's nav links to the list. Types `string`, `text`,
+  `email`, `int`, `float`, `bool`, `date`, with `:optional` and
+  `:unique`.
+- `session.Manager.Use(mw...)`: middleware that run inside the session
+  middleware on every route that has it (M10, D238).
+- `web.RouteIs(ctx, names...)`: whether the request's route has one of
+  the names (`"issues.*"` for a prefix), for current-page links (M10,
+  D239).
+- Docs: getting started rewritten in the order of a first project
+  (install, editor, database, a project, its structure, `make:crud`,
+  `make:auth`, test and build); the docs site groups each section's
+  pages in the sidebar, from the pages' `group` and `weight` front
+  matter, which `make docs-check` checks (M2, D242).
+- `auth.DefaultHomeURL(path)`, an option of `auth.ForApp` (which now
+  takes options): `AUTH_HOME_URL`'s default, the page signing in leads
+  to when there's no page the user asked for (M10, D237).
 - The tutorial, "Build an issue tracker" (M2, D234): seven parts, from
   `anetos new` to deploying, in `docs/site/getting-started/tutorial`;
   its code is `examples/tutorial`.
@@ -395,11 +421,20 @@ All notable changes to this project are documented here. The format follows
   "Search by meaning" (S2).
 
 ### Changed
+- `make:auth`'s pages use the starter theme (a card for the forms,
+  cards on the dashboard and settings), and it adds `AccountMenu` to the
+  layout's header (log in and register, or the user's name, settings and
+  logout); `setupAuth` calls `sessions.Use(a.Middleware)` so every page
+  knows the signed-in user (M10, D238).
+- `make:auth`'s handlers send users to `AUTH_HOME_URL` after logging
+  in, registering, the two-factor code and confirming the password (they
+  went to `/dashboard` whatever the setting); `setupAuth` gives
+  `/dashboard` as the default with `auth.DefaultHomeURL`, so a new app
+  behaves as before until the setting or the default changes (M10,
+  D237).
 - `lang:check` treats a key the code completes at run time
   (`i18n.T(ctx, "issues.status."+s)`) as a prefix some catalog key must
   start with, instead of reporting it missing (M3, D236).
-- `anetos new` writes a stylesheet with basic styles for forms, buttons
-  and the header (M3).
 - `make:admin:resource` keeps the standard library's imports in their
   own group, and writes "an" before a vowel (M3).
 - `storage.Disk.Serve` keeps an `attachment` Content-Disposition the

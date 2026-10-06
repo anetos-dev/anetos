@@ -1,0 +1,41 @@
+package main
+
+import (
+	"fmt"
+	"net/url"
+	"testing"
+
+	"anetos.dev/anetos/anetostest"
+	"anetos.dev/anetos/db"
+
+	"[[.Module]]/app/models"
+)
+
+// Test[[.Plural]] creates, shows, edits and deletes a [[.Words]] through its
+// pages (anetos make:crud).
+func Test[[.Plural]](t *testing.T) {
+	app := anetostest.New(t, setup)
+	app.Get("/[[.Path]]").AssertOK().AssertSee("No [[.PluralW]] yet.")
+	app.Get("/[[.Path]]/new").AssertOK()
+[[- if .Required]]
+	app.PostForm("/[[.Path]]", url.Values{}).AssertValidationErrors([[.Required]])
+[[- end]]
+
+	form := url.Values{
+[[- range .Fields]]
+		"[[.Name]]": {[[.Sample]]},
+[[- end]]
+	}
+	app.PostForm("/[[.Path]]", form).Follow().AssertOK().AssertSee("[[.OneW]] created."[[with .SeeSample]], [[.]][[end]])
+	row, err := db.Query[models.[[.Model]]](app.Context()).First()
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := fmt.Sprintf("/[[.Path]]/%d", row.ID)
+	app.Get("/[[.Path]]").AssertOK()
+	app.Get(path + "/edit").AssertOK()
+	app.PutForm(path, form).AssertRedirect(path)
+	app.DeleteForm(path, nil).AssertRedirect("/[[.Path]]")
+	anetostest.AssertDatabaseCount[models.[[.Model]]](app, 0)
+	app.Get(path).AssertNotFound()
+}

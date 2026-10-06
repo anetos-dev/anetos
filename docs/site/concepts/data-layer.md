@@ -1,6 +1,8 @@
 ---
 title: The data layer
 since: v0.1.0
+group: "Data"
+weight: 300
 ---
 
 # The data layer

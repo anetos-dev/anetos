@@ -60,6 +60,49 @@ func TestNewProject(t *testing.T) {
 	if code, _, errOut := runCmd(t, "make:auth"); code != 1 || !strings.Contains(errOut, "exists") {
 		t.Errorf("make:auth twice: %d %s", code, errOut)
 	}
+	if b := read(t, filepath.Join(dir, "views", "layout.templ")); !strings.Contains(b, "\t\t\t\t\t</nav>\n\t\t\t\t\t@AccountMenu()\n") {
+		t.Errorf("make:auth didn't add AccountMenu to the layout:\n%s", b)
+	}
+	// Pages for three models: their tests (articles_test.go…) pass with
+	// the rest below; each is routed and in the nav.
+	for _, args := range [][]string{
+		{"make:crud", "Article", "title:string", "body:text", "published:bool", "views:int", "rating:float", "due_on:date:optional", "contact:email:unique", "notes:text:optional"},
+		// Names that were package names, keywords, initialisms or YAML's.
+		{"make:crud", "APIKey", "name:string:unique", "true:bool", "null:string:optional"},
+		// No required string: rows are #ID.
+		{"make:crud", "View", "type:int", "range:float", "default:text:optional", "image_url:string:optional", "taken_on:date"},
+	} {
+		code, out, errOut := runCmd(t, args...)
+		if code != 0 || !strings.Contains(out, "updated routes/web.go: Register calls ") || !strings.Contains(out, "updated views/layout.templ: the nav links to ") {
+			t.Fatalf("%v: %d\n%s\n%s", args, code, out, errOut)
+		}
+	}
+	if b := read(t, filepath.Join(dir, "routes", "web.go")); !strings.Contains(b, "\tArticles(pages) // anetos make:crud\n\tAPIKeys(pages) // anetos make:crud\n\tViews(pages) // anetos make:crud\n}") {
+		t.Errorf("routes/web.go:\n%s", b)
+	}
+	// The nav marks the list's link on all its pages.
+	navTest := "package main\n\nimport (\n\t\"testing\"\n\n\t\"anetos.dev/anetos/anetostest\"\n)\n\n" +
+		"func TestNavCurrent(t *testing.T) {\n\tapp := anetostest.New(t, setup)\n" +
+		"\tapp.Get(\"/articles/new\").AssertOK().AssertSee(`<a href=\"/articles\" aria-current=\"page\">`)\n" +
+		"\tapp.Get(\"/api-keys\").AssertOK().AssertSee(`<a href=\"/api-keys\" aria-current=\"page\">`).AssertDontSee(`<a href=\"/articles\" aria-current`)\n}\n"
+	if err := os.WriteFile(filepath.Join(dir, "nav_test.go"), []byte(navTest), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		args []string
+		err  string
+	}{
+		{[]string{"make:crud", "Post", "title:string"}, "_create_posts_table.go exists"},
+		{[]string{"make:crud", "Article", "title:string"}, "_create_articles_table.go exists"},
+		{[]string{"make:crud", "Note", "title"}, "name:type"},
+		{[]string{"make:crud", "Note", "title:uuid"}, "unknown type"},
+		{[]string{"make:crud", "Note", "body:text:unique"}, "can't be unique"},
+		{[]string{"make:crud", "Note", "id:int"}, "has it already"},
+	} {
+		if code, _, errOut := runCmd(t, c.args...); code != 1 || !strings.Contains(errOut, c.err) {
+			t.Errorf("%v: %d %s", c.args, code, errOut)
+		}
+	}
 	// The admin, with a resource for posts: it builds, and its test
 	// (admin_test.go) passes with the rest below.
 	if code, out, errOut := runCmd(t, "make:admin"); code != 0 || !strings.Contains(out, "updated main.go: setup calls setupAdmin") {
@@ -178,6 +221,7 @@ func TestNewProject(t *testing.T) {
 		t.Errorf("migrate:\n%s", out)
 	}
 	if out := app("routes:list"); !regexp.MustCompile(`GET\s+/\s+home`).MatchString(out) ||
+		!regexp.MustCompile(`DELETE\s+/api-keys/\{id\}\s+api-keys\.destroy`).MatchString(out) ||
 		!regexp.MustCompile(`GET\s+/admin/posts/\{id\}/edit\s+admin\.posts\.edit`).MatchString(out) {
 		t.Errorf("routes:list:\n%s", out)
 	}
@@ -230,7 +274,7 @@ func read(t *testing.T, path string) string {
 	return string(b)
 }
 
-// make:auth's code compiles in PostgreSQL and MySQL projects too (their
+// make:auth's and make:crud's code compiles in PostgreSQL and MySQL projects too (their
 // tests need a server, so they only build here).
 func TestMakeAuthServerDatabases(t *testing.T) {
 	if testing.Short() {
@@ -249,6 +293,9 @@ func TestMakeAuthServerDatabases(t *testing.T) {
 			t.Chdir(dir)
 			if code, out, errOut := runCmd(t, "make:auth"); code != 0 {
 				t.Fatalf("make:auth: %d\n%s\n%s", code, out, errOut)
+			}
+			if code, out, errOut := runCmd(t, "make:crud", "Product", "name:string:unique", "price:float", "stock:int", "on_sale:bool", "launch_on:date:optional", "notes:text:optional"); code != 0 {
+				t.Fatalf("make:crud: %d\n%s\n%s", code, out, errOut)
 			}
 			c := exec.Command("go", "vet", "./...")
 			c.Dir = dir

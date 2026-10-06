@@ -1,6 +1,8 @@
 ---
 title: anetos gen reference
 since: v0.1.0
+group: "Tools"
+weight: 101
 ---
 
 # `anetos gen` reference

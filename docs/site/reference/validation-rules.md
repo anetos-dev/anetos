@@ -1,6 +1,8 @@
 ---
 title: Validation rules reference
 since: v0.1.0
+group: "Web"
+weight: 202
 ---
 
 # Validation rules reference

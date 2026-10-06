@@ -1,6 +1,8 @@
 ---
 title: Internationalization
 since: v0.3.0
+group: "Web"
+weight: 203
 ---
 
 # Internationalization
