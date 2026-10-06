@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/url"
 	"slices"
@@ -45,6 +46,7 @@ type ErrorHandler func(c *Ctx, err error)
 type Router struct {
 	core     *routerCore
 	parent   *Router
+	host     string // Host: routes match only this host
 	prefix   string
 	namePfx  string
 	mws      []Middleware
@@ -143,7 +145,7 @@ func (r *Router) Use(mws ...Middleware) {
 //
 //	r.With(auth.Required).Post("/posts", h.Store)
 func (r *Router) With(mws ...Middleware) *Router {
-	return &Router{core: r.core, parent: r, prefix: r.prefix, namePfx: r.namePfx, mws: append(slices.Clip(r.mws), mws...)}
+	return &Router{core: r.core, parent: r, host: r.host, prefix: r.prefix, namePfx: r.namePfx, mws: append(slices.Clip(r.mws), mws...)}
 }
 
 // Group returns a router whose routes share prefix and middleware:
@@ -152,7 +154,35 @@ func (r *Router) With(mws ...Middleware) *Router {
 //	admin.Get("/users", h.Users).Name("users") // route name "admin.users"
 func (r *Router) Group(prefix string, mws ...Middleware) *Router {
 	checkPattern(prefix)
-	return &Router{core: r.core, parent: r, prefix: joinPath(r.prefix, prefix), namePfx: r.namePfx, mws: append(slices.Clip(r.mws), mws...)}
+	return &Router{core: r.core, parent: r, host: r.host, prefix: joinPath(r.prefix, prefix), namePfx: r.namePfx, mws: append(slices.Clip(r.mws), mws...)}
+}
+
+// Host returns a router whose routes match only requests for host
+// ("admin.example.com"), with the same prefix and middleware. A port
+// ("admin.localhost:8080") goes into the routes' URLs; requests match on
+// the host name alone, whatever their port. Routes without a host match every
+// host, but a host's routes win for their host (net/http.ServeMux's
+// rules). The URLs of a host's routes ([Router.URL]) are absolute, with
+// APP_URL's scheme (https without one):
+//
+//	admin := r.Host("admin.example.com")
+//	admin.Get("/", h.Dashboard).Name("admin.home") // https://admin.example.com/
+//
+// It panics if host is empty or has a scheme, a path or spaces.
+func (r *Router) Host(host string) *Router {
+	if host == "" || strings.ContainsAny(host, "/ \t") {
+		panic(fmt.Sprintf("web: invalid host %q: use a host name, with a port if needed (admin.example.com)", host))
+	}
+	return &Router{core: r.core, parent: r, host: strings.ToLower(host), prefix: r.prefix, namePfx: r.namePfx, mws: slices.Clip(r.mws)}
+}
+
+// hostName returns host without its port, as net/http.ServeMux matches
+// hosts.
+func hostName(host string) string {
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		return h
+	}
+	return host
 }
 
 // As sets a prefix added to the names of routes registered on this router.
@@ -222,7 +252,7 @@ func (r *Router) newRoute(method, pattern string) *Route {
 	if full == "" {
 		full = "/"
 	}
-	return &Route{core: r.core, method: method, pattern: full, namePfx: r.namePfx}
+	return &Route{core: r.core, method: method, host: r.host, pattern: full, namePfx: r.namePfx}
 }
 
 func (r *Router) register(rt *Route, h http.Handler) {
@@ -239,7 +269,7 @@ func (r *Router) register(rt *Route, h http.Handler) {
 		}
 		next.ServeHTTP(w, req)
 	})
-	muxPattern := rt.pattern
+	muxPattern := hostName(rt.host) + rt.pattern
 	if strings.HasSuffix(muxPattern, "/") {
 		muxPattern += "{$}" // exact match, not a subtree
 	}
@@ -378,6 +408,7 @@ func (r *Router) allowedMethods(req *http.Request) []string {
 type Route struct {
 	core    *routerCore
 	method  string
+	host    string // "" for every host
 	pattern string
 	namePfx string
 	name    atomic.Pointer[string]
@@ -406,6 +437,10 @@ func (rt *Route) Method() string { return rt.method }
 // Pattern returns the route's full path pattern, e.g. "/posts/{id}".
 func (rt *Route) Pattern() string { return rt.pattern }
 
+// Host returns the host the route matches ([Router.Host]), "" for every
+// host.
+func (rt *Route) Host() string { return rt.host }
+
 // RouteName returns the route's name, or "" if it has none.
 func (rt *Route) RouteName() string {
 	if n := rt.name.Load(); n != nil {
@@ -417,6 +452,7 @@ func (rt *Route) RouteName() string {
 // RouteInfo describes a route, for listings such as `routes:list`.
 type RouteInfo struct {
 	Method  string // GET, POST, …; "" for any method
+	Host    string // the host it matches ([Router.Host]), "" for any
 	Pattern string // the path pattern, "/posts/{id}"
 	Name    string // the route's name, "" if unnamed
 }
@@ -427,7 +463,7 @@ func (r *Router) Routes() []RouteInfo {
 	defer r.core.mu.RUnlock()
 	out := make([]RouteInfo, len(r.core.routes))
 	for i, rt := range r.core.routes {
-		out[i] = RouteInfo{Method: rt.method, Pattern: rt.pattern, Name: rt.RouteName()}
+		out[i] = RouteInfo{Method: rt.method, Host: rt.host, Pattern: rt.pattern, Name: rt.RouteName()}
 	}
 	return out
 }
@@ -446,6 +482,9 @@ var ErrUnknownRoute = errors.New("web: unknown route name")
 // string:
 //
 //	u, _ := r.URL("posts.index", url.Values{"page": {"2"}}) // "/posts?page=2"
+//
+// The URL of a route of a [Router.Host] is absolute:
+// "https://admin.example.com/users".
 func (r *Router) URL(name string, args ...any) (string, error) {
 	r.core.mu.RLock()
 	rt, ok := r.core.names[name]
@@ -453,7 +492,17 @@ func (r *Router) URL(name string, args ...any) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("%w: %q", ErrUnknownRoute, name)
 	}
-	return buildPath(rt.pattern, args)
+	p, err := buildPath(rt.pattern, args)
+	if err != nil || rt.host == "" {
+		return p, err
+	}
+	scheme := "https"
+	if r.core.app != nil {
+		if u, err := url.Parse(r.core.app.Config().URL); err == nil && u.Scheme != "" {
+			scheme = u.Scheme
+		}
+	}
+	return scheme + "://" + rt.host + p, nil
 }
 
 // MustURL is like [Router.URL] but panics on error. Use it with route names

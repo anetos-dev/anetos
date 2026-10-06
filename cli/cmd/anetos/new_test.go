@@ -59,6 +59,24 @@ func TestNewProject(t *testing.T) {
 	if code, _, errOut := runCmd(t, "make:auth"); code != 1 || !strings.Contains(errOut, "exists") {
 		t.Errorf("make:auth twice: %d %s", code, errOut)
 	}
+	// The admin, with a resource for posts: it builds, and its test
+	// (admin_test.go) passes with the rest below.
+	if code, out, errOut := runCmd(t, "make:admin"); code != 0 || !strings.Contains(out, "updated main.go: setup calls setupAdmin") {
+		t.Fatalf("make:admin: %d\n%s\n%s", code, out, errOut)
+	}
+	postGo := filepath.Join(dir, "app", "models", "post.go")
+	post := strings.Replace(read(t, postGo), "\tdb.Model // id, created_at, updated_at\n",
+		"\tdb.Model // id, created_at, updated_at\n\tTitle string `db:\"title\"`\n\tPublishedAt *time.Time `db:\"published_at\"`\n\tViews int `db:\"views\"`\n", 1)
+	post = strings.Replace(post, `import "anetos.dev/anetos/db"`, "import (\n\t\"time\"\n\n\t\"anetos.dev/anetos/db\"\n)", 1)
+	if err := os.WriteFile(postGo, []byte(post), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if code, out, errOut := runCmd(t, "make:admin:resource", "Post"); code != 0 || !strings.Contains(out, "created app/admin/posts.go") {
+		t.Fatalf("make:admin:resource: %d\n%s\n%s", code, out, errOut)
+	}
+	if code, out, errOut := runCmd(t, "gen"); code != 0 {
+		t.Fatalf("gen: %d\n%s\n%s", code, out, errOut)
+	}
 
 	goRun := func(args ...string) string {
 		t.Helper()
@@ -143,7 +161,8 @@ func TestNewProject(t *testing.T) {
 		!strings.Contains(out, "create_users_table") || !strings.Contains(out, "create_api_tokens_table") {
 		t.Errorf("migrate:\n%s", out)
 	}
-	if out := app("routes:list"); !regexp.MustCompile(`GET\s+/\s+home`).MatchString(out) {
+	if out := app("routes:list"); !regexp.MustCompile(`GET\s+/\s+home`).MatchString(out) ||
+		!regexp.MustCompile(`GET\s+/admin/posts/\{id\}/edit\s+admin\.posts\.edit`).MatchString(out) {
 		t.Errorf("routes:list:\n%s", out)
 	}
 	if out := app("help"); !strings.Contains(out, "migrate:status") || !strings.Contains(out, "serve") {

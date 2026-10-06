@@ -363,6 +363,18 @@ Read by `audit.ForApp` into `audit.Config`. See
 | `AUDIT_BULK_MAX_VALUES` | int | `10000` | How many rows' values a bulk entry keeps (every row's key is kept), set when a model is tracked | v0.3 |
 | `AUDIT_RETENTION_DAYS` | int | `0` | How long `audit:prune` and `audit.Prune` keep entries; 0 keeps them forever | v0.3 |
 
+## Admin
+
+Read by `admin.New` into `admin.Config` (module `anetos.dev/anetos/admin`).
+See [Add an admin panel](../guides/admin.md).
+
+| Key | Type | Default | Description | Since |
+|---|---|---|---|---|
+| `ADMIN_PATH` | string | `/admin` | Where the admin is mounted; starts with `/`. With `ADMIN_HOST`, the admin is at that host's root unless this is set; `/` needs `ADMIN_HOST` | v0.3 |
+| `ADMIN_HOST` | string | empty | A host the admin answers on alone (`admin.example.com`, on any port; a port given here goes into its URLs); empty for every host | v0.3 |
+| `ADMIN_TITLE` | string | `APP_NAME` | The admin's name in its pages (overrides `admin.Title`) | v0.3 |
+| `ADMIN_PER_PAGE` | int | `25` | How many records a list shows, 1 to 500 (a resource's `PerPage` overrides it) | v0.3 |
+
 ## Social login
 
 Read by `social.ForApp` and `social.Configured`, for each provider name

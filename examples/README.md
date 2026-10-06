@@ -16,3 +16,6 @@ assistant: stored conversations, answers streamed with htmx, replies
 from queue jobs and daily budgets. [`i18n`](i18n) speaks English and
 Bangla: catalogs, plurals, dates, prices and relative times, a language
 switcher, and validation messages in the visitor's language.
+[`admin`](admin) is a shop's back office made with the admin interface:
+products and categories, roles for administrators and editors, and every
+change in the audit log.

@@ -215,7 +215,7 @@ func (s *Server) commands(app *anetos.App) []cmd.Command {
 					if m == "" {
 						m = "ANY"
 					}
-					fmt.Fprintf(tw, "%s\t%s\t%s\n", m, rt.Pattern, rt.Name)
+					fmt.Fprintf(tw, "%s\t%s\t%s\n", m, rt.Host+rt.Pattern, rt.Name) // a host's routes: admin.example.com/users
 				}
 				return tw.Flush()
 			},

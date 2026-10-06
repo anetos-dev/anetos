@@ -1,0 +1,31 @@
+{{define "content"}}{{$csrf := .CSRF}}{{with .Data}}
+<h1>{{$.Title}}</h1>
+<form method="post" action="{{.Action}}" class="edit" novalidate>
+<input type="hidden" name="_token" value="{{$csrf}}">
+{{range .Fields}}
+<div class="field{{if .Error}} invalid{{end}}">
+  {{if eq .Kind "checkbox"}}
+  <label class="check"><input type="checkbox" id="f-{{.Name}}" name="{{.Name}}" value="true"{{if .Checked}} checked{{end}}{{if .Error}} aria-invalid="true" aria-describedby="e-{{.Name}}"{{end}}> {{.Label}}</label>
+  {{else}}
+  <label for="f-{{.Name}}">{{.Label}}{{if .Required}} <span class="req" aria-hidden="true">*</span>{{end}}</label>
+  {{if eq .Kind "textarea"}}
+  <textarea id="f-{{.Name}}" name="{{.Name}}" rows="6"{{if .Required}} required{{end}}{{if .Error}} aria-invalid="true" aria-describedby="e-{{.Name}}"{{end}}>{{.Value}}</textarea>
+  {{else if eq .Kind "select"}}
+  <select id="f-{{.Name}}" name="{{.Name}}"{{if .Required}} required{{end}}{{if .Error}} aria-invalid="true" aria-describedby="e-{{.Name}}"{{end}}>
+    {{if not .Required}}<option value="">—</option>{{end}}
+    {{range .Choices}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
+  </select>
+  {{else}}
+  <input id="f-{{.Name}}" name="{{.Name}}" type="{{inputType .Kind}}"{{if .Step}} step="{{.Step}}"{{end}} value="{{.Value}}"{{if .Required}} required{{end}}{{if eq .Kind "password"}} autocomplete="new-password"{{end}}{{if .Error}} aria-invalid="true" aria-describedby="e-{{.Name}}"{{end}}>
+  {{end}}
+  {{end}}
+  {{if .Help}}<p class="help">{{.Help}}</p>{{end}}
+  {{if .Error}}<p class="error" id="e-{{.Name}}">{{.Error}}</p>{{end}}
+</div>
+{{end}}
+<div class="buttons">
+  <button type="submit" class="primary">{{.Submit}}</button>
+  <a class="button" href="{{.Cancel}}">Cancel</a>
+</div>
+</form>
+{{end}}{{end}}

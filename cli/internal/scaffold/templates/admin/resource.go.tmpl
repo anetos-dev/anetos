@@ -1,0 +1,51 @@
+package admin
+
+import (
+	"context"
+
+[[- if .Date]]
+
+	"anetos.dev/anetos"
+[[- end]]
+	"anetos.dev/anetos/admin"
+
+	"[[.Module]]/app/models"
+)
+
+// [[.Type]]Form is what the admin edits of a [[.Words]]: only these fields
+// can be changed. Add validate tags (required, max:255, email, …) and
+// admin tags (textarea, select=a|b, help=…, -) as the fields need.
+type [[.Type]]Form struct {
+[[- range .Fields]]
+	[[.Name]] [[.FormType]] `json:"[[.Column]]"`
+[[- end]]
+}
+
+// [[.Func]] is the admin's resource for models.[[.Type]], at /admin/[[.Name]].
+[[- if .Skipped]]
+// Left out of the form: [[.Skipped]].
+[[- end]]
+func [[.Func]](p *admin.Panel) error {
+	return admin.Add(p, admin.Resource[models.[[.Type]], [[.Type]]Form]{
+		Name: "[[.Name]]",
+		Columns: []admin.Column[models.[[.Type]]]{
+[[- range .Columns]]
+			admin.Field[models.[[$.Type]]]("[[.Title]]", "[[.Column]]"),
+[[- end]]
+		},
+[[- if .Search]]
+		Search: []string{[[.Search]]},
+[[- end]]
+		Edit: func(m models.[[.Type]]) [[.Type]]Form {
+[[- range .EditLines]]
+			[[.]]
+[[- end]]
+		},
+		Apply: func(_ context.Context, in [[.Type]]Form, m *models.[[.Type]]) error {
+[[- range .ApplyLines]]
+			[[.]]
+[[- end]]
+			return nil
+		},
+	})
+}

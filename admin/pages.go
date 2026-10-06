@@ -1,0 +1,66 @@
+// SPDX-License-Identifier: Apache-2.0
+
+package admin
+
+import (
+	"embed"
+	"html/template"
+	"io/fs"
+)
+
+//go:embed templates/*.html
+var templateFS embed.FS
+
+//go:embed static
+var embedded embed.FS
+
+// staticFS is the admin's own stylesheet and script.
+var staticFS = mustSub(embedded, "static")
+
+func mustSub(f fs.FS, dir string) fs.FS {
+	sub, err := fs.Sub(f, dir)
+	if err != nil {
+		panic(err)
+	}
+	return sub
+}
+
+// buttonData is a button and the CSRF token its form posts.
+type buttonData struct {
+	buttonView
+	CSRF string
+}
+
+var funcs = template.FuncMap{
+	"button": func(b buttonView, csrf string) buttonData { return buttonData{b, csrf} },
+	"inputType": func(kind string) string {
+		switch kind {
+		case "datetime":
+			return "datetime-local"
+		case "email", "number", "date", "password":
+			return kind
+		}
+		return "text"
+	},
+}
+
+// pageNames are the admin's pages, each a template file defining
+// "content" for the layout.
+var pageNames = []string{"home", "list", "show", "form"}
+
+// parsePages parses each page with the layout.
+func parsePages() (map[string]*template.Template, error) {
+	layout, err := template.New("admin").Funcs(funcs).ParseFS(templateFS, "templates/layout.html")
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]*template.Template, len(pageNames))
+	for _, name := range pageNames {
+		t, err := template.Must(layout.Clone()).ParseFS(templateFS, "templates/"+name+".html")
+		if err != nil {
+			return nil, err
+		}
+		out[name] = t
+	}
+	return out, nil
+}

@@ -281,6 +281,16 @@ func Columns[T any]() ([]string, error) {
 	return out, nil
 }
 
+// SoftDeleting reports whether model T embeds [SoftDeletes], so that
+// Delete sets deleted_at and queries skip deleted rows.
+func SoftDeleting[T any]() (bool, error) {
+	m, err := metaOf(reflect.TypeFor[T]())
+	if err != nil {
+		return false, err
+	}
+	return m.deletedAt >= 0, nil
+}
+
 // isValueType reports whether a struct type is a single value (time,
 // sql.Null*, or anything that scans itself) rather than a set of columns.
 func isValueType(t reflect.Type) bool {

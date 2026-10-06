@@ -83,6 +83,12 @@ and adds the `rbac:*` commands. Pass `rbac.Migrations()` to
 sets := []*migrate.Set{Migrations, auth.Migrations(), rbac.Migrations()}
 ```
 
+Packages with permissions of their own, such as the
+[admin](admin.md), declare them at setup with `Registry.Declare`
+(idempotent, before the app serves), so roles stored in the database can
+grant them. A role declared in code can only hold permissions declared
+when `rbac.ForApp` runs, so list such permissions with the app's.
+
 ### 3. Give users roles
 
 `rbac.Assign` gives a user (by `AuthID`) roles in a scope. Here, the
@@ -383,5 +389,7 @@ func TestTokenAbilities(t *testing.T) {
 
 - [Authorization](authorization.md): typed policies, for rules about
   the thing acted on ("authors edit their own posts")
+- [Add an admin panel](admin.md): pages for staff, with a permission per
+  resource and action
 - [Roles and permissions reference](../reference/auth.md#roles-and-permissions)
 - [API tokens](authentication.md#7-give-api-clients-tokens)

@@ -1,0 +1,58 @@
+{{define "content"}}{{$csrf := .CSRF}}{{with .Data}}
+<div class="head">
+  <h1>{{$.Title}}</h1>
+  <div class="tools">
+    {{if .TrashURL}}<a class="button" href="{{.TrashURL}}">Trash</a>{{end}}
+    {{if .NewURL}}<a class="button primary" href="{{.NewURL}}">New</a>{{end}}
+    {{if .Trash}}<a class="button" href="{{.ListURL}}">Back to the list</a>{{end}}
+  </div>
+</div>
+{{if or .CanQuery .Filters}}
+<form method="get" class="query" data-autosubmit>
+  {{if .CanQuery}}<input type="search" name="q" value="{{.Search}}" placeholder="Search" aria-label="Search"
+    hx-get="" hx-trigger="input changed delay:300ms, search" hx-target="#results" hx-select="#results" hx-swap="outerHTML" hx-push-url="true" hx-include="closest form">{{end}}
+  {{range .Filters}}<label>{{.Title}}
+    <select name="{{.Name}}"><option value="">All</option>{{range .Choices}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}</select>
+  </label>{{end}}
+  <input type="hidden" name="sort" value="{{.Sort}}">
+  <noscript><button type="submit">Apply</button></noscript>
+</form>
+{{end}}
+<div id="results">
+{{if .Rows}}
+<form method="post" action="{{.Action}}" id="bulk">
+<input type="hidden" name="_token" value="{{$csrf}}">
+<input type="hidden" name="_back" value="{{$.URL}}">
+<div class="table">
+<table>
+<thead><tr>
+  {{if .Bulk}}<th class="select"><input type="checkbox" data-select-all aria-label="Select all"></th>{{end}}
+  {{range .Headers}}<th{{if .Sorted}} aria-sort="{{if eq .Sorted "asc"}}ascending{{else}}descending{{end}}"{{end}}>{{if .URL}}<a href="{{.URL}}">{{.Title}}{{if eq .Sorted "asc"}} ▲{{else if eq .Sorted "desc"}} ▼{{end}}</a>{{else}}{{.Title}}{{end}}</th>{{end}}
+  {{if .Trash}}<th></th>{{end}}
+</tr></thead>
+<tbody>
+{{$bulk := .Bulk}}
+{{range .Rows}}<tr>
+  {{if $bulk}}<td class="select"><input type="checkbox" name="ids" value="{{.Key}}" aria-label="Select"></td>{{end}}
+  {{$url := .URL}}{{range $i, $c := .Cells}}<td>{{if and $url (eq $i 0)}}<a href="{{$url}}">{{if $c}}{{$c}}{{else}}(empty){{end}}</a>{{else}}{{$c}}{{end}}</td>{{end}}
+  {{if .Buttons}}<td class="actions">{{range .Buttons}}<button type="submit" formaction="{{.URL}}"{{if .Confirm}} data-confirm="{{.Confirm}}"{{end}} class="{{if .Danger}}danger{{end}}">{{.Title}}</button>{{end}}</td>{{end}}
+</tr>
+{{end}}
+</tbody>
+</table>
+</div>
+{{if .Bulk}}<div class="bulk">
+  <span>With the selected:</span>
+  {{range .Bulk}}<button type="submit" name="action" value="{{.Name}}"{{if .Confirm}} data-confirm="{{.Confirm}}"{{end}} class="{{if .Danger}}danger{{end}}">{{.Title}}</button>{{end}}
+</div>{{end}}
+</form>
+{{else}}
+<p class="empty">{{.Empty}}</p>
+{{end}}
+<nav class="pages" aria-label="Pages">
+  <span>{{.Total}} in all{{if gt .Last 1}}, page {{.Current}} of {{.Last}}{{end}}</span>
+  {{if .Prev}}<a class="button" href="{{.Prev}}" rel="prev">Previous</a>{{end}}
+  {{if .Next}}<a class="button" href="{{.Next}}" rel="next">Next</a>{{end}}
+</nav>
+</div>
+{{end}}{{end}}

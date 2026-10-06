@@ -228,6 +228,26 @@ func From(ctx context.Context) (*Registry, error) {
 // Permissions returns the declared permissions, in their order.
 func (r *Registry) Permissions() []Permission { return slices.Clone(r.perms) }
 
+// Declare adds permissions to the registry, for packages that bring
+// their own (package admin declares admin.access and a permission per
+// resource), so the app's list needn't name them. Permissions already
+// declared are left as they are. Call it at setup, before the app
+// serves: the registry isn't locked for changes.
+func (r *Registry) Declare(permissions ...Permission) error {
+	for _, p := range permissions {
+		if !nameRe.MatchString(string(p)) {
+			return fmt.Errorf("rbac: invalid permission name %q (lowercase letters, digits and . _ : -, up to 100 characters)", p)
+		}
+	}
+	for _, p := range permissions {
+		if !r.known[p] {
+			r.known[p] = true
+			r.perms = append(r.perms, p)
+		}
+	}
+	return nil
+}
+
 // Declared reports whether p is declared.
 func (r *Registry) Declared(p Permission) bool { return r.known[p] }
 

@@ -1,0 +1,11 @@
+{{define "content"}}
+<h1>{{.Title}}</h1>
+{{if .Data}}
+<ul class="cards">
+{{range .Data}}<li><a href="{{.URL}}"><span class="count">{{.Count}}</span><span>{{.Title}}</span></a></li>
+{{end}}
+</ul>
+{{else}}
+<p class="empty">There is nothing here you may manage yet.</p>
+{{end}}
+{{end}}

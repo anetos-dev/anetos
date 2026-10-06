@@ -84,7 +84,8 @@ page until the next change. On Linux the app is stopped even if
 ## `anetos make:*`
 
 Run anywhere in a project. Existing files are never overwritten
-(`make:auth` adds one call to `setup` in `main.go`).
+(`make:auth` adds one call to `setup` in `main.go`, `make:admin` changes
+it, and `make:admin:resource` adds a line to `app/admin/admin.go`).
 
 | Command | Writes |
 |---|---|
@@ -94,6 +95,8 @@ Run anywhere in a project. Existing files are never overwritten
 | `make:middleware <Name>` | `app/middleware/<name>.go`: a `func(http.Handler) http.Handler` |
 | `make:agent <Name>` | `app/agents/<name>.go`: an `ai.Agent` with a typed tool; prints how to set up `ai.ForApp` if `main.go` doesn't call it (v0.3) |
 | `make:auth` | Accounts, with sign-in with Google and GitHub: `app/models/user.go` (`User`, `models.Users`), `app/handlers/auth.go` (`handlers.Accounts`, `handlers.SocialUser`), `app/mailers/auth.go` and `views/auth_mail.templ` (verification and reset emails), `views/auth.templ` (pages), `routes/auth.go` (`routes.Auth`), `auth.go` (`setupAuth`), `auth_test.go`, and a `create_users_table` migration; the empty `SOCIAL_GOOGLE_*` and `SOCIAL_GITHUB_*` settings appended to `.env` and `.env.example` (unless there); then `go mod tidy`, `anetos gen`, `templ generate` and `go build ./...`, and a `setupAuth` call in `setup` after its `routes.Register(srv.Router(), sessions)` statement (else it prints the call to add). Writes nothing if one of the files or a `create_users_table` migration exists, or a name the files declare is taken in its package; removes what it wrote if a write fails. See [Add accounts with make:auth](../guides/accounts.md) |
+| `make:admin` | The admin interface (v0.3), after `make:auth`: adds the module `anetos.dev/anetos/admin` (`go get`; in a project whose core module is replaced by a checkout, from the checkout), writes `admin.go` (`setupAdmin`: roles and permissions with `rbac.ForApp` and an `admin` role, unless a Go file of the project already calls `rbac.ForApp`; then `admin.New`, the resources of `app/admin`, and `Mount` with the pages' middleware), `app/admin/admin.go` (`Resources`, empty) and `admin_test.go` (with `rbac.ForApp` and `make:auth`'s tests); appends the empty `ADMIN_PATH` and `ADMIN_HOST` to `.env` and `.env.example`; replaces `make:auth`'s `setupAuth` call in `setup` with one that keeps its `*auth.Auth` and calls `setupAdmin` (else it prints the calls to add); then `go mod tidy` and `go build ./...`. Restores `go.mod` and `go.sum` if it fails before writing. See [Add an admin panel](../guides/admin.md) |
+| `make:admin:resource <Model>` | `app/admin/<models>.go` (v0.3): the admin's resource for a model of `app/models`, named after the type (`Post`: `posts` at `/admin/posts`, function `Posts`): columns (the ID, the first four fields the form edits, `created_at`), search over its first three string fields, and a form struct `<Model>Form` with the fields of types a form can edit (strings, numbers, bools, `time.Time` as `admin.DateTime`, `anetos.Date`, and pointers to them), leaving out the key, the timestamps, JSON and read-only columns and names like password, token or secret; adds the function to `Resources` in `app/admin/admin.go` |
 
 Names may be `BlogPost`, `blog_post` or `blog-post`; files use snake case.
 

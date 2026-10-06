@@ -94,6 +94,19 @@ admin := r.Group("/admin", requireAdmin).As("admin.")
 admin.Get("/users", h.Users).Name("users") // GET /admin/users, name "admin.users"
 ```
 
+Routes for one host only (an admin at `admin.example.com`) go on
+`r.Host(host)`, which works like a group. A host's routes win for that
+host; routes without a host answer every host. Requests match on the
+host name, whatever their port. The routes' URLs are absolute, with
+`APP_URL`'s scheme (`https` without one) and the port given to `Host`, if
+any, since another host can't be reached with a path:
+
+```go
+// illustrative
+admin := r.Host("admin.example.com").Group("", requireAdmin)
+admin.Get("/", h.Dashboard).Name("admin.home") // c.URL("admin.home"): "https://admin.example.com/"
+```
+
 ### 5. Name routes and generate URLs
 
 Give routes names and build URLs from them, so paths live in one place:

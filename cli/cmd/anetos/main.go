@@ -16,6 +16,8 @@
 //	make:middleware <Name>    add a middleware
 //	make:agent <Name>         add an AI agent
 //	make:auth                 add accounts: registration, login, verification, reset, API tokens
+//	make:admin                add the admin interface (after make:auth)
+//	make:admin:resource <Model>  add a model to the admin
 //	gen [-check] [packages]   generate typed columns for models (default ./...)
 //	add <module>[@version]    install a plugin
 //	remove <module>           uninstall a plugin
@@ -56,6 +58,8 @@ Commands:
   make:middleware <Name>    add a middleware to app/middleware
   make:agent <Name>         add an AI agent to app/agents
   make:auth                 add accounts: registration, login, email verification, password reset, API tokens
+  make:admin                add the admin interface at /admin (after make:auth)
+  make:admin:resource <Model>  add a model to the admin (app/admin)
   gen [-check] [packages]   generate typed columns for models (default ./...)
   add <module>[@version]    install a plugin (go get, plugins.go, .env.example)
   remove <module>           uninstall a plugin
@@ -96,6 +100,12 @@ func run(args []string, stdout, stderr io.Writer) int {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 		return makeAuth(ctx, args[1:], stdout, stderr)
+	case "make:admin":
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		return makeAdmin(ctx, args[1:], stdout, stderr)
+	case "make:admin:resource":
+		return makeAdminResource(args[1:], stdout, stderr)
 	case "make:handler", "make:model", "make:migration", "make:middleware", "make:agent":
 		return makeCmd(args[0], args[1:], stdout, stderr)
 	case "key:generate":

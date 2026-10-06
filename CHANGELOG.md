@@ -7,6 +7,25 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Module `anetos.dev/anetos/admin`: an admin interface. `admin.New(app,
+  a)` for the users of an `auth.Auth[U]`, `admin.Add` with an
+  `admin.Resource[T, F]` per model (list columns with sorting, search,
+  filters, pages and a scope; a record's page; forms from a form struct
+  `F`, rendered from its types and `admin` tags and validated by its
+  `validate` tags, applied with `Edit` and `Apply`; choices from the
+  database; actions and bulk actions; a trash for soft-deleted models),
+  `Panel.Mount` under `ADMIN_PATH` or at `ADMIN_HOST`. Only users with
+  `admin.access` get in; each resource has `admin.<name>.view`, `.create`,
+  `.update` and `.delete` permissions (`admin.PermissionsOf`). Pages are
+  embedded `html/template` with htmx and their own stylesheet, under a
+  strict CSP. `anetos make:admin` and `anetos make:admin:resource
+  <Model>`; guide "Add an admin panel", `examples/admin` (AD1a, D211–D214).
+- `web.Router.Host(host)`: routes for one host, with absolute URLs;
+  `RouteInfo.Host` (AD1, D214).
+- `rbac.Registry.Declare`: permissions declared by packages at setup
+  (AD1, D213).
+- `db.SoftDeleting[T]()` reports whether a model embeds `db.SoftDeletes`
+  (AD1).
 - Package `audit`: an audit log of the models an app tracks
   (`audit.ForApp`, `audit.Track[T]` with `Except`, `Redact`, `Reveal`):
   who created, changed (the columns that changed, from what to what),

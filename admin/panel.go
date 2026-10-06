@@ -1,0 +1,327 @@
+// SPDX-License-Identifier: Apache-2.0
+
+package admin
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"html/template"
+	"net/http"
+	"regexp"
+	"slices"
+	"strings"
+
+	"anetos.dev/anetos"
+	"anetos.dev/anetos/auth"
+	"anetos.dev/anetos/auth/rbac"
+	"anetos.dev/anetos/config"
+	"anetos.dev/anetos/view"
+	"anetos.dev/anetos/view/htmx"
+	"anetos.dev/anetos/web"
+)
+
+// Access is the permission to use the admin at all. Each resource has
+// four more: admin.<name>.view, .create, .update and .delete.
+const Access rbac.Permission = "admin.access"
+
+// Config is the admin's settings.
+type Config struct {
+	// Path is where the admin is mounted: ADMIN_PATH, default /admin.
+	// With a Host, the admin is at that host's root unless Path is set.
+	Path string `env:"ADMIN_PATH"`
+	// Host is the host the admin answers on alone (admin.example.com),
+	// "" for every host: ADMIN_HOST.
+	Host string `env:"ADMIN_HOST"`
+	// Title is the admin's name in its pages: ADMIN_TITLE, default
+	// APP_NAME.
+	Title string `env:"ADMIN_TITLE"`
+	// PerPage is how many records a list shows: ADMIN_PER_PAGE, default
+	// 25.
+	PerPage int `env:"ADMIN_PER_PAGE" default:"25"`
+}
+
+// Validate checks the settings.
+func (c Config) Validate() error {
+	var errs []error
+	if c.Path != "" && (!strings.HasPrefix(c.Path, "/") || strings.ContainsAny(c.Path, " {}")) {
+		errs = append(errs, fmt.Errorf("admin: ADMIN_PATH %q must start with / and have no spaces or wildcards", c.Path))
+	}
+	if c.Host == "" && strings.Trim(c.Path, "/") == "" && c.Path != "" {
+		errs = append(errs, errors.New("admin: ADMIN_PATH / takes the whole site: set ADMIN_HOST to give the admin a host of its own, or use a path like /admin"))
+	}
+	if strings.ContainsAny(c.Host, "/ ") {
+		errs = append(errs, fmt.Errorf("admin: ADMIN_HOST %q must be a host name (admin.example.com)", c.Host))
+	}
+	if c.PerPage < 1 || c.PerPage > 500 {
+		errs = append(errs, errors.New("admin: ADMIN_PER_PAGE must be between 1 and 500"))
+	}
+	return errors.Join(errs...)
+}
+
+// Panel is an admin interface: its settings, resources and pages. Create
+// it with [New], add resources with [Add], and [Panel.Mount] it on the
+// app's router.
+type Panel struct {
+	app      *anetos.App
+	cfg      Config
+	require  web.Middleware // auth's Require for the app's user type
+	reg      *rbac.Registry
+	pages    map[string]*template.Template
+	assets   *view.Assets
+	res      []resource
+	byName   map[string]resource
+	mounted  bool
+	base     string // the admin's path prefix
+	userName func(ctx context.Context) string
+}
+
+// Option changes a [Panel].
+type Option func(*Panel)
+
+// Title sets the admin's name, shown in its pages; ADMIN_TITLE overrides
+// it.
+func Title(title string) Option {
+	return func(p *Panel) {
+		if p.cfg.Title == "" {
+			p.cfg.Title = title
+		}
+	}
+}
+
+var nameRe = regexp.MustCompile(`^[a-z][a-z0-9-]{0,49}$`)
+
+// New creates the app's admin, for the users of a (the app's auth.Auth,
+// from auth.ForApp): it reads the ADMIN_* settings and declares
+// [Access] in the app's roles and permissions (rbac.ForApp must have run).
+// Only signed-in users with that permission get in; give it with a role
+// (a super role, or one in the database), for example
+// `rbac:assign <user-id> admin`.
+func New[U auth.Authenticatable](app *anetos.App, a *auth.Auth[U], opts ...Option) (*Panel, error) {
+	cfg, err := config.Get[Config](app.Source())
+	if err != nil {
+		return nil, err
+	}
+	reg, ok := anetos.Lookup[*rbac.Registry](app)
+	if !ok {
+		return nil, errors.New("admin: New needs the app's roles and permissions: call rbac.ForApp first")
+	}
+	if err := reg.Declare(Access); err != nil {
+		return nil, err
+	}
+	p := &Panel{app: app, cfg: cfg, require: a.Require, reg: reg, byName: map[string]resource{}}
+	p.userName = func(ctx context.Context) string {
+		u, ok := auth.User[U](ctx)
+		if !ok {
+			return ""
+		}
+		if n, ok := any(u).(interface{ AdminName() string }); ok {
+			return n.AdminName()
+		}
+		if n, ok := any(u).(fmt.Stringer); ok {
+			return n.String()
+		}
+		return "User " + u.AuthID()
+	}
+	for _, opt := range opts {
+		opt(p)
+	}
+	if p.cfg.Title == "" {
+		p.cfg.Title = app.Config().Name
+	}
+	if p.cfg.Title == "" {
+		p.cfg.Title = "Admin"
+	}
+	if p.pages, err = parsePages(); err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
+// Config returns the admin's settings.
+func (p *Panel) Config() Config { return p.cfg }
+
+// Mount adds the admin's routes to r, under ADMIN_PATH (or at ADMIN_HOST),
+// after mws: the app's session, CSRF and auth middleware, as its own
+// pages have them:
+//
+//	err := panel.Mount(r, sessions.Middleware, web.CSRF(), a.Middleware)
+//
+// Guests are sent to sign in (AUTH_LOGIN_URL); signed-in users without
+// [Access] get 403. Routes are named admin.*. Mount it once, after
+// adding the resources.
+func (p *Panel) Mount(r *web.Router, mws ...web.Middleware) error {
+	if p.mounted {
+		return errors.New("admin: Mount called twice")
+	}
+	p.mounted = true
+	path := p.cfg.Path
+	if path == "" && p.cfg.Host == "" {
+		path = "/admin"
+	}
+	if p.cfg.Host != "" {
+		r = r.Host(p.cfg.Host)
+	}
+	p.base = strings.TrimSuffix(path, "/")
+	// Under _assets, which no resource name can be, nor (at a host of
+	// its own) the app's own /assets.
+	assets, err := view.NewAssets(p.base+"/_assets", staticFS, htmx.FS)
+	if err != nil {
+		return err
+	}
+	p.assets = assets
+	// Assets need no session: they are the same for everyone.
+	r.Group(p.base).HandleStd(http.MethodGet, "/_assets/{file...}", assets).Name("admin.assets")
+	g := r.Group(p.base, append(slices.Clip(mws), secureHeaders, p.require, rbac.Require(Access))...)
+	g.Get("/", p.home).Name("admin.home")
+	for _, res := range p.res {
+		res.mount(g.Group("/" + res.info().Name))
+	}
+	return nil
+}
+
+// URL returns the path of the admin's first page: "/admin", or "/" at a
+// host of its own. It is known once the panel is mounted ("/" before).
+func (p *Panel) URL() string {
+	if p.base == "" {
+		return "/"
+	}
+	return p.base
+}
+
+// secureHeaders keeps the admin's pages out of frames and caches, and
+// limits what they may load to the admin's own files.
+func secureHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; frame-ancestors 'none'; form-action 'self'; base-uri 'none'")
+		h.Set("Cache-Control", "no-store")
+		h.Set("X-Frame-Options", "DENY")
+		next.ServeHTTP(w, r)
+	})
+}
+
+// add registers a resource and declares its permissions.
+func (p *Panel) add(res resource) error {
+	if p.mounted {
+		return errors.New("admin: Add after Mount: add the resources first")
+	}
+	in := res.info()
+	if !nameRe.MatchString(in.Name) {
+		return fmt.Errorf("admin: invalid resource name %q (lowercase letters, digits and -, starting with a letter)", in.Name)
+	}
+	if p.byName[in.Name] != nil {
+		return fmt.Errorf("admin: resource %q added twice", in.Name)
+	}
+	if err := p.reg.Declare(in.perms()...); err != nil {
+		return err
+	}
+	p.res = append(p.res, res)
+	p.byName[in.Name] = res
+	return nil
+}
+
+// PermissionsOf returns the permissions of resource name: admin.<name>.
+// followed by each of kinds ("view", "create", "update", "delete"), or by
+// all four without kinds. For roles declared in code, before the panel
+// exists:
+//
+//	editor := slices.Concat([]rbac.Permission{admin.Access}, admin.PermissionsOf("posts"))
+func PermissionsOf(name string, kinds ...string) []rbac.Permission {
+	if len(kinds) == 0 {
+		kinds = []string{"view", "create", "update", "delete"}
+	}
+	in := resInfo{Name: name}
+	out := make([]rbac.Permission, len(kinds))
+	for i, k := range kinds {
+		out[i] = in.perm(k)
+	}
+	return out
+}
+
+// Permissions returns the admin's permissions: [Access] and those of the
+// resources added so far, for building roles.
+func (p *Panel) Permissions() []rbac.Permission {
+	out := []rbac.Permission{Access}
+	for _, r := range p.res {
+		out = append(out, r.info().perms()...)
+	}
+	return out
+}
+
+// home is the admin's first page: the resources the user may see.
+func (p *Panel) home(c *web.Ctx) error {
+	type card struct {
+		Title string
+		URL   string
+		Count int64
+	}
+	var cards []card
+	for _, r := range p.res {
+		in := r.info()
+		if !rbac.Can(c, in.perm("view")) {
+			continue
+		}
+		n, err := r.count(c)
+		if err != nil {
+			return err
+		}
+		cards = append(cards, card{in.Title, p.base + "/" + in.Name, n})
+	}
+	return p.render(c, "home", page{Title: p.cfg.Title, Data: cards})
+}
+
+// navItem is a link in the admin's navigation.
+type navItem struct {
+	Title  string
+	URL    string
+	Active bool
+}
+
+// page is what every admin page gets.
+type page struct {
+	Title   string
+	Panel   string // the admin's title
+	Home    string // the admin's first page
+	User    string
+	Nav     []navItem
+	Crumbs  []navItem
+	Flash   string
+	Error   string
+	CSRF    string
+	CSS     string
+	JS      string
+	AdminJS string
+	URL     string // the page's path and query
+	Data    any
+}
+
+// render renders the named page in the admin's layout.
+func (p *Panel) render(c *web.Ctx, name string, pg page) error {
+	t := p.pages[name]
+	if t == nil {
+		return fmt.Errorf("admin: no page %q", name)
+	}
+	pg.Panel, pg.Home, pg.User = p.cfg.Title, p.URL(), p.userName(c)
+	pg.CSRF = view.CSRFToken(c)
+	pg.CSS, pg.JS, pg.AdminJS = p.assets.URL("admin.css"), p.assets.URL("htmx.min.js"), p.assets.URL("admin.js")
+	pg.URL = c.Request().URL.RequestURI()
+	pg.Flash = view.Flash(c, "admin.status")
+	if pg.Error == "" {
+		pg.Error = view.Flash(c, "admin.error")
+	}
+	for _, r := range p.res {
+		in := r.info()
+		if rbac.Can(c, in.perm("view")) {
+			pg.Nav = append(pg.Nav, navItem{in.Title, p.base + "/" + in.Name, strings.HasPrefix(c.Request().URL.Path, p.base+"/"+in.Name)})
+		}
+	}
+	return c.Render(http.StatusOK, view.Template(t, "layout", pg))
+}
+
+// flash keeps a message for the next page.
+func flash(c *web.Ctx, key, msg string) {
+	if s := c.Session(); s != nil {
+		s.Flash(key, msg)
+	}
+}

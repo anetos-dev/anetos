@@ -1,0 +1,52 @@
+package main
+
+import (
+	"anetos.dev/anetos"
+	"anetos.dev/anetos/admin"
+	"anetos.dev/anetos/auth"
+[[- if .RBAC]]
+	"anetos.dev/anetos/auth/rbac"
+	"anetos.dev/anetos/db/migrate"
+[[- end]]
+	"anetos.dev/anetos/session"
+	"anetos.dev/anetos/web"
+
+	appadmin "[[.Module]]/app/admin"
+	"[[.Module]]/app/models"
+)
+
+// setupAdmin adds the admin interface (anetos make:admin) at ADMIN_PATH
+// (default /admin), or at ADMIN_HOST: the resources of app/admin, which
+// anetos make:admin:resource adds to. Only signed-in users with the
+// permission admin.access get in;[[if .RBAC]] the admin role has every
+// permission: `go run . rbac:assign <user-id> admin`.[[else]] give it with a role of the app's.[[end]]
+// setup calls it after setupAuth.
+func setupAdmin(app *anetos.App, r *web.Router, sessions *session.Manager, a *auth.Auth[*models.User]) error {
+[[- if .RBAC]]
+	// Roles and permissions (package auth/rbac): roles in code here, and
+	// more in the database (rbac.CreateRole), from the admin's permissions.
+	runner, err := anetos.Resolve[*migrate.Runner](app)
+	if err != nil {
+		return err
+	}
+	if err := runner.Add(rbac.Migrations()); err != nil {
+		return err
+	}
+	roles := []rbac.Role{{Name: "admin", Title: "Administrator", Super: true}}
+	if _, err := rbac.ForApp(app, nil, roles...); err != nil {
+		return err
+	}
+[[- end]]
+	p, err := admin.New(app, a)
+	if err != nil {
+		return err
+	}
+	for _, add := range appadmin.Resources {
+		if err := add(p); err != nil {
+			return err
+		}
+	}
+	// The middleware of the app's pages: sessions, CSRF protection, and
+	// the signed-in user.
+	return p.Mount(r, sessions.Middleware, web.CSRF(), a.Middleware)
+}

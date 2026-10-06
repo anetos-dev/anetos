@@ -57,6 +57,7 @@ hand:
 | `col.Of("posts")` | The same column qualified with a table (`posts.name`); `Of("")` removes the qualifier |
 | `col.Name()` | The column name |
 | `db.Columns[T]()` | Model `T`'s column names in field order, or an error if `T` isn't a model struct |
+| `db.SoftDeleting[T]()` | Whether model `T` embeds `db.SoftDeletes` (a `deleted_at` column alone isn't enough) (v0.3) |
 
 ## Reading
 

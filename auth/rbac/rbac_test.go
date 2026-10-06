@@ -181,3 +181,19 @@ func TestSetupPanics(t *testing.T) {
 		}()
 	}
 }
+
+func TestDeclare(t *testing.T) {
+	r, err := rbac.New([]rbac.Permission{"posts.view"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Declare("admin.access", "posts.view", "admin.posts.update"); err != nil {
+		t.Fatal(err)
+	}
+	if !r.Declared("admin.access") || !r.Declared("admin.posts.update") || len(r.Permissions()) != 3 {
+		t.Errorf("after Declare: %v", r.Permissions())
+	}
+	if err := r.Declare("Bad Name"); err == nil {
+		t.Error("an invalid name was declared")
+	}
+}

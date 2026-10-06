@@ -1093,6 +1093,84 @@ Implemented in F10 (packages `view`, `session`, `encryption`; helpers in
   React and Svelte.
 - `anetos new --stack=htmx|vue|react|svelte|api`.
 
+### 12.3 Admin interface (v0.3: AD1, AD2)
+
+An admin for the people who run a site: its records, its users and their
+roles, and (AD2) a dashboard and the activity log. Apps that don't want
+one don't import it and pay nothing.
+
+**A library plus generated glue (D211).** The engine is the module
+`anetos.dev/anetos/admin` (directory `admin/` of the framework's
+repository, no dependencies beyond the core). Its pages need the app's
+own types (the user type of `auth.Auth[U]`, the models), which a plugin
+loaded by `ext.Load` can't name, so it isn't an `ext` plugin: `anetos
+make:admin` adds the module and writes the code the app owns, as
+`make:auth` does:
+
+```go
+// illustrative: admin.go, written by make:admin
+func setupAdmin(app *anetos.App, r *web.Router, sessions *session.Manager, a *auth.Auth[*models.User]) error {
+	// … rbac.ForApp with an admin role, unless the app sets up roles itself
+	p, err := admin.New(app, a)
+	if err != nil {
+		return err
+	}
+	for _, add := range appadmin.Resources { // app/admin: Posts, …
+		if err := add(p); err != nil {
+			return err
+		}
+	}
+	return p.Mount(r, sessions.Middleware, web.CSRF(), a.Middleware)
+}
+```
+
+`anetos make:admin:resource Post` writes a resource for a model
+(`app/admin/posts.go`, the function `Posts`, added to `Resources`): its
+columns, search, and a form struct with the model's editable fields,
+which the app edits like any code (validation, filters, actions).
+
+**Where it lives.** `ADMIN_PATH` (default `/admin`) or `ADMIN_HOST`
+(`admin.example.com`, with the path `/`): the router gets host routes
+(`Router.Host`), and URLs of host routes are absolute (D214). Sign-in is
+the app's (`make:auth`): the admin's routes require a signed-in user
+(`auth.Require`, so guests go to `AUTH_LOGIN_URL`) with the permission
+`admin.access`.
+
+**Resources** (`admin.Resource[T, F]`, D213): for model `T`,
+
+- a list: columns (`admin.Field`, or a function returning a value or a
+  `view.Component`), search over columns (`LIKE`), filters, sortable
+  columns, pagination, and the model's own scope (`Query`);
+- a page per record (its fields);
+- create and edit forms from the form struct `F`: its fields, in order,
+  become inputs by Go type (text, number, checkbox, date and time, a
+  select for `admin:"select=draft|published"`, a textarea for
+  `admin:"textarea"`), bound and validated with its `validate` tags like
+  any handler's input (errors and old input on the page), then applied
+  to the model by the resource's `Apply` function;
+- delete: soft for models with `SoftDeletes`, with a trash to restore
+  from or delete for good;
+- actions on one record and bulk actions on the selected ones, with a
+  confirmation.
+
+Each resource has the permissions `admin.<name>.view`, `.create`,
+`.update` and `.delete`; `admin.New` declares them and `admin.access`
+in the app's rbac registry (`Registry.Declare`), so roles in the
+database can be built from them (D213); roles declared in code name
+them with `admin.PermissionsOf("posts")` among the app's permissions. Writes go through the `db`
+package, so tracked models land in the audit log (§10.7).
+
+**Pages** are `html/template`, embedded, with htmx (bundled) and the
+admin's own stylesheet: no templ, no Node, nothing to build (D212).
+Columns and fields can render a `view.Component`, so templ works where
+the app wants it.
+
+**Users and roles (AD1b):** the users resource (search, view, disable,
+verification, sessions and tokens, acting as a user with a banner,
+logged), and roles and grants over package `auth/rbac`. **AD2:** the
+dashboard's widgets, the activity views, failed jobs and scheduled tasks,
+two-factor sign-in and password confirmation.
+
 ---
 
 ## 13. Runtime & concurrency
@@ -2447,7 +2525,11 @@ unless new information arrives), **Open**, **Superseded**.
 | D207 | The kernel gets carriers (`anetos.Carrier`, `App.AddCarrier`): named values captured from the context of work that hands off (a queue dispatch, an async event) and restored in the context of the work it starts; the queue's envelope and the event bus carry them | Accepted | A job deleting a user's posts should be attributed to the user who asked for it, without making that user "signed in" in the job (`auth.ActAs` stays explicit). One mechanism for any package, instead of the queue knowing about each (it knows about locales today). Commands are named by `cmd.Running` |
 | D208 | `migrate` adds `UniqueLive` (a unique index `WHERE deleted_at IS NULL`, PostgreSQL and SQLite; refused on MySQL and MariaDB, which have no partial indexes) and `db` the validation rule `unique_live` | Accepted | Soft-deleted rows otherwise keep their unique values (a deleted user's email) from new rows. The MySQL workarounds (generated columns) change the table's shape and need each column's type, so they're left to the app, with the reason in the error |
 | D209 | `db.PruneTrashed[T](app, after)` registers models whose rows soft-deleted longer than `after` ago are permanently deleted by `db:prune-trashed` or `db.PruneAllTrashed` (for a scheduled task), 1,000 rows per transaction | Accepted | Retention rules ("delete for good after 90 days") are part of governance; batches keep transactions and bulk audit entries bounded; registration in code keeps the rule next to the model, explicit |
-| D210 | The admin interface (AD1, AD2) is a first-party plugin module, `anetos.dev/anetos/plugins/admin`, installed with `anetos add`: an engine (resources with tables, filters, forms from struct tags and validation, actions, widgets; templ and htmx, its own stylesheet) plus `make:admin`, which writes the glue the app owns (mount path or host, dashboard, a resource file per model). Users and roles (rbac), the activity views, two-factor sign-in and password confirmation for dangerous actions come with it; teams and content review are in the backlog | Accepted | Apps that don't want an admin don't download or compile it; a library gets fixes, while fully generated pages go stale; the resources the app owns keep customization in plain Go. Admin actions are logged (D202), which is why the audit log comes first |
+| D210 | The admin interface (AD1, AD2) is a first-party plugin module, `anetos.dev/anetos/plugins/admin`, installed with `anetos add` (superseded: see D211): an engine (resources with tables, filters, forms from struct tags and validation, actions, widgets; templ and htmx, its own stylesheet) plus `make:admin`, which writes the glue the app owns (mount path or host, dashboard, a resource file per model). Users and roles (rbac), the activity views, two-factor sign-in and password confirmation for dangerous actions come with it; teams and content review are in the backlog | Accepted | Apps that don't want an admin don't download or compile it; a library gets fixes, while fully generated pages go stale; the resources the app owns keep customization in plain Go. Admin actions are logged (D202), which is why the audit log comes first |
+| D211 | The admin is the module `anetos.dev/anetos/admin`, a library the app wires with code `anetos make:admin` writes (it adds the module, writes `admin.go` and calls it from setup), not an `ext` plugin installed with `anetos add` | Accepted | Supersedes D210's installation. The admin needs the app's types (the user type of `auth.Auth[U]`, the models), which a plugin can't name; generated glue in the app can, and stays the app's to change. A separate module keeps its versions apart, though nothing the app doesn't import is compiled in either way |
+| D212 | The admin's pages are `html/template` templates embedded in the module, with htmx and a stylesheet of its own | Accepted | No templ or Node toolchain for an app that adds an admin, and no generated code in the module; the pages are generic (tables, forms), where Go templates suffice. Columns and fields may return a `view.Component`, so apps can still use templ |
+| D213 | Admin resources are `admin.Resource[T, F]`: columns, search, filters, sort, pagination and scope for model `T`; forms from a form struct `F` (fields rendered by Go type and `admin:"…"` tags, validated by its `validate` tags) with `Edit(T) F` and `Apply(ctx, F, *T)`; soft deletes with a trash; actions and bulk actions. Permissions `admin.access` and `admin.<resource>.view/create/update/delete` are declared by `admin.New` into the rbac registry (`rbac.Registry.Declare`) | Accepted | A form struct separate from the model is explicit about what an admin may change (no mass assignment), is checked by the compiler, and reuses validation as it is; generated by `make:admin:resource`, it is the app's code. Declaring the permissions keeps the app's own list free of them while roles in the database can grant them |
+| D214 | The router gets host routes: `Router.Host(host)` returns a router whose routes match only that host (Go's `ServeMux` host patterns); their URLs (`Router.URL`) are absolute, with `APP_URL`'s scheme | Accepted | An admin at `admin.example.com` (`ADMIN_HOST`); the standard library already matches hosts, so this is a prefix on the pattern |
 
 ---
 
@@ -2515,3 +2597,5 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-03 | I1c formatting and languages implemented: §14.5 updated (numbers, currencies, dates, relative times, `Dir`, `LanguageName`, `web.Alternates`, `lang:add` and `anetos.dev/locales`); D196–D198 added |
 | 2026-10-06 | M2 docs site and anetos.dev built (Hugo, Hextra, Cloudflare Pages); §5 (module path) updated; D200, D201 added |
 | 2026-10-06 | AU1 audit log and soft deletes designed: §10.7 added; D202–D209 added; the admin interface planned (D210) |
+| 2026-10-06 | AD1 admin interface designed: §12.3 added; D211–D214 added (D211 supersedes D210's installation through `anetos add`) |
+| 2026-10-06 | AD1a implemented: D213's form function is `Apply`; `admin.PermissionsOf` for roles in code; `make:admin` sets up roles (`rbac.ForApp`) unless the app does |

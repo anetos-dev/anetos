@@ -213,7 +213,7 @@ func TestRoutesListAndRouteContext(t *testing.T) {
 		t.Errorf("std any-method route = %d", got.status)
 	}
 	routes := r.Routes()
-	if len(routes) != 2 || routes[0] != (RouteInfo{"GET", "/a/{id}", "a.show"}) || routes[1].Method != "" {
+	if len(routes) != 2 || routes[0] != (RouteInfo{Method: "GET", Pattern: "/a/{id}", Name: "a.show"}) || routes[1].Method != "" {
 		t.Errorf("Routes = %+v", routes)
 	}
 }
@@ -226,4 +226,66 @@ func mustPanic(t *testing.T, what string, fn func()) {
 		}
 	}()
 	fn()
+}
+
+func TestHostRoutes(t *testing.T) {
+	r := NewRouter()
+	r.Get("/", func(c *Ctx) error { return c.Text(200, "site") }).Name("home")
+	admin := r.Host("Admin.Example.com")
+	admin.Get("/", func(c *Ctx) error { return c.Text(200, "admin") }).Name("admin.home")
+	admin.Get("/users/{id}", func(c *Ctx) error { return c.Text(200, "user "+c.Param("id")) }).Name("admin.user")
+	get := func(host, path string) (int, string) {
+		req := httptest.NewRequest("GET", path, nil)
+		req.Host = host
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		return w.Code, w.Body.String()
+	}
+	if code, body := get("example.com", "/"); code != 200 || body != "site" {
+		t.Errorf("site: %d %q", code, body)
+	}
+	if code, body := get("admin.example.com", "/"); code != 200 || body != "admin" {
+		t.Errorf("admin host: %d %q", code, body)
+	}
+	if code, body := get("admin.example.com", "/users/7"); code != 200 || body != "user 7" {
+		t.Errorf("admin user: %d %q", code, body)
+	}
+	if code, _ := get("example.com", "/users/7"); code != 404 {
+		t.Errorf("a host's route on another host: %d", code)
+	}
+	if u, err := r.URL("admin.user", 7); err != nil || u != "https://admin.example.com/users/7" {
+		t.Errorf("URL = %q, %v", u, err)
+	}
+	if u, _ := r.URL("home"); u != "/" {
+		t.Errorf("URL(home) = %q", u)
+	}
+	var hosts []string
+	for _, rt := range r.Routes() {
+		hosts = append(hosts, rt.Host)
+	}
+	if hosts[0] != "" || hosts[1] != "admin.example.com" {
+		t.Errorf("Routes hosts %q", hosts)
+	}
+	// A port is in the URLs; requests match the host on any port.
+	dev := NewRouter()
+	dev.Host("admin.localhost:8080").Get("/", func(c *Ctx) error { return c.Text(200, "dev") }).Name("dev")
+	req := httptest.NewRequest("GET", "/", nil)
+	req.Host = "admin.localhost:8080"
+	w := httptest.NewRecorder()
+	dev.ServeHTTP(w, req)
+	if w.Code != 200 || w.Body.String() != "dev" {
+		t.Errorf("host with a port: %d %q", w.Code, w.Body.String())
+	}
+	if u, _ := dev.URL("dev"); u != "https://admin.localhost:8080/" {
+		t.Errorf("URL with a port = %q", u)
+	}
+	if hostName("[::1]:8080") != "::1" || hostName("example.com") != "example.com" {
+		t.Error("hostName")
+	}
+	defer func() {
+		if recover() == nil {
+			t.Error("Host with a path didn't panic")
+		}
+	}()
+	r.Host("example.com/admin")
 }

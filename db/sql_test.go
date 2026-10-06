@@ -374,4 +374,18 @@ func TestColumns(t *testing.T) {
 	if _, err := Columns[int](); err == nil {
 		t.Error("Columns[int]: no error")
 	}
+	// A deleted_at column alone isn't SoftDeletes.
+	type plain struct {
+		ID        int64      `db:"id,pk"`
+		DeletedAt *time.Time `db:"deleted_at"`
+	}
+	if soft, err := SoftDeleting[Post](); err != nil || !soft {
+		t.Errorf("SoftDeleting[Post] = %v, %v", soft, err)
+	}
+	if soft, err := SoftDeleting[plain](); err != nil || soft {
+		t.Errorf("SoftDeleting[plain] = %v, %v", soft, err)
+	}
+	if _, err := SoftDeleting[int](); err == nil {
+		t.Error("SoftDeleting[int]: no error")
+	}
 }

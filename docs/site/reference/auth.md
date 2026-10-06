@@ -101,6 +101,7 @@ Package `auth/rbac` (v0.3). Concepts: [Roles and permissions](../concepts/roles-
 | `rbac.Role{Name, Title, Permissions, Super, Custom}` | A role; `Super` has every permission (code only); `Custom` is set for roles of the database. `r.Allows(p)`, `r.DisplayName()` (the title, or the name) |
 | `rbac.ForApp(app, permissions, roles...)` | `*rbac.Registry`, checked (unique names, roles of declared permissions); provided to the app and its contexts; caches grants per unit of work; adds the commands below; once per app |
 | `rbac.New(permissions, roles...)`, `rbac.WithRegistry(ctx, reg)`, `rbac.From(ctx)` | Without an app; `rbac.ErrNoRegistry` when the context has none |
+| `reg.Declare(permissions...)` | Adds permissions to the registry, for packages that bring their own (the admin); idempotent; call it at setup, before the app serves (v0.3) |
 | `reg.Permissions()`, `reg.Declared(p)`, `reg.Roles()`, `reg.Role(name)` | What was declared |
 | `rbac.Migrations()` | The `rbac_grants` and `rbac_roles` tables |
 

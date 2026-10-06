@@ -1,0 +1,14 @@
+{{define "content"}}{{$csrf := .CSRF}}{{with .Data}}
+<div class="head">
+  <h1>{{$.Title}}</h1>
+  <div class="tools">
+    {{range .Actions}}{{template "button" (button . $csrf)}}{{end}}
+    {{if .EditURL}}<a class="button primary" href="{{.EditURL}}">Edit</a>{{end}}
+    {{with .Delete}}{{template "button" (button . $csrf)}}{{end}}
+  </div>
+</div>
+<dl class="details">
+{{range .Lines}}<dt>{{.Title}}</dt><dd>{{if .Value}}{{.Value}}{{else}}<span class="none">—</span>{{end}}</dd>
+{{end}}
+</dl>
+{{end}}{{end}}
