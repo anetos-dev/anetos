@@ -392,4 +392,4 @@ func TestTokenAbilities(t *testing.T) {
 - [Add an admin panel](admin.md): pages for staff, with a permission per
   resource and action
 - [Roles and permissions reference](../reference/auth.md#roles-and-permissions)
-- [API tokens](authentication.md#7-give-api-clients-tokens)
+- [API tokens](authentication.md#8-give-api-clients-tokens)

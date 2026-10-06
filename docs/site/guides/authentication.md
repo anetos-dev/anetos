@@ -132,6 +132,7 @@ members.Post("/tokens", web.H(h.CreateToken))
 members.Post("/tokens/{id}/delete", web.H(h.RevokeToken))
 members.Get("/users/{id}", web.H(h.ShowUser))
 members.Get("/admin", h.Admin)
+members.Post("/password", web.H(h.ChangePassword))
 members.Get("/confirm-password", h.page("confirm")) // AUTH_CONFIRM_URL
 members.Post("/confirm-password", web.H(h.ConfirmPassword))
 
@@ -335,7 +336,41 @@ and remembered browser; `a.RevokeAllTokens` removes their API tokens.
 Throttle the form that sends links, as the example does, so it can't be
 used to flood someone's inbox.
 
-### 7. Give API clients tokens
+### 7. Let users change their password
+
+`a.ChangePassword(ctx, u, current, new)` checks the current password
+(throttled, `AUTH_THROTTLE` tries a minute), stores the new one hashed,
+and signs the user out of their other sessions and remembered browsers
+(`a.SignOutOthers`), keeping the one they're using: it gets a new
+session ID, and stays remembered if it was. A user without a password (who signs in
+with Google, say) sets one without `current`, if they signed in in the
+last `AUTH_CONFIRM_TTL`.
+
+```go
+// ChangePassword changes the signed-in user's password. Their other
+// browsers and devices are signed out; this one stays signed in.
+func (h Accounts) ChangePassword(c *web.Ctx, in NewPasswordInput) (web.Responder, error) {
+	u, err := auth.Current[*User](c)
+	if err != nil {
+		return nil, err
+	}
+	switch err := h.auth.ChangePassword(c, u, in.CurrentPassword, in.Password); {
+	case errors.Is(err, auth.ErrInvalidCredentials):
+		return nil, validate.Fail("current_password", "That isn't your password.")
+	case err != nil:
+		return nil, err
+	}
+	c.Session().Flash("status", "Password changed.")
+	return web.Redirect("/dashboard"), nil
+}
+```
+
+(Copied from [`examples/auth`](../../../examples/auth/main.go), region `change-password`.)
+
+[`make:auth`](accounts.md)'s settings page has it, with the user's name,
+email address, language and time zone.
+
+### 8. Give API clients tokens
 
 Add `auth.Migrations()` to your migrations for the `api_tokens` table.
 Tokens are created for a user with abilities, and shown once:
@@ -379,7 +414,7 @@ token's abilities; a user signed in with a session (your own pages and
 front end) may do anything. `a.Tokens` lists a user's tokens and
 `a.RevokeToken` deletes one.
 
-### 8. Test
+### 9. Test
 
 ```go
 func TestRegisterAndLogin(t *testing.T) {

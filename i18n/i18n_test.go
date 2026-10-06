@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -529,5 +530,21 @@ func TestCheckFrameworkPlaceholders(t *testing.T) {
 	}
 	if n != 2 {
 		t.Errorf("%d problems:\n%s", n, r)
+	}
+}
+
+func TestTimeZones(t *testing.T) {
+	zones := i18n.TimeZones()
+	if len(zones) < 300 || zones[0] != "UTC" || !slices.IsSorted(zones[1:]) || !slices.Contains(zones, "Asia/Dhaka") {
+		t.Fatalf("%d zones: %v…", len(zones), zones[:3])
+	}
+	for _, z := range zones {
+		if _, err := time.LoadLocation(z); err != nil {
+			t.Errorf("%s: %v", z, err)
+		}
+	}
+	zones[0] = "changed"
+	if i18n.TimeZones()[0] != "UTC" {
+		t.Error("TimeZones returns its own slice")
 	}
 }

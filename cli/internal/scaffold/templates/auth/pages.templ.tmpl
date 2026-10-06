@@ -110,7 +110,7 @@ templ Dashboard(u *models.User, tokens []auth.Token, newToken string) {
 			@view.CSRFField(ctx)
 			<button type="submit">{ i18n.T(ctx, "auth.dashboard.logout") }</button>
 		</form>
-		<p><a href={ web.URL(ctx, "two-factor") }>{ i18n.T(ctx, "auth.two_factor.title") }</a></p>
+		<p><a href={ web.URL(ctx, "settings") }>{ i18n.T(ctx, "auth.settings.title") }</a></p>
 		<h2>{ i18n.T(ctx, "auth.tokens.title") }</h2>
 		if newToken != "" {
 			<p>{ i18n.T(ctx, "auth.tokens.new") } <code>{ newToken }</code></p>

@@ -14,7 +14,7 @@
 {{.Banner}}
 <header class="top">
   <a class="brand" href="{{.Home}}">{{.Panel}}</a>
-  {{if .User}}<span class="user">{{.User}}</span>{{end}}
+  {{if .Account}}<a class="user" href="{{.Account}}" title="Your account">{{.User}}</a>{{else if .User}}<span class="user">{{.User}}</span>{{end}}
 </header>
 <div class="shell">
   <nav class="side" aria-label="Resources">

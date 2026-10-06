@@ -27,6 +27,26 @@ templ ResetPasswordMail(name, url string) {
 	}
 }
 
+// ChangeEmailMail asks name to confirm their new address with url.
+templ ChangeEmailMail(name, url string) {
+	@authMail() {
+		<p>{ i18n.T(ctx, "auth.mail.hello", "name", name) }</p>
+		<p>{ i18n.T(ctx, "auth.mail.change_email.intro") }</p>
+		<p><a href={ templ.SafeURL(url) } style="display:inline-block;padding:10px 16px;background:#1d1d1f;color:#ffffff;text-decoration:none;border-radius:6px">{ i18n.T(ctx, "auth.mail.change_email.button") }</a></p>
+		<p>{ i18n.T(ctx, "auth.mail.change_email.ignore") }</p>
+	}
+}
+
+// EmailChangingMail tells name their account's address is changing to
+// newEmail.
+templ EmailChangingMail(name, newEmail string) {
+	@authMail() {
+		<p>{ i18n.T(ctx, "auth.mail.hello", "name", name) }</p>
+		<p>{ i18n.T(ctx, "auth.mail.email_changing.intro", "email", newEmail) }</p>
+		<p>{ i18n.T(ctx, "auth.mail.email_changing.not_you") }</p>
+	}
+}
+
 // authMail is the account emails' shell.
 templ authMail() {
 	<!DOCTYPE html>

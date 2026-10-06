@@ -6,7 +6,9 @@ import (
 	"context"
 	"errors"
 
+	"anetos.dev/anetos/auth/password"
 	"anetos.dev/anetos/session"
+	"anetos.dev/anetos/web/ratelimit"
 )
 
 // Disabled reports whether u's account is disabled (Users.Disabled).
@@ -17,6 +19,53 @@ func (a *Auth[U]) Disabled(u U) bool { return a.disabled(u) }
 func (a *Auth[U]) CanSignOutEverywhere() bool { return a.users.SetSessionKey != nil }
 
 var errNoSessionKey = errors.New("auth: SignOutEverywhere needs Users.SessionKey and Users.SetSessionKey")
+
+var errNoSetPassword = errors.New("auth: ChangePassword needs Users.SetPassword")
+
+// ChangePassword changes the signed-in user u's password to pw (hashed
+// with password.Hash), when current is their password; a user without a
+// password (who signs in with Google, say) sets one if they signed in in
+// the last AUTH_CONFIRM_TTL. It signs u out of their other sessions
+// (with Users.SessionKey) and remember-me cookies, keeping this one
+// ([Auth.SignOutOthers]). It
+// fails with [ErrInvalidCredentials] for a wrong current password,
+// [ErrPasswordNotConfirmed] for a user without one who didn't sign in
+// lately, password.ErrTooLong, and a [*ThrottledError] after
+// AUTH_THROTTLE tries in a minute. Not while acting as another user.
+// Check pw's length and the like before (validate rules).
+func (a *Auth[U]) ChangePassword(ctx context.Context, u U, current, pw string) error {
+	if a.users.SetPassword == nil {
+		return errNoSetPassword
+	}
+	if s := session.From(ctx); s != nil && s.String(keyImpersonator) != "" {
+		return errConfirmActing
+	}
+	key := "auth:confirm\x00" + u.AuthID() // ConfirmPassword's: one budget of guesses
+	limit := ratelimit.PerMinute(a.cfg.Throttle)
+	if err := a.hit(ctx, key, limit); err != nil {
+		return err
+	}
+	if hash := u.AuthPassword(); hash != "" {
+		ok, err := password.VerifyContext(ctx, current, hash)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return ErrInvalidCredentials
+		}
+	} else if id, err := CurrentID(ctx); err != nil || id != u.AuthID() || !a.PasswordConfirmed(ctx) {
+		return ErrPasswordNotConfirmed
+	}
+	hash, err := password.Hash(pw)
+	if err != nil {
+		return err
+	}
+	if err := a.users.SetPassword(ctx, u, hash); err != nil {
+		return err
+	}
+	a.clearHits(ctx, limit, key)
+	return a.SignOutOthers(ctx, u)
+}
 
 // SignOutEverywhere ends every session of u, and every browser they are
 // remembered in: it gives them a new session key (Users.SetSessionKey),

@@ -88,6 +88,10 @@ func localeServer(t *testing.T, env config.Map) *localeClient {
 		}
 		return c.Text(http.StatusOK, b.String())
 	})
+	pages.Get("/forget", func(c *web.Ctx) error {
+		c.ForgetLocale()
+		return c.NoContent()
+	})
 	pages.Get("/switch/{locale}", func(c *web.Ctx) error {
 		if err := c.SetLocale(c.Param("locale")); err != nil {
 			return err
@@ -138,6 +142,11 @@ func TestLocaleNone(t *testing.T) {
 	}
 	if r := c.get("/switch/fr"); r.status != http.StatusUnprocessableEntity {
 		t.Errorf("unsupported locale: %d", r.status)
+	}
+	// ForgetLocale: the browser's again.
+	c.get("/forget")
+	if got := c.get("/hello", "Accept-Language", "bn").body; !strings.HasPrefix(got, "bn ") {
+		t.Errorf("after ForgetLocale: %q", got)
 	}
 
 	// Validation messages and error pages in the visitor's language.

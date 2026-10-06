@@ -20,6 +20,19 @@ All notable changes to this project are documented here. The format follows
   embedded `html/template` with htmx and their own stylesheet, under a
   strict CSP. `anetos make:admin` and `anetos make:admin:resource
   <Model>`; guide "Add an admin panel", `examples/admin` (AD1a, D211–D214).
+- An account settings page from `anetos make:auth` (AC1, D227):
+  `/settings` (`AUTH_SETTINGS_URL`) for the name, the password, the
+  language and time zone, the email address (the new one confirmed by a
+  link to it, the old one told; `Accounts.AllowEmailChange`, on) and
+  deleting the account (`Accounts.AllowAccountDeletion`, off); columns
+  `pending_email`, `locale` and `time_zone`, and `User.PreferredLocale`
+  and `PreferredTimeZone`. The admin links the user's name to it.
+- `auth.Auth.ChangePassword`: the current password checked, the user's
+  other sessions and remember-me cookies ended; `auth.Auth.SignOutOthers`
+  (AC1, D228).
+- `web.Ctx.ForgetLocale`: back to the user's or browser's language (AC1).
+- `i18n.TimeZones`: the time zones to choose from, from the IANA
+  database's `zone.tab` (AC1, D228).
 - Two-factor sign-in in package `auth` (AD2b, D224): TOTP codes from an
   authenticator app and recovery codes, the state stored encrypted with
   `APP_KEY` through `Users.TwoFactor` and `SetTwoFactor`;
@@ -344,6 +357,9 @@ All notable changes to this project are documented here. The format follows
   "Search by meaning" (S2).
 
 ### Changed
+- Password-reset tokens stop working when the user's session key changes
+  (signed out everywhere, or elsewhere), as well as when the password
+  does (AC1).
 - `auth/social`'s callback signs in with `Auth.SignIn`: users with
   two-factor sign-in on are sent to `AUTH_CHALLENGE_URL` for their code
   (AD2b).

@@ -278,6 +278,7 @@ members.Post("/tokens", web.H(h.CreateToken))
 members.Post("/tokens/{id}/delete", web.H(h.RevokeToken))
 members.Get("/users/{id}", web.H(h.ShowUser))
 members.Get("/admin", h.Admin)
+members.Post("/password", web.H(h.ChangePassword))
 members.Get("/confirm-password", h.page("confirm")) // AUTH_CONFIRM_URL
 members.Post("/confirm-password", web.H(h.ConfirmPassword))
 

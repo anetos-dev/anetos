@@ -462,6 +462,11 @@ client's address is read behind trusted proxies only
 two-factor sign-in on, and **Turn off two-factor sign-in** helps someone
 who lost their phone (not oneself).
 
+The user's name, at the top of every page, links to their account
+settings in the app (`AUTH_SETTINGS_URL`, [`make:auth`](accounts.md)'s
+`/settings`), when the app has that page: their password, two-factor
+sign-in, language and time zone.
+
 ## How it works
 
 The admin is a library, not a plugin: its pages need the app's own types

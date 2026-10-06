@@ -30,6 +30,8 @@ type security struct {
 	twoFactorOn func(ctx context.Context) (bool, error)
 	// twoFactorURL is where users turn it on (AUTH_TWO_FACTOR_URL).
 	twoFactorURL string
+	// settingsURL is the user's account settings (AUTH_SETTINGS_URL).
+	settingsURL string
 }
 
 func securityOf[U auth.Authenticatable](a *auth.Auth[U]) security {
@@ -41,6 +43,7 @@ func securityOf[U auth.Authenticatable](a *auth.Auth[U]) security {
 			return ok && u.AuthPassword() != ""
 		},
 		twoFactorURL: a.Config().TwoFactorURL,
+		settingsURL:  a.Config().SettingsURL,
 	}
 	if a.CanTwoFactor() {
 		s.twoFactorOn = func(ctx context.Context) (bool, error) {
@@ -129,13 +132,8 @@ func (p *Panel) twoFactorRequired(c *web.Ctx) error {
 	} else if on {
 		return c.Redirect(http.StatusSeeOther, p.URL())
 	}
-	// The app's page: on APP_URL when the admin has a host of its own.
-	to := web.LocalePath(c, p.sec.twoFactorURL)
-	if p.cfg.Host != "" {
-		to = strings.TrimSuffix(p.app.Config().URL, "/") + to
-	}
 	return p.render(c, "twofactor", page{Title: "Two-factor sign-in required", status: http.StatusForbidden,
-		Data: struct{ URL string }{to}})
+		Data: struct{ URL string }{p.appURL(c, p.sec.twoFactorURL)}})
 }
 
 // confirmPath is the admin's password confirmation page.
@@ -223,4 +221,14 @@ func (p *Panel) confirmPassword(c *web.Ctx) error {
 		return err
 	}
 	return p.render(c, "confirm", page{Title: "Confirm your password", status: http.StatusUnprocessableEntity, Data: d})
+}
+
+// appURL is the URL of a page of the app's, path: on APP_URL when the
+// admin has a host of its own.
+func (p *Panel) appURL(c *web.Ctx, path string) string {
+	to := web.LocalePath(c, path)
+	if p.cfg.Host != "" {
+		to = strings.TrimSuffix(p.app.Config().URL, "/") + to
+	}
+	return to
 }

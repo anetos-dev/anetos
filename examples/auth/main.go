@@ -165,6 +165,33 @@ func (h Accounts) Challenge(c *web.Ctx, in CodeInput) (web.Responder, error) {
 
 // endregion
 
+// NewPasswordInput is the change of password form.
+type NewPasswordInput struct {
+	CurrentPassword      string `json:"current_password"`
+	Password             string `json:"password" validate:"required|min:8|max:1024|confirmed"`
+	PasswordConfirmation string `json:"password_confirmation"`
+}
+
+// region: change-password
+// ChangePassword changes the signed-in user's password. Their other
+// browsers and devices are signed out; this one stays signed in.
+func (h Accounts) ChangePassword(c *web.Ctx, in NewPasswordInput) (web.Responder, error) {
+	u, err := auth.Current[*User](c)
+	if err != nil {
+		return nil, err
+	}
+	switch err := h.auth.ChangePassword(c, u, in.CurrentPassword, in.Password); {
+	case errors.Is(err, auth.ErrInvalidCredentials):
+		return nil, validate.Fail("current_password", "That isn't your password.")
+	case err != nil:
+		return nil, err
+	}
+	c.Session().Flash("status", "Password changed.")
+	return web.Redirect("/dashboard"), nil
+}
+
+// endregion
+
 // PasswordInput is the password confirmation form.
 type PasswordInput struct {
 	Password string `json:"password" validate:"required"`
@@ -491,6 +518,7 @@ func routes(r *web.Router, sessions *session.Manager, a *auth.Auth[*User], s *so
 	members.Post("/tokens/{id}/delete", web.H(h.RevokeToken))
 	members.Get("/users/{id}", web.H(h.ShowUser))
 	members.Get("/admin", h.Admin)
+	members.Post("/password", web.H(h.ChangePassword))
 	members.Get("/confirm-password", h.page("confirm")) // AUTH_CONFIRM_URL
 	members.Post("/confirm-password", web.H(h.ConfirmPassword))
 

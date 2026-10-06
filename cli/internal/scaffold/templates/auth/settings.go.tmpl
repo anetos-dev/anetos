@@ -1,0 +1,302 @@
+package handlers
+
+import (
+	"context"
+	"errors"
+	"net/http"
+	"net/url"
+	"slices"
+	"strings"
+
+	"anetos.dev/anetos"
+	"anetos.dev/anetos/auth"
+	"anetos.dev/anetos/auth/password"
+	"anetos.dev/anetos/auth/social"
+	"anetos.dev/anetos/db"
+	"anetos.dev/anetos/i18n"
+	"anetos.dev/anetos/mailer"
+	"anetos.dev/anetos/queue"
+	"anetos.dev/anetos/validate"
+	"anetos.dev/anetos/web"
+	"anetos.dev/anetos/web/ratelimit"
+
+	"[[.Module]]/app/mailers"
+	"[[.Module]]/app/models"
+	"[[.Module]]/views"
+)
+
+// The account settings (anetos make:auth): the user's name, email
+// address, password, language and time zone, two-factor sign-in, and
+// deleting the account. Add your own fields here, in views/settings.templ
+// and in routes/auth.go.
+
+// ProfileInput is the profile form.
+type ProfileInput struct {
+	Name string `json:"name" validate:"required|max:100"`
+}
+
+// EmailInput is the new email address form.
+type EmailInput struct {
+	Email string `json:"email" validate:"required|email|max:255"`
+}
+
+// NewPasswordInput is the change of password form. CurrentPassword is
+// empty for users without a password (who sign in with Google, say).
+type NewPasswordInput struct {
+	CurrentPassword      string `json:"current_password"`
+	Password             string `json:"password" validate:"required|min:8|max:1024|confirmed"`
+	PasswordConfirmation string `json:"password_confirmation"`
+}
+
+// PreferencesInput is the language and time zone form; "" for the
+// browser's language and the app's zone.
+type PreferencesInput struct {
+	Locale   string `json:"locale" validate:"max:35"`
+	TimeZone string `json:"time_zone" validate:"max:64"`
+}
+
+// Settings shows the account settings.
+func (h Accounts) Settings(c *web.Ctx) error {
+	u, err := auth.Current[*models.User](c)
+	if err != nil {
+		return err
+	}
+	page := views.SettingsPage{User: u, EmailChange: h.AllowEmailChange, DeleteAccount: h.AllowAccountDeletion,
+		TimeZones: i18n.TimeZones(), TwoFactor: h.Auth.CanTwoFactor()}
+	if tr := i18n.From(c); tr != nil {
+		for _, l := range tr.Supported() {
+			page.Locales = append(page.Locales, views.Choice{Value: l, Title: i18n.LanguageName(c, l)})
+		}
+	}
+	if page.TwoFactor {
+		if page.TwoFactorStatus, err = h.Auth.TwoFactor(u); err != nil {
+			return err
+		}
+	}
+	return c.Render(http.StatusOK, views.Settings(page))
+}
+
+// UpdateProfile saves the user's name.
+func (h Accounts) UpdateProfile(c *web.Ctx, in ProfileInput) (web.Responder, error) {
+	u, err := auth.Current[*models.User](c)
+	if err != nil {
+		return nil, err
+	}
+	name := cleanName(in.Name)
+	if name == "" {
+		return nil, validate.Fail("name", i18n.T(c, "auth.errors.name_required"))
+	}
+	if _, err := db.Query[models.User](c).Where(models.UserCols.ID.Eq(u.ID)).Update(models.UserCols.Name.Set(name)); err != nil {
+		return nil, err
+	}
+	c.Session().Flash("status", i18n.T(c, "auth.status.saved"))
+	return web.RedirectRoute("settings"), nil
+}
+
+// ChangeEmail starts a change of email address (once the password is
+// confirmed again): the new address gets a link, which makes it the
+// user's (VerifyEmailChange); the old one is told. Until then, the user
+// signs in with the old one.
+func (h Accounts) ChangeEmail(c *web.Ctx, in EmailInput) (web.Responder, error) {
+	if !h.AllowEmailChange {
+		return nil, web.Error(http.StatusNotFound, "")
+	}
+	u, err := auth.Current[*models.User](c)
+	if err != nil {
+		return nil, err
+	}
+	// At most 5 tries an hour for one account, first: each sends emails,
+	// and says whether an address has an account.
+	if res, err := ratelimit.Allow(c, "email-change:"+u.AuthID(), ratelimit.PerHour(5)); err != nil {
+		return nil, err
+	} else if !res.Allowed {
+		return nil, validate.Fail("email", i18n.T(c, "auth.errors.too_many_emails"))
+	}
+	email := strings.ToLower(in.Email)
+	if email == u.Email {
+		return nil, validate.Fail("email", i18n.T(c, "auth.errors.email_same"))
+	}
+	if taken, err := emailTaken(c, email); err != nil {
+		return nil, err
+	} else if taken {
+		return nil, validate.Fail("email", i18n.T(c, "auth.errors.email_taken"))
+	}
+	err = db.Tx(c, func(ctx context.Context) error { // the change and its emails, or neither
+		if _, err := db.Query[models.User](ctx).Where(models.UserCols.ID.Eq(u.ID)).Update(models.UserCols.PendingEmail.Set(email)); err != nil {
+			return err
+		}
+		u.PendingEmail = email
+		return sendEmailChange(ctx, h.Auth, u)
+	})
+	if err != nil {
+		return nil, err
+	}
+	c.Session().Flash("status", i18n.T(c, "auth.status.email_change_sent", "email", email))
+	return web.RedirectRoute("settings"), nil
+}
+
+// sendEmailChange emails u's new address a link that makes it theirs,
+// and tells the old one (if it was verified: an unverified one may be
+// a stranger's), in u's language.
+func sendEmailChange(ctx context.Context, a *auth.Auth[*models.User], u *models.User) error {
+	ctx = i18n.ForUser(ctx, u)
+	token := a.VerificationToken(u, u.PendingEmail)
+	link, err := mailer.URL(ctx, web.LocalePath(ctx, "/settings/email/verify?token="+url.QueryEscape(token)))
+	if err != nil {
+		return err
+	}
+	if err := mailer.Queue(ctx, mailers.ChangeEmail{Name: u.Name, Email: u.PendingEmail, URL: link}, queue.AfterCommit()); err != nil {
+		return err
+	}
+	if u.EmailVerifiedAt == nil {
+		return nil
+	}
+	return mailer.Queue(ctx, mailers.EmailChanging{Name: u.Name, Email: u.Email, NewEmail: u.PendingEmail}, queue.AfterCommit())
+}
+
+// CancelEmailChange drops a change of email address: its link stops
+// working.
+func (h Accounts) CancelEmailChange(c *web.Ctx) error {
+	u, err := auth.Current[*models.User](c)
+	if err != nil {
+		return err
+	}
+	if _, err := db.Query[models.User](c).Where(models.UserCols.ID.Eq(u.ID)).Update(models.UserCols.PendingEmail.Set("")); err != nil {
+		return err
+	}
+	return c.RedirectRoute("settings")
+}
+
+// VerifyEmailChange makes the new address the user's, from the link
+// emailed to it: verified, since its owner followed the link. The user's
+// other sessions and the reset links sent to the old address end. A link
+// for an address the user no longer asks for, or one taken meanwhile, is
+// refused.
+func (h Accounts) VerifyEmailChange(c *web.Ctx, in TokenQuery) (web.Responder, error) {
+	u, email, err := h.Auth.CheckVerificationToken(c, in.Token)
+	if err != nil {
+		return nil, err
+	}
+	if !h.AllowEmailChange || u.PendingEmail == "" || email != u.PendingEmail {
+		return nil, web.Error(http.StatusBadRequest, i18n.T(c, "auth.errors.link_other_email"))
+	}
+	taken := func() (bool, error) {
+		return db.Query[models.User](c).Where(models.UserCols.Email.Eq(email), models.UserCols.ID.Ne(u.ID)).Exists()
+	}
+	if t, err := taken(); err != nil {
+		return nil, err
+	} else if t {
+		return nil, web.Error(http.StatusConflict, i18n.T(c, "auth.errors.email_taken"))
+	}
+	now := anetos.Now(c).UTC()
+	_, err = db.Query[models.User](c).Where(models.UserCols.ID.Eq(u.ID)).Update(
+		models.UserCols.Email.Set(email), models.UserCols.PendingEmail.Set(""), models.UserCols.EmailVerifiedAt.Set(&now))
+	if err != nil {
+		if t, _ := taken(); t { // registered meanwhile: the unique index refused it
+			return nil, web.Error(http.StatusConflict, i18n.T(c, "auth.errors.email_taken"))
+		}
+		return nil, err
+	}
+	// Sessions elsewhere and reset links sent to the old address end.
+	if err := h.Auth.SignOutOthers(c, u); err != nil {
+		return nil, err
+	}
+	c.Session().Flash("status", i18n.T(c, "auth.status.email_changed", "email", email))
+	return web.RedirectRoute("settings"), nil
+}
+
+// ChangePassword changes the password, and signs the user out of their
+// other browsers and devices (this one stays signed in, and remembered if
+// it was). Users without a password set one, if they
+// signed in in the last few minutes (AUTH_CONFIRM_TTL).
+func (h Accounts) ChangePassword(c *web.Ctx, in NewPasswordInput) (web.Responder, error) {
+	u, err := auth.Current[*models.User](c)
+	if err != nil {
+		return nil, err
+	}
+	err = h.Auth.ChangePassword(c, u, in.CurrentPassword, in.Password)
+	current := "current_password"
+	if u.Password == "" {
+		current = "password" // no current password: the field isn't shown
+	}
+	var throttled *auth.ThrottledError
+	switch {
+	case errors.Is(err, auth.ErrInvalidCredentials):
+		return nil, validate.Fail(current, i18n.T(c, "auth.errors.password"))
+	case errors.Is(err, auth.ErrPasswordNotConfirmed):
+		return nil, validate.Fail("password", i18n.T(c, "auth.errors.sign_in_first"))
+	case errors.Is(err, password.ErrTooLong):
+		return nil, validate.Fail("password", i18n.T(c, "auth.errors.password_too_long"))
+	case errors.As(err, &throttled):
+		return nil, validate.Fail(current, i18n.T(c, "auth.errors.throttled"))
+	case err != nil:
+		return nil, err
+	}
+	c.Session().Flash("status", i18n.T(c, "auth.status.password_changed"))
+	return web.RedirectRoute("settings"), nil
+}
+
+// UpdatePreferences saves the user's language and time zone.
+func (h Accounts) UpdatePreferences(c *web.Ctx, in PreferencesInput) (web.Responder, error) {
+	u, err := auth.Current[*models.User](c)
+	if err != nil {
+		return nil, err
+	}
+	if tr := i18n.From(c); in.Locale != "" && (tr == nil || !slices.Contains(tr.Supported(), in.Locale)) {
+		return nil, validate.Fail("locale", i18n.T(c, "auth.errors.choice"))
+	}
+	if in.TimeZone != "" && !slices.Contains(i18n.TimeZones(), in.TimeZone) {
+		return nil, validate.Fail("time_zone", i18n.T(c, "auth.errors.choice"))
+	}
+	if _, err := db.Query[models.User](c).Where(models.UserCols.ID.Eq(u.ID)).Update(
+		models.UserCols.Locale.Set(in.Locale), models.UserCols.TimeZone.Set(in.TimeZone)); err != nil {
+		return nil, err
+	}
+	// This browser's choice too (its cookie would win over the user's).
+	if in.Locale != "" {
+		if err := c.SetLocale(in.Locale); err != nil {
+			return nil, err
+		}
+	} else {
+		c.ForgetLocale()
+	}
+	c.Session().Flash("status", i18n.T(c, "auth.status.saved"))
+	return web.RedirectRoute("settings"), nil
+}
+
+// DeleteAccount deletes the user's account (once the password is
+// confirmed again), with their API tokens and their links to Google and
+// GitHub, and signs them out. If the app gives users roles (auth/rbac),
+// remove them here too: rbac.RemoveUser.
+func (h Accounts) DeleteAccount(c *web.Ctx) error {
+	if !h.AllowAccountDeletion {
+		return web.Error(http.StatusNotFound, "")
+	}
+	u, err := auth.Current[*models.User](c)
+	if err != nil {
+		return err
+	}
+	err = db.Tx(c, func(ctx context.Context) error {
+		links, err := social.Links(ctx, u.AuthID())
+		if err != nil {
+			return err
+		}
+		for _, l := range links {
+			if err := social.Unlink(ctx, u.AuthID(), l.Provider); err != nil {
+				return err
+			}
+		}
+		if err := h.Auth.RevokeAllTokens(ctx, u); err != nil {
+			return err
+		}
+		return db.Delete(ctx, u)
+	})
+	if err != nil {
+		return err
+	}
+	if err := h.Auth.Logout(c); err != nil {
+		return err
+	}
+	c.Session().Flash("status", i18n.T(c, "auth.status.account_deleted"))
+	return c.Redirect(http.StatusSeeOther, web.LocalePath(c, "/login"))
+}

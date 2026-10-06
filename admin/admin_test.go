@@ -239,6 +239,9 @@ func setupWith(opts func(p *Panel) error) func(app *anetos.App) (*web.Server, er
 			}
 			return c.NoContent()
 		})
+		// The account settings page (AUTH_SETTINGS_URL), which the admin
+		// links to.
+		r.With(mws...).Get("/settings", func(c *web.Ctx) error { return c.Text(http.StatusOK, "settings") })
 		// An app page with the banner, and a change made from it.
 		r.With(mws...).Get("/test/banner", func(c *web.Ctx) error { return c.Render(http.StatusOK, Banner()) })
 		r.With(append(mws, a.Require)...).Post("/test/rename", func(c *web.Ctx) error {

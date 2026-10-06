@@ -131,6 +131,10 @@ type Config struct {
 	// TwoFactorURL is where users turn two-factor sign-in on and off.
 	// AUTH_TWO_FACTOR_URL, default /two-factor.
 	TwoFactorURL string `env:"AUTH_TWO_FACTOR_URL" default:"/two-factor"`
+	// SettingsURL is where signed-in users change their account settings
+	// (make:auth's page; the admin links there). AUTH_SETTINGS_URL,
+	// default /settings.
+	SettingsURL string `env:"AUTH_SETTINGS_URL" default:"/settings"`
 	// ConfirmURL is where [Auth.RequireConfirmed] sends users to confirm
 	// their password. AUTH_CONFIRM_URL, default /confirm-password.
 	ConfirmURL string `env:"AUTH_CONFIRM_URL" default:"/confirm-password"`
@@ -143,7 +147,8 @@ type Config struct {
 func (c Config) Validate() error {
 	var errs []error
 	for name, u := range map[string]string{"AUTH_LOGIN_URL": c.LoginURL, "AUTH_HOME_URL": c.HomeURL,
-		"AUTH_CHALLENGE_URL": c.ChallengeURL, "AUTH_TWO_FACTOR_URL": c.TwoFactorURL, "AUTH_CONFIRM_URL": c.ConfirmURL} {
+		"AUTH_CHALLENGE_URL": c.ChallengeURL, "AUTH_TWO_FACTOR_URL": c.TwoFactorURL, "AUTH_CONFIRM_URL": c.ConfirmURL,
+		"AUTH_SETTINGS_URL": c.SettingsURL} {
 		if !localPath(u) {
 			errs = append(errs, fmt.Errorf("%s %q must be a path on this site (starting with /)", name, u))
 		}

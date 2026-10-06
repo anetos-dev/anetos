@@ -190,7 +190,8 @@ with `subdomain`, `/about?locale=bn` with `none` (handled for pages only,
 and only for a supported locale; other `locale` parameters reach your
 routes). Following one remembers the choice. A settings form can call
 `c.SetLocale(locale)` instead, which stores it in the cookie and the
-session.
+session; `c.ForgetLocale()` drops them, back to the user's preference or
+the browser's language.
 
 A locale matches itself or its nearest supported parent (`bn-BD` →
 `bn`), else a close regional variant (`fr-CH` → `fr-CA`).
@@ -220,7 +221,9 @@ with `LOCALE_URL=none` (unless they chose another on this device), and
 `i18n.TimeZone(ctx)` is their zone, which `i18n.Date` and `i18n.Time`
 show times in ([Numbers, dates and languages](formatting.md)). A settings
 page that saves their
-language should also call `c.SetLocale`, so the cookie follows. To write
+language should also call `c.SetLocale`, so the cookie follows;
+`i18n.TimeZones()` lists the zones to choose from (UTC, then one per
+region of each country), as `make:auth`'s settings page does. To write
 to a user, switch to their communication language first:
 
 ```go

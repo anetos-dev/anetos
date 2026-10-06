@@ -9,8 +9,10 @@ import (
 
 // Password-reset and email-verification tokens are encrypted with
 // APP_KEY, so nothing is stored: they carry the user, an expiry and, for
-// resets, a fingerprint of the password hash, which makes a reset token
-// stop working once the password has changed.
+// resets, a fingerprint of the password hash and the session key, which
+// makes a reset token stop working once the password has changed, or the
+// user was signed out everywhere ([Auth.SignOutEverywhere],
+// [Auth.SignOutOthers]).
 
 const (
 	resetContext  = "anetos/auth\x00reset"
@@ -20,15 +22,16 @@ const (
 type signed struct {
 	ID      string `json:"i"`
 	Expires int64  `json:"x"`
-	Hash    string `json:"h,omitempty"` // password fingerprint (reset)
+	Hash    string `json:"h,omitempty"` // password and session key fingerprint (reset)
 	Email   string `json:"e,omitempty"` // address to verify
 }
 
 // PasswordResetToken returns a token for a link that lets u choose a new
 // password. It works for AUTH_RESET_TTL, and only until the password
-// changes, so it can be used once.
+// changes, so it can be used once, or the user is signed out everywhere
+// (a new session key: SignOutEverywhere, SignOutOthers).
 func (a *Auth[U]) PasswordResetToken(u U) string {
-	b, _ := json.Marshal(signed{ID: u.AuthID(), Expires: a.now().Add(a.cfg.ResetTTL).Unix(), Hash: fingerprint(u.AuthPassword())})
+	b, _ := json.Marshal(signed{ID: u.AuthID(), Expires: a.now().Add(a.cfg.ResetTTL).Unix(), Hash: a.sessionPrint(u, u.AuthPassword())})
 	return a.enc.EncryptString(string(b), resetContext)
 }
 
@@ -49,8 +52,8 @@ func (a *Auth[U]) CheckPasswordResetToken(ctx context.Context, token string) (U,
 	if err != nil {
 		return zero, err
 	}
-	if fingerprint(u.AuthPassword()) != v.Hash {
-		return zero, ErrInvalidToken // the password changed since: used
+	if a.sessionPrint(u, u.AuthPassword()) != v.Hash {
+		return zero, ErrInvalidToken // the password or session key changed since: used
 	}
 	return u, nil
 }

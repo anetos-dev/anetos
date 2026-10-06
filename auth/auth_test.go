@@ -195,9 +195,13 @@ func newApp(t *testing.T, s *store) (*auth.Auth[*user], *browser) {
 	return a, b
 }
 
-func newAppWith(t *testing.T, s *store) (*auth.Auth[*user], *browser, *anetos.App) {
+func newAppWith(t *testing.T, s *store, env ...string) (*auth.Auth[*user], *browser, *anetos.App) {
 	t.Helper()
-	app, err := anetos.New(anetos.WithSource(config.Map{"APP_ENV": "testing", "APP_KEY": encryption.GenerateKey()}), anetos.WithLogOutput(io.Discard))
+	src := config.Map{"APP_ENV": "testing", "APP_KEY": encryption.GenerateKey()}
+	for i := 0; i+1 < len(env); i += 2 {
+		src[env[i]] = env[i+1]
+	}
+	app, err := anetos.New(anetos.WithSource(src), anetos.WithLogOutput(io.Discard))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -205,7 +209,10 @@ func newAppWith(t *testing.T, s *store) (*auth.Auth[*user], *browser, *anetos.Ap
 	if _, err := cache.ForApp(app); err != nil {
 		t.Fatal(err)
 	}
-	sessions, err := session.ForApp(app)
+	// SESSION_DRIVER=mem keeps sessions on the server, in memory.
+	sessions, err := session.ForApp(app, session.Driver{Name: "mem", Open: func(*anetos.App, session.Config) (cache.Store, error) {
+		return cache.NewMemoryStore(), nil
+	}})
 	if err != nil {
 		t.Fatal(err)
 	}

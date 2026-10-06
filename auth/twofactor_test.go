@@ -62,6 +62,13 @@ func twoFactorRoutes(r *web.Router, a *auth.Auth[*user], s *store) {
 		}
 		return c.Redirect(http.StatusSeeOther, auth.Intended(c, "/home"))
 	})
+	private.Post("/password", func(c *web.Ctx) error {
+		u, _ := auth.User[*user](c)
+		if err := a.ChangePassword(c, u, c.Request().FormValue("current"), c.Request().FormValue("new")); err != nil {
+			return err
+		}
+		return c.NoContent()
+	})
 	danger := private.Group("", a.RequireConfirmed)
 	danger.Get("/danger", func(c *web.Ctx) error { return c.Text(http.StatusOK, "dangerous page") })
 	danger.Post("/danger", func(c *web.Ctx) error { return c.Text(http.StatusOK, "done") })
@@ -451,5 +458,115 @@ func TestTwoFactorDailyCap(t *testing.T) {
 	login(b, "ada@example.com", "secret", false)
 	if res := b.do(http.MethodPost, "/two-factor-challenge", url.Values{"code": {auth.TOTP(secret, now)}}); res.StatusCode != http.StatusSeeOther {
 		t.Errorf("a day later: %d", res.StatusCode)
+	}
+}
+
+func TestChangePassword(t *testing.T) {
+	s := newStore(t)
+	_, b, app := newAppWith(t, s)
+	now := time.Now()
+	app.SetClock(func() time.Time { return now })
+	login(b, "ada@example.com", "secret", true)
+	other := &browser{t: t, h: b.h, ctx: b.ctx, jar: mustJar()}
+	login(other, "ada@example.com", "secret", false)
+
+	if res := b.do(http.MethodPost, "/password", url.Values{"current": {"wrong"}, "new": {"new secret"}}); res.StatusCode != http.StatusUnauthorized {
+		t.Errorf("a wrong current password: %d", res.StatusCode)
+	}
+	if res := b.do(http.MethodPost, "/password", url.Values{"current": {"secret"}, "new": {"new secret"}}); res.StatusCode != http.StatusNoContent {
+		t.Fatalf("changed: %d %s", res.StatusCode, res.Body)
+	}
+	if res := b.do(http.MethodGet, "/dashboard", nil); res.StatusCode != http.StatusOK {
+		t.Errorf("this session after the change: %d", res.StatusCode)
+	}
+	if res := other.do(http.MethodGet, "/dashboard", nil); res.StatusCode != http.StatusSeeOther {
+		t.Errorf("another session after the change: %d", res.StatusCode)
+	}
+	// This browser stays remembered, with a new cookie.
+	if c := rememberCookie(b); c == nil {
+		t.Error("the remember-me cookie is gone")
+	} else {
+		remembered := &browser{t: t, h: b.h, ctx: b.ctx, jar: mustJar()}
+		remembered.jar.SetCookies(base, []*http.Cookie{c})
+		if res := remembered.do(http.MethodGet, "/dashboard", nil); res.StatusCode != http.StatusOK {
+			t.Errorf("the new remember-me cookie: %d", res.StatusCode)
+		}
+	}
+	b.do(http.MethodPost, "/logout", nil)
+	if res := login(b, "ada@example.com", "secret", false); res.StatusCode != http.StatusUnauthorized {
+		t.Errorf("the old password: %d", res.StatusCode)
+	}
+	if res := login(b, "ada@example.com", "new secret", false); res.StatusCode != http.StatusSeeOther {
+		t.Errorf("the new password: %d", res.StatusCode)
+	}
+
+	// Acting as someone: not theirs to change.
+	b.do(http.MethodPost, "/impersonate/3", nil)
+	if res := b.do(http.MethodPost, "/password", url.Values{"current": {"secret"}, "new": {"x"}}); res.StatusCode != http.StatusForbidden {
+		t.Errorf("acting as someone: %d", res.StatusCode)
+	}
+
+	// Without a password: one is set after a fresh sign-in.
+	social := &browser{t: t, h: b.h, ctx: b.ctx, jar: mustJar()}
+	social.do(http.MethodPost, "/social/4", nil)
+	if res := social.do(http.MethodPost, "/password", url.Values{"new": {"first password"}}); res.StatusCode != http.StatusNoContent {
+		t.Fatalf("a first password: %d", res.StatusCode)
+	}
+	if res := social.do(http.MethodGet, "/dashboard", nil); res.StatusCode != http.StatusOK {
+		t.Errorf("still signed in: %d", res.StatusCode)
+	}
+	if res := login(&browser{t: t, h: b.h, ctx: b.ctx, jar: mustJar()}, "social@example.com", "first password", false); res.StatusCode != http.StatusSeeOther {
+		t.Errorf("signing in with it: %d", res.StatusCode)
+	}
+	late := &browser{t: t, h: b.h, ctx: b.ctx, jar: mustJar()}
+	s.mu.Lock()
+	v := s.byID["4"]
+	v.Password = ""
+	s.byID["4"] = v
+	s.mu.Unlock()
+	late.do(http.MethodPost, "/social/4", nil)
+	now = now.Add(16 * time.Minute)
+	if res := late.do(http.MethodPost, "/password", url.Values{"new": {"x"}}); res.StatusCode != http.StatusLocked {
+		t.Errorf("long after signing in: %d", res.StatusCode)
+	}
+}
+
+// With sessions kept on the server, a copy of the session's cookie taken
+// before a change of password doesn't work after it.
+func TestChangePasswordEndsCopiesOfTheSession(t *testing.T) {
+	s := newStore(t)
+	_, b, _ := newAppWith(t, s, "SESSION_DRIVER", "mem")
+	login(b, "ada@example.com", "secret", false)
+	thief := &browser{t: t, h: b.h, ctx: b.ctx, jar: mustJar()}
+	thief.jar.SetCookies(base, b.jar.Cookies(base))
+	if res := thief.do(http.MethodGet, "/dashboard", nil); res.StatusCode != http.StatusOK {
+		t.Fatalf("the copy before: %d", res.StatusCode)
+	}
+	if res := b.do(http.MethodPost, "/password", url.Values{"current": {"secret"}, "new": {"new secret"}}); res.StatusCode != http.StatusNoContent {
+		t.Fatalf("changed: %d", res.StatusCode)
+	}
+	if res := b.do(http.MethodGet, "/dashboard", nil); res.StatusCode != http.StatusOK {
+		t.Errorf("this browser: %d", res.StatusCode)
+	}
+	if res := thief.do(http.MethodGet, "/dashboard", nil); res.StatusCode != http.StatusSeeOther {
+		t.Errorf("the copy after: %d", res.StatusCode)
+	}
+}
+
+// Reset links end when the user is signed out elsewhere (a new session
+// key), as after a change of email address.
+func TestSignOutOthersEndsResetLinks(t *testing.T) {
+	s := newStore(t)
+	a, b, _ := newAppWith(t, s)
+	u, _ := s.users().ByID(b.ctx, "1")
+	tok := a.PasswordResetToken(u)
+	if _, err := a.CheckPasswordResetToken(b.ctx, tok); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.SignOutOthers(b.ctx, u); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.CheckPasswordResetToken(b.ctx, tok); !errors.Is(err, auth.ErrInvalidToken) {
+		t.Errorf("after SignOutOthers: %v", err)
 	}
 }

@@ -310,6 +310,25 @@ func (c *Ctx) SetLocale(locale string) error {
 	return nil
 }
 
+// ForgetLocale drops the visitor's chosen locale (the locale cookie and
+// the session's, which SetLocale and ?locale= keep), so later requests go
+// by the signed-in user's preference or the browser's language: for a
+// settings page where a user chooses "the browser's language". This
+// request keeps its locale.
+func (c *Ctx) ForgetLocale() {
+	st := localeFrom(c.r.Context())
+	if st == nil {
+		return
+	}
+	http.SetCookie(c.w, &http.Cookie{
+		Name: LocaleCookie, Value: "", Path: "/", Domain: st.domain,
+		MaxAge: -1, HttpOnly: true, Secure: st.secure, SameSite: http.SameSiteLaxMode,
+	})
+	if s := session.From(c.r.Context()); s != nil {
+		s.Delete(localeSessionKey)
+	}
+}
+
 // LocaleURL returns the URL of the current page (its path and query) in
 // locale, for a language switcher; following it remembers the choice:
 // /bn/about with LOCALE_URL=prefix (/en/about for the default locale,

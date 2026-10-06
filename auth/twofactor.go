@@ -255,37 +255,62 @@ func (a *Auth[U]) ConfirmTwoFactor(ctx context.Context, u U, code string) ([]str
 		return nil, err
 	}
 	a.clearHits(ctx, limit, key)
-	if err := a.signOutOthers(ctx, u); err != nil {
+	if err := a.SignOutOthers(ctx, u); err != nil {
 		return nil, err
 	}
 	return codes, nil
 }
 
-// signOutOthers ends u's other sessions (with Users.SessionKey) and
-// remember-me cookies, which were signed in without a code, keeping the
-// request's session if it is u's.
-func (a *Auth[U]) signOutOthers(ctx context.Context, u U) error {
+// SignOutOthers ends u's other sessions (with Users.SessionKey), their
+// other remember-me cookies and their password-reset links, keeping the
+// request's session if it is u's: it gets a new ID (copies of its cookie
+// stop working, with a server-side session driver), and a remember-me
+// cookie it had is issued again. ChangePassword and ConfirmTwoFactor call
+// it; call it when something else about the account changes, such as its
+// email address.
+func (a *Auth[U]) SignOutOthers(ctx context.Context, u U) error {
+	s, st := session.From(ctx), stateFrom(ctx)
+	mine := s != nil && st != nil && !st.acting && s.String(keyID) == u.AuthID() && s.String(keyImpersonator) == ""
+	var remembered rememberValue
+	if mine && st.r != nil {
+		if v, ok := a.rememberCookie(st.r); ok && v.ID == u.AuthID() {
+			remembered = v
+		}
+	}
 	if a.users.SetRememberToken != nil && a.users.RememberToken(u) != "" {
 		if err := a.users.SetRememberToken(ctx, u, randomToken()); err != nil {
 			return err
 		}
 	}
-	if a.users.SetSessionKey == nil {
-		return nil
+	if a.users.SetSessionKey != nil {
+		if err := a.users.SetSessionKey(ctx, u, randomToken()); err != nil {
+			return err
+		}
 	}
-	if err := a.users.SetSessionKey(ctx, u, randomToken()); err != nil {
-		return err
-	}
-	s, st := session.From(ctx), stateFrom(ctx)
-	if s == nil || st == nil || st.acting || s.String(keyID) != u.AuthID() || s.String(keyImpersonator) != "" {
+	if !mine {
 		return nil
 	}
 	fresh, err := a.users.ByID(ctx, u.AuthID())
 	if err != nil {
 		return err
 	}
-	s.Put(keyHash, a.sessionPrint(fresh, fresh.AuthPassword()))
-	a.clearRemember(st)
+	fp := a.sessionPrint(fresh, fresh.AuthPassword())
+	s.Regenerate()
+	s.Put(keyHash, fp)
+	st.set(fresh, nil)
+	if remembered.ID == "" || a.users.RememberToken == nil {
+		a.clearRemember(st)
+		return nil
+	}
+	tok := a.users.RememberToken(fresh)
+	if tok == "" {
+		tok = randomToken()
+		if err := a.users.SetRememberToken(ctx, fresh, tok); err != nil {
+			return err
+		}
+	}
+	b, _ := json.Marshal(rememberValue{ID: fresh.AuthID(), Token: tok, Hash: fp, Expires: remembered.Expires})
+	a.setRemember(st, a.enc.EncryptString(string(b), rememberContext))
 	return nil
 }
 
@@ -577,7 +602,7 @@ func matchRecovery(hashes []string, code string) int {
 // 423.
 var ErrPasswordNotConfirmed error = &statusError{http.StatusLocked, "auth: confirm your password first"}
 
-var errConfirmActing = &statusError{http.StatusForbidden, "auth: a password can't be confirmed while acting as another user"}
+var errConfirmActing = &statusError{http.StatusForbidden, "auth: a password can't be confirmed or changed while acting as another user"}
 
 // ConfirmPassword checks the signed-in user's password and, if it is
 // right, marks it confirmed in the session for AUTH_CONFIRM_TTL

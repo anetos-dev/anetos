@@ -254,3 +254,15 @@ func TestTwoFactorRequiredAtAHost(t *testing.T) {
 	get("/confirm").AssertRedirect("/two-factor-required")
 	get("/two-factor-required").AssertStatus(403).AssertSee(`href="https://example.com/two-factor"`)
 }
+
+// The user's name links to their account settings, when the app has the
+// page.
+func TestAccountLink(t *testing.T) {
+	app := anetostest.New(t, setup)
+	signIn(t, app, "Ada", "admin")
+	app.Get("/admin").AssertSee(`<a class="user" href="/settings" title="Your account">Ada</a>`)
+
+	app = anetostest.New(t, setup, anetostest.Env(map[string]string{"AUTH_SETTINGS_URL": "/account"}))
+	signIn(t, app, "Ada", "admin")
+	app.Get("/admin").AssertSee(`<span class="user">Ada</span>`).AssertDontSee("Your account")
+}

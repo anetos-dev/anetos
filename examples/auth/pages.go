@@ -119,6 +119,14 @@ var pages = template.Must(template.New("").Funcs(template.FuncMap{"field": field
 {{if not .User.EmailVerifiedAt}}<p>Please verify your email address: we sent you a link.</p>{{end}}
 <form method="post" action="/logout"><input type="hidden" name="_token" value="{{.CSRF}}"><button>Log out</button></form>
 <p><a href="/two-factor">Two-factor sign-in</a></p>
+<h2>Password</h2>
+<form method="post" action="/password">
+<input type="hidden" name="_token" value="{{.CSRF}}">
+<label>Current password <input name="current_password" type="password"></label>{{template "error" (field . "current_password")}}
+<label>New password <input name="password" type="password"></label>{{template "error" (field . "password")}}
+<label>Confirm password <input name="password_confirmation" type="password"></label>
+<button>Change password</button>
+</form>
 <h2>API tokens</h2>
 {{if .NewToken}}<p>Your new token (copy it now, it won't be shown again): <code>{{.NewToken}}</code></p>{{end}}
 <ul>{{range .Tokens}}<li>{{.Name}}

@@ -5,6 +5,7 @@ package i18n
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -256,6 +257,11 @@ func TimeZone(ctx context.Context) *time.Location {
 	}
 	return anetos.Location(ctx)
 }
+
+// TimeZones returns the time zones users choose from: UTC, then an IANA
+// zone for each region of each country ("Asia/Dhaka"), sorted. Each one
+// loads with time.LoadLocation (the zone database is built in).
+func TimeZones() []string { return slices.Clone(zones) }
 
 // WithTimeZone returns ctx with loc as the time zone times are shown in.
 func WithTimeZone(ctx context.Context, loc *time.Location) context.Context {

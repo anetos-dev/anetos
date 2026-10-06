@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"sync"
 
 	"anetos.dev/anetos"
 	"anetos.dev/anetos/auth"
@@ -111,6 +112,27 @@ type Panel struct {
 	sec security
 	// allowed are ADMIN_ALLOW_IPS's networks.
 	allowed []netip.Prefix
+	// appRoutes is the app's router, to find its settings page.
+	appRoutes    *web.Router
+	settingsOnce sync.Once
+	settings     bool
+}
+
+// hasSettings reports whether the app has its account settings page
+// (AUTH_SETTINGS_URL, make:auth's), which the user's name links to.
+func (p *Panel) hasSettings() bool {
+	p.settingsOnce.Do(func() {
+		if p.appRoutes == nil || p.sec.settingsURL == "" {
+			return
+		}
+		for _, rt := range p.appRoutes.Routes() {
+			if rt.Host == "" && rt.Pattern == p.sec.settingsURL && (rt.Method == http.MethodGet || rt.Method == "") {
+				p.settings = true
+				return
+			}
+		}
+	})
+	return p.settings
 }
 
 // Option changes a [Panel].
@@ -215,6 +237,7 @@ func (p *Panel) Mount(r *web.Router, mws ...web.Middleware) error {
 		return errors.New("admin: Mount called twice")
 	}
 	p.mounted = true
+	p.appRoutes = r
 	path := p.cfg.Path
 	if path == "" && p.cfg.Host == "" {
 		path = "/admin"
@@ -366,6 +389,7 @@ type page struct {
 	Panel   string // the admin's title
 	Home    string // the admin's first page
 	User    string
+	Account string // the user's account settings, in the app
 	Nav     []navItem
 	Crumbs  []navItem
 	Flash   string
@@ -387,6 +411,9 @@ func (p *Panel) render(c *web.Ctx, name string, pg page) error {
 		return fmt.Errorf("admin: no page %q", name)
 	}
 	pg.Panel, pg.Home, pg.User = p.cfg.Title, p.URL(), p.userName(c)
+	if pg.User != "" && p.hasSettings() {
+		pg.Account = p.appURL(c, p.sec.settingsURL)
+	}
 	pg.CSRF = view.CSRFToken(c)
 	pg.CSS, pg.JS, pg.AdminJS = p.assets.URL("admin.css"), p.assets.URL("htmx.min.js"), p.assets.URL("admin.js")
 	pg.URL = c.Request().URL.RequestURI()

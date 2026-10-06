@@ -350,6 +350,7 @@ Read by `auth.ForApp` (or `auth.LoadConfig`) into `auth.Config`.
 | `AUTH_VERIFY_TTL` | duration | `24h` | How long an email-verification token works | v0.2 |
 | `AUTH_CHALLENGE_URL` | path | `/two-factor-challenge` | Where a sign-in waiting for a two-factor code asks for it (social login sends users there) | v0.3 |
 | `AUTH_TWO_FACTOR_URL` | path | `/two-factor` | Where users turn two-factor sign-in on and off (the admin links there) | v0.3 |
+| `AUTH_SETTINGS_URL` | path | `/settings` | The account settings page (`make:auth`'s); the admin links the user's name to it when the app has it | v0.3 |
 | `AUTH_CONFIRM_URL` | path | `/confirm-password` | Where `RequireConfirmed` sends users to confirm their password | v0.3 |
 | `AUTH_CONFIRM_TTL` | duration | `15m` | How long a confirmed password holds | v0.3 |
 

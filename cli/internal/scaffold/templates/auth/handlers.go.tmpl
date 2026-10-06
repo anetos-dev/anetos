@@ -37,6 +37,12 @@ import (
 type Accounts struct {
 	Auth   *auth.Auth[*models.User]
 	Social *social.Social[*models.User]
+	// AllowEmailChange lets users change their email address on the
+	// settings page: the new one once they follow the link emailed to it.
+	AllowEmailChange bool
+	// AllowAccountDeletion lets users delete their own account, on the
+	// settings page.
+	AllowAccountDeletion bool
 }
 
 // RegisterInput is the registration form.

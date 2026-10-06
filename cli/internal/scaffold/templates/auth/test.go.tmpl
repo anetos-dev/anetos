@@ -143,6 +143,64 @@ func TestTwoFactor(t *testing.T) {
 	app.PostForm("/two-factor-challenge", url.Values{"code": {recovery[0][1]}}).AssertValidationErrors("code") // used
 }
 
+// The settings: name, password (other sessions signed out), language and
+// time zone.
+func TestSettings(t *testing.T) {
+	app := authRegister(t)
+	app.Get("/settings").AssertOK().AssertSee("Ada", "ada@example.com", "Asia/Dhaka")
+	app.PostForm("/settings/profile", url.Values{"name": {"  Ada \n Lovelace "}}).AssertRedirect("/settings")
+	app.Get("/settings").AssertSee(`value="Ada Lovelace"`, "Saved.")
+
+	app.PostForm("/settings/password", url.Values{"current_password": {"wrong"}, "password": {"new password"}, "password_confirmation": {"new password"}}).
+		AssertValidationErrors("current_password")
+	app.PostForm("/settings/password", url.Values{"current_password": {"correct horse"}, "password": {"short"}, "password_confirmation": {"short"}}).
+		AssertValidationErrors("password")
+	app.PostForm("/settings/password", url.Values{"current_password": {"correct horse"}, "password": {"new password"}, "password_confirmation": {"new password"}}).
+		AssertRedirect("/settings")
+	app.Get("/dashboard").AssertOK() // this session stays signed in
+	app.PostForm("/logout", nil)
+	app.PostForm("/login", url.Values{"email": {"ada@example.com"}, "password": {"correct horse"}}).AssertValidationErrors("email")
+	app.PostForm("/login", url.Values{"email": {"ada@example.com"}, "password": {"new password"}}).AssertRedirect("/dashboard")
+
+	app.PostForm("/settings/preferences", url.Values{"locale": {"xx"}, "time_zone": {"Asia/Dhaka"}}).AssertValidationErrors("locale")
+	app.PostForm("/settings/preferences", url.Values{"locale": {"en"}, "time_zone": {"Mars/Base"}}).AssertValidationErrors("time_zone")
+	app.PostForm("/settings/preferences", url.Values{"locale": {"en"}, "time_zone": {"Asia/Dhaka"}}).AssertRedirect("/settings")
+	u, err := models.Users.ByLogin(app.Context(), "ada@example.com")
+	if err != nil || u.Locale != "en" || u.TimeZone != "Asia/Dhaka" || u.Name != "Ada Lovelace" {
+		t.Errorf("saved %+v, %v", u, err)
+	}
+	// Deleting accounts is off: AllowAccountDeletion in routes/auth.go.
+	app.PostForm("/settings/delete", nil).AssertNotFound()
+}
+
+// A new email address: after the password again, once its link is
+// followed; the old address is told, and its reset links stop working.
+func TestChangeEmail(t *testing.T) {
+	app := authRegister(t)
+	verify := anetostest.Mailables[mailers.VerifyEmail](app)
+	app.Get(authLink(t, verify[0].URL)) // the old address is told only once verified
+	app.PostForm("/settings/email", url.Values{"email": {"new@example.com"}}).AssertRedirect("/confirm-password")
+	app.PostForm("/confirm-password", url.Values{"password": {"correct horse"}})
+	app.PostForm("/settings/email", url.Values{"email": {"ADA@example.com"}}).AssertValidationErrors("email") // the same
+	app.PostForm("/settings/email", url.Values{"email": {"New@Example.com"}}).AssertRedirect("/settings")
+	app.Get("/settings").AssertSee("new@example.com", "Cancel the change")
+	sent := anetostest.Mailables[mailers.ChangeEmail](app)
+	notices := anetostest.Mailables[mailers.EmailChanging](app)
+	if len(sent) != 1 || sent[0].Email != "new@example.com" || len(notices) != 1 || notices[0].Email != "ada@example.com" {
+		t.Fatalf("emails %+v %+v", sent, notices)
+	}
+	// Until the link is followed, the old address signs in.
+	if u, err := models.Users.ByLogin(app.Context(), "ada@example.com"); err != nil || u.PendingEmail != "new@example.com" {
+		t.Fatalf("before the link: %+v, %v", u, err)
+	}
+	app.Get(authLink(t, sent[0].URL)).AssertRedirect("/settings").Follow().AssertSee("Your email address is now new@example.com.")
+	u, err := models.Users.ByLogin(app.Context(), "new@example.com")
+	if err != nil || u.PendingEmail != "" || u.EmailVerifiedAt == nil {
+		t.Fatalf("after the link: %+v, %v", u, err)
+	}
+	app.Get(authLink(t, sent[0].URL)).AssertStatus(http.StatusBadRequest) // used
+}
+
 func TestDisabledAccount(t *testing.T) {
 	app := authRegister(t)
 	// Disabled (an admin's "Disable"): signed out, and can't sign in.

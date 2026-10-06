@@ -17,6 +17,9 @@ func init() {
 				t.Timestamp("email_verified_at").Nullable()
 				t.Timestamp("disabled_at").Nullable()
 				t.String("two_factor", 1024).Default("") // encrypted by package auth
+				t.String("pending_email", 255).Default("")
+				t.String("locale", 35).Default("")
+				t.String("time_zone", 64).Default("")
 				t.Timestamps()
 			})
 		},

@@ -52,6 +52,8 @@ Packages `auth`, `auth/password`, `auth/social` and `auth/rbac`. How-to: [Authen
 | API | Does |
 |---|---|
 | `Users.Disabled`, `a.Disabled(u)` | A disabled user is signed out on their next request; `Attempt` (once the password checks out) and `Login` return `auth.ErrDisabled` (403); their remember-me cookies and API tokens stop working; `ActAs` treats them as a guest (v0.3) |
+| `a.ChangePassword(ctx, u, current, new)` | Changes `u`'s password (needs `Users.SetPassword`), signing them out of their other sessions and remember-me cookies (`SignOutOthers`); `auth.ErrInvalidCredentials` for a wrong `current`; a user without a password sets one without `current` within `AUTH_CONFIRM_TTL` of signing in (`auth.ErrPasswordNotConfirmed` after); `AUTH_THROTTLE` tries a minute; not while acting as someone (v0.3) |
+| `a.SignOutOthers(ctx, u)` | Ends `u`'s other sessions (with `Users.SessionKey`), remember-me cookies and password-reset links, keeping the request's session if it is `u`'s (with a new session ID, and a new remember-me cookie if it had one) (v0.3) |
 | `a.SignOutEverywhere(ctx, u)`, `a.CanSignOutEverywhere()` | Ends every session and remember-me cookie of `u` by giving them a new session key (`Users.SetSessionKey`) and remember token; API tokens stay (v0.3) |
 | `a.Impersonate(ctx, u)` | Signs the current user in as `u`, keeping who they are in the session; not through API tokens, not nested, not for a disabled `u` (`ErrDisabled`) or oneself. Each request checks that the impersonator may still sign in; `Logout` ends both (leaving `u`'s remember-me token alone). The impersonator's remember-me cookie is removed. Check who may first (`rbac.AuthorizeOver`) (v0.3) |
 | `a.StopImpersonating(ctx)` | Signs the impersonator back in and returns them; `auth.ErrNotImpersonating` (409) without impersonation; if they can't sign in any more, signs out and returns why (v0.3) |
@@ -69,7 +71,7 @@ see [Two-factor sign-in](../guides/two-factor.md). Needs
 | `a.TwoFactor(u)` | `auth.TwoFactorStatus{On, Started, RecoveryCodes}`; an error if the state can't be read (`APP_KEY` changed) |
 | `a.StartTwoFactor(ctx, u, account)` | Stores a new secret, replacing a started setup; returns `auth.TwoFactorSetup{Secret, URI}` (base32 key, `otpauth://` URI with `APP_NAME` as issuer); `auth.ErrTwoFactorOn` (409) if on |
 | `a.StartedTwoFactor(u, account)` | The started setup again; `auth.ErrTwoFactorOff` if none, `ErrTwoFactorOn` once on |
-| `a.ConfirmTwoFactor(ctx, u, code)` | Turns it on with a current code; returns 8 recovery codes (`abcde-fghij`), to show once; ends `u`'s other sessions (with `Users.SessionKey`) and remember-me cookies, keeping the request's; `auth.ErrInvalidCode`, `ErrTwoFactorOff`, `ErrTwoFactorOn`; throttled |
+| `a.ConfirmTwoFactor(ctx, u, code)` | Turns it on with a current code; returns 8 recovery codes (`abcde-fghij`), to show once; ends `u`'s other sessions and remember-me cookies (`SignOutOthers`); `auth.ErrInvalidCode`, `ErrTwoFactorOff`, `ErrTwoFactorOn`; throttled |
 | `a.NewRecoveryCodes(ctx, u)` | Replaces the recovery codes; `auth.ErrTwoFactorOff` if off |
 | `a.DisableTwoFactor(ctx, u)` | Turns it off (or drops a started setup) |
 | `auth.TwoFactorCode(secret, t)` | The code an app shows at `t`, for tests |
@@ -78,7 +80,7 @@ see [Two-factor sign-in](../guides/two-factor.md). Needs
 
 | API | Does |
 |---|---|
-| `a.PasswordResetToken(u)`, `a.CheckPasswordResetToken(ctx, token)` | Reset tokens: `AUTH_RESET_TTL`, until the password changes; `auth.ErrInvalidToken` (400) |
+| `a.PasswordResetToken(u)`, `a.CheckPasswordResetToken(ctx, token)` | Reset tokens: `AUTH_RESET_TTL`, until the password or the session key changes; `auth.ErrInvalidToken` (400) |
 | `a.VerificationToken(u, email)`, `a.CheckVerificationToken(ctx, token)` | Email-verification tokens: `AUTH_VERIFY_TTL`; returns the user and the address |
 | `a.CreateToken(ctx, u, name, abilities, ttl)` | An API token (`<id>\|<secret>`, shown once) and its stored `auth.Token` |
 | `a.Tokens(ctx, u)`, `a.RevokeToken(ctx, u, id)`, `a.RevokeAllTokens(ctx, u)` | A user's API tokens; delete one, or all |

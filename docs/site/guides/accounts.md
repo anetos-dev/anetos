@@ -7,8 +7,8 @@ since: v0.2.0
 
 Give your app user accounts in one command: registration, login with
 "remember me" and throttling, sign-in with Google and GitHub,
-two-factor sign-in, logout, email verification, password reset and API
-tokens, with their pages,
+two-factor sign-in, account settings, logout, email verification,
+password reset and API tokens, with their pages,
 emails, routes, migration and tests. The code is written into your app, where you change it as you
 like; the parts that must be right (password hashing, tokens, sessions,
 throttling, the OAuth flow) stay in the [`auth`](authentication.md) and
@@ -32,8 +32,10 @@ go tool anetos make:auth
 ```text
 created app/models/user.go
 created app/handlers/auth.go
+created app/handlers/settings.go
 created app/mailers/auth.go
 created views/auth.templ
+created views/settings.templ
 created views/auth_mail.templ
 created routes/auth.go
 created auth.go
@@ -56,8 +58,8 @@ to `setupAuth` to `setup` in `main.go`, after `routes.Register`:
 // illustrative: main.go after make:auth
 routes.Register(srv.Router(), sessions)
 // Accounts (anetos make:auth): registration, login with a password,
-// Google or GitHub, two-factor sign-in, email verification, password
-// reset and API tokens.
+// Google or GitHub, two-factor sign-in, account settings, email
+// verification, password reset and API tokens.
 if _, err := setupAuth(app, srv.Router(), sessions); err != nil {
 	return nil, err
 }
@@ -104,7 +106,8 @@ how to add another provider (Okta, Auth0, any OpenID Connect provider).
 
 `auth_test.go` registers, verifies the address by following the
 emailed link, logs in and out, turns on two-factor sign-in and signs in
-with a recovery code, resets the password, uses an API token,
+with a recovery code, changes the name, password, language, time zone
+and email address in the settings, resets the password, uses an API token,
 and signs in with Google and GitHub through a stand-in provider
 (`anetostest.FakeSocial`):
 
@@ -119,11 +122,12 @@ matter.
 
 | File | Holds |
 |---|---|
-| `app/models/user.go` | `User`, and `models.Users`: how `auth` finds users, which are disabled (`disabled_at`), and stores their tokens, session keys (`session_key`, replaced to sign them out everywhere) and two-factor state (`two_factor`, encrypted). Add columns here and in a migration |
+| `app/models/user.go` | `User`, and `models.Users`: how `auth` finds users, which are disabled (`disabled_at`), and stores their tokens, session keys (`session_key`, replaced to sign them out everywhere) and two-factor state (`two_factor`, encrypted); the language and time zone they chose (`locale`, `time_zone`: `PreferredLocale`, `PreferredTimeZone`) and a new address waiting for its link (`pending_email`). Add columns here and in a migration |
 | `app/handlers/auth.go` | `handlers.Accounts`: each page and form. Validation messages, redirects and what happens after registration are here; `SocialUser` finds or creates the user of a Google or GitHub account; `SendVerification` and `SendPasswordReset` email the links (the admin's buttons use them too) |
+| `app/handlers/settings.go`, `views/settings.templ` | The settings page and its forms: add your own fields here |
 | `views/auth.templ` | The pages, inside your `Layout` |
-| `app/mailers/auth.go`, `views/auth_mail.templ` | The verification and reset emails |
-| `routes/auth.go` | The routes and their names (`login`, `register`, `dashboard`, …), and the rate limits of the forgotten-password and verification forms |
+| `app/mailers/auth.go`, `views/auth_mail.templ` | The verification, reset and change-of-address emails |
+| `routes/auth.go` | The routes and their names (`login`, `register`, `dashboard`, `settings`, …), the rate limits of the forgotten-password and verification forms, and what the settings allow (`AllowEmailChange`, `AllowAccountDeletion`) |
 | `auth.go` | `setupAuth`: the `api_tokens` and `social_accounts` migrations, `auth.ForApp`, `social.ForApp` with the providers, and the routes |
 | `database/migrations/…_create_users_table.go` | The users table |
 
@@ -142,6 +146,11 @@ The routes:
 | `POST /logout` | Signed-in users |
 | `POST /email/verification-notification` | Signed-in users: email the link again (3 a minute per client IP address, 6 an hour per account) |
 | `POST /tokens`, `POST /tokens/{id}/delete` | Signed-in users: create (shown once) and revoke API tokens |
+| `GET /settings`; `POST /settings/profile`, `/settings/password`, `/settings/preferences` | Signed-in users: their settings (below) |
+| `POST /settings/email` | Signed-in users who confirmed their password lately: a new email address (with `AllowEmailChange`; 5 tries an hour per account) |
+| `POST /settings/email/cancel` | Signed-in users: drop the change |
+| `GET /settings/email/verify` | Anyone with the link emailed to the new address: make it the account's |
+| `POST /settings/delete` | Signed-in users who confirmed their password lately: delete the account (with `AllowAccountDeletion`) |
 | `GET`, `POST /confirm-password` | Signed-in users: type the password again before a sensitive page (`a.RequireConfirmed`), then go back |
 | `GET`, `POST /two-factor`, `POST /two-factor/confirm`, `/recovery-codes`, `/disable` | Signed-in users who confirmed their password lately: turn two-factor sign-in on (a QR code, then a code), get new recovery codes, turn it off. See [Two-factor sign-in](two-factor.md) |
 | `GET /api/me` | API clients, with `Authorization: Bearer <token>` |
@@ -157,6 +166,54 @@ Disabled users (`disabled_at` set, as the [admin](admin.md) does) are
 signed out at their next request and see "This account is disabled."
 when they sign in with the right password; their API tokens stop
 working.
+
+#### The settings page
+
+`/settings` (`AUTH_SETTINGS_URL`; the dashboard and the
+[admin](admin.md) link to it) lets a signed-in user change:
+
+- **Their name.**
+- **Their password**, with the current one; their other browsers and
+  devices are signed out, and this one stays signed in (and remembered,
+  if it was) (`auth.ChangePassword`). A user who signs in with Google or
+  GitHub has no password: they set one within a few minutes of signing
+  in.
+- **Their language and time zone**, from the app's languages and
+  `i18n.TimeZones()`; pages and emails use them
+  ([translations](translations.md)). "Your browser's" language forgets
+  the one chosen on this browser (`c.ForgetLocale`).
+- **Their email address**, after typing their password again: that is
+  what keeps someone with a stolen session from taking the account's
+  sign-in and reset channel. The new address gets a link, and becomes
+  theirs (verified) once it is followed, so a typo can't lock them out;
+  until then they sign in with the old one. The old address, if it was
+  verified, is told of the change, so its owner learns of it (if the
+  change wasn't theirs, someone has their password). Once it is made,
+  their other sessions and the reset links sent to the old address stop
+  working (`auth.SignOutOthers`). Turn it off with
+  `AllowEmailChange: false` in `routes/auth.go`, for apps whose
+  addresses come from an organisation.
+- **Delete their account**, after typing their password again: the user,
+  their API tokens and Google or GitHub links go, and they're signed
+  out. Off by default: `AllowAccountDeletion: true` turns it on. If the
+  app gives users roles, remove them in `DeleteAccount` too
+  (`rbac.RemoveUser`); other data of theirs is the app's to delete or
+  keep.
+
+It links to two-factor sign-in. To add a field (a phone number, a
+newsletter choice), add a column and a migration, the field to
+`User`, a form to `views/settings.templ` and a handler to
+`app/handlers/settings.go`, as `UpdateProfile` does.
+
+Apps that ran `make:auth` before have no settings page. To add it, take
+from a new project's `make:auth`: the `pending_email`, `locale` and
+`time_zone` columns (a migration) and `User` fields, with
+`PreferredLocale` and `PreferredTimeZone`; `app/handlers/settings.go`,
+`views/settings.templ`, the `ChangeEmail` and `EmailChanging` mailables
+and their views; the `AllowEmailChange` and `AllowAccountDeletion` fields
+of `Accounts` and the settings routes; the `auth.settings`, `auth.mail`
+and other new keys of `locales/en/auth.yaml`. Then run `go tool anetos
+gen` and `go tool templ generate`.
 
 To do more when someone signs up (a welcome email, a trial), change
 `Register` and `SocialUser` in `app/handlers/auth.go`, which create

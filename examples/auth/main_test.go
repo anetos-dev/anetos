@@ -234,3 +234,23 @@ func TestTwoFactor(t *testing.T) {
 }
 
 // endregion
+
+// region: test-change-password
+func TestChangePassword(t *testing.T) {
+	app := anetostest.New(t, setup)
+	createUser(t, app, "Ada", "ada@example.com", false)
+	app.Get("/login")
+	app.PostForm("/login", url.Values{"email": {"ada@example.com"}, "password": {"password1"}})
+
+	app.Get("/dashboard")
+	app.PostForm("/password", url.Values{"current_password": {"wrong"}, "password": {"password2"}, "password_confirmation": {"password2"}}).
+		AssertValidationErrors("current_password")
+	app.PostForm("/password", url.Values{"current_password": {"password1"}, "password": {"password2"}, "password_confirmation": {"password2"}}).
+		AssertRedirect("/dashboard").Follow().AssertSee("Password changed.")
+
+	app.PostForm("/logout", nil)
+	app.Get("/login")
+	app.PostForm("/login", url.Values{"email": {"ada@example.com"}, "password": {"password2"}}).AssertRedirect("/dashboard")
+}
+
+// endregion

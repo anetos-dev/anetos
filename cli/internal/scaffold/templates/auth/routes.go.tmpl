@@ -17,9 +17,12 @@ import (
 // dashboard, API tokens, two-factor sign-in and logout; API clients use
 // /api with a token.
 func Auth(r *web.Router, sessions *session.Manager, a *auth.Auth[*models.User], s *social.Social[*models.User]) {
-	h := handlers.Accounts{Auth: a, Social: s}
+	// On /settings, users may change their email address, and not delete
+	// their account: change these to suit the app.
+	h := handlers.Accounts{Auth: a, Social: s, AllowEmailChange: true, AllowAccountDeletion: false}
 	pages := r.Group("", sessions.Middleware, web.CSRF(), a.Middleware)
 	pages.Get("/verify-email", web.H(h.VerifyEmail)).Name("verification.verify")
+	pages.Get("/settings/email/verify", web.H(h.VerifyEmailChange)).Name("settings.email.verify") // the link to a new address
 
 	guests := pages.Group("", a.Guest) // signed-in users go to AUTH_HOME_URL
 	guests.Get("/register", h.RegisterPage).Name("register")
@@ -46,12 +49,25 @@ func Auth(r *web.Router, sessions *session.Manager, a *auth.Auth[*models.User], 
 		Post("/email/verification-notification", h.ResendVerification).Name("verification.send")
 	members.Post("/tokens", web.H(h.CreateToken)).Name("tokens.store")
 	members.Post("/tokens/{id}/delete", web.H(h.RevokeToken)).Name("tokens.destroy")
+	// The account settings (AUTH_SETTINGS_URL).
+	members.Get("/settings", h.Settings).Name("settings")
+	members.Post("/settings/profile", web.H(h.UpdateProfile)).Name("settings.profile")
+	members.Post("/settings/password", web.H(h.ChangePassword)).Name("settings.password")
+	members.Post("/settings/preferences", web.H(h.UpdatePreferences)).Name("settings.preferences")
+	members.Post("/settings/email/cancel", h.CancelEmailChange).Name("settings.email.cancel")
 	members.Get("/confirm-password", h.ConfirmPage).Name("password.confirm") // AUTH_CONFIRM_URL
 	members.Post("/confirm-password", web.H(h.ConfirmPassword))
 
-	// Two-factor sign-in (AUTH_TWO_FACTOR_URL), once the password is
-	// confirmed again (AUTH_CONFIRM_TTL).
+	// Two-factor sign-in (AUTH_TWO_FACTOR_URL), a new email address and
+	// deleting the account, once the password is confirmed again
+	// (AUTH_CONFIRM_TTL).
 	secure := members.Group("", a.RequireConfirmed)
+	if h.AllowEmailChange {
+		secure.Post("/settings/email", web.H(h.ChangeEmail)).Name("settings.email")
+	}
+	if h.AllowAccountDeletion {
+		secure.Post("/settings/delete", h.DeleteAccount).Name("settings.delete")
+	}
 	secure.Get("/two-factor", h.TwoFactorPage).Name("two-factor")
 	secure.Post("/two-factor", h.StartTwoFactor).Name("two-factor.start")
 	secure.Post("/two-factor/confirm", web.H(h.ConfirmTwoFactor)).Name("two-factor.confirm")

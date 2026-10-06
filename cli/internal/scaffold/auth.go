@@ -23,8 +23,10 @@ import (
 var authFiles = [][2]string{
 	{"user.go.tmpl", "app/models/user.go"},
 	{"handlers.go.tmpl", "app/handlers/auth.go"},
+	{"settings.go.tmpl", "app/handlers/settings.go"},
 	{"mailers.go.tmpl", "app/mailers/auth.go"},
 	{"pages.templ.tmpl", "views/auth.templ"},
+	{"settings.templ.tmpl", "views/settings.templ"},
 	{"mail.templ.tmpl", "views/auth_mail.templ"},
 	{"routes.go.tmpl", "routes/auth.go"},
 	{"setup.go.tmpl", "auth.go"},
@@ -34,8 +36,8 @@ var authFiles = [][2]string{
 
 // authCall is what make:auth adds to setup in main.go, after the routes.
 const authCall = `	// Accounts (anetos make:auth): registration, login with a password,
-	// Google or GitHub, two-factor sign-in, email verification, password
-	// reset and API tokens.
+	// Google or GitHub, two-factor sign-in, account settings, email
+	// verification, password reset and API tokens.
 	if _, err := setupAuth(app, srv.Router(), sessions); err != nil {
 		return nil, err
 	}
@@ -218,11 +220,11 @@ func addSettings(file, block string) (bool, error) {
 // package directory ("" is the root, package main).
 var authNames = map[string][]string{
 	"app/models":   {"User", "Users", "UserCols"},
-	"app/handlers": {"Accounts", "RegisterInput", "LoginInput", "ForgotInput", "ResetInput", "TokenQuery", "NewTokenInput", "TokenID", "CodeInput", "PasswordInput", "SocialUser", "SendVerification", "SendPasswordReset", "emailTaken", "cleanName"},
-	"app/mailers":  {"VerifyEmail", "ResetPassword"},
-	"views":        {"SocialButton", "Register", "Login", "ForgotPassword", "ResetPassword", "Dashboard", "TwoFactorChallenge", "ConfirmPassword", "TwoFactorPage", "TwoFactor", "socialButtons", "authError", "VerifyEmailMail", "ResetPasswordMail", "authMail"},
+	"app/handlers": {"Accounts", "RegisterInput", "LoginInput", "ForgotInput", "ResetInput", "TokenQuery", "NewTokenInput", "TokenID", "CodeInput", "PasswordInput", "ProfileInput", "EmailInput", "NewPasswordInput", "PreferencesInput", "sendEmailChange", "SocialUser", "SendVerification", "SendPasswordReset", "emailTaken", "cleanName"},
+	"app/mailers":  {"VerifyEmail", "ResetPassword", "ChangeEmail", "EmailChanging"},
+	"views":        {"SocialButton", "Register", "Login", "ForgotPassword", "ResetPassword", "Dashboard", "TwoFactorChallenge", "ConfirmPassword", "TwoFactorPage", "TwoFactor", "Choice", "SettingsPage", "Settings", "ChangeEmailMail", "EmailChangingMail", "socialButtons", "authError", "VerifyEmailMail", "ResetPasswordMail", "authMail"},
 	"routes":       {"Auth"},
-	"":             {"setupAuth", "authRegister", "authLink", "TestRegisterAndVerify", "TestResendVerification", "TestRegisterValidation", "TestLoginAndLogout", "TestTwoFactor", "TestDisabledAccount", "TestLoginReturnsToTheRequestedPage", "TestPasswordReset", "TestResetSignsOutAndRevokesTokens", "TestAPIToken", "TestSocialSignIn", "TestSocialSignInFindsVerifiedAccounts"},
+	"":             {"setupAuth", "authRegister", "authLink", "TestRegisterAndVerify", "TestResendVerification", "TestRegisterValidation", "TestLoginAndLogout", "TestTwoFactor", "TestSettings", "TestChangeEmail", "TestDisabledAccount", "TestLoginReturnsToTheRequestedPage", "TestPasswordReset", "TestResetSignsOutAndRevokesTokens", "TestAPIToken", "TestSocialSignIn", "TestSocialSignInFindsVerifiedAccounts"},
 }
 
 func dirLabel(dir string) string {
