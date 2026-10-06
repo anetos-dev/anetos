@@ -7,6 +7,31 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Package `audit`: an audit log of the models an app tracks
+  (`audit.ForApp`, `audit.Track[T]` with `Except`, `Redact`, `Reveal`):
+  who created, changed (the columns that changed, from what to what),
+  soft-deleted, restored and permanently deleted each row, in which
+  request, job, task or command, written in the change's transaction;
+  bulk writes as one entry each (`audit_bulk`) with every row's key
+  (`audit_bulk_items`); `audit.Record` for the app's own events,
+  `audit.History` for a row's events, `audit.WithActor`, `audit.Prune`
+  and `audit:prune` (`AUDIT_RETENTION_DAYS`), `audit.Anonymize` and
+  `audit:anonymize` for erasure requests; client IPs only if `AUDIT_IP`
+  says so. Guide "Keep an audit log", concept "The audit log",
+  `examples/audit` (AU1, D202–D206).
+- Watched writes in `db`: `DB.Watch(table, watcher, bulkValues)` tells a
+  `db.Watcher` about every write to a table, in its transaction, with the
+  values before and after (`db.Write`, `db.Bulk`); `db.KeyOf` (AU1,
+  D203, D204).
+- Soft deletes: `migrate.Table.UniqueLive` and `Column.UniqueLive`, unique
+  indexes over the rows that aren't deleted (PostgreSQL and SQLite), and
+  the validation rule `unique_live`; `db.PruneTrashed[T]`,
+  `db.PruneAllTrashed` and the `db:prune-trashed` command delete rows
+  soft-deleted longer ago than a model allows (AU1, D208, D209).
+- Carriers: `anetos.Carrier` and `App.AddCarrier` move a value from the
+  context of the code that dispatches a queue job or emits an event to an
+  async listener into the job's or listener's (`App.Carried`,
+  `App.WithCarried`); `web.ClientIPFrom(ctx)` (AU1, D207).
 - Module `drivers/gcs`: Google Cloud Storage disks (`gcs.Driver()`,
   `STORAGE_DRIVER=gcs`, `STORAGE_GCS_*`), with Application Default
   Credentials and V4 signed temporary URLs (G1, D199). The storage
@@ -237,6 +262,10 @@ All notable changes to this project are documented here. The format follows
   "Search by meaning" (S2).
 
 ### Changed
+- Writes to a table watched with `db.DB.Watch` (the audit log) run in a
+  transaction, a savepoint inside an open one, so model hooks run inside
+  it; on MySQL, `CreateMany` on such a table inserts rows one by one so
+  their keys are known (AU1, D203, D204).
 - `i18n.Plural` formats `{count}` for the locale (`1,234 posts`;
   Bangla and Arabic digits for `bn` and `ar`), and the numbers in size
   rules' validation messages (`min`, `max`, `size`, `between`…) follow

@@ -151,11 +151,14 @@ table with `anetostest.AssertDatabaseHas[T]`.
 | `db: Post has a zero primary key; Create it first` | `Update` or `Delete` on a row without an ID | Load the row first, or use `Save` |
 | Wrong table name (`persons` for `Person`… it's `people`) | The pluralizer's guess | Add a `TableName()` method |
 | A field is never saved | It's a struct or slice of structs without a `db` tag | Tag it (`db:"meta,json"` for JSON) |
-| IDs are zero after `CreateMany` on MySQL | MySQL can't report keys for multi-row inserts | Reload the rows, or use `Create` per row |
+| IDs are zero after `CreateMany` on MySQL | MySQL can't report keys for multi-row inserts | Reload the rows, or use `Create` per row (tracked models get their IDs: the audit log inserts them one by one) |
+| A new row can't reuse the email of a soft-deleted one | The unique index counts deleted rows | `UniqueLive` and `unique_live` on PostgreSQL and SQLite ([Keep an audit log](audit-log.md#soft-deletes-that-play-well-with-the-log)) |
 
 ## Next steps
 
 - [Generate typed columns](code-generation.md)
 - [Query data](queries.md)
 - [Transactions](transactions.md)
+- [Keep an audit log](audit-log.md): who changed what, and pruning
+  soft-deleted rows
 - [Models reference](../reference/models.md)

@@ -449,12 +449,19 @@ func literal(dialect string, v any) (string, error) {
 	return "", fmt.Errorf("migrate: can't use a %T as a default; use DefaultRaw", v)
 }
 
-func (s *Schema) indexSQL(table string, ix index) string {
+func (s *Schema) indexSQL(table string, ix index) (string, error) {
 	kind := "INDEX"
 	if ix.unique {
 		kind = "UNIQUE INDEX"
 	}
-	return fmt.Sprintf("CREATE %s %s ON %s (%s)", kind, s.q(ix.name), s.q(table), s.list(ix.columns))
+	stmt := fmt.Sprintf("CREATE %s %s ON %s (%s)", kind, s.q(ix.name), s.q(table), s.list(ix.columns))
+	if ix.live {
+		if s.dialect == "mysql" {
+			return "", fmt.Errorf("migrate: %s: UniqueLive needs a partial index, which MySQL and MariaDB don't have; use Unique, or a generated column that is NULL for deleted rows with a unique index on it", ix.name)
+		}
+		stmt += " WHERE " + s.q("deleted_at") + " IS NULL"
+	}
+	return stmt, nil
 }
 
 func (s *Schema) foreignSQL(f *Foreign) (string, error) {
@@ -518,7 +525,11 @@ func (s *Schema) createSQL(t *Table) ([]string, error) {
 	}
 	stmts := []string{"CREATE TABLE " + s.q(t.name) + " (\n\t" + strings.Join(defs, ",\n\t") + "\n)"}
 	for _, ix := range t.indexes {
-		stmts = append(stmts, s.indexSQL(t.name, ix))
+		stmt, err := s.indexSQL(t.name, ix)
+		if err != nil {
+			return nil, err
+		}
+		stmts = append(stmts, stmt)
 	}
 	return stmts, nil
 }
@@ -615,7 +626,11 @@ func (s *Schema) alterSQL(t *Table) ([]string, error) {
 		stmts = append(stmts, "ALTER TABLE "+table+" ADD "+fk)
 	}
 	for _, ix := range t.indexes {
-		stmts = append(stmts, s.indexSQL(t.name, ix))
+		stmt, err := s.indexSQL(t.name, ix)
+		if err != nil {
+			return nil, err
+		}
+		stmts = append(stmts, stmt)
 	}
 	if len(stmts) == 0 && t.search == nil && !t.unsearch {
 		return nil, fmt.Errorf("migrate: Alter(%s) changes nothing", t.name)

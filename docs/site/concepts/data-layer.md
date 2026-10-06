@@ -117,7 +117,9 @@ schedules, `anetos.Now`), never the one it stores in. See
   or `db.Load`, one query per relation whatever the number of rows
   ([Relations and eager loading](../guides/relations.md)).
 - **No dirty tracking.** `db.Update` writes every column; mass updates set
-  exactly the columns you name.
+  exactly the columns you name. The [audit log](audit-log.md), which must
+  know what changed, reads the row again in the write's transaction
+  instead.
 - **No magic zero values.** A NULL in a non-pointer field is an error, not
   a silent empty string.
 - **No hidden SQL dialect.** Raw SQL is sent as written (apart from
@@ -131,6 +133,8 @@ schedules, `anetos.Now`), never the one it stores in. See
   never for rolled-back work.
 - A `*db.DB` is safe for concurrent use. A transaction is one connection:
   run its queries one at a time.
+- Writes to a table watched by `DB.Watch` (the audit log) run in a
+  transaction with the watcher, which sees exactly what was written.
 
 ## Related
 
@@ -138,5 +142,6 @@ schedules, `anetos.Now`), never the one it stores in. See
 - [Define models and save data](../guides/models.md)
 - [Query data](../guides/queries.md), [Search](../guides/search.md)
 - [Transactions](../guides/transactions.md)
+- [The audit log](audit-log.md)
 - [Raw SQL](../guides/raw-sql.md)
 - [Models reference](../reference/models.md), [Query builder reference](../reference/query-builder.md)

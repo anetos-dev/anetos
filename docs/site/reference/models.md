@@ -92,7 +92,8 @@ Methods on the model's pointer type, all `func(ctx context.Context) error`:
 | `BeforeDelete`, `AfterDelete` | Around `Delete` and `ForceDelete` |
 
 A hook's error stops the operation and is returned. Mass updates and
-deletes on a query, `Restore` and `Upsert` run no hooks.
+deletes on a query, `Restore` and `Upsert` run no hooks. On a table
+watched by the audit log, hooks run inside the write's transaction.
 
 ## Relations
 
@@ -139,3 +140,5 @@ change another). Passing one relation twice to `With` is an error.
 | `db.Restore(ctx, &row)` | Clears `deleted_at` | Model without `SoftDeletes` |
 | `db.Upsert(ctx, rows, conflict, update...)` | INSERT … ON CONFLICT / ON DUPLICATE KEY UPDATE; no update columns means "keep the existing row" | Unknown column names |
 | `db.Find[T](ctx, id)` | SELECT by key | `db.ErrNotFound` (a 404 in handlers) |
+| `db.KeyOf(row)` | The row's table and primary key (v0.3) | No primary key |
+| `db.PruneTrashed[T](app, after)` | Registers a `SoftDeletes` model whose rows deleted longer than *after* ago `db:prune-trashed` and `db.PruneAllTrashed(ctx)` delete for good, 1,000 per transaction (v0.3) | No `SoftDeletes`, no key, registered twice |

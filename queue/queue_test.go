@@ -922,3 +922,52 @@ func TestJobsKeepLocale(t *testing.T) {
 		t.Errorf("jobs ran in %q", seen)
 	}
 }
+
+// Jobs get the values of the app's carriers from the context that
+// dispatched them.
+func TestJobsKeepCarriedValues(t *testing.T) {
+	app := newApp(t, config.Map{"QUEUE_DRIVER": "memory", "QUEUE_POLL": "5ms"})
+	type who struct{}
+	app.AddCarrier(anetos.Carrier{
+		Name:    "test.who",
+		Capture: func(ctx context.Context) string { s, _ := ctx.Value(who{}).(string); return s },
+		Restore: func(ctx context.Context, v string) context.Context { return context.WithValue(ctx, who{}, v) },
+	})
+	q, err := queue.ForApp(app)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var mu sync.Mutex
+	var seen []string
+	if err := queue.RegisterFunc(q, "carried", func(ctx context.Context, _ struct{}) error {
+		mu.Lock()
+		defer mu.Unlock()
+		s, _ := ctx.Value(who{}).(string)
+		seen = append(seen, s)
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := q.Work(); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- app.Run(ctx) }()
+	base := app.Context(context.Background())
+	if err := queue.DispatchFunc(context.WithValue(base, who{}, "user:42"), "carried", struct{}{}); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "the first job", func() bool { mu.Lock(); defer mu.Unlock(); return len(seen) == 1 })
+	if err := queue.DispatchFunc(base, "carried", struct{}{}); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "the second job", func() bool { mu.Lock(); defer mu.Unlock(); return len(seen) == 2 })
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if seen[0] != "user:42" || seen[1] != "" {
+		t.Errorf("jobs saw %q", seen)
+	}
+}

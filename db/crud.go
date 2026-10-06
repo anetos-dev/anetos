@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
+	"strings"
 	"time"
 )
 
@@ -150,21 +151,40 @@ func setTime(v reflect.Value, m *meta, col int, t time.Time, onlyIfZero bool) {
 // database and set on row. Models with [Timestamps] get created_at and
 // updated_at set (unless already set).
 func Create[T any](ctx context.Context, row *T) error {
-	d, c, m, err := target[T](ctx)
+	d, _, m, err := target[T](ctx)
 	if err != nil {
 		return err
 	}
-	if err := runHooks(ctx, row, "beforeCreate"); err != nil {
-		return err
-	}
-	v := reflect.ValueOf(row).Elem()
-	t := now(ctx)
-	setTime(v, m, m.createdAt, t, true)
-	setTime(v, m, m.updatedAt, t, true)
-	if err := insert(ctx, d, c, m, []reflect.Value{v}, nil, nil); err != nil {
-		return err
-	}
-	return runHooks(ctx, row, "afterCreate")
+	return d.watched(ctx, m, func(ctx context.Context, ws []watch) error {
+		_, c, err := handle(ctx)
+		if err != nil {
+			return err
+		}
+		if err := runHooks(ctx, row, "beforeCreate"); err != nil {
+			return err
+		}
+		v := reflect.ValueOf(row).Elem()
+		t := now(ctx)
+		setTime(v, m, m.createdAt, t, true)
+		setTime(v, m, m.updatedAt, t, true)
+		if err := insert(ctx, d, c, m, []reflect.Value{v}, nil, nil); err != nil {
+			return err
+		}
+		if ws != nil {
+			k, err := rowKey(v, m)
+			if err != nil {
+				return err
+			}
+			after, err := valuesOf(v, m, m.stored()) // readonly columns: the database's, unknown here
+			if err != nil {
+				return err
+			}
+			if err := notify(ctx, ws, &Write{Op: OpCreate, Table: m.table, Key: k, After: after}); err != nil {
+				return err
+			}
+		}
+		return runHooks(ctx, row, "afterCreate")
+	})
 }
 
 // CreateMany inserts rows in as few statements as possible, running the
@@ -175,29 +195,65 @@ func CreateMany[T any](ctx context.Context, rows []T) error {
 	if len(rows) == 0 {
 		return nil
 	}
-	d, c, m, err := target[T](ctx)
+	d, _, m, err := target[T](ctx)
 	if err != nil {
 		return err
 	}
-	t := now(ctx)
-	vs := make([]reflect.Value, len(rows))
-	for i := range rows {
-		if err := runHooks(ctx, &rows[i], "beforeCreate"); err != nil {
+	return d.watched(ctx, m, func(ctx context.Context, ws []watch) error {
+		_, c, err := handle(ctx)
+		if err != nil {
 			return err
 		}
-		vs[i] = reflect.ValueOf(&rows[i]).Elem()
-		setTime(vs[i], m, m.createdAt, t, true)
-		setTime(vs[i], m, m.updatedAt, t, true)
-	}
-	if err := insert(ctx, d, c, m, vs, nil, nil); err != nil {
-		return err
-	}
-	for i := range rows {
-		if err := runHooks(ctx, &rows[i], "afterCreate"); err != nil {
+		t := now(ctx)
+		vs := make([]reflect.Value, len(rows))
+		for i := range rows {
+			if err := runHooks(ctx, &rows[i], "beforeCreate"); err != nil {
+				return err
+			}
+			vs[i] = reflect.ValueOf(&rows[i]).Elem()
+			setTime(vs[i], m, m.createdAt, t, true)
+			setTime(vs[i], m, m.updatedAt, t, true)
+		}
+		if ws != nil && m.autoPK && !d.dialect.Returning() {
+			// The watchers need every row's key, which a multi-row insert
+			// can't report on this database (MySQL).
+			for _, v := range vs {
+				if err := insert(ctx, d, c, m, []reflect.Value{v}, nil, nil); err != nil {
+					return err
+				}
+			}
+		} else if err := insert(ctx, d, c, m, vs, nil, nil); err != nil {
 			return err
 		}
-	}
-	return nil
+		if ws != nil {
+			limit := bulkValuesOf(ws)
+			bulk := &Bulk{Keys: make([]any, 0, len(vs))}
+			for _, v := range vs {
+				k, err := rowKey(v, m)
+				if err != nil {
+					return err
+				}
+				bulk.Keys = append(bulk.Keys, k)
+				if len(bulk.After) < limit {
+					vals, err := valuesOf(v, m, m.stored())
+					if err != nil {
+						return err
+					}
+					bulk.After = append(bulk.After, RowValues{k, vals})
+				}
+			}
+			bulk.Complete = len(bulk.After) == len(bulk.Keys)
+			if err := notify(ctx, ws, &Write{Op: OpCreate, Table: m.table, Bulk: bulk}); err != nil {
+				return err
+			}
+		}
+		for i := range rows {
+			if err := runHooks(ctx, &rows[i], "afterCreate"); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // Upsert inserts rows, or updates the columns in update of rows that
@@ -233,7 +289,149 @@ func Upsert[T any](ctx context.Context, rows []T, conflict []string, update ...s
 		setTime(vs[i], m, m.createdAt, t, true)
 		setTime(vs[i], m, m.updatedAt, t, true)
 	}
-	return insert(ctx, d, c, m, vs, conflict, update)
+	if d.watchersOf(m.table) == nil {
+		return insert(ctx, d, c, m, vs, conflict, update)
+	}
+	return d.watched(ctx, m, func(ctx context.Context, ws []watch) error {
+		return upsertWatched[T](ctx, ws, m, vs, conflict, update)
+	})
+}
+
+// upsertWatched upserts rows on a watched table: it reads the rows that
+// conflict FOR UPDATE, upserts, reads them all back, and tells the
+// watchers which rows were created and which updated (from what to what),
+// telling them apart by primary key. Rows that conflicted with no columns
+// to update weren't written. A conflict value that is NULL, or a zero
+// generated key, never conflicts and can't find its row again, so it is
+// refused.
+//
+// A conflicting row another transaction inserts between the read and the
+// upsert is reported as created (its creator's entry says so too).
+func upsertWatched[T any](ctx context.Context, ws []watch, m *meta, vs []reflect.Value, conflict, update []string) error {
+	d, c, err := handle(ctx)
+	if err != nil {
+		return err
+	}
+	ccols := make([]int, len(conflict))
+	for i, name := range conflict {
+		ccols[i] = m.byName[name]
+	}
+	var ucols []int
+	for _, name := range update {
+		if ci := m.byName[name]; ci != m.updatedAt {
+			ucols = append(ucols, ci)
+		}
+	}
+	// The conflict values of every row, checked.
+	tuples := make([][]any, len(vs))
+	for i, v := range vs {
+		tuples[i] = make([]any, len(ccols))
+		for j, ci := range ccols {
+			a, err := fieldArg(v, m.cols[ci])
+			if err != nil {
+				return err
+			}
+			if plainValue(a, m.cols[ci].json) == nil || ci == m.pk && m.autoPK && isZeroField(v, m.cols[ci].index) {
+				return fmt.Errorf("db: Upsert on %s, which is watched, needs a value in every conflict column (%s is NULL or a generated key): such a row never conflicts, so it can't be found again", m.table, m.cols[ci].name)
+			}
+			tuples[i][j] = a
+		}
+	}
+	// read returns the rows matching the conflict values, 500 at a time,
+	// with col IN (…) or (a, b) IN ((…), …).
+	read := func(lock bool) ([]T, error) {
+		var out []T
+		for chunk := range slices.Chunk(tuples, 500) {
+			var cond Expr
+			if len(ccols) == 1 {
+				vals := make([]any, len(chunk))
+				for i, t := range chunk {
+					vals[i] = t[0]
+				}
+				cond = inExpr{m.table + "." + m.cols[ccols[0]].name, vals, false}
+			} else {
+				names := make([]string, len(ccols))
+				for j, ci := range ccols {
+					names[j] = quoteName(d.dialect, m.table+"."+m.cols[ci].name)
+				}
+				one := "(" + strings.TrimSuffix(strings.Repeat("?, ", len(ccols)), ", ") + ")"
+				var args []any
+				for _, t := range chunk {
+					args = append(args, t...)
+				}
+				cond = SQL("("+strings.Join(names, ", ")+") IN ("+strings.TrimSuffix(strings.Repeat(one+", ", len(chunk)), ", ")+")", args...)
+			}
+			q := Query[T](ctx).WithTrashed().Where(cond).OrderBy(C(m.table + "." + m.cols[m.pk].name).Asc())
+			if lock {
+				q = q.ForUpdate()
+			}
+			got, err := q.Get()
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, got...)
+		}
+		return out, nil
+	}
+	existing, err := read(true)
+	if err != nil {
+		return err
+	}
+	had := make(map[string]Values, len(existing)) // by primary key
+	for i := range existing {
+		v := reflect.ValueOf(&existing[i]).Elem()
+		k, err := rowKey(v, m)
+		if err != nil {
+			return err
+		}
+		vals, err := valuesOf(v, m, ucols)
+		if err != nil {
+			return err
+		}
+		had[fmt.Sprintf("%#v", k)] = vals
+	}
+	if err := insert(ctx, d, c, m, vs, conflict, update); err != nil {
+		return err
+	}
+	written, err := read(false)
+	if err != nil {
+		return err
+	}
+	limit := bulkValuesOf(ws)
+	bulk := &Bulk{}
+	complete := true
+	for i := range written {
+		v := reflect.ValueOf(&written[i]).Elem()
+		k, err := rowKey(v, m)
+		if err != nil {
+			return err
+		}
+		before, existed := had[fmt.Sprintf("%#v", k)]
+		if existed && len(update) == 0 {
+			continue // left as it was
+		}
+		bulk.Keys = append(bulk.Keys, k)
+		if len(bulk.After) >= limit {
+			complete = false
+			continue
+		}
+		var after Values
+		if existed {
+			bulk.Before = append(bulk.Before, RowValues{k, before})
+			after, err = valuesOf(v, m, ucols)
+		} else {
+			after, err = valuesOf(v, m, nil)
+		}
+		if err != nil {
+			return err
+		}
+		bulk.After = append(bulk.After, RowValues{k, after})
+	}
+	if len(bulk.Keys) == 0 {
+		return nil
+	}
+	bulk.Complete = complete
+	return notify(ctx, ws, &Write{Op: OpUpsert, Table: m.table, Bulk: bulk})
 }
 
 // maxParams keeps a statement under every database's parameter limit
@@ -359,7 +557,17 @@ func pkCond(v reflect.Value, m *meta) (Expr, error) {
 // updated_at set. Soft-deleted rows can be updated; use [Restore] to
 // undelete one.
 func Update[T any](ctx context.Context, row *T) error {
-	d, c, m, err := target[T](ctx)
+	d, _, m, err := target[T](ctx)
+	if err != nil {
+		return err
+	}
+	return d.watched(ctx, m, func(ctx context.Context, ws []watch) error {
+		return update(ctx, ws, d, m, row)
+	})
+}
+
+func update[T any](ctx context.Context, ws []watch, d *DB, m *meta, row *T) error {
+	_, c, err := handle(ctx)
 	if err != nil {
 		return err
 	}
@@ -370,6 +578,12 @@ func Update[T any](ctx context.Context, row *T) error {
 	}
 	if err := runHooks(ctx, row, "beforeUpdate"); err != nil {
 		return err
+	}
+	var before Values
+	if ws != nil {
+		if before, err = readRow[T](ctx, v, m); err != nil {
+			return err
+		}
 	}
 	setTime(v, m, m.updatedAt, now(ctx), false)
 	cols := m.updatable()
@@ -400,6 +614,19 @@ func Update[T any](ctx context.Context, row *T) error {
 	}
 	if n, err := res.RowsAffected(); err == nil && n == 0 {
 		return ErrNotFound
+	}
+	if ws != nil {
+		k, err := rowKey(v, m)
+		if err != nil {
+			return err
+		}
+		after, err := afterUpdate(v, m, before)
+		if err != nil {
+			return err
+		}
+		if err := notify(ctx, ws, &Write{Op: OpUpdate, Table: m.table, Key: k, Before: before, After: after}); err != nil {
+			return err
+		}
 	}
 	return runHooks(ctx, row, "afterUpdate")
 }
@@ -438,7 +665,17 @@ func ForceDelete[T any](ctx context.Context, row *T) error {
 }
 
 func deleteRow[T any](ctx context.Context, row *T, soft bool) error {
-	d, c, m, err := target[T](ctx)
+	d, _, m, err := target[T](ctx)
+	if err != nil {
+		return err
+	}
+	return d.watched(ctx, m, func(ctx context.Context, ws []watch) error {
+		return deleteWatched(ctx, ws, d, m, row, soft)
+	})
+}
+
+func deleteWatched[T any](ctx context.Context, ws []watch, d *DB, m *meta, row *T, soft bool) error {
+	_, c, err := handle(ctx)
 	if err != nil {
 		return err
 	}
@@ -449,6 +686,12 @@ func deleteRow[T any](ctx context.Context, row *T, soft bool) error {
 	}
 	if err := runHooks(ctx, row, "beforeDelete"); err != nil {
 		return err
+	}
+	var before Values
+	if ws != nil && !soft {
+		if before, err = readRow[T](ctx, v, m); err != nil {
+			return err
+		}
 	}
 	b := &sqlBuilder{d: d.dialect}
 	t := now(ctx)
@@ -484,17 +727,40 @@ func deleteRow[T any](ctx context.Context, row *T, soft bool) error {
 		setTime(v, m, m.deletedAt, t, false)
 		setTime(v, m, m.updatedAt, t, false)
 	}
+	if ws != nil {
+		k, err := rowKey(v, m)
+		if err != nil {
+			return err
+		}
+		w := &Write{Op: OpDelete, Table: m.table, Key: k}
+		if !soft {
+			w.Op, w.Before = OpForceDelete, before
+		}
+		if err := notify(ctx, ws, w); err != nil {
+			return err
+		}
+	}
 	return runHooks(ctx, row, "afterDelete")
 }
 
 // Restore undeletes a soft-deleted row.
 func Restore[T any](ctx context.Context, row *T) error {
-	d, c, m, err := target[T](ctx)
+	d, _, m, err := target[T](ctx)
 	if err != nil {
 		return err
 	}
 	if m.deletedAt < 0 {
 		return fmt.Errorf("db: %s doesn't use SoftDeletes", m.typ)
+	}
+	return d.watched(ctx, m, func(ctx context.Context, ws []watch) error {
+		return restore(ctx, ws, d, m, row)
+	})
+}
+
+func restore[T any](ctx context.Context, ws []watch, d *DB, m *meta, row *T) error {
+	_, c, err := handle(ctx)
+	if err != nil {
+		return err
 	}
 	v := reflect.ValueOf(row).Elem()
 	cond, err := pkCond(v, m)
@@ -515,11 +781,29 @@ func Restore[T any](ctx context.Context, row *T) error {
 		b.arg(t)
 	}
 	b.write(" WHERE ")
+	if ws != nil {
+		// Only a deleted row is restored, so only a restore is recorded.
+		cond = And(cond, C(m.cols[m.deletedAt].name).NotNull())
+	}
 	cond.build(b)
-	if _, err := d.exec(ctx, c, b.String(), b.args); err != nil {
+	res, err := d.exec(ctx, c, b.String(), b.args)
+	if err != nil {
 		return err
+	}
+	if ws != nil {
+		if n, err := res.RowsAffected(); err == nil && n == 0 {
+			fieldAlloc(v, m.cols[m.deletedAt].index).SetZero() // live already
+			return nil                                         // nothing restored: nothing to tell
+		}
 	}
 	fieldAlloc(v, m.cols[m.deletedAt].index).SetZero()
 	setTime(v, m, m.updatedAt, t, false)
+	if ws != nil {
+		k, err := rowKey(v, m)
+		if err != nil {
+			return err
+		}
+		return notify(ctx, ws, &Write{Op: OpRestore, Table: m.table, Key: k})
+	}
 	return nil
 }

@@ -340,3 +340,26 @@ func TestSearchSQL(t *testing.T) {
 		t.Errorf("errors: %v", tbl.errs)
 	}
 }
+
+func TestUniqueLiveSQL(t *testing.T) {
+	table := func(t *Table) {
+		t.ID()
+		t.String("email", 100).UniqueLive()
+		t.UniqueLive("team_id", "email")
+		t.SoftDeletes()
+	}
+	for _, d := range []db.Dialect{db.Postgres(), db.SQLite()} {
+		got, err := schemaFor(d).createSQL(build("users", true, table))
+		if err != nil {
+			t.Fatal(err)
+		}
+		q := func(s string) string { return d.QuoteIdent(s) }
+		want := "CREATE UNIQUE INDEX " + q("users_email_unique") + " ON " + q("users") + " (" + q("email") + ") WHERE " + q("deleted_at") + " IS NULL"
+		if got[1] != want || !strings.HasSuffix(got[2], " WHERE "+q("deleted_at")+" IS NULL") {
+			t.Errorf("%s: %q", d.Name(), got[1:])
+		}
+	}
+	if _, err := schemaFor(db.MySQL()).createSQL(build("users", true, table)); err == nil || !strings.Contains(err.Error(), "partial index") {
+		t.Errorf("mysql: %v", err)
+	}
+}

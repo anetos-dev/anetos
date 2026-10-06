@@ -458,3 +458,33 @@ func TestQueuedDispatchError(t *testing.T) {
 		t.Error("the async listener didn't get the event")
 	}
 }
+
+// Async listeners get the values of the app's carriers from the context
+// that emitted the event.
+func TestAsyncCarriedValues(t *testing.T) {
+	app, err := anetos.New(anetos.WithSource(config.Map{"APP_ENV": "testing", "APP_KEY": encryption.GenerateKey()}),
+		anetos.WithLogOutput(io.Discard))
+	check(t, err)
+	type who struct{}
+	app.AddCarrier(anetos.Carrier{
+		Name:    "test.who",
+		Capture: func(ctx context.Context) string { s, _ := ctx.Value(who{}).(string); return s },
+		Restore: func(ctx context.Context, v string) context.Context { return context.WithValue(ctx, who{}, v) },
+	})
+	b, err := events.ForApp(app)
+	check(t, err)
+	got := make(chan string, 2)
+	check(t, events.OnAsync(b, func(ctx context.Context, e OrderPlaced) error {
+		s, _ := ctx.Value(who{}).(string)
+		got <- s
+		return nil
+	}))
+	ctx := app.Context(context.Background())
+	check(t, events.Emit(context.WithValue(ctx, who{}, "user:7"), OrderPlaced{OrderID: 1}))
+	check(t, events.Emit(ctx, OrderPlaced{OrderID: 2}))
+	check(t, b.Wait(ctx))
+	if a, b := <-got, <-got; a != "user:7" || b != "" {
+		t.Errorf("the listener saw %q and %q", a, b)
+	}
+	check(t, app.Close())
+}

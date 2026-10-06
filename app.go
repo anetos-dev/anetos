@@ -67,6 +67,7 @@ type App struct {
 	clock clock // Now
 
 	unitFuncs // AroundUnits
+	carriers  // AddCarrier
 }
 
 type ctxValue struct{ key, val any }

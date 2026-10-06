@@ -569,6 +569,10 @@ func scalar[V any](ctx context.Context, d *DB, c conn, b *sqlBuilder) (V, error)
 //
 //	n, err := db.Query[Post](ctx).Where(author.Eq(id)).Update(published.Set(false))
 func (q *Q[T]) Update(assignments ...Assignment) (int64, error) {
+	return q.update(OpUpdate, assignments)
+}
+
+func (q *Q[T]) update(op Op, assignments []Assignment) (int64, error) {
 	if len(assignments) == 0 {
 		return 0, errors.New("db: Update needs at least one assignment")
 	}
@@ -594,7 +598,7 @@ func (q *Q[T]) Update(assignments ...Assignment) (int64, error) {
 			cols = append(cols, name)
 		}
 	}
-	return q.write(func(b *sqlBuilder) {
+	head := func(b *sqlBuilder) {
 		b.write("UPDATE ")
 		b.name(q.m.table)
 		b.write(" SET ")
@@ -606,7 +610,21 @@ func (q *Q[T]) Update(assignments ...Assignment) (int64, error) {
 			b.write(" = ")
 			a.expr.build(b)
 		}
-	})
+	}
+	var read []int // the columns whose values before a watcher gets
+	var set func(Dialect) map[string]any
+	if op == OpUpdate {
+		for _, col := range cols {
+			if ci, ok := q.m.byName[col]; ok && ci != q.m.updatedAt && !slices.Contains(read, ci) {
+				read = append(read, ci)
+			}
+		}
+		set = func(d Dialect) map[string]any { return q.setOf(d, assignments, cols) }
+	}
+	if n, watched, err := q.writeWatched(op, read, set, head); watched {
+		return n, err
+	}
+	return q.write(head)
 }
 
 // Delete deletes every matching row and returns how many. Models with
@@ -624,7 +642,7 @@ func (q *Q[T]) Delete() (int64, error) {
 		}
 		live := q.clone()
 		live.trashed = withoutTrashed // keep the original deleted_at of trashed rows
-		return live.Update(as...)
+		return live.update(OpDelete, as)
 	}
 	return q.ForceDelete()
 }
@@ -633,10 +651,20 @@ func (q *Q[T]) Delete() (int64, error) {
 // [SoftDeletes]. Soft-deleted rows only match with WithTrashed or
 // OnlyTrashed.
 func (q *Q[T]) ForceDelete() (int64, error) {
-	return q.write(func(b *sqlBuilder) {
+	head := func(b *sqlBuilder) {
 		b.write("DELETE")
 		q.from(b)
-	})
+	}
+	if q.err == nil {
+		all := make([]int, len(q.m.cols))
+		for i := range all {
+			all[i] = i
+		}
+		if n, watched, err := q.writeWatched(OpForceDelete, all, nil, head); watched {
+			return n, err
+		}
+	}
+	return q.write(head)
 }
 
 // Restore undeletes the matching soft-deleted rows (live rows are left
@@ -648,14 +676,59 @@ func (q *Q[T]) Restore() (int64, error) {
 	if q.m.deletedAt < 0 {
 		return 0, fmt.Errorf("db: %s doesn't use SoftDeletes", q.m.typ)
 	}
-	return q.OnlyTrashed().Update(Assignment{q.m.cols[q.m.deletedAt].name, valueExpr{nil}})
+	return q.OnlyTrashed().update(OpRestore, []Assignment{{q.m.cols[q.m.deletedAt].name, valueExpr{nil}}})
+}
+
+// writeCheck reports clauses an UPDATE or DELETE can't have.
+func (q *Q[T]) writeCheck() error {
+	if len(q.joins) > 0 || len(q.orders) > 0 || q.hasLimit || q.offset > 0 || len(q.groups) > 0 ||
+		len(q.havings) > 0 || q.distinct || q.lock != noLock || q.search != nil || q.similar != nil {
+		return errors.New("db: Update and Delete only support Where conditions (not Join, OrderBy, Limit, Offset, GroupBy, Having, Distinct, Search, Similar or locks); for more, use db.Exec with your database's syntax")
+	}
+	return nil
+}
+
+// writeWatched runs a bulk write on a watched table (DB.Watch) in a
+// transaction, and reports whether the table was watched; if not, the
+// caller writes as usual.
+func (q *Q[T]) writeWatched(op Op, read []int, set func(Dialect) map[string]any, head func(b *sqlBuilder)) (int64, bool, error) {
+	if q.err != nil {
+		return 0, false, nil //nolint:nilerr // not watched as far as we know: write reports the error
+	}
+	d, _, err := handle(q.ctx)
+	if err != nil {
+		return 0, false, nil //nolint:nilerr // write reports it
+	}
+	ws := d.watchersOf(q.m.table)
+	if ws == nil {
+		return 0, false, nil
+	}
+	if err := q.writeCheck(); err != nil {
+		return 0, true, err
+	}
+	if q.m.pk < 0 {
+		return 0, true, fmt.Errorf("db: %s is watched, so its model %s needs a primary key", q.m.table, q.m.typ)
+	}
+	var n int64
+	err = Tx(q.ctx, func(ctx context.Context) error {
+		var s map[string]any
+		if set != nil {
+			s = set(d.dialect)
+		}
+		var err error
+		n, err = q.watchedWrite(ctx, ws, op, read, s, head)
+		return err
+	})
+	if err != nil {
+		return 0, true, err
+	}
+	return n, true, nil
 }
 
 // write runs an UPDATE or DELETE whose head is written by head.
 func (q *Q[T]) write(head func(b *sqlBuilder)) (int64, error) {
-	if len(q.joins) > 0 || len(q.orders) > 0 || q.hasLimit || q.offset > 0 || len(q.groups) > 0 ||
-		len(q.havings) > 0 || q.distinct || q.lock != noLock || q.search != nil || q.similar != nil {
-		return 0, errors.New("db: Update and Delete only support Where conditions (not Join, OrderBy, Limit, Offset, GroupBy, Having, Distinct, Search, Similar or locks); for more, use db.Exec with your database's syntax")
+	if err := q.writeCheck(); err != nil {
+		return 0, err
 	}
 	d, c, err := q.prepare()
 	if err != nil {

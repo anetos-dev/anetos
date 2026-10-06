@@ -153,6 +153,15 @@ func ClientIP(r *http.Request) string {
 	return host
 }
 
+// ClientIPFrom returns the client's IP address determined by the
+// [RealIP] middleware (which the server runs on every request) from a
+// request's context, or "" outside one. It is for code that has the
+// context but not the request, such as package audit.
+func ClientIPFrom(ctx context.Context) string {
+	ip, _ := ctx.Value(clientIPKey{}).(string)
+	return ip
+}
+
 // RealIP determines the client IP behind reverse proxies. Forwarding
 // headers are trusted only when the direct peer is in trusted (for example
 // your load balancer's network); then X-Forwarded-For is read from the

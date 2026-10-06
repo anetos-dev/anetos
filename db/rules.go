@@ -25,18 +25,32 @@ import (
 //	ID    int64  `path:"id"` // not from the body, so clients can't pick it
 //	Email string `json:"email" validate:"required|email|unique:users,email,ID"`
 //
-// Both rules count soft-deleted rows, like a unique index would.
+// Both rules count soft-deleted rows, like a unique index would. A third
+// rule, unique_live, takes the same parameters as unique and ignores rows
+// whose deleted_at is set, like a migrate.Table.UniqueLive index:
+//
+//	Email string `json:"email" validate:"required|email|unique_live:users,email,ID"`
 func init() {
 	validate.Register("unique", "The {label} has already been taken.", uniqueRule)
+	validate.Register("unique_live", "The {label} has already been taken.", func(ctx context.Context, f validate.Field) (bool, error) {
+		return unique(ctx, f, "unique_live", true)
+	})
 	validate.Register("exists", "The selected {label} is invalid.", existsRule)
 }
 
 func uniqueRule(ctx context.Context, f validate.Field) (bool, error) {
+	return unique(ctx, f, "unique", false)
+}
+
+func unique(ctx context.Context, f validate.Field, rule string, live bool) (bool, error) {
 	if len(f.Params) < 1 || len(f.Params) > 4 {
-		return false, fmt.Errorf("db: unique needs table[,column[,exceptField[,idColumn]]]")
+		return false, fmt.Errorf("db: %s needs table[,column[,exceptField[,idColumn]]]", rule)
 	}
 	table, col := f.Params[0], ruleColumn(f)
 	conds := []Expr{cmpExpr{col, "=", f.Value}}
+	if live {
+		conds = append(conds, C("deleted_at").IsNull())
+	}
 	if len(f.Params) >= 3 {
 		except, err := fieldByName(f.Parent, f.Params[2])
 		if err != nil {

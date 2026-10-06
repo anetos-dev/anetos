@@ -479,13 +479,15 @@ func checkQueue(name string) error {
 
 // envelope is a job's encoding. Locale and Zone are those of the
 // context that dispatched it (package i18n), when not the defaults: the
-// job runs in them.
+// job runs in them. Carried holds the values of the app's carriers
+// (anetos.App.AddCarrier) in that context, restored in the job's.
 type envelope struct {
-	ID     string          `json:"id"`
-	Job    string          `json:"job"`
-	Data   json.RawMessage `json:"data"`
-	Locale string          `json:"locale,omitempty"`
-	Zone   string          `json:"zone,omitempty"`
+	ID      string            `json:"id"`
+	Job     string            `json:"job"`
+	Data    json.RawMessage   `json:"data"`
+	Locale  string            `json:"locale,omitempty"`
+	Zone    string            `json:"zone,omitempty"`
+	Carried map[string]string `json:"carried,omitempty"`
 }
 
 // localeOf returns the locale and time zone of ctx to carry in a job,
@@ -552,7 +554,11 @@ func (q *Queue) dispatch(ctx context.Context, jt *jobType, value any, opts []Dis
 	}
 	id := newID()
 	locale, zone := localeOf(ctx)
-	payload, err := json.Marshal(envelope{ID: id, Job: jt.name, Data: data, Locale: locale, Zone: zone})
+	var carried map[string]string
+	if q.app != nil {
+		carried = q.app.Carried(ctx)
+	}
+	payload, err := json.Marshal(envelope{ID: id, Job: jt.name, Data: data, Locale: locale, Zone: zone, Carried: carried})
 	if err != nil {
 		return err
 	}

@@ -189,6 +189,9 @@ folder or for a locale the module doesn't have. The download runs with
 | `schedule:list` | `schedule.ForApp` | Each task, its schedule, its next run and options. See [Scheduling](../guides/scheduling.md#4-check-and-run-tasks) |
 | `schedule:run <task>` | `schedule.ForApp` | Runs a task now, whatever its schedule (`WithoutOverlapping` applies, across processes only with a shared cache store; `OnOneServer` doesn't) |
 | `rbac:roles`, `rbac:user <user-id>`, `rbac:assign [--scope=kind:id] <user-id> <role>`, `rbac:unassign …` | `rbac.ForApp` | List the roles and their users; show a user's grants; give or take a role. See [Roles and permissions](../guides/roles-and-permissions.md) |
+| `db:prune-trashed [--dry-run]` | `db.PruneTrashed` | Deletes for good the rows of the registered models soft-deleted longer ago than their duration; `--dry-run` counts them. See [Keep an audit log](../guides/audit-log.md#soft-deletes-that-play-well-with-the-log) |
+| `audit:prune` | `audit.ForApp` | Deletes the audit entries older than `AUDIT_RETENTION_DAYS`, and records that it did |
+| `audit:anonymize <actor-type> <actor-id>` | `audit.ForApp` | Replaces an actor (`user 42`) with `erased` in the audit log and drops those entries' IP addresses, for erasure requests. See [Keep an audit log](../guides/audit-log.md#8-keep-entries-for-as-long-as-you-must-and-no-longer) |
 | `plugins:list` | `ext.Load` | Each plugin, its version constraint, its route prefix and what it adds (or that its settings are missing); doesn't boot the app. See [Use plugins](../guides/plugins.md) |
 | `plugins:env [plugin]` | `ext.Load` | The plugins' settings as `.env` lines with their defaults (double-quoted when they need it; `# required` after required ones); doesn't boot the app, so it works before they are set |
 | `help [command]`, `-h`, `--help` | every app | The command list, or a command's usage (`<command> -h` too, as the first argument); doesn't boot the app |

@@ -36,8 +36,12 @@ a database check, calendar dates and the app's time zone, translations
 or the browser, translated framework messages), numbers, prices, dates
 and relative times in the user's language and zone, right-to-left
 pages, and Bangla, French and Spanish translations of the framework
-(`anetos lang:add`; [`examples/i18n`](examples/i18n)). The release work
-(docs site, deploy) is next.
+(`anetos lang:add`; [`examples/i18n`](examples/i18n)). So is an audit
+log: who created, changed (field by field), deleted and restored the rows
+of the models an app tracks, written in the change's transaction, with
+bulk writes as one entry ([`examples/audit`](examples/audit)). An admin
+interface (users, roles, activity) is next, then the release work
+(deploy, docs). The docs are at [docs.anetos.dev](https://docs.anetos.dev).
 APIs will change.
 
 ## Documents

@@ -352,6 +352,17 @@ Read by `auth.ForApp` (or `auth.LoadConfig`) into `auth.Config`.
 The remember-me cookie is `HttpOnly`, `SameSite=Lax` and Secure like the
 session cookie; a Secure one is named `__Host-anetos_remember`.
 
+## Audit log
+
+Read by `audit.ForApp` into `audit.Config`. See
+[Keep an audit log](../guides/audit-log.md).
+
+| Key | Type | Default | Description | Since |
+|---|---|---|---|---|
+| `AUDIT_IP` | `none`, `masked`, `full` | `none` | Whether entries keep the client's IP address: not at all, masked (IPv4 to its /24, IPv6 to its /48), or whole | v0.3 |
+| `AUDIT_BULK_MAX_VALUES` | int | `10000` | How many rows' values a bulk entry keeps (every row's key is kept), set when a model is tracked | v0.3 |
+| `AUDIT_RETENTION_DAYS` | int | `0` | How long `audit:prune` and `audit.Prune` keep entries; 0 keeps them forever | v0.3 |
+
 ## Social login
 
 Read by `social.ForApp` and `social.Configured`, for each provider name

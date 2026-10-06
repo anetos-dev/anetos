@@ -175,6 +175,22 @@ func (p *plugin) Jobs(q *queue.Queue) error {
 Jobs run on the app's workers, and use the app's database, cache and
 mailer through their context, like the app's own jobs.
 
+A value your plugin keeps in the context can follow the work it hands
+off: add a carrier, and queue jobs and async event listeners get it from
+the code that dispatched or emitted them (carried values are stored as
+text with the job: no secrets):
+
+```go
+// illustrative
+app.AddCarrier(anetos.Carrier{
+	Name:    "acme.tenant",
+	Capture: func(ctx context.Context) string { return tenantOf(ctx) },
+	Restore: func(ctx context.Context, v string) context.Context { return withTenant(ctx, v) },
+})
+```
+
+The audit log carries its actor this way.
+
 ### 5. Test it
 
 Test the plugin in a small app: a `setup` that sets up what the plugin

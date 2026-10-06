@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"anetos.dev/anetos"
@@ -328,6 +329,10 @@ type DB struct {
 	ftMu    sync.Mutex
 	ftWords *mysqlWords // what MySQL's full-text indexes skip, read once
 	vecDims sync.Map    // MariaDB: embeddings table → its vectors' size
+
+	watchMu  sync.RWMutex
+	watches  map[string][]watch // Watch: table → watchers
+	watching atomic.Bool        // any watcher at all
 }
 
 // Option configures a [DB] created with [Open] or [New].

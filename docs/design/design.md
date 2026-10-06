@@ -247,6 +247,7 @@ anetos.dev/anetos/       ← core module (github.com/anetos-dev/anetos)
 ├── encryption/          AES-256-GCM with APP_KEY and key rotation (F10)
 ├── cache/               cache, memory and database stores, locks (B1); cache/cachetest: store conformance suite
 ├── auth/                login, remember me, API tokens, reset/verification tokens, policies (B3); auth/password: argon2id; auth/social: OAuth/OIDC sign-in (B4); auth/rbac: roles and permissions (R1)
+├── audit/               the audit log: tracked models' writes, bulk entries, recorded events, history, retention, anonymization (AU1)
 ├── queue/               jobs, workers, sync/memory/database stores, failed jobs (B5); queue/queuetest: store conformance suite
 ├── events/              typed in-process events: sync, async (bounded pools), queued listeners (B6)
 ├── pubsub/              topics, subscriptions, typed listeners, memory broker (B7); pubsub/pubsubtest: broker conformance suite
@@ -851,6 +852,107 @@ remaining gaps (D186–D188):
   their own (§14.5). The
   core embeds the time zone database (`time/tzdata`, about 450 KB), so
   zones load in minimal containers.
+
+### 10.7 Audit log & soft deletes (v0.3: AU1)
+
+Sites that must answer "who changed this, and when?" (data governance,
+health and finance rules) get an audit log built in, off until an app
+turns it on for the models it names. It records who created, changed
+(which fields, from what to what), deleted, restored and permanently
+deleted each row, and the app's own events ("invoice.exported"). Its
+guarantee is the reason for its shape: **an entry is written in the
+transaction of the change it describes**, so a committed change always
+has its entry and a rolled-back one never does (D202).
+
+**Watched writes, in the data layer.** `db` doesn't know about auditing;
+it lets a package watch the writes to a table (`DB.Watch(table, w,
+bulkValues)`, D203). For a watched table, every write the `db` package
+makes runs in a transaction (a savepoint inside one already open, so
+model hooks run inside it too), and:
+
+| Write | What the watcher gets |
+|---|---|
+| `Create` | the new row's values |
+| `Update` | the row's values before (read `FOR UPDATE` in the transaction, just before the write) and after; the watcher decides what changed |
+| `Delete` (soft) / `Restore` | the key |
+| `Delete` without `SoftDeletes`, `ForceDelete` | the values the row had |
+| `CreateMany`, `Upsert`, and `Update`/`Delete`/`ForceDelete`/`Restore` on a query | one bulk write: the condition, the assignments, every affected row's key, and the values before (and, for upserts and creates, after) of up to `bulkValues` rows |
+
+A bulk write on a watched table first selects the matching rows' keys
+(and values) `FOR UPDATE`, then writes in chunks of 1,000 keys, each
+`WHERE <the condition> AND key IN (…)`, and fails, rolling back, if a
+chunk changes fewer rows than it selected: what is logged is exactly what
+was written (D204). `CreateMany` on MySQL, which can't report the keys of
+a multi-row insert, inserts a watched table's rows one by one. A watched
+`Upsert` reads the conflicting rows `FOR UPDATE`, upserts, reads the rows
+back and tells created from updated by primary key; a conflict value
+that is NULL or a zero generated key (which never conflicts) is refused.
+An update's values after are those before with the columns `Update`
+wrote, so readonly columns and `deleted_at` are never reported changed. Raw SQL
+(`db.Exec`), pivot writes (`Attach`, `Sync`) and the database's own
+cascades aren't seen; the documentation says so.
+
+**Package `audit`** (core module; opt-in):
+
+```go
+// illustrative
+trail, err := audit.ForApp(app)                       // after db.Connect
+err = audit.Track[models.Post](trail, audit.Redact("ssn"), audit.Except("view_count"))
+err = audit.Record(ctx, "invoice.exported", subject, map[string]any{"format": "pdf"})
+events, next, err := audit.History(ctx, audit.Subject{Type: "posts", ID: "42"}, 50, "")
+```
+
+- **Tables** (`audit.Migrations`): `audit_log`, one entry per single-row
+  write or recorded event; `audit_bulk`, one entry per bulk write;
+  `audit_bulk_items`, one slim row (`bulk_id`, subject type and key) per
+  row a bulk write touched, so "who deleted post 42?" is an indexed
+  lookup on every database (D205). A record's history merges its own
+  entries with the bulk writes that touched it.
+- **An entry** holds when; the actor (type and ID: `user:42`, `system`,
+  or one the app names: `service:stripe`); the action (`created`,
+  `updated`, `deleted` = soft-deleted, `restored`, `force_deleted` = gone
+  from the database, `upserted`, or the app's own); the subject (the
+  table and key, as text); the changes (`{"old": {"title": "Old"}, "new": {"title":
+  "New"}}`: creates keep the new values, permanent deletes the old ones;
+  an update that changes nothing but timestamps, or only columns left
+  out with `Except`, is not logged); what did it (the
+  unit of work: request, job, listener, task, or the command) and the
+  request ID; and the client's IP if `AUDIT_IP` asks (`none`, the
+  default, `masked`, `full`): an IP address is personal data (D206).
+- **A bulk entry** holds the same, the condition (SQL and arguments), the
+  assignments, the row count, and the rows' values before (and after) up
+  to `AUDIT_BULK_MAX_VALUES` rows (default 10,000), with a flag saying
+  whether it kept them all. Keys are always kept (D205).
+- **The actor** is, in order: one set with `audit.WithActor`; the signed-in
+  user (`auth.CurrentID`, which `auth.ActAs` sets in jobs); for a queue job
+  or async event listener, the actor of the work that dispatched it,
+  carried with it (kernel carriers, D207); otherwise `system`. An error
+  loading the user fails the write: the log doesn't guess.
+- **Fields:** `Except` leaves columns out entirely; `Redact` records that
+  they changed, not their values. Columns whose names contain `password`,
+  `secret` or `token` are redacted unless `Reveal` says otherwise.
+- **Retention and erasure:** `AUDIT_RETENTION_DAYS` (default 0: forever)
+  and `audit:prune` (or `audit.Prune` in a scheduled task) delete older
+  entries in batches, recording that they did; `audit:anonymize <type>
+  <id>` (`audit.Anonymize`) replaces an actor with a placeholder and drops
+  its IP addresses, for erasure requests, and records that too.
+
+**Soft deletes.** Models embedding `db.SoftDeletes` have had soft deletes
+since v0.1 (§10.2). AU1 adds two things the audit log and the admin
+(AD1) need:
+
+- **Unique indexes over live rows:** `t.UniqueLive(cols…)` creates a
+  unique index `WHERE deleted_at IS NULL` on PostgreSQL and SQLite, so a
+  soft-deleted user doesn't keep their email from a new sign-up; MySQL
+  and MariaDB have no partial indexes, and the migration fails there with
+  the reason. The validation rule `unique_live` checks the same (D208).
+- **Pruning:** `db.PruneTrashed[T](app, after)` registers a model whose
+  rows soft-deleted longer than `after` ago are permanently deleted by
+  `db:prune-trashed` (or `db.PruneAllTrashed` in a scheduled task), 1,000
+  rows per transaction; on a tracked model each batch is a logged bulk
+  `force_deleted` (D209).
+
+Soft deletes don't cascade to related rows (backlog).
 
 ---
 
@@ -2337,6 +2439,15 @@ unless new information arrives), **Open**, **Superseded**.
 | D199 | `drivers/gcs` uses the official `cloud.google.com/go/storage` client: credentials from `STORAGE_GCS_CREDENTIALS_FILE` or `STORAGE_GCS_CREDENTIALS` (service account keys only, checked) or Application Default Credentials (every kind); uploads through the client's writer with a chunk sized to the file (one request up to 8 MB, a buffer rounded to 256 KiB; 8 MB chunks above), abandoned on a reader error or a canceled context by closing its stream with the error before `Close` (so nothing is stored); writes, deletes and copies retried on transient errors (whole-object replaces are idempotent in effect); `Open` pins the object's generation and fails a ranged read after `Seek` if that generation is gone, and reads objects stored gzip-compressed decompressed, unseekable, with a size of -1 (`FileInfo.Size` may be -1 from `Open`; `Serve` then sends no Content-Length); ETags are the generation, mod times to the second; the first "not found" checks the bucket (a 403 counts as checked); `Copy` is a server-side rewrite (any size); signed URLs are V4, signed locally by a key (the settings' or ADC's) or by the IAM API's signBlob with the request's context, as `STORAGE_GCS_SIGNER`, the credentials' or the instance's account, found once; tests run the suite against fake-gcs-server in process and over HTTP as an emulator, and, with `ANETOS_TEST_GCS_BUCKET`, a real bucket | Accepted | Cloud Run and GKE apps authenticate with no settings and sign URLs without a key file, which S3 interoperability keys can't; the generation is GCS's version of S3's If-Match; a dashboard reads buckets other tools write, where gzip-encoded objects are common, so they read as their content; the client's own signing ignored the context and retried without limit |
 | D200 | The documentation site, docs.anetos.dev, is built with Hugo and the Hextra theme by its own repository (`anetos-dev/docs`) from the framework's `docs/site`, which stays plain Markdown that reads well on GitHub: a small Go program (`sync`) turns it into Hugo content (READMEs into section pages, the leading heading into the title, each page's repository path into front matter), and render hooks resolve the pages' relative links and images to the site's pages or to the file on GitHub at the built ref; the theme and its scripts (FlexSearch, Mermaid) are vendored at fixed versions; it's hosted on Cloudflare Pages, rebuilt on pushes to the docs repository and, through a deploy hook, when `docs/site` changes on the framework's main branch. The home page, anetos.dev, is a separate Hugo site (`anetos-dev/website`) with the logo and icons | Accepted | Roadmap Q4, M2. The pages change in the same pull request as the code they describe and keep working on GitHub and in `go doc`'s neighbourhood; Hugo is one binary with no Node toolchain, and Hextra gives search, dark mode and a docs layout without theming work (Starlight looked as good but needs Node); vendored scripts make builds reproducible and independent of a CDN. Versioned docs (a build per release tag) come at the v0.3 release |
 | D201 | The `go-import` meta tags for anetos.dev's import paths are static pages, one per repository (`/go/anetos/`, `/go/locales/`), and Cloudflare Pages' `_redirects` rewrites (status 200) `/<repo>` and `/<repo>/*` to them; each names the repository's root path, so nested modules (`anetos.dev/anetos/drivers/gcs`) resolve through it, and sends browsers on to pkg.go.dev | Accepted | D185. A static site needs no server for `?go-get=1`; a rewrite keeps the address, which the go command requires; a new repository is a page and two lines |
+| D202 | The audit log (package `audit`, opt-in per model) writes each entry in the transaction of the change it describes, from a watcher the `db` package calls after the write; writes to watched tables always run in a transaction (a savepoint inside one) | Accepted | Roadmap AU1. Governance needs "every committed change has its entry, and no entry describes a change that didn't happen"; a queued or after-commit log can lose entries or record rolled-back work. The cost (a transaction, a read and an insert per write) falls only on tracked models |
+| D203 | `db` exposes watched writes (`DB.Watch(table, w, bulkValues)`, `Watcher.Written(ctx, *Write)`) rather than knowing about auditing: a write's operation, table, key, the row's values before and after as needed, or a bulk write's condition, assignments, keys and capped values; an error from a watcher rolls the write back | Accepted | The data layer stays free of policy (who, what to redact, where to store), and the same hook can later drive cache invalidation or search sync. `db.Update` writes every column and keeps no snapshot, so the values before come from a `FOR UPDATE` read in the transaction: the database's state, not what the app loaded earlier |
+| D204 | Bulk writes on watched tables select the matching rows' keys (and values) `FOR UPDATE`, then write in chunks of 1,000 keys with the original condition and the keys, failing if a chunk changes fewer rows than it selected; `CreateMany` on MySQL inserts watched rows one by one | Accepted | What the log says was written is exactly what was written, on every database (a plain `UPDATE … WHERE` could touch rows inserted after the read); MySQL can't report a multi-row insert's keys |
+| D205 | Bulk writes go to their own entries: `audit_bulk` (one per write: actor, action, condition, assignments, count, the rows' values up to `AUDIT_BULK_MAX_VALUES`, default 10,000, and whether all were kept) and `audit_bulk_items` (bulk ID, subject type and key, for every row) | Accepted | Asked for by the user: a 1,000-row delete reads as one event, and "who deleted row X?" stays answerable through an indexed table that works the same on every database (JSON indexes differ: PostgreSQL's GIN, MySQL's multi-valued, none on SQLite). Values are what make a huge write's entry huge; keys stay cheap |
+| D206 | An entry's actor is, in order, the one set with `audit.WithActor`, the signed-in or acting user (`auth.CurrentID`), the actor carried from the work that dispatched a job or async listener, or `system`; an error loading the user fails the write. The client IP is kept only if `AUDIT_IP` is `masked` (IPv4 /24, IPv6 /48) or `full`; default `none`. Columns named like `password`, `secret`, `token` are redacted unless revealed | Accepted | Attribution must be right or the write must not happen. An IP address is personal data under the GDPR, so keeping it is the app's decision; secrets in a log are a leak waiting to happen |
+| D207 | The kernel gets carriers (`anetos.Carrier`, `App.AddCarrier`): named values captured from the context of work that hands off (a queue dispatch, an async event) and restored in the context of the work it starts; the queue's envelope and the event bus carry them | Accepted | A job deleting a user's posts should be attributed to the user who asked for it, without making that user "signed in" in the job (`auth.ActAs` stays explicit). One mechanism for any package, instead of the queue knowing about each (it knows about locales today). Commands are named by `cmd.Running` |
+| D208 | `migrate` adds `UniqueLive` (a unique index `WHERE deleted_at IS NULL`, PostgreSQL and SQLite; refused on MySQL and MariaDB, which have no partial indexes) and `db` the validation rule `unique_live` | Accepted | Soft-deleted rows otherwise keep their unique values (a deleted user's email) from new rows. The MySQL workarounds (generated columns) change the table's shape and need each column's type, so they're left to the app, with the reason in the error |
+| D209 | `db.PruneTrashed[T](app, after)` registers models whose rows soft-deleted longer than `after` ago are permanently deleted by `db:prune-trashed` or `db.PruneAllTrashed` (for a scheduled task), 1,000 rows per transaction | Accepted | Retention rules ("delete for good after 90 days") are part of governance; batches keep transactions and bulk audit entries bounded; registration in code keeps the rule next to the model, explicit |
+| D210 | The admin interface (AD1, AD2) is a first-party plugin module, `anetos.dev/anetos/plugins/admin`, installed with `anetos add`: an engine (resources with tables, filters, forms from struct tags and validation, actions, widgets; templ and htmx, its own stylesheet) plus `make:admin`, which writes the glue the app owns (mount path or host, dashboard, a resource file per model). Users and roles (rbac), the activity views, two-factor sign-in and password confirmation for dangerous actions come with it; teams and content review are in the backlog | Accepted | Apps that don't want an admin don't download or compile it; a library gets fixes, while fully generated pages go stale; the resources the app owns keep customization in plain Go. Admin actions are logged (D202), which is why the audit log comes first |
 
 ---
 
@@ -2403,3 +2514,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-03 | G1 Google Cloud Storage driver implemented: §3, §5 (layout), §14 (drivers table), §14.3 updated; D199 added |
 | 2026-10-03 | I1c formatting and languages implemented: §14.5 updated (numbers, currencies, dates, relative times, `Dir`, `LanguageName`, `web.Alternates`, `lang:add` and `anetos.dev/locales`); D196–D198 added |
 | 2026-10-06 | M2 docs site and anetos.dev built (Hugo, Hextra, Cloudflare Pages); §5 (module path) updated; D200, D201 added |
+| 2026-10-06 | AU1 audit log and soft deletes designed: §10.7 added; D202–D209 added; the admin interface planned (D210) |

@@ -248,6 +248,9 @@ func (q *Queue) reserve(ctx context.Context, queues []string) (*Reservation, err
 func (q *Queue) process(ctx, base context.Context, r *Reservation) {
 	env, jt, job, err := q.decode(r.Payload)
 	ctx, base = env.inLocale(ctx), env.inLocale(base) // the dispatcher's language and time zone
+	if q.app != nil && len(env.Carried) > 0 {
+		ctx, base = q.app.WithCarried(ctx, env.Carried), q.app.WithCarried(base, env.Carried)
+	}
 	info := Info{ID: r.ID, Job: env.Job, Queue: r.Queue, Attempt: r.Attempts, Tries: q.tries(jt)}
 	log := q.log.With("job", info.Job, "id", info.ID, "queue", info.Queue, "attempt", info.Attempt)
 	timeout := q.timeout(jt)

@@ -113,7 +113,7 @@ type listener struct {
 	// async
 	timeout     time.Duration
 	concurrency int
-	ch          chan any
+	ch          chan delivery
 	started     sync.Once
 
 	// queued
@@ -304,7 +304,7 @@ func newListener[E any](b *Bus, k kind, fn func(context.Context, E) error, opts 
 	l.call = func(ctx context.Context, e any) error { return fn(ctx, e.(E)) }
 	switch k {
 	case asyncKind:
-		l.ch = make(chan any, o.buffer)
+		l.ch = make(chan delivery, o.buffer)
 	case queuedKind:
 		q, err := b.queueOf()
 		if err != nil {
@@ -483,6 +483,13 @@ type inListener struct{}
 // closed bus.
 var ErrClosed = errors.New("events: the bus is closed")
 
+// delivery is an event on its way to an async listener, with the values
+// the app's carriers captured from the emitter's context.
+type delivery struct {
+	e       any
+	carried map[string]string
+}
+
 // enqueue hands e to an async listener, waiting for room in its buffer
 // until ctx ends.
 func (b *Bus) enqueue(ctx context.Context, l *listener, e any) error {
@@ -495,18 +502,22 @@ func (b *Bus) enqueue(ctx context.Context, l *listener, e any) error {
 	b.sending.Add(1) // under the lock: Close waits for it before draining
 	b.mu.RUnlock()
 	defer b.sending.Done()
+	d := delivery{e: e}
+	if b.app != nil {
+		d.carried = b.app.Carried(ctx) // the emitter's actor, for example (anetos.Carrier)
+	}
 	l.started.Do(func() {
 		for range l.concurrency {
 			go b.work(l)
 		}
 	})
 	select {
-	case l.ch <- e:
+	case l.ch <- d:
 		return nil
 	default:
 	}
 	select {
-	case l.ch <- e:
+	case l.ch <- d:
 		return nil
 	case <-b.stop:
 		b.pending.done()
@@ -523,18 +534,20 @@ func (b *Bus) work(l *listener) {
 		select {
 		case <-b.stop:
 			return
-		case e := <-l.ch:
-			b.handle(l, e)
+		case d := <-l.ch:
+			b.handle(l, d)
 			b.pending.done()
 		}
 	}
 }
 
 // handle runs an async listener, logging its error or panic.
-func (b *Bus) handle(l *listener, e any) {
+func (b *Bus) handle(l *listener, d delivery) {
+	e := d.e
 	ctx, cancel := context.WithTimeout(b.context(), l.timeout)
 	defer cancel()
 	if b.app != nil {
+		ctx = b.app.WithCarried(ctx, d.carried)
 		var end func()
 		ctx, end = b.app.StartUnit(ctx, anetos.Unit{Kind: "listener", Name: l.name})
 		defer end()

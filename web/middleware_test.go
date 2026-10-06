@@ -81,7 +81,12 @@ func TestRealIP(t *testing.T) {
 		t.Fatal(err)
 	}
 	var ip string
-	h := RealIP(trusted)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { ip = ClientIP(r) }))
+	h := RealIP(trusted)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ip = ClientIP(r)
+		if from := ClientIPFrom(r.Context()); from != ip {
+			t.Errorf("ClientIPFrom = %q, ClientIP = %q", from, ip)
+		}
+	}))
 	serve := func(remote string, headers ...string) string {
 		req := httptest.NewRequest("GET", "/", nil)
 		req.RemoteAddr = remote
@@ -112,6 +117,9 @@ func TestRealIP(t *testing.T) {
 	}
 	if _, err := ParsePrefixes([]string{"not-an-ip"}); err == nil {
 		t.Error("bad prefix accepted")
+	}
+	if got := ClientIPFrom(t.Context()); got != "" {
+		t.Errorf("ClientIPFrom outside a request = %q", got)
 	}
 	req := httptest.NewRequest("GET", "/", nil)
 	req.RemoteAddr = "garbage"
