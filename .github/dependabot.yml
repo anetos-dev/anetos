@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
-# Weekly updates of the CI's actions (pinned by commit) and of the
-# published modules' dependencies. Security updates come as soon as an
-# advisory is out, whatever the schedule.
+# Weekly updates of the CI's actions (pinned by commit) and of the Go
+# modules' dependencies. Security updates come as soon as an advisory is
+# out, whatever the schedule.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -18,14 +18,24 @@ updates:
       - /cli
       - /drivers/*
       - /plugins/*
+      - /examples/*
+      - /bench
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
+    # One pull request a week for every module: the examples and bench
+    # use the drivers, cli and plugins through replace directives, so a
+    # dependency bumped in one module alone leaves them needing go mod
+    # tidy, and CI fails. Together, each go.mod gets the same versions.
     groups:
-      golang-x:
-        patterns: ["golang.org/x/*"]
-    # v1.84.0 has GO-2026-6443 with no fixed release yet: the modules
-    # stay on v1.83.2 until v1.84.1 or v1.85.0 is out.
+      go-modules:
+        patterns: ["*"]
+    # gRPC v1.84.0 has GO-2026-6443 with no fixed release yet: the
+    # modules stay on v1.83.2 until v1.84.1 or v1.85.0 is out.
+    # The Google API client requires gRPC 1.84 from v0.299.0: held back
+    # with it. Remove both when gRPC has a fixed release.
     ignore:
       - dependency-name: google.golang.org/grpc
         versions: ["1.84.0"]
+      - dependency-name: google.golang.org/api
+        versions: [">= 0.299.0"]
