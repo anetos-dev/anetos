@@ -1,0 +1,24 @@
+package main
+
+import (
+	"testing"
+
+	"anetos.dev/anetos/anetostest"
+)
+
+// anetostest.New boots the app with test settings (.env.testing, not
+// .env) and a migrated database, which the test leaves as it found it.
+func TestWelcome(t *testing.T) {
+	app := anetostest.New(t, setup)
+	app.GetJSON("/api/v1").AssertOK().
+		AssertJSONPath("name", "[[.Name]]").
+		AssertJSONPath("message", "Welcome to the [[.Title]] API.")
+}
+
+// Errors are JSON problem details, whatever the client accepts.
+func TestNotFound(t *testing.T) {
+	app := anetostest.New(t, setup)
+	app.Get("/api/v1/no-such-thing").AssertNotFound().
+		AssertHeader("Content-Type", "application/problem+json").
+		AssertJSONPath("status", 404)
+}

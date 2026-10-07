@@ -75,15 +75,21 @@ ADMIN_PATH=
 ADMIN_HOST=
 `
 
+// AdminInAPI is why make:admin refuses in an API project ([RefuseAPI]).
+const AdminInAPI = "the admin is for web projects (anetos new --stack=web)"
+
 // MakeAdmin writes the admin interface's glue into the project at root:
 // setupAdmin (admin.go), the app/admin package, with no resources yet,
 // and a test (admin_test.go).
 // It needs make:auth's users and setupAuth. When setup in main.go calls
 // setupAuth as make:auth wrote it, it calls setupAdmin after it. It adds
 // the ADMIN_* settings, empty, to .env and .env.example. The module
-// itself is the command's to add (go get).
+// itself is the command's to add (go get). It refuses in an API project.
 func MakeAdmin(root string) (AdminResult, error) {
 	var res AdminResult
+	if err := RefuseAPI(root, "make:admin", AdminInAPI); err != nil {
+		return res, err
+	}
 	b, err := os.ReadFile(filepath.Join(root, "go.mod"))
 	if err != nil {
 		return res, err

@@ -15,6 +15,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 	"text/template"
 	"unicode"
@@ -41,14 +42,32 @@ type Project struct {
 	Module  string // Go module path; default: the directory's name
 	DB      string // sqlite, postgres or mysql
 	Replace string // local Anetos checkout to use through replace directives ("" to download)
-	// CSS is the stylesheet: "anetos" (the default, "" too), Anetos's
-	// starter theme, or "none", an empty public/static/app.css for the
-	// app's own (the markup keeps the theme's few class names).
+	// CSS is the stylesheet of the web stack: "anetos" (the default, ""
+	// too), Anetos's starter theme, or "none", an empty
+	// public/static/app.css for the app's own (the markup keeps the
+	// theme's few class names). The api stack has no stylesheet: it must
+	// be "".
 	CSS string
+	// Stack is the kind of app: "web" (the default, "" too), pages
+	// rendered on the server with sessions and CSRF protection, or "api",
+	// JSON only.
+	Stack string
 }
 
 // Stylesheets are the values of [Project.CSS].
 var Stylesheets = []string{"anetos", "none"}
+
+// Stacks are the values of [Project.Stack].
+var Stacks = []string{"web", "api"}
+
+// stackLayers are the template layers (directories of templates/new) of
+// each stack. No two layers of a stack may write the same file
+// (TestStackLayersDisjoint); base files that differ between stacks do so
+// through projectData's Web and API.
+var stackLayers = map[string][]string{
+	"web": {"base", "web"},
+	"api": {"base", "api"},
+}
 
 // noCSS is public/static/app.css with --css=none.
 const noCSS = `/* The app's styles. The pages' markup is plain HTML with a few class
@@ -59,6 +78,8 @@ const noCSS = `/* The app's styles. The pages' markup is plain HTML with a few c
 // projectData is what the templates see.
 type projectData struct {
 	Name, Title, Module, DB, Key, Replace, DBName string
+	Stack                                         string // web or api
+	Web, API                                      bool   // the stack
 	Bin                                           string // anetos build's binary (BinaryName)
 	Image                                         string // the name in lower case, for Docker and platforms
 	// GoMinor is the Go release of go.mod's go line ("1.26"), for the
@@ -161,10 +182,20 @@ func Create(p Project) ([]string, error) {
 	default:
 		return nil, fmt.Errorf("anetos new: --db must be one of %s", strings.Join(Databases, ", "))
 	}
-	switch p.CSS {
+	switch p.Stack {
 	case "":
+		p.Stack = "web"
+	case "web", "api":
+	default:
+		return nil, fmt.Errorf("anetos new: --stack must be one of %s", strings.Join(Stacks, ", "))
+	}
+	switch {
+	case p.Stack == "api" && p.CSS != "":
+		return nil, errors.New("anetos new: --css is for the web stack; an api project has no pages to style")
+	case p.Stack == "api":
+	case p.CSS == "":
 		p.CSS = "anetos"
-	case "anetos", "none":
+	case p.CSS == "anetos", p.CSS == "none":
 	default:
 		return nil, fmt.Errorf("anetos new: --css must be one of %s", strings.Join(Stylesheets, ", "))
 	}
@@ -185,6 +216,7 @@ func Create(p Project) ([]string, error) {
 		Name: name, Title: title(name), Module: p.Module, DB: p.DB,
 		Key: appkey.Generate(), Replace: p.Replace, DBName: naming.Snake(identifier(name)),
 		GoMinor: goMinor, Bin: BinaryName(p.Module), Image: strings.ToLower(name),
+		Stack: p.Stack, Web: p.Stack == "web", API: p.Stack == "api",
 	}
 	if p.Replace != "" {
 		data.ReplaceCore = modfile.AutoQuote(p.Replace)
@@ -207,11 +239,7 @@ func Create(p Project) ([]string, error) {
 		mode    os.FileMode
 	}
 	var files []file
-	err = fs.WalkDir(templates, "templates/new", func(src string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return err
-		}
-		rel := strings.TrimSuffix(strings.TrimPrefix(src, "templates/new/"), ".tmpl")
+	err = walkStack(p.Stack, func(src, rel string) error {
 		switch rel {
 		case "env":
 			rel = ".env"
@@ -246,6 +274,7 @@ func Create(p Project) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	slices.SortFunc(files, func(a, b file) int { return strings.Compare(a.rel, b.rel) })
 	_, statErr := os.Stat(abs)
 	created := errors.Is(statErr, fs.ErrNotExist)
 	var written []string
@@ -259,6 +288,25 @@ func Create(p Project) ([]string, error) {
 		written = append(written, f.rel)
 	}
 	return written, nil
+}
+
+// walkStack calls fn for each template of a stack's layers, with its
+// path in the embedded files and the path it writes (relative to the
+// project, without .tmpl).
+func walkStack(stack string, fn func(src, rel string) error) error {
+	for _, layer := range stackLayers[stack] {
+		root := "templates/new/" + layer
+		err := fs.WalkDir(templates, root, func(src string, d fs.DirEntry, err error) error {
+			if err != nil || d.IsDir() {
+				return err
+			}
+			return fn(src, strings.TrimSuffix(strings.TrimPrefix(src, root+"/"), ".tmpl"))
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // render executes a template (with [[ ]] delimiters) and formats Go

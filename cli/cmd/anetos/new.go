@@ -15,12 +15,15 @@ import (
 	"anetos.dev/anetos/cli/internal/scaffold"
 )
 
-const newUsage = `Usage: anetos new <directory> [--module=path] [--db=sqlite|postgres|mysql] [--css=anetos|none]
+const newUsage = `Usage: anetos new <directory> [--module=path] [--db=sqlite|postgres|mysql] [--stack=web|api] [--css=anetos|none]
 
-Creates an Anetos project: routes, handlers, templ views with a layout
-styled by Anetos's starter theme (--css=none: no styles),
-sessions and CSRF protection, migrations, static files with htmx, a test,
-and a .env with a fresh APP_KEY. Then it downloads the dependencies and
+Creates an Anetos project: routes, handlers, migrations, a test, the
+files to deploy it, and a .env with a fresh APP_KEY. The web stack (the
+default) has templ views with a layout styled by Anetos's starter theme
+(--css=none: no styles), sessions and CSRF protection, and static files
+with htmx. The api stack (--stack=api) serves JSON only: routes under
+/api/v1, errors as JSON problem details, CORS settings; no views or
+sessions. Then it downloads the dependencies and, for the web stack,
 generates the views (skip with --skip-install).
 `
 
@@ -28,7 +31,8 @@ func newProject(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	fs := flag.NewFlagSet("anetos new", flag.ContinueOnError)
 	module := fs.String("module", "", "Go module path (default: the directory's name)")
 	dbName := fs.String("db", "sqlite", "database: sqlite, postgres or mysql")
-	css := fs.String("css", "anetos", "stylesheet: anetos (a starter theme, no build step) or none")
+	css := fs.String("css", "", "web stack's stylesheet: anetos (a starter theme, no build step; the default) or none")
+	stack := fs.String("stack", "web", "kind of app: web (pages, sessions) or api (JSON only)")
 	replace := fs.String("replace", "", "use a local Anetos checkout at this path (for framework development)")
 	skip := fs.Bool("skip-install", false, "don't download dependencies or generate code")
 	pos, code := parse(fs, args, stderr, newUsage)
@@ -40,14 +44,14 @@ func newProject(ctx context.Context, args []string, stdout, stderr io.Writer) in
 		return 2
 	}
 	dir := pos[0]
-	files, err := scaffold.Create(scaffold.Project{Dir: dir, Module: *module, DB: *dbName, Replace: *replace, CSS: *css})
+	files, err := scaffold.Create(scaffold.Project{Dir: dir, Module: *module, DB: *dbName, Replace: *replace, CSS: *css, Stack: *stack})
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1
 	}
 	fmt.Fprintf(stdout, "Created %s (%d files).\n", dir, len(files))
 	if !*skip {
-		for _, step := range installSteps(*dbName, *replace != "") {
+		for _, step := range installSteps(*dbName, *stack, *replace != "") {
 			fmt.Fprintf(stdout, "  go %s\n", strings.Join(step, " "))
 			if out, err := goCmd(ctx, dir, step...); err != nil {
 				fmt.Fprintf(stderr, "anetos new: go %s failed: %v\n%s\nFix the problem, then run the remaining steps in %s yourself.\n", strings.Join(step, " "), err, out, dir)
@@ -59,12 +63,17 @@ func newProject(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	if *dbName != "sqlite" {
 		fmt.Fprintf(stdout, "  # create the database and set DB_* in .env\n")
 	}
-	fmt.Fprintf(stdout, "  go run . migrate\n  go tool anetos dev    # http://localhost:8080\n")
+	url := "http://localhost:8080"
+	if *stack == "api" {
+		url += "/api/v1"
+	}
+	fmt.Fprintf(stdout, "  go run . migrate\n  go tool anetos dev    # %s\n", url)
 	return 0
 }
 
-// installSteps are the go commands that finish a new project.
-func installSteps(db string, replaced bool) [][]string {
+// installSteps are the go commands that finish a new project of a
+// stack: templ and its generated views for the web stack only.
+func installSteps(db, stack string, replaced bool) [][]string {
 	var steps [][]string
 	if !replaced {
 		// The modules are versioned separately: the tool pins itself, the
@@ -73,11 +82,13 @@ func installSteps(db string, replaced bool) [][]string {
 			[]string{"get", "anetos.dev/anetos@latest", "anetos.dev/anetos/drivers/" + db + "@latest"},
 			[]string{"get", "-tool", "anetos.dev/anetos/cli/cmd/anetos@" + anetosVersion()})
 	}
-	return append(steps,
-		[]string{"get", "-tool", "github.com/a-h/templ/cmd/templ@" + scaffold.TemplVersion},
-		[]string{"tool", "templ", "generate"}, // views/ has no Go files before this
-		[]string{"mod", "tidy"},
-	)
+	if stack != "api" {
+		steps = append(steps,
+			[]string{"get", "-tool", "github.com/a-h/templ/cmd/templ@" + scaffold.TemplVersion},
+			[]string{"tool", "templ", "generate"}, // views/ has no Go files before this
+		)
+	}
+	return append(steps, []string{"mod", "tidy"})
 }
 
 // anetosVersion is the version of Anetos to put in new projects: this

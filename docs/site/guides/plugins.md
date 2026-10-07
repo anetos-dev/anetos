@@ -125,7 +125,7 @@ go run . plugins:list
 
 ```text
 PLUGIN    REQUIRES             ROUTES     ADDS
-postmark  >= v0.2.0, < v0.4.0  /postmark  config, migrations, commands, jobs, routes
+postmark  >= v0.2.0, < v0.5.0  /postmark  config, migrations, commands, jobs, routes
 ```
 
 A plugin's routes are under `/<name>` and named `<name>.…`

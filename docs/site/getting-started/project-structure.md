@@ -36,6 +36,12 @@ blog/
 └── .env.example          the settings, without secrets (in git)
 ```
 
+An API project (`anetos new --stack=api`) has `routes/api.go` instead
+of `routes/web.go`, `app/handlers/welcome.go` (the answer to
+`GET /api/v1`) instead of the home page, and no `views/` or `public/`;
+`locales/en/app.yaml` holds its messages, and `main_test.go` tests the
+welcome and a 404's JSON.
+
 ## How a request flows
 
 1. `routes/web.go` matches the URL to a handler and runs the route's

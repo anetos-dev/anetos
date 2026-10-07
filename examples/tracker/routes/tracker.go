@@ -51,10 +51,14 @@ func Tracker(r *web.Router, sessions *session.Manager, a *auth.Auth[*models.User
 	p.Get("/files/{id}", web.H(issues.Download)).Name("attachments.show")
 	p.Delete("/files/{id}", web.H(issues.DeleteAttachment)).Name("attachments.destroy")
 
+	// region: api
+	// The API's errors are JSON problem details, whatever the client
+	// accepts, and a guest gets a 401, not the login page.
 	var api handlers.API
-	v1 := r.Group("/api", a.TokenMiddleware, a.Require) // Authorization: Bearer <token>
+	v1 := r.Group("/api", web.JSONErrors, a.TokenMiddleware, a.Require) // Authorization: Bearer <token>
 	v1.Get("/projects", web.H(api.Projects)).Name("api.projects")
 	v1.Get("/projects/{project}/issues", web.H(api.Issues)).Name("api.issues")
 	v1.Post("/projects/{project}/issues", web.H(api.CreateIssue)).Name("api.issues.store")
 	v1.Get("/projects/{project}/issues/{number}", web.H(api.Issue)).Name("api.issues.show")
+	// endregion
 }

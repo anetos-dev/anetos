@@ -1,0 +1,20 @@
+// Package routes maps URLs to handlers.
+package routes
+
+import (
+	"anetos.dev/anetos/web"
+
+	"[[.Module]]/app/handlers"
+)
+
+// Register adds the application's routes.
+func Register(r *web.Router) {
+	// Every error is JSON (RFC 9457 problem details), whatever the client
+	// accepts: a missing URL's 404 too.
+	r.UseGlobal(web.JSONErrors)
+
+	// The API, version 1. A version 2 would be a second group, this one
+	// kept for as long as clients use it.
+	api := r.Group("/api/v1").As("api.")
+	api.Get("/", web.H(handlers.Welcome{}.Show)).Name("welcome")
+}

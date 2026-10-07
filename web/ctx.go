@@ -118,8 +118,10 @@ func (c *Ctx) URL(name string, args ...any) (string, error) {
 }
 
 // WantsJSON reports whether the client prefers a JSON response: it accepts
-// JSON but not HTML, sent a JSON body, or made an XMLHttpRequest. Error
-// responses use it to choose between JSON and an HTML page.
+// JSON but not HTML, sent a JSON body, or made an XMLHttpRequest; or the
+// request went through [JSONErrors], which makes it an API's whatever
+// the client sent. Error responses use it to choose between JSON and an
+// HTML page.
 func (c *Ctx) WantsJSON() bool { return wantsJSON(c.r) }
 
 // WantsJSON reports whether the client of r prefers a JSON response, as
@@ -127,6 +129,9 @@ func (c *Ctx) WantsJSON() bool { return wantsJSON(c.r) }
 func WantsJSON(r *http.Request) bool { return wantsJSON(r) }
 
 func wantsJSON(r *http.Request) bool {
+	if jsonErrorsFor(r) {
+		return true
+	}
 	if accept := r.Header.Get("Accept"); accept != "" {
 		jsonQ, htmlQ := acceptQuality(accept)
 		if jsonQ > htmlQ {

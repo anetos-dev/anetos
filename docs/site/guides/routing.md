@@ -158,7 +158,8 @@ handles everything else:
   an `Allow` header listing them (including custom methods such as
   `PURGE`), and `OPTIONS` gets **204** with `Allow`.
 - Anything else gets **404**, as JSON problem details or an HTML page (see
-  [Return errors](handlers.md#4-return-errors)).
+  [Return errors](handlers.md#4-return-errors)); always JSON when
+  `web.JSONErrors` is global middleware, as in an API project.
 
 > **Coming from Laravel?** `Route::get(...)->name('x')`, `Route::prefix()`
 > groups and `route('x', $id)` map to `r.Get(...).Name("x")`, `r.Group()`

@@ -45,6 +45,9 @@ func makeAdmin(ctx context.Context, args []string, stdout, stderr io.Writer) int
 		return 2
 	}
 	root, err := projectRoot()
+	if err == nil {
+		err = scaffold.RefuseAPI(root, "make:admin", scaffold.AdminInAPI) // before go get
+	}
 	if err != nil {
 		fmt.Fprintln(stderr, "anetos make:admin:", err)
 		return 1

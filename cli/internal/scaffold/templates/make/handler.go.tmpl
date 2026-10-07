@@ -1,5 +1,25 @@
 package handlers
 
+[[if .API -]]
+import "anetos.dev/anetos/web"
+
+// [[.Type]] handles [[.Words]] requests. Route its methods in routes/api.go:
+//
+//	h := handlers.[[.Type]]{}
+//	api.Get("/[[.Path]]", web.H(h.Index)).Name("[[.Path]].index")
+type [[.Type]] struct{}
+
+// [[.Type]]Response is what Index answers, as JSON: choose its fields.
+type [[.Type]]Response struct {
+	Handler string `json:"handler"`
+}
+
+// Index responds to GET /api/v1/[[.Path]]. Its second parameter is the
+// request's input: a struct whose tags bind and validate it (none here).
+func (h [[.Type]]) Index(c *web.Ctx, _ struct{}) ([[.Type]]Response, error) {
+	return [[.Type]]Response{Handler: "[[.Type]].Index"}, nil
+}
+[[else -]]
 import (
 	"net/http"
 
@@ -16,3 +36,4 @@ type [[.Type]] struct{}
 func (h [[.Type]]) Index(c *web.Ctx) error {
 	return c.Text(http.StatusOK, "[[.Type]].Index")
 }
+[[end -]]

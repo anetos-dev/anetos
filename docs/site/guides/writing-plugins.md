@@ -52,7 +52,7 @@ type Settings struct {
 type plugin struct{ cfg Settings }
 
 func (p *plugin) Name() string     { return "postmark" }
-func (p *plugin) Requires() string { return ">= v0.2.0, < v0.4.0" }
+func (p *plugin) Requires() string { return ">= v0.2.0, < v0.5.0" }
 func (p *plugin) Config() any      { return &p.cfg }
 ```
 
@@ -64,7 +64,7 @@ func (p *plugin) Config() any      { return &p.cfg }
   allow one minor series. A pre-release (`v0.2.0-rc.1`) counts as its
   release, and an app built from an untagged commit or a local
   checkout of Anetos has the version that source is heading for
-  (`v0.3.0-dev`).
+  (`v0.4.0-dev`).
 - `Config` (`ext.HasConfig`) returns a pointer to the settings struct,
   with `env` tags as for [`config.Get`](configuration.md): defaults,
   `required`, typed fields, `anetos.Secret` for secrets. Every key must

@@ -52,6 +52,7 @@ func TestAPI(t *testing.T) {
 	api.GetJSON("/api/projects/WEB/issues?q=crash").AssertJSONPath("total", float64(1))
 	api.GetJSON("/api/projects/WEB/issues/2").AssertOK().AssertJSONPath("status", "closed")
 	api.GetJSON("/api/projects/WEB/issues/9").AssertNotFound()
+	api.Get("/api/projects/WEB/issues/9").AssertNotFound().AssertHeader("Content-Type", "application/problem+json")
 
 	var created handlers.APIIssue
 	api.PostJSON("/api/projects/WEB/issues", map[string]any{"title": "From the API", "labels": []string{"Idea", "bug"}}).
@@ -74,6 +75,9 @@ func TestAPI(t *testing.T) {
 
 	w.app.WithHeader("Authorization", "")
 	w.app.GetJSON("/api/projects").AssertStatus(http.StatusUnauthorized)
+	// A browser's request gets the same: the API's errors are JSON.
+	w.app.Get("/api/projects").AssertStatus(http.StatusUnauthorized).
+		AssertHeader("Content-Type", "application/problem+json").AssertJSONPath("status", 401)
 }
 
 // The dashboard makes read-only tokens.

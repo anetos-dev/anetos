@@ -24,6 +24,7 @@ compiles its views. Its flags:
 | Flag | Default | Meaning |
 |---|---|---|
 | `--db` | `sqlite` | `postgres` or `mysql` for a server database ([Choose a database](databases.md)) |
+| `--stack` | `web` | `api` for an app that serves JSON only ([below](#an-api-instead)) |
 | `--css` | `anetos` | The starter theme; `none` for an almost empty stylesheet, for your own CSS or a CSS framework ([Style your app](../guides/styling.md)) |
 | `--module` | the folder's name | The Go module path, such as `github.com/you/blog` |
 
@@ -55,5 +56,33 @@ go run .               # run: the web server, the queue's workers and the schedu
 
 In production, the built binary takes the same commands
 (`./bin/blog migrate`).
+
+## An API instead
+
+Since v0.4, `--stack=api` writes an app that serves JSON only, for a
+mobile app or a front end built separately:
+
+```sh
+anetos new shop --stack=api
+cd shop
+go run . migrate
+go tool anetos dev   # http://localhost:8080/api/v1
+```
+
+It has the same database, queue, mail, storage, scheduler, plugins and
+deploy files, but no views, static files, sessions or CSRF protection.
+Its routes are in `routes/api.go`, under `/api/v1`; `GET /api/v1`
+answers:
+
+```json
+{"name":"shop","message":"Welcome to the Shop API."}
+```
+
+Every error is JSON problem details, whatever the client accepts (a
+missing URL's 404 too). Browsers on other origins may call the API once
+`HTTP_CORS_ORIGINS` in `.env` lists them, such as
+`http://localhost:5173`. `make:handler` writes JSON handlers in such a
+project; accounts with API tokens (`make:auth`) and JSON endpoints for a
+model (`make:crud`) are coming later in v0.4, and refuse until then.
 
 Next: [Project structure](project-structure.md).

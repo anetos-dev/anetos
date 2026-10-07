@@ -6,7 +6,34 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- `anetos new --stack=api` writes an app that serves JSON only (AP1,
+  D259–D262): no views, templ, static files, sessions or CSRF; routes
+  under `/api/v1` in `routes/api.go`, a `GET /api/v1` welcome answered
+  by a struct of its own, every error as JSON problem details,
+  `HTTP_CORS_ORIGINS` in the settings files, and a test that calls the
+  API. Its handlers are typed (`web.H`), so the OpenAPI spec (AP4) can
+  describe them. The database, queue, mail, storage, scheduler, plugins, health
+  routes, `doctor`, `anetos build` and deploy files are the web
+  stack's. `--stack=web` is the default and writes what it did; `--css`
+  is refused with `api`.
+- `web.JSONErrors` middleware: the errors of the requests it handles are
+  problem details whatever the client accepts (`Accept: */*` or none got
+  the HTML page), never a page or a redirect back; under it `WantsJSON`
+  is true, so `auth.Require` answers 401 rather than redirecting to the
+  login page. Global (`UseGlobal`), it covers unmatched URLs and the
+  server's middleware too: `Recover` answers a middleware's panic as
+  problem details under it (AP1, D261). `examples/tracker`'s API uses it.
+- In an API project (`routes/api.go`, no `routes/web.go`),
+  `make:handler` (a typed handler answering a struct) and
+  `make:middleware` write for the API, and `make:auth` and `make:crud`
+  refuse, saying so, until AP2 and AP3; `make:admin` refuses (AP1,
+  D262).
+
 ### Changed
+- `plugins/postmark` works with Anetos v0.4 too (`Requires`:
+  `>= v0.2.0, < v0.5.0`); an Anetos built from this source reports
+  `v0.4.0-dev` (AP1).
 - `anetos new` pins templ v0.3.1070 (was v0.3.1020), as the examples
   now use (M10).
 - Dependencies updated in every module; the Google API client stays

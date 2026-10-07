@@ -75,6 +75,8 @@ go tool anetos build       # bin/blog: one static binary, everything in it
 ./bin/blog doctor          # unsafe settings, pending migrations
 ./bin/blog help            # migrate, routes:list, your own commands, …
 docker build -t blog .     # or the image, from the generated Dockerfile
+
+anetos new shop --stack=api # or JSON only: routes under /api/v1, errors as problem details
 ```
 
 ## License

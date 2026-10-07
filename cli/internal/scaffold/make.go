@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"go/token"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -35,6 +36,30 @@ func FindRoot(dir string) (string, error) {
 
 type makeData struct {
 	Type, Words, Path, Table, ID string
+	API                          bool // the project is an API project (IsAPI)
+}
+
+// IsAPI reports whether the project at root is an API project, as
+// anetos new --stack=api writes one: it has routes/api.go and no
+// routes/web.go. A web project that adds routes/api.go stays a web
+// project, and an API project with templ views (for emails) stays an API
+// project.
+func IsAPI(root string) bool {
+	if _, err := os.Stat(filepath.Join(root, "routes", "api.go")); err != nil {
+		return false
+	}
+	_, err := os.Stat(filepath.Join(root, "routes", "web.go"))
+	return errors.Is(err, fs.ErrNotExist)
+}
+
+// RefuseAPI returns an error when the project at root is an API project
+// ([IsAPI]) and cmd, a generator of HTML pages, can't run there; why
+// says what to do instead or when it's coming. Otherwise it returns nil.
+func RefuseAPI(root, cmd, why string) error {
+	if !IsAPI(root) {
+		return nil
+	}
+	return fmt.Errorf("%s writes HTML pages, and this is an API project (routes/api.go, no routes/web.go); %s", cmd, why)
 }
 
 // typeName checks and normalizes a name given on the command line into an
@@ -58,14 +83,15 @@ func (d makeData) write(root, tmpl, rel string) (string, error) {
 	return rel, nil
 }
 
-// MakeHandler writes app/handlers/<name>.go with a handler type.
+// MakeHandler writes app/handlers/<name>.go with a handler type, which
+// answers JSON in an API project.
 func MakeHandler(root, name string) (string, error) {
 	t, err := typeName(name)
 	if err != nil {
 		return "", err
 	}
 	snake := naming.Snake(t)
-	d := makeData{Type: t, Words: strings.ReplaceAll(snake, "_", " "), Path: strings.ReplaceAll(snake, "_", "-")}
+	d := makeData{Type: t, Words: strings.ReplaceAll(snake, "_", " "), Path: strings.ReplaceAll(snake, "_", "-"), API: IsAPI(root)}
 	return d.write(root, "handler.go.tmpl", "app/handlers/"+snake+".go")
 }
 
@@ -104,7 +130,7 @@ func MakeMiddleware(root, name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return makeData{Type: t}.write(root, "middleware.go.tmpl", "app/middleware/"+naming.Snake(t)+".go")
+	return makeData{Type: t, API: IsAPI(root)}.write(root, "middleware.go.tmpl", "app/middleware/"+naming.Snake(t)+".go")
 }
 
 var (

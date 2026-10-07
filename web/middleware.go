@@ -128,7 +128,8 @@ func AccessLog(logger *slog.Logger) Middleware {
 
 // Recover catches panics in the middleware around the router (panics in
 // handlers are already turned into error responses by the router), logs
-// them with a stack trace and responds 500 if nothing was written yet.
+// them with a stack trace and responds 500 if nothing was written yet:
+// problem details JSON under [JSONErrors], else plain text.
 func Recover(logger *slog.Logger) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -142,7 +143,18 @@ func Recover(logger *slog.Logger) Middleware {
 					panic(v)
 				}
 				logger.Error("panic in middleware", "panic", v, "path", r.URL.Path, "stack", string(debug.Stack()))
-				if !rw.started() {
+				switch {
+				case rw.started():
+				case jsonErrorsFor(r):
+					p := problem{Type: "about:blank", Title: statusTitle(r.Context(), http.StatusInternalServerError),
+						Status: http.StatusInternalServerError, RequestID: RequestID(r.Context())}
+					rw.Header().Set("Content-Type", "application/problem+json")
+					rw.Header().Set("X-Content-Type-Options", "nosniff")
+					rw.WriteHeader(http.StatusInternalServerError)
+					if r.Method != http.MethodHead {
+						_, _ = rw.Write(p.json())
+					}
+				default:
 					http.Error(rw, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 				}
 			}()

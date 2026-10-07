@@ -286,6 +286,109 @@ func TestNewProject(t *testing.T) {
 	}
 }
 
+// TestNewAPIProject creates an API project (--stack=api) against this
+// checkout: it builds, passes its tests, has no views or sessions, and
+// the generators of pages refuse in it. PostgreSQL and MySQL projects
+// build too.
+func TestNewAPIProject(t *testing.T) {
+	if testing.Short() {
+		t.Skip("creates and builds a project")
+	}
+	repo, err := filepath.Abs("../../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code, _, errOut := runCmd(t, "new", filepath.Join(t.TempDir(), "x"), "--stack=api", "--css=none", "--skip-install"); code != 1 || !strings.Contains(errOut, "--css is for the web stack") {
+		t.Errorf("--stack=api --css=none: %d %s", code, errOut)
+	}
+	if code, _, errOut := runCmd(t, "new", filepath.Join(t.TempDir(), "x"), "--stack=vue", "--skip-install"); code != 1 || !strings.Contains(errOut, "--stack must be one of web, api") {
+		t.Errorf("--stack=vue: %d %s", code, errOut)
+	}
+	dir := filepath.Join(t.TempDir(), "shop")
+	code, out, errOut := runCmd(t, "new", dir, "--module", "example.com/shop", "--stack=api", "--replace", repo)
+	if code != 0 {
+		t.Fatalf("new: %d\n%s\n%s", code, out, errOut)
+	}
+	if strings.Contains(out, "templ") || !strings.Contains(out, "http://localhost:8080/api/v1") {
+		t.Errorf("output:\n%s", out)
+	}
+	for _, no := range []string{"views", "public", "routes/web.go"} {
+		if _, err := os.Stat(filepath.Join(dir, no)); err == nil {
+			t.Errorf("an API project has %s", no)
+		}
+	}
+	if mod := read(t, filepath.Join(dir, "go.mod")); strings.Contains(mod, "templ") {
+		t.Errorf("go.mod:\n%s", mod)
+	}
+
+	t.Chdir(dir)
+	if code, out, errOut := runCmd(t, "make:handler", "Orders"); code != 0 || !strings.Contains(out, "created app/handlers/orders.go") {
+		t.Fatalf("make:handler: %d\n%s\n%s", code, out, errOut)
+	}
+	for _, args := range [][]string{{"make:auth"}, {"make:crud", "Product", "name:string"}} {
+		if code, _, errOut := runCmd(t, args...); code != 1 || !strings.Contains(errOut, "this is an API project") {
+			t.Errorf("%v: %d %s", args, code, errOut)
+		}
+	}
+	if code, _, errOut := runCmd(t, "make:admin"); code != 1 || !strings.Contains(errOut, "the admin is for web projects") {
+		t.Errorf("make:admin: %d %s", code, errOut)
+	}
+	goRun := func(args ...string) string {
+		t.Helper()
+		c := exec.Command("go", args...)
+		c.Dir = dir
+		b, err := c.CombinedOutput()
+		if err != nil {
+			t.Fatalf("go %v: %v\n%s", args, err, b)
+		}
+		return string(b)
+	}
+	goRun("vet", "./...")
+	if out := goRun("test", "-v", "."); !strings.Contains(out, "--- PASS: TestWelcome") || !strings.Contains(out, "--- PASS: TestNotFound") {
+		t.Errorf("go test:\n%s", out)
+	}
+	if code, out, errOut := runCmd(t, "build"); code != 0 || !strings.Contains(out, "built bin/shop (") {
+		t.Fatalf("build: %d\n%s\n%s", code, out, errOut)
+	}
+	app := func(args ...string) string {
+		t.Helper()
+		c := exec.Command(filepath.Join(dir, "bin", "shop"), args...)
+		c.Dir = dir
+		c.Env = append(os.Environ(), "DB_DATABASE="+filepath.Join(dir, "app.db"))
+		b, err := c.CombinedOutput()
+		if err != nil {
+			t.Fatalf("%v: %v\n%s", args, err, b)
+		}
+		return string(b)
+	}
+	if out := app("migrate"); !strings.Contains(out, "create_jobs_tables") || strings.Contains(out, "sessions") {
+		t.Errorf("migrate:\n%s", out)
+	}
+	if out := app("routes:list"); !regexp.MustCompile(`GET\s+/api/v1\s+api\.welcome`).MatchString(out) {
+		t.Errorf("routes:list:\n%s", out)
+	}
+	if out := app("lang:check"); !strings.Contains(out, "lang:check: en OK") {
+		t.Errorf("lang:check:\n%s", out)
+	}
+	if out := app("doctor"); strings.Contains(out, "session") {
+		t.Errorf("doctor:\n%s", out)
+	}
+
+	for _, d := range []string{"postgres", "mysql"} {
+		t.Run(d, func(t *testing.T) {
+			dir := filepath.Join(t.TempDir(), "shop-"+d)
+			if code, out, errOut := runCmd(t, "new", dir, "--db", d, "--stack=api", "--replace", repo); code != 0 {
+				t.Fatalf("new: %d\n%s\n%s", code, out, errOut)
+			}
+			c := exec.Command("go", "vet", "./...")
+			c.Dir = dir
+			if b, err := c.CombinedOutput(); err != nil {
+				t.Fatalf("go vet: %v\n%s", err, b)
+			}
+		})
+	}
+}
+
 func read(t *testing.T, path string) string {
 	t.Helper()
 	b, err := os.ReadFile(path)

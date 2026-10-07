@@ -139,11 +139,12 @@ const statusClientClosed = 499
 // DefaultErrorHandler logs err and writes an error response, unless the
 // response has already started (then it only logs).
 //
-// Clients that want JSON (see [Ctx.WantsJSON]) get RFC 9457 problem details;
-// others get an HTML page. A browser's form post that fails validation
-// (422, or 400 with field errors) on a route with a session is redirected
-// back instead, with the errors and the submitted input flashed for the
-// form to show (see the view package's Errors and Old). Messages of 5xx errors are replaced by the
+// Clients that want JSON (see [Ctx.WantsJSON], true under [JSONErrors])
+// get RFC 9457 problem details; others get an HTML page. A browser's
+// form post that fails validation (422, or 400 with field errors) on a
+// route with a session is redirected back instead, with the errors and
+// the submitted input flashed for the form to show (see the view
+// package's Errors and Old). Messages of 5xx errors are replaced by the
 // generic status text unless the router is in debug mode, so internal
 // details never leak in production. In debug mode, HTML errors show the
 // error chain, stack trace (for panics) and request details.
@@ -174,12 +175,12 @@ func DefaultErrorHandler(c *Ctx, err error) {
 	if c.w.started() {
 		return
 	}
-	if redirectBack(c, err, status) {
+	if redirectBack(c, err, status) { // never under JSONErrors: WantsJSON
 		return
 	}
 
 	p := newProblem(c, err, status)
-	if c.WantsJSON() {
+	if c.WantsJSON() { // under JSONErrors too
 		c.w.Header().Set("Content-Type", "application/problem+json")
 		c.w.Header().Set("X-Content-Type-Options", "nosniff")
 		c.w.WriteHeader(status)
@@ -189,6 +190,53 @@ func DefaultErrorHandler(c *Ctx, err error) {
 		return
 	}
 	renderErrorPage(c, p)
+}
+
+// JSONErrors is middleware for APIs: it makes the requests it handles an
+// API's. Their errors are answered with RFC 9457 problem details whatever
+// the client accepts, never with an HTML page (the app's
+// [Router.ErrorPages] included) nor a redirect back to a form; curl,
+// fetch without headers and many HTTP libraries send "Accept: */*" or no
+// Accept header, and would otherwise get the HTML page. And
+// [Ctx.WantsJSON] and [WantsJSON] report true, so middleware that treats
+// JSON clients differently does so whatever the client sent: auth's
+// Require answers 401 rather than redirecting to a login page, and a
+// handler that negotiates on WantsJSON answers JSON. Status codes,
+// logging and the hiding of a 5xx's details outside debug mode don't
+// change; in debug mode (APP_DEBUG) the details are in the problem's
+// "debug" member.
+//
+// It acts from where it is in the chain on: put it before the
+// middleware whose answers it should change (before auth's Require). An
+// API-only app adds it to every request, so that URLs no route matches
+// (404, 405) and errors of the server's middleware (a timeout; a panic,
+// which [Recover] answers) are JSON too:
+//
+//	r.UseGlobal(web.JSONErrors)
+//
+// An app with HTML pages adds it to its API's group, where it covers the
+// group's routes only (a URL under the group's prefix that matches no
+// route gets the router's usual 404):
+//
+//	api := r.Group("/api/v1", web.JSONErrors)
+//
+// It acts through the router's error handler ([DefaultErrorHandler]); an
+// error handler of the app's own ([WithErrorHandler]) decides for itself,
+// and handlers that write their own errors (http.Error) are unchanged.
+// Outside a [Router] it does nothing.
+func JSONErrors(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if st := stateFrom(r.Context()); st != nil {
+			st.jsonErrors = true
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// jsonErrorsFor reports whether r went through [JSONErrors].
+func jsonErrorsFor(r *http.Request) bool {
+	st := stateFrom(r.Context())
+	return st != nil && st.jsonErrors
 }
 
 // problem is an RFC 9457 problem details object.

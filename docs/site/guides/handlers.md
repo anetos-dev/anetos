@@ -137,7 +137,8 @@ Return an error and let the framework respond:
 <a id="errors"></a>Error responses are chosen per client:
 
 - **API clients** (sending `Accept: application/json`, a JSON body, or
-  `X-Requested-With: XMLHttpRequest`) get RFC 9457 problem details:
+  `X-Requested-With: XMLHttpRequest`), and every request under
+  `web.JSONErrors` (below), get RFC 9457 problem details:
 
   ```json
   {
@@ -175,6 +176,37 @@ Return an error and let the framework respond:
   // illustrative
   r.ErrorPages(func(_ *web.Ctx, e web.ErrorPage) view.Component { return views.ErrorPage(e) })
   ```
+
+<a id="json-errors"></a>An API can't count on its clients asking for JSON: `curl`, `fetch`
+without headers and many HTTP libraries send `Accept: */*` or nothing,
+and would get the HTML page. Put `web.JSONErrors` (since v0.4) on the
+API's routes, and their errors are problem details whatever the client
+sends, never a page or a redirect back to a form:
+
+```go
+// The API's errors are JSON problem details, whatever the client
+// accepts, and a guest gets a 401, not the login page.
+var api handlers.API
+v1 := r.Group("/api", web.JSONErrors, a.TokenMiddleware, a.Require) // Authorization: Bearer <token>
+v1.Get("/projects", web.H(api.Projects)).Name("api.projects")
+v1.Get("/projects/{project}/issues", web.H(api.Issues)).Name("api.issues")
+v1.Post("/projects/{project}/issues", web.H(api.CreateIssue)).Name("api.issues.store")
+v1.Get("/projects/{project}/issues/{number}", web.H(api.Issue)).Name("api.issues.show")
+```
+
+(Copied from [`examples/tracker/routes/tracker.go`](../../../examples/tracker/routes/tracker.go), region `api`.)
+
+Under it, `c.WantsJSON()` (and `web.WantsJSON(r)` in middleware) is
+true, so everything that treats API clients differently does so:
+`auth`'s `Require` answers 401 rather than redirecting to the login
+page. In debug mode the error's details are in the problem's `debug`
+member. Put it before the middleware whose answers it should change,
+such as `Require`: it acts from its place in the chain on. A project
+made with `anetos new --stack=api` puts it on every request
+(`r.UseGlobal(web.JSONErrors)` in `routes/api.go`), so a URL that
+matches no route gets a JSON 404 too, and a panic in middleware a JSON
+500. On a group, only that group's routes are affected: a URL under the
+group's prefix that matches none of them gets the router's usual 404.
 
 Panics in handlers are recovered and handled like errors. Every 5xx is
 logged with the request ID.

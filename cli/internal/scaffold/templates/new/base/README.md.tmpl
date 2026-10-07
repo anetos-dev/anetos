@@ -1,10 +1,11 @@
 # [[.Title]]
 
-An [Anetos](https://github.com/anetos-dev/anetos) application.
+An [Anetos](https://github.com/anetos-dev/anetos) application[[if .API]]: a JSON
+API under `/api/v1`[[end]].
 
 ```sh
 go run . migrate        # create the database tables
-go tool anetos dev      # run with live reload on http://localhost:8080
+go tool anetos dev      # run with live reload on http://localhost:8080[[if .API]]/api/v1[[end]]
 go test ./...
 ```
 
@@ -15,16 +16,29 @@ go test ./...
 | `app/middleware` | Middleware (`go tool anetos make:middleware Admin`) |
 | `database/migrations` | Migrations and seeders (`go tool anetos make:migration create_posts_table`) |
 | `database/factories` | Model factories, for tests and seeders |
+[[- if .Web]]
 | `routes` | Routes |
 | `views` | templ components (`go generate ./...` after editing, or `anetos dev`) |
 | `public/static` | Static files, served under `/assets` |
+[[- else]]
+| `routes` | Routes: `api.go`, the API's under `/api/v1` |
+| `locales` | The messages' translations (`locales/en/app.yaml`) |
+[[- end]]
 
 Configuration is in `.env` (keep it out of git); `.env.example` lists the
 settings.
 
+[[- if .Web]]
+
 Add user accounts (registration, login with a password, Google or
 GitHub, email verification, password reset, API tokens) with
 `go tool anetos make:auth`, then `go run . migrate`.
+[[- else]]
+
+Errors are JSON problem details ([RFC 9457](https://www.rfc-editor.org/rfc/rfc9457)),
+whatever the client accepts. Browsers on other origins may call the API
+once `HTTP_CORS_ORIGINS` lists them.
+[[- end]]
 
 Add plugins with `go tool anetos add <module>` (and remove them with
 `go tool anetos remove <module>`): `plugins.go` lists them, and `main.go`

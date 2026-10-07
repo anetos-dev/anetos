@@ -3,6 +3,7 @@
 package scaffold
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -129,6 +130,144 @@ func TestCreateCSS(t *testing.T) {
 	}
 }
 
+// No two layers of a stack write the same file: a layer never overrides
+// another's (design D259).
+func TestStackLayersDisjoint(t *testing.T) {
+	if !slices.Equal(slices.Sorted(maps.Keys(stackLayers)), slices.Sorted(slices.Values(Stacks))) {
+		t.Fatalf("stackLayers %v, Stacks %v", stackLayers, Stacks)
+	}
+	for stack, layers := range stackLayers {
+		from := map[string]string{} // file → layer
+		for _, layer := range layers {
+			if _, err := templates.ReadDir("templates/new/" + layer); err != nil {
+				t.Fatalf("%s: layer %s: %v", stack, layer, err)
+			}
+		}
+		err := walkStack(stack, func(src, rel string) error {
+			layer := strings.Split(src, "/")[2]
+			if other, ok := from[rel]; ok {
+				t.Errorf("%s: %s is written by the layers %s and %s", stack, rel, other, layer)
+			}
+			from[rel] = layer
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+// --stack=api: JSON only, no views, templ, static files or sessions.
+func TestCreateAPI(t *testing.T) {
+	for _, db := range Databases {
+		t.Run(db, func(t *testing.T) {
+			dir := filepath.Join(t.TempDir(), "shop")
+			files, err := Create(Project{Dir: dir, Module: "example.com/shop", DB: db, Replace: "../../..", Stack: "api"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, want := range []string{"go.mod", "main.go", "main_test.go", "plugins.go", ".env", ".env.example", "Dockerfile",
+				"deploy/shop.service", "deploy/production.env.example", "routes/api.go", "app/handlers/welcome.go",
+				"locales/en/app.yaml", "database/migrations/migrations.go", "README.md"} {
+				if !slices.Contains(files, want) {
+					t.Errorf("missing %s in %v", want, files)
+				}
+			}
+			for _, f := range files {
+				if strings.HasPrefix(f, "views/") || strings.HasPrefix(f, "public/") || f == "routes/web.go" || f == "app/handlers/home.go" {
+					t.Errorf("an API project has %s", f)
+				}
+			}
+			if !IsAPI(dir) {
+				t.Error("IsAPI = false")
+			}
+			main := read(t, filepath.Join(dir, "main.go"))
+			for _, no := range []string{"session", "templ"} {
+				if strings.Contains(main, no) {
+					t.Errorf("main.go mentions %s:\n%s", no, main)
+				}
+			}
+			if !strings.Contains(main, "routes.Register(srv.Router())") || !strings.Contains(main, "http://localhost:8080/api/v1") {
+				t.Errorf("main.go:\n%s", main)
+			}
+			routes := read(t, filepath.Join(dir, "routes", "api.go"))
+			if !strings.Contains(routes, "r.UseGlobal(web.JSONErrors)") || !strings.Contains(routes, `r.Group("/api/v1").As("api.")`) {
+				t.Errorf("routes/api.go:\n%s", routes)
+			}
+			for _, f := range []string{".env", ".env.example", "deploy/production.env.example"} {
+				env := read(t, filepath.Join(dir, f))
+				if !strings.Contains(env, "\nHTTP_CORS_ORIGINS=\n") || strings.Contains(env, "SESSION_DRIVER") || strings.Contains(env, "LOCALE_URL") {
+					t.Errorf("%s:\n%s", f, env)
+				}
+			}
+			if readme := read(t, filepath.Join(dir, "README.md")); strings.Contains(readme, "views") || strings.Contains(readme, "make:auth") || !strings.Contains(readme, "/api/v1") {
+				t.Errorf("README.md:\n%s", readme)
+			}
+		})
+	}
+	// The web stack keeps what it had.
+	dir := filepath.Join(t.TempDir(), "blog")
+	if _, err := Create(Project{Dir: dir, DB: "sqlite", Stack: "web"}); err != nil {
+		t.Fatal(err)
+	}
+	if IsAPI(dir) {
+		t.Error("IsAPI(web project) = true")
+	}
+	if env := read(t, filepath.Join(dir, ".env")); strings.Contains(env, "HTTP_CORS_ORIGINS") || !strings.Contains(env, "SESSION_DRIVER=cookie") {
+		t.Errorf("web .env:\n%s", env)
+	}
+	// A web project that adds an API stays a web project.
+	if err := os.WriteFile(filepath.Join(dir, "routes", "api.go"), []byte("package routes\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if IsAPI(dir) {
+		t.Error("IsAPI(web project with routes/api.go) = true")
+	}
+}
+
+// In an API project, make:handler and make:middleware write for the
+// API, and the generators of pages refuse.
+func TestMakeInAPIProject(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "shop")
+	if _, err := Create(Project{Dir: root, DB: "sqlite", Stack: "api"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := MakeHandler(root, "orders"); err != nil {
+		t.Fatal(err)
+	}
+	h := read(t, filepath.Join(root, "app", "handlers", "orders.go"))
+	if !strings.Contains(h, "routes/api.go") || !strings.Contains(h, `api.Get("/orders", web.H(h.Index)).Name("orders.index")`) ||
+		!strings.Contains(h, "GET /api/v1/orders") || !strings.Contains(h, "func (h Orders) Index(c *web.Ctx, _ struct{}) (OrdersResponse, error) {") {
+		t.Errorf("handler:\n%s", h)
+	}
+	if _, err := MakeMiddleware(root, "audit"); err != nil {
+		t.Fatal(err)
+	}
+	if m := read(t, filepath.Join(root, "app", "middleware", "audit.go")); !strings.Contains(m, "routes/api.go") || !strings.Contains(m, "\n\n// Audit is HTTP middleware.") {
+		t.Errorf("middleware:\n%s", m)
+	}
+	now := time.Date(2026, 10, 8, 9, 0, 0, 0, time.UTC)
+	if _, err := MakeAuth(root, now); err == nil || !strings.Contains(err.Error(), "API project") || !strings.Contains(err.Error(), "make:auth for API projects") {
+		t.Errorf("make:auth: %v", err)
+	}
+	if _, err := MakeCrud(root, "Order", []string{"total:float"}, now); err == nil || !strings.Contains(err.Error(), "make:crud for API projects") {
+		t.Errorf("make:crud: %v", err)
+	}
+	if _, err := MakeAdmin(root); err == nil || !strings.Contains(err.Error(), "the admin is for web projects") {
+		t.Errorf("make:admin: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "app", "models", "user.go")); err == nil {
+		t.Error("make:auth wrote files")
+	}
+	// Templ views (for emails, say) don't make it a web project.
+	if err := os.MkdirAll(filepath.Join(root, "views"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if !IsAPI(root) {
+		t.Error("IsAPI(API project with views/) = false")
+	}
+}
+
 func TestCreateErrors(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "x"), nil, 0o644); err != nil {
@@ -146,6 +285,9 @@ func TestCreateErrors(t *testing.T) {
 		{Dir: filepath.Join(t.TempDir(), "embed"), DB: "sqlite"},
 		{Dir: filepath.Join(t.TempDir(), "a"), DB: "sqlite", Replace: t.TempDir()},
 		{Dir: filepath.Join(t.TempDir(), "a"), DB: "sqlite", CSS: "bootstrap"}, // not yet
+		{Dir: filepath.Join(t.TempDir(), "a"), DB: "sqlite", Stack: "vue"},     // not yet
+		{Dir: filepath.Join(t.TempDir(), "a"), DB: "sqlite", Stack: "api", CSS: "none"},
+		{Dir: filepath.Join(t.TempDir(), "a"), DB: "sqlite", Stack: "api", CSS: "anetos"},
 	} {
 		if _, err := Create(p); err == nil {
 			t.Errorf("%+v accepted", p)

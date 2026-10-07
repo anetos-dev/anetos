@@ -82,6 +82,9 @@ func MakeAuth(root string, now time.Time) (AuthResult, error) {
 	if mod == "" {
 		return res, errors.New("go.mod has no module line")
 	}
+	if err := RefuseAPI(root, "make:auth", "make:auth for API projects comes later in v0.4"); err != nil {
+		return res, err
+	}
 	for _, dir := range []string{"app/models", "app/handlers", "views", "routes", "database/migrations", "locales"} {
 		if _, err := os.Stat(filepath.Join(root, dir)); err != nil {
 			return res, fmt.Errorf("no %s directory: make:auth adds to a project made with anetos new", dir)

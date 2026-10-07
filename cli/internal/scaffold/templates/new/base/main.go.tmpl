@@ -1,6 +1,6 @@
 // Command [[.Name]] is an Anetos application.
 //
-//	go tool anetos dev        run with live reload (http://localhost:8080)
+//	go tool anetos dev        run with live reload (http://localhost:8080[[if .API]]/api/v1[[end]])
 //	go run . migrate          apply database migrations
 //	go run . help             list every command
 package main
@@ -22,7 +22,9 @@ import (
 	"anetos.dev/anetos/mailer"
 	"anetos.dev/anetos/queue"
 	"anetos.dev/anetos/schedule"
+[[- if .Web]]
 	"anetos.dev/anetos/session"
+[[- end]]
 	"anetos.dev/anetos/storage"
 	"anetos.dev/anetos/web"
 
@@ -31,8 +33,8 @@ import (
 	"[[.Module]]/routes"
 )
 
-//go:generate go tool templ generate
-//go:generate go tool anetos gen
+[[if .Web]]//go:generate go tool templ generate
+[[end]]//go:generate go tool anetos gen
 
 func main() {
 	if len(os.Args) == 2 && os.Args[1] == "version" {
@@ -60,9 +62,15 @@ func setup(app *anetos.App) (*web.Server, error) {
 	if _, err := db.Connect(context.Background(), app, [[.DB]].Driver()); err != nil {
 		return nil, err
 	}
+[[- if .Web]]
 	// The cache, sessions and jobs tables serve CACHE_STORE=database,
 	// SESSION_DRIVER=database and QUEUE_DRIVER=database.
 	sets := []*migrate.Set{migrations.All, cache.Migrations(""), session.Migrations(""), queue.Migrations("", "")}
+[[- else]]
+	// The cache and jobs tables serve CACHE_STORE=database and
+	// QUEUE_DRIVER=database.
+	sets := []*migrate.Set{migrations.All, cache.Migrations(""), queue.Migrations("", "")}
+[[- end]]
 	if _, err := migrate.ForApp(app, sets, migrate.WithSeeders(migrations.Seeders...)); err != nil {
 		return nil, err
 	}
@@ -102,11 +110,15 @@ func setup(app *anetos.App) (*web.Server, error) {
 	if err != nil {
 		return nil, err
 	}
+[[- if .Web]]
 	sessions, err := session.ForApp(app)
 	if err != nil {
 		return nil, err
 	}
 	routes.Register(srv.Router(), sessions)
+[[- else]]
+	routes.Register(srv.Router())
+[[- end]]
 	// The plugins in plugins.go (anetos add), last: they use the services
 	// above.
 	if err := ext.Load(app, plugins()); err != nil {
@@ -117,7 +129,11 @@ func setup(app *anetos.App) (*web.Server, error) {
 
 // schedules adds the scheduled tasks, for example
 //
+[[- if .Web]]
 //	err := s.Add(schedule.DailyAt("02:00"), "prune-sessions", tasks.PruneSessions, schedule.OnOneServer())
+[[- else]]
+//	err := s.Add(schedule.DailyAt("02:00"), "prune-exports", tasks.PruneExports, schedule.OnOneServer())
+[[- end]]
 //
 // Once there are tasks, they run with the app, or alone with
 // `go run . run --only=scheduler`; `go run . schedule:list` lists them.

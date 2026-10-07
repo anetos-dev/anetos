@@ -347,7 +347,7 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		// client IP or locale.
 		ns := &requestState{core: r.core, url: req.URL}
 		if st != nil {
-			ns.requestID, ns.clientIP, ns.locale = st.requestID, st.clientIP, st.locale
+			ns.requestID, ns.clientIP, ns.locale, ns.jsonErrors = st.requestID, st.clientIP, st.locale, st.jsonErrors
 		}
 		req = req.WithContext(context.WithValue(req.Context(), stateKey{}, ns))
 	}
@@ -621,6 +621,8 @@ type requestState struct {
 	requestID string
 	clientIP  string
 	locale    *localeState // set by the server's locale middleware
+
+	jsonErrors bool // set by JSONErrors: errors are problem JSON whatever the client accepts
 
 	served bool // a route's handler runs: a router serving it again starts a state of its own
 }

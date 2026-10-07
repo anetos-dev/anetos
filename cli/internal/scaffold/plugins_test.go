@@ -19,12 +19,12 @@ func TestPluginsFile(t *testing.T) {
 	if err := WritePlugins(root, nil); err != nil {
 		t.Fatal(err)
 	}
-	tmpl, err := templates.ReadFile("templates/new/plugins.go.tmpl")
+	tmpl, err := templates.ReadFile("templates/new/base/plugins.go.tmpl")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got := read(t, filepath.Join(root, PluginsFile)); got != string(tmpl) {
-		t.Errorf("templates/new/plugins.go.tmpl differs from WritePlugins(nil):\n%s", got)
+		t.Errorf("templates/new/base/plugins.go.tmpl differs from WritePlugins(nil):\n%s", got)
 	}
 	if got, err := ReadPlugins(root); err != nil || len(got) != 0 {
 		t.Errorf("ReadPlugins = %v, %v", got, err)

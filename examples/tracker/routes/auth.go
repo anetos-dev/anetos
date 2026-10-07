@@ -82,6 +82,6 @@ func Auth(r *web.Router, sessions *session.Manager, a *auth.Auth[*models.User], 
 	secure.Post("/two-factor/recovery-codes", h.NewRecoveryCodes).Name("two-factor.recovery-codes")
 	secure.Post("/two-factor/disable", h.DisableTwoFactor).Name("two-factor.disable")
 
-	api := r.Group("/api", a.TokenMiddleware, a.Require) // Authorization: Bearer <token>
+	api := r.Group("/api", web.JSONErrors, a.TokenMiddleware, a.Require) // Authorization: Bearer <token>
 	api.Get("/me", h.Me).Name("api.me")
 }

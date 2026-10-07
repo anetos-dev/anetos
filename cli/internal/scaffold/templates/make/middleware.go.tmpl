@@ -2,9 +2,15 @@ package middleware
 
 import "net/http"
 
+[[if .API -]]
+// [[.Type]] is HTTP middleware. Add it to a group in routes/api.go:
+//
+//	admin := api.Group("/admin", middleware.[[.Type]])
+[[else -]]
 // [[.Type]] is HTTP middleware. Add it to a group in routes/web.go:
 //
 //	admin := r.Group("/admin", middleware.[[.Type]])
+[[end -]]
 func [[.Type]](next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Before the handler.

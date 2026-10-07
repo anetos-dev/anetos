@@ -438,6 +438,12 @@ described by a spec generated from the code (design D243).
   tested API with token auth whose OpenAPI spec validates and documents
   every route, on SQLite, PostgreSQL and MySQL.
 
+**Progress**
+
+| WP | Status |
+|---|---|
+| AP1 API project | ✅ Done 2026-10-08 (design §12.2, D259–D262): `anetos new --stack=api` (no views, templ, static files, sessions or CSRF; `routes/api.go` under `/api/v1`; a typed welcome handler (`web.H`) answering its own struct; `HTTP_CORS_ORIGINS` in the settings files; tests of the welcome and of a 404's problem details), `anetos new` composed of template layers (`base`, `web`, `api`; the web stack's output unchanged, byte for byte), `web.JSONErrors` (problem details whatever the client accepts, `WantsJSON` true under it; used by `examples/tracker`'s API), the generators in an API project (`routes/api.go`, no `routes/web.go`: `make:handler` typed, `make:middleware` for the API; `make:auth`, `make:crud` refuse until AP2, AP3; `make:admin` refuses), `Recover` answering a middleware's panic as problem details under `JSONErrors`; an independent review's findings fixed (that panic was plain text; `IsAPI` keyed on `views/`, which AP2's emails may add; untyped handlers AP4 couldn't describe); `develVersion` `v0.4.0-dev`, postmark's `Requires` widened to `< v0.5.0`. The generated project's tests pass on SQLite, PostgreSQL 16 and 17, MySQL 8.0, MariaDB 10.11 and 11.8; `anetos dev`, `anetos build` and `serve` were run with it |
+
 ---
 
 ### v0.5 — Design kits & public release
@@ -619,3 +625,4 @@ something, and we fix the API rather than add the hook.
 | 2026-10-07 | M7 (security) done: review, fixes, `SECURITY.md`, `doctor`; next M6 |
 | 2026-10-07 | M6 (performance) done: benchmarks, optimizations, budgets and the pull-request gate |
 | 2026-10-07 | v0.3 exit criteria checked (a docs-only walkthrough and an audit; gaps fixed, D254–D258); v0.3.0 tagged; next v0.4 |
+| 2026-10-08 | v0.4 started: AP1 (API project) done (design D259–D262) |

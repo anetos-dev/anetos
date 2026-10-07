@@ -302,6 +302,9 @@ func label(name string) string {
 // routes there; when the layout's nav has navLink, it links to the list.
 func MakeCrud(root, name string, args []string, now time.Time) (CrudResult, error) {
 	var res CrudResult
+	if err := RefuseAPI(root, "make:crud", "make:crud for API projects comes later in v0.4"); err != nil {
+		return res, err
+	}
 	model, err := typeName(name)
 	if err != nil {
 		return res, err

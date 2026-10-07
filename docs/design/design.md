@@ -337,6 +337,10 @@ blog/                        (F11 generates the unmarked lines)
 └── tmp/                     anetos dev's builds (gitignored)
 ```
 
+With `--stack=api` (v0.4, AP1, §12.2), `routes/api.go` replaces
+`routes/web.go`, `app/handlers/welcome.go` the home page, and there is
+no `views/` or `public/`.
+
 Everything under `app/`, `routes/`, `views/` and `database/` is the
 developer's code.
 Generated files end in `_gen.go` or carry a `// Code generated … DO NOT EDIT.`
@@ -490,6 +494,14 @@ v0.2.
   `web.ErrorPage`), which `anetos new` sets to `views.ErrorPage` in the
   app's layout; JSON, form redirects, logging and the debug page of a
   5xx don't change (D256).
+- `web.JSONErrors` (middleware, D261) makes every error of the requests
+  it handles problem JSON whatever the client accepts: no HTML page, no
+  redirect back of a form post; the debug details (APP_DEBUG) go in the
+  problem's `debug` member, as they do for JSON clients. Under it
+  `WantsJSON` is true, so middleware treating API clients differently
+  (auth's `Require`: 401, not the login page) does so. An API project
+  puts it on every request (`UseGlobal`); a web app with an API puts it
+  on the API's group.
 - If an error occurs **after the response started**, it is logged and the
   connection is aborted (`http.ErrAbortHandler`), so a truncated body can't
   look successful.
@@ -1091,16 +1103,66 @@ Implemented in F10 (packages `view`, `session`, `encryption`; helpers in
 
 ### 12.2 API stack, design kits and SPA-style (v0.4–v0.6, D243)
 
-- **API stack (v0.4)**: `anetos new --stack=api` (no views, sessions or
-  CSRF; JSON errors; `/api/v1`), `make:auth` and `make:crud` writing JSON
-  endpoints in such a project, and an OpenAPI 3.1 spec generated from the
-  routes and the typed handlers (inputs from their tags, responses
-  declared), checked in CI. Designed when its work starts.
+- **API stack (v0.4)**: `anetos new --stack=api` (AP1, below),
+  `make:auth` and `make:crud` writing JSON endpoints in such a project
+  (AP2, AP3), and an OpenAPI 3.1 spec generated from the routes and the
+  typed handlers (inputs from their tags, responses declared), checked
+  in CI (AP4). AP2–AP4 are designed when their work starts.
 - **Design kits (v0.5, D244)**: the generators' pages call a small
   `views/ui` package the app owns; each kit (the starter theme, Pico,
   Bootstrap, Bulma, Tailwind through its standalone CLI) is a stylesheet
   plus its `views/ui`, chosen at `anetos new --css=…` and switched with
   `anetos css:use`.
+
+**The API project (AP1, D259–D262).** `anetos new <dir> --stack=api`
+writes an app that serves JSON only:
+
+- **What it leaves out:** views, templ, htmx, `public/`, the starter
+  theme, sessions (and their table), CSRF and the `_method` override.
+  `--css` is refused with it. Everything else is the web stack's: the
+  database, migrations, cache, queue and workers, events, mail, storage,
+  the scheduler, translations, plugins, the health routes, `doctor`,
+  `anetos build`, the `Dockerfile`, the systemd unit and the production
+  settings.
+- **`routes/api.go`**: `Register(r)` puts `web.JSONErrors` on every
+  request (`UseGlobal`, so unmatched URLs answer JSON too) and routes
+  the group `api := r.Group("/api/v1").As("api.")`, versioned by path:
+  a v2 is a second group, the first kept as long as clients need it. Its
+  one route, `GET /api/v1` (`handlers.Welcome`), is a typed handler
+  (`web.H`) answering a struct of its own (`{"name", "message"}`, the
+  message from the catalog in the request's language), the shape later
+  generators follow (AP3: an output struct per resource, never the
+  model as is) and that AP4's spec can describe from the types.
+- **Errors**: RFC 9457 problem details for every error, whatever the
+  client's `Accept` (D261), titles and validation messages in the
+  request's language (`Accept-Language`).
+- **CORS**: `HTTP_CORS_ORIGINS` (and the other `HTTP_CORS_*` settings of
+  F5) in `.env`, `.env.example` and `deploy/production.env.example`,
+  empty: browsers on other origins are refused until the developer lists
+  theirs. Token auth (AP2) sends no cookies, so `HTTP_CORS_CREDENTIALS`
+  stays off.
+- **Tests**: `main_test.go` calls `GET /api/v1` and checks its JSON, and
+  a missing URL's problem details.
+
+**Composing stacks (D259).** `anetos new` builds a project from layers of
+templates: `base` (every project: `go.mod`, `main.go`, settings,
+migrations, models, factories, plugins, deploy files, README) and one
+layer per stack (`web`: views, `public/`, `routes/web.go`, the home page
+and its test; `api`: `routes/api.go`, the welcome handler and its test).
+A stack is a list of layers; no two layers of a stack write the same
+file (a test checks every stack), and the base's files that differ
+between stacks do so through the template data (`.Web`, `.API`), not by
+one layer overriding another. The design kits (v0.5) and front-end
+stacks (v0.6) are further layers.
+
+**The generators in an API project (D262).** A project is an API
+project when it has `routes/api.go` and no `routes/web.go`.
+`make:handler` writes a typed handler there (`web.H`, answering a
+struct of its own), its comment routing it in `api`; `make:middleware`'s
+comment routes it in `api` too; `make:auth` and `make:crud` refuse,
+saying that their API versions come later in v0.4 (AP2, AP3), rather
+than reporting a missing `views` directory; `make:admin` refuses (the
+admin is HTML pages).
 
 SPA-style (v0.6):
 
@@ -2239,7 +2301,7 @@ planned.
 
 | Command | Purpose |
 |---|---|
-| `anetos new <dir> [--module=…] [--db=…] [--css=…] [--stack=…]` | Create a project (F11); `--css=anetos\|none`, the starter theme or none (M10, D240); v0.4 adds `--stack=api`, v0.5 the design kits (`--css=pico\|bootstrap\|bulma\|tailwind`), v0.6 the front-end stacks |
+| `anetos new <dir> [--module=…] [--db=…] [--css=…] [--stack=…]` | Create a project (F11); `--css=anetos\|none`, the starter theme or none (M10, D240); `--stack=web` (default) or `api`, a JSON-only app (AP1, D259–D262); v0.5 adds the design kits (`--css=pico\|bootstrap\|bulma\|tailwind`), v0.6 the front-end stacks |
 | `anetos dev` | Watch (polling) → `templ generate` → `anetos gen` → build → restart on a free port → browser reload; stable address through a proxy that shows build errors (F11) |
 | `anetos make:<thing>` | handler, model (`--migration`), migration, middleware (F11); auth (B14, §15); crud (M10, D241: a model, its table and the pages to list, show, create, edit and delete its rows); agent (A3: an `ai.Agent` with a typed tool in `app/agents`, D179); job, event, listener, mail, policy, task, command, test, plugin (later) |
 | `anetos gen` | Run code generators: typed model columns (F9), relation handles (v0.1.1). `-check` for CI |
@@ -2782,6 +2844,10 @@ unless new information arrives), **Open**, **Superseded**.
 | D256 | `Router.ErrorPages(func(*Ctx, ErrorPage) view.Component)` makes the HTML error page an app's component; `web.ErrorPage` carries the status, the translated title, the message for the visitor (never a 5xx's internals), field errors and the request ID. JSON problem details, the redirect of failed form posts, logging and, in debug mode, the framework's page for a 5xx are unchanged; a page that fails to render falls back to the built-in one. `anetos new` writes `views/errors.templ` in the layout and sets it in `routes/web.go` | Accepted | Error pages without the app's header and links were the most visible part of a new app that didn't look finished (v0.3 exit check). Replacing the whole error handler (`WithErrorHandler`) was possible but meant re-implementing negotiation, redirects and logging; the page is the only part apps want to style |
 | D257 | `make:auth` writes `database/factories/users.go`: `factories.Users` makes verified users whose password is `factories.UserPassword` (hashed once per process); `make:crud`'s test says in a comment how to sign one in for pages in the `members` group | Accepted | The guides used `factories.Users` with `anetostest.ActingAs`, but nothing wrote it; moving pages to `members`, as the getting-started pages suggest, broke the generated test with no way to fix it short of writing a factory (v0.3 exit check) |
 | D258 | `ai.EmbeddingsFor` records `db.VectorSearch` as a requirement of the app's database when it comes from `db.Connect`, so the app refuses to boot without vector search, naming the table and what the database lacks | Accepted | S2 promised capability checks as S1's; only the migration creating the embeddings table refused, so an app pointed at MySQL with existing tables started and failed on its first search. Apps without `db.Connect` (tests with a database in the context) aren't checked |
+| D259 | `anetos new --stack=web\|api` (web the default) builds a project from layers of templates: `base` for every project and one per stack; a stack is a list of layers, no two of which write the same file (checked by a test for every stack); base files that differ between stacks do so through template data (`.Web`, `.API`). `--css` belongs to the web stack and is refused with `api`. Design kits (v0.5) and front-end stacks (v0.6) are more layers | Accepted | A copy of every template per stack would drift; one template per file with conditionals for the few that differ (`main.go`, settings, README) keeps each generated file in one place and reviewable. Overriding a base file from a stack's layer was rejected: which version wins would depend on the order of layers, and a fix to the base could silently miss a stack |
+| D260 | The API project: no views, templ, htmx, `public/`, theme, sessions or CSRF; every other battery of the web stack. `routes/api.go` puts `web.JSONErrors` on every request and groups the routes under `/api/v1` (`As("api.")`), versioned by path; `GET /api/v1` answers `handlers.Welcome`'s own struct (name, a translated message); CORS by the existing `HTTP_CORS_*` settings, listed empty in the settings files; `main_test.go` tests the welcome and a 404's problem details | Accepted | Path versioning is what most clients and API gateways expect and needs nothing from the router; a header-based version can't be seen in logs or a browser. A route at the root shows the shape the generators follow (an output struct, D243's "JSON shapes chosen on purpose"). Origins are the developer's to list: a default `*` would let any site read the API (D247's doctor warns about it) |
+| D261 | `web.JSONErrors` is a middleware: under it, `DefaultErrorHandler` answers problem details whatever `Accept` says, never the HTML page (`ErrorPages` included) nor a redirect back; it marks the request's router state, so errors raised by middleware outside it (Timeout; a middleware's panic, which `Recover` answers as problem details when marked) and the 404 or 405 of an unmatched URL are JSON too when it is global (a sub-request inherits the mark). Under it, `WantsJSON` is true. It acts from its place in the chain on (before auth's `Require`); on a group, an unmatched URL under the group's prefix isn't the group's | Accepted | `curl`, `fetch` without headers and many HTTP libraries send `Accept: */*` or nothing, which got the HTML page; an API must not depend on clients asking. `WantsJSON` follows because the code that asks it (auth's `Require` and `RequireConfirmed`, the redirect back of forms) means "is this an API client?": a guest's `GET` to an API under a session must get a 401, not the login page. A router option would cover a whole router only, while a web app's API group needs JSON next to HTML pages; a setting in `.env` was rejected because the format is the code's contract, not the deployment's |
+| D262 | A project is an API project when it has `routes/api.go` and no `routes/web.go` (`scaffold.IsAPI`). In one, `make:handler` writes a typed handler (`web.H`, a response struct) routed in `api`; `make:auth` and `make:crud` refuse, saying their API versions come later in v0.4 (AP2, AP3); `make:admin` refuses; generators that write pages check for it before anything else (`scaffold.RefuseAPI`) | Accepted | The project's files already say what it is, as `make:crud` finds `Register`'s group by its shape (D241); a marker file would be one more thing to keep in step and to explain. The routes files, not `views/`, decide: an API project may get templ views for its emails (AP2) and stays one, and a web app that adds `routes/api.go` keeps `routes/web.go` and stays a web project. Typed handlers from the start give AP4 the responses' types, and generated code never changes after |
 
 ---
 
@@ -2865,3 +2931,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-07 | §11: MySQL and MariaDB tables are utf8mb4 (D254 added) |
 | 2026-10-07 | v0.3 exit check: §8.5 (app error pages), §21 (readiness and migrations); D255–D258 added |
 | 2026-10-07 | D249: Dependabot groups the Go updates of every module, examples included, in one pull request |
+| 2026-10-08 | v0.4 AP1 (API project): §6, §8.5, §12.2, §17.1 updated; D259–D262 added |
