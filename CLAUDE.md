@@ -40,13 +40,15 @@ minimum and the latest Go release (design D18).
 ## Commands
 
 ```bash
-make check     # everything CI runs: gofmt, SPDX headers, doc snippets, generated code, vet, lint, race tests
+make check     # everything CI runs: gofmt, SPDX headers, doc snippets, generated code, vet, lint, race tests, allocation budgets
 make docs-check  # doc code blocks match examples/ regions; pages have a sidebar group and weight
 make api-docs  # every exported identifier (fields, interface methods too) has a doc comment
 make test      # go test -race ./...
 make lint      # golangci-lint (v2 config in .golangci.yml)
 make cover     # coverage summary
-make bench     # benchmarks (bench/ compares with net/http; results in docs/benchmarks/)
+make bench     # benchmarks (bench/ compares with net/http, chi, Gin, Echo; results in docs/benchmarks/)
+make bench-check    # allocation budgets of requests and queries (bench/budget_test.go)
+make bench-compare  # benchmarks vs main (BASE=…), run in turns; fails on a regression
 make vuln      # govulncheck
 make help      # list targets
 ```
