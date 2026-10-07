@@ -22,6 +22,11 @@ type Schema struct {
 	ctx     context.Context
 	d       *db.DB
 	dialect string
+
+	// tableCharset ends MySQL's CREATE TABLE statements (D254); read
+	// once, by charset.
+	tableCharset string
+	charsetRead  bool
 }
 
 // NewSchema returns a Schema for the database in ctx (see db.WithDB), for
@@ -125,6 +130,9 @@ func (s *Schema) Create(table string, build func(t *Table)) error {
 	}
 	t := &Table{name: table, creating: true}
 	build(t)
+	if err := s.readCharset(); err != nil {
+		return err
+	}
 	stmts, err := s.createSQL(t)
 	if err != nil {
 		return err
@@ -181,6 +189,9 @@ func (s *Schema) Alter(table string, build func(t *Table)) error {
 		}
 		if t.search != nil {
 			if err := s.checkSearch(); err != nil {
+				return err
+			}
+			if err := s.readCharset(); err != nil { // the search_indexes table
 				return err
 			}
 			more, err := s.searchSQL(table, t.search, s.d.SearchConfig(), true)
@@ -523,7 +534,7 @@ func (s *Schema) createSQL(t *Table) ([]string, error) {
 		}
 		defs = append(defs, fk)
 	}
-	stmts := []string{"CREATE TABLE " + s.q(t.name) + " (\n\t" + strings.Join(defs, ",\n\t") + "\n)"}
+	stmts := []string{"CREATE TABLE " + s.q(t.name) + " (\n\t" + strings.Join(defs, ",\n\t") + "\n)" + s.tableCharset}
 	for _, ix := range t.indexes {
 		stmt, err := s.indexSQL(t.name, ix)
 		if err != nil {

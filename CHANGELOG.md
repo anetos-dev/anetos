@@ -566,6 +566,15 @@ All notable changes to this project are documented here. The format follows
 - `Count`, `Exists` and the count of `Paginate` no longer order the rows
   they count (S1).
 
+### Fixed
+- On MySQL and MariaDB, the tables the schema builder creates (and the
+  migrations and search index tables) are utf8mb4 even when the
+  database defaults to another character set: on MariaDB's latin1
+  default (before 11.6, without a distribution's settings), queue jobs,
+  search and any non-Latin text failed with error 1366. `doctor` warns
+  about tables whose text columns aren't utf8mb4 (F8, D254). Existing
+  tables: see the upgrade guide.
+
 ### Security
 - A remote database is reached over TLS with its certificate checked by
   default (`DB_TLS=verify` for any `DB_HOST` but this machine;
@@ -613,8 +622,8 @@ All notable changes to this project are documented here. The format follows
   (`systemd-analyze security`: 1.2), and its `.dockerignore` leaves out
   `.env` files at any depth (M7).
 - CI: actions pinned by commit, checkouts without persisted
-  credentials, timeouts, govulncheck on the minimum and latest Go (M7,
-  D249).
+  credentials, timeouts, govulncheck on the minimum and latest Go
+  releases, each at its latest patch (M7, D249).
 
 ## [0.2.0] - 2026-10-02
 

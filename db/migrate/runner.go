@@ -140,7 +140,7 @@ func (r *Runner) check(ctx context.Context) []anetos.Finding {
 			pending = append(pending, s.ID)
 		}
 	}
-	var out []anetos.Finding
+	out := charsetFindings(ctx, r.d)
 	if len(pending) > 0 {
 		out = append(out, anetos.Finding{Severity: anetos.Warning, Message: fmt.Sprintf("%d migration(s) haven't run (%s): run migrate", len(pending), listIDs(pending))})
 	}
@@ -217,7 +217,11 @@ func (r *Runner) ensureTable(ctx context.Context) error {
 	default:
 		ddl = "CREATE TABLE IF NOT EXISTS %s (id INTEGER PRIMARY KEY AUTOINCREMENT, source VARCHAR(100) NOT NULL, migration VARCHAR(255) NOT NULL, batch INTEGER NOT NULL, applied_at DATETIME NOT NULL, UNIQUE (source, migration))"
 	}
-	_, err := db.Exec(ctx, fmt.Sprintf(ddl, r.q(r.table)))
+	cs, err := tableCharset(ctx, r.d)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(ctx, fmt.Sprintf(ddl, r.q(r.table))+cs)
 	return err
 }
 

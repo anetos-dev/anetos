@@ -101,6 +101,14 @@ schema or database instead.
 
 `migrate.NewSchema(ctx)` gives a Schema outside migrations (for tests).
 
+On MySQL and MariaDB, the tables `Create` makes (and the migrations
+and search index tables) are utf8mb4: when the database's default
+character set is another one (`@@character_set_database`, latin1 on an
+older MariaDB), `CREATE TABLE` ends with `DEFAULT CHARSET=utf8mb4`;
+otherwise the table takes the database's collation. Tables made with
+`s.Exec` or SQL-file migrations take whatever their SQL says, or the
+database's default.
+
 ## SQLite limits
 
 SQLite's `ALTER TABLE` can add, rename and drop columns, but can't change

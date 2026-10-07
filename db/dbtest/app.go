@@ -158,6 +158,20 @@ func RunApp(t *testing.T, drv db.Driver, env map[string]string) {
 		if out := doctor("doctor"); !strings.Contains(out, "ok migrations") || !strings.Contains(out, "0 problems, 0 warnings") {
 			t.Errorf("after migrate:\n%s", out)
 		}
+		if d.Dialect().Name() == "mysql" { // a table made outside the schema builder
+			dropLatin1 := func() { _, _ = db.Exec(ctx, "DROP TABLE IF EXISTS st_app_latin1") }
+			dropLatin1()
+			t.Cleanup(dropLatin1)
+			check(t, func() error {
+				_, err := db.Exec(ctx, "CREATE TABLE st_app_latin1 (id INT PRIMARY KEY, note TEXT, code CHAR(36) CHARACTER SET ascii) DEFAULT CHARSET=latin1")
+				return err
+			}())
+			out := doctor("doctor")
+			dropLatin1()
+			if !strings.Contains(out, "warning migrations: 1 table(s) have text columns that aren't utf8mb4: st_app_latin1 (latin1)") {
+				t.Errorf("latin1 table:\n%s", out)
+			}
+		}
 		drop()
 	})
 	t.Run("search settings", func(t *testing.T) { runSearchApp(t, drv, env, d) })

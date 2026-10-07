@@ -16,5 +16,6 @@ tagged `drivers/gemini/vX.Y.Z`. The framework's own changes are in the
   structured output (`responseJsonSchema`) and usage; thought signatures
   kept as `ai.Reasoning`; `Options.ThinkingBudget`, `Options.Config`;
   retries on rate limits and server errors; `GEMINI_API_KEY`,
-  `GEMINI_BASE_URL`. It requires google.golang.org/grpc v1.84.0 or
-  later, for fixes the SDK's minimum lacks (A2).
+  `GEMINI_BASE_URL`. It requires google.golang.org/grpc v1.83.2 or
+  later, for fixes the SDK's minimum lacks (A2); not v1.84.0, which has
+  GO-2026-6443 and no fixed release yet.

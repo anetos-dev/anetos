@@ -26,6 +26,7 @@ func init() {
 		test{"MigrationFailure", testMigrationFailure},
 		test{"MigrationCommands", testMigrationCommands},
 		test{"MigrationLock", testMigrationLock},
+		test{"MySQLCharset", testMySQLCharset},
 	)
 }
 
@@ -142,6 +143,22 @@ func testSchemaBuilder(t *testing.T, ctx context.Context) {
 	check(t, err)
 	if plain.Qty != 1 || !plain.Active || plain.Ref != "none" || plain.OwnerID != nil {
 		t.Errorf("defaults: %+v", plain)
+	}
+
+	// Text outside Latin-1 and outside the BMP: on MySQL and MariaDB
+	// the table is utf8mb4 whatever the database's default (D254).
+	intl := stItem{Code: "323e4567-e89b-12d3-a456-426614174000", Name: "চা 茶 🍵", Big: 1, Small: 1, Price: "1.00", Day: day, Ref: "r3"}
+	check(t, db.Create(ctx, &intl))
+	if back, err := db.Find[stItem](ctx, intl.ID); err != nil || back.Name != intl.Name {
+		t.Errorf("non-Latin text: %q, %v", back.Name, err)
+	}
+	if d(ctx).Dialect().Name() == "mysql" {
+		var n int
+		check(t, d(ctx).SQL().QueryRowContext(ctx, `SELECT COUNT(*) FROM information_schema.COLUMNS
+WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'st_m_items' AND CHARACTER_SET_NAME IS NOT NULL AND CHARACTER_SET_NAME <> 'utf8mb4'`).Scan(&n))
+		if n != 0 {
+			t.Errorf("st_m_items: %d text column(s) aren't utf8mb4", n)
+		}
 	}
 
 	// Unique index.
@@ -684,5 +701,68 @@ func testSQLiteRebuild(t *testing.T, ctx context.Context) {
 	}
 	if n, _ := db.RawFirst[int64](ctx, "SELECT COUNT(*) FROM st_m_owners"); n != 1 {
 		t.Errorf("owners after the failed migration: %d", n)
+	}
+}
+
+// testMySQLCharset checks, on MySQL and MariaDB, that the tables
+// migrations create are utf8mb4 in a database whose default is latin1
+// (D254): the test database's default is changed for the test, then put
+// back.
+func testMySQLCharset(t *testing.T, ctx context.Context) {
+	if d(ctx).Dialect().Name() != "mysql" {
+		t.Skip("MySQL and MariaDB only")
+	}
+	type schema struct {
+		Name      string `db:"name"`
+		Charset   string `db:"charset"`
+		Collation string `db:"collation"`
+	}
+	orig, err := db.RawFirst[schema](ctx, `SELECT SCHEMA_NAME AS name, DEFAULT_CHARACTER_SET_NAME AS charset,
+	DEFAULT_COLLATION_NAME AS collation FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = DATABASE()`)
+	check(t, err)
+	tables := []string{"st_cs_items", "st_cs_more", "st_cs_migrations"}
+	drop := func() {
+		for _, table := range tables {
+			_, _ = db.Exec(ctx, "DROP TABLE IF EXISTS "+table)
+		}
+	}
+	drop()
+	t.Cleanup(func() {
+		drop()
+		if _, err := db.Exec(ctx, "ALTER DATABASE `"+orig.Name+"` CHARACTER SET "+orig.Charset+" COLLATE "+orig.Collation); err != nil {
+			t.Errorf("putting the database's character set back: %v", err)
+		}
+	})
+	_, err = db.Exec(ctx, "ALTER DATABASE `"+orig.Name+"` CHARACTER SET latin1 COLLATE latin1_swedish_ci")
+	check(t, err)
+
+	s, err := migrate.NewSchema(ctx)
+	check(t, err)
+	check(t, s.Create("st_cs_items", func(t *migrate.Table) {
+		t.ID()
+		t.String("name", 100)
+		t.Text("body")
+	}))
+	set := migrate.NewSet("charset")
+	set.AddFunc("2026_01_01_000000_create_more", func(s *migrate.Schema) error {
+		return s.Create("st_cs_more", func(t *migrate.Table) { t.String("code", 20) })
+	}, nil)
+	r, err := migrate.NewRunner(d(ctx), []*migrate.Set{set}, migrate.WithTable("st_cs_migrations"))
+	check(t, err)
+	_, err = r.Up(ctx)
+	check(t, err)
+
+	cols, err := db.Raw[string](ctx, `SELECT CONCAT(TABLE_NAME, '.', COLUMN_NAME, ' ', CHARACTER_SET_NAME) FROM information_schema.COLUMNS
+WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('st_cs_items', 'st_cs_more', 'st_cs_migrations')
+	AND CHARACTER_SET_NAME IS NOT NULL AND CHARACTER_SET_NAME <> 'utf8mb4'`)
+	check(t, err)
+	if len(cols) > 0 {
+		t.Errorf("columns that aren't utf8mb4 in a latin1 database: %v", cols)
+	}
+	const text = "চা 茶 🍵"
+	_, err = db.Exec(ctx, "INSERT INTO st_cs_items (name, body) VALUES (?, ?)", text, text)
+	check(t, err)
+	if got, err := db.RawFirst[string](ctx, "SELECT body FROM st_cs_items"); err != nil || got != text {
+		t.Errorf("non-Latin text: %q, %v", got, err)
 	}
 }

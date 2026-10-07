@@ -73,6 +73,15 @@ func TestCreateSQL(t *testing.T) {
 			t.Errorf("mysql lacks %q:\n%s", frag, my[0])
 		}
 	}
+	if strings.Contains(my[0], "CHARSET") {
+		t.Errorf("a utf8mb4 database's table names no character set:\n%s", my[0])
+	}
+	// A database whose default isn't utf8mb4 (D254).
+	latin := schemaFor(db.MySQL())
+	latin.tableCharset, latin.charsetRead = mysqlTableCharset, true
+	if my, err := latin.createSQL(build("posts", true, postsTable)); err != nil || !strings.HasSuffix(my[0], "\n) DEFAULT CHARSET=utf8mb4") {
+		t.Errorf("latin1 database: %v\n%s", err, strings.Join(my, "\n"))
+	}
 	lite, err := schemaFor(db.SQLite()).createSQL(build("posts", true, postsTable))
 	if err != nil {
 		t.Fatal(err)

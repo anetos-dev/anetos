@@ -41,12 +41,20 @@ createdb blog_test
 
 ```sql
 -- MySQL or MariaDB
-CREATE DATABASE blog;
-CREATE DATABASE blog_test;
+CREATE DATABASE blog CHARACTER SET utf8mb4;
+CREATE DATABASE blog_test CHARACTER SET utf8mb4;
 CREATE USER 'blog'@'localhost' IDENTIFIED BY 'secret';
 GRANT ALL ON blog.* TO 'blog'@'localhost';
 GRANT ALL ON blog_test.* TO 'blog'@'localhost';
 ```
+
+On MySQL and MariaDB, `utf8mb4` is the character set that stores any
+text, emoji included. MySQL 8 and MariaDB 11.6+ use it by default, but
+an older MariaDB may default to latin1, which refuses most non-Latin
+text. The tables the schema builder creates (`s.Create` in a
+migration) are utf8mb4 either way; the database's own setting applies
+to tables made with SQL (SQL-file migrations, `s.Exec`), and `doctor`
+warns about text columns in another character set.
 
 `anetos new blog --db=postgres` then writes the `DB_*` settings in
 `.env` (`DB_DATABASE=blog`) and `.env.testing` (`blog_test`): set the

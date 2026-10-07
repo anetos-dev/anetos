@@ -24,3 +24,8 @@ updates:
     groups:
       golang-x:
         patterns: ["golang.org/x/*"]
+    # v1.84.0 has GO-2026-6443 with no fixed release yet: the modules
+    # stay on v1.83.2 until v1.84.1 or v1.85.0 is out.
+    ignore:
+      - dependency-name: google.golang.org/grpc
+        versions: ["1.84.0"]

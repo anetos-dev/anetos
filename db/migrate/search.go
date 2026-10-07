@@ -98,12 +98,13 @@ func (s *Schema) searchSQL(table string, cols []string, cfg db.SearchConfig, exi
 
 func sqlString(v string) string { return "'" + strings.ReplaceAll(v, "'", "''") + "'" }
 
-// recordSearchSQL records a search index in the search_indexes table.
+// recordSearchSQL records a search index in the search_indexes table,
+// creating it if needed (with s.tableCharset: readCharset first).
 func (s *Schema) recordSearchSQL(table string, cols []string, cfg db.SearchConfig) []string {
 	idx := s.q(db.SearchIndexesTable)
 	return []string{
 		"CREATE TABLE IF NOT EXISTS " + idx + " (" + s.q("table_name") + " VARCHAR(64) NOT NULL PRIMARY KEY, " + s.q("columns") + " TEXT NOT NULL, " +
-			s.q("language") + " VARCHAR(64) NOT NULL, " + s.q("ranking") + " VARCHAR(16) NOT NULL)",
+			s.q("language") + " VARCHAR(64) NOT NULL, " + s.q("ranking") + " VARCHAR(16) NOT NULL)" + s.tableCharset,
 		"DELETE FROM " + idx + " WHERE " + s.q("table_name") + " = " + sqlString(table),
 		"INSERT INTO " + idx + " (" + s.list([]string{"table_name", "columns", "language", "ranking"}) + ") VALUES (" +
 			strings.Join([]string{sqlString(table), sqlString(strings.Join(cols, ",")), sqlString(cfg.Language), sqlString(cfg.Ranking)}, ", ") + ")",
@@ -209,6 +210,9 @@ func (r *Runner) Reindex(ctx context.Context, tables ...string) ([]string, error
 		work := func(ctx context.Context) error {
 			s := &Schema{ctx: ctx, d: r.d, dialect: r.dialect}
 			if err := s.checkSearch(); err != nil {
+				return err
+			}
+			if err := s.readCharset(); err != nil { // the search_indexes table
 				return err
 			}
 			stmts, err := s.searchSQL(ix.Table, ix.Columns, r.d.SearchConfig(), true)
