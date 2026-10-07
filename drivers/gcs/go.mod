@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	anetos.dev/anetos v0.0.0-00010101000000-000000000000
-	cloud.google.com/go/auth v0.23.0
+	cloud.google.com/go/auth v0.24.0
 	cloud.google.com/go/compute/metadata v0.9.0
 	cloud.google.com/go/storage v1.69.0
 	github.com/fsouza/fake-gcs-server v1.56.1
