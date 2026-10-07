@@ -149,7 +149,10 @@ With [`make:auth`](accounts.md):
 
 - Run `govulncheck ./...` (or `go tool anetos doctor --vuln`) in CI: it
   reports the known vulnerabilities in the code your app calls, Go's
-  standard library included.
+  standard library included. Run it with the Go you build with: CI that
+  installs go.mod's `go` line exactly (`go 1.26.0`, as `setup-go`'s
+  `go-version-file` does) reports standard library advisories fixed
+  since; ask for the release's latest patch (`1.26.x`) instead.
 - Update Anetos when a release fixes a vulnerability; read the
   [upgrade guide](../upgrade/v0.3.md) of each release. Security fixes go
   into the latest minor release ([SECURITY.md](../../../SECURITY.md)).

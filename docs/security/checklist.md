@@ -93,7 +93,7 @@ change behaviour.
 | The systemd unit `anetos new` writes | **Fixed**: sandboxed further (`systemd-analyze security` exposure 1.2, "OK") |
 | `.env` files in container images | **Fixed**: `.dockerignore` leaves out `.env`, `.env.*` and `*.env` files at any depth, keeping the examples |
 | `.env` written by `anetos new` | Sound: mode 0600, and in `.gitignore` |
-| CI: actions by tag, credentials kept in the checkout | **Fixed**: actions pinned by commit, `persist-credentials: false`, timeouts; govulncheck on the minimum and latest Go; Dependabot weekly |
+| CI: actions by tag, credentials kept in the checkout | **Fixed**: actions pinned by commit, `persist-credentials: false`, timeouts; govulncheck on the minimum and latest Go releases, each at its latest patch; Dependabot weekly |
 | The app reads a `.env` in its working directory, which the service may write (`/var/lib/<name>`): code running as the app could change its next start's settings | **Accepted**: such code can already do whatever the app can; the unit's settings are in `/etc/<name>/env`, which `ProtectSystem=strict` keeps read-only |
 | Base images by tag, not digest | **Accepted**: tags get security updates; pin by digest if you rebuild rarely |
 | Staging allows `APP_DEBUG=true` | **Accepted**: doctor warns about it |

@@ -77,8 +77,11 @@ jobs:
           install-only: true
       - run: make lint
 
-  # Both Go releases: a standard library advisory may affect only the
-  # minimum one.
+  # Both supported Go releases: a standard library advisory may affect
+  # only the older one. Each at its latest patch release: the standard
+  # library's fixes come with the Go a project builds with, not with
+  # go.mod's minimum (go 1.26.0 there would report every advisory fixed
+  # since, which no user who updates Go is exposed to).
   vuln:
     name: vuln (${{ matrix.name }})
     runs-on: ubuntu-latest
@@ -88,16 +91,19 @@ jobs:
       matrix:
         include:
           - name: minimum Go (go.mod)
-            go-version-file: go.mod
+            minimum: true
           - name: latest Go
             go-version: stable
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+      # go.mod's "go 1.26.0" becomes "1.26.x": that release's latest patch.
+      - id: minimum
+        if: matrix.minimum
+        run: echo "go-version=$(sed -n 's/^go \([0-9]*\.[0-9]*\).*/\1/p' go.mod).x" >>"$GITHUB_OUTPUT"
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
-          go-version: ${{ matrix.go-version }}
-          go-version-file: ${{ matrix.go-version-file }}
+          go-version: ${{ matrix.go-version || steps.minimum.outputs.go-version }}
       - run: go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
       - run: make vuln

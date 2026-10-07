@@ -67,8 +67,9 @@ Not in scope:
 
 ## How we keep Anetos secure
 
-- `govulncheck` runs in CI on the minimum and the latest Go release;
-  dependencies are updated weekly (Dependabot) and reviewed.
+- `govulncheck` runs in CI on the minimum and the latest Go release,
+  each at its latest patch; dependencies are updated weekly
+  (Dependabot) and reviewed.
 - The CI's actions are pinned by commit.
 - `anetos doctor` and the app's `doctor` command check settings for
   unsafe values; [Secure your app](docs/site/guides/security.md) is the
