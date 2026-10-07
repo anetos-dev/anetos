@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- `anetos new` pins templ v0.3.1070 (was v0.3.1020), as the examples
+  now use (M10).
+- Dependencies updated in every module; the Google API client stays
+  below v0.299.0, which requires gRPC 1.84 (GO-2026-6443, no fixed
+  release yet).
+
 ## [0.3.0] - 2026-10-07
 
 Search, AI and the starter experience: full-text search and search by

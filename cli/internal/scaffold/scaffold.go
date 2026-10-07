@@ -30,7 +30,7 @@ import (
 var templates embed.FS
 
 // TemplVersion is the templ release new projects use.
-const TemplVersion = "v0.3.1020"
+const TemplVersion = "v0.3.1070"
 
 // Databases are the databases `anetos new --db` accepts.
 var Databases = []string{"sqlite", "postgres", "mysql"}
