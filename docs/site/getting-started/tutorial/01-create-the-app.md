@@ -43,11 +43,11 @@ running in a terminal of its own for the rest of the tutorial.
 | `.env` | The settings, for your machine: `APP_KEY` (a fresh key), `DB_DATABASE=database/app.db`… It stays out of git; `.env.example` lists the settings |
 | `routes/web.go` | The routes: URLs to handlers |
 | `app/handlers/home.go` | The home page's handler |
-| `views/layout.templ`, `views/home.templ` | The page shell (a header with the app's links) and the home page, as [templ](https://templ.guide) components: typed Go functions that render HTML |
+| `views/layout.templ`, `views/home.templ` | The page shell (a header with the app's links) and the home page, as [templ](https://templ.guide) components: typed Go functions that render HTML; `views/errors.templ` shows errors (a 404…) in the same shell |
 | `public/static/app.css` | The styles: Anetos's starter theme, light and dark, with no build step ([Style your app](../../guides/styling.md)) |
 | `locales/en/app.yaml` | The home page's text |
 | `database/migrations/` | Migrations: changes to the database's tables, in Go |
-| `main_test.go` | A test that requests the home page |
+| `main_test.go` | Tests that request the home page and a missing page |
 
 `go run . help` lists the app's commands: `run` (the default: the web
 server, the queue's workers and the scheduler), `migrate`, `routes:list`

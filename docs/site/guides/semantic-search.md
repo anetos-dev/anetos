@@ -248,9 +248,11 @@ and `ai.EmbedQuery` make vectors with the app's model. See the
 | Index | none: fine for thousands of chunks | HNSW, up to 2000 dimensions; above, every chunk is compared | its vector index (HNSW) | |
 | Hybrid search | yes | yes | yes | |
 
-Without vector search, `CreateEmbeddings` stops with a message naming
-the database and what it needs, and `Similar`'s error says which
-databases have it. Indexes find the nearest
+Without vector search, the app refuses to start once it calls
+`ai.EmbeddingsFor` (with the database from `db.Connect`), and
+`CreateEmbeddings` stops the migration, each with a message naming the
+database and what it needs; `Similar`'s error says which databases
+have it. Indexes find the nearest
 chunks approximately: the best 200 chunks are the candidates of each
 search, so a record with many chunks near the question takes more of
 them. The PostgreSQL driver sets pgvector's `hnsw.ef_search` to 200

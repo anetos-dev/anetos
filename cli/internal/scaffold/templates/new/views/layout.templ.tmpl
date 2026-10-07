@@ -23,6 +23,7 @@ templ Layout(title string) {
 			for _, a := range web.Alternates(ctx) {
 				<link rel="alternate" hreflang={ a.Locale } href={ a.URL }/>
 			}
+			<link rel="icon" href={ public.Assets.URL("favicon.svg") } type="image/svg+xml"/>
 			<link rel="stylesheet" href={ public.Assets.URL("app.css") }/>
 			<script src={ public.Assets.URL("htmx.min.js") } defer></script>
 		</head>

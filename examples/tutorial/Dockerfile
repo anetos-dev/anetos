@@ -2,8 +2,10 @@
 # run as a user without privileges. See the "Deploy" guide.
 #
 #   docker build -t tracker --build-arg VERSION=v1.0.0 .
-#   docker run --rm --env-file production.env tracker migrate
 #   docker run -d -p 8080:8080 --env-file production.env -v tracker-data:/data tracker
+#
+# It migrates the SQLite database in /data when it starts
+# (MIGRATE_ON_RUN); the server is ready once that's done.
 #
 # The settings come from the environment (production.env: see
 # deploy/production.env.example); .env isn't in the image. RUN --mount
@@ -30,7 +32,8 @@ COPY --from=build --chown=65532:65532 /out/data /data
 ENV APP_ENV=production \
     HTTP_ADDR=:8080 \
     STORAGE_ROOT=/data/storage \
-    DB_DATABASE=/data/app.db
+    DB_DATABASE=/data/app.db \
+    MIGRATE_ON_RUN=true
 EXPOSE 8080
 USER 65532:65532
 # The server's readiness; turn it off for containers that don't serve

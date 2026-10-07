@@ -384,31 +384,9 @@ Open http://localhost:8080/issues. Open an issue with an empty title
 
 ## Test it
 
-Tests need users. In `database/factories/factories.go`, add these
-imports below the package line:
-
-```go
-import (
-	"fmt"
-
-	"anetos.dev/anetos/db/factory"
-
-	"tracker/app/models"
-)
-```
-
-(Copied from [`examples/tutorial/database/factories/factories.go`](../../../../examples/tutorial/database/factories/factories.go), region `imports`.)
-
-and a factory, which makes valid models:
-
-```go
-// Users are users named User 1, User 2…, with addresses to match.
-var Users = factory.New(func(n int) models.User {
-	return models.User{Name: fmt.Sprintf("User %d", n), Email: fmt.Sprintf("user%d@example.com", n)}
-})
-```
-
-(Copied from [`examples/tutorial/database/factories/factories.go`](../../../../examples/tutorial/database/factories/factories.go), region `users`.)
+Tests need users: `make:auth` wrote a factory for them,
+`factories.Users` in `database/factories/users.go`, which makes
+verified users (`User 1`, `user1@example.com`…).
 
 Then create `issues_test.go` next to `main.go`, in package `main`:
 

@@ -168,8 +168,9 @@ form's redirect.
 
 ### 4. Make rows with factories
 
-A factory makes valid model values, with a sequence number for values
-that must differ:
+A factory (package `anetos.dev/anetos/db/factory`; a project keeps them
+in `database/factories`, where `make:auth` writes `Users`) makes valid
+model values, with a sequence number for values that must differ:
 
 ```go
 // Authors makes valid authors, each with its own email.

@@ -14,10 +14,14 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"anetos.dev/anetos"
+	"anetos.dev/anetos/cmd"
+	"anetos.dev/anetos/config"
 	"anetos.dev/anetos/db"
+	"anetos.dev/anetos/supervisor"
 )
 
 // DefaultTable is where applied migrations are recorded.
@@ -100,7 +104,11 @@ func NewRunner(d *db.DB, sets []*Set, opts ...Option) (*Runner, error) {
 // knows the app's environment and logs with its logger, and registers the
 // migration commands (migrate, migrate:rollback, …, db:seed) on the app,
 // for app.Execute, and provides the runner as a *migrate.Runner service.
-// Call it once per app.
+// It also adds the doctor's "migrations" check and, from [Config]: the
+// component "migrations" (role http), which keeps the app's readiness
+// (GET /health/ready, health:check) false while migrations are pending
+// (MIGRATE_READINESS, on by default), and, with MIGRATE_ON_RUN, migrating
+// when the app boots to run or serve (design D255). Call it once per app.
 func ForApp(app *anetos.App, sets []*Set, opts ...Option) (*Runner, error) {
 	d, err := anetos.Resolve[*db.DB](app)
 	if err != nil {
@@ -119,7 +127,19 @@ func ForApp(app *anetos.App, sets []*Set, opts ...Option) (*Runner, error) {
 			return nil, fmt.Errorf("migrate: %w", err)
 		}
 	}
+	cfg, err := config.Get[Config](app.Source())
+	if err != nil {
+		return nil, err
+	}
+	if cfg.OnRun {
+		app.Use(onRun{r})
+	}
 	app.AddCheck(anetos.Check{Name: "migrations", Booted: true, Run: r.check})
+	if cfg.Readiness {
+		if err := app.Component(&pendingWatch{r: r}, anetos.Roles("http"), anetos.Stage(supervisor.StageBackground), anetos.Restart(supervisor.RestartNever)); err != nil {
+			return nil, fmt.Errorf("migrate: %w", err)
+		}
+	}
 	anetos.Provide(app, r) // anetostest migrates with it
 	return r, nil
 }
@@ -648,6 +668,97 @@ func (r *Runner) Seed(ctx context.Context, names ...string) error {
 			return fmt.Errorf("migrate: seeder %s: %w", s.Name, err)
 		}
 		r.log.DebugContext(ctx, "seeded", "seeder", s.Name, "took", time.Since(start))
+	}
+	return nil
+}
+
+// pendingWatch keeps the app's HTTP readiness (GET /health/ready, the
+// health:check command) false while the database has migrations the app
+// hasn't run, checking again every 5 seconds (design D255): a server
+// started on an unmigrated database answers pages but fails on every
+// write, which a container's health check would otherwise call healthy.
+type pendingWatch struct {
+	r     *Runner
+	ready atomic.Bool
+}
+
+func (w *pendingWatch) Name() string { return "migrations" }
+func (w *pendingWatch) Ready() bool  { return w.ready.Load() }
+
+func (w *pendingWatch) Run(ctx context.Context) error {
+	logged := ""
+	for {
+		pending, err := w.r.pending(ctx)
+		msg := ""
+		switch {
+		case err != nil:
+			msg = "can't read the migrations' status: " + err.Error()
+		case len(pending) > 0:
+			msg = fmt.Sprintf("%d migration(s) haven't run (%s): run migrate; until then the server reports itself unavailable (/health/ready)", len(pending), listIDs(pending))
+		default:
+			w.ready.Store(true)
+			if logged != "" {
+				w.r.log.InfoContext(ctx, "the migrations have run: the server is ready")
+			}
+			return nil
+		}
+		if msg != logged {
+			w.r.log.ErrorContext(ctx, msg)
+			logged = msg
+		}
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-time.After(5 * time.Second):
+		}
+	}
+}
+
+// pending returns the IDs of the migrations that haven't run.
+func (r *Runner) pending(ctx context.Context) ([]string, error) {
+	all, err := r.Status(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var ids []string
+	for _, s := range all {
+		if !s.Applied && !s.Missing {
+			ids = append(ids, s.ID)
+		}
+	}
+	return ids, nil
+}
+
+// Config holds the migration settings [ForApp] reads.
+type Config struct {
+	// OnRun runs the pending migrations when the app starts with the run
+	// command (the default) or serve, before its components: for one
+	// instance on SQLite in a container, where no step runs before the
+	// server (design D255). MIGRATE_ON_RUN, default false.
+	OnRun bool `env:"MIGRATE_ON_RUN" default:"false"`
+	// Readiness keeps the server unready while migrations are pending.
+	// Turn it off where the migrations run after the new version starts
+	// and the platform waits for it to be ready. MIGRATE_READINESS,
+	// default true.
+	Readiness bool `env:"MIGRATE_READINESS" default:"true"`
+}
+
+// onRun is the provider that migrates when the app boots to run (or
+// serve, or with no command: app.Run called directly).
+type onRun struct{ r *Runner }
+
+func (onRun) Name() string               { return "migrate.OnRun" }
+func (onRun) Register(*anetos.App) error { return nil }
+func (p onRun) Boot(ctx context.Context, _ *anetos.App) error {
+	if c, ok := cmd.Running(ctx); ok && c.Name != "run" && c.Name != "serve" {
+		return nil // migrate, doctor, the app's own commands…
+	}
+	done, err := p.r.Up(ctx)
+	if err != nil {
+		return err
+	}
+	if len(done) > 0 {
+		p.r.log.InfoContext(ctx, "migrated before running (MIGRATE_ON_RUN)", "migrations", len(done))
 	}
 	return nil
 }

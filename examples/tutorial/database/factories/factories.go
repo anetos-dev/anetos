@@ -20,15 +20,6 @@ import (
 
 // endregion
 
-// region: users
-
-// Users are users named User 1, User 2…, with addresses to match.
-var Users = factory.New(func(n int) models.User {
-	return models.User{Name: fmt.Sprintf("User %d", n), Email: fmt.Sprintf("user%d@example.com", n)}
-})
-
-// endregion
-
 // region: issues
 
 // Issues are open issues. Set AuthorID:

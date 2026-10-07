@@ -15,3 +15,14 @@ func TestLocal(t *testing.T) {
 		}
 	}
 }
+
+func TestExample(t *testing.T) {
+	for host, want := range map[string]bool{
+		"example.com": true, "smtp.example.com": true, "EXAMPLE.ORG.": true, "shop.example": true, "app.test": true,
+		"example.co": false, "myexample.com": false, "anetos.dev": false, "": false,
+	} {
+		if got := Example(host); got != want {
+			t.Errorf("Example(%q) = %v", host, got)
+		}
+	}
+}

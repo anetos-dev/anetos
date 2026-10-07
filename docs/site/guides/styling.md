@@ -113,7 +113,7 @@ Vue or React for v0.6.
 The theme is about 270 lines of plain CSS: variables, then base
 styles for elements, then the classes. Forms and tables need no class;
 inputs get a red border when the field failed validation
-(`aria-invalid="true"`, which `make:crud`'s forms set). The layout's
+(`aria-invalid="true"`, which the forms of `make:crud` and `make:auth` set). The layout's
 `navLink` marks the link of the current page with
 `aria-current="page"` (`web.RouteIs`), which the theme highlights.
 

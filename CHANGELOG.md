@@ -6,7 +6,36 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-07
+
+Search, AI and the starter experience: full-text search and search by
+meaning with hybrid ranking; package `ai` with Anthropic, OpenAI (and
+compatible servers) and Gemini, typed tools, agents, stored
+conversations, budgets and streaming; roles and permissions;
+internationalization; Google Cloud Storage; the audit log and soft
+deletes; the admin; account settings; `anetos build`, a Dockerfile and a
+systemd unit; the starter theme, `make:crud` and app error pages; the
+security review and `doctor`; benchmarks and the performance gate.
+Upgrading from v0.2: [the upgrade guide](docs/site/upgrade/v0.3.md).
+
 ### Added
+- Error pages in the app's layout (M10, D256):
+  `Router.ErrorPages` makes the HTML error page an app's component, fed
+  a `web.ErrorPage` (status, translated title, the visitor-safe message,
+  request ID); JSON clients, form redirects, logging and the debug page
+  of a 5xx stay as they were. `anetos new` writes `views/errors.templ`
+  and sets it in `routes/web.go`, with a test of the 404 page, and an
+  icon (`public/static/favicon.svg`).
+- `MIGRATE_ON_RUN=true` runs the pending migrations when the app starts
+  with `run` or `serve`, before its components (M5, D255). A SQLite
+  project's `Dockerfile` sets it.
+- `make:auth` writes `database/factories/users.go`: `factories.Users`,
+  verified users whose password is `factories.UserPassword`, for tests
+  with `anetostest.ActingAs` (M10, D257).
+- `anetos help <command>` shows the command's usage (M10).
+- `doctor` warns, in production and staging, about settings still
+  holding an example's domain (`example.com`, `.test`): `APP_URL`,
+  `MAIL_SMTP_URL`'s server, `MAIL_FROM_ADDRESS` (M7).
 - Benchmarks of v0.3 (M6, D251–D253): the page of an app made with
   `anetos new` and `make:auth` and the cost of each of its parts, each
   middleware, a list of 20 rows, and chi, Gin and Echo doing the same
@@ -455,12 +484,33 @@ All notable changes to this project are documented here. The format follows
   `ai:embed` command re-embed only changed chunks (`FixedSize` for models
   that make one size of vector); `Search` (hybrid with a search index)
   returns passages, and `Tool` gives agents the search, under the
-  config's `Scope` (S2, D181, D184).
+  config's `Scope` (S2, D181, D184). With `db.Connect`, the app refuses
+  to boot when its database can't search vectors (MySQL, MariaDB before
+  11.7, PostgreSQL without pgvector), saying why (D258).
 - `aitest.Config.EmbeddingModel` runs an `Embed` conformance test (S2).
 - `examples/assistant` searches its articles by meaning and words; guide
-  "Search by meaning" (S2).
+  "Search by meaning" (S2). It runs on SQLite, PostgreSQL with pgvector
+  and MariaDB 11.7+, and CI runs it and `examples/tracker` on
+  PostgreSQL (with pgvector, which the driver's conformance suite now
+  uses too) and the tracker on MySQL (A3).
 
 ### Changed
+- With `migrate.ForApp`, the server isn't ready (`/health/ready`
+  answers 503, `health:check` exits 1) while the database has migrations
+  the app hasn't run, and logs which (M5, D255); `MIGRATE_READINESS=false`
+  turns it off. See the upgrade guide.
+- Boot errors name the database's provider `db.Connect(<driver>)`,
+  without a memory address that changed on every run (S1).
+- The deploy guide's container migration mounts the data volume (it
+  migrated a throwaway SQLite database); the search guide shows a search
+  box for `make:crud`'s pages in the starter theme, and the clean-up of a
+  MySQL search test; members-only pages explain the test's sign-in (M5,
+  M10).
+- `make:auth`'s forms mark invalid fields (`aria-invalid`) as
+  `make:crud`'s do, and its `SOCIAL_*` settings go to
+  `deploy/production.env.example` too (M10).
+- The version of a development build is `v0.3.0-dev` (it said
+  `v0.2.0-dev`).
 - Faster requests (M6, D252): a signed-in page 13–15% faster with about
   a fifth fewer allocations. `RequestIDs`, `RealIP` and the locale
   middleware keep their results in the router's request state instead

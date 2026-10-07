@@ -614,7 +614,7 @@ type connCheck struct {
 	name string
 }
 
-func (c *connCheck) Name() string               { return fmt.Sprintf("db.Connect(%s, %p)", c.name, c.d) }
+func (c *connCheck) Name() string               { return "db.Connect(" + c.name + ")" }
 func (c *connCheck) Register(*anetos.App) error { return nil }
 func (c *connCheck) Boot(ctx context.Context, _ *anetos.App) error {
 	pingCtx, cancel := context.WithTimeout(ctx, 10*time.Second)

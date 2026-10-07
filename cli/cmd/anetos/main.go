@@ -73,7 +73,7 @@ Commands:
   key:generate              print a new APP_KEY line (append it to .env)
   version                   print the version
 
-Run "anetos <command> -h" for a command's flags.
+Run "anetos help <command>" (or "anetos <command> -h") for a command's flags.
 `
 
 func run(args []string, stdout, stderr io.Writer) int {
@@ -140,6 +140,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stdout, "anetos", version())
 		return 0
 	case "help", "-h", "-help", "--help":
+		if len(args) > 1 && args[0] == "help" && !strings.HasPrefix(args[1], "-") && args[1] != "help" {
+			// anetos help make:crud is anetos make:crud -h, on stdout.
+			return run([]string{args[1], "-h"}, stdout, stdout)
+		}
 		fmt.Fprint(stdout, usage)
 		return 0
 	}

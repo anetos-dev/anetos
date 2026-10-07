@@ -12,14 +12,18 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"anetos.dev/anetos"
+	"anetos.dev/anetos/ai"
 	"anetos.dev/anetos/anetostest"
 	"anetos.dev/anetos/cmd"
 	"anetos.dev/anetos/config"
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/db/factory"
 	"anetos.dev/anetos/db/migrate"
+	"anetos.dev/anetos/encryption"
+	"anetos.dev/anetos/supervisor"
 	"anetos.dev/anetos/web"
 )
 
@@ -174,7 +178,101 @@ func RunApp(t *testing.T, drv db.Driver, env map[string]string) {
 		}
 		drop()
 	})
+	t.Run("readiness waits for migrations", func(t *testing.T) {
+		drop()
+		defer drop()
+		src := config.Map{"APP_ENV": "development"}
+		maps.Copy(src, env)
+		app, err := anetos.New(anetos.WithSource(src), anetos.WithLogger(slog.New(slog.DiscardHandler)))
+		check(t, err)
+		_, err = db.Connect(context.Background(), app, drv)
+		check(t, err)
+		r, err := migrate.ForApp(app, []*migrate.Set{set}, migrate.WithTable("st_app_migrations"))
+		check(t, err)
+		// The server's stand-in: the app runs while a component does.
+		check(t, app.Go("server", func(ctx context.Context) error { <-ctx.Done(); return nil }, anetos.Roles("http")))
+		runCtx, cancel := context.WithCancel(context.Background())
+		done := make(chan error, 1)
+		go func() { done <- app.Run(runCtx, "http") }()
+		defer func() { cancel(); <-done }()
+		state := func() supervisor.State {
+			for _, c := range app.Supervisor().Status() {
+				if c.Name == "migrations" {
+					return c.State
+				}
+			}
+			return supervisor.StatePending
+		}
+		for i := 0; state() != supervisor.StateRunning; i++ {
+			if i > 200 {
+				t.Fatalf("the migrations' watch didn't start: %v", state())
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+		if app.Supervisor().Ready() {
+			t.Error("ready with a migration pending")
+		}
+		_, err = r.Up(app.Context(context.Background()))
+		check(t, err)
+		for i := 0; !app.Supervisor().Ready(); i++ { // checked again every 5 seconds
+			if i > 150 {
+				t.Fatalf("not ready 15s after migrate: %v", state())
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+	})
+	t.Run("MIGRATE_ON_RUN", func(t *testing.T) {
+		drop()
+		defer drop()
+		boot := func(command string) bool {
+			t.Helper()
+			src := config.Map{"APP_ENV": "production", "APP_KEY": encryption.GenerateKey(), "MIGRATE_ON_RUN": "true"}
+			maps.Copy(src, env)
+			app, err := anetos.New(anetos.WithSource(src), anetos.WithLogger(slog.New(slog.DiscardHandler)))
+			check(t, err)
+			defer func() { _ = app.Close() }()
+			_, err = db.Connect(context.Background(), app, drv)
+			check(t, err)
+			_, err = migrate.ForApp(app, []*migrate.Set{set}, migrate.WithTable("st_app_migrations"))
+			check(t, err)
+			check(t, app.Boot(cmd.WithCommand(context.Background(), cmd.Command{Name: command})))
+			s, err := migrate.NewSchema(db.WithDB(context.Background(), d))
+			check(t, err)
+			has, err := s.HasTable("st_app_items")
+			check(t, err)
+			return has
+		}
+		if boot("doctor") {
+			t.Error("migrated before doctor")
+		}
+		if !boot("run") {
+			t.Error("didn't migrate before run")
+		}
+	})
 	t.Run("search settings", func(t *testing.T) { runSearchApp(t, drv, env, d) })
+	t.Run("vector requirement", func(t *testing.T) {
+		// ai.EmbeddingsFor makes the app refuse to boot without vector search.
+		src := config.Map{"APP_ENV": "development", "AI_PROVIDER": "fake", "APP_KEY": encryption.GenerateKey()}
+		maps.Copy(src, env)
+		app, err := anetos.New(anetos.WithSource(src), anetos.WithLogger(slog.New(slog.DiscardHandler)))
+		check(t, err)
+		defer func() { _ = app.Close() }()
+		_, err = db.Connect(context.Background(), app, drv)
+		check(t, err)
+		_, err = ai.ForApp(app)
+		check(t, err)
+		_, err = ai.EmbeddingsFor(app, ai.EmbeddingsConfig[stENote]{Text: func(n stENote) string { return n.Body }, Dimensions: 32})
+		check(t, err)
+		has, err := d.Supports(ctx, db.VectorSearch)
+		check(t, err)
+		err = app.Boot(context.Background())
+		switch {
+		case has && err != nil:
+			t.Errorf("boot with vector search: %v", err)
+		case !has && (err == nil || !strings.Contains(err.Error(), "the embeddings of st_e_notes (ai.EmbeddingsFor) needs vector search")):
+			t.Errorf("boot without vector search: %v", err)
+		}
+	})
 }
 
 // runSearchApp checks the search settings when the app boots: a search

@@ -222,6 +222,8 @@ func (a *App) appChecks(context.Context) []Finding {
 			sev = Problem
 		}
 		out = append(out, Finding{sev, fmt.Sprintf("APP_URL %s is http: links in emails and OAuth callbacks go over plain HTTP; serve the app over HTTPS and use https://", c.URL)})
+	case netaddr.Example(u.Hostname()):
+		out = append(out, Finding{Warning, fmt.Sprintf("APP_URL %s is an example's: links in emails and OAuth callbacks would point there; set the app's public URL", c.URL)})
 	}
 	return out
 }

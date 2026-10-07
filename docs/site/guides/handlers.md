@@ -159,6 +159,23 @@ Return an error and let the framework respond:
   error chain, the stack trace for panics, and request details (with
   `Authorization` and `Cookie` headers redacted).
 
+  A project made with `anetos new` shows its error pages in its own
+  layout: `routes/web.go` passes `views.ErrorPage` (in
+  `views/errors.templ`, yours to change) to the router's `ErrorPages`.
+  It gets a `web.ErrorPage`: the status, its translated title, the
+  error's message for the visitor if any (never a 5xx's internals), the
+  field errors of a 4xx that isn't a form's redirect, and the request
+  ID. With `APP_DEBUG=true`, a 5xx still shows the framework's page with
+  its details. A URL that matches no route runs only the global
+  middleware, so its page has no session: the header shows a guest's
+  links. If the page fails to render (or panics), the framework's is
+  sent and the failure logged. Another app adds it the same way:
+
+  ```go
+  // illustrative
+  r.ErrorPages(func(_ *web.Ctx, e web.ErrorPage) view.Component { return views.ErrorPage(e) })
+  ```
+
 Panics in handlers are recovered and handled like errors. Every 5xx is
 logged with the request ID.
 

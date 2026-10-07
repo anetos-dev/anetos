@@ -15,6 +15,10 @@ import (
 // pages (anetos make:crud).
 func Test[[.Plural]](t *testing.T) {
 	app := anetostest.New(t, setup)
+	// Pages in make:auth's members group need a signed-in user first:
+	//
+	//	ada := anetostest.Create(app, factories.Users)
+	//	anetostest.ActingAs(app, &ada)
 	app.Get("/[[.Path]]").AssertOK().AssertSee("No [[.PluralW]] yet.")
 	app.Get("/[[.Path]]/new").AssertOK()
 [[- if .Required]]

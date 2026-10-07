@@ -42,9 +42,12 @@ created views/auth_mail.templ
 created routes/auth.go
 created auth.go
 created auth_test.go
+created locales/en/auth.yaml
+created database/factories/users.go
 created database/migrations/2026_10_02_090000_create_users_table.go
 updated .env: SOCIAL_* settings
 updated .env.example: SOCIAL_* settings
+updated deploy/production.env.example: SOCIAL_* settings
 updated main.go: setup calls setupAuth
 updated views/layout.templ: the header shows AccountMenu
 wrote app/models/models_gen.go

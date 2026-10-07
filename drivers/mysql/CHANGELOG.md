@@ -7,6 +7,8 @@ tagged `drivers/mysql/vX.Y.Z`. The framework's own changes are in the
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-07
+
 ### Added
 - TLS from `DB_TLS` for connections built from `DB_HOST`: `verify`
   (`tls=true`, or a configuration with `DB_TLS_CA`'s authorities), the

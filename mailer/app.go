@@ -14,6 +14,7 @@ import (
 
 	"anetos.dev/anetos"
 	"anetos.dev/anetos/config"
+	"anetos.dev/anetos/internal/netaddr"
 	"anetos.dev/anetos/queue"
 )
 
@@ -186,6 +187,12 @@ func checks(cfg Config, env anetos.Environment) []anetos.Finding {
 		if u, err := url.Parse(string(cfg.SMTPURL)); err == nil && u.Query().Get("tls") == "none" && !isLocal(u.Hostname()) {
 			out = append(out, anetos.Finding{Severity: anetos.Warning, Message: fmt.Sprintf("MAIL_SMTP_URL has tls=none for %s: emails, with their reset and sign-in links, cross the network in plain text; drop tls=none unless the relay is on a private network", u.Hostname())})
 		}
+		if u, err := url.Parse(string(cfg.SMTPURL)); err == nil && env.Deployed() && netaddr.Example(u.Hostname()) {
+			out = append(out, anetos.Finding{Severity: anetos.Warning, Message: fmt.Sprintf("MAIL_SMTP_URL's server %s is an example's: emails can't be sent; set your mail server's URL", u.Hostname())})
+		}
+	}
+	if _, domain, ok := strings.Cut(cfg.FromAddress, "@"); ok && env.Deployed() && netaddr.Example(domain) {
+		out = append(out, anetos.Finding{Severity: anetos.Warning, Message: fmt.Sprintf("MAIL_FROM_ADDRESS %s is an example's: receiving servers reject or junk it; use an address of your domain", cfg.FromAddress)})
 	}
 	return out
 }

@@ -7,6 +7,10 @@ tagged `drivers/openai/vX.Y.Z`. The framework's own changes are in the
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-07
+
+The first release, with the framework's v0.3.0.
+
 ### Added
 - `Provider.Embed`: embeddings with the Embeddings API, for OpenAI and
   compatible servers (`dimensions` when asked); `AI_EMBEDDING_PROVIDER=openai`

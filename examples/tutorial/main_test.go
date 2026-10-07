@@ -12,3 +12,9 @@ func TestHome(t *testing.T) {
 	app := anetostest.New(t, setup)
 	app.Get("/").AssertOK().AssertSee("Tracker")
 }
+
+// Errors are pages of the app (views/errors.templ).
+func TestNotFound(t *testing.T) {
+	app := anetostest.New(t, setup)
+	app.Get("/no-such-page").AssertNotFound().AssertSee("Go to the home page")
+}

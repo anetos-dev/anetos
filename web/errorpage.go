@@ -5,13 +5,40 @@ package web
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"html/template"
 	"net/http"
 	"net/url"
 	"strings"
 
 	"anetos.dev/anetos/i18n"
+	"anetos.dev/anetos/view"
 )
+
+// ErrorPage is what an app's error page shows ([Router.ErrorPages]).
+type ErrorPage struct {
+	Status    int               // the HTTP status, such as 404
+	Title     string            // the status's title, translated ("Not Found")
+	Detail    string            // the error's message for the visitor, if any; never a 5xx's internals
+	Errors    map[string]string // field errors of a 4xx that isn't a form's redirect, if any
+	RequestID string            // the request's ID, to quote when asking for help
+}
+
+// ErrorPages makes the router's HTML error pages page's, such as a page
+// in the app's layout (anetos new writes views.ErrorPage):
+//
+//	r.ErrorPages(func(_ *web.Ctx, e web.ErrorPage) view.Component { return views.ErrorPage(e) })
+//
+// It changes only the page browsers get: JSON clients still get problem
+// details, failed form posts are still redirected back, errors are logged
+// as before, and in debug mode (APP_DEBUG) a 5xx still shows the error
+// chain and stack. If page's component fails to render, the built-in page
+// is sent and the failure logged. Call it before the router serves.
+func (r *Router) ErrorPages(page func(c *Ctx, e ErrorPage) view.Component) {
+	r.core.mu.Lock()
+	defer r.core.mu.Unlock()
+	r.core.errorPage = page
+}
 
 func marshalJSON(v any) ([]byte, error) {
 	var buf bytes.Buffer
@@ -74,6 +101,21 @@ type errorPageData struct {
 
 func renderErrorPage(c *Ctx, p *problem) {
 	ctx := c.ctx()
+	c.router.core.mu.RLock()
+	page := c.router.core.errorPage
+	c.router.core.mu.RUnlock()
+	if page != nil && (!c.router.core.debug || p.Status < 500) {
+		b, err := appErrorPage(c, page, p)
+		if err == nil {
+			writeErrorPage(c, p.Status, b)
+			return
+		}
+		attrs := []any{"error", err, "status", p.Status}
+		if pe, ok := errors.AsType[*PanicError](err); ok {
+			attrs = append(attrs, "stack", string(pe.Stack))
+		}
+		c.Logger().Error("rendering the app's error page failed: sent the built-in one", attrs...)
+	}
 	d := errorPageData{P: p, Debug: c.router.core.debug, Lang: i18n.Locale(ctx), Dir: i18n.Dir(ctx), Problems: i18n.T(ctx, "http.problems")}
 	if p.RequestID != "" {
 		d.RequestID = i18n.T(ctx, "http.request_id", "id", p.RequestID)
@@ -102,12 +144,31 @@ func renderErrorPage(c *Ctx, p *problem) {
 		http.Error(c.w, p.Title, p.Status)
 		return
 	}
+	writeErrorPage(c, p.Status, buf.Bytes())
+}
+
+// appErrorPage renders the app's error page, a panic in it being an
+// error (a *PanicError), so the built-in page can be sent instead.
+func appErrorPage(c *Ctx, page func(*Ctx, ErrorPage) view.Component, p *problem) (b []byte, err error) {
+	defer func() {
+		if v := recover(); v != nil {
+			b, err = nil, newPanicError(v)
+		}
+	}()
+	var buf bytes.Buffer
+	if err := page(c, ErrorPage{Status: p.Status, Title: p.Title, Detail: p.Detail, Errors: p.Errors, RequestID: p.RequestID}).Render(c, &buf); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func writeErrorPage(c *Ctx, status int, page []byte) {
 	h := c.w.Header()
 	h.Set("Content-Type", "text/html; charset=utf-8")
 	h.Set("X-Content-Type-Options", "nosniff")
-	c.w.WriteHeader(p.Status)
+	c.w.WriteHeader(status)
 	if c.r.Method != http.MethodHead {
-		_, _ = c.w.Write(buf.Bytes())
+		_, _ = c.w.Write(page)
 	}
 }
 

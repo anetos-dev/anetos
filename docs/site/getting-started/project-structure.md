@@ -14,7 +14,7 @@ same places.
 ```text
 blog/
 ├── main.go               setup: the database, cache, queue, mail, server, routes…
-├── main_test.go          a test of the home page
+├── main_test.go          tests of the home page and the 404 page
 ├── plugins.go            the plugins (anetos add)
 ├── app/
 │   ├── handlers/         HTTP handlers: a request in, a page or JSON out
@@ -26,9 +26,10 @@ blog/
 │   └── web.go            URLs to handlers, with their middleware
 ├── views/
 │   ├── layout.templ      the page shell: the header, the flash message
-│   └── home.templ        the home page
+│   ├── home.templ        the home page
+│   └── errors.templ      error pages (404, 500…) in the layout
 ├── locales/en/app.yaml   the pages' text
-├── public/static/        CSS (app.css, the starter theme) and other files
+├── public/static/        CSS (app.css, the starter theme), the icon (favicon.svg) and other files
 ├── deploy/               a systemd unit and the production settings
 ├── Dockerfile            a container image
 ├── .env                  settings for your machine (not in git)

@@ -277,7 +277,22 @@ Open an issue from the list, comment on it, close it.
 
 ## Test it
 
-A factory for issues, below the users' in `database/factories/factories.go`:
+A factory for issues, in `database/factories/factories.go`: first these
+imports, below the package line,
+
+```go
+import (
+	"fmt"
+
+	"anetos.dev/anetos/db/factory"
+
+	"tracker/app/models"
+)
+```
+
+(Copied from [`examples/tutorial/database/factories/factories.go`](../../../../examples/tutorial/database/factories/factories.go), region `imports`.)
+
+then the factory:
 
 ```go
 // Issues are open issues. Set AuthorID:

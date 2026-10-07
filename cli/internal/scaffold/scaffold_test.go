@@ -266,8 +266,11 @@ func TestMakeAuth(t *testing.T) {
 	if h := read(t, filepath.Join(dir, "app/handlers/auth.go")); !strings.Contains(h, `"example.com/shop/app/models"`) {
 		t.Errorf("handlers' imports:\n%s", h)
 	}
+	if f := read(t, filepath.Join(dir, "database/factories/users.go")); !strings.Contains(f, "var Users = factory.New(func(n int) models.User {") {
+		t.Errorf("the users' factory:\n%s", f)
+	}
 	// The SOCIAL_* settings, once per file.
-	if !slices.Equal(res.Env, []string{".env", ".env.example"}) {
+	if !slices.Equal(res.Env, []string{".env", ".env.example", "deploy/production.env.example"}) {
 		t.Errorf("Env = %v", res.Env)
 	}
 	for _, f := range res.Env {

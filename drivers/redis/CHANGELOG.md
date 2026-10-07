@@ -7,6 +7,8 @@ tagged `drivers/redis/vX.Y.Z`. The framework's own changes are in the
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-07
+
 ### Added
 - The queue store counts its failed jobs and finds one by ID at once
   (`queue.FailedCounter`, `queue.FailedFinder`) (AD2a).

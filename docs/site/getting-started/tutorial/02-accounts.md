@@ -25,6 +25,7 @@ own and can change:
 | `views/auth.templ`, `views/settings.templ` | Their pages, and `AccountMenu`, the header's links to log in, register and log out, which `make:auth` adds to `views/layout.templ` |
 | `routes/auth.go` | Their routes. Pages for signed-in users go in its `members` group |
 | `auth_test.go` | Their tests |
+| `database/factories/users.go` | `factories.Users`, which makes users for your own tests |
 
 `migrate` creates the `users`, `api_tokens` and `social_accounts`
 tables.

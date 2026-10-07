@@ -39,7 +39,9 @@ import (
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/db/migrate"
 	"anetos.dev/anetos/drivers/anthropic"
+	"anetos.dev/anetos/drivers/mysql"
 	"anetos.dev/anetos/drivers/openai"
+	"anetos.dev/anetos/drivers/postgres"
 	"anetos.dev/anetos/drivers/sqlite"
 	"anetos.dev/anetos/queue"
 	"anetos.dev/anetos/session"
@@ -59,7 +61,7 @@ type Settings struct {
 // queue, the AI client, the migrations, the server and the routes. Tests
 // call it too.
 func setup(app *anetos.App) (*web.Server, error) {
-	if _, err := db.Connect(context.Background(), app, sqlite.Driver()); err != nil {
+	if _, err := db.Connect(context.Background(), app, sqlite.Driver(), postgres.Driver(), mysql.Driver()); err != nil {
 		return nil, err
 	}
 	sets := []*migrate.Set{Migrations, ai.Migrations(), session.Migrations(""), cache.Migrations(""), queue.Migrations("jobs", "failed_jobs")}

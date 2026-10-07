@@ -177,6 +177,8 @@ keys with a prefix, e.g. `ANALYTICS_DB_HOST`) into `db.Config`.
 | `DB_LOG_QUERIES` | bool | on when `APP_ENV=development` | Log every query, with its arguments and duration, at debug level | v0.1 |
 | `DB_SLOW_QUERY` | duration | `500ms` | Log queries taking at least this long as warnings (without arguments). `0` disables | v0.1 |
 | `DB_REPEATED_QUERIES` | int | `5` when `APP_ENV` is `development` or `testing`, off elsewhere | Warn when a unit of work (a request, a job, a listener, a task) runs the same query this many times or more: an N+1. `0` disables; otherwise at least 2. See [Find N+1 queries](../guides/n-plus-one.md) | v0.2 |
+| `MIGRATE_ON_RUN` | bool | `false` | With `migrate.ForApp`: run the pending migrations when the app starts with `run` (the default command) or `serve`, before its components. For one instance on SQLite in a container; the `Dockerfile` of a SQLite project sets it | v0.3 |
+| `MIGRATE_READINESS` | bool | `true` | With `migrate.ForApp`: the server isn't ready (`/health/ready` answers 503, `health:check` exits 1) while the database has migrations the app hasn't run, rechecked every 5 seconds. Turn it off where the migrations run after the new version starts and the platform waits for it to be ready | v0.3 |
 | `DB_ALLOW_LOCAL_TIMEZONE` | bool | `false` | Accept a database session time zone other than UTC (set in `DB_URL`), which the app otherwise refuses at boot so the database never writes local times next to the app's UTC ones. For a legacy database whose times are local; the app still writes UTC | v0.3 |
 
 ### Search

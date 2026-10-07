@@ -118,7 +118,9 @@ immediately canceled.
 - `app.Supervisor().Ready()` is true while running and not shutting down,
   and every component that implements `Ready() bool` is ready. Such a
   component that is waiting to restart or has failed counts as not ready.
-  It will back the planned readiness endpoint.
+  It backs the server's `GET /health/ready` and `health:check`;
+  `migrate.ForApp` adds one (`migrations`) that isn't ready while
+  migrations are pending.
 - `app.Supervisor().ShutdownDeadline()` is when the components' share of
   `APP_SHUTDOWN_TIMEOUT` runs out, once shutdown has begun: queue workers
   use it to stop their jobs in time.

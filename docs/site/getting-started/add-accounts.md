@@ -47,7 +47,15 @@ The setting wins over the default, so each deployment can choose.
 `routes/auth.go` has a `members` group: guests who open its pages go to
 the login page and come back after logging in. Put your own routes
 there, such as `make:crud`'s (`Posts(members)`), and read the user in a
-handler with `auth.User[*models.User](c)`.
+handler with `auth.User[*models.User](c)`. Their tests then sign a user
+in first, with the factory `make:auth` wrote:
+
+```go
+// illustrative
+app := anetostest.New(t, setup)
+ada := anetostest.Create(app, factories.Users)
+anetostest.ActingAs(app, &ada).Get("/posts").AssertOK()
+```
 
 [Add accounts with make:auth](../guides/accounts.md) describes every
 page, setting and file, and how to change them.

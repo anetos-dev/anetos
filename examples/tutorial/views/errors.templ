@@ -1,0 +1,40 @@
+package views
+
+import (
+	"maps"
+	"slices"
+
+	"anetos.dev/anetos/i18n"
+	"anetos.dev/anetos/web"
+)
+
+// ErrorPage is the page of an error, such as a 404, in the app's layout
+// (routes.Register sets it with ErrorPages). Debug mode (APP_DEBUG) shows
+// a server error's details on the framework's page instead. A URL that
+// matches no route runs only the global middleware, so its page has no
+// session: the header shows the links of a guest.
+templ ErrorPage(e web.ErrorPage) {
+	@Layout(e.Title) {
+		<div class="narrow stack">
+			<div class="page-header">
+				<div>
+					<h1>{ e.Title }</h1>
+					if e.Detail != "" {
+						<p>{ e.Detail }</p>
+					}
+				</div>
+			</div>
+			if len(e.Errors) > 0 {
+				<ul class="card">
+					for _, field := range slices.Sorted(maps.Keys(e.Errors)) {
+						<li><strong>{ field }</strong>: { e.Errors[field] }</li>
+					}
+				</ul>
+			}
+			<p><a class="button" href={ web.URL(ctx, "home") }>{ i18n.T(ctx, "errors.home") }</a></p>
+			if e.RequestID != "" {
+				<p class="muted"><small>{ i18n.T(ctx, "http.request_id", "id", e.RequestID) }</small></p>
+			}
+		</div>
+	}
+}

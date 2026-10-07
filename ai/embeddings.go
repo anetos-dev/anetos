@@ -88,7 +88,10 @@ type embeddingSets struct {
 // queue (queue.ForApp, called first), Sync embeds in a job
 // ("ai.embed:<table>"), which a worker must have registered too: call
 // EmbeddingsFor in the setup both share. The command ai:embed syncs
-// every record, after a change of model or Text.
+// every record, after a change of model or Text. When the app's
+// database comes from db.Connect, the app refuses to boot if it can't
+// search vectors (db.VectorSearch: MySQL Community, MariaDB before 11.7,
+// PostgreSQL without pgvector).
 func EmbeddingsFor[T any](app *anetos.App, cfg EmbeddingsConfig[T]) (*Embeddings[T], error) {
 	table, err := db.TableOf[T]()
 	if err != nil {
@@ -106,6 +109,13 @@ func EmbeddingsFor[T any](app *anetos.App, cfg EmbeddingsConfig[T]) (*Embeddings
 	}
 	if _, err := anetos.Resolve[*Client](app); err != nil {
 		return nil, errors.New("ai: EmbeddingsFor needs the app's AI client: call ai.ForApp first")
+	}
+	// The app's database (db.Connect) must search vectors: checked when
+	// the app boots, as search settings are.
+	if d, ok := anetos.Lookup[*db.DB](app); ok && d != nil {
+		if err := d.Require("the embeddings of "+table+" (ai.EmbeddingsFor)", db.VectorSearch); err != nil {
+			return nil, err
+		}
 	}
 	e := &Embeddings[T]{cfg: cfg, table: table, job: "ai.embed:" + table}
 	if q, err := anetos.Resolve[*queue.Queue](app); err == nil {

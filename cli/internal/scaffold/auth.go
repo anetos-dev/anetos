@@ -32,6 +32,7 @@ var authFiles = [][2]string{
 	{"setup.go.tmpl", "auth.go"},
 	{"test.go.tmpl", "auth_test.go"},
 	{"locale.yaml.tmpl", "locales/en/auth.yaml"},
+	{"factory.go.tmpl", "database/factories/users.go"},
 }
 
 // authCall is what make:auth adds to setup in main.go, after the routes.
@@ -57,19 +58,20 @@ type AuthResult struct {
 	// Menu says the layout (views/layout.templ) now shows AccountMenu in
 	// its header; when false, the app adds it where it wants it.
 	Menu bool
-	// Env are the settings files (.env, .env.example) the SOCIAL_*
-	// settings were added to.
+	// Env are the settings files (.env, .env.example,
+	// deploy/production.env.example) the SOCIAL_* settings were added to.
 	Env []string
 }
 
 // MakeAuth writes the account scaffolding into the project at root:
 // the User model, the handlers, the emails, the pages, the routes, the
-// users table's migration, setupAuth and its tests. It writes nothing if
+// users table's migration, setupAuth and its tests, and the Users
+// factory. It writes nothing if
 // one of the files exists already, or a name they declare is taken in
 // its package; if a write fails, it removes what it wrote. When setup in
 // main.go has the routes.Register call of an anetos new project, it adds
 // the call to setupAuth after it. It adds the SOCIAL_* settings, empty,
-// to .env and .env.example.
+// to .env, .env.example and deploy/production.env.example.
 func MakeAuth(root string, now time.Time) (AuthResult, error) {
 	var res AuthResult
 	b, err := os.ReadFile(filepath.Join(root, "go.mod"))
@@ -116,7 +118,7 @@ func MakeAuth(root string, now time.Time) (AuthResult, error) {
 
 	// The settings files, as they are: read now, so a file that can't be
 	// read stops make:auth before it writes anything.
-	envFiles := []string{".env", ".env.example"}
+	envFiles := []string{".env", ".env.example", "deploy/production.env.example"}
 	envBefore := map[string][]byte{}
 	for _, name := range envFiles {
 		b, err := os.ReadFile(filepath.Join(root, name))
@@ -263,12 +265,13 @@ func addSettings(file, block string) (bool, error) {
 // authNames are the top-level names the generated files declare, by
 // package directory ("" is the root, package main).
 var authNames = map[string][]string{
-	"app/models":   {"User", "Users", "UserCols"},
-	"app/handlers": {"Accounts", "RegisterInput", "LoginInput", "ForgotInput", "ResetInput", "TokenQuery", "NewTokenInput", "TokenID", "CodeInput", "PasswordInput", "ProfileInput", "EmailInput", "NewPasswordInput", "PreferencesInput", "RevertInput", "sendEmailChange", "SocialUser", "SendVerification", "SendPasswordReset", "emailTaken", "cleanName"},
-	"app/mailers":  {"VerifyEmail", "ResetPassword", "ChangeEmail", "EmailChanging"},
-	"views":        {"AccountMenu", "SocialButton", "Register", "Login", "ForgotPassword", "ResetPassword", "Dashboard", "TwoFactorChallenge", "ConfirmPassword", "TwoFactorPage", "TwoFactor", "Choice", "SettingsPage", "Settings", "RevertEmail", "ChangeEmailMail", "EmailChangingMail", "socialButtons", "authError", "VerifyEmailMail", "ResetPasswordMail", "authMail"},
-	"routes":       {"Auth"},
-	"":             {"setupAuth", "authRegister", "authLink", "TestRegisterAndVerify", "TestResendVerification", "TestRegisterValidation", "TestLoginAndLogout", "TestTwoFactor", "TestSettings", "TestChangeEmail", "TestRevertEmailChange", "TestDisabledAccount", "TestLoginReturnsToTheRequestedPage", "TestPasswordReset", "TestResetSignsOutAndRevokesTokens", "TestAPIToken", "TestSocialSignIn", "TestSocialSignInFindsVerifiedAccounts"},
+	"app/models":         {"User", "Users", "UserCols"},
+	"app/handlers":       {"Accounts", "RegisterInput", "LoginInput", "ForgotInput", "ResetInput", "TokenQuery", "NewTokenInput", "TokenID", "CodeInput", "PasswordInput", "ProfileInput", "EmailInput", "NewPasswordInput", "PreferencesInput", "RevertInput", "sendEmailChange", "SocialUser", "SendVerification", "SendPasswordReset", "emailTaken", "cleanName"},
+	"app/mailers":        {"VerifyEmail", "ResetPassword", "ChangeEmail", "EmailChanging"},
+	"views":              {"AccountMenu", "SocialButton", "Register", "Login", "ForgotPassword", "ResetPassword", "Dashboard", "TwoFactorChallenge", "ConfirmPassword", "TwoFactorPage", "TwoFactor", "Choice", "SettingsPage", "Settings", "RevertEmail", "ChangeEmailMail", "EmailChangingMail", "socialButtons", "authError", "VerifyEmailMail", "ResetPasswordMail", "authMail"},
+	"routes":             {"Auth"},
+	"database/factories": {"Users", "UserPassword", "userHash"},
+	"":                   {"setupAuth", "authRegister", "authLink", "TestRegisterAndVerify", "TestResendVerification", "TestRegisterValidation", "TestLoginAndLogout", "TestTwoFactor", "TestSettings", "TestChangeEmail", "TestRevertEmailChange", "TestDisabledAccount", "TestLoginReturnsToTheRequestedPage", "TestPasswordReset", "TestResetSignsOutAndRevokesTokens", "TestAPIToken", "TestSocialSignIn", "TestSocialSignInFindsVerifiedAccounts"},
 }
 
 func dirLabel(dir string) string {

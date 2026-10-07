@@ -7,6 +7,10 @@ tagged `drivers/anthropic/vX.Y.Z`. The framework's own changes are in the
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-07
+
+The first release, with the framework's v0.3.0.
+
 ### Added
 - The Anthropic provider of package ai (`AI_PROVIDER=anthropic`) on
   anthropic-sdk-go: the Messages API with text, streaming, tools,

@@ -75,8 +75,10 @@ request.
 A typed handler's result is written by its `Responder` or as JSON. An error
 (or a panic) goes to the **error handler**. By default it logs 5xx errors
 with the request ID and writes problem JSON or an HTML page, hiding internal
-details unless `APP_DEBUG=true`. Replace it with `web.WithErrorHandler`, and
-reuse `web.DefaultErrorHandler` for the cases you don't customize.
+details unless `APP_DEBUG=true`. The HTML page can be the app's own, in
+its layout (`Router.ErrorPages`, which `anetos new` sets up). Replace the
+whole handler with `web.WithErrorHandler`, and reuse
+`web.DefaultErrorHandler` for the cases you don't customize.
 
 If a handler already started writing, an error can only be logged. The
 response can't be changed any more.

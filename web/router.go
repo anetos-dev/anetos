@@ -16,6 +16,7 @@ import (
 	"sync/atomic"
 
 	"anetos.dev/anetos"
+	"anetos.dev/anetos/view"
 )
 
 // HandlerFunc is the standard Anetos handler: it writes a response through
@@ -59,6 +60,7 @@ type routerCore struct {
 	logger       *slog.Logger
 	debug        bool
 	errorHandler ErrorHandler
+	errorPage    func(*Ctx, ErrorPage) view.Component // ErrorPages; under mu
 
 	mu      sync.RWMutex
 	names   map[string]*Route

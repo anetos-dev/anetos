@@ -43,7 +43,7 @@ templ Settings(p SettingsPage) {
 					@view.CSRFField(ctx)
 					<div class="field">
 						<label for="name">{ i18n.T(ctx, "auth.fields.name") }</label>
-						<input id="name" name="name" autocomplete="name" value={ view.Old(ctx, "name", p.User.Name) }/>
+						<input id="name" name="name" autocomplete="name" value={ view.Old(ctx, "name", p.User.Name) } if view.Errors(ctx).Has("name") { aria-invalid="true" }/>
 						@authError("name")
 					</div>
 					<button type="submit">{ i18n.T(ctx, "auth.settings.save") }</button>
@@ -70,7 +70,7 @@ templ Settings(p SettingsPage) {
 						@view.CSRFField(ctx)
 						<div class="field">
 							<label for="email">{ i18n.T(ctx, "auth.settings.new_email") }</label>
-							<input id="email" name="email" type="email" autocomplete="email" value={ view.Old(ctx, "email") }/>
+							<input id="email" name="email" type="email" autocomplete="email" value={ view.Old(ctx, "email") } if view.Errors(ctx).Has("email") { aria-invalid="true" }/>
 							@authError("email")
 						</div>
 						<button type="submit">{ i18n.T(ctx, "auth.settings.email_change") }</button>
@@ -85,7 +85,7 @@ templ Settings(p SettingsPage) {
 					if p.User.Password != "" {
 						<div class="field">
 							<label for="current_password">{ i18n.T(ctx, "auth.fields.current_password") }</label>
-							<input id="current_password" name="current_password" type="password" autocomplete="current-password"/>
+							<input id="current_password" name="current_password" type="password" autocomplete="current-password" if view.Errors(ctx).Has("current_password") { aria-invalid="true" }/>
 							@authError("current_password")
 						</div>
 					} else {
@@ -93,12 +93,12 @@ templ Settings(p SettingsPage) {
 					}
 					<div class="field">
 						<label for="password">{ i18n.T(ctx, "auth.fields.new_password") }</label>
-						<input id="password" name="password" type="password" autocomplete="new-password"/>
+						<input id="password" name="password" type="password" autocomplete="new-password" if view.Errors(ctx).Has("password") { aria-invalid="true" }/>
 						@authError("password")
 					</div>
 					<div class="field">
 						<label for="password_confirmation">{ i18n.T(ctx, "auth.fields.password_confirmation") }</label>
-						<input id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password"/>
+						<input id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" if view.Errors(ctx).Has("password_confirmation") { aria-invalid="true" }/>
 					</div>
 					<button type="submit">{ i18n.T(ctx, "auth.settings.password_change") }</button>
 				</form>

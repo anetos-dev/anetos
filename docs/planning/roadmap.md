@@ -322,6 +322,14 @@ the launch work (M1b, M8, M9, versioned docs) and the volunteer test.
 | M6 Performance | ✅ Done 2026-10-07 (design §22, D251–D253): benchmarks of the page an app made with `anetos new` and `make:auth` serves and of each of its parts, each middleware, lists, and chi, Gin and Echo doing the same work; optimizations (one context value per request for the router's state, request IDs without a system call, sessions tracking their changes, cached derived keys, reused row scanners: a signed-in page 13–15% faster with about 20% fewer allocations); allocation budgets in `make check` and every CI run, and a blocking comparison with the base branch on pull requests (the `Benchmarks` workflow; `benchmark-ok` to accept one); results, method and analysis in `docs/benchmarks/v0.3.md`, the concept page "Performance". The `Benchmarks` workflow wasn't run here (it needs GitHub); the script it runs was. An independent review's findings were fixed (the label didn't re-run the check; a sub-request could overwrite the request's ID and client IP; doc claims the data didn't support) |
 | M2 Docs site | 🟡 Partly done 2026-10-06 (design D200, D201): docs.anetos.dev built with Hugo and Hextra by `anetos-dev/docs` from `docs/site` (search, diagrams, edit links, relative links resolved), and anetos.dev with the go-import pages (M1b's vanity path), both live on Cloudflare Pages (www.anetos.dev redirects to anetos.dev; `go-import` checked for `anetos.dev/anetos`, a nested module and `anetos.dev/locales`); the framework's CI triggers a docs rebuild through a deploy hook when `docs/site` changes. The tutorial ✅ done 2026-10-06 (design D234): "Build an issue tracker" in seven parts, from `anetos new` to deploying, every code block a region of `examples/tutorial` (a reader's project, checked against the generators by cli's `TestTutorialProject`). The navigation ✅ reworked 2026-10-06 (design D242): getting started rewritten as the order of a first project (installing, editor, database, a project, its structure, `make:crud`, `make:auth`, testing and building, then the tutorial), and every section's pages grouped in the sidebar (front matter `group` and `weight`, checked by `make docs-check`; URLs unchanged). Left: versioned docs at the v0.3 tag |
 
+All v0.3 work packages are done but M1's and M2's parts that moved to
+v0.5 with the public release (D243), and the exit criteria were checked
+on 2026-10-07 (see below). **v0.3.0 was tagged on 2026-10-07**:
+`v0.3.0`, `cli/v0.3.0`, `admin/v0.3.0`,
+`drivers/{sqlite,postgres,mysql,redis,s3,gcppubsub,gcs,anthropic,openai,gemini}/v0.3.0`
+and `plugins/postmark/v0.3.0` (the modules still use `replace`
+directives until M1b, in v0.5). Next: v0.4.
+
 The audit log (AU1) and the admin interface (AD1, AD2) were added on
 2026-10-06, before the public release and before M4: the audit log
 changes the data layer, so it must land before the API stability pass
@@ -373,6 +381,41 @@ them (decided 2026-10-02; design §15, D169–D174).
   deployable without hand-written markup.
 - No known P0/P1 bugs; every public API documented; the example app's tests
   run in CI.
+
+**Exit criteria check (2026-10-07)**
+
+A reader who used only `docs/site`, the examples and `go doc` made a
+shop with `anetos new`, `make:auth` and `make:crud`, added search,
+switched it to PostgreSQL and MySQL, and built it for production, in
+about 75 steps; an audit checked the other criteria against the code.
+What they found is fixed: the container guide migrated a throwaway
+SQLite database while the server called itself healthy (readiness now
+waits for migrations, and a SQLite image migrates when it starts:
+D255); error pages didn't use the app's layout (D256); the documented
+members-only step broke the generated test, with no user factory to fix
+it (D257); vector search wasn't checked at boot (D258); the assistant
+example ran only on SQLite with tests that assumed IDs; the search
+guide's markup didn't fit the theme; and smaller items (`doctor` passing
+the example settings' `example.com`, `aria-invalid` on `make:auth`'s
+forms, a favicon, the version string, `anetos help <command>`, boot
+errors printing a memory address). Before it, the same day: tables on a
+latin1 MariaDB couldn't store non-Latin text (D254), and a gRPC advisory
+in the Gemini driver.
+
+| Criterion | Result |
+|---|---|
+| Search and an AI assistant over an example's content | ✅ `examples/assistant`: full-text and hybrid search, typed tools (`search_articles`, `read_article`), streamed answers (SSE), tests with `anetostest.FakeAI`; on SQLite, PostgreSQL 16 and 17 with pgvector and MariaDB 11.8, and refused at boot, with the reason, on MySQL 8.0 and MariaDB 10.11. `examples/tracker` has full-text search on every database. CI runs both on PostgreSQL with pgvector |
+| A configuration the database can't support stops at boot | ✅ search language and ranking, stale search indexes, vector search (D258), each naming the setting, the database and the fix |
+| `make:crud` and `make:auth`: styled, tested, deployable, no hand-written markup | ✅ the pages, the 404 and 500 pages and the header use the starter theme; the generated tests pass on SQLite, PostgreSQL 16 and MySQL 8.0; `anetos build`, the systemd unit, `doctor`, `/health/*` and `health:check` work. The Docker image wasn't built here (no Docker daemon); its migrate path is tested through `MIGRATE_ON_RUN`. Search needs markup, which the search guide gives for `make:crud`'s pages |
+| No known P0/P1 bugs | ✅ none known; the security audit's accepted items are low or medium, with reasons (`docs/security/checklist.md`) |
+| Every public API documented | ✅ `make api-docs` (every exported identifier), every package has a package comment, every setting is in the configuration reference |
+| The examples' tests run in CI | ✅ every example module on SQLite (`make test`), and the tracker and the assistant on PostgreSQL, the tracker on MySQL |
+
+Left for later, from the walkthrough: a money (decimal) field type in
+`make:crud`, a confirmation before `make:crud`'s delete, binding errors
+("must be a number") as sentences with the field's name and shown with
+the other errors of the form, and installing from a checkout before the
+modules are published (M1b, v0.5).
 
 ---
 
@@ -445,7 +488,8 @@ flags · search engine drivers behind `Search` (Meilisearch, Typesense, OpenSear
 roles and permissions: scope hierarchies, roles a team defines for itself, `make:auth` with roles ·
 teams (a teams module extending auth, managed in the admin) · content review workflow (drafts, reviewers, a review queue in the admin) · soft deletes that cascade to related rows · audit log: tamper evidence (hash chain), database triggers for raw SQL on PostgreSQL, pivot writes ·
 AI: MCP server (the app's tools to MCP clients) and client (remote tools for agents), provider failover, images and files as model inputs, speech and transcription, providers' own tools (web search, code execution), more providers (as plugins), Vertex AI, Bedrock and Azure OpenAI authentication for the drivers ·
-pub/sub ordering keys (Google) · more drivers (NATS, Kafka, SQS, RabbitMQ, GCS, Azure Blob), mostly as plugins.
+pub/sub ordering keys (Google) · more drivers (NATS, Kafka, SQS, RabbitMQ, GCS, Azure Blob), mostly as plugins ·
+`make:crud`: money (decimal) fields, a confirmation before deleting · binding errors as sentences with the field's name, shown with the form's other errors.
 
 ---
 
@@ -574,3 +618,4 @@ something, and we fix the API rather than add the hook.
 | 2026-10-07 | Release plan changed with the user (design D243): v0.4 the API stack (OpenAPI back from the backlog as AP4), v0.5 design kits and the public release (M1b, M8, M9, versioned docs and the volunteer test moved there), v0.6 the front-end stacks |
 | 2026-10-07 | M7 (security) done: review, fixes, `SECURITY.md`, `doctor`; next M6 |
 | 2026-10-07 | M6 (performance) done: benchmarks, optimizations, budgets and the pull-request gate |
+| 2026-10-07 | v0.3 exit criteria checked (a docs-only walkthrough and an audit; gaps fixed, D254–D258); v0.3.0 tagged; next v0.4 |

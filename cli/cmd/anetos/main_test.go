@@ -27,6 +27,8 @@ func TestCommands(t *testing.T) {
 	}{
 		{nil, 2, "Usage: anetos"},
 		{[]string{"help"}, 0, "Commands:"},
+		{[]string{"help", "make:crud"}, 0, "Usage: anetos make:crud"},
+		{[]string{"help", "gen"}, 0, "Usage: anetos gen"},
 		{[]string{"version"}, 0, "anetos "},
 		{[]string{"key:generate"}, 0, "APP_KEY=base64:"},
 		{[]string{"key:generate", "-h"}, 0, "Usage: anetos key:generate"},

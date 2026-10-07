@@ -7,6 +7,10 @@ tagged `drivers/gcs/vX.Y.Z`. The framework's own changes are in the
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-07
+
+The first release, with the framework's v0.3.0.
+
 ### Added
 - Google Cloud Storage backend for the `storage` package: `gcs.Driver()`
   (`STORAGE_DRIVER=gcs`, `STORAGE_GCS_BUCKET`, `_PREFIX`,

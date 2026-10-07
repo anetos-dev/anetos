@@ -22,10 +22,13 @@ func TestDoctorMail(t *testing.T) {
 		{config.Map{"APP_ENV": "development"}, "ok mail"},
 		{config.Map{"APP_ENV": "production"}, "warning mail: MAIL_DRIVER=log in production: emails aren't sent"},
 		{config.Map{"APP_ENV": "staging", "MAIL_DRIVER": "memory"}, "warning mail: MAIL_DRIVER=memory in staging"},
-		{config.Map{"APP_ENV": "production", "MAIL_DRIVER": "smtp", "MAIL_SMTP_URL": "smtp://mail.example.com"}, "warning mail: MAIL_FROM_ADDRESS isn't set"},
-		{config.Map{"APP_ENV": "production", "MAIL_DRIVER": "smtp", "MAIL_FROM_ADDRESS": "a@example.com", "MAIL_SMTP_URL": "smtp://mail.example.com"}, "ok mail"},
-		{config.Map{"APP_ENV": "production", "MAIL_DRIVER": "smtp", "MAIL_FROM_ADDRESS": "a@example.com", "MAIL_SMTP_URL": "smtp://10.0.0.5:25?tls=none"}, "warning mail: MAIL_SMTP_URL has tls=none for 10.0.0.5"},
-		{config.Map{"APP_ENV": "production", "MAIL_DRIVER": "smtp", "MAIL_FROM_ADDRESS": "a@example.com", "MAIL_SMTP_URL": "smtp://localhost:25?tls=none"}, "ok mail"},
+		{config.Map{"APP_ENV": "production", "MAIL_DRIVER": "smtp", "MAIL_SMTP_URL": "smtp://mail.acme.io"}, "warning mail: MAIL_FROM_ADDRESS isn't set"},
+		{config.Map{"APP_ENV": "production", "MAIL_DRIVER": "smtp", "MAIL_FROM_ADDRESS": "a@acme.io", "MAIL_SMTP_URL": "smtp://mail.acme.io"}, "ok mail"},
+		{config.Map{"APP_ENV": "production", "MAIL_DRIVER": "smtp", "MAIL_FROM_ADDRESS": "a@acme.io", "MAIL_SMTP_URL": "smtp://user:password@smtp.example.com:587"}, "warning mail: MAIL_SMTP_URL's server smtp.example.com is an example's"},
+		{config.Map{"APP_ENV": "production", "MAIL_DRIVER": "smtp", "MAIL_FROM_ADDRESS": "hello@example.com", "MAIL_SMTP_URL": "smtp://mail.acme.io"}, "warning mail: MAIL_FROM_ADDRESS hello@example.com is an example's"},
+		{config.Map{"APP_ENV": "development", "MAIL_DRIVER": "smtp", "MAIL_FROM_ADDRESS": "hello@example.com", "MAIL_SMTP_URL": "smtp://mail.example.com"}, "ok mail"},
+		{config.Map{"APP_ENV": "production", "MAIL_DRIVER": "smtp", "MAIL_FROM_ADDRESS": "a@acme.io", "MAIL_SMTP_URL": "smtp://10.0.0.5:25?tls=none"}, "warning mail: MAIL_SMTP_URL has tls=none for 10.0.0.5"},
+		{config.Map{"APP_ENV": "production", "MAIL_DRIVER": "smtp", "MAIL_FROM_ADDRESS": "a@acme.io", "MAIL_SMTP_URL": "smtp://localhost:25?tls=none"}, "ok mail"},
 	}
 	for _, tt := range tests {
 		app, err := anetos.New(anetos.WithSource(tt.env), anetos.WithLogger(slog.New(slog.DiscardHandler)))

@@ -155,7 +155,69 @@ func TestSearch(t *testing.T) {
 
 Tests use an in-memory SQLite database by default. On MySQL and MariaDB,
 full-text indexes only see committed rows, so a search test there needs
-`anetostest.WithoutTransaction()`.
+`anetostest.WithoutTransaction()`: its rows are committed, so the test
+deletes them itself:
+
+```go
+// illustrative
+app := anetostest.New(t, setup, anetostest.WithoutTransaction())
+t.Cleanup(func() {
+	if _, err := db.Query[models.Post](app.Context()).ForceDelete(); err != nil {
+		t.Error(err)
+	}
+})
+```
+
+### Search a list made with make:crud
+
+The pages `make:crud` writes take a search box in three changes, in the
+starter theme's style and with their text in the locale file. For
+`posts`, after the migration of step 1:
+
+1. The list's input takes the words, in `app/handlers/posts.go`, and the
+   query searches them:
+
+   ```go
+   // illustrative
+   type PostList struct {
+   	Page int    `query:"page"`
+   	Q    string `query:"q" validate:"max:200"`
+   }
+
+   page, err := db.Query[models.Post](c).OrderBy(models.PostCols.ID.Desc()).
+   	Search(in.Q).
+   	Paginate(in.Page, 20)
+   …
+   return web.View(views.PostsPage(page, in.Q)), nil
+   ```
+
+2. The page shows the box under its header, in `views/posts.templ`
+   (`PostsPage(page db.Page[models.Post], q string)`), and says when
+   nothing matches:
+
+   ```templ
+   // illustrative
+   <form method="get" action={ web.URL(ctx, "posts.index") } role="search" class="cluster">
+   	<input type="search" name="q" value={ q } aria-label={ i18n.T(ctx, "posts.search") }/>
+   	<button type="submit" class="secondary">{ i18n.T(ctx, "posts.search") }</button>
+   </form>
+   if page.Total == 0 && q != "" {
+   	<p class="empty">{ i18n.T(ctx, "posts.no_match", "q", q) }</p>
+   } else if page.Total == 0 {
+   	<p class="empty">{ i18n.T(ctx, "posts.empty") }</p>
+   } else {
+   	…the table and the page links, as they were
+   }
+   ```
+
+3. Its text goes in `locales/en/posts.yaml`, under `posts:`:
+
+   ```yaml
+   search: "Search"
+   no_match: "No posts match “{q}”."
+   ```
+
+The page links keep `q` (`web.PageURL` keeps the query string).
 
 ## Choose the settings
 
@@ -192,8 +254,8 @@ serve stops the app with a message saying which setting, which database,
 and what to do:
 
 ```text
-db: SEARCH_RANKING=bm25 needs BM25 ranking, which this MySQL/MariaDB database doesn't have: MySQL and MariaDB don't have it; use SQLite, or PostgreSQL with pg_textsearch
-db: the search indexes of notes (built for SEARCH_LANGUAGE=simple, SEARCH_RANKING=default) don't match SEARCH_LANGUAGE=english, SEARCH_RANKING=default: rebuild them with the search:reindex command, or set the settings back
+blog serve: anetos: provider "db.Connect(mysql)": boot: db: SEARCH_RANKING=bm25 needs BM25 ranking, which this MySQL/MariaDB database doesn't have: MySQL and MariaDB don't have it; use SQLite, or PostgreSQL with pg_textsearch
+blog serve: anetos: provider "db.Connect(sqlite)": boot: db: the search indexes of notes (built for SEARCH_LANGUAGE=simple, SEARCH_RANKING=default) don't match SEARCH_LANGUAGE=english, SEARCH_RANKING=default: rebuild them with the search:reindex command, or set the settings back
 ```
 
 `migrate` and `search:reindex` still run when only the indexes are out of

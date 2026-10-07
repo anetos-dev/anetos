@@ -7,6 +7,8 @@ tagged `drivers/postgres/vX.Y.Z`. The framework's own changes are in the
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-07
+
 ### Added
 - TLS from `DB_TLS` for connections built from `DB_HOST`: `verify`
   (`sslmode=verify-full`, with `DB_TLS_CA` as `sslrootcert`), the

@@ -308,39 +308,44 @@ as JSON, with the reasoning some models need back. See
 
 ## Testing it
 
-`anetostest.FakeAI` scripts the model's replies; the tools, the
-storage, the stream and the queue run for real:
+`anetostest.FakeAI` scripts the model's replies, at the start or later
+with `app.AI().Add`; the tools, the storage, the stream and the queue
+run for real. `startChat` posts the first question and returns the
+conversation's path, so the test doesn't assume IDs, which differ on
+PostgreSQL and MySQL (their sequences aren't rolled back with a test):
 
 ```go
 func TestAssistant(t *testing.T) {
+	app := anetostest.New(t, setup, anetostest.FakeAI())
+	export := addArticles(t, app)[0] // "Export your lists"
 	// The model's replies, scripted: search, read, answer.
-	app := anetostest.New(t, setup, anetostest.FakeAI(
+	app.AI().Add(
 		ai.FakeToolCall("search_articles", map[string]string{"query": "How do I export my lists?"}),
-		ai.FakeToolCall("read_article", ReadInput{ID: 1}),
+		ai.FakeToolCall("read_article", ReadInput{ID: export.ID}),
 		ai.FakeText("Open Settings, then Data, and choose Export (Export your lists)."),
-	))
-	addArticles(t, app)
+	)
 	signIn(t, app, "Ada")
 
-	app.PostForm("/chat", url.Values{"prompt": {"How do I export my lists?"}}).Follow().
-		AssertSee("How do I export my lists?", `sse-connect="/chat/1/reply"`)
+	chat := startChat(t, app, "How do I export my lists?")
+	app.Get(chat).AssertSee("How do I export my lists?", `sse-connect="`+chat+`/reply"`)
 	// The answer streams as server-sent events, and is stored.
-	app.Get("/chat/1/reply").AssertOK().
+	app.Get(chat+"/reply").AssertOK().
 		AssertSee("event: tool\ndata: search_articles", "event: tool\ndata: read_article",
 			"event: text\ndata: Open ", "event: done")
-	app.Get("/chat/1").AssertSee("Used: search_articles, read_article", "Open Settings, then Data, and choose Export").
+	app.Get(chat).AssertSee("Used: search_articles, read_article", "Open Settings, then Data, and choose Export").
 		AssertDontSee("sse-connect")
 
 	// The tools ran for real: the search found the article, with its
 	// passage, which the model read.
 	reqs := app.AI().Requests()
-	if got := reqs[1].Messages[2].Parts[0].(ai.ToolResult).Content; !strings.HasPrefix(got, `[{"id":1,"title":"Export your lists","text":"Export your lists\n\nOpen Settings`) {
+	want := fmt.Sprintf(`[{"id":%d,"title":"Export your lists","text":"Export your lists\n\nOpen Settings`, export.ID)
+	if got := reqs[1].Messages[2].Parts[0].(ai.ToolResult).Content; !strings.HasPrefix(got, want) {
 		t.Errorf("search results: %s", got)
 	}
 	app.AssertPrompted(func(r ai.Request) bool { return strings.Contains(r.System, "help-center articles") })
 
 	// A browser that reconnects gets no second answer.
-	app.Get("/chat/1/reply").AssertOK().AssertDontSee("event: text")
+	app.Get(chat + "/reply").AssertOK().AssertDontSee("event: text")
 }
 ```
 
@@ -354,12 +359,12 @@ func TestAnswerLater(t *testing.T) {
 	// QUEUE_DRIVER is sync by default: the job runs at once.
 	app := anetostest.New(t, setup, anetostest.FakeAI(ai.FakeText("Hello!"), ai.FakeText("Shared lists need a Team plan.")))
 	signIn(t, app, "Ada")
-	app.PostForm("/chat", url.Values{"prompt": {"Hi"}})
-	app.Get("/chat/1/reply")
+	chat := startChat(t, app, "Hi")
+	app.Get(chat + "/reply")
 
-	app.PostForm("/chat/1/later", url.Values{"prompt": {"Can I share a list?"}}).
-		AssertSee("Can I share a list?", `hx-get="/chat/1/status"`)
-	app.Get("/chat/1/status").AssertSee("Shared lists need a Team plan.").AssertDontSee("Working on it")
+	app.PostForm(chat+"/later", url.Values{"prompt": {"Can I share a list?"}}).
+		AssertSee("Can I share a list?", `hx-get="`+chat+`/status"`)
+	app.Get(chat + "/status").AssertSee("Shared lists need a Team plan.").AssertDontSee("Working on it")
 }
 ```
 

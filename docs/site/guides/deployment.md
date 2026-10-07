@@ -130,9 +130,19 @@ proxy and restart them one at a time.
 
 ```sh
 docker build -t blog --build-arg VERSION=v1.2.0 .
-docker run --rm --env-file production.env blog migrate
+docker run --rm --env-file production.env -v blog-data:/data blog migrate
 docker run -d --name blog -p 8080:8080 --env-file production.env -v blog-data:/data blog
 ```
+
+The `migrate` step needs the same volume as the server when the
+database is SQLite (in `/data`). A SQLite project's image doesn't need
+the step at all: its `Dockerfile` sets `MIGRATE_ON_RUN=true`, so the
+server migrates when it starts. Run one container on a SQLite volume
+that way; a second one on the same volume (the workers below) gets
+`-e MIGRATE_ON_RUN=false`, since two starting at once could both
+migrate. Until the migrations have run, the
+server reports itself unavailable (`health:check`, `/health/ready`) and
+logs which ones are pending, so a forgotten step shows as `unhealthy`.
 
 The `Dockerfile` builds with `anetos build` in the Go image and copies
 the binary alone into a distroless image (about 25 MB), run as user
@@ -203,10 +213,9 @@ Set the secrets with `fly secrets set APP_KEY=base64:… DB_URL=…`, then
 `fly deploy`. The release command has no volume, so this suits
 PostgreSQL or MySQL. For SQLite, run one machine of a single process
 (no `[processes]`), with a volume (`[[mounts]] source = "blog_data"`,
-`destination = "/data"`) and without `release_command`, and migrate on
-it after a deploy: `fly ssh console -C "/app/blog migrate"`. Until
-then, the new version runs on the old schema: deploy a release's
-migrations before the code that needs them.
+`destination = "/data"`) and without `release_command`: the image
+migrates when it starts (`MIGRATE_ON_RUN=true`, set by the
+`Dockerfile`), and the health check passes once it has.
 
 **Render**: a `render.yaml` blueprint with a PostgreSQL database; the
 web service and the worker share their settings through an environment
@@ -418,7 +427,10 @@ migrates, and replaces the containers that changed.
 - `/health/live` answers 200 while the process runs; `/health/ready`
   answers 200 while it runs, isn't shutting down, and its components
   are ready, so a load balancer stops sending requests as soon as
-  shutdown starts. `health:check` asks the server on `HTTP_ADDR` (on
+  shutdown starts. With `migrate.ForApp`, it also answers 503 while the
+  database has migrations the app hasn't run (checked every 5 seconds;
+  `MIGRATE_READINESS=false` turns that off, for a platform that waits
+  for readiness before a later migration step). `health:check` asks the server on `HTTP_ADDR` (on
   `127.0.0.1` when the address has no host, `0.0.0.0` or `[::]`) and
   exits 1 if it isn't ready.
 
@@ -457,7 +469,7 @@ server, or `docker run --rm blog version`) tells which version runs.
 | Every visitor has the same IP, rate limits hit everyone | The proxy's address is the client IP | Set `HTTP_TRUSTED_PROXIES` (step 5) |
 | Jobs dispatched by the web process never run | `QUEUE_DRIVER=sync` or `memory` with workers in another process | `QUEUE_DRIVER=database` or `redis` |
 | `permission denied` writing files in the container | The volume isn't writable by user 65532 | Mount on `/data` (the image prepares it), or `chown 65532` the host directory |
-| The container stays `unhealthy` | It doesn't serve HTTP (`run --only=workers`), it isn't ready (`/health/ready` answers 503 while a component restarts), or `HTTP_HEALTH_ROUTES=false` | Turn the check off for workers (`--no-healthcheck`, `healthcheck: disable: true`); read the logs; keep the health routes on |
+| The container stays `unhealthy` | It doesn't serve HTTP (`run --only=workers`), it isn't ready (`/health/ready` answers 503 while a component restarts or migrations haven't run: the log says which), or `HTTP_HEALTH_ROUTES=false` | Turn the check off for workers (`--no-healthcheck`, `healthcheck: disable: true`); read the logs; keep the health routes on |
 | `unknown role "scheduler"` (or `listeners`) | The app has none: no `schedule.ForApp` (or `pubsub.ForApp`) | Leave it out of `--only`; the error lists the app's roles |
 | Jobs cut off at each deploy | The platform kills the process before it finishes | Raise its grace period (`docker stop -t`, `kill_timeout`, `TimeoutStopSec`) or lower `APP_SHUTDOWN_TIMEOUT` |
 | `blog version` prints `(devel)` | Built outside a git repository without `--version` | `anetos build --version=v1.2.0` (the `Dockerfile` takes `--build-arg VERSION`) |

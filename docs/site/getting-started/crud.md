@@ -84,7 +84,17 @@ The code is plain Anetos code: change it as you would your own.
 - **Only for signed-in users.** After [`make:auth`](add-accounts.md),
   move the `Posts(pages)` call from `routes/web.go` to the `members`
   group of `routes/auth.go` (`Posts(members)`): guests then go to the
-  login page.
+  login page. Sign a user in at the start of `TestPosts`, as its comment
+  shows (`make:auth` wrote `factories.Users`), and show the header's
+  link to signed-in users only, in `views/layout.templ` (importing
+  `anetos.dev/anetos/auth` and the app's `app/models`):
+
+  ```templ
+  // illustrative
+  if _, ok := auth.User[*models.User](ctx); ok {
+  	@navLink("posts.index", i18n.T(ctx, "posts.title"))
+  }
+  ```
 - **Another column.** Add a migration (`go tool anetos make:migration
   add_slug_to_posts_table`), the field to `Post` and `PostInput`, a
   line to `fill`, and the input to `postFields` in the view.
