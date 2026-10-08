@@ -71,6 +71,18 @@ no `.env` file. `deploy/production.env.example` lists the ones to set:
 | `HTTP_TRUSTED_PROXIES` | The address of the proxy in front of the app, so client IPs (rate limits, logs, the audit log) are the visitors' (step 5) |
 | `STORAGE_ROOT` or `STORAGE_DRIVER` | Uploaded files: a directory that survives deploys, or `s3`/`gcs` |
 
+An API project (`anetos new --stack=api`, v0.4) has no sessions, so
+`SESSION_*` don't apply; it adds:
+
+| Setting | Why |
+|---|---|
+| `AUTH_CLIENT_URL` | After `make:auth`: the client app's address (`https://app.example.com`), which the verification and password reset emails link to. The app refuses to start without it in production |
+| `HTTP_CORS_ORIGINS` | The origins of browser apps that call the API (`https://app.example.com`), comma-separated; empty, none may. Server-side clients and mobile apps don't need it |
+
+The app serves its API's description at `/api/v1/openapi.json`, made
+from its routes; commit `openapi.json` with the code, for reviewers and
+client developers ([Describe an API with OpenAPI](openapi.md)).
+
 The app checks them when it starts, for any command: a missing or
 wrong one stops it with a message naming the setting. Only `version`
 runs without them. Settings that work but are unsafe

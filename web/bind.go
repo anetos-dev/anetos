@@ -3,6 +3,7 @@
 package web
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -12,12 +13,15 @@ import (
 	"mime/multipart"
 	"net/http"
 	"reflect"
+	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"anetos.dev/anetos"
 	"anetos.dev/anetos/i18n"
 	"anetos.dev/anetos/internal/convert"
+	"anetos.dev/anetos/internal/jsonfield"
 	"anetos.dev/anetos/validate"
 )
 
@@ -419,9 +423,37 @@ var (
 	durationType = reflect.TypeFor[time.Duration]()
 )
 
+// bodyBuffers holds the buffers JSON bodies are read into.
+var bodyBuffers = sync.Pool{New: func() any { return new(bytes.Buffer) }}
+
+// putBodyBuffer returns buf to the pool, unless it grew past 64 KiB.
+func putBodyBuffer(buf *bytes.Buffer) {
+	if buf.Cap() > 64<<10 {
+		return
+	}
+	buf.Reset()
+	bodyBuffers.Put(buf)
+}
+
 func decodeJSON(ctx context.Context, body io.Reader, dst any) error {
-	dec := json.NewDecoder(body)
-	err := dec.Decode(dst)
+	buf := bodyBuffers.Get().(*bytes.Buffer)
+	defer putBodyBuffer(buf)
+	_, err := buf.ReadFrom(body)
+	if mbe, ok := errors.AsType[*http.MaxBytesError](err); ok {
+		return Errorf(http.StatusRequestEntityTooLarge, "request body is larger than %d bytes", mbe.Limit)
+	}
+	if err != nil {
+		return Error(http.StatusBadRequest, "The request body couldn't be read.").Wrap(err)
+	}
+	data := buf.Bytes()
+	// The usual case without a decoder or a second copy; json.Unmarshal
+	// copies what it keeps, so the buffer can be reused. A failure is
+	// decoded again below, for its message.
+	if len(bytes.TrimSpace(data)) > 0 && json.Unmarshal(data, dst) == nil {
+		return nil
+	}
+	dec := json.NewDecoder(bytes.NewReader(data))
+	err = dec.Decode(dst)
 	if errors.Is(err, io.EOF) {
 		return nil // empty body
 	}
@@ -433,8 +465,18 @@ func decodeJSON(ctx context.Context, body io.Reader, dst any) error {
 			return Error(http.StatusBadRequest, "The request body must contain a single JSON value.")
 		}
 	}
-	if mbe, ok := errors.AsType[*http.MaxBytesError](err); ok {
-		return Errorf(http.StatusRequestEntityTooLarge, "request body is larger than %d bytes", mbe.Limit)
+	// A value of the wrong type for its field, or one its type refuses
+	// (a date that isn't one): each such top-level field, by its JSON
+	// name. encoding/json reports at most one, without the field for a
+	// type's own UnmarshalText or UnmarshalJSON error.
+	if fields := jsonFieldErrors(ctx, data, reflect.TypeOf(dst)); len(fields) > 0 {
+		return &HTTPError{
+			Status:  http.StatusBadRequest,
+			Message: "The request has invalid values.",
+			Key:     "http.invalid_values",
+			Fields:  fields,
+			Err:     err,
+		}
 	}
 	if ute, ok := errors.AsType[*json.UnmarshalTypeError](err); ok && ute.Field != "" {
 		return &HTTPError{
@@ -448,9 +490,42 @@ func decodeJSON(ctx context.Context, body io.Reader, dst any) error {
 	return Error(http.StatusBadRequest, "The request body is not valid JSON.").Wrap(err)
 }
 
+// jsonFieldErrors decodes each member of data, a JSON object, into a new
+// value of its field of t (a pointer to a struct), and returns a message
+// per member that fails; nil when data isn't an object.
+func jsonFieldErrors(ctx context.Context, data []byte, t reflect.Type) map[string]string {
+	var members map[string]json.RawMessage
+	if json.Unmarshal(data, &members) != nil {
+		return nil
+	}
+	fields := jsonfield.Of(t.Elem())
+	out := map[string]string{}
+	for key, raw := range members {
+		i := slices.IndexFunc(fields, func(f jsonfield.Field) bool { return f.Name == key })
+		if i < 0 { // encoding/json matches names regardless of case, too
+			i = slices.IndexFunc(fields, func(f jsonfield.Field) bool { return strings.EqualFold(f.Name, key) })
+		}
+		if i < 0 {
+			continue
+		}
+		ft := fields[i].Field.Type
+		if json.Unmarshal(raw, reflect.New(ft).Interface()) != nil {
+			out[key] = i18n.T(ctx, "binding."+jsonKind(ft)) // as the client named it
+		}
+	}
+	return out
+}
+
 // jsonKind names the kind of a JSON value a field needs, for its message
 // (binding.<kind>).
 func jsonKind(t reflect.Type) string {
+	for t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	switch t {
+	case dateType, timeType: // durations are numbers in JSON
+		return valueKind(t)
+	}
 	switch t.Kind() {
 	case reflect.String:
 		return "string"

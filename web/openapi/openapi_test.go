@@ -103,7 +103,9 @@ func admin(next http.Handler) http.Handler {
 		Responses: map[int]string{http.StatusForbidden: "Not an admin."}})
 }
 
-func shop() *web.Router {
+// shop is a router with an API under /api/v1; plain adds a route there
+// the document can't describe.
+func shop(plain ...bool) *web.Router {
 	r := web.NewRouter()
 	r.Get("/health", func(c *web.Ctx) error { return nil }) // outside the prefix
 	api := r.Group("/api/v1").As("api.")
@@ -116,7 +118,9 @@ func shop() *web.Router {
 	me.Post("/uploads", web.H(h.Upload)).Status(http.StatusAccepted)
 	api.Get("/legacy", web.H(h.Legacy))
 	api.Post("/echo", web.H(h.Echo)).Status(http.StatusCreated)
-	api.Get("/plain", func(c *web.Ctx) error { return nil })
+	if len(plain) > 0 && plain[0] {
+		api.Get("/plain", func(c *web.Ctx) error { return nil })
+	}
 	api.Get("/files/{path...}", web.H(func(*web.Ctx, struct{}) (web.Empty, error) { return web.Empty{}, nil }))
 	return r
 }
@@ -124,7 +128,7 @@ func shop() *web.Router {
 var shopConfig = openapi.Config{Title: "Shop", Prefix: "/api/v1", Path: "/api/v1/openapi.json", File: "testdata/shop.json"}
 
 func TestSpec(t *testing.T) {
-	spec, warnings, err := openapi.Spec(shop(), shopConfig)
+	spec, warnings, err := openapi.Spec(shop(true), shopConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,6 +139,10 @@ func TestSpec(t *testing.T) {
 	}
 	if err := openapi.Check(shop(), shopConfig); err != nil {
 		t.Error(err)
+	}
+	// A route under the prefix the document leaves out fails the check.
+	if err := openapi.Check(shop(true), shopConfig); err == nil || !strings.Contains(err.Error(), "can't describe GET /api/v1/plain, under /api/v1") {
+		t.Errorf("a plain route: %v", err)
 	}
 	if !json.Valid(spec) {
 		t.Fatal("not JSON")
@@ -147,7 +155,7 @@ func TestSpec(t *testing.T) {
 		t.Errorf("warnings:\n%s", strings.Join(warnings, "\n"))
 	}
 	// The same routes give the same bytes.
-	again, _, _ := openapi.Spec(shop(), shopConfig)
+	again, _, _ := openapi.Spec(shop(true), shopConfig)
 	if !bytes.Equal(spec, again) {
 		t.Error("two documents of the same routes differ")
 	}
@@ -400,13 +408,18 @@ func TestAsServed(t *testing.T) {
 	r.Get("/any", web.H(func(*web.Ctx, struct{}) (any, error) { return nil, nil }))
 	r.Get("/fn", web.H(handler))
 	r.Post("/link", web.H(func(*web.Ctx, struct {
-		Link string `json:"link" validate:"required|url:https"`
+		Link string      `json:"link" validate:"required|url:https"`
+		Due  anetos.Date `json:"due"`
 	}) (web.Empty, error) {
 		return web.Empty{}, nil
 	}))
 	doc, warnings := spec(t, r)
 	// The url rule's schemes, not any URI's.
 	if !strings.Contains(compact(string(doc.Paths["/link"]["post"])), `"format":"uri","minLength":1,"pattern":"^([hH][tT][tT][pP][sS]):"`) {
+		t.Errorf("/link: %s", doc.Paths["/link"]["post"])
+	}
+	// An optional date may be empty: the zero date.
+	if !strings.Contains(compact(string(doc.Paths["/link"]["post"])), `"due":{"anyOf":[{"type":"string","format":"date"},{"type":"string","maxLength":0}]}`) {
 		t.Errorf("/link: %s", doc.Paths["/link"]["post"])
 	}
 

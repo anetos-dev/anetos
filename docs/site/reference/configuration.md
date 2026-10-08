@@ -117,7 +117,7 @@ Read by `web.NewServer` (or `web.LoadConfig`) into `web.Config`.
 | `HTTP_CORS_ORIGINS` | list | empty (CORS off) | Allowed origins; `*` for any; `https://*.example.com` for subdomains | v0.1 |
 | `HTTP_CORS_METHODS` | list | `GET,HEAD,POST,PUT,PATCH,DELETE` | Allowed methods for preflights | v0.1 |
 | `HTTP_CORS_HEADERS` | list | `Accept,Authorization,Content-Type,X-Requested-With,X-Request-ID` | Allowed request headers | v0.1 |
-| `HTTP_CORS_EXPOSE` | list | `X-Request-ID` | Response headers readable by browsers | v0.1 |
+| `HTTP_CORS_EXPOSE` | list | `X-Request-ID,Location,Retry-After,X-RateLimit-Limit,X-RateLimit-Remaining` | Response headers readable by browsers (`Location` and the rate limit's since v0.4) | v0.1 |
 | `HTTP_CORS_CREDENTIALS` | bool | `false` | Allow cookies; can't be combined with `*` | v0.1 |
 | `HTTP_CORS_MAX_AGE` | duration | `10m` | How long browsers cache preflights | v0.1 |
 

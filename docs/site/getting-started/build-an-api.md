@@ -2,7 +2,7 @@
 title: "Tutorial: build an API"
 since: v0.4.0
 group: "Your first API"
-weight: 25
+weight: 35
 ---
 
 # Tutorial: build an API

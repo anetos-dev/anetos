@@ -63,7 +63,7 @@ func TestBudgets(t *testing.T) {
 	jrouter := web.NewRouter(web.WithLogger(slog.New(slog.DiscardHandler)))
 	jsonRoutes(jrouter)
 	baseJSON := allocs(jmux, postReq)
-	check("JSON, router over net/http", allocs(jrouter, postReq)-baseJSON, 9)
+	check("JSON, router over net/http", allocs(jrouter, postReq)-baseJSON, 7) // 4 on Go 1.27
 
 	// A row by key: db.Find over database/sql's QueryRow and Scan.
 	dapp, _, d := dbApp(t)

@@ -13,8 +13,8 @@ built the Go way: typed, `net/http`-compatible, code generation instead of
 runtime magic, and a supervised runtime where HTTP, queue workers, pub/sub
 listeners and the scheduler run together in **one binary**.
 
-**Status:** pre-alpha. v0.3.0 is tagged; the first public release is
-v0.5, after an API stack in v0.4. APIs will change.
+**Status:** pre-alpha. v0.4.0 is tagged; the first public release is
+v0.5. APIs will change.
 
 - **v0.1, the foundation:** the kernel, configuration, runtime
   supervisor, HTTP layer, validation, data layer with relations,
@@ -45,6 +45,12 @@ v0.5, after an API stack in v0.4. APIs will change.
   and a `doctor` command in every app; [benchmarks](docs/benchmarks/v0.3.md)
   against plain `net/http`, chi, Gin and Echo, with CI holding every
   change to allocation budgets.
+- **v0.4, the API stack:** `anetos new --stack=api`, an app that serves
+  JSON only; accounts that sign in with API tokens, with two-factor
+  codes and abilities; `make:crud` JSON endpoints with pages, sorting
+  and filters; typed results with the route's status; an OpenAPI 3.1
+  description generated from the handlers, served and checked in a
+  test ([`examples/bookmarks`](examples/bookmarks)).
 
 The [tutorial](docs/site/getting-started/tutorial/README.md) builds an
 issue tracker step by step, and [`examples/tracker`](examples/tracker),

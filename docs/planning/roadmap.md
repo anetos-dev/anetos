@@ -448,6 +448,49 @@ described by a spec generated from the code (design D243).
 | AP4 OpenAPI | ✅ Done 2026-10-08 (design §12.2, D275–D280): package `web/openapi` writes an OpenAPI 3.1.0 document from the routes' typed handlers: parameters and JSON (or multipart) bodies as `web.H` binds them, with what their `validate` rules say as JSON Schema; results as `encoding/json` writes them, with the route's status; components named after the Go types; errors as problem details (400, 422, the middleware's, `default`); security from the middleware, which now declares itself with `web.Documented` (`auth.Require`: a bearer token; `rbac`, `ratelimit`, `TokenMiddleware`: their statuses; the generated `fullAccess`: the `*` ability). `openapi.ForApp` adds the `openapi` command (`--check`; no database needed) and serves the document; `openapi.Check` in a test keeps the committed `openapi.json` current, which is the CI check. API projects get the config, the file and the test; `anetos new`, `make:auth` and `make:crud` update the file; `examples/tracker` describes its API (its `CreateIssue` and `/api/me` became typed). `RouteInfo` gained `Handler` and `Middleware`. The documents of the tests, the tracker and a generated project validate with `openapi-spec-validator` and Redocly's recommended rules; a generated app's live responses (24 requests: accounts, tokens, CRUD, errors) match its document. An independent review (review51) found no high-severity issue; fixed: validate's empty-value and non-zero `required` semantics, a user type named `Problem`, names under `go test` for package `main`, bodies on GET, durations in parameters, multipart fields, embedded pointers, paths OpenAPI can't tell apart, Windows line ends. No docs page or client generation (D280) |
 | AP5 Docs & example | ✅ Done 2026-10-08 (design §12.2, D281–D284): "Tutorial: build an API" in getting started, and `examples/bookmarks`, the JSON API it builds (with the user's choice of a new small example): `anetos new --stack=api`, `make:auth`, `make:crud`, then bookmarks owned by their user, the routes behind a token, abilities per route, an archive action returning `web.Empty`, tests (ownership, abilities) and `openapi.json`; the example is checked against the generators (`TestAPITutorialProject`). Getting started's API path; the OpenAPI reference page (the guide keeps the steps). New `auth.RequireAbilities` (abilities on routes, documented as scopes), which `make:auth`'s API account group now uses in place of a generated `fullAccess`. An independent review (review52), which followed the tutorial step by step, found its tests step incomplete and the archive route ahead of its handler (both fixed), and that the example check missed changes to files the tutorial edits (it now undoes the tutorial's edits and compares whole files); also fixed: `RequireAbilities`' guest 401 names `Bearer` and a user load failure is a 500, the `url` rule's schemes are a `pattern` in the document |
 
+All v0.4 work packages are done, and the exit criterion was checked on
+2026-10-08 (see below). **v0.4.0 was tagged on 2026-10-08**: `v0.4.0`,
+`cli/v0.4.0`, `admin/v0.4.0`,
+`drivers/{sqlite,postgres,mysql,redis,s3,gcppubsub,gcs,anthropic,openai,gemini}/v0.4.0`
+and `plugins/postmark/v0.4.0` (the modules still use `replace`
+directives until M1b, in v0.5). Next: v0.5.
+
+**Exit criteria check (2026-10-08)**
+
+A reader who used only `docs/site`, the examples and `go doc` made a
+shop API with `anetos new --stack=api`, `make:auth` and `make:crud
+Product …`, called it as a client would, switched it to PostgreSQL and
+MySQL, and validated its document; an audit checked the release against
+the code, the docs and v0.3's API (`apidiff`). What they found is fixed:
+a JSON body's bad date was "not valid JSON" and only the first wrong
+type was reported (D285); a project switched to a database server
+without `.env.testing` tested on SQLite (D286); `openapi.Check` passed
+with an untyped route under the prefix left out of the document (D287);
+browser clients couldn't read `Location` or the rate limits (D288);
+the responses handing out tokens could be cached (D289); an optional
+date and a `url` rule were wider in the document than the server
+(D290); `examples/teams` and `examples/validation` had untyped
+handlers; and doc gaps (deploying an API project, the deploy files that
+still name SQLite, protecting `make:crud`'s endpoints, the upgrade guide,
+the changelog's tense and missing entries).
+
+| Criterion | Result |
+|---|---|
+| `anetos new shop --stack=api`, `make:auth`, `make:crud Product …` give a tested API | ✅ the generated tests (every account endpoint, the CRUD endpoints, the document) pass; `examples/bookmarks` and `TestAPITutorialProject` check the tutorial's project against the generators |
+| with token auth | ✅ register, login with two-factor codes, tokens with abilities (`auth.RequireAbilities`), logout, password reset and verification by links to the client app |
+| whose OpenAPI spec validates | ✅ the shop's, `examples/bookmarks`' and `examples/tracker`'s documents pass `openapi-spec-validator` and Redocly's linter (OpenAPI 3.1.0) |
+| and documents every route | ✅ `openapi.Check` fails when a route under the prefix is left out (D287); the generated test runs it |
+| on SQLite, PostgreSQL and MySQL | ✅ SQLite, PostgreSQL 16 and 17, MySQL 8.0, MariaDB 10.11 and 11.8 |
+
+Left for later: 429s of the login routes and 409s of the two-factor
+routes in the document (the handlers answer them, the document doesn't
+say); pruning expired tokens; `?page=` past the last int; `doctor`
+checks of `AUTH_CLIENT_URL` and CORS; `Vary: Cookie` on API responses;
+`expires_at` with nanoseconds; a summary per route (`Route.Summary`);
+`make:middleware` mentioning `web.Documented`; validating the documents
+in CI; installing from a checkout before the modules are published
+(M1b, v0.5).
+
 ---
 
 ### v0.5 — Design kits & public release
@@ -634,3 +677,4 @@ something, and we fix the API rather than add the hook.
 | 2026-10-08 | AP3 (JSON CRUD) done, with typed results' status (design D269–D274) |
 | 2026-10-08 | AP4 (OpenAPI) done (design D275–D280) |
 | 2026-10-08 | AP5 (API docs and example) done (design D281–D284) |
+| 2026-10-08 | v0.4 exit criteria checked (a docs-only walkthrough and an audit; gaps fixed, D285–D290); v0.4.0 tagged; next v0.5 |

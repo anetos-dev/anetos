@@ -178,6 +178,10 @@ func (s *schemas) of(t reflect.Type, tag string, required, input bool) *schema {
 		return sc
 	}
 	restricted := applyRules(sc, tag, required)
+	if t == dateType && !required && !ptr {
+		// "" is the zero date: an optional date may be empty, clearing it.
+		return &schema{anyOf: []*schema{sc, {typ: "string", maxLength: new(0)}}}
+	}
 	switch {
 	case required && !ptr && (sc.typ == "integer" || sc.typ == "number"):
 		sc.notZero = true // validate's required rejects 0 in a non-pointer field

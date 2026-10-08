@@ -59,7 +59,7 @@ type Validator interface {
 // with the route's status ([Route.Status]: 200 OK unless set), and an
 // [Empty] result answers 204 No Content without a body. Typed results
 // (Out a struct, a slice, Empty) say what the route answers in its
-// signature, which tools can read (the OpenAPI spec, v0.4's AP4); a
+// signature, which tools can read (package web/openapi); a
 // Responder chooses at run time. If fn wrote the response itself, the
 // result is ignored.
 //

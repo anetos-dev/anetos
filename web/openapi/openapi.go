@@ -112,8 +112,14 @@ func (cfg Config) withDefaults() Config {
 // (their bodies unknown), types with their own MarshalJSON. The same
 // routes and Config always give the same bytes.
 func Spec(r *web.Router, cfg Config) ([]byte, []string, error) {
+	spec, warnings, _, err := build(r, cfg)
+	return spec, warnings, err
+}
+
+// build is Spec, with the routes under the prefix it left out.
+func build(r *web.Router, cfg Config) ([]byte, []string, []string, error) {
 	if cfg.Title == "" {
-		return nil, nil, errors.New("openapi: Config.Title is empty")
+		return nil, nil, nil, errors.New("openapi: Config.Title is empty")
 	}
 	cfg = cfg.withDefaults()
 	g := &generator{cfg: cfg, schemas: newSchemas(), schemes: map[string]bool{}, ids: map[string]bool{}, responses: map[string]bool{}}
@@ -126,12 +132,12 @@ func Spec(r *web.Router, cfg Config) ([]byte, []string, error) {
 		}
 		op, err := g.operation(rt)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		p := pathTemplate(rt.Pattern)
 		shape := wildcard.ReplaceAllString(rt.Pattern, "{}")
 		if other, ok := shapes[shape]; ok && other != p {
-			return nil, nil, fmt.Errorf("openapi: %s and %s are one path to OpenAPI: name their wildcards alike", other, p)
+			return nil, nil, nil, fmt.Errorf("openapi: %s and %s are one path to OpenAPI: name their wildcards alike", other, p)
 		}
 		shapes[shape] = p
 		if paths[p] == nil {
@@ -140,7 +146,7 @@ func Spec(r *web.Router, cfg Config) ([]byte, []string, error) {
 		}
 		method := strings.ToLower(rt.Method)
 		if slices.Contains(paths[p].keys, method) {
-			return nil, nil, fmt.Errorf("openapi: two routes are %s %s (for different hosts?): describe one, with Config.Prefix, or name their paths apart", rt.Method, p)
+			return nil, nil, nil, fmt.Errorf("openapi: two routes are %s %s (for different hosts?): describe one, with Config.Prefix, or name their paths apart", rt.Method, p)
 		}
 		paths[p].add(method, op)
 	}
@@ -206,13 +212,13 @@ func Spec(r *web.Router, cfg Config) ([]byte, []string, error) {
 
 	body, err := doc.marshal()
 	if err != nil {
-		return nil, nil, fmt.Errorf("openapi: %w", err)
+		return nil, nil, nil, fmt.Errorf("openapi: %w", err)
 	}
 	var out bytes.Buffer
 	if err := jsonIndent(&out, body); err != nil {
-		return nil, nil, fmt.Errorf("openapi: %w", err)
+		return nil, nil, nil, fmt.Errorf("openapi: %w", err)
 	}
-	return out.Bytes(), slices.Sorted(maps.Keys(g.schemas.warnings)), nil
+	return out.Bytes(), slices.Sorted(maps.Keys(g.schemas.warnings)), g.leftOut, nil
 }
 
 // withSchema adds a schema to the components' schemas, in its place
@@ -255,7 +261,15 @@ type generator struct {
 	ids       map[string]bool // operationIds used
 	problem   bool            // the Problem schema is used
 	public    []*object       // operations without security
+	leftOut   []string        // routes under the prefix it can't describe
 	responses map[string]bool // components/responses used
+}
+
+// omit records a route under Config.Prefix the document leaves out.
+func (g *generator) omit(route string) {
+	if g.cfg.Prefix != "" {
+		g.leftOut = append(g.leftOut, route)
+	}
 }
 
 // selected reports whether rt is described: under the prefix, not the
@@ -270,9 +284,11 @@ func (g *generator) selected(rt web.RouteInfo) bool {
 	switch {
 	case rt.Method == "":
 		g.schemas.warn("%s: a route for every method isn't described", rt.Pattern)
+		g.omit("any method " + rt.Pattern)
 		return false
 	case rt.Input == nil:
 		g.schemas.warn("%s %s: not a typed handler (web.H, registered as web.H returns it): left out", rt.Method, rt.Pattern)
+		g.omit(rt.Method + " " + rt.Pattern)
 		return false
 	}
 	return true
@@ -712,12 +728,18 @@ func jsonIndent(out *bytes.Buffer, body []byte) error {
 }
 
 // Check returns an error unless cfg.File holds r's document as [Spec]
-// writes it: in a test, it catches a route or a type changed without
-// the document. The error says how to update it.
+// writes it, and the document describes every route at or below
+// cfg.Prefix (when set): in a test, it catches a route or a type changed
+// without the document, and a route under the prefix that isn't a typed
+// handler. The error says how to fix it.
 func Check(r *web.Router, cfg Config) error {
-	spec, _, err := Spec(r, cfg)
+	spec, _, leftOut, err := build(r, cfg)
 	if err != nil {
 		return err
+	}
+	if len(leftOut) > 0 {
+		return fmt.Errorf("openapi: the document can't describe %s, under %s: route it with web.H (as web.H returns it), or outside the prefix",
+			strings.Join(leftOut, ", "), cfg.Prefix)
 	}
 	file := cfg.withDefaults().File
 	have, err := os.ReadFile(file)

@@ -146,15 +146,37 @@ The list is `{"data": [...], "current_page": 1, "per_page": 20,
 So fields can't be named `page`, `per_page` or `sort` in an API project.
 
 The endpoints are open to every client. After
-[`make:auth`](../guides/api-accounts.md), move the `Posts(api)` call to
-the `me` group of `routes/auth.go` for clients with a token only, and
-require a token's abilities with `auth.RequireAbilities`; then run
-`go run . openapi`, so `openapi.json` says they need a token.
-[Tutorial: build an API](build-an-api.md) does it step by step.
+[`make:auth`](../guides/api-accounts.md), for clients with a token only:
+
+1. Move the `Posts(api)` call from `routes/api.go` to `routes/auth.go`,
+   in the `me` group: `Posts(me)`.
+2. If tokens should need abilities, require them on the routes, in
+   `routes/posts.go` (with `anetos.dev/anetos/auth` imported):
+
+   ```go
+   // illustrative
+   read := r.With(auth.RequireAbilities("posts:read"))
+   write := r.With(auth.RequireAbilities("posts:write"))
+   read.Get("/posts", web.H(h.Index)).Name("posts.index")
+   write.Post("/posts", web.H(h.Create)).Name("posts.store").Status(http.StatusCreated)
+   ```
+
+3. `posts_test.go` now gets 401: make its test sign up first, with
+   `auth_test.go`'s helper, `app, _ := authRegister(t)` in place of
+   `app := anetostest.New(t, setup)`.
+4. `go run . openapi`, so `openapi.json` says they need a token.
+
+[Tutorial: build an API](build-an-api.md) does it step by step, with
+records that belong to their user.
 
 `make:crud` updates `openapi.json`, the API's description, with the
 five operations, `PostResponse`, `PostInput` and `PagePostResponse`
 ([Describe an API with OpenAPI](../guides/openapi.md)).
+
+Number and boolean fields are never required: a request without
+`price` saves 0, and a `PUT` without it sets it back to 0. Add a rule
+(`validate:"required"` refuses 0, so a positive `min:1` or a pointer
+field may suit better) where a value must be given.
 
 ## When to write pages by hand
 

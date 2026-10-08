@@ -331,6 +331,15 @@ func TestHalfSwitchedDatabase(t *testing.T) {
 	if !strings.Contains(msg, "DB_URL but no DB_CONNECTION") {
 		t.Errorf("DB_URL message = %q", msg)
 	}
+	// Without .env.testing, the tests would use an in-memory SQLite
+	// database, while the app uses PostgreSQL.
+	if err := os.Remove(filepath.Join(dir, ".env.testing")); err != nil {
+		t.Fatal(err)
+	}
+	msg = fatalOf(func() { anetostest.New(&fakeT{TB: t}, nil) })
+	if !strings.Contains(msg, "in-memory SQLite database, while .env uses postgres") || !strings.Contains(msg, "Add .env.testing") {
+		t.Errorf("no .env.testing: %q", msg)
+	}
 }
 
 func TestCachePrefix(t *testing.T) {

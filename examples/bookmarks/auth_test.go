@@ -45,7 +45,7 @@ func authRegister(t *testing.T) (*anetostest.App, handlers.SignInResponse) {
 	app.PostJSON("/api/v1/register", map[string]any{
 		"name": "Ada", "email": "Ada@Example.com", "device_name": "Ada's phone",
 		"password": "correct horse", "password_confirmation": "correct horse",
-	}).AssertCreated().JSON(&res)
+	}).AssertCreated().AssertHeader("Cache-Control", "no-store").JSON(&res)
 	if res.Token == "" || res.User == nil || res.User.Email != "ada@example.com" || res.User.EmailVerifiedAt != nil {
 		t.Fatalf("registration: %+v", res)
 	}

@@ -98,10 +98,10 @@ user who creates a team owns it:
 
 ```go
 // CreateTeam creates a team, owned by the user who creates it.
-func (Handlers) CreateTeam(c *web.Ctx, in NewTeam) (web.Responder, error) {
+func (Handlers) CreateTeam(c *web.Ctx, in NewTeam) (Team, error) {
 	userID, err := auth.CurrentID(c)
 	if err != nil {
-		return nil, err
+		return Team{}, err
 	}
 	team := Team{Name: in.Name}
 	err = db.Tx(c, func(ctx context.Context) error { // the team and its owner, or neither
@@ -111,9 +111,9 @@ func (Handlers) CreateTeam(c *web.Ctx, in NewTeam) (web.Responder, error) {
 		return rbac.Assign(ctx, userID, teamScope(team.ID), "owner")
 	})
 	if err != nil {
-		return nil, err
+		return Team{}, err
 	}
-	return web.Created(team), nil
+	return team, nil
 }
 ```
 
@@ -141,12 +141,12 @@ middleware:
 api := r.Group("/api", a.TokenMiddleware, a.Require) // Authorization: Bearer <token>
 inTeam := rbac.PathScope("team", "team")             // /teams/42/… is "team:42"
 
-api.Get("/teams", h.Teams)
-api.Post("/teams", web.H(h.CreateTeam))
+api.Get("/teams", web.H(h.Teams))
+api.Post("/teams", web.H(h.CreateTeam)).Status(http.StatusCreated)
 api.Get("/teams/{team}/permissions", web.H(h.MyPermissions))
 api.With(rbac.RequireIn(inTeam, DeleteTeams)).Delete("/teams/{team}", web.H(h.DeleteTeam))
 api.With(rbac.RequireIn(inTeam, ViewProjects)).Get("/teams/{team}/projects", web.H(h.Projects))
-api.With(rbac.RequireIn(inTeam, CreateProjects)).Post("/teams/{team}/projects", web.H(h.CreateProject))
+api.With(rbac.RequireIn(inTeam, CreateProjects)).Post("/teams/{team}/projects", web.H(h.CreateProject)).Status(http.StatusCreated)
 api.With(rbac.RequireIn(inTeam, DeleteProjects)).Delete("/teams/{team}/projects/{id}", web.H(h.DeleteProject))
 
 members := api.With(rbac.RequireIn(inTeam, ManageMembers))
@@ -154,8 +154,8 @@ members.Get("/teams/{team}/members", web.H(h.Members))
 members.Put("/teams/{team}/members/{user}", web.H(h.SetMember))
 members.Delete("/teams/{team}/members/{user}", web.H(h.RemoveMember))
 
-api.Get("/roles", h.Roles)
-api.With(rbac.Require(ManageRoles)).Post("/roles", web.H(h.CreateRole))
+api.Get("/roles", web.H(h.Roles))
+api.With(rbac.Require(ManageRoles)).Post("/roles", web.H(h.CreateRole)).Status(http.StatusCreated)
 ```
 
 (Copied from [`examples/teams`](../../../examples/teams/main.go), region `routes`.)
@@ -186,12 +186,12 @@ such as their teams:
 ```go
 // Teams lists the user's teams: those where they have a role, or every
 // team for support staff.
-func (Handlers) Teams(c *web.Ctx) error {
+func (Handlers) Teams(c *web.Ctx, _ struct{}) ([]Team, error) {
 	q := db.Query[Team](c).OrderBy(colID.Asc())
 	if !rbac.Can(c, ViewAllTeams) {
 		g, err := rbac.Current(c)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		var ids []int64
 		for _, s := range g.Scopes("team") {
@@ -201,11 +201,7 @@ func (Handlers) Teams(c *web.Ctx) error {
 		}
 		q = q.Where(colID.In(ids...))
 	}
-	teams, err := q.Get()
-	if err != nil {
-		return err
-	}
-	return c.JSON(http.StatusOK, teams)
+	return q.Get()
 }
 ```
 
@@ -224,29 +220,29 @@ has more:
 ```go
 // SetMember makes a user a member of the team with a role, replacing the
 // role they had there.
-func (Handlers) SetMember(c *web.Ctx, in SetMemberInput) (web.Responder, error) {
+func (Handlers) SetMember(c *web.Ctx, in SetMemberInput) (web.Empty, error) {
 	// Grants in a team that doesn't exist would apply to the next team
 	// given its ID.
 	if _, err := findTeam(c, in.Team); err != nil {
-		return nil, err
+		return web.Empty{}, err
 	}
 	u, err := db.Find[User](c, in.User)
 	if err != nil {
-		return nil, err
+		return web.Empty{}, err
 	}
 	team := teamScope(in.Team)
 	// No one gives more than they have, or changes the roles of someone
 	// who has more: an owner can make owners, not administrators.
 	if err := rbac.AuthorizeRole(c, team, in.Role); err != nil {
-		return nil, err
+		return web.Empty{}, err
 	}
 	if err := rbac.AuthorizeRolesOf(c, team, u.AuthID()); err != nil {
-		return nil, err
+		return web.Empty{}, err
 	}
 	if err := rbac.Sync(c, u.AuthID(), team, in.Role); err != nil {
-		return nil, err
+		return web.Empty{}, err
 	}
-	return web.NoContent(), nil
+	return web.Empty{}, nil
 }
 ```
 
@@ -269,12 +265,12 @@ their own, stored in the database and made of the declared permissions:
 ```go
 // CreateRole adds a role made of the app's permissions: an "auditor" who
 // may view every team's projects, say.
-func (Handlers) CreateRole(c *web.Ctx, in NewRole) (web.Responder, error) {
+func (Handlers) CreateRole(c *web.Ctx, in NewRole) (rbac.Role, error) {
 	role := rbac.Role{Name: in.Name, Title: in.Title, Permissions: in.Permissions}
 	if err := rbac.CreateRole(c, role); err != nil {
-		return nil, err // 422 for an unknown permission, 409 for a name taken
+		return rbac.Role{}, err // 422 for an unknown permission, 409 for a name taken
 	}
-	return web.Created(role), nil
+	return role, nil
 }
 ```
 

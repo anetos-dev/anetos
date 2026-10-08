@@ -15,7 +15,7 @@ Package `web/openapi` (v0.4) and what it writes. How to use it:
 | Name | Does |
 |---|---|
 | `openapi.Spec(r, cfg)` | The OpenAPI 3.1.0 document of `r`'s typed routes, as indented JSON (the same routes and `Config` give the same bytes), and warnings about what it left out or couldn't describe |
-| `openapi.Check(r, cfg)` | An error unless `cfg.File` holds `Spec`'s document (Windows line ends allowed); the error names the first line that differs and says to run `go run . openapi` |
+| `openapi.Check(r, cfg)` | An error unless `cfg.File` holds `Spec`'s document (Windows line ends allowed); the error names the first line that differs and says to run `go run . openapi`. Also an error when a route under `cfg.Prefix` is one the document leaves out (not a typed handler, or every method) |
 | `openapi.ForApp(app, srv, cfg)` | Adds the `openapi` command, and serves the document at `cfg.Path` if set (built on the first request). Call it after adding the routes. An error without `cfg.Title` |
 | `web.Documented(h, web.MiddlewareDoc{…})` | The handler a middleware returns, with what the middleware asks for and may answer, which the routes it wraps report |
 | `web.RouteInfo.Input`, `.Output`, `.Status` | A typed route's input and result types and its `Status` (0 unless set) |
@@ -76,7 +76,7 @@ promoted, `json:",string"` numbers as strings.
 | `int`, `int8`, `int16` / `int32`, `int64` | `integer` / with `format` `int32`, `int64` |
 | unsigned integers | `integer`, `minimum` 0 |
 | `float32`, `float64` | `number`, `format` `float`, `double` |
-| `time.Time`, `anetos.Date` | `string`, `format` `date-time`, `date` |
+| `time.Time`, `anetos.Date` | `string`, `format` `date-time`, `date`; in a body, an optional `anetos.Date` (not a pointer) is `anyOf` that and an empty string, which binds as no date |
 | `[]byte` | `string`, `contentEncoding` `base64` |
 | `*multipart.FileHeader` | `string`, `format` `binary` |
 | `time.Duration` parameter | `string` (`30s`, as the binding reads it); in a body, an `integer` (nanoseconds) |

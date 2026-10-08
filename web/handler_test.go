@@ -119,6 +119,11 @@ func TestBindDate(t *testing.T) {
 	if got.status != http.StatusBadRequest && got.status != http.StatusUnprocessableEntity {
 		t.Errorf("a bad date: %d %s", got.status, got.body)
 	}
+	// A date that isn't one, in JSON, is its field's error.
+	got = do(t, r, "POST", "/tasks", strings.NewReader(`{"due":"nope"}`), "Content-Type", "application/json", "Accept", "application/json")
+	if got.status != http.StatusBadRequest || !strings.Contains(got.body, `"due": "must be a date`) {
+		t.Errorf("a bad JSON date: %d %s", got.status, got.body)
+	}
 }
 
 type upload struct {
@@ -167,6 +172,7 @@ func TestBindErrors(t *testing.T) {
 		{"bad path int", "/posts/abc", "", "", 400, `"id": "must be an integer"`},
 		{"bad query int", "/posts/1?page=x", "", "", 400, `"page": "must be an integer"`},
 		{"json type", "/posts/1", "application/json", `{"draft":"yes"}`, 400, `"draft": "must be true or false"`},
+		{"json types", "/posts/1", "application/json", `{"draft":"yes","title":5}`, 400, `"title": "must be text"`},
 		{"bad json", "/posts/1", "application/json", `{"title":`, 400, "not valid JSON"},
 		{"unsupported type", "/posts/1", "text/csv", "a,b", 415, "unsupported content type"},
 	}

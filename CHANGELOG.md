@@ -6,14 +6,25 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-08
+
+The API stack: `anetos new --stack=api`, an app that serves JSON only;
+`make:auth` accounts that sign in with API tokens (two-factor codes,
+emails linking to the client app, token management); `make:crud` JSON
+endpoints with pages, sorting and filters; typed results with the
+route's status; an OpenAPI 3.1 description generated from the typed
+handlers, served and checked in a test; "Tutorial: build an API" and
+`examples/bookmarks`. Upgrading from v0.3: [the upgrade
+guide](docs/site/upgrade/v0.4.md).
+
 ### Added
 - `anetos new --stack=api` writes an app that serves JSON only (AP1,
   D259–D262): no views, templ, static files, sessions or CSRF; routes
   under `/api/v1` in `routes/api.go`, a `GET /api/v1` welcome answered
   by a struct of its own, every error as JSON problem details,
   `HTTP_CORS_ORIGINS` in the settings files, and a test that calls the
-  API. Its handlers are typed (`web.H`), so the OpenAPI spec (AP4) can
-  describe them. The database, queue, mail, storage, scheduler, plugins, health
+  API. Its handlers are typed (`web.H`), so `web/openapi` describes
+  them. The database, queue, mail, storage, scheduler, plugins, health
   routes, `doctor`, `anetos build` and deploy files are the web
   stack's. `--stack=web` is the default and writes what it did; `--css`
   is refused with `api`.
@@ -36,21 +47,24 @@ All notable changes to this project are documented here. The format follows
   (revoking the other tokens), `/tokens` to list, make and revoke
   tokens, and `/two-factor` to turn two-factor sign-in on and off;
   making a token and changing two-factor sign-in take the password,
-  and the account's routes need a token with every ability (`*`).
-  Typed handlers answering output structs (201 on the routes that
-  create, `web.Empty` for the actions), emails from an
-  `html/template` file (no templ), tests of every endpoint. Guide "Add
-  accounts to an API".
+  and the account's routes need a token with every ability (`*`,
+  `auth.RequireAbilities`); responses carrying a token are
+  `Cache-Control: no-store`. Typed handlers answering output structs
+  (201 on the routes that create, `web.Empty` for the actions), emails
+  from an `html/template` file (no templ), tests of every endpoint.
+  Guide "Add accounts to an API".
 - `auth.Auth.AttemptCredentials`, `AttemptTwoFactorChallenge` and
   `*auth.TwoFactorChallenge`: an API's login, with two-factor codes,
   without a session; `CheckPassword`, the password checked again with
   `ConfirmPassword`'s limits, without a session; `RevokeOtherTokens`;
-  `ClientLink` and the `AUTH_CLIENT_URL` setting (AP2, D264–D266).
+  `ClientLink` and the `AUTH_CLIENT_URL` setting (`auth.Config.ClientURL`)
+  (AP2, D264–D266).
 - `web.Route.Status(code)`: the status of a typed handler's result on a
   route (201 for a creation), and `web.Empty`, a result without a body
-  (204): typed results say in their signature what a route answers, for
-  the OpenAPI spec to come (AP3, D269). `make:auth`'s API handlers and
-  `examples/notes` use them.
+  (204): typed results say in their signature what a route answers,
+  which `web/openapi` reads (AP3, D269); `Route.RouteStatus` reads it
+  back. `make:auth`'s API handlers and `examples/notes`,
+  `examples/teams` and `examples/validation` use them.
 - `make:crud` in an API project writes JSON endpoints under
   `/api/v1/<path>` (AP3, D270–D273): a page of rows (`?page=`,
   `?per_page=` up to 100, `?sort=` from a list of columns with `-` for
@@ -71,11 +85,14 @@ All notable changes to this project are documented here. The format follows
   them, with their `validate` rules as JSON Schema (required, bounds,
   `in`, formats, `distinct`); results as `encoding/json` writes them,
   with the route's status; components named after the Go types; errors
-  as problem details; security from the routes' middleware.
+  as problem details; security from the routes' middleware
+  (`Config.SecuritySchemes` for schemes besides `bearer`; `Config.Servers`).
+  `openapi.Spec` returns the document and its warnings;
   `openapi.ForApp` adds the `openapi` command (`--check`, `--out`; it
   needs no database) and serves the document at `Config.Path`;
-  `openapi.Check` fails a test when the committed file is out of date.
-  Guide "Describe an API with OpenAPI".
+  `openapi.Check` fails a test when the committed file is out of date
+  or a route under the prefix isn't a typed handler. Guide "Describe an
+  API with OpenAPI" and the OpenAPI reference.
 - `web.Documented(h, web.MiddlewareDoc{…})`: a middleware says what it
   asks of requests (a security scheme and scopes) and the errors it may
   answer; `RouteInfo.Middleware` reports it per route, and
@@ -102,23 +119,37 @@ All notable changes to this project are documented here. The format follows
   OpenAPI reference (AP5, D281, D282, D284).
 
 ### Changed
+- **BREAKING:** `web.RouteInfo` has a slice field (`Middleware`), and
+  `web.Route` an unexported one, so neither can be compared with `==`
+  (AP4, D278). Compare the fields you need:
+
+  ```go
+  // before
+  routes[0] == web.RouteInfo{Method: "GET", Pattern: "/posts", Name: "posts.index"}
+  // after
+  routes[0].Method == "GET" && routes[0].Pattern == "/posts" && routes[0].Name == "posts.index"
+  ```
 - `plugins/postmark` works with Anetos v0.4 too (`Requires`:
   `>= v0.2.0, < v0.5.0`); an Anetos built from this source reports
   `v0.4.0-dev` (AP1).
-- `web.RouteInfo` has slice fields (`Middleware`), so it can't be
-  compared with `==` any more: compare its fields (AP4, D278).
+- `auth.Auth.Require`, `TokenMiddleware`, `rbac.Require`/`RequireIn` and
+  `ratelimit.Middleware` return a documented handler (`web.Documented`)
+  rather than an `http.HandlerFunc`; they serve the same (AP4, D278).
+- `HTTP_CORS_EXPOSE` defaults to
+  `X-Request-ID,Location,Retry-After,X-RateLimit-Limit,X-RateLimit-Remaining`
+  (was `X-Request-ID`), so browser apps read a creation's `Location` and
+  the rate limits (v0.4 exit).
+- A JSON body is read into a pooled buffer and decoded with
+  `json.Unmarshal`, so a JSON request allocates less (its budget is 7
+  allocations, was 9; 4 on Go 1.27) (v0.4 exit).
 - `examples/tracker`'s `POST /api/projects/{project}/issues` is a typed
   handler with `Status(201)`, and `GET /api/me` a typed handler, so the
   document describes them (AP4).
-- `make:auth` in an API project guards the account's routes with
-  `auth.RequireAbilities("*")` in place of a generated `fullAccess`
-  middleware; `make:crud`'s API routes point to `RequireAbilities` for
-  abilities (AP5, D283).
 - `anetos new` pins templ v0.3.1070 (was v0.3.1020), as the examples
   now use (M10).
-- Dependencies updated in every module; the Google API client stays
-  below v0.299.0, which requires gRPC 1.84 (GO-2026-6443, no fixed
-  release yet).
+- Dependencies updated in the driver and example modules (Dependabot,
+  before AP1); the Google API client stays below v0.299.0, which
+  requires gRPC 1.84 (GO-2026-6443, no fixed release yet).
 
 ### Fixed
 - `auth.Auth.Require` sends `WWW-Authenticate: Bearer` with its 401 on
@@ -127,6 +158,14 @@ All notable changes to this project are documented here. The format follows
 - `make:crud` refuses field names that would write code that doesn't
   build: two names with the same Go name (`a_1` and `a1`), `id_`, and
   names with a leading, trailing or double `_` (AP3).
+- A JSON body's values of the wrong type, and values a field's type
+  refuses (a date that isn't one), are each their field's error in the
+  400's `errors`, every one of them; a bad date was "The request body
+  is not valid JSON." and only the first wrong type was listed (v0.4
+  exit).
+- `anetostest.New` stops a test when `.env` uses a database server and
+  the test settings name no `DB_CONNECTION` (no `.env.testing`, say),
+  rather than testing on an in-memory SQLite database (v0.4 exit).
 
 ## [0.3.0] - 2026-10-07
 

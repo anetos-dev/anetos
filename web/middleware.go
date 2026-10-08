@@ -365,11 +365,11 @@ type CORSConfig struct {
 	// Credentials); "https://*.example.com" allows subdomains. Empty
 	// disables CORS.
 	Origins     []string      `env:"ORIGINS"`
-	Methods     []string      `env:"METHODS" default:"GET,HEAD,POST,PUT,PATCH,DELETE"`                                  // methods allowed cross-origin
-	Headers     []string      `env:"HEADERS" default:"Accept,Authorization,Content-Type,X-Requested-With,X-Request-ID"` // request headers allowed
-	Expose      []string      `env:"EXPOSE" default:"X-Request-ID"`                                                     // response headers scripts may read
-	Credentials bool          `env:"CREDENTIALS"`                                                                       // allow cookies and Authorization
-	MaxAge      time.Duration `env:"MAX_AGE" default:"10m"`                                                             // how long browsers cache a preflight
+	Methods     []string      `env:"METHODS" default:"GET,HEAD,POST,PUT,PATCH,DELETE"`                                           // methods allowed cross-origin
+	Headers     []string      `env:"HEADERS" default:"Accept,Authorization,Content-Type,X-Requested-With,X-Request-ID"`          // request headers allowed
+	Expose      []string      `env:"EXPOSE" default:"X-Request-ID,Location,Retry-After,X-RateLimit-Limit,X-RateLimit-Remaining"` // response headers scripts may read
+	Credentials bool          `env:"CREDENTIALS"`                                                                                // allow cookies and Authorization
+	MaxAge      time.Duration `env:"MAX_AGE" default:"10m"`                                                                      // how long browsers cache a preflight
 }
 
 func (c CORSConfig) allows(origin string) bool {

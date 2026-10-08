@@ -162,17 +162,22 @@ type Users interface {
 	UsernameTaken(ctx context.Context, username string) (bool, error)
 }
 
+// SignedUp is the answer to a sign-up.
+type SignedUp struct {
+	Username string `json:"username"`
+}
+
 // signUpHandler checks what tags can't: whether the username is free.
-func signUpHandler(users Users) func(c *web.Ctx, in SignUp) (web.Responder, error) {
-	return func(c *web.Ctx, in SignUp) (web.Responder, error) {
+func signUpHandler(users Users) func(c *web.Ctx, in SignUp) (SignedUp, error) {
+	return func(c *web.Ctx, in SignUp) (SignedUp, error) {
 		taken, err := users.UsernameTaken(c, in.Username)
 		if err != nil {
-			return nil, err // a 500: the check itself failed
+			return SignedUp{}, err // a 500: the check itself failed
 		}
 		if taken {
-			return nil, validate.Fail("username", "This username is already taken.") // a 422, like the tag rules
+			return SignedUp{}, validate.Fail("username", "This username is already taken.") // a 422, like the tag rules
 		}
-		return web.Created(map[string]string{"username": in.Username}), nil
+		return SignedUp{Username: in.Username}, nil // 201: the route's Status
 	}
 }
 ```

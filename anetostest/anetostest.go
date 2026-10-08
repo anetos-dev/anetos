@@ -139,7 +139,8 @@ func LogLevel(l slog.Level) Option { return func(o *options) { o.level = l } }
 // links, in emails say) and MAIL_FROM_ADDRESS=test@example.com. The
 // settings in .env are not used (New only
 // looks at its DB_CONNECTION, to stop a test that would use SQLite by
-// mistake). With SQLite and neither DB_DATABASE nor DB_URL set (or set to
+// mistake: when .env uses PostgreSQL, say, the test settings must name a
+// DB_CONNECTION too, if only DB_CONNECTION=sqlite). With SQLite and neither DB_DATABASE nor DB_URL set (or set to
 // ""), the database is in memory, not database/app.db.
 //
 // After setup, New records what the app's queue, event bus, mailer and
@@ -349,27 +350,35 @@ func moduleEnv(file string) (config.Map, error) {
 	return m, nil
 }
 
-// checkConnection fails a test that would use SQLite by accident: the test
-// settings name a database (DB_DATABASE or DB_URL) but no DB_CONNECTION,
-// so SQLite, the default, would open it, while the app's .env uses
-// another database.
+// checkConnection fails a test that would use SQLite by accident: the
+// test settings have no DB_CONNECTION while the app's .env uses another
+// database, either naming a database (DB_DATABASE or DB_URL), which
+// SQLite, the default, would open, or none (no .env.testing), which would
+// test on an in-memory SQLite database rather than the app's.
 func checkConnection(t testing.TB, conn, database, dbURL string) {
 	t.Helper()
-	if conn != "" || (database == "" || database == ":memory:") && dbURL == "" {
+	if conn != "" {
 		return
-	}
-	setting := "DB_DATABASE=" + database
-	if database == "" || database == ":memory:" {
-		setting = "DB_URL"
 	}
 	dev, err := moduleEnv(".env")
 	if err != nil {
 		return // .env is the app's business; it isn't used here
 	}
-	if devConn, _ := dev.Lookup("DB_CONNECTION"); devConn != "" && devConn != "sqlite" {
-		t.Fatalf("anetostest: %s but no DB_CONNECTION in the test settings, so tests would use SQLite, "+
-			"while .env uses %s (tests don't use .env). Set DB_CONNECTION=%s in .env.testing, with the other DB_* settings.", setting, devConn, devConn)
+	devConn, _ := dev.Lookup("DB_CONNECTION")
+	if devConn == "" || devConn == "sqlite" {
+		return
 	}
+	if (database == "" || database == ":memory:") && dbURL == "" {
+		t.Fatalf("anetostest: no DB_CONNECTION in the test settings, so tests would use an in-memory SQLite database, "+
+			"while .env uses %s (tests don't use .env). Add .env.testing next to go.mod with DB_CONNECTION=%s and the test "+
+			"database's DB_* settings, or DB_CONNECTION=sqlite to test on SQLite.", devConn, devConn)
+	}
+	setting := "DB_DATABASE=" + database
+	if database == "" || database == ":memory:" {
+		setting = "DB_URL"
+	}
+	t.Fatalf("anetostest: %s but no DB_CONNECTION in the test settings, so tests would use SQLite, "+
+		"while .env uses %s (tests don't use .env). Set DB_CONNECTION=%s in .env.testing, with the other DB_* settings.", setting, devConn, devConn)
 }
 
 var base = &url.URL{Scheme: "http", Host: "example.test", Path: "/"}

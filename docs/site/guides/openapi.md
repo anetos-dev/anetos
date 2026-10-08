@@ -98,8 +98,9 @@ func TestOpenAPI(t *testing.T) {
 
 (Copied from [`examples/tracker/api_test.go`](../../../examples/tracker/api_test.go), region `openapi-test`.)
 
-`Check` fails with the first line that differs and the command to run.
-CI runs your tests, so a pull request can't change the API without the
+`Check` fails with the first line that differs and the command to run,
+and when a route under `Prefix` is one the document can't describe. CI
+runs your tests, so a pull request can't change the API without the
 document.
 
 ### 5. Say what your middleware asks for
@@ -183,6 +184,8 @@ get it, `go tool anetos dev` and open `/api/openapi.json`, or load
 - **"not a typed handler: left out".** The route's handler is a plain
   `func(c *web.Ctx) error`, or `web.H`'s handler wrapped in another
   function before it was registered. Route `web.H(…)` as it returns it.
+  Under `Prefix`, `Check` fails on it ("the document can't describe
+  GET /api/v1/…"); serve such a route outside the prefix.
 - **"its result is a web.Responder".** A handler returning
   `web.Responder` chooses its status and body as it runs: the document
   says only "2XX". Return a struct and put the status on the route

@@ -487,7 +487,9 @@ v0.2.
 - Friendly form semantics: empty values count as absent for non-strings;
   booleans accept `on`/`off` and `yes`/`no`.
 - Failures: 400 with per-field messages, 413 for oversized bodies, 415 for
-  unsupported content types, 400 for trailing JSON data. Validation follows
+  unsupported content types, 400 for trailing JSON data. A JSON body's
+  values of the wrong type, or that a field's type refuses, are each their
+  field's message, under the key the client sent (D285). Validation follows
   (§9): tag rules, then a `Validate(ctx) error` method.
 
 ### 8.5 Errors
@@ -1282,8 +1284,8 @@ request.
   router records the docs while composing each route's chain
   (`RouteInfo.Middleware`, outermost first). `auth.Require` documents a
   bearer token and 401, `TokenMiddleware` 401, `rbac.Require` 401 and
-  403, `ratelimit.Middleware` 429; the generated `fullAccess` the `*`
-  ability. Scheme `bearer` is built in, others are
+  403, `ratelimit.Middleware` 429; `auth.RequireAbilities` (AP5) the
+  abilities as scopes. Scheme `bearer` is built in, others are
   `Config.SecuritySchemes`; when some operations need credentials, the
   others have `security: []`.
 - **The file (D279):** `openapi.ForApp` adds the `openapi` command
@@ -1292,7 +1294,8 @@ request.
   (`openapi.json`) and byte-stable; `openapi.Check` in a test is the CI
   check. An API project has the config (`routes.OpenAPI`), the call,
   the file and the test; `anetos new`, `make:auth` and `make:crud` run
-  `go run . openapi`. `examples/tracker` describes its API.
+  `go run . openapi`. `examples/tracker` describes its API. `Check` also
+  fails when a route under `Prefix` isn't a typed handler (D287).
 - **Not in v0.4 (D280):** a page that renders the document, client
   generation.
 
@@ -2534,7 +2537,9 @@ func TestCreatePost(t *testing.T) {
   registered, and closes it at the end of the test (D74). Settings:
   options > `APP_ENV=testing` and a random `APP_KEY` > the environment >
   `.env.testing` > test defaults; `.env` is never read, so tests can't
-  reach the development database. Logs go to `t.Log`.
+  reach the development database, but its `DB_CONNECTION` is: a test
+  stops when `.env` names a database server and the test settings name
+  no `DB_CONNECTION` (D286). Logs go to `t.Log`.
 - **Database isolation** (D75): SQLite in memory (the default) gives each
   test its own database; with a server or a SQLite file, each test runs in
   a transaction rolled back at the end, and each request in a savepoint
@@ -3039,6 +3044,12 @@ unless new information arrives), **Open**, **Superseded**.
 | D282 | `examples/bookmarks` has the SPDX header on every Go file, which the comparison strips, rather than `examples/tutorial`'s exemption from the header check | Accepted | Keeps the license-header rule (and `CLAUDE.md`'s statement of it) as it is: one exemption, for the web tutorial. The headers are one line the tutorial never shows; a reader's project wouldn't have them, which the comparison allows for |
 | D283 | `auth.RequireAbilities(abilities...)` is middleware: through for a request that may do every ability (`TokenCan`), 403 for a token without one, 401 with `WWW-Authenticate: Bearer` for a guest (it goes after `Require`, which sends pages' guests to the login page), the error of a user who can't be loaded; it documents the abilities as the bearer scheme's scopes and the 401/403 (D278). `make:auth`'s API account group uses `RequireAbilities("*")`, replacing the generated `fullAccess` | Accepted | Abilities are mostly per route; on the route they show in the routes file and in the API's description, where a `TokenCan` call inside a handler is invisible. A core middleware replaces code every API project carried; `TokenCan` stays for checks that depend on the request's data |
 | D284 | The OpenAPI docs are a guide (the steps, a summary of what goes in the document) and a reference page (`reference/openapi.md`: the API, `Config`, the command, operations, schemas, validation rules, middleware, warnings) | Accepted | The documentation guide's split (how-to vs reference): the rules tables grew past what a guide should carry, and readers look them up rather than read them |
+| D285 | A JSON body's members are matched to their fields (`jsonfield`, exact name then case-insensitively, as `encoding/json` does) and decoded one by one when the whole body fails to decode for a value's type: each wrong type, and each value a field's type refuses (`anetos.Date`'s `UnmarshalJSON`), is that field's `binding.<kind>` message under the key the client sent; the body is read whole (`MaxBytesError` still 413) | Accepted | The walkthrough's client sent a bad date and got "not valid JSON", with nothing pointing at the field, and `encoding/json` stops at the first type error. The second decode runs only on a failing request, so valid requests pay nothing; the client's key, not the Go name, is what its form knows |
+| D286 | `anetostest` reads `.env`'s `DB_CONNECTION` (only it) to stop a test that would run on SQLite by accident: with no `DB_CONNECTION` in the test settings and a server in `.env`, it fails, naming `.env.testing` and both fixes | Accepted | Switching a project to PostgreSQL by the guide's steps but forgetting `.env.testing` made every test pass on an in-memory SQLite database, which hides the server's behaviour. Reading one key keeps D74's rule that tests never reach the development database |
+| D287 | `openapi.Check` fails when a route under `Config.Prefix` isn't one it can describe (not a typed handler, or every method), naming the route; `Spec` keeps it a warning; outside the prefix (or with no prefix) routes are left out silently in `Check` | Accepted | A route under the API's prefix that the document leaves out is a lie by omission that the committed file would hide; the test is where it is caught. With no prefix, an app's pages are legitimately left out |
+| D288 | `HTTP_CORS_EXPOSE` defaults to `X-Request-ID,Location,Retry-After,X-RateLimit-Limit,X-RateLimit-Remaining` | Accepted | A browser client of an API project couldn't read a creation's `Location` or the rate limits' headers without a setting it had no reason to know of; these headers carry nothing secret |
+| D289 | `make:auth`'s API responses that carry a token (register, login, the two-factor challenge and its answer) are `Cache-Control: no-store`; the routes behind `auth.Require`, making a token among them, already were (M7) | Accepted | A token in a cached response outlives its revocation; `auth.Require`'s `no-store` doesn't cover the public routes that hand tokens out |
+| D290 | In inputs, an optional non-pointer `anetos.Date` is `anyOf` a `date` string and an empty string, and a `url` rule adds a `pattern` of its schemes (`http` and `https` unless it names others) | Accepted | The binding takes `""` as no date and the `url` rule refuses other schemes, while `format: date` and `format: uri` alone would let generated clients and validators disagree with the server |
 
 ---
 

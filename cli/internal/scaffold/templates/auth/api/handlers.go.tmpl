@@ -266,6 +266,7 @@ func (h Accounts) signedIn(c *web.Ctx, u *models.User, device string) (SignInRes
 	if err != nil {
 		return SignInResponse{}, err
 	}
+	c.SetHeader("Cache-Control", "no-store") // a token: kept by no cache
 	user := userResponse(u)
 	return SignInResponse{Token: plain, User: &user}, nil
 }
@@ -301,6 +302,7 @@ func (h Accounts) Login(c *web.Ctx, in LoginInput) (SignInResponse, error) {
 	)
 	switch {
 	case errors.As(err, &challenge):
+		c.SetHeader("Cache-Control", "no-store")
 		return SignInResponse{TwoFactor: true, Challenge: challenge.Token}, nil
 	case errors.Is(err, auth.ErrInvalidCredentials):
 		return SignInResponse{}, validate.Fail("email", i18n.T(c, "auth.errors.credentials"))

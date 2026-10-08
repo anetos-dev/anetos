@@ -122,9 +122,17 @@ A project made with `anetos new` uses SQLite unless you passed
    DB_PASSWORD=secret
    ```
 
-   Without `DB_CONNECTION` there, tests would use SQLite; `anetostest`
-   stops them with a message when `.env` has another `DB_CONNECTION`.
+   Without `DB_CONNECTION` there (or without the file), tests would
+   use SQLite; `anetostest` stops them with a message when `.env` has
+   another `DB_CONNECTION`.
 4. `go run . migrate`, then `go test ./...`.
+5. The deploy files still say SQLite: in `deploy/production.env.example`,
+   put `DB_CONNECTION` and `DB_URL` in place of SQLite's settings; in
+   the `Dockerfile`, drop `DB_DATABASE` and `MIGRATE_ON_RUN` (run
+   `migrate` on each deploy instead); in `deploy/<name>.service`, drop
+   `DB_DATABASE`; the README's "nothing to set up" is SQLite's too. A
+   project made with `--db postgres` shows the server versions of these
+   files.
 
 Migrations written with the schema builder run on every database; raw
 SQL in migrations may need changes.
