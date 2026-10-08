@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- An Anetos built from this source reports `v0.5.0-dev`, and
+  `plugins/postmark` works with Anetos v0.5 too (`Requires`:
+  `>= v0.2.0, < v0.6.0`) (after v0.4.0).
+
 ## [0.4.0] - 2026-10-08
 
 The API stack: `anetos new --stack=api`, an app that serves JSON only;

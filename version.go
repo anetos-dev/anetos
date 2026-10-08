@@ -10,13 +10,13 @@ import (
 
 // develVersion is the version of this source tree: the next release,
 // marked as in development.
-const develVersion = "v0.4.0-dev"
+const develVersion = "v0.5.0-dev"
 
 // Version returns the version of the Anetos module the app is built
 // with: from the binary's build information ("v0.2.3"), or, when the
 // module is replaced by a directory or built from a commit rather than
 // a release (a pseudo-version such as v0.1.1-0.20261001…), the version
-// its source is heading for, such as "v0.4.0-dev". Plugins' version requirements are checked against it.
+// its source is heading for, such as "v0.5.0-dev". Plugins' version requirements are checked against it.
 func Version() string { return version() }
 
 // pseudo matches pseudo-versions: v0.0.0-20261001120000-abcdef123456,

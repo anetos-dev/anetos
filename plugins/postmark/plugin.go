@@ -60,7 +60,7 @@ type Settings struct {
 type plugin struct{ cfg Settings }
 
 func (p *plugin) Name() string     { return "postmark" }
-func (p *plugin) Requires() string { return ">= v0.2.0, < v0.5.0" }
+func (p *plugin) Requires() string { return ">= v0.2.0, < v0.6.0" }
 func (p *plugin) Config() any      { return &p.cfg }
 
 // endregion

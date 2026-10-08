@@ -7,6 +7,9 @@ tagged `plugins/postmark/vX.Y.Z`. The framework's own changes are in the
 
 ## [Unreleased]
 
+### Changed
+- Works with Anetos v0.5 too (`Requires`: `>= v0.2.0, < v0.6.0`).
+
 ## [0.4.0] - 2026-10-08
 
 ### Changed
