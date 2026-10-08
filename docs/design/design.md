@@ -1107,7 +1107,7 @@ Implemented in F10 (packages `view`, `session`, `encryption`; helpers in
   `make:auth` and `make:crud` writing JSON endpoints in such a project
   (AP2, AP3), and an OpenAPI 3.1 spec generated from the routes and the
   typed handlers (inputs from their tags, responses declared), checked
-  in CI (AP4). AP2–AP4 are designed when their work starts.
+  in CI (AP4). AP3 and AP4 are designed when their work starts.
 - **Design kits (v0.5, D244)**: the generators' pages call a small
   `views/ui` package the app owns; each kit (the starter theme, Pico,
   Bootstrap, Bulma, Tailwind through its standalone CLI) is a stylesheet
@@ -1144,6 +1144,71 @@ writes an app that serves JSON only:
 - **Tests**: `main_test.go` calls `GET /api/v1` and checks its JSON, and
   a missing URL's problem details.
 
+**API accounts (AP2, D263–D268).** `make:auth` in an API project writes
+accounts whose sign-in is an API token: no sessions, cookies or CSRF.
+
+- **Endpoints** (`routes/auth.go`, in the `api` group, `/api/v1`):
+  guests `POST /register` (201: a token and the user), `POST /login`
+  (a token and the user; or, for a user with two-factor sign-in,
+  `{"two_factor": true, "challenge": …}`), `POST /login/two-factor`
+  (the challenge and a code: a token), `POST /forgot-password`,
+  `POST /reset-password`, `POST /verify-email` (the token of an emailed
+  link); with a token, `GET /me`, `POST /logout` (revokes the token),
+  `POST /email/verification-notification`, `PUT /password`,
+  `GET`/`POST /tokens`, `DELETE /tokens/{id}`, and `GET /two-factor`,
+  `POST /two-factor`, `/two-factor/confirm`, `/two-factor/recovery-codes`
+  and `/two-factor/disable`. Actions without content answer 204; the
+  others answer output structs (`UserResponse`, `SignInResponse`,
+  `TokenResponse`…), never the model (D263). Registration and token
+  creation answer `web.Created(…)` and actions a nil `web.Responder`
+  (204): AP4 settles how such handlers declare their responses (a typed
+  responder or a route option), and the login's two shapes (a token, or
+  a challenge) are one struct with optional members.
+- **Tokens:** a sign-in's token has every ability (`*`), is named after
+  the client's `device_name` (default "API"), and expires in 30 days;
+  `POST /tokens` names its abilities (default `*`) and lasts 90 days.
+  `POST /logout` revokes the request's token; a new password revokes
+  every other token of the user, keeping the request's (D265).
+- **The password again** (the web pages' `RequireConfirmed`): creating
+  a token, starting or turning off two-factor sign-in and new recovery
+  codes take the current password in the request, checked with
+  `ConfirmPassword`'s budget (`AUTH_THROTTLE` a minute, 50 wrong a day);
+  confirming a started setup takes its code, and revokes the user's
+  other tokens, as the pages sign out other sessions (D265).
+- **Two-factor sign-in at login** without a session: `AttemptCredentials`
+  checks the password as `Attempt` does (its throttling and timing) but
+  signs nothing in; with two-factor sign-in on it fails with a
+  `*TwoFactorChallenge` (an `ErrTwoFactorRequired`) whose `Token` the
+  client gets: encrypted, naming the user, a fingerprint of the password
+  hash and session key, 10 minutes; `AttemptTwoFactorChallenge` checks
+  it and the code under `AttemptTwoFactor`'s lock and limits (D264).
+- **Emails** link to the client app: `AUTH_CLIENT_URL` (the address of
+  the app the users see; `http://localhost:5173` in a new `.env`; the
+  generated `setupAuth` refuses to boot without it in production and
+  staging) plus
+  `/verify-email?token=…` or `/reset-password?token=…`, built by
+  `Auth.ClientLink`; the client posts the token back. The bodies are
+  `html/template` files of the app (`app/mailers/auth.html`, through
+  `view.Template`), so the API project stays without templ (D266).
+- **Throttling** as the pages': registration 10 a minute per client
+  address, reset requests 5 a minute per client address and 3 links an
+  hour per email address, verification links 3 a minute per client
+  address and 6 an hour per user, logins and codes in package `auth`;
+  429s say when to try again (`Retry-After`).
+- **Abilities:** the account's own routes (`/password`, `/tokens`,
+  `/two-factor`) take a token with every ability (`*`, a login's); a
+  token made for a program, with narrower ones, gets 403 there, so it
+  can't make tokens, revoke the others or change how the account signs
+  in (review48). `/me`, `/logout` and the verification link work with
+  any token.
+- **401s** of `Require` behind `TokenMiddleware` carry
+  `WWW-Authenticate: Bearer`, as RFC 6750 asks, with or without a
+  session (D267).
+- **Not in AP2** (D268): sign-in with Google and GitHub, changing the
+  email address, deleting the account and the settings page's
+  preferences. They are the web pages' or need a redirect flow; the
+  generated code is the place to add them.
+
 **Composing stacks (D259).** `anetos new` builds a project from layers of
 templates: `base` (every project: `go.mod`, `main.go`, settings,
 migrations, models, factories, plugins, deploy files, README) and one
@@ -1159,10 +1224,10 @@ stacks (v0.6) are further layers.
 project when it has `routes/api.go` and no `routes/web.go`.
 `make:handler` writes a typed handler there (`web.H`, answering a
 struct of its own), its comment routing it in `api`; `make:middleware`'s
-comment routes it in `api` too; `make:auth` and `make:crud` refuse,
-saying that their API versions come later in v0.4 (AP2, AP3), rather
-than reporting a missing `views` directory; `make:admin` refuses (the
-admin is HTML pages).
+comment routes it in `api` too; `make:auth` writes the API's accounts
+(AP2, above); `make:crud` refuses, saying that its API version comes
+later in v0.4 (AP3), rather than reporting a missing `views` directory;
+`make:admin` refuses (the admin is HTML pages).
 
 SPA-style (v0.6):
 
@@ -2085,7 +2150,12 @@ if err := auth.Authorize(c, policies.Post.Update, &post); err != nil { return ni
   single-use (D97).
 - **API tokens:** personal access tokens with abilities (Sanctum-like),
   `<id>|<secret>`, SHA-256 of the secret stored in `api_tokens`; Bearer
-  middleware; session users pass `TokenCan` (D99).
+  middleware; session users pass `TokenCan` (D99). An API's sign-in
+  issues one (AP2, §12.2): `AttemptCredentials`, `TwoFactorChallenge` and
+  `AttemptTwoFactorChallenge` sign in without a session, `CheckPassword`
+  confirms the password per request, `RevokeOtherTokens` keeps only the
+  request's, and `ClientLink` builds emailed links to `AUTH_CLIENT_URL`
+  (D264–D266).
 - **Social login** (B4, package `auth/social`): the authorization-code
   flow via `golang.org/x/oauth2` with state, PKCE (S256) and, for OpenID
   Connect, a nonce, kept in the session for ten minutes and used once.
@@ -2848,6 +2918,12 @@ unless new information arrives), **Open**, **Superseded**.
 | D260 | The API project: no views, templ, htmx, `public/`, theme, sessions or CSRF; every other battery of the web stack. `routes/api.go` puts `web.JSONErrors` on every request and groups the routes under `/api/v1` (`As("api.")`), versioned by path; `GET /api/v1` answers `handlers.Welcome`'s own struct (name, a translated message); CORS by the existing `HTTP_CORS_*` settings, listed empty in the settings files; `main_test.go` tests the welcome and a 404's problem details | Accepted | Path versioning is what most clients and API gateways expect and needs nothing from the router; a header-based version can't be seen in logs or a browser. A route at the root shows the shape the generators follow (an output struct, D243's "JSON shapes chosen on purpose"). Origins are the developer's to list: a default `*` would let any site read the API (D247's doctor warns about it) |
 | D261 | `web.JSONErrors` is a middleware: under it, `DefaultErrorHandler` answers problem details whatever `Accept` says, never the HTML page (`ErrorPages` included) nor a redirect back; it marks the request's router state, so errors raised by middleware outside it (Timeout; a middleware's panic, which `Recover` answers as problem details when marked) and the 404 or 405 of an unmatched URL are JSON too when it is global (a sub-request inherits the mark). Under it, `WantsJSON` is true. It acts from its place in the chain on (before auth's `Require`); on a group, an unmatched URL under the group's prefix isn't the group's | Accepted | `curl`, `fetch` without headers and many HTTP libraries send `Accept: */*` or nothing, which got the HTML page; an API must not depend on clients asking. `WantsJSON` follows because the code that asks it (auth's `Require` and `RequireConfirmed`, the redirect back of forms) means "is this an API client?": a guest's `GET` to an API under a session must get a 401, not the login page. A router option would cover a whole router only, while a web app's API group needs JSON next to HTML pages; a setting in `.env` was rejected because the format is the code's contract, not the deployment's |
 | D262 | A project is an API project when it has `routes/api.go` and no `routes/web.go` (`scaffold.IsAPI`). In one, `make:handler` writes a typed handler (`web.H`, a response struct) routed in `api`; `make:auth` and `make:crud` refuse, saying their API versions come later in v0.4 (AP2, AP3); `make:admin` refuses; generators that write pages check for it before anything else (`scaffold.RefuseAPI`) | Accepted | The project's files already say what it is, as `make:crud` finds `Register`'s group by its shape (D241); a marker file would be one more thing to keep in step and to explain. The routes files, not `views/`, decide: an API project may get templ views for its emails (AP2) and stays one, and a web app that adds `routes/api.go` keeps `routes/web.go` and stays a web project. Typed handlers from the start give AP4 the responses' types, and generated code never changes after |
+| D263 | `make:auth` in an API project (AP2): accounts signed in by API tokens, no sessions; JSON endpoints under `/api/v1` for registration, login (with two-factor), logout, `/me`, verification, reset, password change, tokens and two-factor sign-in; typed handlers answering output structs (`UserResponse`, `SignInResponse`, `TokenResponse`, `TwoFactorResponse`…), 204 for actions, 201 for created accounts and tokens; the same `User` model as the web stack's, without `remember_token` and `pending_email`; `auth.yaml` reuses the web pages' keys, so `anetos.dev/locales` translates it | Accepted | A token is what mobile apps and front ends on other domains can keep; cookies across sites need CSRF protection and SameSite exceptions that v0.6's same-domain single-page apps get instead. Output structs keep what clients see deliberate (D243), and the shared keys keep translations in one place |
+| D264 | Package `auth` signs in without a session: `AttemptCredentials(ctx, login, password)` is `Attempt`'s check (throttling per login, account and address; dummy hashing; rehash) returning the user, `ErrDisabled`, or, for a user with two-factor sign-in, a `*TwoFactorChallenge` error (which is `ErrTwoFactorRequired`) whose `Token` encrypts the user, a fingerprint of the password hash (after a rehash, the new one) and session key and an expiry (10 minutes) with APP_KEY, in a context of its own (a reset or verification token can't pass for one); `AttemptTwoFactorChallenge(ctx, challenge, code)` opens it and checks the code as `AttemptTwoFactor` does (the same lock, minute and day limits, single-use codes), failing with `ErrNoPendingSignIn` for a bad, expired or outdated challenge. The route needs `TokenMiddleware` (or `Middleware`) for the client's address | Accepted | The session's pending sign-in can't exist for a client without cookies; a signed challenge carries the same facts without storage. It can be replayed within its 10 minutes, but only with a new code (each TOTP step and recovery code works once), so it gives nothing the password and second factor don't; a stored single-use challenge would need a table for little gain |
+| D265 | In API accounts, the account's routes (password, tokens, two-factor) need a token with every ability (`*`): narrower tokens get 403. What the pages put behind `RequireConfirmed` (creating a token, starting or turning off two-factor sign-in, new recovery codes) takes the current password in the request (confirming a started setup takes its code, and revokes the other tokens), checked by `Auth.CheckPassword(ctx, u, password)`: `ConfirmPassword`'s budget (`AUTH_THROTTLE` a minute, 50 wrong a day) without a session. A new password (`PUT /password`, through `ChangePassword`) revokes the user's other tokens (`Auth.RevokeOtherTokens`), keeping the request's; a reset revokes them all; logout revokes the request's | Accepted | A token can't hold a confirmation as a session does, and a per-token confirmation would be a stolen token's to use; asking for the password where it matters keeps D248's rule (a stolen credential alone can't mint lasting access or change sign-in). Revoking the other tokens is the API's "sign out other devices" |
+| D266 | Emailed links of API accounts lead to the client app: `AUTH_CLIENT_URL` (absolute http or https, no query; unset: `ClientLink` fails, naming it) joined with a path and query by `Auth.ClientLink`; the client app shows a form and posts the token to the API. The emails' bodies are an `html/template` file of the app (`app/mailers/auth.html`, embedded, rendered with `view.Template` from text the mailable translates), so API projects have no templ | Accepted | The API has no pages to verify an address or choose a password; linking to the API itself would show JSON to people. One setting for the client's address is what Laravel's Sanctum starter and similar APIs use. templ would bring its tool and generated files back into a stack that has no views (D260) |
+| D267 | `Auth.Require` answers a guest's 401 with `WWW-Authenticate: Bearer` whenever the route went through `TokenMiddleware`, with or without a session (it did only without one) | Accepted | RFC 9110 requires the header on a 401 and RFC 6750 names the scheme; a route under `web.JSONErrors` with sessions (the tracker's API) sent none (review47) |
+| D268 | API accounts leave out sign-in with Google and GitHub, changing the email address, deleting the account and the language and time zone preferences | Accepted | The social flow redirects a browser and ends in a session (v0.6's same-domain single-page apps get it); the others are settings pages' features with flows of their own (D227, D228). Keeping AP2 to the roadmap's list keeps it reviewable; the generated code is the app's to extend |
 
 ---
 
@@ -2932,3 +3008,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-07 | v0.3 exit check: §8.5 (app error pages), §21 (readiness and migrations); D255–D258 added |
 | 2026-10-07 | D249: Dependabot groups the Go updates of every module, examples included, in one pull request |
 | 2026-10-08 | v0.4 AP1 (API project): §6, §8.5, §12.2, §17.1 updated; D259–D262 added |
+| 2026-10-08 | v0.4 AP2 (API accounts): §12.2, §15 updated; D263–D268 added |

@@ -35,6 +35,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -147,6 +148,11 @@ type Config struct {
 	// ConfirmTTL is how long a confirmed password holds.
 	// AUTH_CONFIRM_TTL, default 15m.
 	ConfirmTTL time.Duration `env:"AUTH_CONFIRM_TTL" default:"15m"`
+	// ClientURL is the address of the app people use when the app is an
+	// API (a single-page app, a mobile app's web pages): where emailed
+	// links lead ([Auth.ClientLink]), such as https://app.example.com.
+	// AUTH_CLIENT_URL, default none.
+	ClientURL string `env:"AUTH_CLIENT_URL"`
 }
 
 // Validate implements config.Validator.
@@ -161,6 +167,12 @@ func (c Config) Validate() error {
 	}
 	if c.RememberLifetime < time.Minute || c.ResetTTL < time.Minute || c.VerifyTTL < time.Minute || c.ConfirmTTL < time.Minute || c.RevertTTL < time.Minute {
 		errs = append(errs, errors.New("AUTH_REMEMBER_LIFETIME, AUTH_RESET_TTL, AUTH_VERIFY_TTL, AUTH_CONFIRM_TTL and AUTH_REVERT_TTL must be at least 1m"))
+	}
+	if c.ClientURL != "" {
+		if u, err := url.Parse(c.ClientURL); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" ||
+			u.RawQuery != "" || u.Fragment != "" || u.User != nil {
+			errs = append(errs, fmt.Errorf("AUTH_CLIENT_URL %q must be an http or https address, such as https://app.example.com, without a query", c.ClientURL))
+		}
 	}
 	if c.Throttle < 1 || c.ThrottleIP < 1 {
 		errs = append(errs, errors.New("AUTH_THROTTLE and AUTH_THROTTLE_IP must be at least 1"))
@@ -305,6 +317,24 @@ func ForApp[U Authenticatable](app *anetos.App, users Users[U], opts ...Option) 
 
 // appAuth marks an app whose Auth is set up.
 type appAuth struct{}
+
+// ClientLink returns the address of path (with query, if any) in the
+// client app, AUTH_CLIENT_URL: the link an API's emails give, whose page
+// sends the token in it back to the API.
+//
+//	link, err := a.ClientLink("/reset-password", url.Values{"token": {a.PasswordResetToken(u)}})
+//
+// It fails, naming the setting, when AUTH_CLIENT_URL isn't set.
+func (a *Auth[U]) ClientLink(path string, query url.Values) (string, error) {
+	if a.cfg.ClientURL == "" {
+		return "", errors.New("auth: AUTH_CLIENT_URL isn't set: the address of the client app, where emailed links lead")
+	}
+	link := strings.TrimSuffix(a.cfg.ClientURL, "/") + "/" + strings.TrimPrefix(path, "/")
+	if len(query) > 0 {
+		link += "?" + query.Encode()
+	}
+	return link, nil
+}
 
 // Config returns the configuration.
 func (a *Auth[U]) Config() Config { return a.cfg }

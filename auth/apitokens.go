@@ -133,6 +133,14 @@ func (a *Auth[U]) RevokeAllTokens(ctx context.Context, u U) error {
 	return err
 }
 
+// RevokeOtherTokens deletes every API token of u but keep (the
+// request's, after a password change through the API, say: the API's
+// "sign out other devices"). A keep of 0 keeps none.
+func (a *Auth[U]) RevokeOtherTokens(ctx context.Context, u U, keep int64) error {
+	_, err := db.Query[Token](ctx).Where(colUserID.Eq(u.AuthID()), colID.Ne(keep)).Delete()
+	return err
+}
+
 // lookup finds the Token of a plain "<id>|<secret>" token.
 func lookup(ctx context.Context, plain string) (*Token, error) {
 	idText, secret, ok := strings.Cut(plain, "|")
@@ -164,6 +172,10 @@ func lookup(ctx context.Context, plain string) (*Token, error) {
 // middleware and web.CSRF, which would refuse API clients' posts.
 func (a *Auth[U]) TokenMiddleware(next http.Handler) http.Handler {
 	return a.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		st := stateFrom(r.Context())
+		st.mu.Lock()
+		st.bearer = true // Require's 401s name the scheme
+		st.mu.Unlock()
 		scheme, plain, found := strings.Cut(r.Header.Get("Authorization"), " ")
 		if !found || !strings.EqualFold(scheme, "Bearer") {
 			next.ServeHTTP(w, r) // no token (other schemes are someone else's)

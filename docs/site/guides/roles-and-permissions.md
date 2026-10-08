@@ -2,7 +2,7 @@
 title: Roles and permissions
 since: v0.3.0
 group: "Accounts and security"
-weight: 305
+weight: 306
 ---
 
 # Roles and permissions

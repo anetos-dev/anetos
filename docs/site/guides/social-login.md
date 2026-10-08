@@ -2,7 +2,7 @@
 title: Social login
 since: v0.2.0
 group: "Accounts and security"
-weight: 302
+weight: 303
 ---
 
 # Social login

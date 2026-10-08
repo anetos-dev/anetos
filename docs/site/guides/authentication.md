@@ -2,7 +2,7 @@
 title: Authentication
 since: v0.2.0
 group: "Accounts and security"
-weight: 301
+weight: 302
 ---
 
 # Authentication
@@ -423,6 +423,16 @@ Put the route that creates tokens behind `a.RequireConfirmed`, as the
 example does: a token outlives the session, so someone holding a stolen
 session shouldn't be able to make one without the password. `CreateToken`
 refuses while an admin acts as the user (403), for the same reason (v0.3).
+
+An API whose clients sign in with tokens, without sessions (since
+v0.4), uses `a.AttemptCredentials(ctx, login, password)`: `Attempt`'s
+check and throttling, returning the user to give a token to. For a user
+with two-factor sign-in on, it fails with a `*auth.TwoFactorChallenge`
+whose `Token` the client sends back with a code to
+`a.AttemptTwoFactorChallenge`. Where pages use `RequireConfirmed`, an
+API asks for the password in the request: `a.CheckPassword(ctx, u,
+password)`. `make:auth` in an API project writes all of this:
+[Add accounts to an API](api-accounts.md).
 
 ### 9. Test
 

@@ -27,6 +27,15 @@ main.go, and adds the account links (AccountMenu) to the layout's
 header. Signing in leads to /dashboard: AUTH_HOME_URL, or the default in
 auth.go, sets another page. The code is yours to change; hashing, tokens, sessions and
 throttling stay in package auth, the sign-in flow in package social.
+
+In an API project (anetos new --stack=api), it writes JSON endpoints
+under /api/v1 instead: registration and login answering with an API
+token (with two-factor codes for users who turn them on), logout, /me,
+email verification and password reset by emails linking to the client
+app (AUTH_CLIENT_URL, added to the settings files), password change,
+token management and two-factor sign-in; the User model, the users
+table's migration, setupAuth (auth.go), the emails (app/mailers) and
+their tests.
 `
 
 // makeAuth runs anetos make:auth.
@@ -57,8 +66,12 @@ func makeAuth(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 		fmt.Fprintln(stderr, "anetos make:auth:", err)
 		return 1
 	}
+	settings := "SOCIAL_* settings"
+	if res.API {
+		settings = "AUTH_CLIENT_URL"
+	}
 	for _, f := range res.Env {
-		fmt.Fprintf(stdout, "updated %s: SOCIAL_* settings\n", f)
+		fmt.Fprintf(stdout, "updated %s: %s\n", f, settings)
 	}
 	if res.Wired {
 		fmt.Fprintln(stdout, "updated main.go: setup calls setupAuth")
@@ -69,7 +82,11 @@ func makeAuth(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	// The modules the new imports need, the User model's typed columns,
 	// the pages' Go code, and a check that it all builds.
 	finish := func(err error) int {
-		fmt.Fprintf(stderr, "anetos make:auth: %v\nThe files are written; once fixed, finish with:\n\tgo mod tidy && go tool anetos gen && go tool templ generate && go build ./...\n", err)
+		steps := "go mod tidy && go tool anetos gen && go tool templ generate && go build ./..."
+		if res.API {
+			steps = "go mod tidy && go tool anetos gen && go build ./..."
+		}
+		fmt.Fprintf(stderr, "anetos make:auth: %v\nThe files are written; once fixed, finish with:\n\t%s\n", err, steps)
 		return 1
 	}
 	if err := runGo(ctx, root, stderr, "mod", "tidy"); err != nil {
@@ -85,13 +102,35 @@ func makeAuth(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	for _, c := range changes {
 		fmt.Fprintln(stdout, "wrote", rel(root, c.Path))
 	}
-	var templOut bytes.Buffer // templ reports progress on stderr: shown only if it fails
-	if err := runGoOut(ctx, root, &templOut, &templOut, "tool", "templ", "generate"); err != nil {
-		fmt.Fprint(stderr, templOut.String())
-		return finish(err)
+	if !res.API {
+		var templOut bytes.Buffer // templ reports progress on stderr: shown only if it fails
+		if err := runGoOut(ctx, root, &templOut, &templOut, "tool", "templ", "generate"); err != nil {
+			fmt.Fprint(stderr, templOut.String())
+			return finish(err)
+		}
 	}
 	if err := runGo(ctx, root, stderr, "build", "./..."); err != nil {
 		return finish(fmt.Errorf("the project doesn't build: %w", err))
+	}
+	if res.API {
+		if !res.Wired {
+			fmt.Fprint(stdout, `
+main.go doesn't have the routes.Register call of a new project: call
+setupAuth yourself in setup, after the routes:
+
+	if _, err := setupAuth(app, srv.Router()); err != nil {
+		return nil, err
+	}
+`)
+		}
+		fmt.Fprint(stdout, `
+Next:
+  go run . migrate     create the users and api_tokens tables
+  go test ./...        the account tests (auth_test.go)
+  go tool anetos dev   then POST /api/v1/register; emails go to the log (MAIL_DRIVER=log)
+The emails link to the client app: AUTH_CLIENT_URL in .env.
+`)
+		return 0
 	}
 	if !res.Wired {
 		fmt.Fprint(stdout, `

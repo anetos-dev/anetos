@@ -487,17 +487,38 @@ func (a *Auth[U]) AttemptTwoFactor(ctx context.Context, code string) (U, error) 
 		s.Delete(keyPending)
 		return zero, ErrNoPendingSignIn
 	}
-	key := "auth:2fa\x00" + p.ID
+	u, hash, err := a.checkCode(ctx, p.ID, p.Print, code)
+	if errors.Is(err, ErrNoPendingSignIn) {
+		s.Delete(keyPending) // the password changed, or they signed out everywhere
+	}
+	if err != nil {
+		return zero, err
+	}
+	s.Delete(keyPending)
+	if err := a.login(ctx, u, hash, p.Remember); err != nil {
+		return zero, err
+	}
+	a.markFresh(ctx, u, hash)
+	return u, nil
+}
+
+// checkCode checks a two-factor code for the sign-in of user id, whose
+// password and session key had the fingerprint print when it began, and
+// returns the user and their password hash. Two-factor sign-in turned
+// off meanwhile lets the sign-in through (the password was enough).
+func (a *Auth[U]) checkCode(ctx context.Context, id, print, code string) (U, string, error) {
+	var zero U
+	key := "auth:2fa\x00" + id
 	limit := ratelimit.PerMinute(a.cfg.Throttle)
-	dayKey, perDay := "auth:2fa-day\x00"+p.ID, ratelimit.PerDay(codesPerDay)
+	dayKey, perDay := "auth:2fa-day\x00"+id, ratelimit.PerDay(codesPerDay)
 	// Failures only count a day; every try counts a minute.
 	if res, err := ratelimit.Check(ctx, dayKey, perDay); err != nil {
-		return zero, err
+		return zero, "", err
 	} else if !res.Allowed {
-		return zero, &ThrottledError{RetryAfter: res.RetryAfter()}
+		return zero, "", &ThrottledError{RetryAfter: res.RetryAfter()}
 	}
 	if err := a.hit(ctx, key, limit); err != nil {
-		return zero, err
+		return zero, "", err
 	}
 	// One code check at a time per user, from reading the state to
 	// storing it: two requests with the same code (or recovery code)
@@ -507,20 +528,18 @@ func (a *Auth[U]) AttemptTwoFactor(ctx context.Context, code string) (U, error) 
 		hash    string
 		skipped bool // two-factor sign-in was turned off meanwhile
 	)
-	err := cache.WithLock(ctx, twoFactorLock(p.ID), 10*time.Second, func(ctx context.Context) error {
+	err := cache.WithLock(ctx, twoFactorLock(id), 10*time.Second, func(ctx context.Context) error {
 		var err error
-		u, err = a.users.ByID(ctx, p.ID)
+		u, err = a.users.ByID(ctx, id)
 		if notFound(err) {
-			s.Delete(keyPending)
 			return ErrNoPendingSignIn
 		}
 		if err != nil {
 			return err
 		}
 		hash = u.AuthPassword()
-		if a.sessionPrint(u, hash) != p.Print {
-			s.Delete(keyPending) // the password changed, or they signed out everywhere
-			return ErrNoPendingSignIn
+		if a.sessionPrint(u, hash) != print {
+			return ErrNoPendingSignIn // the password changed, or they signed out everywhere
 		}
 		st, err := a.twoFactor(u)
 		if err != nil {
@@ -535,7 +554,7 @@ func (a *Auth[U]) AttemptTwoFactor(ctx context.Context, code string) (U, error) 
 		} else if i := matchRecovery(st.Codes, code); i >= 0 {
 			st.Codes = append(st.Codes[:i:i], st.Codes[i+1:]...)
 		} else {
-			a.log.WarnContext(ctx, "auth: a wrong two-factor code", "user", p.ID)
+			a.log.WarnContext(ctx, "auth: a wrong two-factor code", "user", id)
 			if _, err := ratelimit.Hit(ctx, dayKey, perDay); err != nil {
 				return err
 			}
@@ -546,23 +565,70 @@ func (a *Auth[U]) AttemptTwoFactor(ctx context.Context, code string) (U, error) 
 		return a.saveTwoFactor(ctx, u, st)
 	})
 	if err != nil {
+		return zero, "", err
+	}
+	if !skipped {
+		a.clearHits(ctx, limit, key)
+		a.clearHits(ctx, perDay, dayKey)
+	}
+	return u, hash, nil
+}
+
+// TwoFactorChallenge is the error of [Auth.AttemptCredentials] for a
+// user with two-factor sign-in on: the password was right, and the
+// sign-in waits for a code. errors.Is(err, ErrTwoFactorRequired) is
+// true. 401.
+type TwoFactorChallenge struct {
+	// Token is the challenge to give the client, which sends it back
+	// with a code to [Auth.AttemptTwoFactorChallenge]. It works for 10
+	// minutes, until the user's password or session key changes; it is
+	// encrypted with APP_KEY and names the user.
+	Token string
+}
+
+// Error implements error.
+func (*TwoFactorChallenge) Error() string { return ErrTwoFactorRequired.Error() }
+
+// Is makes the challenge [ErrTwoFactorRequired].
+func (*TwoFactorChallenge) Is(target error) bool { return target == ErrTwoFactorRequired }
+
+// HTTPStatus implements web.StatusCoder: 401.
+func (*TwoFactorChallenge) HTTPStatus() int { return http.StatusUnauthorized }
+
+const challengeContext = "anetos/auth\x00challenge"
+
+// challengeToken returns a two-factor challenge for u, whose password
+// hash is hash.
+func (a *Auth[U]) challengeToken(u U, hash string) string {
+	b, _ := json.Marshal(signed{ID: u.AuthID(), Expires: a.now().Add(pendingTTL).Unix(), Hash: a.sessionPrint(u, hash)})
+	return a.enc.EncryptString(string(b), challengeContext)
+}
+
+// AttemptTwoFactorChallenge finishes an API's sign-in that
+// [Auth.AttemptCredentials] answered with a [*TwoFactorChallenge]:
+// challenge is its Token, code the current one of the user's
+// authenticator app (each used once) or one of their recovery codes
+// (then used up). It returns the user, to give an API token; it signs
+// nothing in to a session. It fails as [Auth.AttemptTwoFactor] does:
+// [ErrInvalidCode], a [*ThrottledError] (AUTH_THROTTLE tries a minute
+// and 50 wrong codes a day for the user), and [ErrNoPendingSignIn] for
+// a malformed or expired challenge, or one made before the user's
+// password or session key changed; and [ErrDisabled] for a disabled
+// account. A challenge works more than once in its 10 minutes, each
+// time with a new code.
+func (a *Auth[U]) AttemptTwoFactorChallenge(ctx context.Context, challenge, code string) (U, error) {
+	var zero U
+	v, ok := a.open(challenge, challengeContext)
+	if !ok || v.Hash == "" {
+		return zero, ErrNoPendingSignIn
+	}
+	u, _, err := a.checkCode(ctx, v.ID, v.Hash, code)
+	if err != nil {
 		return zero, err
 	}
-	if skipped {
-		s.Delete(keyPending)
-		if err := a.login(ctx, u, hash, p.Remember); err != nil {
-			return zero, err
-		}
-		a.markFresh(ctx, u, hash)
-		return u, nil
+	if a.disabled(u) {
+		return zero, ErrDisabled
 	}
-	a.clearHits(ctx, limit, key)
-	a.clearHits(ctx, perDay, dayKey)
-	s.Delete(keyPending)
-	if err := a.login(ctx, u, hash, p.Remember); err != nil {
-		return zero, err
-	}
-	a.markFresh(ctx, u, hash)
 	return u, nil
 }
 
@@ -703,6 +769,23 @@ func (a *Auth[U]) ConfirmPassword(ctx context.Context, pw string) error {
 	if s.String(keyImpersonator) != "" {
 		return errConfirmActing
 	}
+	if err := a.CheckPassword(ctx, u, pw); err != nil {
+		return err
+	}
+	s.Put(keyConfirmed, confirmed{ID: u.AuthID(), At: a.now().Unix()})
+	return nil
+}
+
+// CheckPassword checks that pw is u's password, with the budget of
+// [Auth.ConfirmPassword] (and [Auth.ChangePassword]): AUTH_THROTTLE
+// tries a minute and 50 wrong passwords a day (UTC) for the user, from
+// any address, so a stolen session or API token can't be used to guess
+// it. It needs no session: an API asks for the password in the request
+// of what the pages put behind [Auth.RequireConfirmed] (creating a
+// token, changing two-factor sign-in). It fails with
+// [ErrInvalidCredentials] for a wrong password (or a user without one)
+// and a [*ThrottledError].
+func (a *Auth[U]) CheckPassword(ctx context.Context, u U, pw string) error {
 	key := "auth:confirm\x00" + u.AuthID() // signed in already: from any address
 	limit := ratelimit.PerMinute(a.cfg.Throttle)
 	dayKey, perDay := "auth:confirm-day\x00"+u.AuthID(), ratelimit.PerDay(confirmsPerDay)
@@ -731,7 +814,6 @@ func (a *Auth[U]) ConfirmPassword(ctx context.Context, pw string) error {
 	}
 	a.clearHits(ctx, limit, key)
 	a.clearHits(ctx, perDay, dayKey)
-	s.Put(keyConfirmed, confirmed{ID: u.AuthID(), At: a.now().Unix()})
 	return nil
 }
 

@@ -38,6 +38,10 @@ GitHub, email verification, password reset, API tokens) with
 Errors are JSON problem details ([RFC 9457](https://www.rfc-editor.org/rfc/rfc9457)),
 whatever the client accepts. Browsers on other origins may call the API
 once `HTTP_CORS_ORIGINS` lists them.
+
+Add user accounts that sign in with API tokens (registration, login
+with two-factor codes, email verification, password reset, token
+management) with `go tool anetos make:auth`, then `go run . migrate`.
 [[- end]]
 
 Add plugins with `go tool anetos add <module>` (and remove them with

@@ -360,6 +360,7 @@ Read by `auth.ForApp` (or `auth.LoadConfig`) into `auth.Config`.
 | `AUTH_SETTINGS_URL` | path | `/settings` | The account settings page (`make:auth`'s); the admin links the user's name to it when the app has it | v0.3 |
 | `AUTH_CONFIRM_URL` | path | `/confirm-password` | Where `RequireConfirmed` sends users to confirm their password | v0.3 |
 | `AUTH_CONFIRM_TTL` | duration | `15m` | How long a confirmed password holds | v0.3 |
+| `AUTH_CLIENT_URL` | URL | none | The client app of an API (`https://app.example.com`: http or https, no query): where emailed links lead (`Auth.ClientLink`); `make:auth` in an API project sets it, and its `setupAuth` refuses to boot without it in production and staging | v0.4 |
 
 The remember-me cookie is `HttpOnly`, `SameSite=Lax` and Secure like the
 session cookie; a Secure one is named `__Host-anetos_remember`.

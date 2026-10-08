@@ -2,7 +2,7 @@
 title: Authorization
 since: v0.2.0
 group: "Accounts and security"
-weight: 304
+weight: 305
 ---
 
 # Authorization

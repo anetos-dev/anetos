@@ -325,13 +325,17 @@ func TestNewAPIProject(t *testing.T) {
 	if code, out, errOut := runCmd(t, "make:handler", "Orders"); code != 0 || !strings.Contains(out, "created app/handlers/orders.go") {
 		t.Fatalf("make:handler: %d\n%s\n%s", code, out, errOut)
 	}
-	for _, args := range [][]string{{"make:auth"}, {"make:crud", "Product", "name:string"}} {
-		if code, _, errOut := runCmd(t, args...); code != 1 || !strings.Contains(errOut, "this is an API project") {
-			t.Errorf("%v: %d %s", args, code, errOut)
-		}
+	if code, _, errOut := runCmd(t, "make:crud", "Product", "name:string"); code != 1 || !strings.Contains(errOut, "this is an API project") {
+		t.Errorf("make:crud: %d %s", code, errOut)
 	}
 	if code, _, errOut := runCmd(t, "make:admin"); code != 1 || !strings.Contains(errOut, "the admin is for web projects") {
 		t.Errorf("make:admin: %d %s", code, errOut)
+	}
+	// The API's accounts: their tests (auth_test.go) pass with the rest
+	// below.
+	if code, out, errOut := runCmd(t, "make:auth"); code != 0 || !strings.Contains(out, "updated main.go: setup calls setupAuth") ||
+		!strings.Contains(out, "updated .env: AUTH_CLIENT_URL") || strings.Contains(out, "templ") {
+		t.Fatalf("make:auth: %d\n%s\n%s", code, out, errOut)
 	}
 	goRun := func(args ...string) string {
 		t.Helper()
@@ -344,7 +348,8 @@ func TestNewAPIProject(t *testing.T) {
 		return string(b)
 	}
 	goRun("vet", "./...")
-	if out := goRun("test", "-v", "."); !strings.Contains(out, "--- PASS: TestWelcome") || !strings.Contains(out, "--- PASS: TestNotFound") {
+	if out := goRun("test", "-v", "."); !strings.Contains(out, "--- PASS: TestWelcome") || !strings.Contains(out, "--- PASS: TestNotFound") ||
+		!strings.Contains(out, "--- PASS: TestTwoFactor") || !strings.Contains(out, "--- PASS: TestChangePassword") {
 		t.Errorf("go test:\n%s", out)
 	}
 	if code, out, errOut := runCmd(t, "build"); code != 0 || !strings.Contains(out, "built bin/shop (") {
@@ -361,10 +366,12 @@ func TestNewAPIProject(t *testing.T) {
 		}
 		return string(b)
 	}
-	if out := app("migrate"); !strings.Contains(out, "create_jobs_tables") || strings.Contains(out, "sessions") {
+	if out := app("migrate"); !strings.Contains(out, "create_jobs_tables") || !strings.Contains(out, "create_users_table") ||
+		!strings.Contains(out, "create_api_tokens_table") || strings.Contains(out, "sessions") {
 		t.Errorf("migrate:\n%s", out)
 	}
-	if out := app("routes:list"); !regexp.MustCompile(`GET\s+/api/v1\s+api\.welcome`).MatchString(out) {
+	if out := app("routes:list"); !regexp.MustCompile(`GET\s+/api/v1\s+api\.welcome`).MatchString(out) ||
+		!regexp.MustCompile(`POST\s+/api/v1/login/two-factor\s+api\.login\.two-factor`).MatchString(out) {
 		t.Errorf("routes:list:\n%s", out)
 	}
 	if out := app("lang:check"); !strings.Contains(out, "lang:check: en OK") {
@@ -379,6 +386,10 @@ func TestNewAPIProject(t *testing.T) {
 			dir := filepath.Join(t.TempDir(), "shop-"+d)
 			if code, out, errOut := runCmd(t, "new", dir, "--db", d, "--stack=api", "--replace", repo); code != 0 {
 				t.Fatalf("new: %d\n%s\n%s", code, out, errOut)
+			}
+			t.Chdir(dir)
+			if code, out, errOut := runCmd(t, "make:auth"); code != 0 {
+				t.Fatalf("make:auth: %d\n%s\n%s", code, out, errOut)
 			}
 			c := exec.Command("go", "vet", "./...")
 			c.Dir = dir

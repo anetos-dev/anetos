@@ -46,6 +46,7 @@ type state struct {
 	user    any           // nil for a guest
 	token   *Token        // the API token the request authenticated with
 	acting  bool          // made by ActAs: no session to sign in or out
+	bearer  bool          // went through TokenMiddleware: a 401 asks for a Bearer token
 }
 
 type stateKey struct{}
@@ -101,6 +102,12 @@ func (st *state) get(ctx context.Context) (any, error) {
 
 // loadingKey marks the context of a load in progress.
 type loadingKey struct{}
+
+func (st *state) isBearer() bool {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	return st.bearer
+}
 
 func (st *state) set(u any, tok *Token) {
 	st.mu.Lock()
@@ -315,7 +322,9 @@ func Check(ctx context.Context) bool {
 
 // Require lets only signed-in users through. Guests asking for a page are
 // redirected to AUTH_LOGIN_URL, and the page they wanted is remembered
-// for [Intended]; other requests (JSON, htmx) get 401. Responses to
+// for [Intended]; other requests (JSON, htmx) get 401, with
+// "WWW-Authenticate: Bearer" on routes without sessions or behind
+// [Auth.TokenMiddleware]. Responses to
 // signed-in users get "Cache-Control: no-store" (a handler may set
 // another), so browsers don't keep them after logout.
 func (a *Auth[U]) Require(next http.Handler) http.Handler {
@@ -338,6 +347,9 @@ func (a *Auth[U]) Require(next http.Handler) http.Handler {
 			session.From(r.Context()).Put(keyIntended, r.URL.RequestURI())
 			http.Redirect(w, r, web.LocalePath(r.Context(), a.cfg.LoginURL), http.StatusSeeOther)
 		default:
+			if st := stateFrom(r.Context()); st != nil && st.isBearer() {
+				w.Header().Set("WWW-Authenticate", "Bearer") // RFC 6750
+			}
 			web.WriteError(w, r, ErrUnauthenticated)
 		}
 	})

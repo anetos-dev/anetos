@@ -2,7 +2,7 @@
 title: Keep an audit log
 since: v0.3.0
 group: "Accounts and security"
-weight: 307
+weight: 308
 ---
 
 # Keep an audit log

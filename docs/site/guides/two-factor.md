@@ -2,7 +2,7 @@
 title: Two-factor sign-in and password confirmation
 since: v0.3.0
 group: "Accounts and security"
-weight: 303
+weight: 304
 ---
 
 # Two-factor sign-in and password confirmation
@@ -227,6 +227,12 @@ GitHub ([social login](social-login.md)) sends users with it on to
 remember)`, which does the same; `a.Login` signs in without asking
 (after registration, say). A remember-me cookie, given after the code,
 keeps the user signed in without it.
+
+An API without sessions (since v0.4) gets the code in a second request:
+`a.AttemptCredentials` answers a `*auth.TwoFactorChallenge`, whose
+`Token` the client sends back with the code to
+`a.AttemptTwoFactorChallenge`, under the same limits
+([Add accounts to an API](api-accounts.md#4-two-factor-sign-in)).
 
 ### 4. Ask for the password again
 

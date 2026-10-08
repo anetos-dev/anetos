@@ -77,7 +77,8 @@ func TestAPI(t *testing.T) {
 	w.app.GetJSON("/api/projects").AssertStatus(http.StatusUnauthorized)
 	// A browser's request gets the same: the API's errors are JSON.
 	w.app.Get("/api/projects").AssertStatus(http.StatusUnauthorized).
-		AssertHeader("Content-Type", "application/problem+json").AssertJSONPath("status", 401)
+		AssertHeader("Content-Type", "application/problem+json").AssertJSONPath("status", 401).
+		AssertHeader("WWW-Authenticate", "Bearer") // RFC 6750
 }
 
 // The dashboard makes read-only tokens.

@@ -25,7 +25,7 @@ Packages `auth`, `auth/password`, `auth/social` and `auth/rbac`. How-to: [Authen
 | API | Does |
 |---|---|
 | `a.Middleware` | Makes the request's user available (from the session or a remember-me cookie); after the session middleware |
-| `a.Require` | Signed-in users only: guests asking for a page are redirected to `AUTH_LOGIN_URL`; others, and every request on routes without sessions, get 401. Responses to signed-in users get `Cache-Control: no-store` unless the handler sets another (v0.3) |
+| `a.Require` | Signed-in users only: guests asking for a page are redirected to `AUTH_LOGIN_URL`; others, and every request on routes without sessions, get 401, with `WWW-Authenticate: Bearer` on routes without sessions or behind `TokenMiddleware` (v0.4). Responses to signed-in users get `Cache-Control: no-store` unless the handler sets another (v0.3) |
 | `a.Guest` | Guests only: signed-in users are redirected to `AUTH_HOME_URL` |
 | `a.TokenMiddleware` | Signs in the user of a `Bearer` API token; invalid tokens get 401; no token (or another scheme) passes as a guest |
 | `a.RequireConfirmed` | Users who confirmed their password in the last `AUTH_CONFIRM_TTL` only: others are sent to `AUTH_CONFIRM_URL`, to come back after (to the page for GET, else to the page the form was on); API clients and htmx requests get `auth.ErrPasswordNotConfirmed` (423). After `Require` (v0.3) |
@@ -41,6 +41,9 @@ Packages `auth`, `auth/password`, `auth/social` and `auth/rbac`. How-to: [Authen
 | `a.SignIn(ctx, u, remember)` | `Login`, or for a user with two-factor sign-in on, `auth.ErrTwoFactorRequired` and a sign-in waiting for a code (10 minutes): for sign-in methods other than passwords (v0.3) |
 | `a.AttemptTwoFactor(ctx, code)` | Finishes the waiting sign-in with the authenticator app's code (each used once) or a recovery code (used up); `auth.ErrInvalidCode` (422), `auth.ErrNoPendingSignIn` (401: none, expired, or the password changed), `*auth.ThrottledError` past `AUTH_THROTTLE` a minute or 50 wrong codes a day (UTC) for the user; `auth.ErrDisabled` (v0.3) |
 | `a.TwoFactorPending(ctx)` | Whether a sign-in waits for a code in the session (v0.3) |
+| `a.AttemptCredentials(ctx, login, password)` | `Attempt`'s check (its errors, throttling and rehashing) without a session: returns the user, for an API's login to give a token; `auth.ErrDisabled` (403); for a user with two-factor sign-in on, a `*auth.TwoFactorChallenge` (401, `errors.Is` `auth.ErrTwoFactorRequired`) whose `Token` the client sends back with a code. The route needs `TokenMiddleware` or `Middleware` (v0.4) |
+| `a.AttemptTwoFactorChallenge(ctx, challenge, code)` | Finishes such a login: checks the challenge (10 minutes, until the password or session key changes) and the code as `AttemptTwoFactor` does (its lock, limits and errors; `auth.ErrNoPendingSignIn` for a bad, expired or outdated challenge) and returns the user; no session. A challenge works again within its 10 minutes, with a new code (v0.4) |
+| `a.CheckPassword(ctx, u, password)` | Checks `u`'s password with `ConfirmPassword`'s budget (`AUTH_THROTTLE` a minute, 50 wrong a day), without a session: for an API, before what pages put behind `RequireConfirmed`; `auth.ErrInvalidCredentials`, `*auth.ThrottledError` (v0.4) |
 | `a.ConfirmPassword(ctx, password)`, `a.PasswordConfirmed(ctx)` | Checks the signed-in user's password again, which holds for `AUTH_CONFIRM_TTL`; `auth.ErrInvalidCredentials` (also without a password); `AUTH_THROTTLE` tries a minute for the user, from any address, and 50 wrong passwords a day (UTC, shared with `ChangePassword`); not while acting as another user. For a user without a password, a sign-in through `SignIn` counts. Signing in or out, and acting as someone, forget it; never for API tokens (v0.3) |
 | `a.CanRemember()` | Whether "remember me" is available (`Users.RememberToken` set) |
 | `a.Logout(ctx)` | Empties the session, removes the cookie, replaces the remember token |
@@ -89,6 +92,8 @@ see [Two-factor sign-in](../guides/two-factor.md). Needs
 | `a.EmailRevertToken(u, old, new)`, `a.CheckEmailRevertToken(ctx, token)` | Tokens for the link, sent to the old address, that undoes a change of email address: `AUTH_REVERT_TTL`; returns the user and both addresses (v0.3) |
 | `a.CreateToken(ctx, u, name, abilities, ttl)` | An API token (`<id>\|<secret>`, shown once) and its stored `auth.Token`; 403 while acting as another user (v0.3). Put the route behind `RequireConfirmed` |
 | `a.Tokens(ctx, u)`, `a.RevokeToken(ctx, u, id)`, `a.RevokeAllTokens(ctx, u)` | A user's API tokens; delete one, or all |
+| `a.RevokeOtherTokens(ctx, u, keep)` | Deletes `u`'s API tokens but `keep` (the request's, after a password change through the API) (v0.4) |
+| `a.ClientLink(path, query)` | `AUTH_CLIENT_URL` joined with `path` and `query`: the link an API's emails give to the client app; an error naming the setting when it isn't set (v0.4) |
 | `auth.CurrentToken(ctx)`, `auth.TokenCan(ctx, ability)` | The request's API token; whether it (or a session user) may do `ability` (`"*"`: all) |
 
 ## Authorization

@@ -200,7 +200,7 @@ func TestCreateAPI(t *testing.T) {
 					t.Errorf("%s:\n%s", f, env)
 				}
 			}
-			if readme := read(t, filepath.Join(dir, "README.md")); strings.Contains(readme, "views") || strings.Contains(readme, "make:auth") || !strings.Contains(readme, "/api/v1") {
+			if readme := read(t, filepath.Join(dir, "README.md")); strings.Contains(readme, "views") || !strings.Contains(readme, "sign in with API tokens") || !strings.Contains(readme, "/api/v1") {
 				t.Errorf("README.md:\n%s", readme)
 			}
 		})
@@ -247,17 +247,54 @@ func TestMakeInAPIProject(t *testing.T) {
 		t.Errorf("middleware:\n%s", m)
 	}
 	now := time.Date(2026, 10, 8, 9, 0, 0, 0, time.UTC)
-	if _, err := MakeAuth(root, now); err == nil || !strings.Contains(err.Error(), "API project") || !strings.Contains(err.Error(), "make:auth for API projects") {
-		t.Errorf("make:auth: %v", err)
-	}
 	if _, err := MakeCrud(root, "Order", []string{"total:float"}, now); err == nil || !strings.Contains(err.Error(), "make:crud for API projects") {
 		t.Errorf("make:crud: %v", err)
 	}
 	if _, err := MakeAdmin(root); err == nil || !strings.Contains(err.Error(), "the admin is for web projects") {
 		t.Errorf("make:admin: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(root, "app", "models", "user.go")); err == nil {
-		t.Error("make:auth wrote files")
+	// make:auth writes the API's accounts, unless a name it declares is
+	// taken.
+	taken := filepath.Join(root, "app", "handlers", "mine.go")
+	if err := os.WriteFile(taken, []byte("package handlers\n\ntype SignInResponse struct{}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := MakeAuth(root, now); err == nil || !strings.Contains(err.Error(), "app/handlers already declares SignInResponse") {
+		t.Errorf("make:auth with a name taken: %v", err)
+	}
+	if err := os.Remove(taken); err != nil {
+		t.Fatal(err)
+	}
+	res, err := MakeAuth(root, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.API || !res.Wired || res.Menu || !slices.Equal(res.Env, []string{".env", ".env.example", "deploy/production.env.example"}) {
+		t.Errorf("make:auth: %+v", res)
+	}
+	for _, f := range []string{"app/handlers/auth.go", "app/mailers/auth.go", "app/mailers/auth.html", "routes/auth.go", "auth.go", "auth_test.go",
+		"locales/en/auth.yaml", "database/factories/users.go", "database/migrations/2026_10_08_090000_create_users_table.go"} {
+		if !slices.Contains(res.Created, f) {
+			t.Errorf("make:auth didn't write %s: %v", f, res.Created)
+		}
+	}
+	for _, f := range res.Created {
+		if strings.HasPrefix(f, "views/") || strings.HasSuffix(f, ".templ") {
+			t.Errorf("make:auth wrote %s in an API project", f)
+		}
+	}
+	if m := read(t, filepath.Join(root, "main.go")); !strings.Contains(m, "\troutes.Register(srv.Router())\n\t// Accounts (anetos make:auth)") ||
+		!strings.Contains(m, "setupAuth(app, srv.Router()); err != nil") {
+		t.Errorf("main.go:\n%s", m)
+	}
+	if env := read(t, filepath.Join(root, ".env")); !strings.Contains(env, "\nAUTH_CLIENT_URL=http://localhost:5173\n") || strings.Contains(env, "SOCIAL_") {
+		t.Errorf(".env:\n%s", env)
+	}
+	if env := read(t, filepath.Join(root, "deploy", "production.env.example")); !strings.Contains(env, "\nAUTH_CLIENT_URL=https://app.example.com\n") {
+		t.Errorf("production.env.example:\n%s", env)
+	}
+	if _, err := MakeAuth(root, now); err == nil || !strings.Contains(err.Error(), "exists") {
+		t.Errorf("make:auth twice: %v", err)
 	}
 	// Templ views (for emails, say) don't make it a web project.
 	if err := os.MkdirAll(filepath.Join(root, "views"), 0o755); err != nil {

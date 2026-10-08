@@ -293,6 +293,10 @@ func newAppWith(t *testing.T, s *store, env ...string) (*auth.Auth[*user], *brow
 	})
 	srv.Router().Group("/api", a.Require).Get("/me", func(c *web.Ctx) error { return c.NoContent() })
 	twoFactorRoutes(r, a, s)
+	apiLoginRoutes(srv.Router(), a)
+	// An API on routes with sessions (an app's own front end's), behind
+	// TokenMiddleware.
+	r.Group("/session-api", a.TokenMiddleware, a.Require).Get("/me", func(c *web.Ctx) error { return c.NoContent() })
 	private.Get("/admin", func(c *web.Ctx) error {
 		if err := auth.AuthorizeUser(c, func(_ context.Context, u *user) bool { return u.Admin }); err != nil {
 			return err

@@ -34,12 +34,58 @@ var errActing = errors.New("auth: the context acts as a user (ActAs): there is n
 //	}
 func (a *Auth[U]) Attempt(ctx context.Context, login, pw string, remember bool) (U, error) {
 	var zero U
-	st := stateFrom(ctx)
-	if st == nil || st.r == nil {
-		return zero, errNoMiddleware
-	}
 	if remember && a.users.RememberToken == nil {
 		return zero, errNoRemember
+	}
+	u, hash, err := a.checkCredentials(ctx, login, pw)
+	if err != nil {
+		return zero, err
+	}
+	return u, a.signIn(ctx, u, hash, remember)
+}
+
+// AttemptCredentials checks a login and password as [Auth.Attempt] does
+// (the same throttling, timing and rehashing) and returns the user,
+// without signing anyone in to a session: for an API's login, which
+// answers with an API token ([Auth.CreateToken]). It fails as Attempt
+// does, and with [ErrDisabled] for a disabled account. For a user with
+// two-factor sign-in on, it fails with a [*TwoFactorChallenge] (which
+// is [ErrTwoFactorRequired]): give the client its Token, to send back
+// with a code to [Auth.AttemptTwoFactorChallenge]. The route needs
+// [Auth.TokenMiddleware] (or [Auth.Middleware]), which knows the
+// client's address.
+//
+//	u, err := a.AttemptCredentials(c, in.Email, in.Password)
+//	var challenge *auth.TwoFactorChallenge
+//	if errors.As(err, &challenge) {
+//		return SignInResponse{TwoFactor: true, Challenge: challenge.Token}, nil
+//	}
+func (a *Auth[U]) AttemptCredentials(ctx context.Context, login, pw string) (U, error) {
+	var zero U
+	u, hash, err := a.checkCredentials(ctx, login, pw)
+	if err != nil {
+		return zero, err
+	}
+	if a.disabled(u) {
+		return zero, ErrDisabled
+	}
+	st, err := a.twoFactor(u)
+	if err != nil {
+		return zero, err
+	}
+	if st != nil && st.Confirmed {
+		return zero, &TwoFactorChallenge{Token: a.challengeToken(u, hash)}
+	}
+	return u, nil
+}
+
+// checkCredentials is Attempt's check of a login and password: it
+// returns the user and their (possibly upgraded) password hash.
+func (a *Auth[U]) checkCredentials(ctx context.Context, login, pw string) (U, string, error) {
+	var zero U
+	st := stateFrom(ctx)
+	if st == nil || st.r == nil {
+		return zero, "", errNoMiddleware
 	}
 	ip := ratelimit.IP(st.r)
 	perLogin := ratelimit.PerMinute(a.cfg.Throttle)
@@ -49,23 +95,23 @@ func (a *Auth[U]) Attempt(ctx context.Context, login, pw string, remember bool) 
 	// Per address, whatever the login, counting failures only (an office
 	// behind one address logs in a lot).
 	if res, err := ratelimit.Check(ctx, ipKey, perIP); err != nil {
-		return zero, err
+		return zero, "", err
 	} else if !res.Allowed {
-		return zero, &ThrottledError{RetryAfter: res.RetryAfter()}
+		return zero, "", &ThrottledError{RetryAfter: res.RetryAfter()}
 	}
-	failed := func() (U, error) {
+	failed := func() (U, string, error) {
 		if _, err := ratelimit.Hit(ctx, ipKey, perIP); err != nil {
-			return zero, err
+			return zero, "", err
 		}
-		return zero, ErrInvalidCredentials
+		return zero, "", ErrInvalidCredentials
 	}
 	if err := a.hit(ctx, loginKey, perLogin); err != nil {
-		return zero, err
+		return zero, "", err
 	}
 	u, err := a.users.ByLogin(ctx, login)
 	found := err == nil
 	if err != nil && !notFound(err) {
-		return zero, err
+		return zero, "", err
 	}
 	// Per account too: spellings of a login that ByLogin takes as the
 	// same account (case, spaces, lookalike letters) share this count.
@@ -75,7 +121,7 @@ func (a *Auth[U]) Attempt(ctx context.Context, login, pw string, remember bool) 
 		userKey = "auth:user\x00" + u.AuthID() + "\x00" + ip
 	}
 	if err := a.hit(ctx, userKey, perLogin); err != nil {
-		return zero, err
+		return zero, "", err
 	}
 	hash := ""
 	if found {
@@ -85,13 +131,13 @@ func (a *Auth[U]) Attempt(ctx context.Context, login, pw string, remember bool) 
 		// Unknown, or without a password (social sign-in only): take as
 		// long as a check.
 		if err := password.DummyContext(ctx, pw); err != nil {
-			return zero, err
+			return zero, "", err
 		}
 		return failed()
 	}
 	ok, err := password.VerifyContext(ctx, pw, hash)
 	if err != nil {
-		return zero, err
+		return zero, "", err
 	}
 	if !ok {
 		return failed()
@@ -112,7 +158,7 @@ func (a *Auth[U]) Attempt(ctx context.Context, login, pw string, remember bool) 
 			}
 		}
 	}
-	return u, a.signIn(ctx, u, hash, remember)
+	return u, hash, nil
 }
 
 // hit counts an attempt against limit and returns a *ThrottledError past

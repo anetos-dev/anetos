@@ -26,8 +26,11 @@ vet: ## go vet
 lint: ## golangci-lint (install: https://golangci-lint.run)
 	@$(EACH) golangci-lint run ./... $(DONE)
 
+# The cli module's tests create, build and test whole projects (anetos new,
+# make:auth…): with the race detector and the other packages beside them,
+# they need more than go test's usual budget.
 test: ## Tests with the race detector (set ANETOS_TEST_POSTGRES_URL / ANETOS_TEST_MYSQL_URL / ANETOS_TEST_REDIS_URL for those drivers)
-	@$(EACH) $(GO) test -race -count=1 -timeout=5m ./... $(DONE)
+	@$(EACH) $(GO) test -race -count=1 -timeout=10m ./... $(DONE)
 
 test-short: ## Fast tests, no race detector
 	@$(EACH) $(GO) test -short -count=1 -timeout=5m ./... $(DONE)

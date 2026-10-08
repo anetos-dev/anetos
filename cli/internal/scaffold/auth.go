@@ -35,6 +35,20 @@ var authFiles = [][2]string{
 	{"factory.go.tmpl", "database/factories/users.go"},
 }
 
+// authAPIFiles are the files make:auth writes in an API project
+// (IsAPI): template → path in the project.
+var authAPIFiles = [][2]string{
+	{"api/user.go.tmpl", "app/models/user.go"},
+	{"api/handlers.go.tmpl", "app/handlers/auth.go"},
+	{"api/mailers.go.tmpl", "app/mailers/auth.go"},
+	{"api/mail.html.tmpl", "app/mailers/auth.html"},
+	{"api/routes.go.tmpl", "routes/auth.go"},
+	{"api/setup.go.tmpl", "auth.go"},
+	{"api/test.go.tmpl", "auth_test.go"},
+	{"api/locale.yaml.tmpl", "locales/en/auth.yaml"},
+	{"factory.go.tmpl", "database/factories/users.go"},
+}
+
 // authCall is what make:auth adds to setup in main.go, after the routes.
 const authCall = `	// Accounts (anetos make:auth): registration, login with a password,
 	// Google or GitHub, two-factor sign-in, account settings, email
@@ -48,6 +62,19 @@ const authCall = `	// Accounts (anetos make:auth): registration, login with a pa
 // make:auth adds its call after.
 const routesCall = "routes.Register(srv.Router(), sessions)"
 
+// authCallAPI and routesCallAPI are authCall and routesCall in an API
+// project.
+const (
+	authCallAPI = `	// Accounts (anetos make:auth): registration, login with API tokens
+	// (and two-factor codes), email verification, password reset and
+	// change, token management.
+	if _, err := setupAuth(app, srv.Router()); err != nil {
+		return nil, err
+	}
+`
+	routesCallAPI = "routes.Register(srv.Router())"
+)
+
 // AuthResult is what [MakeAuth] did.
 type AuthResult struct {
 	// Created are the files written, relative to the project.
@@ -56,11 +83,16 @@ type AuthResult struct {
 	// call it itself.
 	Wired bool
 	// Menu says the layout (views/layout.templ) now shows AccountMenu in
-	// its header; when false, the app adds it where it wants it.
+	// its header; when false, the app adds it where it wants it. Always
+	// false in an API project, which has no layout.
 	Menu bool
 	// Env are the settings files (.env, .env.example,
-	// deploy/production.env.example) the SOCIAL_* settings were added to.
+	// deploy/production.env.example) the SOCIAL_* settings (in an API
+	// project, AUTH_CLIENT_URL) were added to.
 	Env []string
+	// API says the project is an API project ([IsAPI]): the accounts are
+	// JSON endpoints signing in with API tokens.
+	API bool
 }
 
 // MakeAuth writes the account scaffolding into the project at root:
@@ -82,15 +114,19 @@ func MakeAuth(root string, now time.Time) (AuthResult, error) {
 	if mod == "" {
 		return res, errors.New("go.mod has no module line")
 	}
-	if err := RefuseAPI(root, "make:auth", "make:auth for API projects comes later in v0.4"); err != nil {
-		return res, err
+	res.API = IsAPI(root)
+	dirs, files, names := []string{"app/models", "app/handlers", "views", "routes", "database/migrations", "locales"}, authFiles, authNames
+	migration := "migration.go.tmpl"
+	if res.API {
+		dirs, files, names = []string{"app/models", "app/handlers", "routes", "database/migrations", "locales"}, authAPIFiles, authAPINames
+		migration = "api/migration.go.tmpl"
 	}
-	for _, dir := range []string{"app/models", "app/handlers", "views", "routes", "database/migrations", "locales"} {
+	for _, dir := range dirs {
 		if _, err := os.Stat(filepath.Join(root, dir)); err != nil {
 			return res, fmt.Errorf("no %s directory: make:auth adds to a project made with anetos new", dir)
 		}
 	}
-	files := append([][2]string(nil), authFiles...)
+	files = append([][2]string(nil), files...)
 	if m, ok := existingMigration(filepath.Join(root, "database", "migrations"), "_create_users_table.go"); ok {
 		return res, fmt.Errorf("database/migrations/%s exists: the app has users already", m)
 	}
@@ -99,7 +135,7 @@ func MakeAuth(root string, now time.Time) (AuthResult, error) {
 		ts = last.Add(time.Second)
 	}
 	id := ts.Format(idLayout) + "_create_users_table"
-	files = append(files, [2]string{"migration.go.tmpl", "database/migrations/" + id + ".go"})
+	files = append(files, [2]string{migration, "database/migrations/" + id + ".go"})
 	for _, f := range files {
 		if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(f[1]))); err == nil {
 			return res, fmt.Errorf("%s exists: make:auth writes nothing over the app's files", f[1])
@@ -107,7 +143,7 @@ func MakeAuth(root string, now time.Time) (AuthResult, error) {
 	}
 
 	// The names the files declare mustn't be taken in their packages.
-	for dir, names := range authNames {
+	for dir, names := range names {
 		taken, err := declared(filepath.Join(root, filepath.FromSlash(dir)))
 		if err != nil {
 			return res, err
@@ -139,6 +175,15 @@ func MakeAuth(root string, now time.Time) (AuthResult, error) {
 		}
 	}
 	// undo leaves the project as it was.
+	settings := func(name string) string {
+		switch {
+		case !res.API:
+			return socialSettings
+		case name == "deploy/production.env.example":
+			return clientSettingsProd
+		}
+		return clientSettings
+	}
 	undo := func(err error) (AuthResult, error) {
 		for _, c := range res.Created {
 			_ = os.Remove(filepath.Join(root, filepath.FromSlash(c)))
@@ -159,7 +204,7 @@ func MakeAuth(root string, now time.Time) (AuthResult, error) {
 		if envBefore[name] == nil {
 			continue // no such file
 		}
-		added, err := addSettings(filepath.Join(root, name), socialSettings)
+		added, err := addSettings(filepath.Join(root, name), settings(name))
 		if added {
 			res.Env = append(res.Env, name)
 		}
@@ -170,9 +215,13 @@ func MakeAuth(root string, now time.Time) (AuthResult, error) {
 			return undo(err)
 		}
 	}
-	wired, err := wireAuth(filepath.Join(root, "main.go"))
+	call, after := authCall, routesCall
+	if res.API {
+		call, after = authCallAPI, routesCallAPI
+	}
+	wired, err := wireAuth(filepath.Join(root, "main.go"), call, after)
 	res.Wired = wired
-	if err != nil {
+	if err != nil || res.API {
 		return res, err
 	}
 	res.Menu, err = addAccountMenu(filepath.Join(root, "views", "layout.templ"))
@@ -227,6 +276,23 @@ SOCIAL_GITHUB_CLIENT_ID=
 SOCIAL_GITHUB_CLIENT_SECRET=
 `
 
+// clientSettings and clientSettingsProd are the client app's address of
+// an API project's accounts, for development and production.
+const (
+	clientSettings = `
+# The client app's address (anetos make:auth): the verification and
+# password reset emails link to its /verify-email and /reset-password
+# pages, which send the token in the link to the API.
+AUTH_CLIENT_URL=http://localhost:5173
+`
+	clientSettingsProd = `
+# The client app's address (anetos make:auth): the verification and
+# password reset emails link to its /verify-email and /reset-password
+# pages, which send the token in the link to the API. Required.
+AUTH_CLIENT_URL=https://app.example.com
+`
+)
+
 // addSettings appends block to the settings file, unless the file is
 // missing or already has the first setting of block (commented out or
 // not), and reports whether it did.
@@ -275,6 +341,16 @@ var authNames = map[string][]string{
 	"routes":             {"Auth"},
 	"database/factories": {"Users", "UserPassword", "userHash"},
 	"":                   {"setupAuth", "authRegister", "authLink", "TestRegisterAndVerify", "TestResendVerification", "TestRegisterValidation", "TestLoginAndLogout", "TestTwoFactor", "TestSettings", "TestChangeEmail", "TestRevertEmailChange", "TestDisabledAccount", "TestLoginReturnsToTheRequestedPage", "TestPasswordReset", "TestResetSignsOutAndRevokesTokens", "TestAPIToken", "TestSocialSignIn", "TestSocialSignInFindsVerifiedAccounts"},
+}
+
+// authAPINames are authNames in an API project.
+var authAPINames = map[string][]string{
+	"app/models":         {"User", "Users", "UserCols"},
+	"app/handlers":       {"Accounts", "signInTTL", "tokenTTL", "UserResponse", "userResponse", "SignInResponse", "RegisterInput", "LoginInput", "ChallengeInput", "EmailInput", "LinkInput", "ResetInput", "ChangePasswordInput", "PasswordInput", "CodeInput", "NewTokenInput", "TokenID", "TokenResponse", "NewTokenResponse", "TwoFactorResponse", "TwoFactorSetupResponse", "RecoveryCodesResponse", "emailTaken", "cleanName", "SendVerification", "SendPasswordReset", "tooMany", "tooManyFor", "tokenResponse"},
+	"app/mailers":        {"authHTML", "authMail", "authMailData", "authBody", "VerifyEmail", "ResetPassword"},
+	"routes":             {"Auth", "fullAccess"},
+	"database/factories": {"Users", "UserPassword", "userHash"},
+	"":                   {"setupAuth", "authClient", "authApp", "authRegister", "linkToken", "authLogin", "TestRegisterAndVerify", "TestResendVerification", "TestRegisterValidation", "TestLoginAndLogout", "TestLoginThrottled", "TestTwoFactor", "TestDisabledAccount", "TestPasswordReset", "TestResetOfUnverifiedAddress", "TestResetRevokesTokens", "TestChangePassword", "TestAPITokens"},
 }
 
 func dirLabel(dir string) string {
@@ -338,11 +414,11 @@ func declared(dir string) (map[string]bool, error) {
 
 var templDecl = regexp.MustCompile(`(?m)^templ\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(`)
 
-// wireAuth adds the setupAuth call to setup in main.go, after its
-// routes.Register(…) statement, and reports whether setup calls
-// setupAuth. It leaves main.go alone, reporting false, when it has no
-// such setup.
-func wireAuth(main string) (bool, error) {
+// wireAuth adds call, the setupAuth call, to setup in main.go, after
+// its routes.Register(…) statement, which must read after, and reports
+// whether setup calls setupAuth. It leaves main.go alone, reporting
+// false, when it has no such setup.
+func wireAuth(main, call, after string) (bool, error) {
 	src, err := os.ReadFile(main)
 	if errors.Is(err, os.ErrNotExist) {
 		return false, nil
@@ -377,7 +453,7 @@ func wireAuth(main string) (bool, error) {
 		return true, nil
 	}
 	// The routes.Register(…) statement, directly in setup's body.
-	var after ast.Stmt
+	var register ast.Stmt
 	for _, st := range setup.Body.List {
 		es, ok := st.(*ast.ExprStmt)
 		if !ok {
@@ -388,18 +464,18 @@ func wireAuth(main string) (bool, error) {
 			continue
 		}
 		if sel, ok := call.Fun.(*ast.SelectorExpr); ok && sel.Sel.Name == "Register" {
-			if pkg, ok := sel.X.(*ast.Ident); ok && pkg.Name == "routes" && after == nil {
-				after = st
+			if pkg, ok := sel.X.(*ast.Ident); ok && pkg.Name == "routes" && register == nil {
+				register = st
 			}
 		}
 	}
 	params := setup.Type.Params.List
-	if after == nil || setup.Type.Results == nil || setup.Type.Results.NumFields() != 2 ||
+	if register == nil || setup.Type.Results == nil || setup.Type.Results.NumFields() != 2 ||
 		len(params) == 0 || len(params[0].Names) == 0 || params[0].Names[0].Name != "app" {
 		return false, nil // the call below needs app, srv, sessions and a (value, error) return
 	}
-	start, end := fset.Position(after.Pos()).Offset, fset.Position(after.End()).Offset
-	if string(src[start:end]) != routesCall {
+	start, end := fset.Position(register.Pos()).Offset, fset.Position(register.End()).Offset
+	if string(src[start:end]) != after {
 		return false, nil
 	}
 	nl := bytes.IndexByte(src[end:], '\n')
@@ -407,7 +483,7 @@ func wireAuth(main string) (bool, error) {
 		return false, nil
 	}
 	at := end + nl + 1
-	patched := append(append(append([]byte(nil), src[:at]...), authCall...), src[at:]...)
+	patched := append(append(append([]byte(nil), src[:at]...), call...), src[at:]...)
 	return true, os.WriteFile(main, patched, 0o644)
 }
 

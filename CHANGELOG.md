@@ -26,9 +26,26 @@ All notable changes to this project are documented here. The format follows
   problem details under it (AP1, D261). `examples/tracker`'s API uses it.
 - In an API project (`routes/api.go`, no `routes/web.go`),
   `make:handler` (a typed handler answering a struct) and
-  `make:middleware` write for the API, and `make:auth` and `make:crud`
-  refuse, saying so, until AP2 and AP3; `make:admin` refuses (AP1,
-  D262).
+  `make:middleware` write for the API, and `make:crud` refuses, saying
+  so, until AP3; `make:admin` refuses (AP1, D262).
+- `make:auth` in an API project writes accounts that sign in with API
+  tokens (AP2, D263–D268): `POST /api/v1/register` and `/login` answer
+  with a token (with a two-factor challenge and `/login/two-factor`
+  for users who have it on), `/logout` revokes it, `/me`, email
+  verification and password reset by emails linking to the client app
+  (`AUTH_CLIENT_URL`, added to the settings files), `PUT /password`
+  (revoking the other tokens), `/tokens` to list, make and revoke
+  tokens, and `/two-factor` to turn two-factor sign-in on and off;
+  making a token and changing two-factor sign-in take the password,
+  and the account's routes need a token with every ability (`*`).
+  Typed handlers answering output structs, emails from an
+  `html/template` file (no templ), tests of every endpoint. Guide "Add
+  accounts to an API".
+- `auth.Auth.AttemptCredentials`, `AttemptTwoFactorChallenge` and
+  `*auth.TwoFactorChallenge`: an API's login, with two-factor codes,
+  without a session; `CheckPassword`, the password checked again with
+  `ConfirmPassword`'s limits, without a session; `RevokeOtherTokens`;
+  `ClientLink` and the `AUTH_CLIENT_URL` setting (AP2, D264–D266).
 
 ### Changed
 - `plugins/postmark` works with Anetos v0.4 too (`Requires`:
@@ -39,6 +56,11 @@ All notable changes to this project are documented here. The format follows
 - Dependencies updated in every module; the Google API client stays
   below v0.299.0, which requires gRPC 1.84 (GO-2026-6443, no fixed
   release yet).
+
+### Fixed
+- `auth.Auth.Require` sends `WWW-Authenticate: Bearer` with its 401 on
+  routes behind `TokenMiddleware` that also have sessions, as it did
+  on routes without (AP2, D267).
 
 ## [0.3.0] - 2026-10-07
 
