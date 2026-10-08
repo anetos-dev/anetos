@@ -3,9 +3,12 @@
 package routes
 
 import (
+	"net/http"
+
 	"anetos.dev/anetos/auth"
 	"anetos.dev/anetos/session"
 	"anetos.dev/anetos/web"
+	"anetos.dev/anetos/web/openapi"
 	"anetos.dev/anetos/web/ratelimit"
 
 	"anetos.dev/anetos/examples/tracker/app/handlers"
@@ -58,7 +61,22 @@ func Tracker(r *web.Router, sessions *session.Manager, a *auth.Auth[*models.User
 	v1 := r.Group("/api", web.JSONErrors, a.TokenMiddleware, a.Require) // Authorization: Bearer <token>
 	v1.Get("/projects", web.H(api.Projects)).Name("api.projects")
 	v1.Get("/projects/{project}/issues", web.H(api.Issues)).Name("api.issues")
-	v1.Post("/projects/{project}/issues", web.H(api.CreateIssue)).Name("api.issues.store")
+	v1.Post("/projects/{project}/issues", web.H(api.CreateIssue)).Name("api.issues.store").Status(http.StatusCreated)
 	v1.Get("/projects/{project}/issues/{number}", web.H(api.Issue)).Name("api.issues.show")
 	// endregion
 }
+
+// region: openapi
+
+// OpenAPI describes the API from its typed handlers: `go run . openapi`
+// writes openapi.json, which api_test.go checks is up to date, and the
+// app serves it at /api/openapi.json.
+var OpenAPI = openapi.Config{
+	Title:       "Tracker",
+	Version:     "1.0.0",
+	Description: "Projects and issues, for clients with an API token: create one on the tokens page.",
+	Prefix:      "/api",
+	Path:        "/api/openapi.json",
+}
+
+// endregion

@@ -34,6 +34,7 @@ import (
 	"anetos.dev/anetos/session"
 	"anetos.dev/anetos/storage"
 	"anetos.dev/anetos/web"
+	"anetos.dev/anetos/web/openapi"
 
 	"anetos.dev/anetos/examples/tracker/app/jobs"
 	"anetos.dev/anetos/examples/tracker/app/models"
@@ -145,6 +146,12 @@ func setup(app *anetos.App) (*web.Server, error) {
 	}
 	// The tracker's pages and API.
 	routes.Tracker(srv.Router(), sessions, a)
+	// region: openapi
+	// The API's description: `go run . openapi`, GET /api/openapi.json.
+	if err := openapi.ForApp(app, srv, routes.OpenAPI); err != nil {
+		return nil, err
+	}
+	// endregion
 	// The admin interface (anetos make:admin) at ADMIN_PATH (/admin).
 	if err := setupAdmin(app, srv.Router(), sessions, a); err != nil {
 		return nil, err

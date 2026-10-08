@@ -113,6 +113,7 @@ func makeAuth(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 		return finish(fmt.Errorf("the project doesn't build: %w", err))
 	}
 	if res.API {
+		updateOpenAPI(ctx, root, stdout, stderr)
 		if !res.Wired {
 			fmt.Fprint(stdout, `
 main.go doesn't have the routes.Register call of a new project: call

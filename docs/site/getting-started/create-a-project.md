@@ -86,4 +86,10 @@ project, `make:auth` accounts that sign in with API tokens
 ([Add accounts to an API](../guides/api-accounts.md)), and `make:crud`
 JSON endpoints for a model ([Add pages for a model](crud.md#in-an-api-project)).
 
+`openapi.json` describes the API in OpenAPI 3.1, for clients and tools,
+and the app serves it at `/api/v1/openapi.json`. `make:auth` and
+`make:crud` update it; after changing a route or a handler yourself,
+run `go run . openapi`: a test in `main_test.go` fails until you do
+([Describe an API with OpenAPI](../guides/openapi.md)).
+
 Next: [Project structure](project-structure.md).

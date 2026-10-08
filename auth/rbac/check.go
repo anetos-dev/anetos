@@ -185,7 +185,8 @@ func (g *Grants) mayGive(scope Scope, r Role) error {
 // Require is middleware letting through only signed-in users allowed
 // every one of perms globally; others get the error of [Authorize] (401,
 // 403). Put it after the auth middleware, and after auth's Require on
-// pages, which sends guests to the login page.
+// pages, which sends guests to the login page. API descriptions (package
+// web/openapi) list its 401 and 403.
 //
 //	admin := members.Group("/admin", rbac.Require(ManageUsers))
 func Require(perms ...Permission) web.Middleware {
@@ -201,7 +202,7 @@ func RequireIn(scope func(*http.Request) (Scope, error), perms ...Permission) we
 		panic("rbac: Require needs permissions")
 	}
 	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		return web.Documented(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			s, err := scope(r)
 			if err != nil {
 				web.WriteError(w, r, err)
@@ -214,9 +215,16 @@ func RequireIn(scope func(*http.Request) (Scope, error), perms ...Permission) we
 				}
 			}
 			next.ServeHTTP(w, r)
-		})
+		}), requireDoc)
 	}
 }
+
+// requireDoc is what Require and RequireIn tell API descriptions
+// (web.Documented).
+var requireDoc = web.MiddlewareDoc{Responses: map[int]string{
+	http.StatusUnauthorized: "The request isn't signed in.",
+	http.StatusForbidden:    "The user may not do this.",
+}}
 
 // PathScope returns a function for [RequireIn] that makes the scope of
 // kind from the route's path parameter: PathScope("team", "team") on

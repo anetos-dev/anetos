@@ -10,9 +10,11 @@ import (
 	"anetos.dev/anetos"
 	"anetos.dev/anetos/anetostest"
 	"anetos.dev/anetos/auth"
+	"anetos.dev/anetos/web/openapi"
 
 	"anetos.dev/anetos/examples/tracker/app/handlers"
 	"anetos.dev/anetos/examples/tracker/app/models"
+	"anetos.dev/anetos/examples/tracker/routes"
 )
 
 // token issues an API token for u with the abilities, and sends it with
@@ -93,3 +95,16 @@ func TestReadOnlyToken(t *testing.T) {
 		t.Errorf("tokens: %+v, %v", tokens, err)
 	}
 }
+
+// region: openapi-test
+// openapi.json describes the API as it is: after changing a route or a
+// handler's types, update it with `go run . openapi`.
+func TestOpenAPI(t *testing.T) {
+	app := anetostest.New(t, setup)
+	if err := openapi.Check(app.Router(), routes.OpenAPI); err != nil {
+		t.Fatal(err)
+	}
+	app.Get("/api/openapi.json").AssertOK().AssertJSONPath("info.title", "Tracker")
+}
+
+// endregion

@@ -4,19 +4,17 @@ package ai
 
 import (
 	"bytes"
-	"cmp"
 	"encoding"
 	"encoding/json"
 	"fmt"
 	"math"
 	"reflect"
-	"slices"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
 	"anetos.dev/anetos"
+	"anetos.dev/anetos/internal/jsonfield"
 )
 
 // Schema is a JSON Schema: what a tool's input or a structured output
@@ -275,7 +273,7 @@ func (b *schemaBuilder) build(t reflect.Type, rules string, required bool) (*Sch
 				break
 			}
 			s.Type = "array"
-			items, err := b.build(t.Elem(), eachRules(rules), false)
+			items, err := b.build(t.Elem(), jsonfield.EachRules(rules), false)
 			if err != nil {
 				return nil, err
 			}
@@ -328,17 +326,17 @@ func (b *schemaBuilder) object(t reflect.Type, s *Schema) error {
 	defer delete(b.seen, t)
 	s.Type = "object"
 	s.Properties = []Property{} // an empty object still lists none
-	for _, f := range jsonFields(t) {
-		rules := f.sf.Tag.Get("validate")
+	for _, f := range jsonfield.Of(t) {
+		rules := f.Field.Tag.Get("validate")
 		if rules == "-" {
 			rules = ""
 		}
-		required := hasRule(rules, "required")
-		ps, err := b.build(f.sf.Type, rules, required)
+		required := jsonfield.Has(rules, "required")
+		ps, err := b.build(f.Field.Type, rules, required)
 		if err != nil {
-			return fmt.Errorf("%s.%s: %w", t, f.sf.Name, err)
+			return fmt.Errorf("%s.%s: %w", t, f.Field.Name, err)
 		}
-		if f.quoted && (ps.Type == "integer" || ps.Type == "number" || ps.Type == "boolean") {
+		if f.Quoted && (ps.Type == "integer" || ps.Type == "number" || ps.Type == "boolean") {
 			// json:",string": the value is written inside a string.
 			ps.Type, ps.Minimum, ps.Maximum = "string", nil, nil
 			for i, v := range ps.Enum {
@@ -347,172 +345,15 @@ func (b *schemaBuilder) object(t reflect.Type, s *Schema) error {
 				}
 			}
 		}
-		if d := f.sf.Tag.Get("description"); d != "" {
+		if d := f.Field.Tag.Get("description"); d != "" {
 			ps.Description = d
 		}
-		s.Properties = append(s.Properties, Property{Name: f.name, Schema: ps})
+		s.Properties = append(s.Properties, Property{Name: f.Name, Schema: ps})
 		if required {
-			s.Required = append(s.Required, f.name)
+			s.Required = append(s.Required, f.Name)
 		}
 	}
 	return nil
-}
-
-// jsonField is a struct field as encoding/json sees it.
-type jsonField struct {
-	name   string
-	tagged bool // the name is from the json tag
-	quoted bool // json:",string"
-	index  []int
-	sf     reflect.StructField
-}
-
-// jsonFields returns the fields encoding/json reads and writes for t,
-// in order, with its rules: embedded structs' fields are promoted, a
-// shallower field hides deeper ones of its name, then a tagged one
-// untagged ones, and fields left ambiguous are dropped.
-func jsonFields(t reflect.Type) []jsonField {
-	type level struct {
-		typ   reflect.Type
-		index []int
-	}
-	type candidate struct {
-		jsonField
-		depth int
-	}
-	var all []candidate
-	next := []level{{typ: t}}
-	visited := map[reflect.Type]bool{}
-	for depth := 0; len(next) > 0; depth++ {
-		current := next
-		next = nil
-		count := map[reflect.Type]int{}
-		for _, l := range current {
-			count[l.typ]++
-		}
-		for _, l := range current {
-			if visited[l.typ] {
-				continue
-			}
-			visited[l.typ] = true
-			for i := range l.typ.NumField() {
-				sf := l.typ.Field(i)
-				if sf.Anonymous {
-					ft := sf.Type
-					if ft.Kind() == reflect.Pointer {
-						if !sf.IsExported() {
-							continue // json can't set an embedded pointer to an unexported struct
-						}
-						ft = ft.Elem()
-					}
-					if !sf.IsExported() && ft.Kind() != reflect.Struct {
-						continue
-					}
-				} else if !sf.IsExported() {
-					continue
-				}
-				tag := sf.Tag.Get("json")
-				if tag == "-" {
-					continue
-				}
-				name, opts, _ := strings.Cut(tag, ",")
-				index := append(slices.Clone(l.index), i)
-				ft := sf.Type
-				if ft.Name() == "" && ft.Kind() == reflect.Pointer {
-					ft = ft.Elem()
-				}
-				if name == "" && sf.Anonymous && ft.Kind() == reflect.Struct {
-					next = append(next, level{typ: ft, index: index})
-					continue
-				}
-				f := candidate{jsonField{name: cmp.Or(name, sf.Name), tagged: name != "", index: index, sf: sf}, depth}
-				for o := range strings.SplitSeq(opts, ",") {
-					f.quoted = f.quoted || o == "string"
-				}
-				all = append(all, f)
-				if count[l.typ] > 1 {
-					all = append(all, f) // the same struct embedded twice: ambiguous
-				}
-			}
-		}
-	}
-	slices.SortStableFunc(all, func(a, b candidate) int {
-		return cmp.Or(strings.Compare(a.name, b.name), cmp.Compare(a.depth, b.depth), compareBool(b.tagged, a.tagged))
-	})
-	var out []jsonField
-	for i := 0; i < len(all); {
-		j := i + 1
-		for j < len(all) && all[j].name == all[i].name {
-			j++
-		}
-		group := all[i:j]
-		if len(group) == 1 || group[0].depth != group[1].depth || group[0].tagged != group[1].tagged {
-			out = append(out, group[0].jsonField)
-		}
-		i = j
-	}
-	slices.SortFunc(out, func(a, b jsonField) int { return slices.Compare(a.index, b.index) })
-	return out
-}
-
-func compareBool(a, b bool) int {
-	switch {
-	case a == b:
-		return 0
-	case a:
-		return 1
-	}
-	return -1
-}
-
-// rule is one parsed rule of a validate tag.
-type rule struct {
-	name   string
-	params []string
-}
-
-// parseRules parses a validate tag as package validate does: rules
-// separated by "|", parameters after ":" separated by ",", spaces
-// around them ignored.
-func parseRules(tag string) []rule {
-	var out []rule
-	for r := range strings.SplitSeq(tag, "|") {
-		r = strings.TrimSpace(r)
-		if r == "" {
-			continue
-		}
-		name, params, hasParams := strings.Cut(r, ":")
-		rl := rule{name: strings.TrimSpace(name)}
-		if hasParams {
-			for p := range strings.SplitSeq(params, ",") {
-				rl.params = append(rl.params, strings.TrimSpace(p))
-			}
-		}
-		out = append(out, rl)
-	}
-	return out
-}
-
-func hasRule(tag, name string) bool {
-	return slices.ContainsFunc(parseRules(tag), func(r rule) bool { return r.name == name })
-}
-
-// eachRules returns the rules of a slice field that apply to each
-// element (formats and in), as package validate applies them.
-func eachRules(tag string) string {
-	var out []string
-	for _, r := range parseRules(tag) {
-		if r.name == "in" || formats[r.name] != "" {
-			out = append(out, r.name+":"+strings.Join(r.params, ","))
-		}
-	}
-	return strings.Join(out, "|")
-}
-
-// formats maps validate's format rules to JSON Schema's formats.
-var formats = map[string]string{
-	"email": "email", "url": "uri", "uuid": "uuid", "date": "date", "datetime": "date-time",
-	"ipv4": "ipv4", "ipv6": "ipv6",
 }
 
 // applyRules sets what s's validate rules say that JSON Schema can.
@@ -558,23 +399,23 @@ func applyRules(s *Schema, tag string) {
 			*maxp = count(hi)
 		}
 	}
-	for _, r := range parseRules(tag) {
+	for _, r := range jsonfield.Rules(tag) {
 		switch {
-		case r.name == "min" && len(r.params) == 1:
-			bound(r.params[0], "")
-		case r.name == "max" && len(r.params) == 1:
-			bound("", r.params[0])
-		case r.name == "size" && len(r.params) == 1:
-			bound(r.params[0], r.params[0])
-		case r.name == "between" && len(r.params) == 2:
-			bound(r.params[0], r.params[1])
-		case r.name == "in" && s.Type != "array" && s.Type != "object":
+		case r.Name == "min" && len(r.Params) == 1:
+			bound(r.Params[0], "")
+		case r.Name == "max" && len(r.Params) == 1:
+			bound("", r.Params[0])
+		case r.Name == "size" && len(r.Params) == 1:
+			bound(r.Params[0], r.Params[0])
+		case r.Name == "between" && len(r.Params) == 2:
+			bound(r.Params[0], r.Params[1])
+		case r.Name == "in" && s.Type != "array" && s.Type != "object":
 			s.Enum = nil
-			for _, p := range r.params {
+			for _, p := range r.Params {
 				s.Enum = append(s.Enum, enumValue(s.Type, p))
 			}
-		case formats[r.name] != "" && s.Type == "string":
-			s.Format = formats[r.name]
+		case jsonfield.Formats[r.Name] != "" && s.Type == "string":
+			s.Format = jsonfield.Formats[r.Name]
 		}
 	}
 	if s.Nullable && len(s.Enum) > 0 {

@@ -4,6 +4,9 @@ import (
 	"testing"
 
 	"anetos.dev/anetos/anetostest"
+	"anetos.dev/anetos/web/openapi"
+
+	"[[.Module]]/routes"
 )
 
 // anetostest.New boots the app with test settings (.env.testing, not
@@ -21,4 +24,13 @@ func TestNotFound(t *testing.T) {
 	app.Get("/api/v1/no-such-thing").AssertNotFound().
 		AssertHeader("Content-Type", "application/problem+json").
 		AssertJSONPath("status", 404)
+}
+
+// openapi.json describes the routes as they are: after changing a route
+// or a handler's types, update it with `go run . openapi`.
+func TestOpenAPI(t *testing.T) {
+	app := anetostest.New(t, setup)
+	if err := openapi.Check(app.Router(), routes.OpenAPI); err != nil {
+		t.Fatal(err)
+	}
 }

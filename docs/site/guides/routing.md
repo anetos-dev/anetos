@@ -148,6 +148,12 @@ middleware works.
 To limit how often clients call a group of routes, add
 `ratelimit.Middleware` to it: see [Rate limiting](rate-limiting.md).
 
+A middleware that asks for credentials or answers errors of its own can
+say so to the API's description: it returns its handler through
+`web.Documented(h, web.MiddlewareDoc{…})`, and `r.Routes()` reports the
+docs of each route's middleware. See [Describe an API with
+OpenAPI](openapi.md#5-say-what-your-middleware-asks-for).
+
 ## How it works
 
 The router registers your patterns on a standard `http.ServeMux`, adding

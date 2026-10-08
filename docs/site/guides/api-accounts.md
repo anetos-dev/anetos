@@ -199,6 +199,12 @@ hour per user, logins and codes as `AUTH_THROTTLE` and
 > project's `make:auth` leaves them out. Add the endpoints you need to
 > the generated handlers.
 
+`make:auth` updates `openapi.json`, the API's description
+([Describe an API with OpenAPI](openapi.md)): the account's operations,
+their inputs and responses, and the bearer token the `me` routes need
+(`auth.Require` says so; `fullAccess`, in `routes/auth.go`, adds the
+`*` ability with `web.Documented`).
+
 ## Testing it
 
 `auth_test.go` tests every endpoint through HTTP: registering,

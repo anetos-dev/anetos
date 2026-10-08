@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -105,6 +106,7 @@ func makeCrud(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 		return finish(fmt.Errorf("the project doesn't build: %w", err))
 	}
 	if res.API {
+		updateOpenAPI(ctx, root, stdout, stderr)
 		if !res.Routed {
 			fmt.Fprintf(stdout, `
 routes/api.go has no Register with an api group, as a new project's: add
@@ -160,4 +162,21 @@ func testFile(created []string) string {
 		}
 	}
 	return "*_test.go"
+}
+
+// updateOpenAPI rewrites the API's description (openapi.json) with the
+// project's openapi command, in a project whose main.go adds it (an API
+// project's, since v0.4). A failure is reported, not fatal: the code is
+// written.
+func updateOpenAPI(ctx context.Context, root string, stdout, stderr io.Writer) {
+	main, err := os.ReadFile(filepath.Join(root, "main.go"))
+	if err != nil || !bytes.Contains(main, []byte("openapi.ForApp(")) {
+		return
+	}
+	var out bytes.Buffer
+	if err := runGoOut(ctx, root, &out, &out, "run", ".", "openapi"); err != nil {
+		fmt.Fprintf(stderr, "Updating openapi.json failed (%v):\n%s\nRun `go run . openapi` once it's fixed.\n", err, out.String())
+		return
+	}
+	fmt.Fprintln(stdout, "Updated openapi.json, the API's description.")
 }

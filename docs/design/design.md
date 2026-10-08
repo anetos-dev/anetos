@@ -444,7 +444,10 @@ the route, so the signature and the route say what a request answers,
 for people and for the OpenAPI spec (AP4); Responders are for pages and
 answers chosen at run time (D269). `Router.Routes` reports each `web.H`
 route's input and result types and its status (`RouteInfo.Input`,
-`Output`, `Status`), which `H` records when it is called (D274).
+`Output`, `Status`, and `Handler`, the function's name), which `H`
+records when it is called (D274), and what each route's middleware
+declared with `web.Documented` (`RouteInfo.Middleware`, D278): what
+package `web/openapi` describes the API from.
 
 ```go
 // illustrative
@@ -1114,7 +1117,7 @@ Implemented in F10 (packages `view`, `session`, `encryption`; helpers in
   `make:auth` and `make:crud` writing JSON endpoints in such a project
   (AP2, AP3), and an OpenAPI 3.1 spec generated from the routes and the
   typed handlers (inputs from their tags, responses declared), checked
-  in CI (AP4). AP4 is designed when its work starts.
+  in CI (AP4, below).
 - **Design kits (v0.5, D244)**: the generators' pages call a small
   `views/ui` package the app owns; each kit (the starter theme, Pico,
   Bootstrap, Bulma, Tailwind through its standalone CLI) is a stylesheet
@@ -1245,6 +1248,53 @@ project writes the model and its migration (the web stack's), and
 - **Access:** open, like the web stack's pages; the routes' comment says
   to call `<Models>(me)` from `routes/auth.go` for token-only access and
   `auth.TokenCan` for abilities.
+
+**OpenAPI (AP4, D275–D280).** Package `web/openapi` writes an OpenAPI
+3.1.0 document from `Router.Routes()`, when asked: nothing runs per
+request.
+
+- **What it describes (D275):** the typed routes (`web.H`, whose types
+  D274 records) at or below `Config.Prefix` (`/api/v1`), each an
+  operation: `operationId` the route's name (else the handler's,
+  `Products.Index`, else method and path), `tags` the handler's receiver
+  type (`RouteInfo.Handler`, the function's name recorded by `web.H`).
+  Plain handlers, any-method routes and the document's own route are
+  left out; the first two with a warning.
+- **Schemas (D276):** as `encoding/json` reads and writes the types
+  (field resolution shared with package `ai` through
+  `internal/jsonfield`): named structs are components, recursion
+  allowed; results list every field without `omitempty` as required,
+  pointers nullable; inputs take what their `validate` rules can say
+  (required, bounds, `in`, formats, `distinct`). A type used as a body
+  and as a result has two components, the body's `…Input`; generic
+  instances append their arguments' names (`PageProductResponse`); a
+  name two packages share gets the package's first.
+- **Operations (D277):** parameters from `path`, `query` and `header`
+  fields (as `web.H` binds them), the other fields as a JSON body
+  (multipart with files); the success response from the route's status
+  (D269), none for `web.Empty` and 204; a `web.Responder` result is an
+  unknown `2XX`, warned about. Errors are problem details: 400 when
+  there are values to bind, 422 with rules or a `Validate` method, the
+  middleware's statuses, and `default`; the common ones are
+  `components/responses`.
+- **Middleware (D278):** `web.Documented(h, web.MiddlewareDoc{Security,
+  Scopes, Responses})` marks the handler a middleware returns; the
+  router records the docs while composing each route's chain
+  (`RouteInfo.Middleware`, outermost first). `auth.Require` documents a
+  bearer token and 401, `TokenMiddleware` 401, `rbac.Require` 401 and
+  403, `ratelimit.Middleware` 429; the generated `fullAccess` the `*`
+  ability. Scheme `bearer` is built in, others are
+  `Config.SecuritySchemes`; when some operations need credentials, the
+  others have `security: []`.
+- **The file (D279):** `openapi.ForApp` adds the `openapi` command
+  (`--check`, `--out`; it builds no app, so it needs no database) and
+  serves the document at `Config.Path`. The document is committed
+  (`openapi.json`) and byte-stable; `openapi.Check` in a test is the CI
+  check. An API project has the config (`routes.OpenAPI`), the call,
+  the file and the test; `anetos new`, `make:auth` and `make:crud` run
+  `go run . openapi`. `examples/tracker` describes its API.
+- **Not in v0.4 (D280):** a page that renders the document, client
+  generation.
 
 **Composing stacks (D259).** `anetos new` builds a project from layers of
 templates: `base` (every project: `go.mod`, `main.go`, settings,
@@ -2966,6 +3016,12 @@ unless new information arrives), **Open**, **Superseded**.
 | D272 | Lists are `db.Page[<Model>Response]` through `db.MapPage(page, fn)`: `?page=`, `?per_page=` (≤ 100, 20 by default), `?sort=` from a list of the columns (`-` for descending, `-id` by default, with the ID after any other column), and exact filters on string, email, int, bool and date fields (an empty value doesn't filter; fields named `page`, `per_page` or `sort` are refused) | Accepted | `db.Page` already has a JSON shape (Laravel's `data`, `current_page`…); a whitelist of sorts named in the `validate` tag and a map of columns keep `?sort=` from reaching SQL as text; exact filters cover the common "where status is" and leave ranges and search (S1) to the developer, who knows which columns are indexed. Floats aren't compared for equality; texts need search |
 | D273 | `db.MapPage[T, U](p Page[T], fn func(T) U) Page[U]` turns a page of rows into a page of responses, keeping the counts | Accepted | Every API list maps models to output structs; a loop with the five counts copied by hand in each generated handler would be noise |
 | D274 | `web.H` records its handler's `In` and `Out` types in a registry keyed by the closure's address (`unsafe`: a func value's pointer), and `Router.Handle` looks them up, so `Router.Routes` reports `RouteInfo.Input`, `Output` and `Status`. Each call of `H` adds an entry for the program's life, keeping its handler (and the handler's receiver) alive: `H` is called when registering routes, as documented. A decorator that wraps `web.H(…)` in a new `HandlerFunc` before registering it loses the types; AP4 should warn about API routes without them | Accepted | AP4's spec needs every operation's types, and `HandlerFunc` is a plain func type that can't carry them. `reflect.Value.Pointer` returns the code's address, which instantiations of `H` with the same GC shape share (all pointer `Out` types, say), so it can't tell their types apart; the closure's address is unique per call (a test checks it). Changing the routing methods to take a typed handler interface would break every app's `r.Get("/", web.H(…))`; a probe call of the handler at registration would run plain handlers' code |
+| D275 | Package `web/openapi` describes the typed routes (D274) at or below `Config.Prefix` as an OpenAPI 3.1.0 document, built from `Router.Routes()` when asked (the command, `Check`, the first request for the served copy). Operation IDs are route names (else the handler's name, `Products.Index` or a function's `welcome`, which `web.H` records as `RouteInfo.Handler`, else method and path); tags are the handler's receiver type. Names never depend on package `main`'s path, which is `main` with `go run` and the module's under `go test`. Plain handlers, any-method routes and interface results are warned about; two routes OpenAPI can't tell apart (wildcards named differently, one path on two hosts) are an error | Accepted | The types are in the routes already; a code-first document can't drift from the code, unlike annotations in comments (swag), which nothing checks. Building on demand keeps the per-request path untouched (design principle: no per-request reflection). Route names are unique and stable, so clients' generated method names don't change with handler renames |
+| D276 | Schemas follow `encoding/json` (names, `omitempty`, embedding, `,string`; the field resolution moved from package `ai` to `internal/jsonfield`, shared): named structs are components; results' fields without `omitempty` are required and pointers nullable; inputs' `required` and constraints come from their `validate` rules where JSON Schema has a keyword (bounds, `in`, formats, `distinct`), the others stay unseen, with validate's semantics: an optional value with rules may also be blank (`anyOf` a blank string or empty list), `required` refuses 0 and `false` in non-pointer fields; a `time.Duration` parameter is text. Results' slices and maps aren't nullable: a handler answers empty ones (a nil one is written `null`), the contract the guide states; fields promoted through an embedded pointer aren't required. A type both body and result gets two components, the body's suffixed `Input`; generic instances append their type arguments' names; names two packages share are qualified by package; leftovers are numbered, a type's own name first | Accepted | What clients get is what `encoding/json` writes, so the schema has to mirror it exactly, as `ai.SchemaFor` already did. A body and a result differ (path fields aren't in bodies; required means different things), so one schema for both would be wrong for one. Types with their own `MarshalJSON` are any value with a warning rather than an error: an app shouldn't fail to describe itself because of one field |
+| D277 | An operation's parameters are its input's `path`, `query` and `header` fields, its body the other fields as JSON (multipart, with the fields a form binds, when there are files; none for GET and HEAD, as `web.H` reads none); forms, which `web.H` also accepts, aren't listed. The name `Problem` is the problem details'. Its success response has the route's status (D269), no content for `web.Empty` and 204/205; a `web.Responder` result is an unknown `2XX` with a warning. Errors are problem details (`Problem`): 400 when the input has values to bind, 422 when it has rules or a `Validate` method, each documented middleware's statuses, and `default`, the shared ones in `components/responses` | Accepted | APIs are JSON; listing forms would double every body for clients that don't use them. A `default` problem response covers what types can't show (404 from `db.ErrNotFound`, 409, 500) without claiming statuses an operation may never answer |
+| D278 | Middleware describe themselves: `web.Documented(h, web.MiddlewareDoc{Security, Scopes, Responses})` wraps the handler a middleware returns, and the router records the docs of each route while composing its chain (`RouteInfo.Middleware`; a middleware returning its `next` unchanged isn't counted twice). `auth.Require` documents scheme `bearer` and 401, `TokenMiddleware` 401, `rbac.Require` 401 and 403, `ratelimit.Middleware` 429. `bearer` is built in; other schemes come from `Config.SecuritySchemes`; scopes (a token's abilities) are OpenAPI 3.1's role names. `RouteInfo` is no longer comparable with `==` | Accepted | Middleware are opaque functions; the route can't know that `a.Require` needs a token unless the middleware says so. Annotating routes (`.Secured("bearer")`) would repeat what the middleware already enforces and drift from it. The chain is composed once at registration, so recording costs nothing per request; the wrapper adds one pointer per handler and no allocation per request |
+| D279 | The document is a committed file (`Config.File`, `openapi.json`), byte-stable (sorted paths and components, fixed key order, two-space indent, no HTML escaping): `openapi.ForApp` adds the `openapi` command (`--check`, `--out`; `ManagesApp`, so no boot and no database) and serves the document at `Config.Path`, built on the first request. `openapi.Check` in a test is the CI check. An API project gets `routes.OpenAPI`, the `ForApp` call, the file and `TestOpenAPI`; `anetos new --stack=api`, `make:auth` and `make:crud` run `go run . openapi` (a failure is reported, not fatal) | Accepted | A committed document shows API changes in code review, and clients can be built against a version. A test is how every project's CI already runs, with no CI file to generate; the command keeps working without a database, as `help` does. Serving it lets tools fetch it from a running app; the description is no secret beside the routes it lists, and a developer who disagrees deletes `Path` |
+| D280 | Not in v0.4: a page rendering the document and client code generation | Accepted | A docs page without a CDN means vendoring Swagger UI or Redoc (megabytes of JavaScript) into the core or a module of its own; any OpenAPI viewer or editor reads the file today. Client generation is out of v0.4's scope (D243); generators exist for every language |
 
 ---
 
@@ -3052,3 +3108,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-08 | v0.4 AP1 (API project): §6, §8.5, §12.2, §17.1 updated; D259–D262 added |
 | 2026-10-08 | v0.4 AP2 (API accounts): §12.2, §15 updated; D263–D268 added |
 | 2026-10-08 | v0.4 AP3 (JSON CRUD): §8.2, §12.2 updated; D269 (typed results' status), D270–D274 added |
+| 2026-10-08 | v0.4 AP4 (OpenAPI): §12.2 updated; D275–D280 added |

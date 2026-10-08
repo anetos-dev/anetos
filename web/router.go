@@ -265,7 +265,17 @@ func (r *Router) register(rt *Route, h http.Handler) {
 	for p := r; p != nil; p = p.parent {
 		p.hasRoute = true
 	}
-	h = chain(r.mws, h)
+	var last *documented
+	for _, mw := range slices.Backward(r.mws) {
+		h = mw(h)
+		// A middleware returning next as it is (a no-op) doesn't
+		// document it twice.
+		if d, ok := h.(*documented); ok && d != last {
+			rt.docs = append(rt.docs, d.doc)
+		}
+		last, _ = h.(*documented)
+	}
+	slices.Reverse(rt.docs)
 	// Record the route for outer middleware (access log, RouteFromContext),
 	// for plain handlers too.
 	next := h
@@ -428,8 +438,9 @@ type Route struct {
 	pattern string
 	namePfx string
 	name    atomic.Pointer[string]
-	status  atomic.Int32 // Status: a typed handler's result's; 0 for the default
-	types   handlerTypes // a typed handler's (H), set at registration
+	status  atomic.Int32    // Status: a typed handler's result's; 0 for the default
+	types   handlerTypes    // a typed handler's (H), set at registration
+	docs    []MiddlewareDoc // the middleware's (Documented), outermost first
 }
 
 // Status sets the HTTP status of a typed handler's result on this route
@@ -513,6 +524,14 @@ type RouteInfo struct {
 	Input, Output reflect.Type
 	// Status is the route's [Route.Status], 0 unless set.
 	Status int
+	// Handler names a typed handler's function without its package
+	// path ("handlers.Posts.Store"); "" for other handlers.
+	Handler string
+	// Middleware describes what the route's middleware asks of requests
+	// and may answer, outermost first: what each middleware's handler
+	// said with [Documented]. Its maps are the middleware's own: read
+	// them, don't change them.
+	Middleware []MiddlewareDoc
 }
 
 // Routes lists every registered route in registration order.
@@ -522,7 +541,8 @@ func (r *Router) Routes() []RouteInfo {
 	out := make([]RouteInfo, len(r.core.routes))
 	for i, rt := range r.core.routes {
 		out[i] = RouteInfo{Method: rt.method, Host: rt.host, Pattern: rt.pattern, Name: rt.RouteName(),
-			Input: rt.types.in, Output: rt.types.out, Status: rt.RouteStatus()}
+			Input: rt.types.in, Output: rt.types.out, Status: rt.RouteStatus(), Handler: rt.types.name,
+			Middleware: slices.Clone(rt.docs)}
 	}
 	return out
 }

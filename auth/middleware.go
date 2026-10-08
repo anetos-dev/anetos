@@ -326,9 +326,10 @@ func Check(ctx context.Context) bool {
 // "WWW-Authenticate: Bearer" on routes without sessions or behind
 // [Auth.TokenMiddleware]. Responses to
 // signed-in users get "Cache-Control: no-store" (a handler may set
-// another), so browsers don't keep them after logout.
+// another), so browsers don't keep them after logout. API descriptions
+// (package web/openapi) show its routes as needing a bearer token.
 func (a *Auth[U]) Require(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return web.Documented(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, err := Current[U](r.Context())
 		switch {
 		case err == nil:
@@ -352,8 +353,14 @@ func (a *Auth[U]) Require(next http.Handler) http.Handler {
 			}
 			web.WriteError(w, r, ErrUnauthenticated)
 		}
-	})
+	}), requireDoc)
 }
+
+// requireDoc is what Require tells API descriptions (web.Documented):
+// on an API, a token.
+var requireDoc = web.MiddlewareDoc{Security: "bearer", Responses: map[int]string{
+	http.StatusUnauthorized: "The request isn't signed in: it has no valid API token.",
+}}
 
 // Guest lets only guests through: signed-in users are redirected to
 // AUTH_HOME_URL. Use it on the login and registration pages.

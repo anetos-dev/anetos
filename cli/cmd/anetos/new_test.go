@@ -309,8 +309,11 @@ func TestNewAPIProject(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("new: %d\n%s\n%s", code, out, errOut)
 	}
-	if strings.Contains(out, "templ") || !strings.Contains(out, "http://localhost:8080/api/v1") {
+	if strings.Contains(out, "templ") || !strings.Contains(out, "http://localhost:8080/api/v1") || !strings.Contains(out, "go run . openapi") {
 		t.Errorf("output:\n%s", out)
+	}
+	if spec := read(t, filepath.Join(dir, "openapi.json")); !strings.Contains(spec, `"operationId": "api.welcome"`) {
+		t.Errorf("openapi.json:\n%s", spec)
 	}
 	for _, no := range []string{"views", "public", "routes/web.go"} {
 		if _, err := os.Stat(filepath.Join(dir, no)); err == nil {
@@ -328,7 +331,8 @@ func TestNewAPIProject(t *testing.T) {
 	// A resource's JSON endpoints: their test (products_test.go) passes
 	// with the rest below.
 	if code, out, errOut := runCmd(t, "make:crud", "Product", "name:string:unique", "price:float", "stock:int", "launch_on:date:optional"); code != 0 ||
-		!strings.Contains(out, "updated routes/api.go: Register calls Products(api)") || strings.Contains(out, "templ") {
+		!strings.Contains(out, "updated routes/api.go: Register calls Products(api)") || strings.Contains(out, "templ") ||
+		!strings.Contains(out, "Updated openapi.json") {
 		t.Fatalf("make:crud: %d\n%s\n%s", code, out, errOut)
 	}
 	if code, _, errOut := runCmd(t, "make:admin"); code != 1 || !strings.Contains(errOut, "the admin is for web projects") {
@@ -337,7 +341,7 @@ func TestNewAPIProject(t *testing.T) {
 	// The API's accounts: their tests (auth_test.go) pass with the rest
 	// below.
 	if code, out, errOut := runCmd(t, "make:auth"); code != 0 || !strings.Contains(out, "updated main.go: setup calls setupAuth") ||
-		!strings.Contains(out, "updated .env: AUTH_CLIENT_URL") || strings.Contains(out, "templ") {
+		!strings.Contains(out, "updated .env: AUTH_CLIENT_URL") || strings.Contains(out, "templ") || !strings.Contains(out, "Updated openapi.json") {
 		t.Fatalf("make:auth: %d\n%s\n%s", code, out, errOut)
 	}
 	goRun := func(args ...string) string {
@@ -353,7 +357,7 @@ func TestNewAPIProject(t *testing.T) {
 	goRun("vet", "./...")
 	if out := goRun("test", "-v", "."); !strings.Contains(out, "--- PASS: TestWelcome") || !strings.Contains(out, "--- PASS: TestNotFound") ||
 		!strings.Contains(out, "--- PASS: TestTwoFactor") || !strings.Contains(out, "--- PASS: TestChangePassword") ||
-		!strings.Contains(out, "--- PASS: TestProducts") {
+		!strings.Contains(out, "--- PASS: TestProducts") || !strings.Contains(out, "--- PASS: TestOpenAPI") {
 		t.Errorf("go test:\n%s", out)
 	}
 	if code, out, errOut := runCmd(t, "build"); code != 0 || !strings.Contains(out, "built bin/shop (") {
@@ -378,6 +382,15 @@ func TestNewAPIProject(t *testing.T) {
 		!regexp.MustCompile(`POST\s+/api/v1/login/two-factor\s+api\.login\.two-factor`).MatchString(out) ||
 		!regexp.MustCompile(`DELETE\s+/api/v1/products/\{id\}\s+api\.products\.destroy`).MatchString(out) {
 		t.Errorf("routes:list:\n%s", out)
+	}
+	// The API's description is up to date, and has the accounts' and the
+	// products' operations.
+	if out := app("openapi", "--check"); !strings.Contains(out, "openapi.json is up to date") {
+		t.Errorf("openapi --check:\n%s", out)
+	}
+	if spec := read(t, filepath.Join(dir, "openapi.json")); !strings.Contains(spec, `"operationId": "api.products.store"`) ||
+		!strings.Contains(spec, `"operationId": "api.tokens.store"`) || !strings.Contains(spec, `"bearer": [`) {
+		t.Errorf("openapi.json:\n%s", spec)
 	}
 	if out := app("lang:check"); !strings.Contains(out, "lang:check: en OK") {
 		t.Errorf("lang:check:\n%s", out)

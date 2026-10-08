@@ -2,6 +2,9 @@
 //
 //	go tool anetos dev        run with live reload (http://localhost:8080[[if .API]]/api/v1[[end]])
 //	go run . migrate          apply database migrations
+[[- if .API]]
+//	go run . openapi          update openapi.json, the API's description
+[[- end]]
 //	go run . help             list every command
 package main
 
@@ -27,6 +30,9 @@ import (
 [[- end]]
 	"anetos.dev/anetos/storage"
 	"anetos.dev/anetos/web"
+[[- if .API]]
+	"anetos.dev/anetos/web/openapi"
+[[- end]]
 
 	"[[.Module]]/database/migrations"
 	"[[.Module]]/locales"
@@ -118,6 +124,10 @@ func setup(app *anetos.App) (*web.Server, error) {
 	routes.Register(srv.Router(), sessions)
 [[- else]]
 	routes.Register(srv.Router())
+	// `go run . openapi` and GET /api/v1/openapi.json (routes.OpenAPI).
+	if err := openapi.ForApp(app, srv, routes.OpenAPI); err != nil {
+		return nil, err
+	}
 [[- end]]
 	// The plugins in plugins.go (anetos add), last: they use the services
 	// above.

@@ -169,9 +169,10 @@ func lookup(ctx context.Context, plain string) (*Token, error) {
 // Authorization scheme) goes through as a guest: put [Auth.Require] after
 // it to refuse those. One with an invalid, expired or revoked token gets
 // 401. Use it on API routes, in a group of their own: without the session
-// middleware and web.CSRF, which would refuse API clients' posts.
+// middleware and web.CSRF, which would refuse API clients' posts. API
+// descriptions (package web/openapi) list that 401.
 func (a *Auth[U]) TokenMiddleware(next http.Handler) http.Handler {
-	return a.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return web.Documented(a.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		st := stateFrom(r.Context())
 		st.mu.Lock()
 		st.bearer = true // Require's 401s name the scheme
@@ -212,8 +213,14 @@ func (a *Auth[U]) TokenMiddleware(next http.Handler) http.Handler {
 		}
 		stateFrom(ctx).set(u, t)
 		next.ServeHTTP(w, r)
-	}))
+	})), tokenDoc)
 }
+
+// tokenDoc is what TokenMiddleware tells API descriptions
+// (web.Documented): a token sent may be refused.
+var tokenDoc = web.MiddlewareDoc{Responses: map[int]string{
+	http.StatusUnauthorized: "The API token is invalid, expired or revoked.",
+}}
 
 // CurrentToken returns the API token the request authenticated with, and
 // whether it did.

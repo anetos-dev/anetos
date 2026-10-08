@@ -34,6 +34,7 @@ code that wires the part they belong to:
 |---|---|
 | `run [--only=role,…]` (the default), `help` | Every app |
 | `serve`, `routes:list` | `web.NewServer` |
+| `openapi` | `openapi.ForApp` ([Describe an API with OpenAPI](../guides/openapi.md)) |
 | `migrate`, `migrate:rollback`, `migrate:reset`, `migrate:fresh`, `migrate:status`, `db:seed`, `search:reindex` | `migrate.ForApp` ([Migrations](../guides/migrations.md), [Search](../guides/search.md)) |
 | `cache:clear` | `cache.ForApp` ([Cache values](../guides/cache.md)) |
 | `queue:failed`, `queue:retry`, `queue:forget`, `queue:flush`, `queue:clear` | `queue.ForApp` ([Queues](../guides/queues.md)) |

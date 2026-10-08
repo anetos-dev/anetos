@@ -54,13 +54,18 @@ func Auth(r *web.Router, a *auth.Auth[*models.User]) {
 }
 
 // fullAccess lets through requests whose token has every ability ("*"):
-// the others get 403.
+// the others get 403. web.Documented tells the API's description
+// (openapi.json) so.
 func fullAccess(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return web.Documented(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !auth.TokenCan(r.Context(), "*") {
 			web.WriteError(w, r, auth.ErrForbidden)
 			return
 		}
 		next.ServeHTTP(w, r)
-	})
+	}), fullAccessDoc)
 }
+
+var fullAccessDoc = web.MiddlewareDoc{Security: "bearer", Scopes: []string{"*"}, Responses: map[int]string{
+	http.StatusForbidden: "The token lacks the * ability: the account's routes need a login's token.",
+}}

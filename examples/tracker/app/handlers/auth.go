@@ -625,10 +625,6 @@ func (h Accounts) RevokeToken(c *web.Ctx, in TokenID) (web.Responder, error) {
 }
 
 // Me is GET /api/me, for API clients: Authorization: Bearer <token>.
-func (Accounts) Me(c *web.Ctx) error {
-	u, err := auth.Current[*models.User](c)
-	if err != nil {
-		return err
-	}
-	return c.JSON(http.StatusOK, u)
+func (Accounts) Me(c *web.Ctx, _ struct{}) (*models.User, error) {
+	return auth.Current[*models.User](c)
 }

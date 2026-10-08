@@ -65,11 +65,41 @@ All notable changes to this project are documented here. The format follows
   that describe the API (AP3, D274).
 - `db.MapPage(page, fn)`: a page of rows made a page of responses,
   keeping the counts (AP3, D273).
+- Package `web/openapi` (AP4, D275–D280): an OpenAPI 3.1 document of
+  an app's typed routes (`web.H`) under a prefix, built from the routes
+  when asked: parameters and JSON or multipart bodies as `web.H` binds
+  them, with their `validate` rules as JSON Schema (required, bounds,
+  `in`, formats, `distinct`); results as `encoding/json` writes them,
+  with the route's status; components named after the Go types; errors
+  as problem details; security from the routes' middleware.
+  `openapi.ForApp` adds the `openapi` command (`--check`, `--out`; it
+  needs no database) and serves the document at `Config.Path`;
+  `openapi.Check` fails a test when the committed file is out of date.
+  Guide "Describe an API with OpenAPI".
+- `web.Documented(h, web.MiddlewareDoc{…})`: a middleware says what it
+  asks of requests (a security scheme and scopes) and the errors it may
+  answer; `RouteInfo.Middleware` reports it per route, and
+  `RouteInfo.Handler` names a typed handler's function. `auth.Require`
+  (a bearer token, 401), `auth.TokenMiddleware` (401), `rbac.Require`
+  and `RequireIn` (401, 403) and `ratelimit.Middleware` (429) document
+  themselves (AP4, D278).
+- An API project (`anetos new --stack=api`) has `openapi.json`, written
+  by `go run . openapi` after the install, served at
+  `/api/v1/openapi.json`, its config in `routes/api.go`
+  (`routes.OpenAPI`) and a test that it's up to date; `make:auth` and
+  `make:crud` update it, and `make:auth`'s `fullAccess` documents the
+  `*` ability it needs (AP4, D279). `examples/tracker` describes its
+  API the same way.
 
 ### Changed
 - `plugins/postmark` works with Anetos v0.4 too (`Requires`:
   `>= v0.2.0, < v0.5.0`); an Anetos built from this source reports
   `v0.4.0-dev` (AP1).
+- `web.RouteInfo` has slice fields (`Middleware`), so it can't be
+  compared with `==` any more: compare its fields (AP4, D278).
+- `examples/tracker`'s `POST /api/projects/{project}/issues` is a typed
+  handler with `Status(201)`, and `GET /api/me` a typed handler, so the
+  document describes them (AP4).
 - `anetos new` pins templ v0.3.1070 (was v0.3.1020), as the examples
   now use (M10).
 - Dependencies updated in every module; the Google API client stays

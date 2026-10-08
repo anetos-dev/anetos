@@ -3,9 +3,20 @@ package routes
 
 import (
 	"anetos.dev/anetos/web"
+	"anetos.dev/anetos/web/openapi"
 
 	"[[.Module]]/app/handlers"
 )
+
+// OpenAPI describes the API, version 1, from its typed handlers:
+// `go run . openapi` writes it to openapi.json, which main_test.go checks
+// is up to date, and the app serves it at /api/v1/openapi.json.
+var OpenAPI = openapi.Config{
+	Title:   "[[.Title]]",
+	Version: "1.0.0",
+	Prefix:  "/api/v1",
+	Path:    "/api/v1/openapi.json",
+}
 
 // Register adds the application's routes.
 func Register(r *web.Router) {

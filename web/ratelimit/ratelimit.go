@@ -214,6 +214,7 @@ func IP(r *http.Request) string {
 //
 // It needs the app's cache (cache.ForApp); if the cache fails, the
 // request fails with its error, rather than going through unlimited.
+// API descriptions (package web/openapi) list its 429.
 func Middleware(name string, limits ...Limit) web.Middleware {
 	for _, l := range limits {
 		if l.Max < 0 || l.Window < time.Millisecond {
@@ -227,7 +228,7 @@ func Middleware(name string, limits ...Limit) web.Middleware {
 	}
 	slices.SortStableFunc(order, func(a, b int) int { return cmp.Compare(limits[a].Window, limits[b].Window) })
 	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		return web.Documented(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			t := now(r.Context())
 			var tightest *Result
 			var blocked *Result
@@ -272,6 +273,11 @@ func Middleware(name string, limits ...Limit) web.Middleware {
 				return
 			}
 			next.ServeHTTP(w, r)
-		})
+		}), doc)
 	}
 }
+
+// doc is what Middleware tells API descriptions (web.Documented).
+var doc = web.MiddlewareDoc{Responses: map[int]string{
+	http.StatusTooManyRequests: "Too many requests: retry after the Retry-After header's seconds.",
+}}

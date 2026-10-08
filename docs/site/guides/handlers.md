@@ -119,13 +119,14 @@ parameter), so a mistake never waits for the first request.
 For an API, return a typed value and put the status on the route:
 `.Status(http.StatusCreated)` for a route that creates something,
 `web.Empty` for one with nothing to answer (a deletion). The handler's
-signature and the route then say what the request answers, which v0.4's
-OpenAPI spec reads; `Status` takes 2xx statuses only, and errors are
-written as usual. `Status` sets what a `web.H` handler's result
-answers: a `web.Responder`, a plain handler and a `HandleStd` route
-write their own status, and ignore it. Use `web.Responder` as the output type when one
-handler returns different kinds of responses, chosen as it runs: pages'
-redirects, say.
+signature and the route then say what the request answers, which the
+API's description reads ([Describe an API with OpenAPI](openapi.md));
+`Status` takes 2xx statuses only, and errors are written as usual.
+`Status` sets what a `web.H` handler's result answers: a
+`web.Responder`, a plain handler and a `HandleStd` route write their
+own status, and ignore it. Use `web.Responder` as the output type when
+one handler returns different kinds of responses, chosen as it runs:
+pages' redirects, say.
 
 Handlers can also be plain `func(c *web.Ctx) error` and write with
 `c.JSON`, `c.Text`, `c.HTML`, `c.Blob`, `c.Redirect`, `c.RedirectRoute` or
@@ -198,7 +199,7 @@ var api handlers.API
 v1 := r.Group("/api", web.JSONErrors, a.TokenMiddleware, a.Require) // Authorization: Bearer <token>
 v1.Get("/projects", web.H(api.Projects)).Name("api.projects")
 v1.Get("/projects/{project}/issues", web.H(api.Issues)).Name("api.issues")
-v1.Post("/projects/{project}/issues", web.H(api.CreateIssue)).Name("api.issues.store")
+v1.Post("/projects/{project}/issues", web.H(api.CreateIssue)).Name("api.issues.store").Status(http.StatusCreated)
 v1.Get("/projects/{project}/issues/{number}", web.H(api.Issue)).Name("api.issues.show")
 ```
 

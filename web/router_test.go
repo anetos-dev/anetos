@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -213,7 +214,7 @@ func TestRoutesListAndRouteContext(t *testing.T) {
 		t.Errorf("std any-method route = %d", got.status)
 	}
 	routes := r.Routes()
-	if len(routes) != 2 || routes[0] != (RouteInfo{Method: "GET", Pattern: "/a/{id}", Name: "a.show"}) || routes[1].Method != "" {
+	if len(routes) != 2 || !reflect.DeepEqual(routes[0], RouteInfo{Method: "GET", Pattern: "/a/{id}", Name: "a.show"}) || routes[1].Method != "" {
 		t.Errorf("Routes = %+v", routes)
 	}
 }

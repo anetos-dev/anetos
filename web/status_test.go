@@ -5,6 +5,7 @@ package web
 import (
 	"net/http"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -109,5 +110,51 @@ func TestTypedHandlerTypes(t *testing.T) {
 		if got.Input != w.in || got.Output != w.out || got.Status != w.status {
 			t.Errorf("%s %s: %v %v %d", got.Method, got.Pattern, got.Input, got.Output, got.Status)
 		}
+	}
+}
+
+type orders struct{}
+
+func (orders) Show(*Ctx, struct{}) (order, error)   { return order{}, nil }
+func (*orders) Store(*Ctx, struct{}) (order, error) { return order{}, nil }
+
+// Routes names a typed handler's function, and reports what the route's
+// documented middleware said, outermost first.
+func TestRouteHandlerAndMiddleware(t *testing.T) {
+	doc := func(scheme string, status int) Middleware {
+		return func(next http.Handler) http.Handler {
+			return Documented(next, MiddlewareDoc{Security: scheme, Responses: map[int]string{status: scheme}})
+		}
+	}
+	plain := func(next http.Handler) http.Handler { return next }
+	r := newTestRouter()
+	g := r.Group("/api", doc("outer", 401), plain)
+	g.With(doc("inner", 403)).Get("/orders", H(orders{}.Show))
+	o := &orders{}
+	g.Post("/orders", H(o.Store))
+	g.Get("/fn", H(func(*Ctx, struct{}) (Empty, error) { return Empty{}, nil }))
+	g.Get("/plain", func(*Ctx) error { return nil })
+
+	routes := r.Routes()
+	for i, want := range []struct {
+		handler string
+		docs    []string
+	}{
+		{"web.orders.Show", []string{"outer", "inner"}},
+		{"web.orders.Store", []string{"outer"}},
+		{"web.TestRouteHandlerAndMiddleware.func3", []string{"outer"}},
+		{"", []string{"outer"}},
+	} {
+		var docs []string
+		for _, d := range routes[i].Middleware {
+			docs = append(docs, d.Security)
+		}
+		if routes[i].Handler != want.handler || !slices.Equal(docs, want.docs) {
+			t.Errorf("%s: %q %v", routes[i].Pattern, routes[i].Handler, docs)
+		}
+	}
+	// A documented handler serves as the handler it wraps.
+	if res := do(t, r, http.MethodGet, "/api/orders", nil); res.status != http.StatusOK {
+		t.Errorf("%d %s", res.status, res.body)
 	}
 }

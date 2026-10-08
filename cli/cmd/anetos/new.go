@@ -22,9 +22,10 @@ files to deploy it, and a .env with a fresh APP_KEY. The web stack (the
 default) has templ views with a layout styled by Anetos's starter theme
 (--css=none: no styles), sessions and CSRF protection, and static files
 with htmx. The api stack (--stack=api) serves JSON only: routes under
-/api/v1, errors as JSON problem details, CORS settings; no views or
-sessions. Then it downloads the dependencies and, for the web stack,
-generates the views (skip with --skip-install).
+/api/v1, errors as JSON problem details, CORS settings, an OpenAPI
+description (openapi.json); no views or sessions. Then it downloads the
+dependencies and generates the views (web) or openapi.json (api); skip
+with --skip-install.
 `
 
 func newProject(ctx context.Context, args []string, stdout, stderr io.Writer) int {
@@ -60,6 +61,9 @@ func newProject(ctx context.Context, args []string, stdout, stderr io.Writer) in
 		}
 	}
 	fmt.Fprintf(stdout, "\nNext:\n  cd %s\n", dir)
+	if *skip && *stack == "api" {
+		fmt.Fprintf(stdout, "  # go mod tidy, then go run . openapi: writes openapi.json, which main_test.go checks\n")
+	}
 	if *dbName != "sqlite" {
 		fmt.Fprintf(stdout, "  # create the database and set DB_* in .env\n")
 	}
@@ -72,7 +76,8 @@ func newProject(ctx context.Context, args []string, stdout, stderr io.Writer) in
 }
 
 // installSteps are the go commands that finish a new project of a
-// stack: templ and its generated views for the web stack only.
+// stack: templ and its generated views for the web stack only, the
+// API's description (openapi.json) for the api stack.
 func installSteps(db, stack string, replaced bool) [][]string {
 	var steps [][]string
 	if !replaced {
@@ -88,7 +93,11 @@ func installSteps(db, stack string, replaced bool) [][]string {
 			[]string{"tool", "templ", "generate"}, // views/ has no Go files before this
 		)
 	}
-	return append(steps, []string{"mod", "tidy"})
+	steps = append(steps, []string{"mod", "tidy"})
+	if stack == "api" {
+		steps = append(steps, []string{"run", ".", "openapi"}) // openapi.json, which a test checks
+	}
+	return steps
 }
 
 // anetosVersion is the version of Anetos to put in new projects: this

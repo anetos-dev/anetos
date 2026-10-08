@@ -6,6 +6,8 @@ import (
 	"context"
 	"net/http"
 	"reflect"
+	"runtime"
+	"strings"
 	"sync"
 	"unsafe"
 
@@ -101,7 +103,7 @@ func H[In, Out any](fn func(c *Ctx, in In) (Out, error)) HandlerFunc {
 		}
 		return respond(c, out, empty)
 	})
-	typedHandlers.Store(funcKey(h), handlerTypes{in: reflect.TypeFor[In](), out: reflect.TypeFor[Out]()})
+	typedHandlers.Store(funcKey(h), handlerTypes{in: reflect.TypeFor[In](), out: reflect.TypeFor[Out](), name: funcName(fn)})
 	return h
 }
 
@@ -111,7 +113,25 @@ func H[In, Out any](fn func(c *Ctx, in In) (Out, error)) HandlerFunc {
 // An entry lives as long as the program, as routes do.
 var typedHandlers sync.Map // unsafe.Pointer → handlerTypes
 
-type handlerTypes struct{ in, out reflect.Type }
+type handlerTypes struct {
+	in, out reflect.Type
+	name    string // the function's, as RouteInfo.Handler
+}
+
+// funcName is fn's name without its package path: "handlers.Posts.Store"
+// for a method value (h.Store, with a value or pointer receiver),
+// "main.main.func1" for a function literal.
+func funcName(fn any) string {
+	f := runtime.FuncForPC(reflect.ValueOf(fn).Pointer())
+	if f == nil {
+		return ""
+	}
+	name := strings.TrimSuffix(f.Name(), "-fm") // a method value's wrapper
+	if i := strings.LastIndexByte(name, '/'); i >= 0 {
+		name = name[i+1:]
+	}
+	return strings.NewReplacer("(*", "", ")", "").Replace(name)
+}
 
 // funcKey identifies a func value: the address of its closure, which
 // each call of H allocates anew. reflect.Value.Pointer can't: it is the

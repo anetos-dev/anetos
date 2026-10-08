@@ -145,28 +145,28 @@ type APINewIssue struct {
 	Labels   []string `json:"labels" validate:"max:20"`                      // the labels' names
 }
 
-// CreateIssue opens an issue (201, with the issue). Labels are given by
-// name; unknown ones are a 422.
-func (API) CreateIssue(c *web.Ctx, in APINewIssue) (web.Responder, error) {
+// CreateIssue opens an issue (201: the route's status, with the issue).
+// Labels are given by name; unknown ones are a 422.
+func (API) CreateIssue(c *web.Ctx, in APINewIssue) (APIIssue, error) {
 	project, err := loadProject(c, in.Project, access.CreateIssues)
 	if err != nil {
-		return nil, err
+		return APIIssue{}, err
 	}
 	fields := IssueFields{Title: in.Title, Body: in.Body, Priority: in.Priority}
 	if fields.Priority == "" {
 		fields.Priority = "normal"
 	}
 	if fields.Labels, err = labelIDs(c, project, in.Labels); err != nil {
-		return nil, err
+		return APIIssue{}, err
 	}
 	issue, err := openIssue(c, project, fields)
 	if err != nil {
-		return nil, err
+		return APIIssue{}, err
 	}
 	if err := db.Load(c, &issue, models.IssueRels.Labels.OrderBy(models.LabelCols.Name.Asc())); err != nil {
-		return nil, err
+		return APIIssue{}, err
 	}
-	return web.Created(apiIssue(project, issue)), nil
+	return apiIssue(project, issue), nil
 }
 
 // labelIDs returns the IDs of the project's labels with the names; an
