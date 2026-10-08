@@ -11,12 +11,14 @@ import (
 	"math"
 	"mime/multipart"
 	"reflect"
+	"regexp"
 	"runtime/debug"
 	"slices"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"anetos.dev/anetos"
 	"anetos.dev/anetos/internal/jsonfield"
@@ -189,6 +191,27 @@ func (s *schemas) of(t reflect.Type, tag string, required, input bool) *schema {
 	return sc
 }
 
+// schemePattern matches the schemes the url rule takes (http and https
+// unless it names others), whatever their case.
+func schemePattern(schemes []string) string {
+	if len(schemes) == 0 {
+		schemes = []string{"http", "https"}
+	}
+	alts := make([]string, len(schemes))
+	for i, s := range schemes {
+		var b strings.Builder
+		for _, r := range strings.ToLower(s) {
+			if u := unicode.ToUpper(r); u != r {
+				b.WriteString("[" + string(r) + string(u) + "]")
+			} else {
+				b.WriteString(regexp.QuoteMeta(string(r)))
+			}
+		}
+		alts[i] = b.String()
+	}
+	return "^(" + strings.Join(alts, "|") + "):"
+}
+
 // blank is the empty value of JSON type typ that validate's rules skip.
 func blank(typ string) *schema {
 	switch typ {
@@ -348,6 +371,9 @@ func applyRules(sc *schema, tag string, required bool) (restricted bool) {
 			}
 		case jsonfield.Formats[r.Name] != "" && sc.typ == "string":
 			sc.format = jsonfield.Formats[r.Name]
+			if r.Name == "url" {
+				sc.pattern = schemePattern(r.Params) // uri allows any scheme; url, http and https
+			}
 		case r.Name == "distinct" && sc.typ == "array":
 			sc.unique = true
 		}

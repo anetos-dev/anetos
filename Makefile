@@ -62,7 +62,7 @@ api-docs: ## Check every exported identifier has a doc comment
 	@$(GO) run ./internal/cmd/doccheck
 
 gen-check: ## Check generated model columns are up to date
-	@for m in examples/database examples/forms examples/saas examples/tracker examples/tutorial; do (cd $$m && $(GO) tool anetos gen -check) || exit 1; done
+	@for m in examples/database examples/forms examples/saas examples/tracker examples/tutorial examples/bookmarks; do (cd $$m && $(GO) tool anetos gen -check) || exit 1; done
 
 tidy: ## go mod tidy
 	@$(EACH) $(GO) mod tidy $(DONE)

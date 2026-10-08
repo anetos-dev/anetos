@@ -1296,6 +1296,19 @@ request.
 - **Not in v0.4 (D280):** a page that renders the document, client
   generation.
 
+**The API's docs and example (AP5, D281–D284).** Getting started has
+an API path: create a project with `--stack=api`, `make:crud`'s
+endpoints, the API's accounts, then "Tutorial: build an API", one page
+that builds `examples/bookmarks`: `anetos new --stack=api`,
+`make:auth`, `make:crud Bookmark …`, then bookmarks owned by their user
+(a `user_id` column, queries scoped to it, another user's a 404), the
+routes in `make:auth`'s `me` group, abilities per route with the new
+`auth.RequireAbilities`, an action returning `web.Empty`, tests and
+`openapi.json`. The tutorial quotes the example's regions; cli's
+`TestAPITutorialProject` checks the example against the generators, as
+`TestTutorialProject` does `examples/tutorial` (D281, D282). The
+OpenAPI guide keeps the steps and the reference page the rules (D284).
+
 **Composing stacks (D259).** `anetos new` builds a project from layers of
 templates: `base` (every project: `go.mod`, `main.go`, settings,
 migrations, models, factories, plugins, deploy files, README) and one
@@ -3022,6 +3035,10 @@ unless new information arrives), **Open**, **Superseded**.
 | D278 | Middleware describe themselves: `web.Documented(h, web.MiddlewareDoc{Security, Scopes, Responses})` wraps the handler a middleware returns, and the router records the docs of each route while composing its chain (`RouteInfo.Middleware`; a middleware returning its `next` unchanged isn't counted twice). `auth.Require` documents scheme `bearer` and 401, `TokenMiddleware` 401, `rbac.Require` 401 and 403, `ratelimit.Middleware` 429. `bearer` is built in; other schemes come from `Config.SecuritySchemes`; scopes (a token's abilities) are OpenAPI 3.1's role names. `RouteInfo` is no longer comparable with `==` | Accepted | Middleware are opaque functions; the route can't know that `a.Require` needs a token unless the middleware says so. Annotating routes (`.Secured("bearer")`) would repeat what the middleware already enforces and drift from it. The chain is composed once at registration, so recording costs nothing per request; the wrapper adds one pointer per handler and no allocation per request |
 | D279 | The document is a committed file (`Config.File`, `openapi.json`), byte-stable (sorted paths and components, fixed key order, two-space indent, no HTML escaping): `openapi.ForApp` adds the `openapi` command (`--check`, `--out`; `ManagesApp`, so no boot and no database) and serves the document at `Config.Path`, built on the first request. `openapi.Check` in a test is the CI check. An API project gets `routes.OpenAPI`, the `ForApp` call, the file and `TestOpenAPI`; `anetos new --stack=api`, `make:auth` and `make:crud` run `go run . openapi` (a failure is reported, not fatal) | Accepted | A committed document shows API changes in code review, and clients can be built against a version. A test is how every project's CI already runs, with no CI file to generate; the command keeps working without a database, as `help` does. Serving it lets tools fetch it from a running app; the description is no secret beside the routes it lists, and a developer who disagrees deletes `Path` |
 | D280 | Not in v0.4: a page rendering the document and client code generation | Accepted | A docs page without a CDN means vendoring Swagger UI or Redoc (megabytes of JavaScript) into the core or a module of its own; any OpenAPI viewer or editor reads the file today. Client generation is out of v0.4's scope (D243); generators exist for every language |
+| D281 | The API path of getting started ends in "Tutorial: build an API", one page building `examples/bookmarks` (a new small project, chosen with the user over splitting the tracker's API out), made by the generators and the tutorial's changes; `TestAPITutorialProject` compares the example with `anetos new --stack=api`, `make:auth` and `make:crud`'s output: the files the tutorial edits with its edits undone (each edit must still be in the example), the files it rewrites by the lines it keeps | Accepted | An API has no pages to build, so its tutorial is a page, not seven; the example being the generators' output plus the tutorial's steps keeps the tutorial true when a template changes, as for `examples/tutorial` (TestTutorialProject). A small bookmarks API shows what every API needs (ownership, tokens, abilities, an action, tests, the description) without a domain to explain |
+| D282 | `examples/bookmarks` has the SPDX header on every Go file, which the comparison strips, rather than `examples/tutorial`'s exemption from the header check | Accepted | Keeps the license-header rule (and `CLAUDE.md`'s statement of it) as it is: one exemption, for the web tutorial. The headers are one line the tutorial never shows; a reader's project wouldn't have them, which the comparison allows for |
+| D283 | `auth.RequireAbilities(abilities...)` is middleware: through for a request that may do every ability (`TokenCan`), 403 for a token without one, 401 with `WWW-Authenticate: Bearer` for a guest (it goes after `Require`, which sends pages' guests to the login page), the error of a user who can't be loaded; it documents the abilities as the bearer scheme's scopes and the 401/403 (D278). `make:auth`'s API account group uses `RequireAbilities("*")`, replacing the generated `fullAccess` | Accepted | Abilities are mostly per route; on the route they show in the routes file and in the API's description, where a `TokenCan` call inside a handler is invisible. A core middleware replaces code every API project carried; `TokenCan` stays for checks that depend on the request's data |
+| D284 | The OpenAPI docs are a guide (the steps, a summary of what goes in the document) and a reference page (`reference/openapi.md`: the API, `Config`, the command, operations, schemas, validation rules, middleware, warnings) | Accepted | The documentation guide's split (how-to vs reference): the rules tables grew past what a guide should carry, and readers look them up rather than read them |
 
 ---
 
@@ -3109,3 +3126,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-08 | v0.4 AP2 (API accounts): §12.2, §15 updated; D263–D268 added |
 | 2026-10-08 | v0.4 AP3 (JSON CRUD): §8.2, §12.2 updated; D269 (typed results' status), D270–D274 added |
 | 2026-10-08 | v0.4 AP4 (OpenAPI): §12.2 updated; D275–D280 added |
+| 2026-10-08 | v0.4 AP5 (API docs and example): §12.2 updated; D281–D284 added |

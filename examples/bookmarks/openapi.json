@@ -1,0 +1,2045 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bookmarks",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "paths": {
+    "/api/v1": {
+      "get": {
+        "tags": [
+          "Welcome"
+        ],
+        "operationId": "api.welcome",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WelcomeResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/bookmarks": {
+      "get": {
+        "tags": [
+          "Bookmarks"
+        ],
+        "operationId": "api.bookmarks.index",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "id",
+                    "-id",
+                    "created_at",
+                    "-created_at",
+                    "updated_at",
+                    "-updated_at",
+                    "url",
+                    "-url",
+                    "title",
+                    "-title",
+                    "archived",
+                    "-archived"
+                  ]
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\s*$"
+                }
+              ]
+            }
+          },
+          {
+            "name": "url",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "title",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "archived",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageBookmarkResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidValues"
+          },
+          "401": {
+            "description": "The API token is invalid, expired or revoked. The request isn't signed in: it has no valid API token.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The token lacks an ability the operation needs: bookmarks:read.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "bookmarks:read"
+            ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Bookmarks"
+        ],
+        "operationId": "api.bookmarks.store",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BookmarkInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookmarkResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidValues"
+          },
+          "401": {
+            "description": "The API token is invalid, expired or revoked. The request isn't signed in: it has no valid API token.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The token lacks an ability the operation needs: bookmarks:write.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "bookmarks:write"
+            ]
+          }
+        ]
+      }
+    },
+    "/api/v1/bookmarks/{id}": {
+      "get": {
+        "tags": [
+          "Bookmarks"
+        ],
+        "operationId": "api.bookmarks.show",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookmarkResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidValues"
+          },
+          "401": {
+            "description": "The API token is invalid, expired or revoked. The request isn't signed in: it has no valid API token.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The token lacks an ability the operation needs: bookmarks:read.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "bookmarks:read"
+            ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Bookmarks"
+        ],
+        "operationId": "api.bookmarks.update",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BookmarkInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookmarkResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidValues"
+          },
+          "401": {
+            "description": "The API token is invalid, expired or revoked. The request isn't signed in: it has no valid API token.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The token lacks an ability the operation needs: bookmarks:write.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "bookmarks:write"
+            ]
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Bookmarks"
+        ],
+        "operationId": "api.bookmarks.destroy",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidValues"
+          },
+          "401": {
+            "description": "The API token is invalid, expired or revoked. The request isn't signed in: it has no valid API token.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The token lacks an ability the operation needs: bookmarks:write.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "bookmarks:write"
+            ]
+          }
+        ]
+      }
+    },
+    "/api/v1/bookmarks/{id}/archive": {
+      "post": {
+        "tags": [
+          "Bookmarks"
+        ],
+        "operationId": "api.bookmarks.archive",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidValues"
+          },
+          "401": {
+            "description": "The API token is invalid, expired or revoked. The request isn't signed in: it has no valid API token.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The token lacks an ability the operation needs: bookmarks:write.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "bookmarks:write"
+            ]
+          }
+        ]
+      }
+    },
+    "/api/v1/email/verification-notification": {
+      "post": {
+        "tags": [
+          "Accounts"
+        ],
+        "operationId": "api.verification.send",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "The API token is invalid, expired or revoked. The request isn't signed in: it has no valid API token.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests: retry after the Retry-After header's seconds.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/forgot-password": {
+      "post": {
+        "tags": [
+          "Accounts"
+        ],
+        "operationId": "api.password.email",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidValues"
+          },
+          "401": {
+            "description": "The API token is invalid, expired or revoked.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "429": {
+            "description": "Too many requests: retry after the Retry-After header's seconds.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/login": {
+      "post": {
+        "tags": [
+          "Accounts"
+        ],
+        "operationId": "api.login",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignInResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidValues"
+          },
+          "401": {
+            "description": "The API token is invalid, expired or revoked.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/login/two-factor": {
+      "post": {
+        "tags": [
+          "Accounts"
+        ],
+        "operationId": "api.login.two-factor",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChallengeInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignInResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidValues"
+          },
+          "401": {
+            "description": "The API token is invalid, expired or revoked.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/logout": {
+      "post": {
+        "tags": [
+          "Accounts"
+        ],
+        "operationId": "api.logout",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "The API token is invalid, expired or revoked. The request isn't signed in: it has no valid API token.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me": {
+      "get": {
+        "tags": [
+          "Accounts"
+        ],
+        "operationId": "api.me",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API token is invalid, expired or revoked. The request isn't signed in: it has no valid API token.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/password": {
+      "put": {
+        "tags": [
+          "Accounts"
+        ],
+        "operationId": "api.password.change",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidValues"
+          },
+          "401": {
+            "description": "The API token is invalid, expired or revoked. The request isn't signed in: it has no valid API token.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The token lacks an ability the operation needs: *.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ]
+      }
+    },
+    "/api/v1/register": {
+      "post": {
+        "tags": [
+          "Accounts"
+        ],
+        "operationId": "api.register",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignInResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidValues"
+          },
+          "401": {
+            "description": "The API token is invalid, expired or revoked.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "429": {
+            "description": "Too many requests: retry after the Retry-After header's seconds.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/reset-password": {
+      "post": {
+        "tags": [
+          "Accounts"
+        ],
+        "operationId": "api.password.reset",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidValues"
+          },
+          "401": {
+            "description": "The API token is invalid, expired or revoked.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "429": {
+            "description": "Too many requests: retry after the Retry-After header's seconds.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/tokens": {
+      "get": {
+        "tags": [
+          "Accounts"
+        ],
+        "operationId": "api.tokens.index",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TokenResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API token is invalid, expired or revoked. The request isn't signed in: it has no valid API token.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The token lacks an ability the operation needs: *.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Accounts"
+        ],
+        "operationId": "api.tokens.store",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewTokenInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NewTokenResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidValues"
+          },
+          "401": {
+            "description": "The API token is invalid, expired or revoked. The request isn't signed in: it has no valid API token.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The token lacks an ability the operation needs: *.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ]
+      }
+    },
+    "/api/v1/tokens/{id}": {
+      "delete": {
+        "tags": [
+          "Accounts"
+        ],
+        "operationId": "api.tokens.destroy",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidValues"
+          },
+          "401": {
+            "description": "The API token is invalid, expired or revoked. The request isn't signed in: it has no valid API token.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The token lacks an ability the operation needs: *.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ]
+      }
+    },
+    "/api/v1/two-factor": {
+      "get": {
+        "tags": [
+          "Accounts"
+        ],
+        "operationId": "api.two-factor",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwoFactorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API token is invalid, expired or revoked. The request isn't signed in: it has no valid API token.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The token lacks an ability the operation needs: *.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Accounts"
+        ],
+        "operationId": "api.two-factor.start",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwoFactorSetupResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidValues"
+          },
+          "401": {
+            "description": "The API token is invalid, expired or revoked. The request isn't signed in: it has no valid API token.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The token lacks an ability the operation needs: *.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ]
+      }
+    },
+    "/api/v1/two-factor/confirm": {
+      "post": {
+        "tags": [
+          "Accounts"
+        ],
+        "operationId": "api.two-factor.confirm",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CodeInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryCodesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidValues"
+          },
+          "401": {
+            "description": "The API token is invalid, expired or revoked. The request isn't signed in: it has no valid API token.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The token lacks an ability the operation needs: *.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ]
+      }
+    },
+    "/api/v1/two-factor/disable": {
+      "post": {
+        "tags": [
+          "Accounts"
+        ],
+        "operationId": "api.two-factor.disable",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidValues"
+          },
+          "401": {
+            "description": "The API token is invalid, expired or revoked. The request isn't signed in: it has no valid API token.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The token lacks an ability the operation needs: *.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ]
+      }
+    },
+    "/api/v1/two-factor/recovery-codes": {
+      "post": {
+        "tags": [
+          "Accounts"
+        ],
+        "operationId": "api.two-factor.recovery-codes",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryCodesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidValues"
+          },
+          "401": {
+            "description": "The API token is invalid, expired or revoked. The request isn't signed in: it has no valid API token.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The token lacks an ability the operation needs: *.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ]
+      }
+    },
+    "/api/v1/verify-email": {
+      "post": {
+        "tags": [
+          "Accounts"
+        ],
+        "operationId": "api.verification.verify",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidValues"
+          },
+          "401": {
+            "description": "The API token is invalid, expired or revoked.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "429": {
+            "description": "Too many requests: retry after the Retry-After header's seconds.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": []
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BookmarkInput": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "minLength": 1,
+            "maxLength": 255,
+            "pattern": "^([hH][tT][tT][pP]|[hH][tT][tT][pP][sS]):"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 10000
+          },
+          "archived": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "url",
+          "title"
+        ]
+      },
+      "BookmarkResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "url": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "title",
+          "notes",
+          "archived",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "ChallengeInput": {
+        "type": "object",
+        "properties": {
+          "challenge": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 30
+          },
+          "device_name": {
+            "type": "string",
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "challenge",
+          "code"
+        ]
+      },
+      "ChangePasswordInput": {
+        "type": "object",
+        "properties": {
+          "current_password": {
+            "type": "string",
+            "minLength": 1
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 1024
+          },
+          "password_confirmation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "current_password",
+          "password"
+        ]
+      },
+      "CodeInput": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 30
+          }
+        },
+        "required": [
+          "code"
+        ]
+      },
+      "EmailInput": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "minLength": 1,
+            "maxLength": 255
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "LinkInput": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "required": [
+          "token"
+        ]
+      },
+      "LoginInput": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "minLength": 1
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1
+          },
+          "device_name": {
+            "type": "string",
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "NewTokenInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "abilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "uniqueItems": true
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "name",
+          "password"
+        ]
+      },
+      "NewTokenResponse": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "abilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "last_used_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "current": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "token",
+          "id",
+          "name",
+          "abilities",
+          "last_used_at",
+          "expires_at",
+          "created_at",
+          "current"
+        ]
+      },
+      "PageBookmarkResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BookmarkResponse"
+            }
+          },
+          "current_page": {
+            "type": "integer"
+          },
+          "per_page": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "last_page": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data",
+          "current_page",
+          "per_page",
+          "total",
+          "last_page"
+        ]
+      },
+      "PasswordInput": {
+        "type": "object",
+        "properties": {
+          "password": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "password"
+        ]
+      },
+      "Problem": {
+        "type": "object",
+        "description": "Problem details (RFC 9457).",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "\"about:blank\": the status says what happened."
+          },
+          "title": {
+            "type": "string",
+            "description": "The status's title, in the request's language."
+          },
+          "status": {
+            "type": "integer",
+            "description": "The HTTP status."
+          },
+          "detail": {
+            "type": "string",
+            "description": "What went wrong, for people."
+          },
+          "errors": {
+            "type": "object",
+            "description": "A message per field of the request that has a problem.",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "request_id": {
+            "type": "string",
+            "description": "The request's ID, as in the logs."
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status"
+        ]
+      },
+      "RecoveryCodesResponse": {
+        "type": "object",
+        "properties": {
+          "recovery_codes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "recovery_codes"
+        ]
+      },
+      "RegisterInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 1024
+          },
+          "password_confirmation": {
+            "type": "string"
+          },
+          "device_name": {
+            "type": "string",
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "name",
+          "email",
+          "password"
+        ]
+      },
+      "ResetInput": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 1024
+          },
+          "password_confirmation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "password"
+        ]
+      },
+      "SignInResponse": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "user": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "two_factor": {
+            "type": "boolean"
+          },
+          "challenge": {
+            "type": "string"
+          }
+        }
+      },
+      "TokenResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "abilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "last_used_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "current": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "abilities",
+          "last_used_at",
+          "expires_at",
+          "created_at",
+          "current"
+        ]
+      },
+      "TwoFactorResponse": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "started": {
+            "type": "boolean"
+          },
+          "recovery_codes": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "enabled",
+          "started",
+          "recovery_codes"
+        ]
+      },
+      "TwoFactorSetupResponse": {
+        "type": "object",
+        "properties": {
+          "secret": {
+            "type": "string"
+          },
+          "uri": {
+            "type": "string"
+          },
+          "qr_code": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "secret",
+          "uri",
+          "qr_code"
+        ]
+      },
+      "UserResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "email_verified_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "email",
+          "email_verified_at",
+          "created_at"
+        ]
+      },
+      "WelcomeResponse": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "message"
+        ]
+      }
+    },
+    "responses": {
+      "Error": {
+        "description": "An error: problem details.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "InvalidInput": {
+        "description": "The input isn't valid: problem details with an error per field.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "InvalidValues": {
+        "description": "The request's values can't be read: problem details with an error per field.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "An API token, sent as \"Authorization: Bearer <token>\"."
+      }
+    }
+  }
+}

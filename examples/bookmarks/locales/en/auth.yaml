@@ -1,0 +1,30 @@
+# The account API's and emails' English text (anetos make:auth): yours to
+# change. Translate it with a file of the same keys in another locale's
+# folder (locales/bn/auth.yaml); the request's Accept-Language header
+# picks the language.
+auth:
+  errors:
+    name_required: "The name field is required."
+    email_taken: "The email has already been taken."
+    credentials: "These credentials don't match our records."
+    disabled: "This account is disabled."
+    throttled: "Too many login attempts. Try again in a minute."
+    link_other_email: "This link is for another email address."
+    too_many_emails: "Too many emails. Try again later."
+    reset_invalid: "This reset link is invalid or has expired. Ask for a new one."
+    code: "That code isn't right."
+    password: "That isn't your password."
+    password_too_long: "That password is too long."
+    sign_in_again: "Please log in again."
+  mail:
+    hello: "Hello {name},"
+    verify:
+      subject: "Verify your email address"
+      intro: "Please confirm your email address:"
+      button: "Verify my email address"
+      ignore: "If you didn't create an account, ignore this email."
+    reset:
+      subject: "Reset your password"
+      intro: "Someone asked to reset the password of your account. If it was you:"
+      button: "Choose a new password"
+      ignore: "The link expires soon, and works once. If you didn't ask, ignore this email: your password stays the same."

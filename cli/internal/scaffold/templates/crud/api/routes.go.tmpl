@@ -11,8 +11,8 @@ import (
 // [[.Plural]] adds the [[.PluralW]] API (anetos make:crud): Register calls it
 // with its api group (/api/v1). It's open to every client: to let only
 // clients with a token in (after make:auth), call it from routes/auth.go
-// with the me group instead, and check the token's abilities in the
-// handlers with auth.TokenCan.
+// with the me group instead, and require the token's abilities with
+// auth.RequireAbilities.
 func [[.Plural]](r *web.Router) {
 	var h handlers.[[.Plural]]
 	r.Get("/[[.Path]]", web.H(h.Index)).Name("[[.Path]].index")

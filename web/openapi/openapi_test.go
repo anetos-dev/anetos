@@ -399,7 +399,16 @@ func TestAsServed(t *testing.T) {
 	r.Post("/flags", web.H(func(*web.Ctx, Flags) (web.Empty, error) { return web.Empty{}, nil }))
 	r.Get("/any", web.H(func(*web.Ctx, struct{}) (any, error) { return nil, nil }))
 	r.Get("/fn", web.H(handler))
+	r.Post("/link", web.H(func(*web.Ctx, struct {
+		Link string `json:"link" validate:"required|url:https"`
+	}) (web.Empty, error) {
+		return web.Empty{}, nil
+	}))
 	doc, warnings := spec(t, r)
+	// The url rule's schemes, not any URI's.
+	if !strings.Contains(compact(string(doc.Paths["/link"]["post"])), `"format":"uri","minLength":1,"pattern":"^([hH][tT][tT][pP][sS]):"`) {
+		t.Errorf("/link: %s", doc.Paths["/link"]["post"])
+	}
 
 	// A type named Problem doesn't take the problem details' name.
 	if _, ok := doc.Components.Schemas["Problem2"]; !ok || !strings.Contains(compact(string(doc.Paths["/problem"]["get"])), `"#/components/schemas/Problem2"`) {

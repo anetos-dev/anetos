@@ -348,7 +348,7 @@ var authAPINames = map[string][]string{
 	"app/models":         {"User", "Users", "UserCols"},
 	"app/handlers":       {"Accounts", "signInTTL", "tokenTTL", "UserResponse", "userResponse", "SignInResponse", "RegisterInput", "LoginInput", "ChallengeInput", "EmailInput", "LinkInput", "ResetInput", "ChangePasswordInput", "PasswordInput", "CodeInput", "NewTokenInput", "TokenID", "TokenResponse", "NewTokenResponse", "TwoFactorResponse", "TwoFactorSetupResponse", "RecoveryCodesResponse", "emailTaken", "cleanName", "SendVerification", "SendPasswordReset", "tooMany", "tooManyFor", "tokenResponse"},
 	"app/mailers":        {"authHTML", "authMail", "authMailData", "authBody", "VerifyEmail", "ResetPassword"},
-	"routes":             {"Auth", "fullAccess"},
+	"routes":             {"Auth"},
 	"database/factories": {"Users", "UserPassword", "userHash"},
 	"":                   {"setupAuth", "authClient", "authApp", "authRegister", "linkToken", "authLogin", "TestRegisterAndVerify", "TestResendVerification", "TestRegisterValidation", "TestLoginAndLogout", "TestLoginThrottled", "TestTwoFactor", "TestDisabledAccount", "TestPasswordReset", "TestResetOfUnverifiedAddress", "TestResetRevokesTokens", "TestChangePassword", "TestAPITokens"},
 }

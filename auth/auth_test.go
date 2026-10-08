@@ -11,6 +11,7 @@ import (
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -807,4 +808,56 @@ func TestDefaultHomeURL(t *testing.T) {
 	if _, err := auth.ForApp(app, newStore(t).users(), auth.DefaultHomeURL("https://example.com/")); err == nil || !strings.Contains(err.Error(), "AUTH_HOME_URL") {
 		t.Errorf("an absolute URL: %v", err)
 	}
+}
+
+// RequireAbilities lets through a token with the abilities, a session,
+// and refuses a token without them (403) and a guest (401).
+func TestRequireAbilities(t *testing.T) {
+	s := newStore(t)
+	_, _, app := newAppWith(t, s)
+	ctx := app.Context(context.Background())
+	mw := auth.RequireAbilities("posts:read", "posts:write")
+	h := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusNoContent) }))
+	reader, _ := auth.ActAs(ctx, "2", auth.WithAbilities([]string{"posts:read"}))
+	writer, _ := auth.ActAs(ctx, "2", auth.WithAbilities([]string{"posts:read", "posts:write"}))
+	all, _ := auth.ActAs(ctx, "2", auth.WithAbilities([]string{"*"}))
+	session, _ := auth.ActAs(ctx, "2")
+	for _, c := range []struct {
+		name   string
+		ctx    context.Context
+		status int
+	}{
+		{"guest", ctx, http.StatusUnauthorized},
+		{"reader", reader, http.StatusForbidden},
+		{"writer", writer, http.StatusNoContent},
+		{"every ability", all, http.StatusNoContent},
+		{"session", session, http.StatusNoContent},
+	} {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequestWithContext(c.ctx, http.MethodGet, "/", nil))
+		if rec.Code != c.status || c.status == http.StatusUnauthorized && rec.Header().Get("WWW-Authenticate") != "Bearer" {
+			t.Errorf("%s: %d %v", c.name, rec.Code, rec.Header())
+		}
+	}
+	// A user that can't be loaded is that error, not a guest.
+	s.failLoads = true
+	failing, _ := auth.ActAs(ctx, "2", auth.WithAbilities([]string{"*"}))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequestWithContext(failing, http.MethodGet, "/", nil))
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("load failure: %d", rec.Code)
+	}
+	s.failLoads = false
+
+	r := web.NewRouter()
+	r.With(mw).Get("/x", func(*web.Ctx) error { return nil })
+	if docs := r.Routes()[0].Middleware; len(docs) != 1 || docs[0].Security != "bearer" || !slices.Equal(docs[0].Scopes, []string{"posts:read", "posts:write"}) {
+		t.Errorf("doc: %+v", docs)
+	}
+	defer func() {
+		if recover() == nil {
+			t.Error("no abilities accepted")
+		}
+	}()
+	auth.RequireAbilities()
 }

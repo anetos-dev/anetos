@@ -107,87 +107,70 @@ document.
 The document can't look inside a middleware: a middleware tells it, by
 returning its handler through `web.Documented`. Package `auth`'s
 `Require` says its routes need a bearer token (and may answer 401),
-`TokenMiddleware` that a bad token is a 401, `rbac.Require` 401 and
-403, `ratelimit.Middleware` 429. Your own:
+`RequireAbilities("bookmarks:write")` that the token needs those
+abilities (its scopes, and 403), `TokenMiddleware` that a bad token is a
+401, `rbac.Require` 401 and 403, `ratelimit.Middleware` 429. Your own,
+for a key partners send in a header:
 
 ```go
 // illustrative
-func fullAccess(next http.Handler) http.Handler {
+func partnerKey(next http.Handler) http.Handler {
 	return web.Documented(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !auth.TokenCan(r.Context(), "*") {
-			web.WriteError(w, r, auth.ErrForbidden)
+		if !validPartnerKey(r.Header.Get("X-Partner-Key")) {
+			web.WriteError(w, r, web.Error(http.StatusUnauthorized, "A partner key is needed."))
 			return
 		}
 		next.ServeHTTP(w, r)
-	}), web.MiddlewareDoc{Security: "bearer", Scopes: []string{"*"},
-		Responses: map[int]string{http.StatusForbidden: "The token lacks the * ability."}})
+	}), web.MiddlewareDoc{Security: "partnerKey",
+		Responses: map[int]string{http.StatusUnauthorized: "No valid partner key."}})
 }
 ```
 
 `Security` names a scheme: `bearer` is built in; give others in
-`Config.SecuritySchemes` (`{Type: "apiKey", In: "header", Name:
-"X-API-Key"}`). `Scopes` are what the credentials must allow (a token's
-abilities). Only the middleware of the route's groups and `With` is
-seen, not `UseGlobal`'s.
+`Config.SecuritySchemes`:
+
+```go
+// illustrative
+var OpenAPI = openapi.Config{
+	Title: "Shop", Prefix: "/api/v1",
+	SecuritySchemes: map[string]openapi.SecurityScheme{
+		"partnerKey": {Type: "apiKey", In: "header", Name: "X-Partner-Key"},
+	},
+}
+```
+
+`Scopes` are what the credentials must allow (a token's abilities).
+Only the middleware of the route's groups and `With` is seen, not
+`UseGlobal`'s.
 
 ## How it works
 
 Each typed route under the prefix is an operation, named by the route's
 name (`operationId`), grouped by its handler's type (`tags`: the
-`Products` of `h.Index`).
+`Bookmarks` of `h.Index`).
 
-**Inputs**, as `web.H` binds them: `path`, `query` and `header` fields
-are parameters; the other fields are the JSON body (a
-`multipart/form-data` body when the input has files). The `validate`
-rules say what JSON Schema can:
+- **Inputs**, as `web.H` binds them: `path`, `query` and `header`
+  fields are parameters; the other fields are the JSON body (a
+  `multipart/form-data` body when the input has files; none for GET).
+  The `validate` rules become what JSON Schema can say: `required`,
+  lengths and bounds, `enum`, formats. A field that isn't required may
+  also be blank, as `validate` lets it be.
+- **Results**, as `encoding/json` writes them: the route's status
+  (`Status`, 200 by default) with the result's schema; `web.Empty` and
+  204 without a body. Fields without `omitempty` are required, pointers
+  nullable; slices and maps aren't, so answer empty ones, not nil.
+- **Schemas** of named structs are components named after the Go type
+  (`BookmarkResponse`; `PageBookmarkResponse` for
+  `db.Page[BookmarkResponse]`).
+- **Errors** are problem details (the `Problem` schema): 400 when the
+  input has values to read, 422 when it has validate rules or a
+  `Validate` method, the middleware's, and `default` for any other.
+- **Security** comes from the middleware (step 5); when some operations
+  need credentials, the others say they don't (`security: []`).
 
-| Rule | Schema |
-|---|---|
-| `required` | Listed in `required`; a string at least 1 character long, an array or map not empty; a number not 0 and a bool `true` (unless the field is a pointer), as `required` checks |
-| `min`, `max`, `size`, `between` | `minLength`/`maxLength` (strings), `minimum`/`maximum` (numbers), `minItems`/`maxItems` (slices), `minProperties`/`maxProperties` (maps) |
-| `in` | `enum` |
-| `email`, `url`, `uuid`, `date`, `datetime`, `ipv4`, `ipv6` | `format` |
-| `distinct` | `uniqueItems` |
-
-The other rules skip an empty value, so a field that isn't `required`
-may also be blank: its schema is `anyOf` the constrained one and a blank
-string (or an empty array or map). Rules JSON Schema has no keyword for
-(`unique`, `confirmed`, `after`…) are still checked; the schema doesn't
-show them. A `time.Duration` parameter is text (`30s`), as the binding
-reads it. GET and HEAD requests have no body.
-
-**Results**, as `encoding/json` writes them: the route's status
-(`Status`, 200 by default) with the result's schema; `web.Empty` and
-204 without a body. Every field without `omitempty` is listed in
-`required` (not those of an embedded pointer, left out when it's nil);
-pointers are nullable (`["string", "null"]`), slices and maps aren't:
-answer empty ones, not nil.
-
-| Go | Schema |
-|---|---|
-| `string`, `bool` | `string`, `boolean` |
-| integers, floats | `integer`, `number` (`int64`, `double`… as `format`) |
-| `time.Time`, `anetos.Date` | `string`, `date-time`, `date` |
-| `[]byte` | `string`, base64 |
-| slices, maps | `array`, `object` with `additionalProperties` |
-| a named struct | a component (`#/components/schemas/ProductResponse`); `db.Page[ProductResponse]` is `PageProductResponse` |
-| an `encoding.TextMarshaler` | `string` |
-| an interface, a `json.Marshaler` | any value |
-
-A type used for a body and a result has two components, the body's
-named `…Input`. Two types of one name in different packages get their
-package's name first (`handlers.Order`); a type named `Problem` becomes
-`Problem2`. Two routes OpenAPI can't tell apart (`GET /a/{id}` and
-`DELETE /a/{key}`, or one path on two hosts) are an error.
-
-**Errors** are problem details (`application/problem+json`, the
-`Problem` schema): 400 when the input has values to read, 422 when it
-has validate rules or a `Validate` method, the middleware's, and
-`default` for any other.
-
-**Security** comes from the middleware (step 5): an operation behind
-`auth.Require` lists `bearer`; when some operations need credentials,
-the others say they don't (`security: []`).
+The [OpenAPI reference](../reference/openapi.md) has every rule: the
+types' schemas, the validation rules' keywords, the names, the
+warnings.
 
 ## Testing it
 
@@ -216,6 +199,10 @@ get it, `go tool anetos dev` and open `/api/openapi.json`, or load
 
 ## Next steps
 
+- [OpenAPI reference](../reference/openapi.md): every rule of the
+  document.
+- [Tutorial: build an API](../getting-started/build-an-api.md): an API
+  whose document grows step by step.
 - [Handlers](handlers.md): typed handlers, `Status` and `web.Empty`.
 - [Add accounts to an API](api-accounts.md): the bearer tokens the
   document describes.

@@ -87,9 +87,19 @@ All notable changes to this project are documented here. The format follows
   by `go run . openapi` after the install, served at
   `/api/v1/openapi.json`, its config in `routes/api.go`
   (`routes.OpenAPI`) and a test that it's up to date; `make:auth` and
-  `make:crud` update it, and `make:auth`'s `fullAccess` documents the
-  `*` ability it needs (AP4, D279). `examples/tracker` describes its
+  `make:crud` update it (AP4, D279). `examples/tracker` describes its
   API the same way.
+- `auth.RequireAbilities(abilities...)`: middleware letting through
+  requests whose token has the abilities (a session's request may do
+  anything its user may); 403 for a token without them, 401 for a
+  guest. API descriptions list the abilities as the bearer token's
+  scopes (AP5, D283).
+- "Tutorial: build an API" in getting started, with
+  `examples/bookmarks`, the JSON API it builds:
+  `anetos new --stack=api`, `make:auth`, `make:crud`, bookmarks that are
+  each user's, tokens limited to reading, an action of its own, tests
+  and the OpenAPI description; getting started gains the API path; the
+  OpenAPI reference (AP5, D281, D282, D284).
 
 ### Changed
 - `plugins/postmark` works with Anetos v0.4 too (`Requires`:
@@ -100,6 +110,10 @@ All notable changes to this project are documented here. The format follows
 - `examples/tracker`'s `POST /api/projects/{project}/issues` is a typed
   handler with `Status(201)`, and `GET /api/me` a typed handler, so the
   document describes them (AP4).
+- `make:auth` in an API project guards the account's routes with
+  `auth.RequireAbilities("*")` in place of a generated `fullAccess`
+  middleware; `make:crud`'s API routes point to `RequireAbilities` for
+  abilities (AP5, D283).
 - `anetos new` pins templ v0.3.1070 (was v0.3.1020), as the examples
   now use (M10).
 - Dependencies updated in every module; the Google API client stays

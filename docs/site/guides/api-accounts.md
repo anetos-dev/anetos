@@ -119,12 +119,16 @@ A token with narrower abilities than `*` uses your API but not the
 account: `/password`, `/tokens` and `/two-factor` answer it 403, so a
 leaked integration token can't make more tokens or revoke the user's
 others. `GET /api/v1/tokens` lists the user's tokens (`current` marks
-the request's), and `DELETE /api/v1/tokens/{id}` revokes one. Check an
-ability in your handlers with `auth.TokenCan`:
+the request's), and `DELETE /api/v1/tokens/{id}` revokes one. Require
+abilities on routes with `auth.RequireAbilities` (a token without them
+gets 403, and `openapi.json` lists them), or check one in a handler with
+`auth.TokenCan`:
 
 ```go
 // illustrative
-if !auth.TokenCan(c, "orders.write") {
+me.With(auth.RequireAbilities("orders:write")).Post("/orders", web.H(h.Create))
+
+if !auth.TokenCan(c, "orders:write") {
 	return nil, web.Error(http.StatusForbidden, "")
 }
 ```
@@ -202,8 +206,8 @@ hour per user, logins and codes as `AUTH_THROTTLE` and
 `make:auth` updates `openapi.json`, the API's description
 ([Describe an API with OpenAPI](openapi.md)): the account's operations,
 their inputs and responses, and the bearer token the `me` routes need
-(`auth.Require` says so; `fullAccess`, in `routes/auth.go`, adds the
-`*` ability with `web.Documented`).
+(`auth.Require` says so, and `auth.RequireAbilities("*")` on the
+account's routes adds the `*` ability).
 
 ## Testing it
 

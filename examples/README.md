@@ -24,3 +24,8 @@ switcher, and validation messages in the visitor's language.
 [`admin`](admin) is a shop's back office made with the admin interface:
 products and categories, roles for administrators and editors, and every
 change in the audit log.
+[`bookmarks`](bookmarks) is the JSON API that
+[Tutorial: build an API](../docs/site/getting-started/build-an-api.md)
+builds, made with `anetos new --stack=api`, `make:auth` and
+`make:crud`: bookmarks that are each user's, tokens limited to reading,
+an action of its own, and its OpenAPI description (`openapi.json`).

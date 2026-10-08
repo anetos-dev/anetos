@@ -415,8 +415,9 @@ own group, without the session middleware and `web.CSRF`: a CSRF check
 would refuse API clients' posts, and without sessions `a.Require`
 answers 401 instead of redirecting. Other `Authorization` schemes are
 ignored (the request is a guest). `auth.TokenCan` checks a
-token's abilities; a user signed in with a session (your own pages and
-front end) may do anything. `a.Tokens` lists a user's tokens and
+token's abilities, and `auth.RequireAbilities(…)` is middleware
+answering 403 to a token without them; a user signed in with a session
+(your own pages and front end) may do anything. `a.Tokens` lists a user's tokens and
 `a.RevokeToken` deletes one.
 
 Put the route that creates tokens behind `a.RequireConfirmed`, as the

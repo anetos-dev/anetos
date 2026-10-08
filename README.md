@@ -48,7 +48,9 @@ v0.5, after an API stack in v0.4. APIs will change.
 
 The [tutorial](docs/site/getting-started/tutorial/README.md) builds an
 issue tracker step by step, and [`examples/tracker`](examples/tracker),
-the reference app, is a bigger one. The docs are at
+the reference app, is a bigger one; the
+[API tutorial](docs/site/getting-started/build-an-api.md) builds
+[`examples/bookmarks`](examples/bookmarks), a JSON API. The docs are at
 [docs.anetos.dev](https://docs.anetos.dev).
 
 ## Documents

@@ -244,3 +244,45 @@ func TokenCan(ctx context.Context, ability string) bool {
 	}
 	return Check(ctx)
 }
+
+// RequireAbilities is middleware letting through requests that may do
+// every one of abilities ([TokenCan]): a token needs them (or "*"); a
+// session's request may do anything its user may. A token without them
+// gets 403, a guest 401 with "WWW-Authenticate: Bearer" (never the
+// login page: put it after [Auth.Require], which sends a page's guests
+// there):
+//
+//	me := api.Group("", a.Require)
+//	me.With(auth.RequireAbilities("bookmarks:write")).Post("/bookmarks", web.H(h.Create))
+//
+// API descriptions (package web/openapi) list the abilities as the
+// bearer token's scopes, and the 403. It panics without abilities.
+func RequireAbilities(abilities ...string) web.Middleware {
+	if len(abilities) == 0 {
+		panic("auth: RequireAbilities needs abilities")
+	}
+	doc := web.MiddlewareDoc{Security: "bearer", Scopes: slices.Clone(abilities), Responses: map[int]string{
+		http.StatusUnauthorized: "The request isn't signed in: it has no valid API token.",
+		http.StatusForbidden:    "The token lacks an ability the operation needs: " + strings.Join(abilities, ", ") + ".",
+	}}
+	return func(next http.Handler) http.Handler {
+		return web.Documented(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if _, err := CurrentID(r.Context()); err != nil {
+				// A guest: 401, naming the scheme, as Require answers an
+				// API's; a failure to load the user is that error (500).
+				if errors.Is(err, ErrUnauthenticated) {
+					w.Header().Set("WWW-Authenticate", "Bearer")
+				}
+				web.WriteError(w, r, err)
+				return
+			}
+			for _, ab := range abilities {
+				if !TokenCan(r.Context(), ab) {
+					web.WriteError(w, r, ErrForbidden)
+					return
+				}
+			}
+			next.ServeHTTP(w, r)
+		}), doc)
+	}
+}

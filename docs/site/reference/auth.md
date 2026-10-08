@@ -95,6 +95,7 @@ see [Two-factor sign-in](../guides/two-factor.md). Needs
 | `a.RevokeOtherTokens(ctx, u, keep)` | Deletes `u`'s API tokens but `keep` (the request's, after a password change through the API) (v0.4) |
 | `a.ClientLink(path, query)` | `AUTH_CLIENT_URL` joined with `path` and `query`: the link an API's emails give to the client app; an error naming the setting when it isn't set (v0.4) |
 | `auth.CurrentToken(ctx)`, `auth.TokenCan(ctx, ability)` | The request's API token; whether it (or a session user) may do `ability` (`"*"`: all) |
+| `auth.RequireAbilities(abilities...)` | Middleware: a token needs every one of the abilities (403 without them, 401 for a guest); a session user may do anything. Its routes' OpenAPI security lists them as scopes (v0.4) |
 
 ## Authorization
 

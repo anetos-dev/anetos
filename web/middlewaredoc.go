@@ -24,11 +24,11 @@ type MiddlewareDoc struct {
 // Documented returns h, the handler a middleware returns, with doc: the
 // routes it wraps report doc in [RouteInfo].Middleware.
 //
-//	func fullAccess(next http.Handler) http.Handler {
+//	func partnerKey(next http.Handler) http.Handler {
 //		return web.Documented(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-//			// …
-//		}), web.MiddlewareDoc{Security: "bearer", Scopes: []string{"*"},
-//			Responses: map[int]string{http.StatusForbidden: "The token lacks the * ability."}})
+//			// … 401 without a valid X-Partner-Key header
+//		}), web.MiddlewareDoc{Security: "partnerKey", // an openapi.Config.SecuritySchemes entry
+//			Responses: map[int]string{http.StatusUnauthorized: "No valid partner key."}})
 //	}
 //
 // Only the middleware of a route's routers (Group, With, Use) is seen,

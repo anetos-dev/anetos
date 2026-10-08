@@ -148,8 +148,9 @@ So fields can't be named `page`, `per_page` or `sort` in an API project.
 The endpoints are open to every client. After
 [`make:auth`](../guides/api-accounts.md), move the `Posts(api)` call to
 the `me` group of `routes/auth.go` for clients with a token only, and
-check abilities in the handlers with `auth.TokenCan`; then run
+require a token's abilities with `auth.RequireAbilities`; then run
 `go run . openapi`, so `openapi.json` says they need a token.
+[Tutorial: build an API](build-an-api.md) does it step by step.
 
 `make:crud` updates `openapi.json`, the API's description, with the
 five operations, `PostResponse`, `PostInput` and `PagePostResponse`

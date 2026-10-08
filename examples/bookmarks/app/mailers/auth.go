@@ -1,0 +1,77 @@
+// SPDX-License-Identifier: Apache-2.0
+
+// Package mailers holds the app's emails: mailables, sent with
+// mailer.Send or mailer.Queue, in the language of the context they are
+// built with.
+package mailers
+
+import (
+	"context"
+	_ "embed"
+	"html/template"
+
+	"anetos.dev/anetos/i18n"
+	"anetos.dev/anetos/mailer"
+	"anetos.dev/anetos/view"
+)
+
+// authHTML is the account emails' HTML body (anetos make:auth): yours to
+// change. Mail clients ignore most CSS: the styles are inline. The text
+// bodies are made from it.
+//
+//go:embed auth.html
+var authHTML string
+
+var authMail = template.Must(template.New("auth.html").Parse(authHTML))
+
+// authMailData is what auth.html shows: the text, translated
+// (locales/en/auth.yaml), and the link.
+type authMailData struct {
+	Lang, Dir                    string
+	Hello, Intro, Button, Ignore string
+	URL                          string
+}
+
+// authBody is an account email's body, in the language of ctx: its
+// text is the catalog's auth.mail.<kind>.*.
+func authBody(ctx context.Context, kind, name, url string) view.Component {
+	return view.Template(authMail, "auth.html", authMailData{
+		Lang:   i18n.Locale(ctx),
+		Dir:    i18n.Dir(ctx),
+		Hello:  i18n.T(ctx, "auth.mail.hello", "name", name),
+		Intro:  i18n.T(ctx, "auth.mail."+kind+".intro"),
+		Button: i18n.T(ctx, "auth.mail."+kind+".button"),
+		Ignore: i18n.T(ctx, "auth.mail."+kind+".ignore"),
+		URL:    url,
+	})
+}
+
+// VerifyEmail asks a new user to confirm their address (anetos make:auth).
+type VerifyEmail struct {
+	Name, Email string
+	URL         string // the verification link, to the client app
+}
+
+// Build implements mailer.Mailable.
+func (m VerifyEmail) Build(ctx context.Context) (*mailer.Message, error) {
+	return &mailer.Message{
+		To:      []mailer.Address{{Address: m.Email}}, // the name is in the body: any text, safe there
+		Subject: i18n.T(ctx, "auth.mail.verify.subject"),
+		HTML:    authBody(ctx, "verify", m.Name, m.URL),
+	}, nil
+}
+
+// ResetPassword sends a password reset link (anetos make:auth).
+type ResetPassword struct {
+	Name, Email string
+	URL         string // the reset link, to the client app
+}
+
+// Build implements mailer.Mailable.
+func (m ResetPassword) Build(ctx context.Context) (*mailer.Message, error) {
+	return &mailer.Message{
+		To:      []mailer.Address{{Address: m.Email}}, // the name is in the body: any text, safe there
+		Subject: i18n.T(ctx, "auth.mail.reset.subject"),
+		HTML:    authBody(ctx, "reset", m.Name, m.URL),
+	}, nil
+}

@@ -1,0 +1,71 @@
+# A systemd unit for bookmarks (anetos new). Build the binary for the
+# server (go tool anetos build --target=linux/amd64, or linux/arm64),
+# copy it and this file there, then:
+#
+#   sudo install -D bin/bookmarks /opt/bookmarks/bookmarks
+#   sudo install -D -m 600 production.env /etc/bookmarks/env   # from deploy/production.env.example
+#   sudo cp deploy/bookmarks.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now bookmarks
+#
+# It runs as a user of its own, with /var/lib/bookmarks to write to
+# (files, the SQLite database). To update: copy the new binary and
+# systemctl restart bookmarks; migrations run before it starts.
+
+[Unit]
+Description=Bookmarks
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+DynamicUser=yes
+StateDirectory=bookmarks
+WorkingDirectory=/var/lib/bookmarks
+Environment=APP_ENV=production
+Environment=STORAGE_ROOT=/var/lib/bookmarks/storage
+Environment=DB_DATABASE=/var/lib/bookmarks/app.db
+# The settings, which override the lines above: APP_KEY, APP_URL, the database…
+EnvironmentFile=/etc/bookmarks/env
+ExecStartPre=/opt/bookmarks/bookmarks migrate
+ExecStart=/opt/bookmarks/bookmarks run
+# Time for the migrations and the start; raise it for long migrations.
+TimeoutStartSec=5min
+Restart=on-failure
+RestartSec=2s
+# Stopping: SIGTERM, then the app finishes its work within
+# APP_SHUTDOWN_TIMEOUT (30s); systemd kills it after 45s.
+KillSignal=SIGTERM
+TimeoutStopSec=45s
+# Sandboxing: the app needs the network, its state directory and the
+# usual system calls of a server, nothing more. If a library of yours
+# needs more, systemd's journal says what was refused.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateUsers=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+CapabilityBoundingSet=
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+# A refused call fails (EPERM) instead of killing the app.
+SystemCallErrorNumber=EPERM
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
