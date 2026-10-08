@@ -55,7 +55,7 @@ func routes(r *web.Router, notes *Notes) {
 
 	api := r.Group("/notes").As("notes.")
 	api.Get("", web.H(notes.List)).Name("index")
-	api.Post("", web.H(notes.Store)).Name("store")
+	api.Post("", web.H(notes.Store)).Name("store").Status(http.StatusCreated)
 	api.Get("/{id}", web.H(notes.Show)).Name("show")
 	api.Delete("/{id}", web.H(notes.Delete)).Name("delete")
 }

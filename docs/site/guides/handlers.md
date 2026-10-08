@@ -79,9 +79,8 @@ Values are converted to the field's type: strings, numbers, booleans,
 
 ```go
 // illustrative
-func (h *Notes) Store(c *web.Ctx, in CreateNote) (web.Responder, error) {
-	note := h.create(in.Title, in.Body)
-	return web.Created(note), nil
+func (h *Notes) Store(c *web.Ctx, in CreateNote) (Note, error) {
+	return h.create(in.Title, in.Body), nil
 }
 
 func (h *Notes) Show(c *web.Ctx, in NoteID) (Note, error) {
@@ -97,7 +96,7 @@ Register it with `web.H`:
 
 ```go
 // illustrative
-api.Post("", web.H(notes.Store)).Name("store")
+api.Post("", web.H(notes.Store)).Name("store").Status(http.StatusCreated)
 ```
 
 `web.H` inspects the input type **once, at startup**. It panics then if the
@@ -108,7 +107,8 @@ parameter), so a mistake never waits for the first request.
 
 | Return | Response |
 |---|---|
-| Any value (struct, slice, map…) | `200` with JSON |
+| Any value (struct, slice, map…) | JSON with the route's status: `200`, or what `Status` sets on the route (since v0.4); no body with `204` or `205` |
+| `web.Empty{}` (since v0.4) | `204` without a body (or the route's status, still without a body) |
 | `web.Created(v)` | `201` with JSON |
 | `web.JSON(status, v)` | JSON with any status |
 | `web.NoContent()` or a nil `web.Responder` | `204` |
@@ -116,8 +116,16 @@ parameter), so a mistake never waits for the first request.
 | `web.Text(status, s)` | Plain text |
 | Your own type with `Respond(c *web.Ctx) error` | Whatever it writes |
 
-Use `web.Responder` as the output type when one handler returns different
-kinds of responses.
+For an API, return a typed value and put the status on the route:
+`.Status(http.StatusCreated)` for a route that creates something,
+`web.Empty` for one with nothing to answer (a deletion). The handler's
+signature and the route then say what the request answers, which v0.4's
+OpenAPI spec reads; `Status` takes 2xx statuses only, and errors are
+written as usual. `Status` sets what a `web.H` handler's result
+answers: a `web.Responder`, a plain handler and a `HandleStd` route
+write their own status, and ignore it. Use `web.Responder` as the output type when one
+handler returns different kinds of responses, chosen as it runs: pages'
+redirects, say.
 
 Handlers can also be plain `func(c *web.Ctx) error` and write with
 `c.JSON`, `c.Text`, `c.HTML`, `c.Blob`, `c.Redirect`, `c.RedirectRoute` or

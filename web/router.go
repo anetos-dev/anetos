@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"reflect"
 	"slices"
 	"strings"
 	"sync"
@@ -230,6 +231,9 @@ func (r *Router) Handle(method, pattern string, h HandlerFunc) *Route {
 		panic("web: nil handler for " + method + " " + pattern)
 	}
 	rt := r.newRoute(method, pattern)
+	if t, ok := typedHandlers.Load(funcKey(h)); ok {
+		rt.types = t.(handlerTypes)
+	}
 	r.register(rt, r.adapt(rt, h))
 	return rt
 }
@@ -424,6 +428,41 @@ type Route struct {
 	pattern string
 	namePfx string
 	name    atomic.Pointer[string]
+	status  atomic.Int32 // Status: a typed handler's result's; 0 for the default
+	types   handlerTypes // a typed handler's (H), set at registration
+}
+
+// Status sets the HTTP status of a typed handler's result on this route
+// (see [H]): 201 Created for a request that makes something, say. The
+// result is written as JSON with it; with 204 or 205, which have no
+// body, nothing is written. Results that are a [Responder] choose their
+// own, and errors are written as usual; plain handlers and [Router.HandleStd]
+// routes write their own status too, and ignore it. It panics unless code
+// is a 2xx status. Call it while registering routes:
+//
+//	api.Post("/orders", web.H(h.Create)).Name("orders.store").Status(http.StatusCreated)
+func (rt *Route) Status(code int) *Route {
+	if code < 200 || code > 299 {
+		panic(fmt.Sprintf("web: route %s %s: Status(%d) isn't a success (2xx) status", rt.method, rt.pattern, code))
+	}
+	rt.status.Store(int32(code))
+	return rt
+}
+
+// RouteStatus returns the status [Route.Status] set, or 0 for the
+// default (200 OK, or 204 No Content for an [Empty] result).
+func (rt *Route) RouteStatus() int { return int(rt.status.Load()) }
+
+// successStatus is the status of a typed handler's result on the route
+// (empty: an Empty result).
+func (rt *Route) successStatus(empty bool) int {
+	if code := rt.status.Load(); code != 0 {
+		return int(code)
+	}
+	if empty {
+		return http.StatusNoContent
+	}
+	return http.StatusOK
 }
 
 // Name gives the route a name for URL generation. Names must be unique;
@@ -467,6 +506,13 @@ type RouteInfo struct {
 	Host    string // the host it matches ([Router.Host]), "" for any
 	Pattern string // the path pattern, "/posts/{id}"
 	Name    string // the route's name, "" if unnamed
+	// Input and Output are the types of a typed handler's input and
+	// result ([H]), registered as H returned it; nil for other handlers
+	// (and for an H handler wrapped in another HandlerFunc). Tools that
+	// describe the API read them, with Status.
+	Input, Output reflect.Type
+	// Status is the route's [Route.Status], 0 unless set.
+	Status int
 }
 
 // Routes lists every registered route in registration order.
@@ -475,7 +521,8 @@ func (r *Router) Routes() []RouteInfo {
 	defer r.core.mu.RUnlock()
 	out := make([]RouteInfo, len(r.core.routes))
 	for i, rt := range r.core.routes {
-		out[i] = RouteInfo{Method: rt.method, Host: rt.host, Pattern: rt.pattern, Name: rt.RouteName()}
+		out[i] = RouteInfo{Method: rt.method, Host: rt.host, Pattern: rt.pattern, Name: rt.RouteName(),
+			Input: rt.types.in, Output: rt.types.out, Status: rt.RouteStatus()}
 	}
 	return out
 }

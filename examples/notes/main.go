@@ -97,7 +97,8 @@ func (h *Notes) Show(c *web.Ctx, in NoteID) (Note, error) {
 	return Note{}, web.Error(http.StatusNotFound, "note not found")
 }
 
-func (h *Notes) Store(c *web.Ctx, in CreateNote) (web.Responder, error) {
+// Store answers the new note: 201, the route's Status.
+func (h *Notes) Store(c *web.Ctx, in CreateNote) (Note, error) {
 	h.mu.Lock()
 	h.nextID++
 	n := Note{ID: h.nextID, Title: in.Title, Body: in.Body, Tags: in.Tags, CreatedAt: anetos.Now(c).UTC()}
@@ -107,21 +108,22 @@ func (h *Notes) Store(c *web.Ctx, in CreateNote) (web.Responder, error) {
 	c.Logger().Info("note created", "id", n.ID)
 	url, err := c.URL("notes.show", n.ID)
 	if err != nil {
-		return nil, err
+		return Note{}, err
 	}
 	c.SetHeader("Location", url)
-	return web.Created(n), nil
+	return n, nil
 }
 
-func (h *Notes) Delete(c *web.Ctx, in NoteID) (web.Responder, error) {
+// Delete answers 204 No Content: web.Empty has no body.
+func (h *Notes) Delete(c *web.Ctx, in NoteID) (web.Empty, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	i := slices.IndexFunc(h.notes, func(n Note) bool { return n.ID == in.ID })
 	if i < 0 {
-		return nil, web.Error(http.StatusNotFound, "note not found")
+		return web.Empty{}, web.Error(http.StatusNotFound, "note not found")
 	}
 	h.notes = slices.Delete(h.notes, i, i+1)
-	return web.NoContent(), nil
+	return web.Empty{}, nil
 }
 
 // endregion
@@ -134,7 +136,7 @@ func routes(r *web.Router, notes *Notes) {
 
 	api := r.Group("/notes").As("notes.")
 	api.Get("", web.H(notes.List)).Name("index")
-	api.Post("", web.H(notes.Store)).Name("store")
+	api.Post("", web.H(notes.Store)).Name("store").Status(http.StatusCreated)
 	api.Get("/{id}", web.H(notes.Show)).Name("show")
 	api.Delete("/{id}", web.H(notes.Delete)).Name("delete")
 }

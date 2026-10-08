@@ -1,0 +1,23 @@
+package routes
+
+import (
+	"net/http"
+
+	"anetos.dev/anetos/web"
+
+	"[[.Module]]/app/handlers"
+)
+
+// [[.Plural]] adds the [[.PluralW]] API (anetos make:crud): Register calls it
+// with its api group (/api/v1). It's open to every client: to let only
+// clients with a token in (after make:auth), call it from routes/auth.go
+// with the me group instead, and check the token's abilities in the
+// handlers with auth.TokenCan.
+func [[.Plural]](r *web.Router) {
+	var h handlers.[[.Plural]]
+	r.Get("/[[.Path]]", web.H(h.Index)).Name("[[.Path]].index")
+	r.Post("/[[.Path]]", web.H(h.Create)).Name("[[.Path]].store").Status(http.StatusCreated)
+	r.Get("/[[.Path]]/{id}", web.H(h.Show)).Name("[[.Path]].show")
+	r.Put("/[[.Path]]/{id}", web.H(h.Update)).Name("[[.Path]].update")
+	r.Delete("/[[.Path]]/{id}", web.H(h.Delete)).Name("[[.Path]].destroy")
+}

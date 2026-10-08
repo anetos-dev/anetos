@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"anetos.dev/anetos"
 	"anetos.dev/anetos/anetostest"
 	"anetos.dev/anetos/auth"
 	"anetos.dev/anetos/db"
@@ -23,10 +24,14 @@ import (
 // authClient is the client app's address in the tests (AUTH_CLIENT_URL).
 const authClient = "https://app.example.com"
 
-// authApp returns the app, with AUTH_CLIENT_URL set.
+// authApp returns the app, with AUTH_CLIENT_URL set, and its clock
+// stopped: the limits count tries in windows of the clock (a minute), and
+// two-factor codes change every 30 seconds.
 func authApp(t *testing.T) *anetostest.App {
 	t.Helper()
-	return anetostest.New(t, setup, anetostest.Env(map[string]string{"AUTH_CLIENT_URL": authClient}))
+	app := anetostest.New(t, setup, anetostest.Env(map[string]string{"AUTH_CLIENT_URL": authClient}))
+	app.Freeze(time.Time{})
+	return app
 }
 
 // authRegister signs ada up, and sends her token with the requests that
@@ -146,7 +151,7 @@ func TestTwoFactor(t *testing.T) {
 	if setup.Secret == "" || !strings.HasPrefix(setup.URI, "otpauth://totp/") || !strings.HasPrefix(setup.QRCode, "<svg") {
 		t.Fatalf("setup: %+v", setup)
 	}
-	code, err := auth.TwoFactorCode(setup.Secret, time.Now())
+	code, err := auth.TwoFactorCode(setup.Secret, anetos.Now(app.Context()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,7 +200,7 @@ func TestTwoFactor(t *testing.T) {
 
 func TestDisabledAccount(t *testing.T) {
 	app, _ := authRegister(t)
-	now := time.Now().UTC()
+	now := anetos.Now(app.Context()).UTC()
 	if _, err := db.Query[models.User](app.Context()).Where(models.UserCols.Email.Eq("ada@example.com")).
 		Update(models.UserCols.DisabledAt.Set(&now)); err != nil {
 		t.Fatal(err)
@@ -233,7 +238,7 @@ func TestResetOfUnverifiedAddress(t *testing.T) {
 	app, _ := authRegister(t)
 	var setup handlers.TwoFactorSetupResponse
 	app.PostJSON("/api/v1/two-factor", map[string]any{"password": "correct horse"}).AssertOK().JSON(&setup)
-	code, err := auth.TwoFactorCode(setup.Secret, time.Now())
+	code, err := auth.TwoFactorCode(setup.Secret, anetos.Now(app.Context()))
 	if err != nil {
 		t.Fatal(err)
 	}

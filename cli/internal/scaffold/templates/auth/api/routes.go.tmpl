@@ -20,7 +20,7 @@ func Auth(r *web.Router, a *auth.Auth[*models.User]) {
 	api := r.Group("/api/v1", a.TokenMiddleware).As("api.")
 
 	api.With(ratelimit.Middleware("register", ratelimit.PerMinute(10))).
-		Post("/register", web.H(h.Register)).Name("register")
+		Post("/register", web.H(h.Register)).Name("register").Status(http.StatusCreated)
 	api.Post("/login", web.H(h.Login)).Name("login") // throttled by package auth (AUTH_THROTTLE)
 	api.Post("/login/two-factor", web.H(h.LoginTwoFactor)).Name("login.two-factor")
 	api.With(ratelimit.Middleware("forgot-password", ratelimit.PerMinute(5))).
@@ -44,7 +44,7 @@ func Auth(r *web.Router, a *auth.Auth[*models.User]) {
 	account := me.Group("", fullAccess)
 	account.Put("/password", web.H(h.ChangePassword)).Name("password.change")
 	account.Get("/tokens", web.H(h.Tokens)).Name("tokens.index")
-	account.Post("/tokens", web.H(h.CreateToken)).Name("tokens.store")
+	account.Post("/tokens", web.H(h.CreateToken)).Name("tokens.store").Status(http.StatusCreated)
 	account.Delete("/tokens/{id}", web.H(h.RevokeToken)).Name("tokens.destroy")
 	account.Get("/two-factor", web.H(h.TwoFactor)).Name("two-factor")
 	account.Post("/two-factor", web.H(h.StartTwoFactor)).Name("two-factor.start")

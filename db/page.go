@@ -29,6 +29,18 @@ func (p Page[T]) HasMore() bool { return p.CurrentPage < p.LastPage }
 // HasPrev reports whether there are pages before this one.
 func (p Page[T]) HasPrev() bool { return p.CurrentPage > 1 }
 
+// MapPage returns p with each row turned into fn's result, the counts
+// kept: a page of models made a page of an API's responses.
+//
+//	return db.MapPage(page, productResponse), nil
+func MapPage[T, U any](p Page[T], fn func(T) U) Page[U] {
+	out := Page[U]{Data: make([]U, len(p.Data)), CurrentPage: p.CurrentPage, PerPage: p.PerPage, Total: p.Total, LastPage: p.LastPage}
+	for i, row := range p.Data {
+		out.Data[i] = fn(row)
+	}
+	return out
+}
+
 // DefaultPerPage is used when Paginate or CursorPaginate get perPage < 1.
 const DefaultPerPage = 15
 

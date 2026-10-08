@@ -1,0 +1,54 @@
+package main
+
+import (
+	"fmt"
+	"net/http"
+	"testing"
+
+	"anetos.dev/anetos/anetostest"
+
+	"[[.Module]]/app/handlers"
+)
+
+// Test[[.Plural]] creates, lists, shows, replaces and deletes a [[.Words]]
+// through the API (anetos make:crud).
+func Test[[.Plural]](t *testing.T) {
+	app := anetostest.New(t, setup)
+	// Routes in make:auth's me group need a token first: register or log
+	// in (auth_test.go's authRegister does), then
+	//
+	//	app.WithHeader("Authorization", "Bearer "+token)
+	app.GetJSON("/api/v1/[[.Path]]").AssertOK().AssertJSONPath("total", 0).AssertJSONPath("data", []any{})
+[[- if .Required]]
+	app.PostJSON("/api/v1/[[.Path]]", map[string]any{}).AssertValidationErrors([[.Required]])
+[[- end]]
+
+	body := map[string]any{
+[[- range .Fields]]
+		"[[.Name]]": [[.JSONSample]],
+[[- end]]
+	}
+	var created handlers.[[.Model]]Response
+	res := app.PostJSON("/api/v1/[[.Path]]", body).AssertCreated().JSON(&created)
+	path := fmt.Sprintf("/api/v1/[[.Path]]/%d", created.ID)
+	res.AssertHeader("Location", path)
+[[- range .Fields]]
+	res.AssertJSONPath("[[.Name]]", [[.JSONSample]])
+[[- end]]
+
+	app.GetJSON(path).AssertOK().AssertJSONPath("id", created.ID)
+	app.GetJSON("/api/v1/[[.Path]]?sort=-created_at&per_page=10").AssertOK().
+		AssertJSONPath("total", 1).AssertJSONPath("per_page", 10).AssertJSONPath("data.0.id", created.ID)
+	app.GetJSON("/api/v1/[[.Path]]?sort=nonsense").AssertValidationErrors("sort")
+	app.GetJSON("/api/v1/[[.Path]]?per_page=1000").AssertValidationErrors("per_page")
+[[- with .FilterF]]
+	app.GetJSON("/api/v1/[[$.Path]]?[[.FilterQuery]]").AssertOK().AssertJSONPath("total", 1)
+	app.GetJSON("/api/v1/[[$.Path]]?[[.OtherFilterQuery]]").AssertOK().AssertJSONPath("total", 0)
+	app.GetJSON("/api/v1/[[$.Path]]?[[.Name]]=").AssertOK().AssertJSONPath("total", 1) // an empty filter doesn't filter
+[[- end]]
+
+	app.PutJSON(path, body).AssertOK().AssertJSONPath("id", created.ID)
+	app.DeleteJSON(path).AssertNoContent()
+	app.GetJSON(path).AssertNotFound()
+	app.DeleteJSON(path).AssertStatus(http.StatusNotFound)
+}

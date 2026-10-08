@@ -82,9 +82,8 @@ Every error is JSON problem details, whatever the client accepts (a
 missing URL's 404 too). Browsers on other origins may call the API once
 `HTTP_CORS_ORIGINS` in `.env` lists them, such as
 `http://localhost:5173`. `make:handler` writes JSON handlers in such a
-project, and `make:auth` accounts that sign in with API tokens
-([Add accounts to an API](../guides/api-accounts.md)); JSON endpoints
-for a model (`make:crud`) are coming later in v0.4, and refuse until
-then.
+project, `make:auth` accounts that sign in with API tokens
+([Add accounts to an API](../guides/api-accounts.md)), and `make:crud`
+JSON endpoints for a model ([Add pages for a model](crud.md#in-an-api-project)).
 
 Next: [Project structure](project-structure.md).

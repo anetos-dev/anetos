@@ -436,8 +436,15 @@ Go methods can't have type parameters, so typed handlers go through the
 generic function `web.H` (D15). The output is written by its `Responder`
 method if it has one (`web.Created`, `web.NoContent`, `web.Redirect`,
 `web.RedirectRoute`, `web.JSON`, `web.Text`, or your own), otherwise as JSON
-with 200; a nil Responder gives 204. Redirect helpers default to 303 See
-Other (D27).
+with the route's status: 200 unless `Route.Status` sets another (201 for
+a creation); a `web.Empty` result answers 204 without a body, and so does
+a nil Responder. Redirect helpers default to 303 See Other (D27). APIs
+return typed results (a struct, a slice, `web.Empty`) with the status on
+the route, so the signature and the route say what a request answers,
+for people and for the OpenAPI spec (AP4); Responders are for pages and
+answers chosen at run time (D269). `Router.Routes` reports each `web.H`
+route's input and result types and its status (`RouteInfo.Input`,
+`Output`, `Status`), which `H` records when it is called (D274).
 
 ```go
 // illustrative
@@ -1107,7 +1114,7 @@ Implemented in F10 (packages `view`, `session`, `encryption`; helpers in
   `make:auth` and `make:crud` writing JSON endpoints in such a project
   (AP2, AP3), and an OpenAPI 3.1 spec generated from the routes and the
   typed handlers (inputs from their tags, responses declared), checked
-  in CI (AP4). AP3 and AP4 are designed when their work starts.
+  in CI (AP4). AP4 is designed when its work starts.
 - **Design kits (v0.5, D244)**: the generators' pages call a small
   `views/ui` package the app owns; each kit (the starter theme, Pico,
   Bootstrap, Bulma, Tailwind through its standalone CLI) is a stylesheet
@@ -1161,9 +1168,10 @@ accounts whose sign-in is an API token: no sessions, cookies or CSRF.
   others answer output structs (`UserResponse`, `SignInResponse`,
   `TokenResponse`…), never the model (D263). Registration and token
   creation answer `web.Created(…)` and actions a nil `web.Responder`
-  (204): AP4 settles how such handlers declare their responses (a typed
-  responder or a route option), and the login's two shapes (a token, or
-  a challenge) are one struct with optional members.
+  (204) were settled by D269 with AP3: typed results (`SignInResponse`,
+  `NewTokenResponse`, `web.Empty`) and `Route.Status(201)` on the
+  routes that create. The login's two shapes (a token, or a challenge)
+  are one struct with optional members.
 - **Tokens:** a sign-in's token has every ability (`*`), is named after
   the client's `device_name` (default "API"), and expires in 30 days;
   `POST /tokens` names its abilities (default `*`) and lasts 90 days.
@@ -1209,6 +1217,35 @@ accounts whose sign-in is an API token: no sessions, cookies or CSRF.
   preferences. They are the web pages' or need a redirect flow; the
   generated code is the place to add them.
 
+**JSON CRUD (AP3, D270–D273).** `make:crud <Model> <fields>` in an API
+project writes the model and its migration (the web stack's), and
+`app/handlers/<table>.go`, `routes/<table>.go` and `<table>_test.go`:
+
+- **Endpoints** (in the `api` group, `/api/v1`; `Register` in
+  `routes/api.go` gains `<Models>(api)`): `GET /<path>` (a page),
+  `POST /<path>` (201, with `Location`), `GET`, `PUT` and `DELETE
+  /<path>/{id}` (200, 200, 204). PUT replaces the whole row; no PATCH,
+  whose partial updates need optional inputs the developer designs.
+- **Shapes:** `<Model>Response`, an output struct (the ID, every field,
+  `created_at`, `updated_at`), built by `<model>Response(row)`;
+  optional dates are `null` when empty. `<Model>Input` binds the JSON
+  body with the web form's validate rules (422 with the fields' errors;
+  `unique` ignores the row being updated).
+- **Lists:** `db.Page[<Model>Response]` (`data`, `current_page`,
+  `per_page`, `total`, `last_page`) through the new `db.MapPage`;
+  `?page=`, `?per_page=` (20 by default, at most 100), `?sort=` (a
+  column: `id`, `created_at`, `updated_at` or a field other than text;
+  `-` for descending; `-id` by default, then the ID for a stable order;
+  other values are a 422), and an exact filter per field of type string,
+  email, int, bool or date (`?status=open`; not text or float; an empty
+  value doesn't filter). Fields named `page`, `per_page` or `sort` are
+  refused. Where an optional date's `NULL` sorts is the database's
+  (first ascending in SQLite and MySQL, last in PostgreSQL); the guide
+  says so.
+- **Access:** open, like the web stack's pages; the routes' comment says
+  to call `<Models>(me)` from `routes/auth.go` for token-only access and
+  `auth.TokenCan` for abilities.
+
 **Composing stacks (D259).** `anetos new` builds a project from layers of
 templates: `base` (every project: `go.mod`, `main.go`, settings,
 migrations, models, factories, plugins, deploy files, README) and one
@@ -1225,9 +1262,8 @@ project when it has `routes/api.go` and no `routes/web.go`.
 `make:handler` writes a typed handler there (`web.H`, answering a
 struct of its own), its comment routing it in `api`; `make:middleware`'s
 comment routes it in `api` too; `make:auth` writes the API's accounts
-(AP2, above); `make:crud` refuses, saying that its API version comes
-later in v0.4 (AP3), rather than reporting a missing `views` directory;
-`make:admin` refuses (the admin is HTML pages).
+(AP2, above) and `make:crud` its JSON endpoints (AP3); `make:admin`
+refuses (the admin is HTML pages).
 
 SPA-style (v0.6):
 
@@ -2924,6 +2960,12 @@ unless new information arrives), **Open**, **Superseded**.
 | D266 | Emailed links of API accounts lead to the client app: `AUTH_CLIENT_URL` (absolute http or https, no query; unset: `ClientLink` fails, naming it) joined with a path and query by `Auth.ClientLink`; the client app shows a form and posts the token to the API. The emails' bodies are an `html/template` file of the app (`app/mailers/auth.html`, embedded, rendered with `view.Template` from text the mailable translates), so API projects have no templ | Accepted | The API has no pages to verify an address or choose a password; linking to the API itself would show JSON to people. One setting for the client's address is what Laravel's Sanctum starter and similar APIs use. templ would bring its tool and generated files back into a stack that has no views (D260) |
 | D267 | `Auth.Require` answers a guest's 401 with `WWW-Authenticate: Bearer` whenever the route went through `TokenMiddleware`, with or without a session (it did only without one) | Accepted | RFC 9110 requires the header on a 401 and RFC 6750 names the scheme; a route under `web.JSONErrors` with sessions (the tracker's API) sent none (review47) |
 | D268 | API accounts leave out sign-in with Google and GitHub, changing the email address, deleting the account and the language and time zone preferences | Accepted | The social flow redirects a browser and ends in a session (v0.6's same-domain single-page apps get it); the others are settings pages' features with flows of their own (D227, D228). Keeping AP2 to the roadmap's list keeps it reviewable; the generated code is the app's to extend |
+| D269 | A typed handler's result that isn't a `Responder` is written with its route's status: `Route.Status(code)` (2xx only; panics otherwise) sets it, 200 by default; `web.Empty` answers 204 without a body (or the route's status, still without a body), as do 204 and 205 for any result. API code returns typed results (structs, slices, `web.Empty`, `db.Page[T]`) and puts 201 on the creating routes; `Responder`s stay for pages and run-time choices. AP2's generated accounts use it. Responders, plain handlers and `HandleStd` routes write their own status and ignore it | Accepted | The OpenAPI spec (AP4) needs each operation's success status and body type without running it; a `Responder` hides both. The status on the route, beside the method and path, is where the Go frameworks that generate specs (Huma, Fuego) put it, and it leaves the handler's signature the body's type. Generic responder types (`Created[T]`) were rejected: the names clash with today's `web.Created` and `web.NoContent` functions, and a handler would still choose among several only at run time |
+| D270 | `make:crud` in an API project writes JSON endpoints: list, create (201 with `Location`), show, replace (PUT) and delete (204) under `/api/v1`, added to `Register`'s `api` group (found by its shape, as the web stack's `pages`); the model and migration are the web stack's; no locale file (the messages are the validation catalog's) and no PATCH | Accepted | The same command and field syntax as the pages keep one way to start a resource; PATCH needs inputs where absent differs from empty, a design choice per resource that generated code shouldn't make for the developer |
+| D271 | Each resource is answered as `<Model>Response`, a struct of its own (ID, fields, timestamps) built by an unexported function, never the model; optional dates are pointers (`null`) | Accepted | New columns, secrets and relations never reach clients by accident, and the response can diverge from the table (renamed or computed fields) without touching the model (D243's "JSON shapes chosen on purpose") |
+| D272 | Lists are `db.Page[<Model>Response]` through `db.MapPage(page, fn)`: `?page=`, `?per_page=` (≤ 100, 20 by default), `?sort=` from a list of the columns (`-` for descending, `-id` by default, with the ID after any other column), and exact filters on string, email, int, bool and date fields (an empty value doesn't filter; fields named `page`, `per_page` or `sort` are refused) | Accepted | `db.Page` already has a JSON shape (Laravel's `data`, `current_page`…); a whitelist of sorts named in the `validate` tag and a map of columns keep `?sort=` from reaching SQL as text; exact filters cover the common "where status is" and leave ranges and search (S1) to the developer, who knows which columns are indexed. Floats aren't compared for equality; texts need search |
+| D273 | `db.MapPage[T, U](p Page[T], fn func(T) U) Page[U]` turns a page of rows into a page of responses, keeping the counts | Accepted | Every API list maps models to output structs; a loop with the five counts copied by hand in each generated handler would be noise |
+| D274 | `web.H` records its handler's `In` and `Out` types in a registry keyed by the closure's address (`unsafe`: a func value's pointer), and `Router.Handle` looks them up, so `Router.Routes` reports `RouteInfo.Input`, `Output` and `Status`. Each call of `H` adds an entry for the program's life, keeping its handler (and the handler's receiver) alive: `H` is called when registering routes, as documented. A decorator that wraps `web.H(…)` in a new `HandlerFunc` before registering it loses the types; AP4 should warn about API routes without them | Accepted | AP4's spec needs every operation's types, and `HandlerFunc` is a plain func type that can't carry them. `reflect.Value.Pointer` returns the code's address, which instantiations of `H` with the same GC shape share (all pointer `Out` types, say), so it can't tell their types apart; the closure's address is unique per call (a test checks it). Changing the routing methods to take a typed handler interface would break every app's `r.Get("/", web.H(…))`; a probe call of the handler at registration would run plain handlers' code |
 
 ---
 
@@ -3009,3 +3051,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-07 | D249: Dependabot groups the Go updates of every module, examples included, in one pull request |
 | 2026-10-08 | v0.4 AP1 (API project): §6, §8.5, §12.2, §17.1 updated; D259–D262 added |
 | 2026-10-08 | v0.4 AP2 (API accounts): §12.2, §15 updated; D263–D268 added |
+| 2026-10-08 | v0.4 AP3 (JSON CRUD): §8.2, §12.2 updated; D269 (typed results' status), D270–D274 added |

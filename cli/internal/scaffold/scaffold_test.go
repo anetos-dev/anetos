@@ -247,8 +247,37 @@ func TestMakeInAPIProject(t *testing.T) {
 		t.Errorf("middleware:\n%s", m)
 	}
 	now := time.Date(2026, 10, 8, 9, 0, 0, 0, time.UTC)
-	if _, err := MakeCrud(root, "Order", []string{"total:float"}, now); err == nil || !strings.Contains(err.Error(), "make:crud for API projects") {
-		t.Errorf("make:crud: %v", err)
+	// The list endpoint's query parameters can't be fields.
+	for _, f := range []string{"page:int", "per_page:int", "sort:string"} {
+		if _, err := MakeCrud(root, "Item", []string{"name:string", f}, now); err == nil || !strings.Contains(err.Error(), "list endpoint") {
+			t.Errorf("make:crud with %s: %v", f, err)
+		}
+	}
+	// make:crud writes JSON endpoints, routed in the api group.
+	crud, err := MakeCrud(root, "Product", []string{"name:string:unique", "price:float", "launch_on:date:optional", "notes:text:optional"}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !crud.API || !crud.Routed || crud.Linked || crud.Path != "/api/v1/products" ||
+		!slices.Equal(crud.Created, []string{"app/models/product.go", "database/migrations/2026_10_08_090000_create_products_table.go",
+			"app/handlers/products.go", "routes/products.go", "products_test.go"}) {
+		t.Errorf("make:crud: %+v", crud)
+	}
+	if r := read(t, filepath.Join(root, "routes", "api.go")); !strings.Contains(r, "\tProducts(api) // anetos make:crud\n}") {
+		t.Errorf("routes/api.go:\n%s", r)
+	}
+	hc := read(t, filepath.Join(root, "app", "handlers", "products.go"))
+	for _, want := range []string{"type ProductResponse struct", "LaunchOn  *anetos.Date `json:\"launch_on\"`", "Name     *string      `query:\"name\"`",
+		`validate:"in:id,-id,created_at,-created_at,updated_at,-updated_at,name,-name,price,-price,launch_on,-launch_on"`,
+		"(db.Page[ProductResponse], error)", "return db.MapPage(page, productResponse), nil"} {
+		if !strings.Contains(hc, want) {
+			t.Errorf("handlers: no %q in\n%s", want, hc)
+		}
+	}
+	for _, no := range []string{`query:"price"`, `query:"notes"`} {
+		if strings.Contains(hc, no) {
+			t.Errorf("handlers: %q (floats and texts aren't filters)", no)
+		}
 	}
 	if _, err := MakeAdmin(root); err == nil || !strings.Contains(err.Error(), "the admin is for web projects") {
 		t.Errorf("make:admin: %v", err)
@@ -273,7 +302,7 @@ func TestMakeInAPIProject(t *testing.T) {
 		t.Errorf("make:auth: %+v", res)
 	}
 	for _, f := range []string{"app/handlers/auth.go", "app/mailers/auth.go", "app/mailers/auth.html", "routes/auth.go", "auth.go", "auth_test.go",
-		"locales/en/auth.yaml", "database/factories/users.go", "database/migrations/2026_10_08_090000_create_users_table.go"} {
+		"locales/en/auth.yaml", "database/factories/users.go", "database/migrations/2026_10_08_090001_create_users_table.go"} {
 		if !slices.Contains(res.Created, f) {
 			t.Errorf("make:auth didn't write %s: %v", f, res.Created)
 		}

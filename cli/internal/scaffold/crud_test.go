@@ -63,7 +63,8 @@ func TestMakeCrud(t *testing.T) {
 		t.Errorf("twice: %v", err)
 	}
 	for _, args := range [][]string{nil, {"title"}, {"Title:string"}, {"title:string", "title:text"}, {"created_at:date"}, {"x:uuid"},
-		{"x:bool:unique"}, {"x:int:unique"}, {"x:string:optional:unique"}, {"x:string:big"}, {"model:string"}} {
+		{"x:bool:unique"}, {"x:int:unique"}, {"x:string:optional:unique"}, {"x:string:big"}, {"model:string"}, {"id_:int"}, {"a__b:int"}, {"a_:int"}, {"_a:int"},
+		{"a_1:int", "a1:int"}} {
 		if _, err := MakeCrud(dir, "Note", args, now); err == nil {
 			t.Errorf("%v: no error", args)
 		}
@@ -107,7 +108,7 @@ func TestCrudPatches(t *testing.T) {
 		"not go": false,
 	} {
 		write(src)
-		got, err := addRoutesCall(file, "Posts")
+		got, err := addRoutesCall(file, "Posts", "pages")
 		if err != nil || got != want {
 			t.Errorf("%q: %v, %v", src, got, err)
 		}

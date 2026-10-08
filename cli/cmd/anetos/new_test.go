@@ -325,8 +325,11 @@ func TestNewAPIProject(t *testing.T) {
 	if code, out, errOut := runCmd(t, "make:handler", "Orders"); code != 0 || !strings.Contains(out, "created app/handlers/orders.go") {
 		t.Fatalf("make:handler: %d\n%s\n%s", code, out, errOut)
 	}
-	if code, _, errOut := runCmd(t, "make:crud", "Product", "name:string"); code != 1 || !strings.Contains(errOut, "this is an API project") {
-		t.Errorf("make:crud: %d %s", code, errOut)
+	// A resource's JSON endpoints: their test (products_test.go) passes
+	// with the rest below.
+	if code, out, errOut := runCmd(t, "make:crud", "Product", "name:string:unique", "price:float", "stock:int", "launch_on:date:optional"); code != 0 ||
+		!strings.Contains(out, "updated routes/api.go: Register calls Products(api)") || strings.Contains(out, "templ") {
+		t.Fatalf("make:crud: %d\n%s\n%s", code, out, errOut)
 	}
 	if code, _, errOut := runCmd(t, "make:admin"); code != 1 || !strings.Contains(errOut, "the admin is for web projects") {
 		t.Errorf("make:admin: %d %s", code, errOut)
@@ -349,7 +352,8 @@ func TestNewAPIProject(t *testing.T) {
 	}
 	goRun("vet", "./...")
 	if out := goRun("test", "-v", "."); !strings.Contains(out, "--- PASS: TestWelcome") || !strings.Contains(out, "--- PASS: TestNotFound") ||
-		!strings.Contains(out, "--- PASS: TestTwoFactor") || !strings.Contains(out, "--- PASS: TestChangePassword") {
+		!strings.Contains(out, "--- PASS: TestTwoFactor") || !strings.Contains(out, "--- PASS: TestChangePassword") ||
+		!strings.Contains(out, "--- PASS: TestProducts") {
 		t.Errorf("go test:\n%s", out)
 	}
 	if code, out, errOut := runCmd(t, "build"); code != 0 || !strings.Contains(out, "built bin/shop (") {
@@ -371,7 +375,8 @@ func TestNewAPIProject(t *testing.T) {
 		t.Errorf("migrate:\n%s", out)
 	}
 	if out := app("routes:list"); !regexp.MustCompile(`GET\s+/api/v1\s+api\.welcome`).MatchString(out) ||
-		!regexp.MustCompile(`POST\s+/api/v1/login/two-factor\s+api\.login\.two-factor`).MatchString(out) {
+		!regexp.MustCompile(`POST\s+/api/v1/login/two-factor\s+api\.login\.two-factor`).MatchString(out) ||
+		!regexp.MustCompile(`DELETE\s+/api/v1/products/\{id\}\s+api\.products\.destroy`).MatchString(out) {
 		t.Errorf("routes:list:\n%s", out)
 	}
 	if out := app("lang:check"); !strings.Contains(out, "lang:check: en OK") {

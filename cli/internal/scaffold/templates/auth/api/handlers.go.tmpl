@@ -198,23 +198,23 @@ type RecoveryCodesResponse struct {
 }
 
 // Register creates the account, emails the verification link, and
-// answers 201 with a token.
-func (h Accounts) Register(c *web.Ctx, in RegisterInput) (web.Responder, error) {
+// answers with a token (201: the route's Status).
+func (h Accounts) Register(c *web.Ctx, in RegisterInput) (SignInResponse, error) {
 	name := cleanName(in.Name)
 	if name == "" {
-		return nil, validate.Fail("name", i18n.T(c, "auth.errors.name_required"))
+		return SignInResponse{}, validate.Fail("name", i18n.T(c, "auth.errors.name_required"))
 	}
 	email := strings.ToLower(in.Email) // stored and looked up in lower case
 	taken, err := emailTaken(c, email)
 	if err != nil {
-		return nil, err
+		return SignInResponse{}, err
 	}
 	if taken {
-		return nil, validate.Fail("email", i18n.T(c, "auth.errors.email_taken"))
+		return SignInResponse{}, validate.Fail("email", i18n.T(c, "auth.errors.email_taken"))
 	}
 	hash, err := password.Hash(in.Password)
 	if err != nil {
-		return nil, err
+		return SignInResponse{}, err
 	}
 	u := &models.User{Name: name, Email: email, Password: hash}
 	// The user and the email, or neither: the email is queued once the
@@ -227,15 +227,15 @@ func (h Accounts) Register(c *web.Ctx, in RegisterInput) (web.Responder, error) 
 	})
 	if err != nil {
 		if taken, _ := emailTaken(c, email); taken { // registered meanwhile
-			return nil, validate.Fail("email", i18n.T(c, "auth.errors.email_taken"))
+			return SignInResponse{}, validate.Fail("email", i18n.T(c, "auth.errors.email_taken"))
 		}
-		return nil, err
+		return SignInResponse{}, err
 	}
 	res, err := h.signedIn(c, u, in.DeviceName)
 	if err != nil {
-		return nil, err
+		return SignInResponse{}, err
 	}
-	return web.Created(res), nil
+	return res, nil
 }
 
 // emailTaken reports whether an account has the address.
@@ -357,68 +357,68 @@ func (Accounts) Me(c *web.Ctx, _ struct{}) (UserResponse, error) {
 }
 
 // Logout revokes the request's token: 204.
-func (h Accounts) Logout(c *web.Ctx, _ struct{}) (web.Responder, error) {
+func (h Accounts) Logout(c *web.Ctx, _ struct{}) (web.Empty, error) {
 	u, err := auth.Current[*models.User](c)
 	if err != nil {
-		return nil, err
+		return web.Empty{}, err
 	}
 	if tok, ok := auth.CurrentToken(c); ok {
 		if err := h.Auth.RevokeToken(c, u, tok.ID); err != nil {
-			return nil, err
+			return web.Empty{}, err
 		}
 	}
-	return nil, nil
+	return web.Empty{}, nil
 }
 
 // VerifyEmail marks the address of an emailed link as verified: 204. A
 // bad or expired link (auth.ErrInvalidToken), or one for an address the
 // user has since changed, is a 400: the client app says the link didn't
 // work, and offers a new one.
-func (h Accounts) VerifyEmail(c *web.Ctx, in LinkInput) (web.Responder, error) {
+func (h Accounts) VerifyEmail(c *web.Ctx, in LinkInput) (web.Empty, error) {
 	u, email, err := h.Auth.CheckVerificationToken(c, in.Token)
 	if err != nil {
-		return nil, err
+		return web.Empty{}, err
 	}
 	if email != u.Email {
-		return nil, web.Error(http.StatusBadRequest, i18n.T(c, "auth.errors.link_other_email"))
+		return web.Empty{}, web.Error(http.StatusBadRequest, i18n.T(c, "auth.errors.link_other_email"))
 	}
 	if u.EmailVerifiedAt == nil {
 		now := anetos.Now(c).UTC()
 		if _, err := db.Query[models.User](c).Where(models.UserCols.ID.Eq(u.ID)).Update(models.UserCols.EmailVerifiedAt.Set(&now)); err != nil {
-			return nil, err
+			return web.Empty{}, err
 		}
 	}
-	return nil, nil
+	return web.Empty{}, nil
 }
 
 // ResendVerification emails the verification link again, unless the
 // address is verified: 204.
-func (h Accounts) ResendVerification(c *web.Ctx, _ struct{}) (web.Responder, error) {
+func (h Accounts) ResendVerification(c *web.Ctx, _ struct{}) (web.Empty, error) {
 	u, err := auth.Current[*models.User](c)
 	if err != nil {
-		return nil, err
+		return web.Empty{}, err
 	}
 	if u.EmailVerifiedAt != nil {
-		return nil, nil
+		return web.Empty{}, nil
 	}
 	// At most 6 an hour for one account, whatever the IP address.
 	res, err := ratelimit.Allow(c, "verification:"+u.AuthID(), ratelimit.PerHour(6))
 	if err != nil {
-		return nil, err
+		return web.Empty{}, err
 	}
 	if !res.Allowed {
-		return nil, tooManyFor(c, res.RetryAfter(), "auth.errors.too_many_emails")
+		return web.Empty{}, tooManyFor(c, res.RetryAfter(), "auth.errors.too_many_emails")
 	}
-	return nil, SendVerification(c, h.Auth, u)
+	return web.Empty{}, SendVerification(c, h.Auth, u)
 }
 
 // ForgotPassword emails a password reset link to the address, if it has
 // an account (and was sent fewer than 3 in the hour), and answers 204
 // either way, so it doesn't reveal who has one.
-func (h Accounts) ForgotPassword(c *web.Ctx, in EmailInput) (web.Responder, error) {
+func (h Accounts) ForgotPassword(c *web.Ctx, in EmailInput) (web.Empty, error) {
 	res, err := ratelimit.Allow(c, "password-reset:"+strings.ToLower(in.Email), ratelimit.PerHour(3))
 	if err != nil {
-		return nil, err
+		return web.Empty{}, err
 	}
 	u, err := models.Users.ByLogin(c, in.Email)
 	switch {
@@ -426,12 +426,12 @@ func (h Accounts) ForgotPassword(c *web.Ctx, in EmailInput) (web.Responder, erro
 		// Enough links for now: answer as usual.
 	case err == nil:
 		if err := SendPasswordReset(c, h.Auth, u); err != nil {
-			return nil, err
+			return web.Empty{}, err
 		}
 	case !errors.Is(err, db.ErrNotFound):
-		return nil, err
+		return web.Empty{}, err
 	}
-	return nil, nil
+	return web.Empty{}, nil
 }
 
 // ResetPassword sets the new password of a reset link: 204. The link
@@ -439,20 +439,20 @@ func (h Accounts) ForgotPassword(c *web.Ctx, in EmailInput) (web.Responder, erro
 // API token of the user. For an address never verified, the link
 // verifies it, and turns off the two-factor sign-in whoever registered
 // it may have set up.
-func (h Accounts) ResetPassword(c *web.Ctx, in ResetInput) (web.Responder, error) {
+func (h Accounts) ResetPassword(c *web.Ctx, in ResetInput) (web.Empty, error) {
 	u, err := h.Auth.CheckPasswordResetToken(c, in.Token)
 	if errors.Is(err, auth.ErrInvalidToken) {
-		return nil, validate.Fail("token", i18n.T(c, "auth.errors.reset_invalid"))
+		return web.Empty{}, validate.Fail("token", i18n.T(c, "auth.errors.reset_invalid"))
 	}
 	if err != nil {
-		return nil, err
+		return web.Empty{}, err
 	}
 	hash, err := password.Hash(in.Password)
 	if errors.Is(err, password.ErrTooLong) {
-		return nil, validate.Fail("password", i18n.T(c, "auth.errors.password_too_long"))
+		return web.Empty{}, validate.Fail("password", i18n.T(c, "auth.errors.password_too_long"))
 	}
 	if err != nil {
-		return nil, err
+		return web.Empty{}, err
 	}
 	errUsed := errors.New("the link was used meanwhile")
 	err = db.Tx(c, func(ctx context.Context) error {
@@ -483,32 +483,32 @@ func (h Accounts) ResetPassword(c *web.Ctx, in ResetInput) (web.Responder, error
 		return h.Auth.RevokeAllTokens(ctx, u)
 	})
 	if errors.Is(err, errUsed) {
-		return nil, validate.Fail("token", i18n.T(c, "auth.errors.reset_invalid"))
+		return web.Empty{}, validate.Fail("token", i18n.T(c, "auth.errors.reset_invalid"))
 	}
-	return nil, err
+	return web.Empty{}, err
 }
 
 // ChangePassword sets a new password, given the current one: 204. The
 // user's other API tokens are revoked (the request's keeps working),
 // and so are older reset links and sign-in challenges.
-func (h Accounts) ChangePassword(c *web.Ctx, in ChangePasswordInput) (web.Responder, error) {
+func (h Accounts) ChangePassword(c *web.Ctx, in ChangePasswordInput) (web.Empty, error) {
 	u, err := auth.Current[*models.User](c)
 	if err != nil {
-		return nil, err
+		return web.Empty{}, err
 	}
 	err = h.Auth.ChangePassword(c, u, in.CurrentPassword, in.Password)
 	var throttled *auth.ThrottledError
 	switch {
 	case errors.Is(err, auth.ErrInvalidCredentials):
-		return nil, validate.Fail("current_password", i18n.T(c, "auth.errors.password"))
+		return web.Empty{}, validate.Fail("current_password", i18n.T(c, "auth.errors.password"))
 	case errors.Is(err, password.ErrTooLong):
-		return nil, validate.Fail("password", i18n.T(c, "auth.errors.password_too_long"))
+		return web.Empty{}, validate.Fail("password", i18n.T(c, "auth.errors.password_too_long"))
 	case errors.As(err, &throttled):
-		return nil, tooMany(c, throttled)
+		return web.Empty{}, tooMany(c, throttled)
 	case err != nil:
-		return nil, err
+		return web.Empty{}, err
 	}
-	return nil, h.revokeOthers(c, u)
+	return web.Empty{}, h.revokeOthers(c, u)
 }
 
 // revokeOthers revokes u's API tokens but the request's.
@@ -558,15 +558,16 @@ func tokenResponse(t, current *auth.Token) TokenResponse {
 		ExpiresAt: t.ExpiresAt, CreatedAt: t.CreatedAt, Current: current != nil && current.ID == t.ID}
 }
 
-// CreateToken makes an API token, given the current password: 201 with
-// the token, shown this once. It expires in 90 days.
-func (h Accounts) CreateToken(c *web.Ctx, in NewTokenInput) (web.Responder, error) {
+// CreateToken makes an API token, given the current password: the
+// token, shown this once (201: the route's Status). It expires in 90
+// days.
+func (h Accounts) CreateToken(c *web.Ctx, in NewTokenInput) (NewTokenResponse, error) {
 	u, err := auth.Current[*models.User](c)
 	if err != nil {
-		return nil, err
+		return NewTokenResponse{}, err
 	}
 	if err := h.checkPassword(c, u, in.Password); err != nil {
-		return nil, err
+		return NewTokenResponse{}, err
 	}
 	abilities := in.Abilities
 	if len(abilities) == 0 {
@@ -574,23 +575,23 @@ func (h Accounts) CreateToken(c *web.Ctx, in NewTokenInput) (web.Responder, erro
 	}
 	name := cleanName(in.Name)
 	if name == "" {
-		return nil, validate.Fail("name", i18n.T(c, "auth.errors.name_required"))
+		return NewTokenResponse{}, validate.Fail("name", i18n.T(c, "auth.errors.name_required"))
 	}
 	plain, t, err := h.Auth.CreateToken(c, u, name, abilities, tokenTTL)
 	if err != nil {
-		return nil, err
+		return NewTokenResponse{}, err
 	}
-	return web.Created(NewTokenResponse{Token: plain, TokenResponse: tokenResponse(t, nil)}), nil
+	return NewTokenResponse{Token: plain, TokenResponse: tokenResponse(t, nil)}, nil
 }
 
 // RevokeToken deletes one of the user's API tokens (the request's too):
 // 204.
-func (h Accounts) RevokeToken(c *web.Ctx, in TokenID) (web.Responder, error) {
+func (h Accounts) RevokeToken(c *web.Ctx, in TokenID) (web.Empty, error) {
 	u, err := auth.Current[*models.User](c)
 	if err != nil {
-		return nil, err
+		return web.Empty{}, err
 	}
-	return nil, h.Auth.RevokeToken(c, u, in.ID)
+	return web.Empty{}, h.Auth.RevokeToken(c, u, in.ID)
 }
 
 // TwoFactor answers the user's two-factor sign-in.
@@ -671,13 +672,13 @@ func (h Accounts) NewRecoveryCodes(c *web.Ctx, in PasswordInput) (RecoveryCodesR
 
 // DisableTwoFactor turns off two-factor sign-in, given the current
 // password: 204.
-func (h Accounts) DisableTwoFactor(c *web.Ctx, in PasswordInput) (web.Responder, error) {
+func (h Accounts) DisableTwoFactor(c *web.Ctx, in PasswordInput) (web.Empty, error) {
 	u, err := auth.Current[*models.User](c)
 	if err != nil {
-		return nil, err
+		return web.Empty{}, err
 	}
 	if err := h.checkPassword(c, u, in.Password); err != nil {
-		return nil, err
+		return web.Empty{}, err
 	}
-	return nil, h.Auth.DisableTwoFactor(c, u)
+	return web.Empty{}, h.Auth.DisableTwoFactor(c, u)
 }

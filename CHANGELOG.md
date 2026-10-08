@@ -26,8 +26,7 @@ All notable changes to this project are documented here. The format follows
   problem details under it (AP1, D261). `examples/tracker`'s API uses it.
 - In an API project (`routes/api.go`, no `routes/web.go`),
   `make:handler` (a typed handler answering a struct) and
-  `make:middleware` write for the API, and `make:crud` refuses, saying
-  so, until AP3; `make:admin` refuses (AP1, D262).
+  `make:middleware` write for the API; `make:admin` refuses (AP1, D262).
 - `make:auth` in an API project writes accounts that sign in with API
   tokens (AP2, D263–D268): `POST /api/v1/register` and `/login` answer
   with a token (with a two-factor challenge and `/login/two-factor`
@@ -38,7 +37,8 @@ All notable changes to this project are documented here. The format follows
   tokens, and `/two-factor` to turn two-factor sign-in on and off;
   making a token and changing two-factor sign-in take the password,
   and the account's routes need a token with every ability (`*`).
-  Typed handlers answering output structs, emails from an
+  Typed handlers answering output structs (201 on the routes that
+  create, `web.Empty` for the actions), emails from an
   `html/template` file (no templ), tests of every endpoint. Guide "Add
   accounts to an API".
 - `auth.Auth.AttemptCredentials`, `AttemptTwoFactorChallenge` and
@@ -46,6 +46,25 @@ All notable changes to this project are documented here. The format follows
   without a session; `CheckPassword`, the password checked again with
   `ConfirmPassword`'s limits, without a session; `RevokeOtherTokens`;
   `ClientLink` and the `AUTH_CLIENT_URL` setting (AP2, D264–D266).
+- `web.Route.Status(code)`: the status of a typed handler's result on a
+  route (201 for a creation), and `web.Empty`, a result without a body
+  (204): typed results say in their signature what a route answers, for
+  the OpenAPI spec to come (AP3, D269). `make:auth`'s API handlers and
+  `examples/notes` use them.
+- `make:crud` in an API project writes JSON endpoints under
+  `/api/v1/<path>` (AP3, D270–D273): a page of rows (`?page=`,
+  `?per_page=` up to 100, `?sort=` from a list of columns with `-` for
+  descending, exact filters on string, email, int, bool and date
+  fields, where an empty value doesn't filter; so no field may be named
+  `page`, `per_page` or `sort`), show, create (201 with `Location`),
+  replace (PUT) and delete (204); each row answered as
+  `<Model>Response`, an output struct, never the model; the routes
+  added to `routes/api.go`'s `api` group; a test.
+- `web.RouteInfo.Input`, `Output` and `Status`: `Router.Routes` reports
+  a `web.H` route's input and result types and its status, for tools
+  that describe the API (AP3, D274).
+- `db.MapPage(page, fn)`: a page of rows made a page of responses,
+  keeping the counts (AP3, D273).
 
 ### Changed
 - `plugins/postmark` works with Anetos v0.4 too (`Requires`:
@@ -61,6 +80,9 @@ All notable changes to this project are documented here. The format follows
 - `auth.Auth.Require` sends `WWW-Authenticate: Bearer` with its 401 on
   routes behind `TokenMiddleware` that also have sessions, as it did
   on routes without (AP2, D267).
+- `make:crud` refuses field names that would write code that doesn't
+  build: two names with the same Go name (`a_1` and `a1`), `id_`, and
+  names with a leading, trailing or double `_` (AP3).
 
 ## [0.3.0] - 2026-10-07
 

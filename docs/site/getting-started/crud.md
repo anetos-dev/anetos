@@ -106,6 +106,50 @@ The code is plain Anetos code: change it as you would your own.
 `go test ./...` runs the test it wrote; keep it passing as you change
 the pages.
 
+## In an API project
+
+Since v0.4, in a project made with `anetos new --stack=api`, the same
+command writes JSON endpoints instead of pages: the model and its
+migration, `app/handlers/posts.go`, `routes/posts.go` and
+`posts_test.go`, and `Posts(api)` at the end of `Register` in
+`routes/api.go`. There are no views or catalog.
+
+| Route | URL | Answers |
+|---|---|---|
+| `api.posts.index` | `GET /api/v1/posts` | A page of posts |
+| `api.posts.store` | `POST /api/v1/posts` | `201` with the post, and its URL in `Location` |
+| `api.posts.show` | `GET /api/v1/posts/{id}` | The post |
+| `api.posts.update` | `PUT /api/v1/posts/{id}` | The post, every field replaced |
+| `api.posts.destroy` | `DELETE /api/v1/posts/{id}` | `204` |
+
+A post is answered as `PostResponse`, a struct of the handlers' file
+(the ID, the fields, `created_at`, `updated_at`), never as the model:
+a column you add later shows only once you add it there. Optional dates
+are `null` when empty. The body of `POST` and `PUT` is JSON with the
+fields' names, checked with the same rules as the pages' form: a 422
+lists the fields' errors.
+
+The list is `{"data": [...], "current_page": 1, "per_page": 20,
+"total": 1, "last_page": 1}`. Its query:
+
+- `?page=2`, and `?per_page=50` (20 by default, at most 100).
+- `?sort=title`, or `-title` for descending: `id`, `created_at`,
+  `updated_at` or a field other than a text. Newest first (`-id`) by
+  default; another value is a 422. Rows with the same value come newest
+  first. Where an optional date's empty value (`NULL`) sorts depends on
+  the database: first ascending in SQLite and MySQL, last in PostgreSQL.
+- An exact filter per field of type string, email, int, bool or date:
+  `?published=true`. An empty value (`?title=`) doesn't filter. Texts
+  and floats aren't filters: search and ranges are yours to add to
+  `Index`.
+
+So fields can't be named `page`, `per_page` or `sort` in an API project.
+
+The endpoints are open to every client. After
+[`make:auth`](../guides/api-accounts.md), move the `Posts(api)` call to
+the `me` group of `routes/auth.go` for clients with a token only, and
+check abilities in the handlers with `auth.TokenCan`.
+
 ## When to write pages by hand
 
 `make:crud` makes the common case quick: a table, a form, plain

@@ -1,0 +1,168 @@
+package handlers
+
+import (
+	"cmp"
+	"strings"
+	"time"
+[[if .HasDate]]
+	"anetos.dev/anetos"
+[[- end]]
+	"anetos.dev/anetos/db"
+	"anetos.dev/anetos/web"
+
+	"[[.Module]]/app/models"
+)
+
+// [[.Plural]] serves the [[.PluralW]] API (anetos make:crud): the list, a
+// [[.Words]], and creating, replacing and deleting one. Yours to change;
+// routes/[[.Table]].go routes them.
+type [[.Plural]] struct{}
+
+// [[.Model]]Response is how the API shows a [[.Words]]: the fields chosen
+// here, so a new column of the [[.Table]] table never shows by accident.
+type [[.Model]]Response struct {
+	ID int64 `json:"id"`
+[[- range .Fields]]
+	[[.Go]] [[.ResponseType]] `json:"[[.Name]]"`
+[[- end]]
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// [[.Helper]]Response is row as the API shows it.
+func [[.Helper]]Response(row models.[[.Model]]) [[.Model]]Response {
+	res := [[.Model]]Response{
+		ID: row.ID,
+[[- range .Fields]][[if not .OptionalDate]]
+		[[.Go]]: row.[[.Go]],
+[[- end]][[end]]
+		CreatedAt: row.CreatedAt,
+		UpdatedAt: row.UpdatedAt,
+	}
+[[- range .Fields]][[if .OptionalDate]]
+	if !row.[[.Go]].IsZero() {
+		res.[[.Go]] = &row.[[.Go]] // null when empty
+	}
+[[- end]][[end]]
+	return res
+}
+
+// [[.Model]]List is the list's query: ?page=, ?per_page= (20 by default,
+// at most 100), ?sort= (a column, - first for descending; -id, the newest
+// first, by default)[[with .FilterExample]], and exact filters by field
+// (?[[.]]; an empty value doesn't filter)[[end]].
+type [[.Model]]List struct {
+	Page    int    `query:"page"`                         // 1 if absent or below
+	PerPage int    `query:"per_page" validate:"min:0|max:100"` // 20 if absent
+	Sort    string `query:"sort" validate:"in:[[.SortValues]]"`
+[[- range .Fields]][[if .Filterable]]
+	[[.Go]] *[[.GoType]] `query:"[[.Name]]"`
+[[- end]][[end]]
+}
+
+// [[.Helper]]Sorts are the orders ?sort= may name: ascending, then
+// descending.
+var [[.Helper]]Sorts = map[string][2]db.Order{
+	"id":         {models.[[.Model]]Cols.ID.Asc(), models.[[.Model]]Cols.ID.Desc()},
+	"created_at": {models.[[.Model]]Cols.CreatedAt.Asc(), models.[[.Model]]Cols.CreatedAt.Desc()},
+	"updated_at": {models.[[.Model]]Cols.UpdatedAt.Asc(), models.[[.Model]]Cols.UpdatedAt.Desc()},
+[[- range .Fields]][[if .Sortable]]
+	"[[.Name]]": {models.[[$.Model]]Cols.[[.Go]].Asc(), models.[[$.Model]]Cols.[[.Go]].Desc()},
+[[- end]][[end]]
+}
+
+// [[.Model]]ID reads {id} from the path.
+type [[.Model]]ID struct {
+	ID int64 `path:"id"`
+}
+
+// [[.Model]]Input is a [[.Words]] sent to the API, as JSON. Its validate
+// tags are checked before the handler runs: an invalid one is a 422 with
+// the fields' errors.
+type [[.Model]]Input struct {
+	ID int64 `path:"id"` // when replacing
+[[- range .Fields]]
+	[[.Go]] [[.GoType]] `json:"[[.Name]]"[[with .Rules $.Table]] validate:"[[.]]"[[end]]`
+[[- end]]
+}
+
+// fill copies the input to the row.
+func (in [[.Model]]Input) fill(row *models.[[.Model]]) {
+[[- range .Fields]]
+	row.[[.Go]] = in.[[.Go]]
+[[- end]]
+}
+
+// Index lists the [[.PluralW]], a page at a time.
+func ([[.Plural]]) Index(c *web.Ctx, in [[.Model]]List) (db.Page[ [[.Model]]Response], error) {
+	q := db.Query[models.[[.Model]]](c)
+[[- range .Fields]][[if .Filterable]]
+	if in.[[.Go]] != nil[[if or (eq .Kind "string") (eq .Kind "email")]] && *in.[[.Go]] != ""[[end]] {
+		q = q.Where(models.[[$.Model]]Cols.[[.Go]].Eq(*in.[[.Go]]))
+	}
+[[- end]][[end]]
+	key := strings.TrimPrefix(in.Sort, "-")
+	order, ok := [[.Helper]]Sorts[key]
+	if !ok {
+		key, order, in.Sort = "id", [[.Helper]]Sorts["id"], "-id"
+	}
+	desc := 0
+	if strings.HasPrefix(in.Sort, "-") {
+		desc = 1
+	}
+	q = q.OrderBy(order[desc])
+	if key != "id" {
+		q = q.OrderBy(models.[[.Model]]Cols.ID.Desc()) // then the ID: a stable order across pages
+	}
+	page, err := q.Paginate(in.Page, cmp.Or(in.PerPage, 20))
+	if err != nil {
+		return db.Page[ [[.Model]]Response]{}, err
+	}
+	return db.MapPage(page, [[.Helper]]Response), nil
+}
+
+// Show answers a [[.Words]]; one that doesn't exist is a 404
+// (db.ErrNotFound).
+func ([[.Plural]]) Show(c *web.Ctx, in [[.Model]]ID) ([[.Model]]Response, error) {
+	row, err := db.Find[models.[[.Model]]](c, in.ID)
+	if err != nil {
+		return [[.Model]]Response{}, err
+	}
+	return [[.Helper]]Response(row), nil
+}
+
+// Create saves a new [[.Words]] and answers it (201: the route's Status),
+// with its address in the Location header.
+func ([[.Plural]]) Create(c *web.Ctx, in [[.Model]]Input) ([[.Model]]Response, error) {
+	var row models.[[.Model]]
+	in.fill(&row)
+	if err := db.Create(c, &row); err != nil {
+		return [[.Model]]Response{}, err
+	}
+	if loc, err := c.URL("api.[[.Path]].show", row.ID); err == nil {
+		c.SetHeader("Location", loc)
+	}
+	return [[.Helper]]Response(row), nil
+}
+
+// Update replaces a [[.Words]] with the input: every field.
+func ([[.Plural]]) Update(c *web.Ctx, in [[.Model]]Input) ([[.Model]]Response, error) {
+	row, err := db.Find[models.[[.Model]]](c, in.ID)
+	if err != nil {
+		return [[.Model]]Response{}, err
+	}
+	in.fill(&row)
+	if err := db.Update(c, &row); err != nil {
+		return [[.Model]]Response{}, err
+	}
+	return [[.Helper]]Response(row), nil
+}
+
+// Delete deletes a [[.Words]]: 204.
+func ([[.Plural]]) Delete(c *web.Ctx, in [[.Model]]ID) (web.Empty, error) {
+	row, err := db.Find[models.[[.Model]]](c, in.ID)
+	if err != nil {
+		return web.Empty{}, err
+	}
+	return web.Empty{}, db.Delete(c, &row)
+}

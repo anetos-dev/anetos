@@ -6,6 +6,8 @@ import (
 	"context"
 	"net/http"
 	"reflect"
+	"sync"
+	"unsafe"
 
 	"anetos.dev/anetos/validate"
 )
@@ -28,15 +30,15 @@ type Validator interface {
 //		Body  string `json:"body"`
 //	}
 //
-//	func (h *Posts) Store(c *web.Ctx, in StorePost) (web.Responder, error) {
+//	func (h *Posts) Store(c *web.Ctx, in StorePost) (PostResponse, error) {
 //		post, err := h.repo.Create(c, in.Title, in.Body)
 //		if err != nil {
-//			return nil, err
+//			return PostResponse{}, err
 //		}
-//		return web.Created(post), nil
+//		return postResponse(post), nil
 //	}
 //
-//	r.Post("/posts", web.H(h.Store))
+//	r.Post("/posts", web.H(h.Store)).Status(http.StatusCreated)
 //
 // Before fn runs, the request is bound into a new In value:
 //
@@ -50,13 +52,21 @@ type Validator interface {
 // 422 response with a message per field. If they pass and In implements
 // [Validator], Validate runs last.
 //
-// The result is written by its [Responder] method if Out implements it, and
-// as JSON with status 200 otherwise; a nil Responder writes 204 No Content.
-// If fn wrote the response itself, the result is ignored.
+// The result is written by its [Responder] method if Out implements it (a
+// nil Responder writes 204 No Content). Otherwise it is written as JSON
+// with the route's status ([Route.Status]: 200 OK unless set), and an
+// [Empty] result answers 204 No Content without a body. Typed results
+// (Out a struct, a slice, Empty) say what the route answers in its
+// signature, which tools can read (the OpenAPI spec, v0.4's AP4); a
+// Responder chooses at run time. If fn wrote the response itself, the
+// result is ignored.
 //
 // H inspects In once, when it is called; it panics if In is not a struct,
 // has a field type it can't bind, or has an invalid validate tag, so
-// mistakes show up at startup.
+// mistakes show up at startup. Call it when registering routes, not per
+// request: each call records the handler's types for [Router.Routes],
+// keeping fn alive for the program's life. Register its result as it is:
+// a HandlerFunc wrapping it has no types to report.
 func H[In, Out any](fn func(c *Ctx, in In) (Out, error)) HandlerFunc {
 	plan, err := newBindPlan(reflect.TypeFor[In]())
 	if err != nil {
@@ -69,7 +79,8 @@ func H[In, Out any](fn func(c *Ctx, in In) (Out, error)) HandlerFunc {
 	if rules.Empty() {
 		rules = nil
 	}
-	return func(c *Ctx) error {
+	_, empty := any(*new(Out)).(Empty)
+	h := HandlerFunc(func(c *Ctx) error {
 		var in In
 		if err := plan.bind(c, reflect.ValueOf(&in)); err != nil {
 			return err
@@ -88,11 +99,38 @@ func H[In, Out any](fn func(c *Ctx, in In) (Out, error)) HandlerFunc {
 		if err != nil {
 			return err
 		}
-		return respond(c, out)
-	}
+		return respond(c, out, empty)
+	})
+	typedHandlers.Store(funcKey(h), handlerTypes{in: reflect.TypeFor[In](), out: reflect.TypeFor[Out]()})
+	return h
 }
 
-func respond(c *Ctx, out any) error {
+// typedHandlers are the input and result types of the handlers H made,
+// by funcKey: a route registering one of them knows its types
+// ([RouteInfo]), for tools that describe the routes (the OpenAPI spec).
+// An entry lives as long as the program, as routes do.
+var typedHandlers sync.Map // unsafe.Pointer → handlerTypes
+
+type handlerTypes struct{ in, out reflect.Type }
+
+// funcKey identifies a func value: the address of its closure, which
+// each call of H allocates anew. reflect.Value.Pointer can't: it is the
+// code's address, shared by the closures of one H[In, Out] and by
+// instantiations with the same GC shape.
+// TestTypedHandlerTypes checks the two closures of one H[In, Out] get
+// keys of their own.
+func funcKey(h HandlerFunc) unsafe.Pointer {
+	return *(*unsafe.Pointer)(unsafe.Pointer(&h))
+}
+
+// Empty is a typed handler's result without a body: [H] answers it 204
+// No Content (or the route's [Route.Status]), for an action such as a
+// deletion or a logout.
+//
+//	func (h Orders) Delete(c *web.Ctx, in OrderID) (web.Empty, error)
+type Empty struct{}
+
+func respond(c *Ctx, out any, empty bool) error {
 	if c.w.started() {
 		return nil
 	}
@@ -105,7 +143,16 @@ func respond(c *Ctx, out any) error {
 	case nil:
 		return c.NoContent()
 	}
-	return c.JSON(http.StatusOK, out)
+	status := http.StatusOK
+	if c.route != nil {
+		status = c.route.successStatus(empty)
+	} else if empty {
+		status = http.StatusNoContent
+	}
+	if empty || status == http.StatusNoContent || status == http.StatusResetContent {
+		return c.Status(status)
+	}
+	return c.JSON(status, out)
 }
 
 func isNil(v any) bool {

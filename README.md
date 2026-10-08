@@ -77,7 +77,8 @@ go tool anetos build       # bin/blog: one static binary, everything in it
 docker build -t blog .     # or the image, from the generated Dockerfile
 
 anetos new shop --stack=api # or JSON only: routes under /api/v1, errors as problem details;
-                            # there, make:auth writes accounts that sign in with API tokens
+                            # there, make:auth writes accounts that sign in with API tokens,
+                            # and make:crud JSON endpoints (pages, sorting, filters)
 ```
 
 ## License
