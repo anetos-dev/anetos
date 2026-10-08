@@ -283,8 +283,12 @@ func TestDeclaredRole(t *testing.T) {
 	s = newTestSupervisor(time.Second)
 	mustAdd(t, s, Spec{Component: blocker("http", nil), Roles: []string{"http"}})
 	s.Declare("scheduler")
+	// A component without roles keeps Run going: with nothing running,
+	// Run would finish at once, and the Add below would race with it.
+	mustAdd(t, s, Spec{Component: blocker("keep", nil)})
 	ctx, cancel := context.WithCancel(context.Background())
 	done := runAsync(s, ctx, "scheduler")
+	waitFor(t, "keep running", func() bool { return statusOf(s, "keep").State == StateRunning })
 	mustAdd(t, s, Spec{Component: blocker("tasks", nil), Roles: []string{"scheduler"}})
 	waitFor(t, "tasks running", func() bool { return statusOf(s, "tasks").State == StateRunning })
 	if statusOf(s, "http").State != StatePending {

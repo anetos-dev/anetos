@@ -206,7 +206,13 @@ func TestTwoFactorChallengeDailyCap(t *testing.T) {
 
 func TestCheckPassword(t *testing.T) {
 	s := newStore(t)
-	a, b, _ := newAppWith(t, s)
+	a, b, app := newAppWith(t, s)
+	// A fixed clock: the limits count in windows aligned to the minute,
+	// and the real clock may cross into the next one between the tries.
+	now := time.Date(2026, 10, 8, 12, 0, 30, 0, time.UTC)
+	clock := func() time.Time { return now }
+	auth.SetNow(a, clock)
+	app.SetClock(clock)
 	ctx := b.ctx // with the app's cache, for the limits
 	ada, _ := s.users().ByID(ctx, "1")
 	if err := a.CheckPassword(ctx, ada, "secret"); err != nil {
