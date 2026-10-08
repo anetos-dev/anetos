@@ -7,6 +7,16 @@ tagged `drivers/gcs/vX.Y.Z`. The framework's own changes are in the
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-08
+
+Released with the framework's v0.4.0.
+
+### Changed
+- `google.golang.org/api` v0.298.0 (was v0.293.0),
+  `cloud.google.com/go/auth` v0.24.0 and their dependencies
+  (Dependabot); the API client stays below v0.299.0, which requires
+  gRPC 1.84 (GO-2026-6443).
+
 ## [0.3.0] - 2026-10-07
 
 The first release, with the framework's v0.3.0.

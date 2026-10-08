@@ -7,6 +7,13 @@ tagged `drivers/s3/vX.Y.Z`. The framework's own changes are in the
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-08
+
+Released with the framework's v0.4.0.
+
+### Changed
+- Indirect dependencies updated (Dependabot).
+
 ## [0.3.0] - 2026-10-07
 
 No changes of its own; released with the framework's v0.3.0.

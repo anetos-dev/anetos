@@ -7,6 +7,15 @@ tagged `drivers/gcppubsub/vX.Y.Z`. The framework's own changes are in the
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-08
+
+Released with the framework's v0.4.0.
+
+### Changed
+- `google.golang.org/api` v0.298.0 (was v0.287.1) and its dependencies
+  (Dependabot); it stays below v0.299.0, which requires gRPC 1.84
+  (GO-2026-6443).
+
 ## [0.3.0] - 2026-10-07
 
 ### Security

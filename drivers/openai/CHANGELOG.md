@@ -7,6 +7,13 @@ tagged `drivers/openai/vX.Y.Z`. The framework's own changes are in the
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-08
+
+Released with the framework's v0.4.0.
+
+### Changed
+- `github.com/openai/openai-go/v3` v3.71.1 (was v3.70.0) (Dependabot).
+
 ## [0.3.0] - 2026-10-07
 
 The first release, with the framework's v0.3.0.
