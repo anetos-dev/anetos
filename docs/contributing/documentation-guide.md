@@ -71,7 +71,8 @@ docs/
     ├── guides/                  how-to guides, one per feature area
     ├── concepts/                explanations
     ├── reference/               config, CLI, API reference (partly generated)
-    └── upgrade/                 upgrade guides per version
+    ├── upgrade/                 upgrade guides per version
+    └── images/                  screenshots and other images the pages show
 examples/                        compiled example code used by the docs
 CHANGELOG.md
 ```
@@ -153,12 +154,21 @@ Every page of `getting-started/`, `guides/`, `concepts/` and
 folder of the sidebar (the page's URL stays `/guides/<file>/`); the
 weight orders the pages in their group, and the groups by their
 pages' weights. Give a group's pages weights next to each other (the
-groups of guides are hundreds: Basics 100–199, Data 200–299…), and put
-a new page where a reader would look for it in the order of work, not
-the alphabet. A group's name mustn't be a page's file name (the group
-"Installation" next to `installation.md` would take its URL). Pages of
-a subfolder (the tutorial's parts) have a weight only. `make
-docs-check` checks all this (`internal/cmd/docnav`).
+groups of guides are hundreds: Basics 100–199, Data 200–299…; a small
+group may take part of one, after the pages it follows, as the design
+kits' 150–155), and put a new page where a reader would look for it in
+the order of work, not the alphabet. A group's name mustn't be a page's
+file name (the group "Installation" next to `installation.md` would
+take its URL). Pages of a subfolder (the tutorial's parts) have a
+weight only. `make docs-check` checks all this (`internal/cmd/docnav`).
+
+Images live in `docs/site/images/<topic>/`, screenshots as WebP. A page
+shows one with a relative path (`![…](../images/kits/pico-list-light.webp)`)
+and alt text saying what it shows. `make docs-check` checks that each
+image a page shows exists and has alt text, and that each image is shown
+by a page (remove one no page shows). Make screenshots with a script, so
+they can be made again when the pages change: the design kits' come from
+`scripts/kit-screenshots/run.sh`; run it after changing a kit.
 
 ### 5.2 Concept page
 
@@ -359,6 +369,7 @@ Reviewers check:
 - [ ] Glossary terms used correctly.
 - [ ] `since` version set; CHANGELOG entry present.
 - [ ] `group` and `weight` place the page where a reader looks for it (§5.1).
+- [ ] Images have alt text; screenshots are current (§5.1).
 
 ---
 
@@ -380,3 +391,4 @@ sketches as illustrative; never invent APIs in docs that don't exist in code.
 | 2026-10-01 | §7: regions of first-party plugins (`plugins/`) can be claimed like examples (B11) |
 | 2026-10-06 | §5.1, §12: every page has a `group` and a `weight`, the docs site's sidebar groups; `make docs-check` checks them (M2, D242) |
 | 2026-10-07 | §9: upgrade guides newest first |
+| 2026-10-10 | §5.1, §12: images in `docs/site/images`, WebP screenshots made by a script, alt text; `make docs-check` checks them (K5, D307) |

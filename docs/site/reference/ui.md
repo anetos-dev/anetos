@@ -232,10 +232,10 @@ files in `public/static/` yourself.
 `anetos new --css=tailwind` writes the components with Tailwind CSS
 4.3.3's utility classes, the source stylesheet `views/ui/tailwind.css`
 and `public/static/app.css`, which Tailwind compiles from it (`anetos
-dev`, `anetos build` and `anetos css:build` run Tailwind; [Style your
-app](../guides/styling.md#with-tailwind-css)). `classes.go` holds the
-classes of each look (`Look.class`) and tone (`Tone.badge`,
-`Tone.flash`) and of the form controls (`control`).
+dev`, `anetos build` and `anetos css:build` run Tailwind; [Tailwind
+CSS](../guides/kit-tailwind.md)). `classes.go` holds the classes of
+each look (`Look.class`) and tone (`Tone.badge`, `Tone.flash`) and of
+the form controls (`control`).
 
 | Component | Writes |
 |---|---|

@@ -1190,6 +1190,12 @@ plain HTML elements, never `class=`:
   line; it refuses, writing nothing, when a recorded file changed or a
   file in the way isn't the old kit's, unless `--force`. The same kit
   again updates its files.
+- **Docs (K5, D307):** a guide per kit (`docs/site/guides/kit-*.md`)
+  with screenshots of `make:crud`'s pages in a project with `make:auth`,
+  in light and dark, WebP in `docs/site/images/kits/`, made by
+  `scripts/kit-screenshots/run.sh` (Playwright). `make docs-check`
+  (`internal/cmd/docnav`) checks that every image a page shows exists
+  and has alt text, and that every image is shown.
 - **Projects made before v0.5** (no `views/ui`): `make:crud` and
   `make:auth` write the kit their stylesheet looks like first, and say
   so; the layout is left as it is.
@@ -3144,6 +3150,7 @@ unless new information arrives), **Open**, **Superseded**.
 | D304 | A project records its design kit in `views/ui/kit.json`: the kit, its framework's version, the CLI's version, and the SHA-256 of each file the kit wrote (paths with slashes, keys sorted). `anetos new` writes it with the kit, the generators with the `views/ui` they write for an older project (its files only: the stylesheet stays the app's), `css:use` after a switch. `GuessKit` reads it first | Accepted | Telling a file the developer changed from one the kit wrote needs what the kit wrote: comparing with what the current CLI would render flags every file after an upgrade, which would make `--force` routine and the protection useless. The record lives beside the components it describes; Go and templ ignore a JSON file there |
 | D305 | `anetos css:use <kit>` refuses, writing nothing, when a recorded file changed since (a deleted one loses nothing and doesn't count), when a file the new kit writes exists without being the old kit's, or when the project has no record; it lists them. `--force` overwrites, without backups: the docs say to commit first. A Tailwind project's `app.css` isn't compared (it is compiled from files that are), and Tailwind to Tailwind keeps it. Digests ignore line endings (git on Windows checks files out with CRLF); a symbolic link counts as changed; a record naming a file outside `views/ui` and `public/static` (or not JSON) is unusable, as a missing one is. Files are written through temporary files renamed into place, the record last, and the switch ends with `go build ./...`. Files of `views/ui` that aren't the kit's are kept and listed; the layout, pages and locale files are never rewritten (only `nav.menu` added when missing) | Accepted | A switch must not silently lose a component the developer edited or their colors in `app.css`; git already keeps the old version, which backups would only duplicate as clutter (user's choice, 2026-10-09). The app's own components may carry the old kit's classes, which no tool can translate: saying so is the honest outcome |
 | D306 | `css:use` with the project's current kit updates the kit's files to the running CLI's version, under the same rule; moving to or from Tailwind, it prints the Dockerfile's cache-mount line to add or remove instead of editing the Dockerfile | Accepted | Updating a kit (a newer Pico, fixed components) is the same operation as switching, and needs the same protection. The Dockerfile is the developer's file and the line only affects caching, so a hint is enough (user's choice, 2026-10-09) |
+| D307 | Screenshots in the docs are WebP files in the repository (`docs/site/images/<topic>/`), made by a script that builds the pages from the current source, rather than taken by hand or rendered at docs build time; `docnav` fails on a missing image, an image without alt text, or an image no page shows | Accepted | Images in the repository are versioned with the code they show and reviewed in the change; a script makes refreshing them after a kit change one command, without making the docs build depend on Go, a browser and a database. WebP keeps two dozen full-page shots small (user's choice, 2026-10-09); the check keeps the folder from collecting stale images |
 
 ---
 
@@ -3238,3 +3245,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-09 | K2 (Pico, Bootstrap, Bulma kits): §12.1, §12.2, §17.1 updated; D298–D300 added |
 | 2026-10-09 | K3 (Tailwind kit): §12.2, §17.1 updated; D301–D303 added |
 | 2026-10-09 | K4 (switching kits): §12.2, §17.1 updated; D304–D306 added |
+| 2026-10-10 | K5 (kit docs): §12.2 updated; D307 added |

@@ -74,6 +74,7 @@ go tool anetos make:crud Post title:string body:text published:bool  # pages to 
 go tool anetos make:auth   # accounts: password, Google, GitHub, API tokens
 go tool anetos make:admin  # an admin at /admin; make:admin:resource Post adds posts
 go run . migrate
+go tool anetos css:use pico # restyle the app's pages: Pico, Bootstrap, Bulma, Tailwind CSS or none
 go tool anetos dev         # rebuild and reload on every change
 
 go tool anetos build       # bin/blog: one static binary, everything in it

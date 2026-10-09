@@ -8,12 +8,17 @@
 // that the site (anetos-dev/docs's sync) shows the groups in order, as
 // folders of the sidebar. A group's name mustn't make the URL of a page
 // of its folder, nor a subfolder's. Pages in subfolders (the tutorial's
-// parts) have a weight and no group. Run it with make docs-check.
+// parts) have a weight and no group. It also checks the images: every
+// image a page shows (![alt](path), relative to the page) exists in
+// docs/site and has an alt text, and every file of docs/site/images is
+// shown by a page. Run it with make docs-check.
 package main
 
 import (
 	"bufio"
 	"fmt"
+	"io/fs"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -102,13 +107,100 @@ func main() {
 			}
 		}
 	}
+	images := checkImages(root, report)
 	for _, p := range problems {
 		fmt.Println(p)
 	}
 	if len(problems) > 0 {
 		os.Exit(1)
 	}
-	fmt.Printf("docnav: %d pages have their group and weight\n", n)
+	fmt.Printf("docnav: %d pages have their group and weight; %d images are shown\n", n, images)
+}
+
+var image = regexp.MustCompile(`!\[([^\]]*)\]\(\s*(<[^>]*>|[^)\s]+)`)
+
+// checkImages reports the images pages show that don't exist (or lie
+// outside root) or have no alt text, and the files of root's images
+// folder that no page shows; it returns how many images are shown.
+// Images in fenced code blocks don't count.
+func checkImages(root string, report func(string, ...any)) int {
+	shown := map[string]bool{}
+	var files []string
+	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		if name := d.Name(); strings.HasPrefix(name, ".") || strings.HasSuffix(name, "~") {
+			return nil // .DS_Store, an editor's files
+		}
+		if filepath.Ext(p) != ".md" {
+			if rel, _ := filepath.Rel(root, p); strings.HasPrefix(filepath.ToSlash(rel), "images/") {
+				files = append(files, p)
+			}
+			return nil
+		}
+		b, err := os.ReadFile(p)
+		if err != nil {
+			return err
+		}
+		for _, m := range image.FindAllStringSubmatch(outsideFences(string(b)), -1) {
+			alt, dest := m[1], strings.Trim(m[2], "<>")
+			if strings.Contains(dest, "://") {
+				continue // elsewhere
+			}
+			if strings.HasPrefix(dest, "/") {
+				report("%s: shows %s: give its path relative to the page (documentation guide §5.1)", p, dest)
+				continue
+			}
+			if i := strings.IndexAny(dest, "#?"); i >= 0 {
+				dest = dest[:i]
+			}
+			if u, err := url.PathUnescape(dest); err == nil {
+				dest = u
+			}
+			target := filepath.Join(filepath.Dir(p), filepath.FromSlash(dest))
+			if rel, err := filepath.Rel(root, target); err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+				report("%s: shows %s, which is outside %s", p, dest, root)
+				continue
+			}
+			if _, err := os.Stat(target); err != nil {
+				report("%s: shows %s, which doesn't exist", p, dest)
+			}
+			if strings.TrimSpace(alt) == "" {
+				report("%s: %s has no alt text (documentation guide §5.1)", p, dest)
+			}
+			shown[target] = true
+		}
+		return nil
+	})
+	if err != nil {
+		report("%s: %v", root, err)
+	}
+	for _, f := range files {
+		if !shown[f] {
+			report("%s: no page shows it as ![alt](relative path): show it or remove it", f)
+		}
+	}
+	return len(shown)
+}
+
+// outsideFences returns the lines of a page that aren't in a fenced
+// code block (``` or ~~~).
+func outsideFences(page string) string {
+	var b strings.Builder
+	fence := ""
+	for line := range strings.Lines(page) {
+		t := strings.TrimLeft(line, " ")
+		switch {
+		case fence == "" && (strings.HasPrefix(t, "```") || strings.HasPrefix(t, "~~~")):
+			fence = t[:3]
+		case fence != "" && strings.HasPrefix(t, fence):
+			fence = ""
+		case fence == "":
+			b.WriteString(line)
+		}
+	}
+	return b.String()
 }
 
 // frontMatter reads the "key: value" lines of a page's front matter.

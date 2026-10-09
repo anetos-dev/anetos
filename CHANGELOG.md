@@ -48,6 +48,13 @@ All notable changes to this project are documented here. The format follows
   the kit's files to the CLI's version. `anetos new` and the generators
   (in a project made before v0.5) write `kit.json`; `css:use` adds
   `nav.menu` to older projects' `locales/en/app.yaml`.
+- A guide per design kit, with screenshots of its pages in light and
+  dark: the starter theme, no styles, Pico, Bootstrap, Bulma and
+  Tailwind CSS (how to change its colors, its other components, common
+  problems); "Style your app" shows them side by side (K5, D307).
+  `scripts/kit-screenshots/run.sh` makes the screenshots, and `make
+  docs-check` checks a page's images: they exist, have alt text, and
+  every image is shown.
 - `view.Assets` serves a text file of 1 KiB or more gzipped to a client
   that accepts it, compressed once, the first time it's requested (K2,
   D300).

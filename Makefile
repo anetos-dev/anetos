@@ -54,7 +54,7 @@ vuln: ## govulncheck (install: go install golang.org/x/vuln/cmd/govulncheck@late
 spdx: ## Check SPDX license headers
 	@./scripts/check-spdx.sh
 
-docs-check: ## Check doc code blocks match their example regions, and the pages have their sidebar group
+docs-check: ## Check doc code blocks match their example regions, and the pages have their sidebar group and their images
 	@$(GO) run ./internal/cmd/docsnippets
 	@$(GO) run ./internal/cmd/docnav
 

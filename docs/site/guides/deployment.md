@@ -161,7 +161,7 @@ the binary alone into a distroless image (about 25 MB), run as user
 65532. In a project of the `tailwind` kit, `anetos build` compiles the
 stylesheet first, with Tailwind CSS downloaded once into BuildKit's
 cache, so the build needs to reach GitHub's releases the first time
-([Style your app](styling.md#with-tailwind-css)). The image sets
+([Tailwind CSS](kit-tailwind.md)). The image sets
 `APP_ENV=production`, `HTTP_ADDR=:8080` and
 `STORAGE_ROOT=/data/storage` (and `DB_DATABASE=/data/app.db` for
 SQLite): mount a volume on `/data`. Its `HEALTHCHECK` runs
