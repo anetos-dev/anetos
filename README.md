@@ -64,6 +64,7 @@ the reference app, is a bigger one; the
 - [Planning & roadmap](docs/planning/roadmap.md): vision, milestones v0.1–v0.6, work packages, risks
 - [Design document](docs/design/design.md): architecture, principles and decisions
 - [Documentation guide](docs/contributing/documentation-guide.md): how docs are written alongside code
+- [API guidelines](docs/contributing/api-guidelines.md): how the public API is named, shaped and changed; `api/` lists it
 - [Benchmarks](docs/benchmarks/README.md): overhead compared with plain `net/http`
 
 ## Developer experience

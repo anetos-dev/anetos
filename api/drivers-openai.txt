@@ -1,0 +1,21 @@
+# The exported API of anetos.dev/anetos/drivers/openai: make api-update writes it, make api-check (CI) compares it with the source.
+pkg anetos.dev/anetos/drivers/openai, const CompatibleName = "openai-compatible"
+pkg anetos.dev/anetos/drivers/openai, const Name = "openai"
+pkg anetos.dev/anetos/drivers/openai, func CompatibleDriver() ai.Driver
+pkg anetos.dev/anetos/drivers/openai, func Driver() ai.Driver
+pkg anetos.dev/anetos/drivers/openai, func New(string, ...option.RequestOption) *Provider
+pkg anetos.dev/anetos/drivers/openai, func NewCompatible(string, string, ...option.RequestOption) *Provider
+pkg anetos.dev/anetos/drivers/openai, method (*Provider) Client() *sdk.Client
+pkg anetos.dev/anetos/drivers/openai, method (*Provider) Embed(context.Context, *ai.EmbedRequest) (*ai.EmbedResponse, error)
+pkg anetos.dev/anetos/drivers/openai, method (*Provider) Generate(context.Context, *ai.Request) (*ai.Response, error)
+pkg anetos.dev/anetos/drivers/openai, method (*Provider) Name() string
+pkg anetos.dev/anetos/drivers/openai, method (*Provider) Stream(context.Context, *ai.Request) iter.Seq2[ai.Event, error]
+pkg anetos.dev/anetos/drivers/openai, type Config struct
+pkg anetos.dev/anetos/drivers/openai, type Config struct, APIKey anetos.Secret
+pkg anetos.dev/anetos/drivers/openai, type Config struct, BaseURL string
+pkg anetos.dev/anetos/drivers/openai, type Config struct, CompatibleKey anetos.Secret
+pkg anetos.dev/anetos/drivers/openai, type Config struct, CompatibleURL string
+pkg anetos.dev/anetos/drivers/openai, type Options struct
+pkg anetos.dev/anetos/drivers/openai, type Options struct, Params func(*sdk.ChatCompletionNewParams)
+pkg anetos.dev/anetos/drivers/openai, type Options struct, ReasoningEffort string
+pkg anetos.dev/anetos/drivers/openai, type Provider struct

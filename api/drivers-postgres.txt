@@ -1,0 +1,3 @@
+# The exported API of anetos.dev/anetos/drivers/postgres: make api-update writes it, make api-check (CI) compares it with the source.
+pkg anetos.dev/anetos/drivers/postgres, func DSN(db.Config) string
+pkg anetos.dev/anetos/drivers/postgres, func Driver() db.Driver

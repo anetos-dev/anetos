@@ -1,0 +1,45 @@
+# The exported API of anetos.dev/anetos/drivers/redis: make api-update writes it, make api-check (CI) compares it with the source.
+pkg anetos.dev/anetos/drivers/redis, func CacheDriver() cache.Driver
+pkg anetos.dev/anetos/drivers/redis, func Connect(context.Context, *anetos.App) (*goredis.Client, error)
+pkg anetos.dev/anetos/drivers/redis, func LoadConfig(config.Source) (Config, error)
+pkg anetos.dev/anetos/drivers/redis, func NewCacheStore(goredis.UniversalClient) *CacheStore
+pkg anetos.dev/anetos/drivers/redis, func NewQueueStore(goredis.UniversalClient, string) *QueueStore
+pkg anetos.dev/anetos/drivers/redis, func NewStreamsBroker(goredis.UniversalClient, string, int64) *StreamsBroker
+pkg anetos.dev/anetos/drivers/redis, func PubSubDriver() pubsub.Driver
+pkg anetos.dev/anetos/drivers/redis, func QueueDriver() queue.Driver
+pkg anetos.dev/anetos/drivers/redis, func SessionDriver() session.Driver
+pkg anetos.dev/anetos/drivers/redis, method (*CacheStore) Add(context.Context, string, []byte, time.Duration) (bool, error)
+pkg anetos.dev/anetos/drivers/redis, method (*CacheStore) Close() error
+pkg anetos.dev/anetos/drivers/redis, method (*CacheStore) Delete(context.Context, string) error
+pkg anetos.dev/anetos/drivers/redis, method (*CacheStore) DeleteIf(context.Context, string, []byte) (bool, error)
+pkg anetos.dev/anetos/drivers/redis, method (*CacheStore) ExpireIf(context.Context, string, []byte, time.Duration) (bool, error)
+pkg anetos.dev/anetos/drivers/redis, method (*CacheStore) Flush(context.Context, string) error
+pkg anetos.dev/anetos/drivers/redis, method (*CacheStore) Get(context.Context, string) ([]byte, bool, error)
+pkg anetos.dev/anetos/drivers/redis, method (*CacheStore) Increment(context.Context, string, int64, time.Duration) (int64, error)
+pkg anetos.dev/anetos/drivers/redis, method (*CacheStore) Replace(context.Context, string, []byte, time.Duration) (bool, error)
+pkg anetos.dev/anetos/drivers/redis, method (*CacheStore) Set(context.Context, string, []byte, time.Duration) error
+pkg anetos.dev/anetos/drivers/redis, method (*QueueStore) Clear(context.Context, string) (int64, error)
+pkg anetos.dev/anetos/drivers/redis, method (*QueueStore) Close() error
+pkg anetos.dev/anetos/drivers/redis, method (*QueueStore) CountFailed(context.Context) (int64, error)
+pkg anetos.dev/anetos/drivers/redis, method (*QueueStore) Delete(context.Context, *queue.Reservation) error
+pkg anetos.dev/anetos/drivers/redis, method (*QueueStore) Fail(context.Context, *queue.Reservation, string) error
+pkg anetos.dev/anetos/drivers/redis, method (*QueueStore) Failed(context.Context, int, int) ([]queue.FailedJob, error)
+pkg anetos.dev/anetos/drivers/redis, method (*QueueStore) FindFailed(context.Context, string) (queue.FailedJob, bool, error)
+pkg anetos.dev/anetos/drivers/redis, method (*QueueStore) Flush(context.Context) (int64, error)
+pkg anetos.dev/anetos/drivers/redis, method (*QueueStore) Forget(context.Context, string) (bool, error)
+pkg anetos.dev/anetos/drivers/redis, method (*QueueStore) Purge(context.Context) error
+pkg anetos.dev/anetos/drivers/redis, method (*QueueStore) Push(context.Context, queue.Message, time.Duration) error
+pkg anetos.dev/anetos/drivers/redis, method (*QueueStore) Release(context.Context, *queue.Reservation, time.Duration, bool) error
+pkg anetos.dev/anetos/drivers/redis, method (*QueueStore) Reserve(context.Context, string, time.Duration) (*queue.Reservation, error)
+pkg anetos.dev/anetos/drivers/redis, method (*QueueStore) Retry(context.Context, string) (bool, error)
+pkg anetos.dev/anetos/drivers/redis, method (*QueueStore) Size(context.Context, string) (int64, error)
+pkg anetos.dev/anetos/drivers/redis, method (*StreamsBroker) Close() error
+pkg anetos.dev/anetos/drivers/redis, method (*StreamsBroker) Prepare(context.Context, pubsub.SubscriptionSpec) error
+pkg anetos.dev/anetos/drivers/redis, method (*StreamsBroker) Publish(context.Context, string, pubsub.Outgoing) (string, error)
+pkg anetos.dev/anetos/drivers/redis, method (*StreamsBroker) Purge(context.Context) error
+pkg anetos.dev/anetos/drivers/redis, method (*StreamsBroker) Subscribe(context.Context, pubsub.SubscriptionSpec, func(context.Context, *pubsub.Message) pubsub.Outcome) error
+pkg anetos.dev/anetos/drivers/redis, type CacheStore struct
+pkg anetos.dev/anetos/drivers/redis, type Config struct
+pkg anetos.dev/anetos/drivers/redis, type Config struct, URL string
+pkg anetos.dev/anetos/drivers/redis, type QueueStore struct
+pkg anetos.dev/anetos/drivers/redis, type StreamsBroker struct

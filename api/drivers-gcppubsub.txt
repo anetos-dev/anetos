@@ -1,0 +1,11 @@
+# The exported API of anetos.dev/anetos/drivers/gcppubsub: make api-update writes it, make api-check (CI) compares it with the source.
+pkg anetos.dev/anetos/drivers/gcppubsub, func Driver(...option.ClientOption) pubsub.Driver
+pkg anetos.dev/anetos/drivers/gcppubsub, func NewBroker(*gpubsub.Client, string, bool) *Broker
+pkg anetos.dev/anetos/drivers/gcppubsub, method (*Broker) Close() error
+pkg anetos.dev/anetos/drivers/gcppubsub, method (*Broker) Prepare(context.Context, pubsub.SubscriptionSpec) error
+pkg anetos.dev/anetos/drivers/gcppubsub, method (*Broker) Publish(context.Context, string, pubsub.Outgoing) (string, error)
+pkg anetos.dev/anetos/drivers/gcppubsub, method (*Broker) Subscribe(context.Context, pubsub.SubscriptionSpec, func(context.Context, *pubsub.Message) pubsub.Outcome) error
+pkg anetos.dev/anetos/drivers/gcppubsub, type Broker struct
+pkg anetos.dev/anetos/drivers/gcppubsub, type Config struct
+pkg anetos.dev/anetos/drivers/gcppubsub, type Config struct, Create bool
+pkg anetos.dev/anetos/drivers/gcppubsub, type Config struct, Project string

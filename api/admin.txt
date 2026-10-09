@@ -1,0 +1,122 @@
+# The exported API of anetos.dev/anetos/admin: make api-update writes it, make api-check (CI) compares it with the source.
+pkg anetos.dev/anetos/admin, const Access rbac.Permission = "admin.access"
+pkg anetos.dev/anetos/admin, const AssignRoles rbac.Permission = "admin.roles.assign"
+pkg anetos.dev/anetos/admin, const ViewActivity rbac.Permission = "admin.activity.view"
+pkg anetos.dev/anetos/admin, func AIUsage() Widget
+pkg anetos.dev/anetos/admin, func Activity(*Panel) error
+pkg anetos.dev/anetos/admin, func Add[T, F any](*Panel, Resource[T, F]) error
+pkg anetos.dev/anetos/admin, func Banner() view.Component
+pkg anetos.dev/anetos/admin, func Choices(...string) []Choice
+pkg anetos.dev/anetos/admin, func Equals[T any](string, string, ...Choice) Filter[T]
+pkg anetos.dev/anetos/admin, func Field[T any](string, string) Column[T]
+pkg anetos.dev/anetos/admin, func Jobs(*Panel, *queue.Queue, ...string) error
+pkg anetos.dev/anetos/admin, func New[U auth.Authenticatable](*anetos.App, *auth.Auth[U], ...Option) (*Panel, error)
+pkg anetos.dev/anetos/admin, func PermissionsOf(string, ...string) []rbac.Permission
+pkg anetos.dev/anetos/admin, func QueueHealth(*queue.Queue, ...string) Widget
+pkg anetos.dev/anetos/admin, func RecentActivity(int) Widget
+pkg anetos.dev/anetos/admin, func Roles(*Panel) error
+pkg anetos.dev/anetos/admin, func Schedule(*Panel, *schedule.Scheduler) error
+pkg anetos.dev/anetos/admin, func SignUps[T any](string, string) Widget
+pkg anetos.dev/anetos/admin, func Title(string) Option
+pkg anetos.dev/anetos/admin, func UserName[U auth.Authenticatable](func(U) string) Option
+pkg anetos.dev/anetos/admin, func Users[T any, U interface{*T; auth.Authenticatable}, F any](*Panel, Resource[T, F], Accounts[U]) error
+pkg anetos.dev/anetos/admin, method (*DateTime) UnmarshalText([]byte) error
+pkg anetos.dev/anetos/admin, method (*Panel) Config() Config
+pkg anetos.dev/anetos/admin, method (*Panel) Dashboard(...Widget) error
+pkg anetos.dev/anetos/admin, method (*Panel) Mount(*web.Router, ...web.Middleware) error
+pkg anetos.dev/anetos/admin, method (*Panel) Permissions() []rbac.Permission
+pkg anetos.dev/anetos/admin, method (*Panel) URL() string
+pkg anetos.dev/anetos/admin, method (Config) Validate() error
+pkg anetos.dev/anetos/admin, method (DateTime) MarshalText() ([]byte, error)
+pkg anetos.dev/anetos/admin, type Accounts[U auth.Authenticatable] struct
+pkg anetos.dev/anetos/admin, type Accounts[U auth.Authenticatable] struct, Auth *auth.Auth[U]
+pkg anetos.dev/anetos/admin, type Accounts[U auth.Authenticatable] struct, DisabledAt string
+pkg anetos.dev/anetos/admin, type Accounts[U auth.Authenticatable] struct, NoTokens bool
+pkg anetos.dev/anetos/admin, type Accounts[U auth.Authenticatable] struct, SendPasswordReset func(context.Context, U) error
+pkg anetos.dev/anetos/admin, type Accounts[U auth.Authenticatable] struct, SendVerification func(context.Context, U) error
+pkg anetos.dev/anetos/admin, type Accounts[U auth.Authenticatable] struct, VerifiedAt string
+pkg anetos.dev/anetos/admin, type Action[T any] struct
+pkg anetos.dev/anetos/admin, type Action[T any] struct, Confirm string
+pkg anetos.dev/anetos/admin, type Action[T any] struct, Danger bool
+pkg anetos.dev/anetos/admin, type Action[T any] struct, Done string
+pkg anetos.dev/anetos/admin, type Action[T any] struct, Name string
+pkg anetos.dev/anetos/admin, type Action[T any] struct, Permission string
+pkg anetos.dev/anetos/admin, type Action[T any] struct, Run func(context.Context, *T) error
+pkg anetos.dev/anetos/admin, type Action[T any] struct, Title string
+pkg anetos.dev/anetos/admin, type Action[T any] struct, When func(T) bool
+pkg anetos.dev/anetos/admin, type Bar struct
+pkg anetos.dev/anetos/admin, type Bar struct, Label string
+pkg anetos.dev/anetos/admin, type Bar struct, Value float64
+pkg anetos.dev/anetos/admin, type BulkAction[T any] struct
+pkg anetos.dev/anetos/admin, type BulkAction[T any] struct, Confirm string
+pkg anetos.dev/anetos/admin, type BulkAction[T any] struct, Danger bool
+pkg anetos.dev/anetos/admin, type BulkAction[T any] struct, Name string
+pkg anetos.dev/anetos/admin, type BulkAction[T any] struct, Permission string
+pkg anetos.dev/anetos/admin, type BulkAction[T any] struct, Run func(context.Context, *db.Q[T]) (int64, error)
+pkg anetos.dev/anetos/admin, type BulkAction[T any] struct, Title string
+pkg anetos.dev/anetos/admin, type Choice struct
+pkg anetos.dev/anetos/admin, type Choice struct, Label string
+pkg anetos.dev/anetos/admin, type Choice struct, Value string
+pkg anetos.dev/anetos/admin, type Column[T any] struct
+pkg anetos.dev/anetos/admin, type Column[T any] struct, Column string
+pkg anetos.dev/anetos/admin, type Column[T any] struct, Sortable bool
+pkg anetos.dev/anetos/admin, type Column[T any] struct, Title string
+pkg anetos.dev/anetos/admin, type Column[T any] struct, Value func(T) any
+pkg anetos.dev/anetos/admin, type Config struct
+pkg anetos.dev/anetos/admin, type Config struct, AllowIPs []string
+pkg anetos.dev/anetos/admin, type Config struct, Confirm bool
+pkg anetos.dev/anetos/admin, type Config struct, Host string
+pkg anetos.dev/anetos/admin, type Config struct, Path string
+pkg anetos.dev/anetos/admin, type Config struct, PerPage int
+pkg anetos.dev/anetos/admin, type Config struct, Title string
+pkg anetos.dev/anetos/admin, type Config struct, TwoFactor string
+pkg anetos.dev/anetos/admin, type Content struct
+pkg anetos.dev/anetos/admin, type Content struct, Bars []Bar
+pkg anetos.dev/anetos/admin, type Content struct, HTML view.Component
+pkg anetos.dev/anetos/admin, type Content struct, Link *Link
+pkg anetos.dev/anetos/admin, type Content struct, Stats []Stat
+pkg anetos.dev/anetos/admin, type Content struct, Table *Table
+pkg anetos.dev/anetos/admin, type DateTime struct
+pkg anetos.dev/anetos/admin, type DateTime struct, embedded time.Time
+pkg anetos.dev/anetos/admin, type Filter[T any] struct
+pkg anetos.dev/anetos/admin, type Filter[T any] struct, Apply func(*db.Q[T], string) *db.Q[T]
+pkg anetos.dev/anetos/admin, type Filter[T any] struct, Choices []Choice
+pkg anetos.dev/anetos/admin, type Filter[T any] struct, Name string
+pkg anetos.dev/anetos/admin, type Filter[T any] struct, Title string
+pkg anetos.dev/anetos/admin, type Link struct
+pkg anetos.dev/anetos/admin, type Link struct, Title string
+pkg anetos.dev/anetos/admin, type Link struct, URL string
+pkg anetos.dev/anetos/admin, type Option func(*Panel)
+pkg anetos.dev/anetos/admin, type Panel struct
+pkg anetos.dev/anetos/admin, type Resource[T any, F any] struct
+pkg anetos.dev/anetos/admin, type Resource[T any, F any] struct, Actions []Action[T]
+pkg anetos.dev/anetos/admin, type Resource[T any, F any] struct, Apply func(context.Context, F, *T) error
+pkg anetos.dev/anetos/admin, type Resource[T any, F any] struct, BulkActions []BulkAction[T]
+pkg anetos.dev/anetos/admin, type Resource[T any, F any] struct, Choices map[string]func(context.Context) ([]Choice, error)
+pkg anetos.dev/anetos/admin, type Resource[T any, F any] struct, Columns []Column[T]
+pkg anetos.dev/anetos/admin, type Resource[T any, F any] struct, Details []Column[T]
+pkg anetos.dev/anetos/admin, type Resource[T any, F any] struct, Edit func(T) F
+pkg anetos.dev/anetos/admin, type Resource[T any, F any] struct, Filters []Filter[T]
+pkg anetos.dev/anetos/admin, type Resource[T any, F any] struct, Label func(T) string
+pkg anetos.dev/anetos/admin, type Resource[T any, F any] struct, Name string
+pkg anetos.dev/anetos/admin, type Resource[T any, F any] struct, NoCreate bool
+pkg anetos.dev/anetos/admin, type Resource[T any, F any] struct, NoDelete bool
+pkg anetos.dev/anetos/admin, type Resource[T any, F any] struct, PerPage int
+pkg anetos.dev/anetos/admin, type Resource[T any, F any] struct, Query func(*db.Q[T]) *db.Q[T]
+pkg anetos.dev/anetos/admin, type Resource[T any, F any] struct, Search []string
+pkg anetos.dev/anetos/admin, type Resource[T any, F any] struct, Singular string
+pkg anetos.dev/anetos/admin, type Resource[T any, F any] struct, Sort string
+pkg anetos.dev/anetos/admin, type Resource[T any, F any] struct, Title string
+pkg anetos.dev/anetos/admin, type Stat struct
+pkg anetos.dev/anetos/admin, type Stat struct, Hint string
+pkg anetos.dev/anetos/admin, type Stat struct, Label string
+pkg anetos.dev/anetos/admin, type Stat struct, Value string
+pkg anetos.dev/anetos/admin, type Stat struct, Warn bool
+pkg anetos.dev/anetos/admin, type Table struct
+pkg anetos.dev/anetos/admin, type Table struct, Headers []string
+pkg anetos.dev/anetos/admin, type Table struct, Links []string
+pkg anetos.dev/anetos/admin, type Table struct, Rows [][]string
+pkg anetos.dev/anetos/admin, type Widget struct
+pkg anetos.dev/anetos/admin, type Widget struct, Load func(context.Context) (Content, error)
+pkg anetos.dev/anetos/admin, type Widget struct, Permission rbac.Permission
+pkg anetos.dev/anetos/admin, type Widget struct, Title string

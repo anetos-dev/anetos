@@ -1,0 +1,38 @@
+# The exported API of anetos.dev/anetos/plugins/postmark: make api-update writes it, make api-check (CI) compares it with the source.
+pkg anetos.dev/anetos/plugins/postmark, func BaseURL(string) Option
+pkg anetos.dev/anetos/plugins/postmark, func Driver(...Option) mailer.Driver
+pkg anetos.dev/anetos/plugins/postmark, func HTTPClient(*http.Client) Option
+pkg anetos.dev/anetos/plugins/postmark, func NewTransport(string, ...Option) *Transport
+pkg anetos.dev/anetos/plugins/postmark, func Plugin() ext.Plugin
+pkg anetos.dev/anetos/plugins/postmark, func Stream(string) Option
+pkg anetos.dev/anetos/plugins/postmark, func Suppressed(context.Context, string) (bool, error)
+pkg anetos.dev/anetos/plugins/postmark, method (*Error) Error() string
+pkg anetos.dev/anetos/plugins/postmark, method (*Transport) Send(context.Context, *mailer.Outgoing) error
+pkg anetos.dev/anetos/plugins/postmark, method (Suppression) TableName() string
+pkg anetos.dev/anetos/plugins/postmark, type Config struct
+pkg anetos.dev/anetos/plugins/postmark, type Config struct, Stream string
+pkg anetos.dev/anetos/plugins/postmark, type Config struct, Token anetos.Secret
+pkg anetos.dev/anetos/plugins/postmark, type Error struct
+pkg anetos.dev/anetos/plugins/postmark, type Error struct, Code int
+pkg anetos.dev/anetos/plugins/postmark, type Error struct, Message string
+pkg anetos.dev/anetos/plugins/postmark, type Error struct, Status int
+pkg anetos.dev/anetos/plugins/postmark, type Event struct
+pkg anetos.dev/anetos/plugins/postmark, type Event struct, Email string
+pkg anetos.dev/anetos/plugins/postmark, type Event struct, Inactive bool
+pkg anetos.dev/anetos/plugins/postmark, type Event struct, MessageID string
+pkg anetos.dev/anetos/plugins/postmark, type Event struct, Recipient string
+pkg anetos.dev/anetos/plugins/postmark, type Event struct, RecordType string
+pkg anetos.dev/anetos/plugins/postmark, type Event struct, SuppressSending bool
+pkg anetos.dev/anetos/plugins/postmark, type Event struct, SuppressionReason string
+pkg anetos.dev/anetos/plugins/postmark, type Event struct, Type string
+pkg anetos.dev/anetos/plugins/postmark, type Option func(*Transport)
+pkg anetos.dev/anetos/plugins/postmark, type Settings struct
+pkg anetos.dev/anetos/plugins/postmark, type Settings struct, WebhookPassword anetos.Secret
+pkg anetos.dev/anetos/plugins/postmark, type Settings struct, WebhookUser string
+pkg anetos.dev/anetos/plugins/postmark, type Suppression struct
+pkg anetos.dev/anetos/plugins/postmark, type Suppression struct, Email string
+pkg anetos.dev/anetos/plugins/postmark, type Suppression struct, MessageID string
+pkg anetos.dev/anetos/plugins/postmark, type Suppression struct, Reason string
+pkg anetos.dev/anetos/plugins/postmark, type Suppression struct, RecordType string
+pkg anetos.dev/anetos/plugins/postmark, type Suppression struct, embedded db.Model
+pkg anetos.dev/anetos/plugins/postmark, type Transport struct

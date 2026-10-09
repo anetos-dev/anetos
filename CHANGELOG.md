@@ -55,11 +55,19 @@ All notable changes to this project are documented here. The format follows
   `scripts/kit-screenshots/run.sh` makes the screenshots, and `make
   docs-check` checks a page's images: they exist, have alt text, and
   every image is shown.
+- The exported API of each library module is listed in
+  `api/<module>.txt`; `make api-check` (in `make check` and CI) fails
+  when the list differs from the source, and `make api-update` writes
+  it. New API follows `docs/contributing/api-guidelines.md` (M8a, D308).
 - `view.Assets` serves a text file of 1 KiB or more gzipped to a client
   that accepts it, compressed once, the first time it's requested (K2,
   D300).
 
 ### Changed
+- From v0.5, an identifier renamed or removed is kept one minor release,
+  marked `// Deprecated:` (with `//go:fix inline` where it can be, so
+  `go fix ./...` rewrites your calls), then removed; the rule used to
+  start at v1.0 (M8a, D309).
 - `anetos new --css=none` writes components of plain HTML, without the
   starter theme's class names it used to keep (K1, D293).
 - In a project made before v0.5 (without `views/ui`), `make:crud` and

@@ -2827,8 +2827,17 @@ Reviewed in M6 (v0.3; D251–D253). Numbers, method and code:
   (D18), each in three parts side by side (D291). The directive is raised
   only with a CHANGELOG note.
 - **SemVer**, with the pre-1.0 rules in the [roadmap](../planning/roadmap.md#versioning-rules).
-- **Deprecation (from v1.0):** deprecate in a minor release (`// Deprecated:`
-  plus a CHANGELOG entry) and remove no earlier than the next major.
+- **The API** is the exported identifiers of the library modules (the
+  core, `admin`, the drivers, the plugins), listed in `api/<module>.txt`
+  by `internal/cmd/apisnap`; `make api-check` (CI) fails when a file is
+  out of date, so every API change shows in review (D308). New API
+  follows the [API guidelines](../contributing/api-guidelines.md).
+- **Deprecation (from v0.5):** a renamed or removed identifier stays one
+  minor release as `// Deprecated:` (with `//go:fix inline` when it can
+  be written with the new one, so `go fix ./...` rewrites callers),
+  listed in the CHANGELOG and the upgrade guide, and is removed in the
+  next minor. A change no shim can express is described in the upgrade
+  guide. From v1.0, removal waits for the next major (D309).
 - **Multi-module tags:** core `vX.Y.Z`; modules `drivers/redis/vX.Y.Z` and so
   on. Driver modules declare the minimum core version they need.
 - **Internal packages** keep the public API surface small. Anything not
@@ -3151,6 +3160,8 @@ unless new information arrives), **Open**, **Superseded**.
 | D305 | `anetos css:use <kit>` refuses, writing nothing, when a recorded file changed since (a deleted one loses nothing and doesn't count), when a file the new kit writes exists without being the old kit's, or when the project has no record; it lists them. `--force` overwrites, without backups: the docs say to commit first. A Tailwind project's `app.css` isn't compared (it is compiled from files that are), and Tailwind to Tailwind keeps it. Digests ignore line endings (git on Windows checks files out with CRLF); a symbolic link counts as changed; a record naming a file outside `views/ui` and `public/static` (or not JSON) is unusable, as a missing one is. Files are written through temporary files renamed into place, the record last, and the switch ends with `go build ./...`. Files of `views/ui` that aren't the kit's are kept and listed; the layout, pages and locale files are never rewritten (only `nav.menu` added when missing) | Accepted | A switch must not silently lose a component the developer edited or their colors in `app.css`; git already keeps the old version, which backups would only duplicate as clutter (user's choice, 2026-10-09). The app's own components may carry the old kit's classes, which no tool can translate: saying so is the honest outcome |
 | D306 | `css:use` with the project's current kit updates the kit's files to the running CLI's version, under the same rule; moving to or from Tailwind, it prints the Dockerfile's cache-mount line to add or remove instead of editing the Dockerfile | Accepted | Updating a kit (a newer Pico, fixed components) is the same operation as switching, and needs the same protection. The Dockerfile is the developer's file and the line only affects caching, so a hint is enough (user's choice, 2026-10-09) |
 | D307 | Screenshots in the docs are WebP files in the repository (`docs/site/images/<topic>/`), made by a script that builds the pages from the current source, rather than taken by hand or rendered at docs build time; `docnav` fails on a missing image, an image without alt text, or an image no page shows | Accepted | Images in the repository are versioned with the code they show and reviewed in the change; a script makes refreshing them after a kit change one command, without making the docs build depend on Go, a browser and a database. WebP keeps two dozen full-page shots small (user's choice, 2026-10-09); the check keeps the folder from collecting stale images |
+| D308 | The exported API of each library module is written to `api/<module>.txt` (one line per identifier: functions and methods with their parameter and result types; types with their exported fields, embedded types and interface methods; constants with their type and value, iota counted; variables with their type, written or plain from the value, else the tool fails), by `internal/cmd/apisnap` reading the source with `go/ast` and printing with `types.ExprString` (no type checking, no new dependency, the same output whatever the layout); `make api-check` runs in CI and fails on a difference, `make api-update` writes the files | Accepted | M8a. Before the public release, every API change must be visible and deliberate: a diff of a text file shows it in review and gives the upgrade guide its list. Go's own `api/` files are the model. Without type checking, two things go unseen: a type's package is the name a file imports it as (an alias change shows, a swap of two packages with the same name doesn't), and the members of an unexported embedded type aren't listed (its embedding is; none has exported members today). Review (review58) checked the files against a `go/types` listing of every module |
+| D309 | From v0.5, the first public release, a renamed or removed identifier is kept one minor release as `// Deprecated:`, with `//go:fix inline` where the old name can be written with the new one (a wrapper function or a type alias), and removed in the next minor; renames found by the API stability pass (M8b) are shimmed this way until v0.6. `docs/contributing/api-guidelines.md` is the standard new API and the pass are held to | Accepted | User's choice (2026-10-10). Pre-1.0 rules allow breaking changes, but public users need a release to move; Go 1.26 (the minimum) runs `//go:fix inline` in `go fix`, which makes a rename a one-command migration. One minor keeps the deprecated names from piling up before v1.0. Supersedes the "from v1.0" deprecation rule of §23 |
 
 ---
 
@@ -3246,3 +3257,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-09 | K3 (Tailwind kit): §12.2, §17.1 updated; D301–D303 added |
 | 2026-10-09 | K4 (switching kits): §12.2, §17.1 updated; D304–D306 added |
 | 2026-10-10 | K5 (kit docs): §12.2 updated; D307 added |
+| 2026-10-10 | M8a (API rules and files): §23 updated; D308, D309 added |

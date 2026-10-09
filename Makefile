@@ -8,11 +8,11 @@ MODULES  ?= $(patsubst %/go.mod,%,$(shell find . -name go.mod -not -path './.git
 EACH      = for m in $(MODULES); do echo "== $$m"; (cd $$m &&
 DONE      = ) || exit 1; done
 
-.PHONY: all check fmt fmt-check vet lint test test-short cover bench bench-check bench-compare vuln spdx docs-check api-docs gen-check tidy help
+.PHONY: all check fmt fmt-check vet lint test test-short cover bench bench-check bench-compare vuln spdx docs-check api-docs api-check api-update gen-check tidy help
 
 all: check ## Run every check CI runs
 
-check: fmt-check spdx docs-check api-docs gen-check vet lint test bench-check ## fmt, SPDX headers, doc snippets, API doc comments, generated code, vet, lint, race tests, allocation budgets
+check: fmt-check spdx docs-check api-docs api-check gen-check vet lint test bench-check ## fmt, SPDX headers, doc snippets, API doc comments, the API files, generated code, vet, lint, race tests, allocation budgets
 
 fmt: ## Format all Go code
 	gofmt -s -w .
@@ -60,6 +60,12 @@ docs-check: ## Check doc code blocks match their example regions, and the pages 
 
 api-docs: ## Check every exported identifier has a doc comment
 	@$(GO) run ./internal/cmd/doccheck
+
+api-check: ## Check api/*.txt list the exported API of each module (make api-update after an intended change)
+	@$(GO) run ./internal/cmd/apisnap -check
+
+api-update: ## Write the exported API of each module to api/*.txt
+	@$(GO) run ./internal/cmd/apisnap
 
 gen-check: ## Check generated model columns are up to date
 	@for m in examples/database examples/forms examples/saas examples/tracker examples/tutorial examples/bookmarks; do (cd $$m && $(GO) tool anetos gen -check) || exit 1; done

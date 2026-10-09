@@ -95,7 +95,9 @@ gracefully.
   (for example, a security fix).
 - Breaking changes are allowed before 1.0, but each one must be listed in the
   CHANGELOG with migration notes and an upgrade guide (see the documentation
-  guide).
+  guide). From v0.5, a renamed or removed identifier is first deprecated for
+  one minor release, with `//go:fix inline` where it applies, and removed in
+  the next (design D309).
 - We stay below `v2` for as long as possible. In Go, `v2+` requires a `/v2`
   import path, which is disruptive for users.
 - Driver modules are versioned and tagged independently, for example
@@ -366,7 +368,7 @@ them (decided 2026-10-02; design §15, D169–D174).
 | M5 | Build & deploy | `anetos build`, generated Dockerfile, guides for VPS/systemd, Docker and common PaaS |
 | M6 | Performance | Published benchmarks with their method; CI regression gate |
 | M7 | Security | Self-audit against a checklist, SECURITY.md, dependency review, secure-defaults check in `anetos doctor` |
-| M8 | API stability pass (moved to v0.5) | Review every exported identifier, add deprecations, CONTRIBUTING, CODE_OF_CONDUCT, issue templates, governance note |
+| M8 | API stability pass (moved to v0.5) | Review every exported identifier, add deprecations, CONTRIBUTING, CODE_OF_CONDUCT, issue templates, governance note (done in v0.5 as M8a–c) |
 | M9 | Launch (moved to v0.5) | Announcement post, awesome-go submission, community channels |
 | M10 | Starter experience | A new app is usable and good-looking in minutes (added 2026-10-06 at the user's request): a starter theme written by `anetos new` (`--css=none` without it), `make:crud` for a model's pages, `make:auth`'s pages in the theme with account links in the header, the page after signing in configurable (`AUTH_HOME_URL`, `auth.DefaultHomeURL`) |
 
@@ -506,7 +508,7 @@ it later; then the public release. **This is the first public release.**
 | K3 | Tailwind | `anetos dev` and `anetos build` run Tailwind's standalone CLI (no Node): pinned version, checked download per platform, cached; `views/ui` with Tailwind classes |
 | K4 | Picking and switching | `anetos new --css=anetos\|none\|pico\|bootstrap\|bulma\|tailwind`; `anetos css:use <kit>` swaps the stylesheet and `views/ui` (refusing to overwrite a changed `views/ui` without `--force`). Pages written with their own class names keep them; the docs say so |
 | K5 | Docs | Guide per kit in "Style your app", screenshots in the docs |
-| M8 | API stability pass | From v0.3: review every exported identifier, add deprecations, CONTRIBUTING, CODE_OF_CONDUCT, issue templates, governance note |
+| M8 | API stability pass | From v0.3: review every exported identifier, add deprecations, CONTRIBUTING, CODE_OF_CONDUCT, issue templates, governance note. In three parts: **M8a** the API guidelines and the API files (`api/*.txt`, checked in CI); **M8b** the review against them and its fixes (renames shimmed with `//go:fix inline` until v0.6, findings agreed with the user first); **M8c** the community files |
 | M1b | Release plumbing | From v0.3: tag the modules, remove the `replace` directives from published `go.mod` files, the vanity import paths |
 | M2v | Versioned docs | From v0.3 (M2): docs per minor version from v0.5, `main` labeled "unreleased" |
 | M9 | Launch | From v0.3: announcement post, awesome-go submission, community channels |
@@ -536,6 +538,7 @@ installed from the module proxy.
 | K3 Tailwind | ✅ Done 2026-10-09 (design §12.2, D301–D303): `anetos new --css=tailwind` (Tailwind CSS 4.3.3): `views/ui` with utility classes, `views/ui/tailwind.css`, and the `app.css` compiled from the kit's components, prebuilt and committed; package `cli/internal/tailwind` downloads the standalone CLI per platform (musl detected) from GitHub releases into the user cache, checked against digests in the source, `ANETOS_TAILWIND` to override; `anetos dev` (offline: warns, keeps app.css), `anetos build` and the new `anetos css:build [--check]` compile it; the Dockerfile caches the download; CI's latest Go `cli` part downloads the real binary and checks the prebuilt CSS and a generated project's. Checked in screenshots, light and dark and at a phone's width |
 | K4 Picking and switching | ✅ Done 2026-10-09 (design §12.2, D304–D306): `anetos new --css` takes all six kits (K1–K3); `views/ui/kit.json` records the kit and the digest of each file it wrote (`anetos new`, the generators' `WriteUI`); `anetos css:use <kit> [--force]` switches (or, with the same kit, updates) the kit's files, removes the old kit's, refuses without `--force` when a kit file changed or a file in the way isn't the kit's, keeps and lists the app's own `views/ui` files, adds `nav.menu` to older locale files, prints the Dockerfile's Tailwind cache line; a test switches a project with `make:crud` and `make:auth` through every kit, each building and passing its tests, and back to the starter theme's files; the tutorial and the tracker have records (the tracker's kit files, changed, are refused without `--force`) |
 | K5 Docs | ✅ Done 2026-10-10 (design §12.2, D307): a guide per kit (starter theme, none, Pico, Bootstrap, Bulma, Tailwind CSS: what it looks like, changing its colors, its other components, common problems), "Style your app" with a table of the kits and a gallery, the Tailwind section moved to its guide; 24 WebP screenshots (list and form, light and dark; the phone menu of Bootstrap and Bulma) made by `scripts/kit-screenshots/run.sh`; `make docs-check` checks images (exist, alt text, every image shown); the documentation guide says how |
+| M8a API rules and files | ✅ Done 2026-10-10 (design §23, D308, D309): `docs/contributing/api-guidelines.md` (names, constructors and options, context and errors, types and interfaces, what to export, doc comments, changing the API with `//go:fix inline` deprecations kept one minor); `internal/cmd/apisnap` writes `api/<module>.txt` for the 13 library modules (about 2,900 lines) and `make api-check`, part of `make check` and CI's core part, fails when they differ from the source |
 
 ---
 
@@ -700,3 +703,4 @@ something, and we fix the API rather than add the hook.
 | 2026-10-09 | K1 (UI components) done (design D292–D297) |
 | 2026-10-09 | K2–K4 (kits, switching) done (design D298–D306) |
 | 2026-10-10 | K5 (kit docs) done (design D307) |
+| 2026-10-10 | M8 split into M8a–c; M8a (API guidelines, API files) done (design D308, D309) |

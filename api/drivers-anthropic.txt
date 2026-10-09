@@ -1,0 +1,15 @@
+# The exported API of anetos.dev/anetos/drivers/anthropic: make api-update writes it, make api-check (CI) compares it with the source.
+pkg anetos.dev/anetos/drivers/anthropic, const Name = "anthropic"
+pkg anetos.dev/anetos/drivers/anthropic, func Driver() ai.Driver
+pkg anetos.dev/anetos/drivers/anthropic, func New(string, ...option.RequestOption) *Provider
+pkg anetos.dev/anetos/drivers/anthropic, method (*Provider) Client() *sdk.Client
+pkg anetos.dev/anetos/drivers/anthropic, method (*Provider) Generate(context.Context, *ai.Request) (*ai.Response, error)
+pkg anetos.dev/anetos/drivers/anthropic, method (*Provider) Name() string
+pkg anetos.dev/anetos/drivers/anthropic, method (*Provider) Stream(context.Context, *ai.Request) iter.Seq2[ai.Event, error]
+pkg anetos.dev/anetos/drivers/anthropic, type Config struct
+pkg anetos.dev/anetos/drivers/anthropic, type Config struct, APIKey anetos.Secret
+pkg anetos.dev/anetos/drivers/anthropic, type Config struct, BaseURL string
+pkg anetos.dev/anetos/drivers/anthropic, type Options struct
+pkg anetos.dev/anetos/drivers/anthropic, type Options struct, Params func(*sdk.MessageNewParams)
+pkg anetos.dev/anetos/drivers/anthropic, type Options struct, ThinkingBudget int64
+pkg anetos.dev/anetos/drivers/anthropic, type Provider struct

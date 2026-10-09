@@ -35,6 +35,10 @@ contains this list):
 - [ ] **Tests** cover the change, including failure paths.
 - [ ] **Godoc**: every new or changed exported identifier has a doc comment
       (§6).
+- [ ] **API**: a new or changed exported identifier follows the
+      [API guidelines](api-guidelines.md), `api/*.txt` is updated
+      (`make api-update`), and a renamed or removed one is deprecated,
+      not removed.
 - [ ] **User docs** added or updated: guide, concept or reference page
       (§4–5).
 - [ ] **Examples compile**: code in the docs comes from compiled sources or
@@ -213,7 +217,8 @@ when the behaviour differs.
 - **Runnable examples:** key APIs get `Example…` functions in
   `example_test.go`. They are compiled and run by `go test` and appear on
   pkg.go.dev.
-- Use `// Deprecated: use X instead.` (with the version) for deprecations.
+- Deprecations: a `// Deprecated: Use X; Y is removed in v0.N.` paragraph,
+  and `//go:fix inline` where it applies ([API guidelines](api-guidelines.md) §7).
 - Link related identifiers with `[Name]` doc links (Go 1.19+ syntax).
 - Every Go file starts with the license header `// SPDX-License-Identifier: Apache-2.0`
   on its first line, followed by a blank line, before any package doc comment.
@@ -391,4 +396,5 @@ sketches as illustrative; never invent APIs in docs that don't exist in code.
 | 2026-10-01 | §7: regions of first-party plugins (`plugins/`) can be claimed like examples (B11) |
 | 2026-10-06 | §5.1, §12: every page has a `group` and a `weight`, the docs site's sidebar groups; `make docs-check` checks them (M2, D242) |
 | 2026-10-07 | §9: upgrade guides newest first |
+| 2026-10-10 | §2, §6: the API guidelines, `api/*.txt` and deprecations in the Definition of Done; the `Deprecated:` form (M8a) |
 | 2026-10-10 | §5.1, §12: images in `docs/site/images`, WebP screenshots made by a script, alt text; `make docs-check` checks them (K5, D307) |
