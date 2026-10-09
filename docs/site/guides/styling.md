@@ -17,8 +17,9 @@ without styles.
 
 A project made with `anetos new` v0.5 or later. (A project made before
 v0.5 has no `views/ui` yet: see [below](#projects-made-before-v05).)
-There is no build step and no CDN: `anetos dev` reloads the page when
-you save a file.
+There is no CDN, and no build step but Tailwind CSS's with the
+`tailwind` kit, which `anetos dev` runs for you: it reloads the page
+when you save a file.
 
 ## Steps
 
@@ -207,6 +208,7 @@ anetos new blog --css=bootstrap
 | `pico` | [Pico CSS](https://picocss.com) 2.1.1: mostly plain HTML, which Pico styles | `pico.min.css`, `app.css` (what Pico has no style of: badges, colored messages, a danger button) |
 | `bootstrap` | [Bootstrap](https://getbootstrap.com) 5.3.8's classes; a menu button opens the header's links on a small screen | `bootstrap.min.css`, `bootstrap.bundle.min.js`, `theme.js` (dark mode from the system), `app.css` |
 | `bulma` | [Bulma](https://bulma.io) 1.0.4's classes; a menu button opens the header's links on a small screen | `bulma.min.css`, `nav.js` (the menu button), `app.css` |
+| `tailwind` | [Tailwind CSS](https://tailwindcss.com) 4.3.3's utility classes | `app.css`, which Tailwind compiles from `views/ui/tailwind.css` ([below](#with-tailwind-css)) |
 
 Every kit writes the same components, with the same names and
 arguments, so the layout, the home page and the pages of `make:crud` and
@@ -224,10 +226,53 @@ components and link its stylesheet from `ui.Head`. Before v0.5,
 `--css=none` kept the starter theme's class names in the pages.
 
 With Bootstrap and Bulma, the header's menu button is named by
-`nav.menu` in `locales/<locale>/app.yaml` ("Menu"). A Tailwind kit, and
-a command to switch a project's kit, are coming; they aren't available
-yet. A kit is `views/ui` with its `public/static/` files, so another
-kit restyles every page that calls the components.
+`nav.menu` in `locales/<locale>/app.yaml` ("Menu"). A command to switch
+a project's kit is coming; it isn't available yet. A kit is `views/ui`
+with its `public/static/` files, so another kit restyles every page
+that calls the components.
+
+### With Tailwind CSS
+
+```sh
+anetos new blog --css=tailwind
+```
+
+writes components with Tailwind's utility classes, and two
+stylesheets:
+
+| File | Holds |
+|---|---|
+| `views/ui/tailwind.css` | The source: `@import "tailwindcss" source("..")` (Tailwind looks for classes in `views/`), the accent color in `@theme`, and the look of the pages' plain HTML (headings, lists, table cells) |
+| `public/static/app.css` | What Tailwind compiles from it, minified: the stylesheet the pages link. Commit it, as the `_templ.go` files: `go build`, `go test` and the `Dockerfile` use it as it is |
+
+A new project's `app.css` comes compiled: it has every class of the
+components, and the pages of `make:crud` and `make:auth` add none, so
+they look right before Tailwind ever runs. When you add a class,
+Tailwind writes its rule:
+
+- `go tool anetos dev` compiles `app.css` before each rebuild, when a
+  templ file, a Go file or `tailwind.css` changes (about 0.2 s);
+- `go tool anetos build` compiles it before building the binary;
+- `go tool anetos css:build` compiles it alone, and `css:build --check`
+  fails when it's out of date (for CI).
+
+They run Tailwind's standalone CLI, which needs no Node.js. The first
+run downloads Tailwind CSS 4.3.3 for your computer (Linux, macOS or
+Windows; 80 to 112 MB) from its GitHub releases into your user cache
+directory (`~/Library/Caches/anetos/tailwindcss/` on macOS,
+`~/.cache/anetos/tailwindcss/` on Linux, `%LocalAppData%\anetos\tailwindcss\`
+on Windows), and checks its SHA-256 against the one written in
+`anetos`, then again before each run. On Alpine Linux, the musl build
+it downloads needs `apk add libstdc++ libgcc`. Offline, or on another
+platform, download a `tailwindcss` binary yourself and set
+`ANETOS_TAILWIND` to its path. When Tailwind can't run, `anetos dev`
+says why and keeps the `app.css` there is until you restart it, so new
+classes aren't styled yet; `anetos build` and `css:build` fail.
+
+Change the accent color in `tailwind.css`'s `@theme`; dark mode follows
+the visitor's system (`dark:` classes). A class must be written whole
+in a file of `views/`: Tailwind finds `bg-red-600` in `"bg-red-600"`,
+not in `"bg-" + color`.
 
 ### Pages with classes of your own
 
@@ -288,6 +333,9 @@ is.
 | A generated page doesn't build after you changed a component | The pages of `make:crud` and `make:auth` call the component's old arguments | Keep the signature; add a new component for the new arguments |
 | A 500 page and `web: unknown route name` in the log | `web.MustURL` was given a route name that doesn't exist | Fix the name; `go run . routes:list` lists them |
 | The new pages of a project made before v0.5 have no style | `app.css` has no `.card` rule, so the classless kit was written | Style the elements, or give the components your classes |
+| A Tailwind class you added has no effect | `app.css` wasn't compiled since (no `anetos dev` running, or Tailwind couldn't run: its message says why), or the class is built from pieces | Run `go tool anetos css:build`; write the class whole |
+| `anetos dev` says it can't download Tailwind CSS | Offline, a proxy, or a platform without a standalone CLI | Download the binary the message names, and set `ANETOS_TAILWIND` to its path |
+| `tailwind: tailwindcss-… has SHA-256 …, not …` | The download isn't the release `anetos` was made for (altered, or cut off) | Nothing is run; try again, or use `ANETOS_TAILWIND` with a binary you trust |
 
 ## Next steps
 

@@ -1,0 +1,175 @@
+package ui
+
+import "anetos.dev/anetos/view"
+
+// Forms, their fields and buttons. A field's control is named after the
+// field (its id too), shows the value posted before when validation
+// failed (pass view.Old(ctx, name, current) as the value), and is marked
+// invalid when its field has a message (view.Errors).
+
+// Form sends its fields to action. method is POST, or PUT, PATCH or
+// DELETE (sent as a POST with the method override), each with the CSRF
+// token; or GET, which sends neither. attrs adds others, such as htmx's
+// (templ.Attributes{"hx-post": …}).
+templ Form(action, method string, attrs templ.Attributes) {
+	if isGet(method) {
+		<form method="get" action={ action } { attrs... }>
+			{ children... }
+		</form>
+	} else {
+		<form method="post" action={ action } { attrs... }>
+			@view.CSRFField(ctx)
+			if m := methodOverride(method); m != "" {
+				@view.MethodField(m)
+			}
+			{ children... }
+		</form>
+	}
+}
+
+// InlineForm is a Form whose controls (children) sit in a line, such as
+// a hidden field and its button; it posts (method POST, PUT, PATCH or
+// DELETE), and attrs adds others, such as htmx's.
+templ InlineForm(action, method string, attrs templ.Attributes) {
+	<form method="post" action={ action } class="inline-flex items-center gap-2" { attrs... }>
+		@view.CSRFField(ctx)
+		if m := methodOverride(method); m != "" {
+			@view.MethodField(m)
+		}
+		{ children... }
+	</form>
+}
+
+// Field is a form's field: its label (for the control named name), the
+// control (children: an Input, Textarea or Select), a hint under it when
+// hint isn't "", and the field's message when it failed validation. A
+// Checkbox carries its own label: give Field "".
+templ Field(name, label, hint string) {
+	<div class="mb-4">
+		if label != "" {
+			<label class="mb-1 block text-sm font-medium" for={ name }>{ label }</label>
+		}
+		{ children... }
+		if hint != "" {
+			<p class="mt-1 mb-0 text-sm text-zinc-500 dark:text-zinc-400">{ hint }</p>
+		}
+		@FieldError(name)
+	</div>
+}
+
+// Input is an <input> of type typ ("" for text); attrs adds others, such
+// as templ.Attributes{"autocomplete": "email"}.
+templ Input(name, typ, value string, attrs templ.Attributes) {
+	<input
+		id={ name }
+		name={ name }
+		class={ control }
+		if typ != "" {
+			type={ typ }
+		}
+		if value != "" {
+			value={ value }
+		}
+		if view.Errors(ctx).Has(name) {
+			aria-invalid="true"
+			aria-describedby={ name + "-error" }
+		}
+		{ attrs... }
+	/>
+}
+
+// Textarea is a field of several lines.
+templ Textarea(name, value string, attrs templ.Attributes) {
+	<textarea
+		id={ name }
+		name={ name }
+		class={ control }
+		if view.Errors(ctx).Has(name) {
+			aria-invalid="true"
+			aria-describedby={ name + "-error" }
+		}
+		{ attrs... }
+	>{ value }</textarea>
+}
+
+// Select is a choice among options, value selected.
+templ Select(name string, options []Option, value string, attrs templ.Attributes) {
+	<select
+		id={ name }
+		name={ name }
+		class={ control }
+		if view.Errors(ctx).Has(name) {
+			aria-invalid="true"
+			aria-describedby={ name + "-error" }
+		}
+		{ attrs... }
+	>
+		for _, o := range options {
+			<option value={ o.Value } selected?={ o.Value == value }>{ o.Label }</option>
+		}
+	</select>
+}
+
+// Checkbox is a checkbox with its label, sending "1" when checked.
+templ Checkbox(name, label string, checked bool, attrs templ.Attributes) {
+	<label class="inline-flex items-center gap-2 text-sm">
+		<input
+			type="checkbox"
+			id={ name }
+			name={ name }
+			value="1"
+			class="size-4 accent-accent aria-invalid:outline-2 aria-invalid:outline-offset-2 aria-invalid:outline-red-500"
+			checked?={ checked }
+			if view.Errors(ctx).Has(name) {
+				aria-invalid="true"
+				aria-describedby={ name + "-error" }
+			}
+			{ attrs... }
+		/>
+		{ label }
+	</label>
+}
+
+// FieldError is the message of a field that failed validation, if any;
+// its id (name-error) is the one the field's control is described by.
+templ FieldError(name string) {
+	if msg := view.Errors(ctx).Get(name); msg != "" {
+		<p class="mt-1 mb-0 text-sm text-red-600 dark:text-red-400" id={ name + "-error" }>{ msg }</p>
+	}
+}
+
+// Actions is a form's buttons and links, after its fields.
+templ Actions() {
+	<div class="mt-6 flex flex-wrap items-center gap-3">
+		{ children... }
+	</div>
+}
+
+// Button submits its form.
+templ Button(look Look, attrs templ.Attributes) {
+	<button
+		type="submit"
+		class={ look.class() }
+		{ attrs... }
+	>
+		{ children... }
+	</button>
+}
+
+// LinkButton is a link that looks like a button.
+templ LinkButton(href string, look Look) {
+	<a class={ look.class() } href={ href }>
+		{ children... }
+	</a>
+}
+
+// PostButton is a button in a form of its own, which sends method
+// (POST, or PUT, PATCH or DELETE) to action with the CSRF token: to
+// delete something, to log out.
+templ PostButton(action, method string, look Look) {
+	@InlineForm(action, method, nil) {
+		@Button(look, nil) {
+			{ children... }
+		}
+	}
+}

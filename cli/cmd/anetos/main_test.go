@@ -42,6 +42,9 @@ func TestCommands(t *testing.T) {
 		{[]string{"remove", "a", "b"}, 2, "Usage: anetos remove"},
 		{[]string{"gen", "-bogus"}, 2, "flag provided but not defined"},
 		{[]string{"gen", "-check", "../../internal/modelgen/internal/..."}, 0, ""},
+		{[]string{"css:build", "-h"}, 0, "Usage: anetos css:build"},
+		{[]string{"css:build", "x"}, 2, "Usage: anetos css:build"},
+		{[]string{"css:build"}, 1, "only the tailwind kit's stylesheet"},
 	}
 	for _, c := range cases {
 		code, out, errOut := runCmd(t, c.args...)

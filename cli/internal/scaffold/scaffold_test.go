@@ -4,9 +4,12 @@ package scaffold
 
 import (
 	"bytes"
+	"context"
+	"flag"
 	"io/fs"
 	"maps"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -15,6 +18,8 @@ import (
 	"time"
 
 	"golang.org/x/mod/modfile"
+
+	"anetos.dev/anetos/cli/internal/tailwind"
 )
 
 func read(t *testing.T, path string) string {
@@ -126,6 +131,7 @@ func TestCreateKits(t *testing.T) {
 		"pico":      {"after Pico's (pico.min.css, v" + KitVersions["pico"] + ")", "pico.min.css", "pico.LICENSE.txt"},
 		"bootstrap": {"after Bootstrap's (bootstrap.min.css, v" + KitVersions["bootstrap"] + ")", "bootstrap.min.css", "bootstrap.bundle.min.js", "bootstrap.LICENSE.txt", "popper.LICENSE.txt", "theme.js"},
 		"bulma":     {"after Bulma's (bulma.min.css, v" + KitVersions["bulma"] + ")", "bulma.min.css", "bulma.LICENSE.txt", "nav.js"},
+		"tailwind":  {"tailwindcss v" + KitVersions["tailwind"] + " ", "tailwind.LICENSE.txt"},
 	}
 	if len(kits) != len(Kits)+1 {
 		t.Fatalf("Kits %v: test each", Kits)
@@ -202,6 +208,57 @@ func TestKitVersions(t *testing.T) {
 		}
 	}
 }
+
+// The tailwind kit's app.css is what its Tailwind release compiles from
+// the kit's own components, so a new project's pages are styled before
+// Tailwind runs. With ANETOS_TEST_TAILWIND=1 (CI), it compiles them and
+// compares; -update-tailwind writes the result (scripts/update-kits.sh).
+func TestTailwindKitCSS(t *testing.T) {
+	if os.Getenv("ANETOS_TEST_TAILWIND") != "1" {
+		t.Skip("set ANETOS_TEST_TAILWIND=1 to download and run Tailwind CSS")
+	}
+	root := t.TempDir()
+	files, err := renderKit("tailwind", projectData{Module: "example.com/app", Kit: "tailwind"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var kitCSS []byte
+	for _, f := range files {
+		if f.Rel == tailwind.Output {
+			kitCSS = f.Content
+			continue
+		}
+		p := filepath.Join(root, filepath.FromSlash(f.Rel))
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, f.Content, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	bin, err := tailwind.Binary(context.Background(), t.Logf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out, _ := exec.Command(bin, "--help").CombinedOutput(); !strings.Contains(string(out), "tailwindcss v"+tailwind.Version+"\n") {
+		t.Fatalf("%s isn't Tailwind CSS v%s: %.80s", bin, tailwind.Version, out)
+	}
+	css, err := tailwind.Compile(context.Background(), bin, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if *updateTailwind {
+		if err := os.WriteFile("templates/kits/tailwind/"+tailwind.Output, css, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+	if !bytes.Equal(css, kitCSS) {
+		t.Errorf("templates/kits/tailwind/%s is out of date (%d bytes; Tailwind writes %d): go test -run TestTailwindKitCSS -update-tailwind", tailwind.Output, len(kitCSS), len(css))
+	}
+}
+
+var updateTailwind = flag.Bool("update-tailwind", false, "write the tailwind kit's app.css (with ANETOS_TEST_TAILWIND=1)")
 
 // classless fails the test when a templ file outside views/ui (or, with
 // all, any templ file) has a class attribute: the kit's components carry

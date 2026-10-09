@@ -76,7 +76,12 @@ jobs:
             modules) modules=$(find . -name go.mod -not -path './.git/*' | sed 's|/go.mod$||' | grep -vx -e . -e ./cli | sort | tr '\n' ' ') ;;
           esac
           echo "MODULES=$modules" >>"$GITHUB_ENV"
+      # Latest Go's cli part also downloads Tailwind CSS's standalone CLI
+      # (checking its pinned digest) and compiles the tailwind kit with it
+      # (design D301); the other parts don't need it.
       - run: make vet test
+        env:
+          ANETOS_TEST_TAILWIND: ${{ matrix.part == 'cli' && matrix.go.name == 'latest Go' && '1' || '' }}
       # The examples that run on every database, on PostgreSQL and MySQL
       # too (make test runs them on SQLite), each in a database of its own.
       - name: examples on PostgreSQL and MySQL

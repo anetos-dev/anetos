@@ -158,7 +158,11 @@ logs which ones are pending, so a forgotten step shows as `unhealthy`.
 
 The `Dockerfile` builds with `anetos build` in the Go image and copies
 the binary alone into a distroless image (about 25 MB), run as user
-65532. The image sets `APP_ENV=production`, `HTTP_ADDR=:8080` and
+65532. In a project of the `tailwind` kit, `anetos build` compiles the
+stylesheet first, with Tailwind CSS downloaded once into BuildKit's
+cache, so the build needs to reach GitHub's releases the first time
+([Style your app](styling.md#with-tailwind-css)). The image sets
+`APP_ENV=production`, `HTTP_ADDR=:8080` and
 `STORAGE_ROOT=/data/storage` (and `DB_DATABASE=/data/app.db` for
 SQLite): mount a volume on `/data`. Its `HEALTHCHECK` runs
 `blog health:check`, which asks the server for `/health/ready`;

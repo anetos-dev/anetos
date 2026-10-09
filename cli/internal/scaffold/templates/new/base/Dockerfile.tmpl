@@ -23,9 +23,13 @@ COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
 COPY . .
 # The version the app's version command prints (the image has no git history).
-ARG VERSION=""
+ARG VERSION=""[[if eq .Kit "tailwind"]]
+# anetos build compiles the stylesheet with Tailwind CSS, downloaded once
+# into BuildKit's cache (/root/.cache/anetos).
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build --mount=type=cache,target=/root/.cache/anetos \
+    go tool anetos build -o /out/[[.Name]] --version="$VERSION" && mkdir -p /out/data[[else]]
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
-    go tool anetos build -o /out/[[.Name]] --version="$VERSION" && mkdir -p /out/data
+    go tool anetos build -o /out/[[.Name]] --version="$VERSION" && mkdir -p /out/data[[end]]
 
 FROM gcr.io/distroless/static-debian12:nonroot
 WORKDIR /app

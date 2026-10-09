@@ -1,0 +1,67 @@
+/*
+ * The app's styles: Tailwind CSS, compiled into public/static/app.css by
+ * go tool anetos dev, anetos build and anetos css:build. Tailwind writes
+ * the classes it finds in views/ (the components of views/ui carry them;
+ * pages use plain HTML). Edit this file for the colors and the plain
+ * elements' look; edit the components for the rest.
+ */
+@import "tailwindcss" source("..");
+
+/* The accent color of links and buttons (bg-accent, text-accent…). */
+@theme {
+	--color-accent: #3056d3;
+	--color-accent-hover: #2445b4;
+	--color-on-accent: #ffffff;
+}
+
+@layer base {
+	/* Dark mode follows the system: the accent, and dark: classes. */
+	@media (prefers-color-scheme: dark) {
+		:root {
+			--color-accent: #7b9bff;
+			--color-accent-hover: #9db4ff;
+			--color-on-accent: #0d1530;
+		}
+	}
+
+	/* Plain HTML in the pages. */
+	html {
+		color-scheme: light dark;
+	}
+	body {
+		@apply bg-zinc-50 text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100;
+	}
+	a {
+		@apply text-accent underline-offset-2 hover:underline;
+	}
+	h1 {
+		@apply text-2xl font-semibold tracking-tight;
+	}
+	h2 {
+		@apply text-lg font-semibold;
+	}
+	main :where(p, ul, ol) {
+		@apply my-3;
+	}
+	main :where(ul) {
+		@apply list-disc ps-6;
+	}
+	main :where(ol) {
+		@apply list-decimal ps-6;
+	}
+	main :where(h1) {
+		@apply mb-4;
+	}
+	code {
+		@apply rounded bg-zinc-100 px-1 py-0.5 font-mono text-[0.875em] dark:bg-zinc-800;
+	}
+	small {
+		@apply text-sm text-zinc-500 dark:text-zinc-400;
+	}
+	th {
+		@apply px-3 py-2 text-start font-medium text-zinc-600 dark:text-zinc-400;
+	}
+	td {
+		@apply border-t border-zinc-200 px-3 py-2 dark:border-zinc-800;
+	}
+}

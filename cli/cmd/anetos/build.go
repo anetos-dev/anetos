@@ -19,13 +19,15 @@ import (
 
 	"anetos.dev/anetos/cli/internal/modelgen"
 	"anetos.dev/anetos/cli/internal/scaffold"
+	"anetos.dev/anetos/cli/internal/tailwind"
 )
 
 const buildUsage = `Usage: anetos build [-o file] [--target=os/arch] [--version=v1.2.0] [--cgo] [-- go build flags]
 
 Builds the app for production: one binary with everything in it (the
 migrations, the templ views, the files in public/ and locales/). It runs
-templ generate and anetos gen first, then go build with -trimpath and
+templ generate and anetos gen first (and, in a project of the tailwind
+kit, Tailwind CSS: anetos css:build), then go build with -trimpath and
 -ldflags=-s -w, and CGO_ENABLED=0 (a static binary; SQLite works without
 cgo) unless --cgo. --target builds for another system (linux/amd64,
 linux/arm64, windows/amd64…); GOOS and GOARCH work too when the tool
@@ -159,6 +161,11 @@ func (b *appBuild) run(ctx context.Context, stderr io.Writer) (string, error) {
 	}
 	if err != nil {
 		return "", fmt.Errorf("anetos gen: %w", err)
+	}
+	if tailwind.Uses(b.root) {
+		if err := buildCSS(ctx, b.root, stderr, "anetos build"); err != nil {
+			return "", err
+		}
 	}
 	env := []string{"CGO_ENABLED=0", "GOOS=" + b.goos, "GOARCH=" + b.goarch}
 	if b.cgo {

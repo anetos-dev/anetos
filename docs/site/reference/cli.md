@@ -31,7 +31,7 @@ status: 0 on success, 1 on errors, 2 for bad usage.
 | `--module` | the directory's name | Go module path |
 | `--db` | `sqlite` | `sqlite`, `postgres` or `mysql`: the driver in `main.go` and the `DB_*` settings in `.env` |
 | `--stack` | `web` | `web`: pages rendered on the server, with sessions and CSRF protection; `api` (v0.4): JSON only, no views, static files or sessions ([the API project](#the-api-project)) |
-| `--css` | `anetos` | The web stack's design kit (v0.3): the components of `views/ui` (v0.5) and the stylesheet, `public/static/app.css`. `anetos`: the starter theme (light and dark, no build step) and components writing its classes; `none`: components writing plain HTML without classes, and a stylesheet holding only a comment, for your own CSS or a CSS framework (before v0.5, the pages kept the starter theme's classes); `pico`, `bootstrap`, `bulma` (v0.5): components writing Pico 2.1.1's, Bootstrap 5.3.8's or Bulma 1.0.4's markup, with the framework's files as released in `public/static/` (and its license), and an `app.css` for the rest. See [Style your app](../guides/styling.md). Refused with `--stack=api` |
+| `--css` | `anetos` | The web stack's design kit (v0.3): the components of `views/ui` (v0.5) and the stylesheet, `public/static/app.css`. `anetos`: the starter theme (light and dark, no build step) and components writing its classes; `none`: components writing plain HTML without classes, and a stylesheet holding only a comment, for your own CSS or a CSS framework (before v0.5, the pages kept the starter theme's classes); `pico`, `bootstrap`, `bulma` (v0.5): components writing Pico 2.1.1's, Bootstrap 5.3.8's or Bulma 1.0.4's markup, with the framework's files as released in `public/static/` (and its license), and an `app.css` for the rest; `tailwind` (v0.5): components with Tailwind CSS 4.3.3's classes, `views/ui/tailwind.css` and the `app.css` Tailwind compiles from it (`css:build`). See [Style your app](../guides/styling.md). Refused with `--stack=api` |
 | `--skip-install` | `false` | Only write the files |
 | `--replace` | | A local Anetos checkout, used through `replace` directives (framework development): the core, the tool, and every driver and plugin module of the checkout, so `go get` and `anetos add` take them from it too |
 
@@ -103,13 +103,18 @@ Run it in the project (any directory under `go.mod`). On start and on
 every change it:
 
 1. runs `go tool templ generate` (if there are `.templ` files) and `anetos gen`,
+   and in a project of the `tailwind` kit compiles `public/static/app.css`
+   as `css:build` does (v0.5; when Tailwind can't run, it says why and
+   keeps the `app.css` there is until it's restarted),
 2. builds the app into `tmp/anetos-dev/`,
 3. stops the previous app (interrupt, then kill after 10 s) and starts the
    new one with `HTTP_ADDR` set to a free local port,
 4. once the app accepts connections, tells open pages to reload.
 
 Watched: `.go` (not tests or generated files), `.templ`, `go.mod`,
-`go.sum`, `.env*`, and everything under `public/`; directories starting
+`go.sum`, `.env*`, everything under `public/` and `views/ui/tailwind.css`
+(but not a Tailwind project's `public/static/app.css`, which the build
+writes); directories starting
 with a dot, `node_modules` and `testdata`, and `tmp`, `vendor`, `bin` and
 `storage` at the project's root are skipped. Requests during a restart
 wait for the new version. The proxy adds a small script to HTML pages
@@ -131,7 +136,8 @@ page until the next change. On Linux the app is stopped even if
 | `-- flags…` | | More `go build` flags (`-tags=…`); an `-ldflags` is added to the build's own |
 
 Run it in the project. It runs `go tool templ generate` (if there are
-`.templ` files) and `anetos gen`, then `go build -trimpath
+`.templ` files), `anetos gen` and, in a project of the `tailwind` kit,
+Tailwind as `css:build` does (failing if it can't run; v0.5), then `go build -trimpath
 -ldflags="-s -w" .` with `CGO_ENABLED=0`, and prints the binary, its
 system and size (`built bin/blog (linux/amd64, 18.3 MB)`). Use
 `--target` rather than `GOOS` and `GOARCH`: with those set, `go tool`
@@ -257,6 +263,7 @@ the production settings too, on the server.
 | Command | Does |
 |---|---|
 | `anetos gen [-check] [packages]` | Typed model columns ([reference](anetos-gen.md)) |
+| `anetos css:build [--check]` | In a project of the `tailwind` kit (v0.5): compiles `views/ui/tailwind.css` into `public/static/app.css` with Tailwind CSS's standalone CLI (`--input views/ui/tailwind.css --minify`), writing it only when it changes. The first run downloads Tailwind CSS 4.3.3 for the platform from its GitHub releases into the user cache directory (`<cache>/anetos/tailwindcss/v4.3.3/`), checking the SHA-256 written in `anetos` then and before each run (a download that sends nothing for 30 s stops); `ANETOS_TAILWIND=<path>` runs that binary instead (its version is checked, and a different one warned about). `--check` writes nothing and exits 1 when `app.css` is out of date. Exits 1 in a project without `views/ui/tailwind.css` ([Style your app](../guides/styling.md#with-tailwind-css)) |
 | `anetos key:generate` | Prints `APP_KEY=base64:…` |
 | `anetos version` | Prints the tool's version |
 

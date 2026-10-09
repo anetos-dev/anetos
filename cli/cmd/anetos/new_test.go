@@ -433,6 +433,10 @@ func TestNewProjectKits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	kitCSS, err := os.ReadFile(filepath.Join(repo, "cli", "internal", "scaffold", "templates", "kits", "tailwind", "public", "static", "app.css"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	dir := filepath.Join(t.TempDir(), "plain")
 	if code, out, errOut := runCmd(t, "new", dir, "--css=none", "--replace", repo); code != 0 {
 		t.Fatalf("new: %d\n%s\n%s", code, out, errOut)
@@ -471,6 +475,16 @@ func TestNewProjectKits(t *testing.T) {
 		goIn("tool", "templ", "generate", "-log-level=warn")
 		goIn("vet", "./...")
 		goIn("test", "./...")
+		if kit == "tailwind" && os.Getenv("ANETOS_TEST_TAILWIND") == "1" {
+			// The pages add no classes: Tailwind compiles the stylesheet
+			// the kit carries (design D301).
+			if code, out, errOut := runCmd(t, "css:build"); code != 0 {
+				t.Fatalf("css:build: %d\n%s\n%s", code, out, errOut)
+			}
+			if css := read(t, filepath.Join(dir, "public", "static", "app.css")); css != string(kitCSS) {
+				t.Errorf("Tailwind writes another app.css (%d bytes) than the kit's (%d) for the pages of make:crud and make:auth", len(css), len(kitCSS))
+			}
+		}
 	}
 }
 

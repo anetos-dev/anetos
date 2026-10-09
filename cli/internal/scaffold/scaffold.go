@@ -23,6 +23,7 @@ import (
 	"golang.org/x/mod/modfile"
 	"golang.org/x/mod/module"
 
+	"anetos.dev/anetos/cli/internal/tailwind"
 	"anetos.dev/anetos/internal/appkey"
 	"anetos.dev/anetos/internal/naming"
 )
@@ -43,9 +44,11 @@ type Project struct {
 	DB      string // sqlite, postgres or mysql
 	Replace string // local Anetos checkout to use through replace directives ("" to download)
 	// CSS is the design kit of the web stack (see [Kits]): "anetos" (the
-	// default, "" too), Anetos's starter theme, or "none", components
+	// default, "" too), Anetos's starter theme; "none", components
 	// writing plain HTML without classes and an empty
-	// public/static/app.css. The api stack has no pages: it must be "".
+	// public/static/app.css; "pico", "bootstrap" or "bulma", a CSS
+	// framework's; or "tailwind". The api stack has no pages: it must be
+	// "".
 	CSS string
 	// Stack is the kind of app: "web" (the default, "" too), pages
 	// rendered on the server with sessions and CSRF protection, or "api",
@@ -58,15 +61,20 @@ type Project struct {
 // pages call) and its public/static/app.css, from templates/kits/<kit>,
 // with templates/kits/common's views/ui files (the types every kit's
 // components take). A CSS framework's kit adds the framework's files,
-// as released (files without .tmpl, copied as they are; KitVersions).
-var Kits = []string{"anetos", "none", "pico", "bootstrap", "bulma"}
+// as released (files without .tmpl, copied as they are; KitVersions);
+// the tailwind kit, views/ui/tailwind.css and the app.css Tailwind CSS
+// compiles from it.
+var Kits = []string{"anetos", "none", "pico", "bootstrap", "bulma", "tailwind"}
 
 // KitVersions are the CSS frameworks' releases the kits carry, all
-// MIT-licensed; scripts/update-kits.sh fetches a framework's files.
+// MIT-licensed; scripts/update-kits.sh fetches a framework's files. The
+// tailwind kit carries the stylesheet that release compiles from its own
+// components, so a new project's pages are styled before Tailwind runs.
 var KitVersions = map[string]string{
 	"pico":      "2.1.1",
 	"bootstrap": "5.3.8",
 	"bulma":     "1.0.4",
+	"tailwind":  tailwind.Version,
 }
 
 // Stacks are the values of [Project.Stack].

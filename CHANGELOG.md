@@ -29,6 +29,17 @@ All notable changes to this project are documented here. The format follows
 - `ui.NavItem`, a header entry that isn't a link (the logout button),
   which `make:auth`'s `AccountMenu` uses; and `nav.menu` in a new
   project's `locales/en/app.yaml` (K2, D299).
+- A Tailwind CSS kit (K3, D301–D303): `anetos new --css=tailwind`
+  writes `views/ui` with Tailwind 4.3.3's utility classes, the source
+  stylesheet `views/ui/tailwind.css` and the `app.css` it compiles to,
+  prebuilt so a new project's pages are styled before Tailwind runs.
+  `anetos dev` and `anetos build` compile it with Tailwind's standalone
+  CLI (no Node.js), downloaded on first use into the user cache
+  directory and checked against SHA-256 digests written in the CLI
+  (`ANETOS_TAILWIND` names a binary to use instead); offline, `anetos
+  dev` keeps the `app.css` there is. `anetos css:build [--check]`
+  compiles it alone. A Tailwind project's `Dockerfile` caches the
+  download.
 - `view.Assets` serves a text file of 1 KiB or more gzipped to a client
   that accepts it, compressed once, the first time it's requested (K2,
   D300).

@@ -17,3 +17,5 @@ files, in cli/internal/scaffold/templates/kits/<kit>/public/static):
 - Bootstrap (https://getbootstrap.com), bootstrap.LICENSE.txt, and
   Popper (https://popper.js.org), in Bootstrap's bundle, popper.LICENSE.txt
 - Bulma (https://bulma.io), bulma.LICENSE.txt
+- Tailwind CSS (https://tailwindcss.com): the tailwind kit's app.css,
+  compiled by Tailwind CSS from the kit's components, tailwind.LICENSE.txt

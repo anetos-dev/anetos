@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"anetos.dev/anetos/cli/internal/modelgen"
+	"anetos.dev/anetos/cli/internal/tailwind"
 )
 
 // Options configures [Run].
@@ -123,6 +124,9 @@ type dev struct {
 	exited  chan struct{}
 	tail    *tailBuffer
 	clients map[chan struct{}]bool
+
+	tailwind       string // the tailwindcss binary, once found
+	tailwindFailed bool   // it couldn't be had: not tried again
 }
 
 func (d *dev) logf(format string, args ...any) {
@@ -176,8 +180,34 @@ func (d *dev) build() error {
 	if err != nil {
 		return fmt.Errorf("anetos gen: %w", err)
 	}
+	if err := d.buildCSS(); err != nil {
+		return err
+	}
 	if out, err := d.run(dir, "go", "build", "-o", d.bin, "."); err != nil {
 		return fmt.Errorf("%s", bytes.TrimSpace(out))
+	}
+	return nil
+}
+
+// buildCSS compiles a Tailwind project's stylesheet. Without the binary
+// (offline, say) it says why and keeps the app.css there is for the rest
+// of the session, without trying again at each rebuild: pages whose
+// classes it has look right, new classes don't until it can run.
+func (d *dev) buildCSS() error {
+	if !tailwind.Uses(d.opts.Dir) || d.tailwindFailed {
+		return nil
+	}
+	if d.tailwind == "" {
+		bin, err := tailwind.Binary(d.ctx, d.logf)
+		if err != nil {
+			d.logf("%v\nThe app keeps public/static/app.css as it is: classes added since aren't styled until Tailwind CSS runs. Restart anetos dev once it can download it.", err)
+			d.tailwindFailed = true
+			return nil
+		}
+		d.tailwind = bin
+	}
+	if _, err := tailwind.Build(d.ctx, d.tailwind, d.opts.Dir); err != nil {
+		return err
 	}
 	return nil
 }
@@ -476,13 +506,14 @@ func watched(rel string) bool {
 		return true
 	}
 	// Other files under public/ are embedded static files; under
-	// locales/, the embedded translations.
+	// locales/, the embedded translations; and Tailwind's source.
 	slash := filepath.ToSlash(rel)
-	return strings.HasPrefix(slash, "public/") || strings.HasPrefix(slash, "locales/")
+	return strings.HasPrefix(slash, "public/") || strings.HasPrefix(slash, "locales/") || slash == tailwind.Input
 }
 
 func snapshot(root string) map[string]fileState {
 	out := map[string]fileState{}
+	css := tailwind.Uses(root) // then the build writes app.css
 	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil //nolint:nilerr // unreadable entries are skipped
@@ -494,7 +525,7 @@ func snapshot(root string) map[string]fileState {
 			}
 			return nil
 		}
-		if !watched(rel) {
+		if !watched(rel) || css && filepath.ToSlash(rel) == tailwind.Output {
 			return nil
 		}
 		if info, err := d.Info(); err == nil {

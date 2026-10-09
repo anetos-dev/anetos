@@ -17,7 +17,7 @@ Every component exists in every kit, with the same name and arguments.
 The tables show what the `anetos` kit (the starter theme) writes;
 [the `none` kit](#the-none-kit) writes the same elements without
 classes, and [the CSS frameworks' kits](#the-css-frameworks-kits)
-write their framework's markup.
+(and [Tailwind's](#the-tailwind-kit)) write their framework's markup.
 
 ```templ
 // illustrative
@@ -225,5 +225,28 @@ JavaScript) as released into `public/static/` with its license, and an
 The menu button's name is `nav.menu` in `locales/<locale>/app.yaml`
 ("Menu"). Each version of the CLI writes the framework releases above;
 a newer release of a framework comes with a newer CLI, or replace its
-files in `public/static/` yourself. A Tailwind kit is coming in a later
-release.
+files in `public/static/` yourself.
+
+## The tailwind kit
+
+`anetos new --css=tailwind` writes the components with Tailwind CSS
+4.3.3's utility classes, the source stylesheet `views/ui/tailwind.css`
+and `public/static/app.css`, which Tailwind compiles from it (`anetos
+dev`, `anetos build` and `anetos css:build` run Tailwind; [Style your
+app](../guides/styling.md#with-tailwind-css)). `classes.go` holds the
+classes of each look (`Look.class`) and tone (`Tone.badge`,
+`Tone.flash`) and of the form controls (`control`).
+
+| Component | Writes |
+|---|---|
+| `Head` | `app.css` |
+| `Header`, `Nav`, `NavEnd` | Flex rows that wrap on a small screen; `NavLink` is darker and of medium weight when `aria-current="page"` |
+| `Card`, `AuthCard` | A white (dark: zinc-900) box with a border, rounded, and a light shadow |
+| `Field`, `Input`, `Textarea`, `Select` | A block label; full-width controls with a red border when `aria-invalid`; the message and the hint in small text under them |
+| `Button`, `LinkButton` | The accent color (`bg-accent`, `--color-accent` in `tailwind.css`), white with a border (`Secondary`), red (`Danger`), or text only (`Ghost`) |
+| `Badge`, `Flash` | A pill, a bordered box, in the tone's color (green, amber, red, blue) |
+| `Table` | A bordered box that scrolls sideways; `tailwind.css` styles the cells |
+
+`tailwind.css` also styles the pages' plain HTML, which Tailwind's
+reset leaves bare: the body, links, `h1`, `h2`, lists and paragraphs in
+`<main>`, `code`, `small`, `th` and `td`.

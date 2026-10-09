@@ -1165,6 +1165,20 @@ plain HTML elements, never `class=`:
   `NavItem` wraps a header entry that isn't a link as each kit's menus
   need. A test builds a project's pages against each kit's
   `views/ui`.
+- **The tailwind kit (K3, D301–D303):** `views/ui` with Tailwind CSS
+  4.3.3's utility classes (`classes.go` holds the looks', tones' and
+  controls'), `views/ui/tailwind.css` (the source: `@import
+  "tailwindcss" source("..")`, the accent color in `@theme`, the pages'
+  plain elements in `@layer base`) and `public/static/app.css`, compiled
+  from it and committed. The kit carries that `app.css` prebuilt from
+  its own components (a CI test compiles them and compares), so `anetos
+  new` needs no Tailwind. Package `cli/internal/tailwind` downloads the
+  standalone CLI for the platform from GitHub's releases, checks it
+  against digests in its source, caches it under the user cache
+  directory (`ANETOS_TAILWIND` overrides), and compiles: `anetos dev`
+  before each build (offline it warns once and keeps `app.css`),
+  `anetos build` (fails without it), `anetos css:build [--check]`. A
+  project is Tailwind's when `views/ui/tailwind.css` exists.
 - **Projects made before v0.5** (no `views/ui`): `make:crud` and
   `make:auth` write the kit their stylesheet looks like first, and say
   so; the layout is left as it is.
@@ -2521,12 +2535,13 @@ planned.
 | Command | Purpose |
 |---|---|
 | `anetos new <dir> [--module=…] [--db=…] [--css=…] [--stack=…]` | Create a project (F11); `--css=anetos\|none`, the starter theme or none (M10, D240); `--stack=web` (default) or `api`, a JSON-only app (AP1, D259–D262); v0.5 adds the design kits (`--css=pico\|bootstrap\|bulma\|tailwind`), v0.6 the front-end stacks |
-| `anetos dev` | Watch (polling) → `templ generate` → `anetos gen` → build → restart on a free port → browser reload; stable address through a proxy that shows build errors (F11) |
+| `anetos dev` | Watch (polling) → `templ generate` → `anetos gen` → Tailwind (tailwind kit, D303) → build → restart on a free port → browser reload; stable address through a proxy that shows build errors (F11) |
 | `anetos make:<thing>` | handler, model (`--migration`), migration, middleware (F11); auth (B14, §15); crud (M10, D241: a model, its table and the pages to list, show, create, edit and delete its rows); agent (A3: an `ai.Agent` with a typed tool in `app/agents`, D179); job, event, listener, mail, policy, task, command, test, plugin (later) |
 | `anetos gen` | Run code generators: typed model columns (F9), relation handles (v0.1.1). `-check` for CI |
+| `anetos css:build [--check]` | Compile a Tailwind project's `views/ui/tailwind.css` into `public/static/app.css` (K3, D301–D303); `--check` for CI |
 | `anetos key:generate` | Print a new `APP_KEY` line (F10) |
 | `anetos add <module>[@version]` / `anetos remove <module>` | Install or uninstall a plugin: `go get`, `plugins.go`, `go mod tidy`, a build check, `.env.example` (B11, §16.3, D151) |
-| `anetos build [-o] [--target] [--version] [--cgo]` | Production build (M5, D229): `templ generate` and `anetos gen` (for this system), then `go build -trimpath -ldflags="-s -w"` with `CGO_ENABLED=0` (`--cgo` for 1) for `--target` (os/arch), to `bin/<module name>`; an `-ldflags` after `--` is merged; `--version` sets the version `<app> version` prints (`-X`), else Go's VCS stamp |
+| `anetos build [-o] [--target] [--version] [--cgo]` | Production build (M5, D229): `templ generate`, `anetos gen` (for this system) and Tailwind (tailwind kit, D303), then `go build -trimpath -ldflags="-s -w"` with `CGO_ENABLED=0` (`--cgo` for 1) for `--target` (os/arch), to `bin/<module name>`; an `-ldflags` after `--` is merged; `--version` sets the version `<app> version` prints (`-X`), else Go's VCS stamp |
 | `anetos doctor [--strict] [--vuln]` | Check the project (`.env`'s permissions, files of secrets in git; `govulncheck` with `--vuln`), then build the app and run its `doctor` (M7, D245) |
 | `anetos stub:publish` | Copy generator templates into the project for customization |
 
@@ -2535,8 +2550,9 @@ write call the app's `views/ui` components (D292): `anetos new` writes
 a design kit, by default the starter theme's components and its
 `public/static/app.css` (plain CSS, no build step, light and dark, D240),
 so a new app looks finished; `--css=none` writes components of plain
-HTML and no styles (D293), and `--css=pico`, `bootstrap` or `bulma` a
-CSS framework's (D298). `anetos new
+HTML and no styles (D293), `--css=pico`, `bootstrap` or `bulma` a
+CSS framework's (D298), and `--css=tailwind` Tailwind's, which `anetos
+dev`, `anetos build` and `anetos css:build` compile (D301–D303). `anetos new
 --replace=<checkout>` (framework development) replaces every module of
 the checkout, drivers and plugins included, so `go get` and `anetos add`
 take them from it (D151).
@@ -3110,6 +3126,9 @@ unless new information arrives), **Open**, **Superseded**.
 | D298 | `--css=pico`, `bootstrap` and `bulma` are kits like `anetos`'s: their `views/ui` in the framework's markup, and the framework's files as released (minified CSS, Bootstrap's bundle) vendored into the CLI and copied into `public/static/` with their MIT license; the CLI pins one release of each (`scaffold.KitVersions`), which `scripts/update-kits.sh` fetches from npm and a test checks against the files' headers. Each kit adds an `app.css` for what its framework has no style of (Pico's badges, colored messages and danger button) and only the JavaScript it needs: Bootstrap's bundle and a `theme.js` setting `data-bs-theme` from the system, Bulma's `nav.js` for the menu button; Pico needs none, its header wrapping on a small screen | Accepted | A CDN would make a new app depend on a third party at runtime, break offline development and need SRI hashes; vendoring keeps D240's "no build step, works offline", and the binary embeds the files. Pinning a release makes a project reproducible and its look reviewable; an update is a deliberate change with screenshots. Bootstrap and Bulma style plain HTML differently from Pico (Bulma resets it, so `Main` wraps the page in its `content`), so each kit decides how the pages' plain elements look |
 | D299 | `ui.NavItem` is a header entry that isn't a `NavLink` (a button, a form): `make:auth`'s `AccountMenu` wraps its logout and register buttons in it. The `anetos` and `none` kits write its children alone; Pico wraps it in an `<li>`, Bootstrap in a `nav-item`, Bulma in a `navbar-item`. The menu button of Bootstrap's and Bulma's headers is named by `nav.menu` in the app's locale files, "Menu" when it has none | Accepted | Frameworks' menus are lists of items, and a bare button in a `<ul>` or a navbar is invalid or unstyled; one more component keeps `AccountMenu` the same for every kit. Older apps' locale files lack `nav.menu`, hence the fallback (K4 adds it) |
 | D300 | `view.Assets` gzips a file once, the first time it is requested, when its type is text (`text/*`, JavaScript, JSON, SVG, XML, wasm), it is 1 KiB or more and gzip saves a tenth, and serves that copy, with its own `ETag`, its length and `Vary: Accept-Encoding`, to a request that accepts gzip (`q=0` refuses it); a 304 or an error isn't marked gzipped | Accepted | A framework's stylesheet is 80–680 KB, a tenth of that gzipped, and an app deployed as its single binary, without a proxy, would otherwise send it whole. Compressing once costs up to 60 ms for Bulma's stylesheet instead of CPU per request; doing it on the first request rather than in `NewAssets` keeps that off every start (commands, tests). Brotli would need a dependency for a few percent more |
+| D301 | The tailwind kit runs Tailwind CSS's standalone CLI, pinned (`tailwind.Version`) with the SHA-256 of each platform's binary written in the CLI's source (from the release's `sha256sums.txt`), downloaded on first need from GitHub's releases into `os.UserCacheDir()/anetos/tailwindcss/v<version>/`, through a temporary file renamed only after the digest matches (and checked again before each run, the cache possibly shared); a download stops when nothing arrives for 30 s; Linux picks the `-musl` build when `/bin/sh`'s interpreter is musl's (not when musl is merely installed beside glibc). `ANETOS_TAILWIND` names a binary to use instead (its `--help` must name tailwindcss; another version is warned about). Platforms without a release (Windows on Arm, FreeBSD) get an error naming the variable | Accepted | Tailwind v4's standalone CLI needs no Node.js, which keeps D240's "no toolchain but Go". Pinning the digests in our source means a compromised release or mirror can't run code on a developer's machine through `anetos dev`; the binary is 80–112 MB, so it is downloaded once per version, not vendored. The override covers offline machines and unlisted platforms |
+| D302 | A Tailwind project's compiled `public/static/app.css` is committed, and the kit carries it prebuilt: the stylesheet Tailwind 4.3.3 compiles from the kit's own components, which the pages of `anetos new`, `make:crud` and `make:auth` add no classes to (D292), so a new project's pages are styled before Tailwind ever runs. A test (with `ANETOS_TEST_TAILWIND=1`, in CI's latest Go `cli` part) compiles the kit and compares; another compiles a project with the generators' pages and finds the same file | Accepted | Committing the output, as with `_templ.go`, keeps `go build`, `go test`, the Dockerfile's cached builds and the other kits' paths working without the binary; generating it in `anetos new` would make creating a project download 112 MB. The classless pages make the prebuilt file exact rather than approximate |
+| D303 | `anetos dev` compiles the stylesheet (minified, to stdout, written only when it changed) before each `go build`, watches `views/ui/tailwind.css` and ignores the generated `app.css` (no rebuild loop); without the binary it says why and builds with the `app.css` there is for the rest of the session, without retrying the download at each rebuild. `anetos build` compiles it too and fails without the binary; `anetos css:build [--check]` compiles alone or checks freshness. A Tailwind project's Dockerfile mounts a BuildKit cache on `/root/.cache/anetos` | Accepted | Running Tailwind in the build step, rather than `tailwindcss --watch` beside the app, keeps one pipeline (templ, gen, CSS, build) whose errors show in the browser; Tailwind compiles in about 0.2 s. A dev server that refuses to start offline would block work whose pages are already styled, while a production build must not ship a stale stylesheet silently. Minified output in both keeps the committed file stable between dev and build |
 
 ---
 
@@ -3202,3 +3221,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-09 | v0.5 started: CI's tests in parts (§23, D291) |
 | 2026-10-09 | K1 (UI components): §12.2 updated; D244 accepted; D292–D297 added |
 | 2026-10-09 | K2 (Pico, Bootstrap, Bulma kits): §12.1, §12.2, §17.1 updated; D298–D300 added |
+| 2026-10-09 | K3 (Tailwind kit): §12.2, §17.1 updated; D301–D303 added |

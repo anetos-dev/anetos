@@ -15,16 +15,18 @@ import (
 	"anetos.dev/anetos/cli/internal/scaffold"
 )
 
-const newUsage = `Usage: anetos new <directory> [--module=path] [--db=sqlite|postgres|mysql] [--stack=web|api] [--css=anetos|none|pico|bootstrap|bulma]
+const newUsage = `Usage: anetos new <directory> [--module=path] [--db=sqlite|postgres|mysql] [--stack=web|api] [--css=anetos|none|pico|bootstrap|bulma|tailwind]
 
 Creates an Anetos project: routes, handlers, migrations, a test, the
 files to deploy it, and a .env with a fresh APP_KEY. The web stack (the
 default) has templ views made of the components in views/ui, styled by
 Anetos's starter theme, sessions and CSRF protection, and static files
 with htmx. --css picks another design kit: none (components writing
-plain HTML without classes, and no styles), or Pico, Bootstrap or
-Bulma (their components, with the framework's files in public/static;
-no build step). The api stack (--stack=api) serves JSON only:
+plain HTML without classes, and no styles), Pico, Bootstrap or Bulma
+(their components, with the framework's files in public/static; no
+build step), or Tailwind CSS (components with its classes; anetos dev
+and anetos build compile views/ui/tailwind.css with its standalone CLI,
+downloaded on first use). The api stack (--stack=api) serves JSON only:
 routes under /api/v1, errors as JSON problem details, CORS settings,
 an OpenAPI description (openapi.json); no views or sessions. Then it
 downloads the dependencies and generates the views (web) or
@@ -35,7 +37,7 @@ func newProject(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	fs := flag.NewFlagSet("anetos new", flag.ContinueOnError)
 	module := fs.String("module", "", "Go module path (default: the directory's name)")
 	dbName := fs.String("db", "sqlite", "database: sqlite, postgres or mysql")
-	css := fs.String("css", "", "web stack's design kit (views/ui and its stylesheet): anetos (the starter theme; the default), none (plain HTML, no styles), pico, bootstrap or bulma")
+	css := fs.String("css", "", "web stack's design kit (views/ui and its stylesheet): anetos (the starter theme; the default), none (plain HTML, no styles), pico, bootstrap, bulma or tailwind")
 	stack := fs.String("stack", "web", "kind of app: web (pages, sessions) or api (JSON only)")
 	replace := fs.String("replace", "", "use a local Anetos checkout at this path (for framework development)")
 	skip := fs.Bool("skip-install", false, "don't download dependencies or generate code")

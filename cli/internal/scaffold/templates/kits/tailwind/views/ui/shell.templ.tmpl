@@ -1,0 +1,73 @@
+package ui
+
+import "[[.Module]]/public"
+
+// The page's shell, which the layout (views/layout.templ) puts together.
+
+// Head links the stylesheet Tailwind compiles from views/ui/tailwind.css
+// (public/static/app.css): the layout's <head> calls it.
+templ Head() {
+	<link rel="stylesheet" href={ public.Assets.URL("app.css") }/>
+}
+
+// Header is the top of every page: the app's name, linking to home,
+// then its children (a Nav, and a NavEnd with the account's links),
+// which wrap on a small screen.
+templ Header(brand, home string) {
+	<header class="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+		<div class="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
+			<a class="font-semibold text-zinc-900 hover:no-underline dark:text-zinc-100" href={ home }>{ brand }</a>
+			{ children... }
+		</div>
+	</header>
+}
+
+// Nav is the header's links (NavLink), named label for screen readers.
+templ Nav(label string) {
+	<nav class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm" aria-label={ label }>
+		{ children... }
+	</nav>
+}
+
+// NavLink is a link of the header, marked as the page being shown when
+// current is true.
+templ NavLink(href, label string, current bool) {
+	<a class="text-zinc-600 hover:text-zinc-900 hover:no-underline aria-[current=page]:font-medium aria-[current=page]:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 dark:aria-[current=page]:text-zinc-100" href={ href } if current { aria-current="page" }>{ label }</a>
+}
+
+// NavEnd is the end of the header: the account's links and buttons.
+templ NavEnd() {
+	<div class="ms-auto flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+		{ children... }
+	</div>
+}
+
+// NavItem is an entry of a Nav or NavEnd that isn't a NavLink: a
+// button, a form (log out). This kit wraps it in nothing.
+templ NavItem() {
+	{ children... }
+}
+
+// Main is the page's own content.
+templ Main() {
+	<main class="mx-auto max-w-5xl px-4 py-8">
+		{ children... }
+	</main>
+}
+
+// Footer is the bottom of every page.
+templ Footer() {
+	<footer class="border-t border-zinc-200 dark:border-zinc-800">
+		<div class="mx-auto max-w-5xl px-4 py-6 text-sm text-zinc-500 dark:text-zinc-400">
+			{ children... }
+		</div>
+	</footer>
+}
+
+// Flash is a message about what just happened, in a tone's color, with
+// any buttons beside it.
+templ Flash(tone Tone) {
+	<div class={ "mb-6 flex flex-wrap items-center gap-3 rounded-lg border px-4 py-3 text-sm [&>p]:m-0 " + tone.flash() } role="status">
+		{ children... }
+	</div>
+}

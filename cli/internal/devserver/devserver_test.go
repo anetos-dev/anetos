@@ -4,6 +4,7 @@ package devserver
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"io"
 	"net/http"
@@ -11,9 +12,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
+
+	"anetos.dev/anetos/cli/internal/tailwind"
 )
 
 func TestInject(t *testing.T) {
@@ -35,6 +39,7 @@ func TestWatched(t *testing.T) {
 		"main.go": true, "views/home.templ": true, ".env": true, ".env.local": true, "go.mod": true,
 		"public/static/app.css": true, "views/home_templ.go": false, "app/models/models_gen.go": false,
 		"main_test.go": false, "README.md": false, "database/app.db": false, "locales/bn/app.yaml": true,
+		"views/ui/tailwind.css": true, "views/ui/other.css": false,
 	} {
 		if got := watched(p); got != want {
 			t.Errorf("watched(%s) = %v", p, got)
@@ -54,6 +59,21 @@ func TestWatched(t *testing.T) {
 	write(t, filepath.Join(dir, "b.go"), "package main")
 	if got := diff(before, snapshot(dir)); len(got) != 2 {
 		t.Errorf("diff = %v", got)
+	}
+
+	// In a Tailwind project, the build writes app.css: a change to it
+	// isn't one to rebuild for, a change to its source is.
+	write(t, filepath.Join(dir, "public", "static", "app.css"), "a{}")
+	if _, ok := snapshot(dir)[filepath.FromSlash("public/static/app.css")]; !ok {
+		t.Error("app.css not watched")
+	}
+	write(t, filepath.Join(dir, "views", "ui", "tailwind.css"), `@import "tailwindcss";`)
+	snap := snapshot(dir)
+	if _, ok := snap[filepath.FromSlash("public/static/app.css")]; ok {
+		t.Error("a Tailwind project's app.css watched")
+	}
+	if _, ok := snap[filepath.FromSlash("views/ui/tailwind.css")]; !ok {
+		t.Error("tailwind.css not watched")
 	}
 }
 
@@ -202,5 +222,40 @@ func TestAllowedHost(t *testing.T) {
 	d.ServeHTTP(rec, req)
 	if rec.Code != http.StatusForbidden {
 		t.Errorf("foreign host: %d", rec.Code)
+	}
+}
+
+// Without Tailwind CSS (offline, a wrong ANETOS_TAILWIND), dev says so
+// once and builds with the app.css there is; with it, it compiles.
+func TestBuildCSS(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("runs a shell script as tailwindcss")
+	}
+	dir := t.TempDir()
+	write(t, filepath.Join(dir, "views", "ui", "tailwind.css"), `@import "tailwindcss";`)
+	write(t, filepath.Join(dir, "public", "static", "app.css"), "old")
+	var out bytes.Buffer
+	d := &dev{ctx: context.Background(), opts: Options{Dir: dir, Out: &out}}
+	t.Setenv(tailwind.Env, filepath.Join(dir, "missing"))
+	for range 2 {
+		if err := d.buildCSS(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if n := strings.Count(out.String(), "keeps public/static/app.css"); n != 1 {
+		t.Errorf("said %d times:\n%s", n, out.String())
+	}
+	d = &dev{ctx: context.Background(), opts: Options{Dir: dir, Out: &out}} // a new session
+	bin := filepath.Join(dir, "tailwindcss")
+	write(t, bin, "#!/bin/sh\ncase \"$1\" in --help) echo 'tailwindcss v"+tailwind.Version+"';; *) echo 'a{}';; esac\n")
+	if err := os.Chmod(bin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(tailwind.Env, bin)
+	if err := d.buildCSS(); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(filepath.Join(dir, "public", "static", "app.css")); string(b) != "a{}\n" {
+		t.Errorf("app.css = %q", b)
 	}
 }

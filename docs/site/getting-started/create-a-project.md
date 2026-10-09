@@ -25,7 +25,7 @@ compiles its views. Its flags:
 |---|---|---|
 | `--db` | `sqlite` | `postgres` or `mysql` for a server database ([Choose a database](databases.md)) |
 | `--stack` | `web` | `api` for an app that serves JSON only ([below](#an-api-instead)) |
-| `--css` | `anetos` | The design kit: `anetos`, the starter theme; `none`, components without classes and an almost empty stylesheet, for your own CSS; `pico`, `bootstrap` or `bulma`, components in that framework's markup, with its files ([Style your app](../guides/styling.md#7-or-start-with-another-kit)) |
+| `--css` | `anetos` | The design kit: `anetos`, the starter theme; `none`, components without classes and an almost empty stylesheet, for your own CSS; `pico`, `bootstrap` or `bulma`, components in that framework's markup, with its files; `tailwind`, components with Tailwind CSS's classes, compiled by `anetos dev` ([Style your app](../guides/styling.md#7-or-start-with-another-kit)) |
 | `--module` | the folder's name | The Go module path, such as `github.com/you/blog` |
 
 ## Run it
