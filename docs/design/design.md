@@ -2741,7 +2741,8 @@ Reviewed in M6 (v0.3; D251–D253). Numbers, method and code:
 - **Go version:** support the Go releases the Go team supports (the latest
   two). The core module's `go` directive is the **older** of those two, so
   anyone on a supported Go can build it; CI tests the minimum and the latest
-  (D18). The directive is raised only with a CHANGELOG note.
+  (D18), each in three parts side by side (D291). The directive is raised
+  only with a CHANGELOG note.
 - **SemVer**, with the pre-1.0 rules in the [roadmap](../planning/roadmap.md#versioning-rules).
 - **Deprecation (from v1.0):** deprecate in a minor release (`// Deprecated:`
   plus a CHANGELOG entry) and remove no earlier than the next major.
@@ -3050,6 +3051,7 @@ unless new information arrives), **Open**, **Superseded**.
 | D288 | `HTTP_CORS_EXPOSE` defaults to `X-Request-ID,Location,Retry-After,X-RateLimit-Limit,X-RateLimit-Remaining` | Accepted | A browser client of an API project couldn't read a creation's `Location` or the rate limits' headers without a setting it had no reason to know of; these headers carry nothing secret |
 | D289 | `make:auth`'s API responses that carry a token (register, login, the two-factor challenge and its answer) are `Cache-Control: no-store`; the routes behind `auth.Require`, making a token among them, already were (M7) | Accepted | A token in a cached response outlives its revocation; `auth.Require`'s `no-store` doesn't cover the public routes that hand tokens out |
 | D290 | In inputs, an optional non-pointer `anetos.Date` is `anyOf` a `date` string and an empty string, and a `url` rule adds a `pattern` of its schemes (`http` and `https` unless it names others) | Accepted | The binding takes `""` as no date and the `url` rule refuses other schemes, while `format: date` and `format: uri` alone would let generated clients and validators disagree with the server |
+| D291 | CI's tests run in three parts per Go release, side by side (`test-part`): the core module with the repository-wide checks (gofmt, SPDX, doc snippets, API doc comments, generated code) and the allocation budgets; the `cli` module; every other module, with the examples on PostgreSQL and MySQL. Two jobs keep the names the main branch's ruleset requires (`test (minimum Go (go.mod))`, `test (latest Go)`) and pass when every part does. `make` takes the part's modules as `MODULES` | Accepted | The single job per Go release ran every module in turn and had grown to 21 minutes of its 40 (the cli module's whole-project tests alone take 5), and v0.5's design kits add a generated project per kit. Parts cut the wall time to the slowest one; the jobs required by name stay, so the ruleset needs no change. A failing part fails both required checks, which only costs a reader one click to see which part |
 
 ---
 
@@ -3138,3 +3140,5 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-08 | v0.4 AP3 (JSON CRUD): §8.2, §12.2 updated; D269 (typed results' status), D270–D274 added |
 | 2026-10-08 | v0.4 AP4 (OpenAPI): §12.2 updated; D275–D280 added |
 | 2026-10-08 | v0.4 AP5 (API docs and example): §12.2 updated; D281–D284 added |
+| 2026-10-08 | v0.4 exit: §8.4, §12.2, §18 updated; D285–D290 added |
+| 2026-10-09 | v0.5 started: CI's tests in parts (§23, D291) |

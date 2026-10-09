@@ -10,18 +10,23 @@ permissions:
   contents: read
 
 jobs:
-  test:
-    name: test (${{ matrix.name }})
+  # The tests in three parts per Go release, side by side (design D291):
+  # the core module with the repository-wide checks and the allocation
+  # budgets; the cli module, whose tests make, build and test whole
+  # projects; and every other module (drivers, admin, plugins, examples).
+  test-part:
+    name: test (${{ matrix.go.name }}, ${{ matrix.part }})
     runs-on: ubuntu-latest
     timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
-        include:
+        go:
           - name: minimum Go (go.mod)
-            go-version-file: go.mod
+            file: go.mod
           - name: latest Go
-            go-version: stable
+            version: stable
+        part: [core, cli, modules]
     # Servers for the driver modules' conformance tests. PostgreSQL with
     # pgvector, so vector and hybrid search are tested, not only refused.
     services:
@@ -50,19 +55,32 @@ jobs:
       ANETOS_TEST_POSTGRES_URL: postgres://postgres:secret@127.0.0.1:5432/anetos_test
       ANETOS_TEST_MYSQL_URL: root:secret@tcp(127.0.0.1:3306)/anetos_test
       ANETOS_TEST_REDIS_URL: redis://127.0.0.1:6379/0
+      PART: ${{ matrix.part }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: ${{ matrix.go-version }}
-          go-version-file: ${{ matrix.go-version-file }}
-      - run: make fmt-check spdx docs-check api-docs gen-check vet
-      - run: make test
+          go-version: ${{ matrix.go.version }}
+          go-version-file: ${{ matrix.go.file }}
+      # The repository-wide checks, before MODULES narrows make's targets.
+      - if: matrix.part == 'core'
+        run: make fmt-check spdx docs-check api-docs gen-check
+      # The part's modules, as the Makefile's MODULES lists them.
+      - name: modules of the part
+        run: |
+          case "$PART" in
+            core) modules=. ;;
+            cli) modules=./cli ;;
+            modules) modules=$(find . -name go.mod -not -path './.git/*' | sed 's|/go.mod$||' | grep -vx -e . -e ./cli | sort | tr '\n' ' ') ;;
+          esac
+          echo "MODULES=$modules" >>"$GITHUB_ENV"
+      - run: make vet test
       # The examples that run on every database, on PostgreSQL and MySQL
       # too (make test runs them on SQLite), each in a database of its own.
       - name: examples on PostgreSQL and MySQL
+        if: matrix.part == 'modules'
         run: |
           for e in tracker assistant; do
             PGPASSWORD=secret psql -h 127.0.0.1 -U postgres -qc "CREATE DATABASE ${e}_test"
@@ -71,7 +89,27 @@ jobs:
           # MySQL 8 can't search vectors: the assistant refuses it.
           mysql -h 127.0.0.1 -u root -psecret -e "CREATE DATABASE tracker_test"
           (cd examples/tracker && DB_CONNECTION=mysql DB_URL="root:secret@tcp(127.0.0.1:3306)/tracker_test?parseTime=true" go test -count=1 ./...)
-      - run: make bench-check
+      - if: matrix.part == 'core'
+        run: make bench-check
+
+  # The checks the main branch's ruleset requires, one per Go release,
+  # under their names from before the split: green when every part of
+  # the tests is (a failing part fails both).
+  test:
+    name: test (${{ matrix.name }})
+    if: always()
+    needs: test-part
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      matrix:
+        name: [minimum Go (go.mod), latest Go]
+    steps:
+      - env:
+          RESULT: ${{ needs.test-part.result }}
+        run: |
+          echo "The tests' parts: $RESULT"
+          test "$RESULT" = success
 
   lint:
     runs-on: ubuntu-latest

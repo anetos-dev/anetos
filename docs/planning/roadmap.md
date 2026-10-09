@@ -500,6 +500,7 @@ it later; then the public release. **This is the first public release.**
 
 | WP | Work package | Notes |
 |---|---|---|
+| CI1 | CI in parts | Before the kits, which add a generated project each: CI's tests in parts per Go release, side by side, the required checks keeping their names (design D291) |
 | K1 | UI components | `anetos new` writes `views/ui`, a small set of templ components (button, field, card, table, badge, alert, nav, pagination…) in the app; the layout and the generators' pages (`make:auth`, `make:crud`, the tutorial) use them instead of raw class names (design D244), so a kit restyles the generated pages |
 | K2 | Kits without a build step | Pico, Bootstrap and Bulma (with Bootstrap's small script for menus): their CSS vendored into `public/`, embedded in the binary, no CDN; each kit's `views/ui` and layout; light and dark where the framework has it |
 | K3 | Tailwind | `anetos dev` and `anetos build` run Tailwind's standalone CLI (no Node): pinned version, checked download per platform, cached; `views/ui` with Tailwind classes |
@@ -518,6 +519,18 @@ it later; then the public release. **This is the first public release.**
 - Each kit's generated pages pass the generated tests and look right in
   light and dark (checked in a browser).
 - No known P0/P1 bugs; every public API documented.
+
+**Order** (agreed 2026-10-09): CI1, K1–K5, M8, M1b, M2v, the volunteer
+test (the exit), M9. M1b is real work: the v0.4.0 tags' `go.mod` files
+require `anetos.dev/anetos v0.0.0-…` with `replace` directives, which
+builds outside the repository ignore, so the modules can't yet be
+installed from the module proxy.
+
+**Progress**
+
+| WP | Status |
+|---|---|
+| CI1 CI in parts | ✅ Done 2026-10-09 (design D291): `test-part` jobs (core with the repository-wide checks and budgets; cli; the other modules with the examples on PostgreSQL and MySQL) for each Go release; `test (…)` jobs under the required names pass when every part does |
 
 ---
 
@@ -678,3 +691,4 @@ something, and we fix the API rather than add the hook.
 | 2026-10-08 | AP4 (OpenAPI) done (design D275–D280) |
 | 2026-10-08 | AP5 (API docs and example) done (design D281–D284) |
 | 2026-10-08 | v0.4 exit criteria checked (a docs-only walkthrough and an audit; gaps fixed, D285–D290); v0.4.0 tagged; next v0.5 |
+| 2026-10-09 | v0.5 started: the order agreed; CI1 (CI in parts, D291) done |
