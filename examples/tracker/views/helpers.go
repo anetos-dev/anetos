@@ -9,10 +9,12 @@ import (
 	"net/url"
 	"strconv"
 
+	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/i18n"
 	"anetos.dev/anetos/web"
 
 	"anetos.dev/anetos/examples/tracker/app/models"
+	"anetos.dev/anetos/examples/tracker/views/ui"
 )
 
 // DigestLine is an issue in the digest email.
@@ -57,6 +59,35 @@ func filterURL(ctx context.Context, project models.Project, f Filter, key, value
 // issueURL is the issue's page.
 func issueURL(ctx context.Context, projectKey string, number int) (string, error) {
 	return web.URL(ctx, "issues.show", projectKey, number)
+}
+
+// issuePages is the pagination of a project's issues: "Page 2 of 5"
+// when there is more than one.
+func issuePages(ctx context.Context, page db.Page[models.Issue]) ui.Pages {
+	status := ""
+	if page.LastPage > 1 {
+		status = i18n.T(ctx, "pages.of", "page", page.CurrentPage, "last", page.LastPage)
+	}
+	return ui.PagesOf(ctx, page, i18n.T(ctx, "pages.label"), status, i18n.T(ctx, "pages.prev"), i18n.T(ctx, "pages.next"))
+}
+
+// priorityOptions are the priority select's options, lowest first.
+func priorityOptions(ctx context.Context) []ui.Option {
+	options := make([]ui.Option, 0, len(models.Priorities))
+	for _, p := range models.Priorities {
+		options = append(options, ui.Option{Value: p, Label: i18n.T(ctx, "issues.priorities."+p)})
+	}
+	return options
+}
+
+// assigneeOptions are the assignee select's options: nobody, then the
+// users who can be assigned.
+func assigneeOptions(ctx context.Context, users []models.User) []ui.Option {
+	options := []ui.Option{{Value: "", Label: i18n.T(ctx, "issues.nobody")}}
+	for _, u := range users {
+		options = append(options, ui.Option{Value: idString(u.ID), Label: u.Name})
+	}
+	return options
 }
 
 // idString is an ID as text, for form values.

@@ -60,7 +60,7 @@ func TestNewProject(t *testing.T) {
 	if code, _, errOut := runCmd(t, "make:auth"); code != 1 || !strings.Contains(errOut, "exists") {
 		t.Errorf("make:auth twice: %d %s", code, errOut)
 	}
-	if b := read(t, filepath.Join(dir, "views", "layout.templ")); !strings.Contains(b, "\t\t\t\t\t</nav>\n\t\t\t\t\t@AccountMenu()\n") {
+	if b := read(t, filepath.Join(dir, "views", "layout.templ")); !strings.Contains(b, "\t\t\t\t}\n\t\t\t\t@AccountMenu()\n\t\t\t}\n") {
 		t.Errorf("make:auth didn't add AccountMenu to the layout:\n%s", b)
 	}
 	// Pages for three models: their tests (articles_test.go…) pass with
@@ -415,6 +415,40 @@ func TestNewAPIProject(t *testing.T) {
 				t.Fatalf("go vet: %v\n%s", err, b)
 			}
 		})
+	}
+}
+
+// TestNewProjectKitNone builds a project made with --css=none, whose
+// views/ui writes plain HTML, with make:crud's and make:auth's pages:
+// they call the same components as with the starter theme (design D292).
+func TestNewProjectKitNone(t *testing.T) {
+	if testing.Short() {
+		t.Skip("creates and builds a project")
+	}
+	repo, err := filepath.Abs("../../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(t.TempDir(), "plain")
+	if code, out, errOut := runCmd(t, "new", dir, "--css=none", "--replace", repo); code != 0 {
+		t.Fatalf("new: %d\n%s\n%s", code, out, errOut)
+	}
+	t.Chdir(dir)
+	for _, args := range [][]string{
+		{"make:crud", "Product", "name:string", "price:float", "in_stock:bool", "notes:text:optional"},
+		{"make:auth"},
+	} {
+		if code, out, errOut := runCmd(t, args...); code != 0 {
+			t.Fatalf("%v: %d\n%s\n%s", args, code, out, errOut)
+		}
+	}
+	if b := read(t, filepath.Join(dir, "views", "ui", "page.templ")); strings.Contains(b, "class=") {
+		t.Errorf("--css=none's views/ui has classes:\n%s", b)
+	}
+	cmd := exec.Command("go", "test", "./...")
+	cmd.Dir = dir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("go test: %v\n%s", err, out)
 	}
 }
 

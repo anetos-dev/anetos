@@ -44,6 +44,7 @@ running in a terminal of its own for the rest of the tutorial.
 | `routes/web.go` | The routes: URLs to handlers |
 | `app/handlers/home.go` | The home page's handler |
 | `views/layout.templ`, `views/home.templ` | The page shell (a header with the app's links) and the home page, as [templ](https://templ.guide) components: typed Go functions that render HTML; `views/errors.templ` shows errors (a 404…) in the same shell |
+| `views/ui/` | The components the pages are made of (`ui.Card`, `ui.Field`, `ui.Button`…): their markup and classes, so the pages need none |
 | `public/static/app.css` | The styles: Anetos's starter theme, light and dark, with no build step ([Style your app](../../guides/styling.md)) |
 | `locales/en/app.yaml` | The home page's text |
 | `database/migrations/` | Migrations: changes to the database's tables, in Go |

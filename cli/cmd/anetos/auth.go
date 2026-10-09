@@ -66,6 +66,9 @@ func makeAuth(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 		fmt.Fprintln(stderr, "anetos make:auth:", err)
 		return 1
 	}
+	if res.Kit != "" {
+		fmt.Fprintf(stdout, "views/ui is the %s kit's components, which the new pages call: the project had none (made before v0.5).\nThe layout keeps its markup; the upgrade guide shows how to use them there too.\n", res.Kit)
+	}
 	settings := "SOCIAL_* settings"
 	if res.API {
 		settings = "AUTH_CLIENT_URL"

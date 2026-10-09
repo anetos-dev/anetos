@@ -178,7 +178,7 @@ func (f crudField) OtherFilterQuery() string {
 type crudData struct {
 	Module   string
 	Model    string // Post
-	Helper   string // post: the views' helpers are postFields and postError
+	Helper   string // post: the views' helpers are postFields and postYesNo
 	Plural   string // Posts: the handler type
 	Table    string // posts
 	Key      string // posts: the locale's top key and its file's name
@@ -193,6 +193,7 @@ type crudData struct {
 	HasDate  bool
 	HasNum   bool // int or float fields: strconv in the form
 	HasEmail bool
+	HasBool  bool // bool fields: the views' YesNo helper
 }
 
 // Required are the quoted names of the fields the form requires, for the
@@ -280,6 +281,10 @@ type CrudResult struct {
 	// API says the project is an API project ([IsAPI]): JSON endpoints,
 	// routed in routes/api.go's api group.
 	API bool
+	// Kit is the design kit whose views/ui MakeCrud wrote first, in a
+	// project made before v0.5, which had none (the pages call it); ""
+	// when the project had views/ui. Its files are in Created.
+	Kit string
 }
 
 var fieldRe = regexp.MustCompile(`^[a-z][a-z0-9]*(_[a-z0-9]+)*$`)
@@ -473,6 +478,8 @@ func MakeCrud(root, name string, args []string, now time.Time) (CrudResult, erro
 			d.HasNum = true
 		case "email":
 			d.HasEmail = true
+		case "bool":
+			d.HasBool = true
 		}
 		if d.TitleF == nil && !f.Optional && (f.Kind == "string" || f.Kind == "email") {
 			d.TitleF = &fields[i]
@@ -509,7 +516,7 @@ func MakeCrud(root, name string, args []string, now time.Time) (CrudResult, erro
 	names := map[string][]string{
 		"app/models":   {model, model + "Cols", model + "Rels"},
 		"app/handlers": {d.Plural, model + "List", model + "ID", model + "Input"},
-		"views":        {d.Plural + "Page", model + "Page", model + "Form", d.Helper + "Fields", d.Helper + "Error"},
+		"views":        {d.Plural + "Page", model + "Page", model + "Form", d.Helper + "Fields", d.Helper + "YesNo"},
 		"routes":       {d.Plural},
 		"":             {"Test" + d.Plural},
 	}
@@ -534,12 +541,26 @@ func MakeCrud(root, name string, args []string, now time.Time) (CrudResult, erro
 			return res, err
 		}
 	}
+	undo := func(err error) (CrudResult, error) {
+		for _, c := range res.Created {
+			_ = os.Remove(filepath.Join(root, filepath.FromSlash(c)))
+		}
+		if res.Kit != "" {
+			_ = os.Remove(filepath.Join(root, "views", "ui"))
+		}
+		return CrudResult{}, fmt.Errorf("%w (the files written were removed)", err)
+	}
+	if !res.API && !HasUI(root) {
+		res.Kit = GuessKit(root)
+		written, err := WriteUI(root, mod, res.Kit)
+		res.Created = append(res.Created, written...)
+		if err != nil {
+			return undo(err)
+		}
+	}
 	for i, f := range files {
 		if err := writeNew(filepath.Join(root, filepath.FromSlash(f[1])), out[i], 0o644); err != nil {
-			for _, c := range res.Created {
-				_ = os.Remove(filepath.Join(root, filepath.FromSlash(c)))
-			}
-			return CrudResult{}, fmt.Errorf("%w (the files written were removed)", err)
+			return undo(err)
 		}
 		res.Created = append(res.Created, f[1])
 	}
@@ -614,7 +635,7 @@ func addRoutesCall(file, plural, group string) (bool, error) {
 }
 
 // addNavLink adds @navLink(route, i18n.T(ctx, key)) to the layout's
-// header nav, before its </nav>, when the layout has anetos new's
+// header nav, at its end (navEnd), when the layout has anetos new's
 // navLink, and reports whether the nav has the link.
 func addNavLink(layout, route, key string) (bool, error) {
 	src, err := os.ReadFile(layout)
@@ -631,20 +652,14 @@ func addNavLink(layout, route, key string) (bool, error) {
 	if !templDecl.Match(src) || !bytes.Contains(src, []byte("templ navLink(")) {
 		return false, nil
 	}
-	header := bytes.Index(src, []byte("<header"))
-	end := bytes.Index(src, []byte("</header>"))
-	if header < 0 || end < header {
+	at, _, _, ok := navEnd(src)
+	if !ok {
 		return false, nil
 	}
-	m := navClose.FindSubmatchIndex(src[header:end])
-	if m == nil {
-		return false, nil
-	}
-	at := header + m[0] // the start of the </nav> line
 	// Indent as the line before it, the nav's last link.
 	prev := bytes.LastIndexByte(src[:at-1], '\n') + 1
 	indent := src[prev : prev+len(src[prev:at])-len(bytes.TrimLeft(src[prev:at], " \t"))]
-	line := append(append(append([]byte(nil), indent...), link...), '\n')
+	line := append(append(append([]byte(nil), indent...), link...), newline(src)...)
 	patched := append(append(append([]byte(nil), src[:at]...), line...), src[at:]...)
 	return true, os.WriteFile(layout, patched, 0o644)
 }

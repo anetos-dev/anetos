@@ -5,18 +5,28 @@ package views
 import (
 	"anetos.dev/anetos/i18n"
 	"anetos.dev/anetos/web"
+
+	"anetos.dev/anetos/examples/tracker/views/ui"
 )
 
 // Home is the page guests see. Its text is in locales/en/app.yaml.
 templ Home() {
 	@Layout(i18n.T(ctx, "home.title")) {
-		<div class="card narrow">
-			<h1>{ i18n.T(ctx, "home.welcome") }</h1>
-			<p class="muted">{ i18n.T(ctx, "home.intro") }</p>
-			<div class="cluster">
-				<a class="button" href={ web.URL(ctx, "register") }>{ i18n.T(ctx, "auth.register.title") }</a>
-				<a class="button secondary" href={ web.URL(ctx, "login") }>{ i18n.T(ctx, "auth.login.title") }</a>
-			</div>
-		</div>
+		@ui.Narrow() {
+			@ui.Card("") {
+				<h1>{ i18n.T(ctx, "home.welcome") }</h1>
+				@ui.Note() {
+					{ i18n.T(ctx, "home.intro") }
+				}
+				@ui.Cluster() {
+					@ui.LinkButton(web.MustURL(ctx, "register"), ui.Primary) {
+						{ i18n.T(ctx, "auth.register.title") }
+					}
+					@ui.LinkButton(web.MustURL(ctx, "login"), ui.Secondary) {
+						{ i18n.T(ctx, "auth.login.title") }
+					}
+				}
+			}
+		}
 	}
 }

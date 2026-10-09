@@ -7,6 +7,7 @@ import (
 	"anetos.dev/anetos/web"
 
 	"[[.Module]]/app/models"
+	"[[.Module]]/views/ui"
 )
 
 // The account pages (anetos make:auth): yours to change. Their text is
@@ -23,129 +24,120 @@ type SocialButton struct {
 // it to the layout's header; setupAuth's sessions.Use(a.Middleware) lets
 // every page with a session know who is signed in.
 templ AccountMenu() {
-	<div class="nav-end">
+	@ui.NavEnd() {
 		if u, ok := auth.User[*models.User](ctx); ok {
-			<a href={ web.URL(ctx, "dashboard") }>{ u.Name }</a>
-			<a href={ web.URL(ctx, "settings") }>{ i18n.T(ctx, "auth.settings.title") }</a>
-			<form method="post" action={ web.URL(ctx, "logout") } class="inline">
-				@view.CSRFField(ctx)
-				<button type="submit" class="ghost">{ i18n.T(ctx, "auth.dashboard.logout") }</button>
-			</form>
+			@ui.NavLink(web.MustURL(ctx, "dashboard"), u.Name, false)
+			@ui.NavLink(web.MustURL(ctx, "settings"), i18n.T(ctx, "auth.settings.title"), false)
+			@ui.PostButton(web.MustURL(ctx, "logout"), "POST", ui.Ghost) {
+				{ i18n.T(ctx, "auth.dashboard.logout") }
+			}
 		} else {
-			<a href={ web.URL(ctx, "login") }>{ i18n.T(ctx, "auth.login.title") }</a>
-			<a class="button small" href={ web.URL(ctx, "register") }>{ i18n.T(ctx, "auth.register.title") }</a>
+			@ui.NavLink(web.MustURL(ctx, "login"), i18n.T(ctx, "auth.login.title"), false)
+			@ui.LinkButton(web.MustURL(ctx, "register"), ui.Primary|ui.Small) {
+				{ i18n.T(ctx, "auth.register.title") }
+			}
 		}
-	</div>
+	}
 }
 
 // Register is the registration form.
 templ Register(social []SocialButton) {
 	@Layout(i18n.T(ctx, "auth.register.title")) {
-		<div class="card auth-card">
-			<h1>{ i18n.T(ctx, "auth.register.title") }</h1>
-			<form method="post" action={ web.URL(ctx, "register") }>
-				@view.CSRFField(ctx)
-				<div class="field">
-					<label for="name">{ i18n.T(ctx, "auth.fields.name") }</label>
-					<input id="name" name="name" autocomplete="name" value={ view.Old(ctx, "name") } if view.Errors(ctx).Has("name") { aria-invalid="true" }/>
-					@authError("name")
-				</div>
-				<div class="field">
-					<label for="email">{ i18n.T(ctx, "auth.fields.email") }</label>
-					<input id="email" name="email" type="email" autocomplete="email" value={ view.Old(ctx, "email") } if view.Errors(ctx).Has("email") { aria-invalid="true" }/>
-					@authError("email")
-				</div>
-				<div class="field">
-					<label for="password">{ i18n.T(ctx, "auth.fields.password") }</label>
-					<input id="password" name="password" type="password" autocomplete="new-password" if view.Errors(ctx).Has("password") { aria-invalid="true" }/>
-					@authError("password")
-				</div>
-				<div class="field">
-					<label for="password_confirmation">{ i18n.T(ctx, "auth.fields.password_confirmation") }</label>
-					<input id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" if view.Errors(ctx).Has("password_confirmation") { aria-invalid="true" }/>
-				</div>
-				<div class="form-actions">
-					<button type="submit">{ i18n.T(ctx, "auth.register.submit") }</button>
-				</div>
-			</form>
+		@ui.AuthCard(i18n.T(ctx, "auth.register.title")) {
+			@ui.Form(web.MustURL(ctx, "register"), "POST", nil) {
+				@ui.Field("name", i18n.T(ctx, "auth.fields.name"), "") {
+					@ui.Input("name", "", view.Old(ctx, "name"), templ.Attributes{"autocomplete": "name"})
+				}
+				@ui.Field("email", i18n.T(ctx, "auth.fields.email"), "") {
+					@ui.Input("email", "email", view.Old(ctx, "email"), templ.Attributes{"autocomplete": "email"})
+				}
+				@ui.Field("password", i18n.T(ctx, "auth.fields.password"), "") {
+					@ui.Input("password", "password", "", templ.Attributes{"autocomplete": "new-password"})
+				}
+				@ui.Field("password_confirmation", i18n.T(ctx, "auth.fields.password_confirmation"), "") {
+					@ui.Input("password_confirmation", "password", "", templ.Attributes{"autocomplete": "new-password"})
+				}
+				@ui.Actions() {
+					@ui.Button(ui.Primary, nil) {
+						{ i18n.T(ctx, "auth.register.submit") }
+					}
+				}
+			}
 			@socialButtons(social)
-			<p class="muted">{ i18n.T(ctx, "auth.register.have_account") } <a href={ web.URL(ctx, "login") }>{ i18n.T(ctx, "auth.login.title") }</a></p>
-		</div>
+			@ui.Note() {
+				{ i18n.T(ctx, "auth.register.have_account") } <a href={ web.URL(ctx, "login") }>{ i18n.T(ctx, "auth.login.title") }</a>
+			}
+		}
 	}
 }
 
 // Login is the login form.
 templ Login(social []SocialButton) {
 	@Layout(i18n.T(ctx, "auth.login.title")) {
-		<div class="card auth-card">
-			<h1>{ i18n.T(ctx, "auth.login.title") }</h1>
-			<form method="post" action={ web.URL(ctx, "login") }>
-				@view.CSRFField(ctx)
-				<div class="field">
-					<label for="email">{ i18n.T(ctx, "auth.fields.email") }</label>
-					<input id="email" name="email" type="email" autocomplete="email" value={ view.Old(ctx, "email") } if view.Errors(ctx).Has("email") { aria-invalid="true" }/>
-					@authError("email")
-				</div>
-				<div class="field">
-					<label for="password">{ i18n.T(ctx, "auth.fields.password") }</label>
-					<input id="password" name="password" type="password" autocomplete="current-password" if view.Errors(ctx).Has("password") { aria-invalid="true" }/>
-					@authError("password")
-				</div>
-				<label class="check"><input type="checkbox" name="remember" value="1"/> { i18n.T(ctx, "auth.login.remember") }</label>
-				<div class="form-actions">
-					<button type="submit">{ i18n.T(ctx, "auth.login.submit") }</button>
+		@ui.AuthCard(i18n.T(ctx, "auth.login.title")) {
+			@ui.Form(web.MustURL(ctx, "login"), "POST", nil) {
+				@ui.Field("email", i18n.T(ctx, "auth.fields.email"), "") {
+					@ui.Input("email", "email", view.Old(ctx, "email"), templ.Attributes{"autocomplete": "email"})
+				}
+				@ui.Field("password", i18n.T(ctx, "auth.fields.password"), "") {
+					@ui.Input("password", "password", "", templ.Attributes{"autocomplete": "current-password"})
+				}
+				@ui.Checkbox("remember", i18n.T(ctx, "auth.login.remember"), false, nil)
+				@ui.Actions() {
+					@ui.Button(ui.Primary, nil) {
+						{ i18n.T(ctx, "auth.login.submit") }
+					}
 					<a href={ web.URL(ctx, "password.request") }>{ i18n.T(ctx, "auth.forgot.title") }</a>
-				</div>
-			</form>
+				}
+			}
 			@socialButtons(social)
-			<p class="muted">{ i18n.T(ctx, "auth.login.no_account") } <a href={ web.URL(ctx, "register") }>{ i18n.T(ctx, "auth.register.title") }</a></p>
-		</div>
+			@ui.Note() {
+				{ i18n.T(ctx, "auth.login.no_account") } <a href={ web.URL(ctx, "register") }>{ i18n.T(ctx, "auth.register.title") }</a>
+			}
+		}
 	}
 }
 
 // ForgotPassword asks for the address to send a reset link to.
 templ ForgotPassword() {
 	@Layout(i18n.T(ctx, "auth.forgot.title")) {
-		<div class="card auth-card">
-			<h1>{ i18n.T(ctx, "auth.forgot.title") }</h1>
-			<p class="muted">{ i18n.T(ctx, "auth.forgot.intro") }</p>
-			<form method="post" action={ web.URL(ctx, "password.email") }>
-				@view.CSRFField(ctx)
-				<div class="field">
-					<label for="email">{ i18n.T(ctx, "auth.fields.email") }</label>
-					<input id="email" name="email" type="email" autocomplete="email" value={ view.Old(ctx, "email") } if view.Errors(ctx).Has("email") { aria-invalid="true" }/>
-					@authError("email")
-				</div>
-				<div class="form-actions">
-					<button type="submit">{ i18n.T(ctx, "auth.forgot.submit") }</button>
-				</div>
-			</form>
-		</div>
+		@ui.AuthCard(i18n.T(ctx, "auth.forgot.title")) {
+			@ui.Note() {
+				{ i18n.T(ctx, "auth.forgot.intro") }
+			}
+			@ui.Form(web.MustURL(ctx, "password.email"), "POST", nil) {
+				@ui.Field("email", i18n.T(ctx, "auth.fields.email"), "") {
+					@ui.Input("email", "email", view.Old(ctx, "email"), templ.Attributes{"autocomplete": "email"})
+				}
+				@ui.Actions() {
+					@ui.Button(ui.Primary, nil) {
+						{ i18n.T(ctx, "auth.forgot.submit") }
+					}
+				}
+			}
+		}
 	}
 }
 
 // ResetPassword is the new-password form of a reset link.
 templ ResetPassword(token string) {
 	@Layout(i18n.T(ctx, "auth.reset.title")) {
-		<div class="card auth-card">
-			<h1>{ i18n.T(ctx, "auth.reset.title") }</h1>
-			<form method="post" action={ web.URL(ctx, "password.update") }>
-				@view.CSRFField(ctx)
+		@ui.AuthCard(i18n.T(ctx, "auth.reset.title")) {
+			@ui.Form(web.MustURL(ctx, "password.update"), "POST", nil) {
 				<input type="hidden" name="token" value={ token }/>
-				<div class="field">
-					<label for="password">{ i18n.T(ctx, "auth.fields.new_password") }</label>
-					<input id="password" name="password" type="password" autocomplete="new-password" if view.Errors(ctx).Has("password") { aria-invalid="true" }/>
-					@authError("password")
-				</div>
-				<div class="field">
-					<label for="password_confirmation">{ i18n.T(ctx, "auth.fields.password_confirmation") }</label>
-					<input id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" if view.Errors(ctx).Has("password_confirmation") { aria-invalid="true" }/>
-				</div>
-				<div class="form-actions">
-					<button type="submit">{ i18n.T(ctx, "auth.reset.submit") }</button>
-				</div>
-			</form>
-		</div>
+				@ui.Field("password", i18n.T(ctx, "auth.fields.new_password"), "") {
+					@ui.Input("password", "password", "", templ.Attributes{"autocomplete": "new-password"})
+				}
+				@ui.Field("password_confirmation", i18n.T(ctx, "auth.fields.password_confirmation"), "") {
+					@ui.Input("password_confirmation", "password", "", templ.Attributes{"autocomplete": "new-password"})
+				}
+				@ui.Actions() {
+					@ui.Button(ui.Primary, nil) {
+						{ i18n.T(ctx, "auth.reset.submit") }
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -153,78 +145,75 @@ templ ResetPassword(token string) {
 // just created, shown once.
 templ Dashboard(u *models.User, tokens []auth.Token, newToken string) {
 	@Layout(i18n.T(ctx, "auth.dashboard.title")) {
-		<div class="narrow">
-			<div class="page-header">
-				<h1>{ i18n.T(ctx, "auth.dashboard.hello", "name", u.Name) }</h1>
-				<a class="button secondary" href={ web.URL(ctx, "settings") }>{ i18n.T(ctx, "auth.settings.title") }</a>
-			</div>
-			if u.EmailVerifiedAt == nil {
-				<div class="flash warning cluster" role="status">
-					<span>{ i18n.T(ctx, "auth.dashboard.verify") }</span>
-					<form method="post" action={ web.URL(ctx, "verification.send") } class="inline">
-						@view.CSRFField(ctx)
-						<button type="submit" class="secondary small">{ i18n.T(ctx, "auth.dashboard.resend") }</button>
-					</form>
-				</div>
+		@ui.Narrow() {
+			@ui.PageHeader(i18n.T(ctx, "auth.dashboard.hello", "name", u.Name), "") {
+				@ui.LinkButton(web.MustURL(ctx, "settings"), ui.Secondary) {
+					{ i18n.T(ctx, "auth.settings.title") }
+				}
 			}
-			<div class="card">
-				<h2>{ i18n.T(ctx, "auth.tokens.title") }</h2>
-				<p class="muted">{ i18n.T(ctx, "auth.tokens.intro") }</p>
+			if u.EmailVerifiedAt == nil {
+				@ui.Flash(ui.Warning) {
+					<span>{ i18n.T(ctx, "auth.dashboard.verify") }</span>
+					@ui.PostButton(web.MustURL(ctx, "verification.send"), "POST", ui.Secondary|ui.Small) {
+						{ i18n.T(ctx, "auth.dashboard.resend") }
+					}
+				}
+			}
+			@ui.Card(i18n.T(ctx, "auth.tokens.title")) {
+				@ui.Note() {
+					{ i18n.T(ctx, "auth.tokens.intro") }
+				}
 				if newToken != "" {
 					<p>{ i18n.T(ctx, "auth.tokens.new") }</p>
 					<pre><code>{ newToken }</code></pre>
 				}
 				if len(tokens) > 0 {
-					<div class="table-wrap">
-						<table>
-							<tbody>
-								for _, t := range tokens {
-									<tr>
-										<td>{ t.Name }</td>
-										<td class="actions">
-											<form method="post" action={ web.URL(ctx, "tokens.destroy", t.ID) } class="inline">
-												@view.CSRFField(ctx)
-												<button type="submit" class="secondary small">{ i18n.T(ctx, "auth.tokens.revoke") }</button>
-											</form>
-										</td>
-									</tr>
-								}
-							</tbody>
-						</table>
-					</div>
+					@ui.Table() {
+						<tbody>
+							for _, t := range tokens {
+								<tr>
+									<td>{ t.Name }</td>
+									@ui.ActionsCell() {
+										@ui.PostButton(web.MustURL(ctx, "tokens.destroy", t.ID), "POST", ui.Secondary|ui.Small) {
+											{ i18n.T(ctx, "auth.tokens.revoke") }
+										}
+									}
+								</tr>
+							}
+						</tbody>
+					}
 				}
-				<form method="post" action={ web.URL(ctx, "tokens.store") }>
-					@view.CSRFField(ctx)
-					<div class="field">
-						<label for="token-name">{ i18n.T(ctx, "auth.tokens.name") }</label>
-						<input id="token-name" name="name"/>
-						@authError("name")
-					</div>
-					<button type="submit">{ i18n.T(ctx, "auth.tokens.create") }</button>
-				</form>
-			</div>
-		</div>
+				@ui.Form(web.MustURL(ctx, "tokens.store"), "POST", nil) {
+					@ui.Field("name", i18n.T(ctx, "auth.tokens.name"), "") {
+						@ui.Input("name", "", "", nil)
+					}
+					@ui.Button(ui.Primary, nil) {
+						{ i18n.T(ctx, "auth.tokens.create") }
+					}
+				}
+			}
+		}
 	}
 }
 
 // TwoFactorChallenge asks for the two-factor code, after the password.
 templ TwoFactorChallenge() {
 	@Layout(i18n.T(ctx, "auth.challenge.title")) {
-		<div class="card auth-card">
-			<h1>{ i18n.T(ctx, "auth.challenge.title") }</h1>
-			<p class="muted">{ i18n.T(ctx, "auth.challenge.intro") }</p>
-			<form method="post" action={ web.URL(ctx, "two-factor.challenge") }>
-				@view.CSRFField(ctx)
-				<div class="field">
-					<label for="code">{ i18n.T(ctx, "auth.fields.code") }</label>
-					<input id="code" name="code" autocomplete="one-time-code" autofocus if view.Errors(ctx).Has("code") { aria-invalid="true" }/>
-					@authError("code")
-				</div>
-				<div class="form-actions">
-					<button type="submit">{ i18n.T(ctx, "auth.challenge.submit") }</button>
-				</div>
-			</form>
-		</div>
+		@ui.AuthCard(i18n.T(ctx, "auth.challenge.title")) {
+			@ui.Note() {
+				{ i18n.T(ctx, "auth.challenge.intro") }
+			}
+			@ui.Form(web.MustURL(ctx, "two-factor.challenge"), "POST", nil) {
+				@ui.Field("code", i18n.T(ctx, "auth.fields.code"), "") {
+					@ui.Input("code", "", "", templ.Attributes{"autocomplete": "one-time-code", "autofocus": true})
+				}
+				@ui.Actions() {
+					@ui.Button(ui.Primary, nil) {
+						{ i18n.T(ctx, "auth.challenge.submit") }
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -232,21 +221,21 @@ templ TwoFactorChallenge() {
 // sensitive.
 templ ConfirmPassword() {
 	@Layout(i18n.T(ctx, "auth.confirm.title")) {
-		<div class="card auth-card">
-			<h1>{ i18n.T(ctx, "auth.confirm.title") }</h1>
-			<p class="muted">{ i18n.T(ctx, "auth.confirm.intro") }</p>
-			<form method="post" action={ web.URL(ctx, "password.confirm") }>
-				@view.CSRFField(ctx)
-				<div class="field">
-					<label for="password">{ i18n.T(ctx, "auth.fields.password") }</label>
-					<input id="password" name="password" type="password" autocomplete="current-password" autofocus if view.Errors(ctx).Has("password") { aria-invalid="true" }/>
-					@authError("password")
-				</div>
-				<div class="form-actions">
-					<button type="submit">{ i18n.T(ctx, "auth.confirm.submit") }</button>
-				</div>
-			</form>
-		</div>
+		@ui.AuthCard(i18n.T(ctx, "auth.confirm.title")) {
+			@ui.Note() {
+				{ i18n.T(ctx, "auth.confirm.intro") }
+			}
+			@ui.Form(web.MustURL(ctx, "password.confirm"), "POST", nil) {
+				@ui.Field("password", i18n.T(ctx, "auth.fields.password"), "") {
+					@ui.Input("password", "password", "", templ.Attributes{"autocomplete": "current-password", "autofocus": true})
+				}
+				@ui.Actions() {
+					@ui.Button(ui.Primary, nil) {
+						{ i18n.T(ctx, "auth.confirm.submit") }
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -261,12 +250,13 @@ type TwoFactorPage struct {
 // TwoFactor turns two-factor sign-in on and off.
 templ TwoFactor(p TwoFactorPage) {
 	@Layout(i18n.T(ctx, "auth.two_factor.title")) {
-		<div class="narrow">
-			<div class="page-header">
-				<h1>{ i18n.T(ctx, "auth.two_factor.title") }</h1>
-				<a class="button secondary" href={ web.URL(ctx, "settings") }>{ i18n.T(ctx, "auth.settings.title") }</a>
-			</div>
-			<div class="card">
+		@ui.Narrow() {
+			@ui.PageHeader(i18n.T(ctx, "auth.two_factor.title"), "") {
+				@ui.LinkButton(web.MustURL(ctx, "settings"), ui.Secondary) {
+					{ i18n.T(ctx, "auth.settings.title") }
+				}
+			}
+			@ui.Card("") {
 				if len(p.RecoveryCodes) > 0 {
 					<p>{ i18n.T(ctx, "auth.two_factor.codes") }</p>
 					<ul>
@@ -278,59 +268,54 @@ templ TwoFactor(p TwoFactorPage) {
 				switch {
 					case p.Status.On:
 						<p>{ i18n.Plural(ctx, "auth.two_factor.on", p.Status.RecoveryCodes) }</p>
-						<div class="cluster">
-							<form method="post" action={ web.URL(ctx, "two-factor.recovery-codes") } class="inline">
-								@view.CSRFField(ctx)
-								<button type="submit" class="secondary">{ i18n.T(ctx, "auth.two_factor.new_codes") }</button>
-							</form>
-							<form method="post" action={ web.URL(ctx, "two-factor.disable") } class="inline">
-								@view.CSRFField(ctx)
-								<button type="submit" class="danger">{ i18n.T(ctx, "auth.two_factor.disable") }</button>
-							</form>
-						</div>
+						@ui.Cluster() {
+							@ui.PostButton(web.MustURL(ctx, "two-factor.recovery-codes"), "POST", ui.Secondary) {
+								{ i18n.T(ctx, "auth.two_factor.new_codes") }
+							}
+							@ui.PostButton(web.MustURL(ctx, "two-factor.disable"), "POST", ui.Danger) {
+								{ i18n.T(ctx, "auth.two_factor.disable") }
+							}
+						}
 					case p.Status.Started:
 						<p>{ i18n.T(ctx, "auth.two_factor.scan") }</p>
-						<p class="qr">
+						<p>
 							@templ.Raw(p.QR)
 						</p>
 						<p>{ i18n.T(ctx, "auth.two_factor.key") } <code>{ p.Secret }</code></p>
-						<form method="post" action={ web.URL(ctx, "two-factor.confirm") }>
-							@view.CSRFField(ctx)
-							<div class="field">
-								<label for="code">{ i18n.T(ctx, "auth.fields.code") }</label>
-								<input id="code" name="code" autocomplete="one-time-code" inputmode="numeric" if view.Errors(ctx).Has("code") { aria-invalid="true" }/>
-								@authError("code")
-							</div>
-							<button type="submit">{ i18n.T(ctx, "auth.two_factor.confirm") }</button>
-						</form>
+						@ui.Form(web.MustURL(ctx, "two-factor.confirm"), "POST", nil) {
+							@ui.Field("code", i18n.T(ctx, "auth.fields.code"), "") {
+								@ui.Input("code", "", "", templ.Attributes{"autocomplete": "one-time-code", "inputmode": "numeric"})
+							}
+							@ui.Button(ui.Primary, nil) {
+								{ i18n.T(ctx, "auth.two_factor.confirm") }
+							}
+						}
 					default:
 						<p>{ i18n.T(ctx, "auth.two_factor.off") }</p>
-						<form method="post" action={ web.URL(ctx, "two-factor.start") }>
-							@view.CSRFField(ctx)
-							<button type="submit">{ i18n.T(ctx, "auth.two_factor.enable") }</button>
-						</form>
+						@ui.Form(web.MustURL(ctx, "two-factor.start"), "POST", nil) {
+							@ui.Button(ui.Primary, nil) {
+								{ i18n.T(ctx, "auth.two_factor.enable") }
+							}
+						}
 				}
-			</div>
-		</div>
+			}
+		}
 	}
 }
 
 // socialButtons shows a button per provider, and why a sign-in failed.
 templ socialButtons(buttons []SocialButton) {
 	if len(buttons) > 0 {
-		<p class="muted">{ i18n.T(ctx, "auth.social.or") }</p>
-		<div class="stack">
+		@ui.Note() {
+			{ i18n.T(ctx, "auth.social.or") }
+		}
+		@ui.Stack() {
 			for _, b := range buttons {
-				<a class="button secondary full" href={ web.URL(ctx, "social.redirect", b.Name) }>{ i18n.T(ctx, "auth.social.sign_in_with", "provider", b.Title) }</a>
+				@ui.LinkButton(web.MustURL(ctx, "social.redirect", b.Name), ui.Secondary|ui.Full) {
+					{ i18n.T(ctx, "auth.social.sign_in_with", "provider", b.Title) }
+				}
 			}
-		</div>
+		}
 	}
-	@authError("social")
-}
-
-// authError shows the validation message for a field, if any.
-templ authError(field string) {
-	if msg := view.Errors(ctx).Get(field); msg != "" {
-		<p class="error">{ msg }</p>
-	}
+	@ui.FieldError("social")
 }

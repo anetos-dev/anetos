@@ -11,6 +11,7 @@ import (
 	"anetos.dev/anetos/web"
 
 	"[[.Module]]/app/models"
+	"[[.Module]]/views/ui"
 )
 
 // The [[.PluralW]] pages (anetos make:crud): yours to change. Their text is in
@@ -19,67 +20,60 @@ import (
 // [[.Plural]]Page lists a page of [[.PluralW]], with links to the pages around it.
 templ [[.Plural]]Page(page db.Page[models.[[.Model]]]) {
 	@Layout(i18n.T(ctx, "[[.Key]].title")) {
-		<div class="page-header">
-			<h1>{ i18n.T(ctx, "[[.Key]].title") }</h1>
-			<a class="button" href={ web.URL(ctx, "[[.Path]].new") }>{ i18n.T(ctx, "[[.Key]].new") }</a>
-		</div>
+		@ui.PageHeader(i18n.T(ctx, "[[.Key]].title"), "") {
+			@ui.LinkButton(web.MustURL(ctx, "[[.Path]].new"), ui.Primary) {
+				{ i18n.T(ctx, "[[.Key]].new") }
+			}
+		}
 		if page.Total == 0 {
-			<p class="empty">{ i18n.T(ctx, "[[.Key]].empty") }</p>
+			@ui.Empty(i18n.T(ctx, "[[.Key]].empty"))
 		} else {
-			<div class="table-wrap">
-				<table>
-					<thead>
-						<tr>
+			@ui.Table() {
+				<thead>
+					<tr>
 [[- if not .TitleF]]
-							<th>#</th>
+						<th>#</th>
 [[- end]]
 [[- range .ListFields]]
-							<th>{ i18n.T(ctx, "[[$.Key]].fields.[[.Name]]") }</th>
+						<th>{ i18n.T(ctx, "[[$.Key]].fields.[[.Name]]") }</th>
 [[- end]]
-							<th><span class="sr-only">{ i18n.T(ctx, "[[.Key]].actions") }</span></th>
-						</tr>
-					</thead>
-					<tbody>
-						for _, row := range page.Data {
-							<tr>
+						<th>
+							@ui.SROnly(i18n.T(ctx, "[[.Key]].actions"))
+						</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, row := range page.Data {
+						<tr>
 [[- if not .TitleF]]
-								<td><a href={ web.URL(ctx, "[[.Path]].show", row.ID) }>{ strconv.FormatInt(row.ID, 10) }</a></td>
+							<td><a href={ web.URL(ctx, "[[.Path]].show", row.ID) }>{ strconv.FormatInt(row.ID, 10) }</a></td>
 [[- end]]
 [[- range .ListFields]]
 [[- if and $.TitleF (eq .Name $.TitleF.Name)]]
-								<td><a href={ web.URL(ctx, "[[$.Path]].show", row.ID) }>{ row.[[.Go]] }</a></td>
+							<td><a href={ web.URL(ctx, "[[$.Path]].show", row.ID) }>{ row.[[.Go]] }</a></td>
 [[- else if eq .Kind "bool"]]
-								<td>
-									if row.[[.Go]] {
-										<span class="badge success">{ i18n.T(ctx, "[[$.Key]].answer_yes") }</span>
-									} else {
-										<span class="badge">{ i18n.T(ctx, "[[$.Key]].answer_no") }</span>
-									}
-								</td>
+							<td>
+								@[[$.Helper]]YesNo(row.[[.Go]])
+							</td>
 [[- else if or (eq .Kind "int") (eq .Kind "float")]]
-								<td>{ i18n.Number(ctx, row.[[.Go]]) }</td>
+							<td>{ i18n.Number(ctx, row.[[.Go]]) }</td>
 [[- else if eq .Kind "date"]]
-								<td>{ i18n.Date(ctx, row.[[.Go]]) }</td>
+							<td>{ i18n.Date(ctx, row.[[.Go]]) }</td>
 [[- else]]
-								<td>{ row.[[.Go]] }</td>
+							<td>{ row.[[.Go]] }</td>
 [[- end]]
 [[- end]]
-								<td class="actions"><a class="button secondary small" href={ web.URL(ctx, "[[.Path]].edit", row.ID) }>{ i18n.T(ctx, "[[.Key]].edit") }</a></td>
-							</tr>
-						}
-					</tbody>
-				</table>
-			</div>
+							@ui.ActionsCell() {
+								@ui.LinkButton(web.MustURL(ctx, "[[.Path]].edit", row.ID), ui.Secondary|ui.Small) {
+									{ i18n.T(ctx, "[[.Key]].edit") }
+								}
+							}
+						</tr>
+					}
+				</tbody>
+			}
 			if page.LastPage > 1 {
-				<nav class="pagination" aria-label={ i18n.T(ctx, "[[.Key]].pages") }>
-					if page.HasPrev() {
-						<a href={ web.PageURL(ctx, page.CurrentPage-1) } rel="prev">{ i18n.T(ctx, "[[.Key]].previous") }</a>
-					}
-					<span>{ i18n.T(ctx, "[[.Key]].page", "page", page.CurrentPage, "pages", page.LastPage) }</span>
-					if page.HasMore() {
-						<a href={ web.PageURL(ctx, page.CurrentPage+1) } rel="next">{ i18n.T(ctx, "[[.Key]].next") }</a>
-					}
-				</nav>
+				@ui.Pagination(ui.PagesOf(ctx, page, i18n.T(ctx, "[[.Key]].pages"), i18n.T(ctx, "[[.Key]].page", "page", page.CurrentPage, "pages", page.LastPage), i18n.T(ctx, "[[.Key]].previous"), i18n.T(ctx, "[[.Key]].next")))
 			}
 		}
 	}
@@ -92,49 +86,44 @@ templ [[.Model]]Page(row models.[[.Model]]) {
 [[- else]]
 	@Layout(i18n.T(ctx, "[[.Key]].one", "id", row.ID)) {
 [[- end]]
-		<div class="page-header">
 [[- if .TitleF]]
-			<h1>{ row.[[.TitleF.Go]] }</h1>
+		@ui.PageHeader(row.[[.TitleF.Go]], "") {
 [[- else]]
-			<h1>{ i18n.T(ctx, "[[.Key]].one", "id", row.ID) }</h1>
+		@ui.PageHeader(i18n.T(ctx, "[[.Key]].one", "id", row.ID), "") {
 [[- end]]
-			<div class="cluster">
-				<a class="button secondary" href={ web.URL(ctx, "[[.Path]].edit", row.ID) }>{ i18n.T(ctx, "[[.Key]].edit") }</a>
-				<form method="post" action={ web.URL(ctx, "[[.Path]].destroy", row.ID) } class="inline">
-					@view.CSRFField(ctx)
-					@view.MethodField("DELETE")
-					<button type="submit" class="danger">{ i18n.T(ctx, "[[.Key]].delete") }</button>
-				</form>
-			</div>
-		</div>
-		<div class="card">
-			<dl class="details">
+			@ui.Cluster() {
+				@ui.LinkButton(web.MustURL(ctx, "[[.Path]].edit", row.ID), ui.Secondary) {
+					{ i18n.T(ctx, "[[.Key]].edit") }
+				}
+				@ui.PostButton(web.MustURL(ctx, "[[.Path]].destroy", row.ID), "DELETE", ui.Danger) {
+					{ i18n.T(ctx, "[[.Key]].delete") }
+				}
+			}
+		}
+		@ui.Card("") {
+			@ui.Details() {
 [[- range .Fields]]
-				<dt>{ i18n.T(ctx, "[[$.Key]].fields.[[.Name]]") }</dt>
+				@ui.Detail(i18n.T(ctx, "[[$.Key]].fields.[[.Name]]")) {
 [[- if eq .Kind "text"]]
-				<dd class="prewrap">{ row.[[.Go]] }</dd>
+					@ui.Multiline(row.[[.Go]])
 [[- else if eq .Kind "email"]]
-				<dd><a href={ templ.SafeURL("mailto:" + row.[[.Go]]) }>{ row.[[.Go]] }</a></dd>
+					<a href={ templ.SafeURL("mailto:" + row.[[.Go]]) }>{ row.[[.Go]] }</a>
 [[- else if eq .Kind "bool"]]
-				<dd>
-					if row.[[.Go]] {
-						<span class="badge success">{ i18n.T(ctx, "[[$.Key]].answer_yes") }</span>
-					} else {
-						<span class="badge">{ i18n.T(ctx, "[[$.Key]].answer_no") }</span>
-					}
-				</dd>
+					@[[$.Helper]]YesNo(row.[[.Go]])
 [[- else if or (eq .Kind "int") (eq .Kind "float")]]
-				<dd>{ i18n.Number(ctx, row.[[.Go]]) }</dd>
+					{ i18n.Number(ctx, row.[[.Go]]) }
 [[- else if eq .Kind "date"]]
-				<dd>{ i18n.Date(ctx, row.[[.Go]]) }</dd>
+					{ i18n.Date(ctx, row.[[.Go]]) }
 [[- else]]
-				<dd>{ row.[[.Go]] }</dd>
+					{ row.[[.Go]] }
 [[- end]]
+				}
 [[- end]]
-				<dt>{ i18n.T(ctx, "[[.Key]].created_at") }</dt>
-				<dd>{ i18n.DateTime(ctx, row.CreatedAt) }</dd>
-			</dl>
-		</div>
+				@ui.Detail(i18n.T(ctx, "[[.Key]].created_at")) {
+					{ i18n.DateTime(ctx, row.CreatedAt) }
+				}
+			}
+		}
 		<p><a href={ web.URL(ctx, "[[.Path]].index") }>{ i18n.T(ctx, "[[.Key]].back") }</a></p>
 	}
 }
@@ -145,65 +134,78 @@ templ [[.Model]]Page(row models.[[.Model]]) {
 templ [[.Model]]Form(row models.[[.Model]]) {
 	if row.ID == 0 {
 		@Layout(i18n.T(ctx, "[[.Key]].new")) {
-			<div class="narrow">
+			@ui.Narrow() {
 				<h1>{ i18n.T(ctx, "[[.Key]].new") }</h1>
-				<form method="post" action={ web.URL(ctx, "[[.Path]].store") } class="card">
-					@[[.Helper]]Fields(row)
-				</form>
-			</div>
+				@ui.Card("") {
+					@ui.Form(web.MustURL(ctx, "[[.Path]].store"), "POST", nil) {
+						@[[.Helper]]Fields(row)
+					}
+				}
+			}
 		}
 	} else {
 		@Layout(i18n.T(ctx, "[[.Key]].editing")) {
-			<div class="narrow">
+			@ui.Narrow() {
 				<h1>{ i18n.T(ctx, "[[.Key]].editing") }</h1>
-				<form method="post" action={ web.URL(ctx, "[[.Path]].update", row.ID) } class="card">
-					@view.MethodField("PUT")
-					@[[.Helper]]Fields(row)
-				</form>
-			</div>
+				@ui.Card("") {
+					@ui.Form(web.MustURL(ctx, "[[.Path]].update", row.ID), "PUT", nil) {
+						@[[.Helper]]Fields(row)
+					}
+				}
+			}
 		}
 	}
 }
 
 // [[.Helper]]Fields are the form's fields and buttons.
 templ [[.Helper]]Fields(row models.[[.Model]]) {
-	@view.CSRFField(ctx)
 [[- range .Fields]]
-	<div class="field">
 [[- if eq .Kind "bool"]]
-		<label class="check"><input type="checkbox" id="[[.Name]]" name="[[.Name]]" value="1" checked?={ view.OldChecked(ctx, "[[.Name]]", row.[[.Go]]) }/> { i18n.T(ctx, "[[$.Key]].fields.[[.Name]]") }</label>
+	@ui.Field("[[.Name]]", "", "") {
+		@ui.Checkbox("[[.Name]]", i18n.T(ctx, "[[$.Key]].fields.[[.Name]]"), view.OldChecked(ctx, "[[.Name]]", row.[[.Go]]), nil)
+	}
 [[- else]]
-		<label for="[[.Name]]">{ i18n.T(ctx, "[[$.Key]].fields.[[.Name]]") }</label>
-[[- end]]
+	@ui.Field("[[.Name]]", i18n.T(ctx, "[[$.Key]].fields.[[.Name]]"), "") {
 [[- if eq .Kind "text"]]
-		<textarea id="[[.Name]]" name="[[.Name]]" rows="6" if view.Errors(ctx).Has("[[.Name]]") { aria-invalid="true" }>{ view.Old(ctx, "[[.Name]]", row.[[.Go]]) }</textarea>
+		@ui.Textarea("[[.Name]]", view.Old(ctx, "[[.Name]]", row.[[.Go]]), templ.Attributes{"rows": "6"})
 [[- else if eq .Kind "email"]]
-		<input id="[[.Name]]" name="[[.Name]]" type="email" value={ view.Old(ctx, "[[.Name]]", row.[[.Go]]) } if view.Errors(ctx).Has("[[.Name]]") { aria-invalid="true" }/>
+		@ui.Input("[[.Name]]", "email", view.Old(ctx, "[[.Name]]", row.[[.Go]]), nil)
 [[- else if eq .Kind "int"]]
-		<input id="[[.Name]]" name="[[.Name]]" type="number" step="1" value={ view.Old(ctx, "[[.Name]]", strconv.FormatInt(row.[[.Go]], 10)) } if view.Errors(ctx).Has("[[.Name]]") { aria-invalid="true" }/>
+		@ui.Input("[[.Name]]", "number", view.Old(ctx, "[[.Name]]", strconv.FormatInt(row.[[.Go]], 10)), templ.Attributes{"step": "1"})
 [[- else if eq .Kind "float"]]
-		<input id="[[.Name]]" name="[[.Name]]" type="number" step="any" value={ view.Old(ctx, "[[.Name]]", strconv.FormatFloat(row.[[.Go]], 'f', -1, 64)) } if view.Errors(ctx).Has("[[.Name]]") { aria-invalid="true" }/>
+		@ui.Input("[[.Name]]", "number", view.Old(ctx, "[[.Name]]", strconv.FormatFloat(row.[[.Go]], 'f', -1, 64)), templ.Attributes{"step": "any"})
 [[- else if eq .Kind "date"]]
-		<input id="[[.Name]]" name="[[.Name]]" type="date" value={ view.Old(ctx, "[[.Name]]", row.[[.Go]].String()) } if view.Errors(ctx).Has("[[.Name]]") { aria-invalid="true" }/>
+		@ui.Input("[[.Name]]", "date", view.Old(ctx, "[[.Name]]", row.[[.Go]].String()), nil)
 [[- else if eq .Kind "string"]]
-		<input id="[[.Name]]" name="[[.Name]]" value={ view.Old(ctx, "[[.Name]]", row.[[.Go]]) } if view.Errors(ctx).Has("[[.Name]]") { aria-invalid="true" }/>
+		@ui.Input("[[.Name]]", "", view.Old(ctx, "[[.Name]]", row.[[.Go]]), nil)
 [[- end]]
-		@[[$.Helper]]Error("[[.Name]]")
-	</div>
+	}
 [[- end]]
-	<div class="form-actions">
-		<button type="submit">{ i18n.T(ctx, "[[.Key]].save") }</button>
+[[- end]]
+	@ui.Actions() {
+		@ui.Button(ui.Primary, nil) {
+			{ i18n.T(ctx, "[[.Key]].save") }
+		}
 		if row.ID == 0 {
 			<a href={ web.URL(ctx, "[[.Path]].index") }>{ i18n.T(ctx, "[[.Key]].cancel") }</a>
 		} else {
 			<a href={ web.URL(ctx, "[[.Path]].show", row.ID) }>{ i18n.T(ctx, "[[.Key]].cancel") }</a>
 		}
-	</div>
-}
-
-// [[.Helper]]Error shows the message of a field that failed validation.
-templ [[.Helper]]Error(field string) {
-	if msg := view.Errors(ctx).Get(field); msg != "" {
-		<p class="error">{ msg }</p>
 	}
 }
+
+[[- if .HasBool]]
+
+// [[.Helper]]YesNo shows a yes-or-no field.
+templ [[.Helper]]YesNo(yes bool) {
+	if yes {
+		@ui.Badge(ui.Success) {
+			{ i18n.T(ctx, "[[.Key]].answer_yes") }
+		}
+	} else {
+		@ui.Badge(ui.Neutral) {
+			{ i18n.T(ctx, "[[.Key]].answer_no") }
+		}
+	}
+}
+[[- end]]

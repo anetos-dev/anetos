@@ -2,11 +2,14 @@ package views
 
 // region: imports
 import (
+	"fmt"
+
 	"anetos.dev/anetos/auth"
 	"anetos.dev/anetos/view"
 	"anetos.dev/anetos/web"
 
 	"tracker/app/models"
+	"tracker/views/ui"
 )
 
 // endregion
@@ -17,31 +20,32 @@ import (
 templ IssuePage(issue models.Issue, comments []models.Comment) {
 	@Layout(issue.Title) {
 		<p><a href={ web.URL(ctx, "issues.index") }>← Issues</a></p>
-		<div class="page-header">
-			<div>
-				<h1>{ issue.Title } <small>#{ issue.ID }</small></h1>
-				<p class="cluster">
-					<span class={ "badge", templ.KV("success", issue.Status == "open") }>{ issue.Status }</span>
-					<span class="muted">Opened by { issue.Author.Name }</span>
-				</p>
-			</div>
-			if u, ok := auth.User[*models.User](ctx); ok && u.ID == issue.AuthorID {
-				<div class="cluster">
-					<a class="button secondary" href={ web.URL(ctx, "issues.edit", issue.ID) }>Edit</a>
-					<form method="post" action={ web.URL(ctx, "issues.status", issue.ID) } class="inline">
-						@view.CSRFField(ctx)
+		@ui.PageHeader(issue.Title, fmt.Sprintf("#%d, opened by %s", issue.ID, issue.Author.Name)) {
+			@ui.Cluster() {
+				@statusBadge(issue.Status)
+				if u, ok := auth.User[*models.User](ctx); ok && u.ID == issue.AuthorID {
+					@ui.LinkButton(web.MustURL(ctx, "issues.edit", issue.ID), ui.Secondary) {
+						Edit
+					}
+					@ui.InlineForm(web.MustURL(ctx, "issues.status", issue.ID), "POST", nil) {
 						if issue.Status == "open" {
 							<input type="hidden" name="status" value="closed"/>
-							<button type="submit">Close</button>
+							@ui.Button(ui.Primary, nil) {
+								Close
+							}
 						} else {
 							<input type="hidden" name="status" value="open"/>
-							<button type="submit">Reopen</button>
+							@ui.Button(ui.Primary, nil) {
+								Reopen
+							}
 						}
-					</form>
-				</div>
+					}
+				}
 			}
-		</div>
-		<div class="card prewrap">{ issue.Body }</div>
+		}
+		@ui.Card("") {
+			@ui.Multiline(issue.Body)
+		}
 		<h2>Comments</h2>
 		<div id="comments">
 			for _, c := range comments {
@@ -50,25 +54,33 @@ templ IssuePage(issue models.Issue, comments []models.Comment) {
 		</div>
 		// With htmx, the form posts in the background and the new comment
 		// is added to the list; without JavaScript, it posts as usual.
-		<form method="post" action={ web.URL(ctx, "comments.store", issue.ID) } class="card"
-			hx-post={ web.URL(ctx, "comments.store", issue.ID) } hx-target="#comments" hx-swap="beforeend"
-			hx-on::after-request="if (event.detail.successful) this.reset()">
-			@view.CSRFField(ctx)
-			<div class="field">
-				<label for="comment">Add a comment</label>
-				<textarea id="comment" name="body" rows="3" required>{ view.Old(ctx, "body") }</textarea>
-				@fieldError("body")
-			</div>
-			<button type="submit">Comment</button>
-		</form>
+		@ui.Card("") {
+			@ui.Form(web.MustURL(ctx, "comments.store", issue.ID), "POST", templ.Attributes{
+				"hx-post":              web.MustURL(ctx, "comments.store", issue.ID),
+				"hx-target":            "#comments",
+				"hx-swap":              "beforeend",
+				"hx-on::after-request": "if (event.detail.successful) this.reset()",
+			}) {
+				@ui.Field("body", "Add a comment", "") {
+					@ui.Textarea("body", view.Old(ctx, "body"), templ.Attributes{"rows": "3", "required": true})
+				}
+				@ui.Button(ui.Primary, nil) {
+					Comment
+				}
+			}
+		}
 	}
 }
 
 // CommentItem is a comment: in the list, and what htmx adds to it.
 templ CommentItem(c models.Comment) {
-	<article class="card comment">
-		<strong>{ c.Author.Name }</strong>
-		<div class="prewrap">{ c.Body }</div>
+	<article>
+		@ui.Card("") {
+			<strong>{ c.Author.Name }</strong>
+			<div>
+				@ui.Multiline(c.Body)
+			</div>
+		}
 	</article>
 }
 

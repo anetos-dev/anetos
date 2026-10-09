@@ -42,11 +42,10 @@ type Project struct {
 	Module  string // Go module path; default: the directory's name
 	DB      string // sqlite, postgres or mysql
 	Replace string // local Anetos checkout to use through replace directives ("" to download)
-	// CSS is the stylesheet of the web stack: "anetos" (the default, ""
-	// too), Anetos's starter theme, or "none", an empty
-	// public/static/app.css for the app's own (the markup keeps the
-	// theme's few class names). The api stack has no stylesheet: it must
-	// be "".
+	// CSS is the design kit of the web stack (see [Kits]): "anetos" (the
+	// default, "" too), Anetos's starter theme, or "none", components
+	// writing plain HTML without classes and an empty
+	// public/static/app.css. The api stack has no pages: it must be "".
 	CSS string
 	// Stack is the kind of app: "web" (the default, "" too), pages
 	// rendered on the server with sessions and CSRF protection, or "api",
@@ -54,8 +53,12 @@ type Project struct {
 	Stack string
 }
 
-// Stylesheets are the values of [Project.CSS].
-var Stylesheets = []string{"anetos", "none"}
+// Kits are the design kits: the values of [Project.CSS]. A kit is the
+// app's views/ui package (the components the layout and the generators'
+// pages call) and its public/static/app.css, from templates/kits/<kit>,
+// with templates/kits/common's views/ui files (the types every kit's
+// components take).
+var Kits = []string{"anetos", "none"}
 
 // Stacks are the values of [Project.Stack].
 var Stacks = []string{"web", "api"}
@@ -69,17 +72,12 @@ var stackLayers = map[string][]string{
 	"api": {"base", "api"},
 }
 
-// noCSS is public/static/app.css with --css=none.
-const noCSS = `/* The app's styles. The pages' markup is plain HTML with a few class
- * names (container, topbar, nav, card, field, button, badge, flash…):
- * style them, or replace them with your CSS framework's. */
-`
-
 // projectData is what the templates see.
 type projectData struct {
 	Name, Title, Module, DB, Key, Replace, DBName string
 	Stack                                         string // web or api
 	Web, API                                      bool   // the stack
+	Kit                                           string // the design kit, for the web stack
 	Bin                                           string // anetos build's binary (BinaryName)
 	Image                                         string // the name in lower case, for Docker and platforms
 	// GoMinor is the Go release of go.mod's go line ("1.26"), for the
@@ -197,7 +195,7 @@ func Create(p Project) ([]string, error) {
 		p.CSS = "anetos"
 	case p.CSS == "anetos", p.CSS == "none":
 	default:
-		return nil, fmt.Errorf("anetos new: --css must be one of %s", strings.Join(Stylesheets, ", "))
+		return nil, fmt.Errorf("anetos new: --css must be one of %s", strings.Join(Kits, ", "))
 	}
 	if entries, err := os.ReadDir(p.Dir); err == nil && len(entries) > 0 {
 		return nil, fmt.Errorf("anetos new: %s exists and isn't empty", p.Dir)
@@ -216,7 +214,7 @@ func Create(p Project) ([]string, error) {
 		Name: name, Title: title(name), Module: p.Module, DB: p.DB,
 		Key: appkey.Generate(), Replace: p.Replace, DBName: naming.Snake(identifier(name)),
 		GoMinor: goMinor, Bin: BinaryName(p.Module), Image: strings.ToLower(name),
-		Stack: p.Stack, Web: p.Stack == "web", API: p.Stack == "api",
+		Stack: p.Stack, Web: p.Stack == "web", API: p.Stack == "api", Kit: p.CSS,
 	}
 	if p.Replace != "" {
 		data.ReplaceCore = modfile.AutoQuote(p.Replace)
@@ -261,9 +259,6 @@ func Create(p Project) ([]string, error) {
 		if err != nil {
 			return err
 		}
-		if rel == "public/static/app.css" && p.CSS == "none" {
-			out = []byte(noCSS)
-		}
 		mode := os.FileMode(0o644)
 		if rel == ".env" {
 			mode = 0o600 // holds APP_KEY
@@ -273,6 +268,15 @@ func Create(p Project) ([]string, error) {
 	})
 	if err != nil {
 		return nil, err
+	}
+	if p.Stack == "web" {
+		kit, err := renderKit(p.CSS, data)
+		if err != nil {
+			return nil, err
+		}
+		for _, f := range kit {
+			files = append(files, file{f.Rel, f.Content, 0o644})
+		}
 	}
 	slices.SortFunc(files, func(a, b file) int { return strings.Compare(a.rel, b.rel) })
 	_, statErr := os.Stat(abs)
@@ -286,6 +290,81 @@ func Create(p Project) ([]string, error) {
 			return nil, err
 		}
 		written = append(written, f.rel)
+	}
+	return written, nil
+}
+
+// KitFile is a file of a design kit, relative to the project.
+type KitFile struct {
+	Rel     string
+	Content []byte
+}
+
+// renderKit renders a design kit's files: templates/kits/common's and
+// the kit's own.
+func renderKit(kit string, data projectData) ([]KitFile, error) {
+	if !slices.Contains(Kits, kit) {
+		return nil, fmt.Errorf("scaffold: no design kit %q (kits: %s)", kit, strings.Join(Kits, ", "))
+	}
+	var files []KitFile
+	for _, root := range []string{"templates/kits/common", "templates/kits/" + kit} {
+		err := fs.WalkDir(templates, root, func(src string, d fs.DirEntry, err error) error {
+			if err != nil || d.IsDir() {
+				return err
+			}
+			out, err := render(src, "", data)
+			if err != nil {
+				return err
+			}
+			files = append(files, KitFile{strings.TrimSuffix(strings.TrimPrefix(src, root+"/"), ".tmpl"), out})
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+	return files, nil
+}
+
+// HasUI reports whether the project in root has a views/ui package (a
+// design kit's components, ui.go among them), which the pages make:auth
+// and make:crud write call; projects made before v0.5 have none.
+func HasUI(root string) bool {
+	_, err := os.Stat(filepath.Join(root, "views", "ui", "ui.go"))
+	return err == nil
+}
+
+// GuessKit is the design kit closest to a project's stylesheet, for a
+// project made before v0.5 (without views/ui): "anetos" when
+// public/static/app.css has the starter theme's cards, else "none".
+func GuessKit(root string) string {
+	b, err := os.ReadFile(filepath.Join(root, "public", "static", "app.css"))
+	if err == nil && bytes.Contains(b, []byte(".card")) {
+		return "anetos"
+	}
+	return "none"
+}
+
+// WriteUI writes a design kit's views/ui package into the project in
+// root (module is its module path), for a project without one; the
+// stylesheet is left as it is. It returns the files written.
+func WriteUI(root, module, kit string) ([]string, error) {
+	if HasUI(root) {
+		return nil, fmt.Errorf("%s already exists", filepath.Join(root, "views", "ui", "ui.go"))
+	}
+	files, err := renderKit(kit, projectData{Module: module, Kit: kit})
+	if err != nil {
+		return nil, err
+	}
+	var written []string
+	for _, f := range files {
+		if !strings.HasPrefix(f.Rel, "views/ui/") {
+			continue
+		}
+		if err := writeNew(filepath.Join(root, filepath.FromSlash(f.Rel)), f.Content, 0o644); err != nil {
+			return written, err
+		}
+		written = append(written, f.Rel)
 	}
 	return written, nil
 }

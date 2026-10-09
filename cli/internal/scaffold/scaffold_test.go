@@ -3,6 +3,8 @@
 package scaffold
 
 import (
+	"bytes"
+	"io/fs"
 	"maps"
 	"os"
 	"path/filepath"
@@ -112,21 +114,95 @@ func TestCreateDeployNames(t *testing.T) {
 	}
 }
 
-// The stylesheet is the starter theme, or nearly empty with --css=none.
-func TestCreateCSS(t *testing.T) {
+// Each design kit writes its stylesheet and views/ui; the layout and the
+// pages are the same for every kit, and only views/ui has classes
+// (design D292).
+func TestCreateKits(t *testing.T) {
+	var layouts []string
 	for css, want := range map[string]string{"": "--primary:", "anetos": "--primary:", "none": "The app's styles."} {
 		dir := filepath.Join(t.TempDir(), "a")
 		if _, err := Create(Project{Dir: dir, DB: "sqlite", CSS: css}); err != nil {
 			t.Fatal(err)
 		}
-		got := read(t, filepath.Join(dir, "public", "static", "app.css"))
-		if !strings.Contains(got, want) || (css == "none" && got != noCSS) {
-			t.Errorf("--css=%s:\n%s", css, got)
+		if got := read(t, filepath.Join(dir, "public", "static", "app.css")); !strings.Contains(got, want) {
+			t.Errorf("--css=%s: app.css:\n%s", css, got)
 		}
-		// The markup is the same: the classes are the theme's.
-		if l := read(t, filepath.Join(dir, "views", "layout.templ")); !strings.Contains(l, `<header class="topbar">`) {
-			t.Errorf("--css=%s: layout:\n%s", css, l)
+		for _, f := range []string{"ui.go", "shell.templ", "page.templ", "form.templ", "data.templ"} {
+			if _, err := os.Stat(filepath.Join(dir, "views", "ui", f)); err != nil {
+				t.Errorf("--css=%s: %v", css, err)
+			}
 		}
+		classless(t, dir, css == "none")
+		layouts = append(layouts, read(t, filepath.Join(dir, "views", "layout.templ")))
+	}
+	if layouts[0] != layouts[1] || layouts[1] != layouts[2] {
+		t.Error("the layout differs between kits")
+	}
+	if HasUI(t.TempDir()) {
+		t.Error("HasUI of an empty directory")
+	}
+}
+
+// classless fails the test when a templ file outside views/ui (or, with
+// all, any templ file) has a class attribute: the kit's components carry
+// the markup that a kit styles.
+func classless(t *testing.T, root string, all bool) {
+	t.Helper()
+	err := filepath.WalkDir(filepath.Join(root, "views"), func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".templ") {
+			return err
+		}
+		if !all && filepath.Base(filepath.Dir(path)) == "ui" {
+			return nil
+		}
+		if strings.HasSuffix(path, "_mail.templ") || strings.HasSuffix(path, "mail.templ") {
+			return nil // emails carry their own inline styles
+		}
+		b, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if before, _, found := bytes.Cut(b, []byte("class=")); found {
+			line := bytes.Count(before, []byte("\n")) + 1
+			t.Errorf("%s:%d has a class attribute; call a views/ui component", path, line)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// A project made before v0.5 has no views/ui: WriteUI writes the kit its
+// stylesheet looks like, without touching the stylesheet.
+func TestWriteUI(t *testing.T) {
+	for kit, css := range map[string]string{"anetos": ".card { padding: 1rem }", "none": "body { margin: 0 }"} {
+		dir := t.TempDir()
+		if err := os.MkdirAll(filepath.Join(dir, "public", "static"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "public", "static", "app.css"), []byte(css), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if HasUI(dir) || GuessKit(dir) != kit {
+			t.Fatalf("%s: HasUI %v, GuessKit %q", kit, HasUI(dir), GuessKit(dir))
+		}
+		written, err := WriteUI(dir, "example.com/blog", kit)
+		if err != nil || len(written) < 5 || !HasUI(dir) {
+			t.Fatalf("%s: %v %v", kit, written, err)
+		}
+		if got := read(t, filepath.Join(dir, "public", "static", "app.css")); got != css {
+			t.Errorf("%s: the stylesheet changed: %s", kit, got)
+		}
+		if ui := read(t, filepath.Join(dir, "views", "ui", "shell.templ")); !strings.Contains(ui, `"example.com/blog/public"`) {
+			t.Errorf("%s: shell.templ:\n%s", kit, ui)
+		}
+		if _, err := WriteUI(dir, "example.com/blog", kit); err == nil {
+			t.Errorf("%s: WriteUI wrote over views/ui", kit)
+		}
+	}
+	if _, err := WriteUI(t.TempDir(), "m", "bootstrap"); err == nil {
+		t.Error("WriteUI of a kit that doesn't exist")
 	}
 }
 
@@ -467,6 +543,10 @@ func TestMakeAuth(t *testing.T) {
 		if !slices.Contains(res.Created, want) {
 			t.Errorf("missing %s in %v", want, res.Created)
 		}
+	}
+	classless(t, dir, false)
+	if res.Kit != "" {
+		t.Errorf("wrote views/ui (%s) in a project that has it", res.Kit)
 	}
 	if !res.Wired || !strings.Contains(read(t, filepath.Join(dir, "main.go")), "routes.Register(srv.Router(), sessions)\n"+authCall) {
 		t.Errorf("main.go not wired:\n%s", read(t, filepath.Join(dir, "main.go")))

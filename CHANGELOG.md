@@ -6,7 +6,37 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- `views/ui`, the app's interface components (K1, D292–D297): `anetos
+  new` writes a design kit's components (`ui.Header`, `ui.Nav`,
+  `ui.PageHeader`, `ui.Card`, `ui.Form`, `ui.Field`, `ui.Input`,
+  `ui.Button`, `ui.PostButton`, `ui.Table`, `ui.Badge`,
+  `ui.Pagination`… about 35, typed looks and tones) into the app, and
+  the layout and the pages of `make:crud` and `make:auth` call them,
+  with no classes of their own, so a kit restyles every generated page.
+  The package is the app's: change a component's markup, or add your
+  own. Guide "Style your app" rewritten; the UI components reference.
+- `web.MustURL`: `web.URL` for a component's arguments, panicking on a
+  route that doesn't exist (K1, D295).
+
 ### Changed
+- `anetos new --css=none` writes components of plain HTML, without the
+  starter theme's class names it used to keep (K1, D293).
+- In a project made before v0.5 (without `views/ui`), `make:crud` and
+  `make:auth` write a kit's `views/ui` first: the starter theme's when
+  `public/static/app.css` has its `.card` rules, else the plain one
+  (K1, D294). See the [upgrade guide](docs/site/upgrade/v0.5.md).
+- The starter theme's `.flash` is neutral; `.flash.success`,
+  `.warning`, `.error` (or `.danger`) and `.info` color it (K1, D293).
+- `web.PageURL` encodes a colon in the query (`%3A`): a page link of
+  `?q=a:b` was read as a URL with a scheme, and templ replaced it with
+  `about:invalid` (K1).
+- `examples/tutorial` and `examples/tracker` build their pages from
+  `views/ui`; the tracker adds its own components (K1, D297), which
+  fixed its tabs (the current one wasn't highlighted) and its
+  dashboard's token table.
+- CI runs each Go release's tests in three parts side by side (CI1,
+  D291).
 - An Anetos built from this source reports `v0.5.0-dev`, and
   `plugins/postmark` works with Anetos v0.5 too (`Requires`:
   `>= v0.2.0, < v0.6.0`) (after v0.4.0).

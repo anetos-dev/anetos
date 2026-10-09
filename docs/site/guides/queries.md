@@ -144,6 +144,17 @@ templ NotesPage(page db.Page[Note], q string) {
 
 (Copied from [`examples/forms/notes.templ`](../../../examples/forms/notes.templ), region `list`.)
 
+In a project made with `anetos new`, `views/ui` writes these links for
+you: `ui.PagesOf` makes them with `web.PageURL`, and `ui.Pagination`
+shows them ([UI components reference](../reference/ui.md#types)):
+
+```templ
+// illustrative
+if page.LastPage > 1 {
+	@ui.Pagination(ui.PagesOf(ctx, page, "Pages", fmt.Sprintf("Page %d of %d", page.CurrentPage, page.LastPage), "Newer", "Older"))
+}
+```
+
 For long lists and infinite scroll, cursor pagination stays fast at any
 depth and never repeats or skips rows as new ones arrive:
 

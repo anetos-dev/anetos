@@ -1,0 +1,65 @@
+package ui
+
+import "[[.Module]]/public"
+
+// The page's shell, which the layout (views/layout.templ) puts together.
+
+// Head links the kit's stylesheet: the layout's <head> calls it.
+templ Head() {
+	<link rel="stylesheet" href={ public.Assets.URL("app.css") }/>
+}
+
+// Header is the top of every page: the app's name, linking to home,
+// then its children (a Nav, and a NavEnd with the account's links).
+templ Header(brand, home string) {
+	<header class="topbar">
+		<div class="container">
+			<a class="brand" href={ home }>{ brand }</a>
+			{ children... }
+		</div>
+	</header>
+}
+
+// Nav is the header's links (NavLink), named label for screen readers.
+templ Nav(label string) {
+	<nav class="nav" aria-label={ label }>
+		{ children... }
+	</nav>
+}
+
+// NavLink is a link of the header, marked as the page being shown when
+// current is true.
+templ NavLink(href, label string, current bool) {
+	<a href={ href } if current { aria-current="page" }>{ label }</a>
+}
+
+// NavEnd is the end of the header: the account's links and buttons.
+templ NavEnd() {
+	<div class="nav-end">
+		{ children... }
+	</div>
+}
+
+// Main is the page's own content.
+templ Main() {
+	<main class="container">
+		{ children... }
+	</main>
+}
+
+// Footer is the bottom of every page.
+templ Footer() {
+	<footer class="site-footer">
+		<div class="container">
+			{ children... }
+		</div>
+	</footer>
+}
+
+// Flash is a message about what just happened, in a tone's color, with
+// any buttons beside it.
+templ Flash(tone Tone) {
+	<div class={ "flash cluster" + tone.flashClass() } role="status">
+		{ children... }
+	</div>
+}

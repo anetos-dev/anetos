@@ -21,9 +21,9 @@ const makeCrudUsage = `Usage: anetos make:crud <Model> <field:type[:optional|:un
 
 Adds a model with its table and the pages to list, show, create, edit
 and delete its rows: the model, the migration, the handlers, the templ
-views (styled by the starter theme), the routes, their English text and a
-test. It adds the routes to routes/web.go's pages group and a link to
-the layout's nav. The code is yours to change.
+views (made of views/ui's components), the routes, their English text
+and a test. It adds the routes to routes/web.go's pages group and a
+link to the layout's nav. The code is yours to change.
 
 In an API project (anetos new --stack=api), it writes JSON endpoints
 under /api/v1 instead: the model, the migration, the handlers (the list
@@ -66,6 +66,9 @@ func makeCrud(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	if err != nil {
 		fmt.Fprintln(stderr, "anetos make:crud:", err)
 		return 1
+	}
+	if res.Kit != "" {
+		fmt.Fprintf(stdout, "views/ui is the %s kit's components, which the new pages call: the project had none (made before v0.5).\nThe layout keeps its markup; the upgrade guide shows how to use them there too.\n", res.Kit)
 	}
 	file, group := "routes/web.go", "pages"
 	if res.API {

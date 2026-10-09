@@ -1126,6 +1126,41 @@ Implemented in F10 (packages `view`, `session`, `encryption`; helpers in
   plus its `views/ui`, chosen at `anetos new --css=…` and switched with
   `anetos css:use`.
 
+**UI components (K1, D292–D297).** A web project's `views/ui` package
+(templ, written by `anetos new`, the app's own) holds every bit of
+markup a design kit decides; the layout and the pages call it and use
+plain HTML elements, never `class=`:
+
+- **The components:** the shell (`Head`, `Header`, `Nav`, `NavLink`,
+  `NavEnd`, `Main`, `Footer`, `Flash`), page structure (`PageHeader`,
+  `Narrow`, `Stack`, `Cluster`, `Card`, `CardHeader`, `AuthCard`,
+  `Empty`, `Note`, `SROnly`), forms (`Form`, `InlineForm`, `Field`,
+  `Input`, `Textarea`, `Select`, `Checkbox`, `FieldError`, `Actions`,
+  `Button`, `LinkButton`, `PostButton`) and data (`Table`,
+  `ActionsCell`, `Details`, `Detail`, `Multiline`, `Badge`,
+  `Pagination`). A button's `Look` (`Primary`, `Secondary`, `Danger`,
+  `Ghost`, with `Small`, `Full`) and a badge's or message's `Tone`
+  (`Neutral`, `Success`, `Warning`, `Error`, `Info`) are typed
+  constants; controls take `templ.Attributes` for the rest. Forms add
+  the CSRF token and the method override; fields show their messages
+  and mark controls invalid from `view.Errors`. `ui.PagesOf` makes a
+  `db.Page`'s links.
+- **Kits:** `templates/kits/common` (the types and helpers every kit
+  shares) plus `templates/kits/<kit>` (the components' markup and
+  `public/static/app.css`). `anetos` is the starter theme; `none`
+  writes plain HTML without classes and an almost empty stylesheet.
+  Every kit has the same components and signatures, so the pages build
+  with any (a test builds a `none` project with `make:crud` and
+  `make:auth`). v0.5's other kits (K2, K3) and `css:use` (K4) add to
+  this.
+- **Projects made before v0.5** (no `views/ui`): `make:crud` and
+  `make:auth` write the kit their stylesheet looks like first, and say
+  so; the layout is left as it is.
+- **URLs as arguments:** `web.MustURL`, the single-value `web.URL`.
+- The examples follow: `examples/tutorial` (generated, and the
+  reader's pages), `examples/tracker`, which adds its own components to
+  its `views/ui`.
+
 **The API project (AP1, D259–D262).** `anetos new <dir> --stack=api`
 writes an app that serves JSON only:
 
@@ -2484,10 +2519,11 @@ planned.
 | `anetos stub:publish` | Copy generator templates into the project for customization |
 
 Generators produce plain Go that the developer owns. The pages they
-write use the starter theme's class names (D240): `anetos new` writes
-the theme as the app's own `public/static/app.css` (plain CSS, no build
-step, light and dark), so a new app looks finished, and `--css=none`
-starts without it, the markup unchanged. `anetos new
+write call the app's `views/ui` components (D292): `anetos new` writes
+a design kit, by default the starter theme's components and its
+`public/static/app.css` (plain CSS, no build step, light and dark, D240),
+so a new app looks finished; `--css=none` writes components of plain
+HTML and no styles (D293). `anetos new
 --replace=<checkout>` (framework development) replaces every module of
 the checkout, drivers and plugins included, so `go get` and `anetos add`
 take them from it (D151).
@@ -3004,7 +3040,7 @@ unless new information arrives), **Open**, **Superseded**.
 | D241 | `anetos make:crud <Model> <name:type[:optional\|:unique]>...` writes a model, its migration, a handler type with the seven actions (list with pages, show, new, create, edit, update, delete), a form struct with validate tags, templ views in the theme's markup, `routes.<Models>(r)`, the pages' English catalog and a test, then runs `anetos gen`, `templ generate` and `go build`; it adds the routes call to `Register`'s `pages` group and a `navLink` to the layout (found by their shape, else printed). Types: string, text, email, int, float, bool, date; strings, texts, emails and dates are required unless optional; unique only where blank values can't collide (required strings and emails, dates); a plural equal to the name, the framework's tables and the field `model` are refused | Accepted | The first hour of a framework is a model with pages; writing seven handlers, three views and a test by hand to see that is slow, and the scaffold teaches the conventions. Like `make:auth` (D145), the output is owned code and nothing is overwritten. Types the browser and binder handle without app code only: `datetime-local` has no zone, so times wait for a design |
 | D242 | The docs site groups each section's pages: every page of getting-started, guides, concepts and reference has `group:` and `weight:` in its front matter; anetos-dev/docs's sync puts a grouped page in a folder of its section named after the group, with an index, keeping its URL (front matter `url`) and mapping its content path for the link render hook (`data/moved.json`); groups are ordered by their pages' weights. The files stay flat in `docs/site`; `make docs-check` (`internal/cmd/docnav`) checks the front matter | Accepted | Sections sorted by title were hard to navigate. Groups in the files' front matter keep the repository's links and GitHub's view unchanged and every URL stable; the order of reading is the writer's decision, made where the page is written |
 | D243 | The release plan changes (2026-10-07, with the user): v0.3 (search, AI, admin, deploy, starter experience, plus security and performance) is tagged for us and early testers; v0.4 is the API stack (`--stack=api`, API accounts, JSON CRUD, and OpenAPI, back from the backlog); v0.5 the design kits and the **public release** (with the API stability pass, release plumbing, versioned docs and launch moved from v0.3); v0.6 the front-end stacks (Vite, Inertia, Vue, React, Svelte). Supersedes D232 | Accepted | An API-only stack is a must for a public Go framework, and OpenAPI is what makes it credible; both, and the generators' markup (D244), change generated code, which apps own and never receive updates of, so they must settle before people generate real apps. The API stack goes before the kits because it is the must-have and defines how `anetos new` composes stacks; the front-end stacks build on its pieces. The risk is a later release: v0.4 and v0.5 have fixed scopes (no OpenAPI client generation), and anything new goes after the release |
-| D244 | Planned for v0.5: the generators' pages call components of a `views/ui` package that `anetos new` writes into the app (button, field, card, table, badge, alert, nav, pagination…), rather than writing class names; a design kit is a stylesheet plus its `views/ui`; `anetos css:use <kit>` swaps both, refusing to replace a changed `views/ui` without `--force` | Proposed | Copying every generator's templates per kit would multiply the work and the tests by six; components keep a kit to one file of CSS and a dozen small components, and let a switch restyle the generated pages. Markup the developer writes with their own classes can't be restyled by a tool, and the docs say so |
+| D244 | Planned for v0.5: the generators' pages call components of a `views/ui` package that `anetos new` writes into the app (button, field, card, table, badge, alert, nav, pagination…), rather than writing class names; a design kit is a stylesheet plus its `views/ui`; `anetos css:use <kit>` swaps both, refusing to replace a changed `views/ui` without `--force` | Accepted (K1, D292–D297) | Copying every generator's templates per kit would multiply the work and the tests by six; components keep a kit to one file of CSS and a dozen small components, and let a switch restyle the generated pages. Markup the developer writes with their own classes can't be restyled by a tool, and the docs say so |
 | D245 | A `doctor` command in every app checks its settings: features add checks as they are set up (`app.AddCheck(anetos.Check{Name, Booted, Run})`, returning `anetos.Finding`s of severity `Note`, `Warning` or `Problem`); checks that need no service run first without booting, then the app boots for the `Booted` ones (pending migrations), a failed boot being a problem; deployment checks apply to production and staging (`Environment.Deployed`); exit 1 on a problem, or a warning with `--strict`. `anetos doctor` adds the project's checks (`.env` permissions, files of secrets tracked by git, `govulncheck` with `--vuln`) and runs the built app's `doctor` | Accepted | Boot already refuses settings that can't work; what remains are settings that work but are unsafe, which only the feature that reads them knows. Checks registered by the features keep the knowledge in one place and cover plugins; a command of the binary checks the settings where they are (the server), while the tool checks what only the project has (git, files). Notes and warnings don't fail by default, since a single-instance app legitimately uses the memory cache |
 | D246 | `DB_TLS` (`verify`, `skip-verify`, `none`) and `DB_TLS_CA` secure connections built from `DB_HOST`: empty means `none` for this machine (localhost, loopback, a socket) and `verify` for any other host. With `DB_URL`, the URL's options decide, and doctor reads them through `db.Driver.InspectURL` | Accepted | The drivers' defaults (PostgreSQL's `prefer`, MySQL's none) send passwords and data in plain text, or accept any certificate, to a remote server; managed databases all offer TLS. Breaking for servers without it, which say so at the first connection; `DB_URL` stays the escape hatch with the driver's full syntax |
 | D247 | HTTP hardening from the review: the client's address comes only from `X-Forwarded-For` of trusted proxies (`X-Real-IP` isn't read); `MethodOverride` only for urlencoded and multipart posts that aren't `Sec-Fetch-Site: cross-site`; `auth.Require` sets `Cache-Control: no-store`; the dev server answers only localhost, IP literals, `APP_URL`'s host and `--host` names (403 otherwise) and warns when listening beyond loopback | Accepted | `X-Real-IP` is set by some proxies and passed through by others, so trusting it let clients choose their address; one header, with the proxy appending, is unambiguous. A method override is for HTML forms, which is all that needs it. Signed-in pages must not be stored by shared caches. DNS rebinding lets any web page read a server on localhost by name |
@@ -3052,6 +3088,12 @@ unless new information arrives), **Open**, **Superseded**.
 | D289 | `make:auth`'s API responses that carry a token (register, login, the two-factor challenge and its answer) are `Cache-Control: no-store`; the routes behind `auth.Require`, making a token among them, already were (M7) | Accepted | A token in a cached response outlives its revocation; `auth.Require`'s `no-store` doesn't cover the public routes that hand tokens out |
 | D290 | In inputs, an optional non-pointer `anetos.Date` is `anyOf` a `date` string and an empty string, and a `url` rule adds a `pattern` of its schemes (`http` and `https` unless it names others) | Accepted | The binding takes `""` as no date and the `url` rule refuses other schemes, while `format: date` and `format: uri` alone would let generated clients and validators disagree with the server |
 | D291 | CI's tests run in three parts per Go release, side by side (`test-part`): the core module with the repository-wide checks (gofmt, SPDX, doc snippets, API doc comments, generated code) and the allocation budgets; the `cli` module; every other module, with the examples on PostgreSQL and MySQL. Two jobs keep the names the main branch's ruleset requires (`test (minimum Go (go.mod))`, `test (latest Go)`) and pass when every part does. `make` takes the part's modules as `MODULES` | Accepted | The single job per Go release ran every module in turn and had grown to 21 minutes of its 40 (the cli module's whole-project tests alone take 5), and v0.5's design kits add a generated project per kit. Parts cut the wall time to the slowest one; the jobs required by name stay, so the ruleset needs no change. A failing part fails both required checks, which only costs a reader one click to see which part |
+| D292 | Only `views/ui` writes classes: the layout and every page `anetos new`, `make:crud` and `make:auth` write call its components and plain HTML elements (a test fails on `class=` elsewhere in `views/`, emails aside). The set is about 35 small components (shell, page structure, forms, buttons, data) with typed looks and tones and `templ.Attributes` for the rest; forms carry the CSRF token and method override, fields their messages and `aria-invalid`. The package is the app's: it may change a component's markup and add its own components, keeping the signatures the generated pages call | Accepted | D244's goal: a kit (and K4's switch) must restyle every generated page, which it can only do if the pages carry no kit's markup. A dozen components (D244's estimate) left too much in the pages (page headers, notes, inline forms, empty states); 35 small ones cover what the generators write. Typed looks and tones keep a kit's mapping to its classes in one place. Classes written in the pages, even "neutral" ones, would tie every page to one CSS vocabulary |
+| D293 | A kit is `templates/kits/common` (types and helpers shared by all) plus `templates/kits/<kit>` (the components' markup, the stylesheet); `anetos new --css` picks it. `--css=none` is a kit whose components write plain HTML without classes, with an almost empty `app.css` (it used to keep the starter theme's class names, D240). The starter theme's `.flash` is neutral, `success`, `warning`, `error` and `info` adding their colors | Accepted | Kits must share the components' signatures, which one file of types guarantees; each kit then only decides markup. A "no styles" choice that still writes another vocabulary's classes was a half-measure: with views/ui, a developer bringing their own CSS gets clean markup and adds their classes in one package. A neutral base flash lets a tone mean something |
+| D294 | In a project without `views/ui` (made before v0.5), `make:crud` and `make:auth` write a kit's `views/ui` before their pages, the starter theme's when `public/static/app.css` has its `.card` rules, else `none`'s, and say so; they don't touch the stylesheet or the layout. A refused generator removes it with its other files | Accepted | The new pages need the components, and refusing would make every older app add them by hand first. Guessing from the stylesheet picks the kit whose classes that app.css already styles; the layout is the app's and changing it isn't needed for the new pages to work. The upgrade guide shows the layout's optional move |
+| D295 | `web.MustURL(ctx, name, args...)` returns the route's path or panics (the router answers a handler's panic as a 500) | Accepted | Components take URLs as arguments, and a Go call can't take `web.URL`'s two results among other arguments. A route that doesn't exist is a mistake in the code, as a template's error is; `web.URL` stays for attributes, whose error templ returns |
+| D296 | The layout keeps its `navLink` helper, now calling `ui.NavLink`; `make:crud` adds its link at the end of the header's nav and `make:auth` its `AccountMenu` after the nav, found as the `}` closing `@ui.Nav(…) {` or, in older layouts, the `</nav>` inside `<header>`, with the file's line endings | Accepted | Generators edit layouts written before and after v0.5 by their shape (D241); keeping `navLink` keeps both shapes' link lines alike |
+| D297 | The examples use `views/ui`: `examples/tutorial` (its generated files and the reader's pages, so the tutorial teaches the components) and `examples/tracker`, which adds its own components (status, priority and label chips, tabs, lists, link-looking buttons…) to its `views/ui` with their CSS after the theme's | Accepted | The reference app should show the recommended way, including how an app extends the package (user's choice, 2026-10-09). Migrating it found two bugs (a tab's `aria-current` never matched its CSS; a rule broke the dashboard's token table), fixed |
 
 ---
 
@@ -3142,3 +3184,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-08 | v0.4 AP5 (API docs and example): §12.2 updated; D281–D284 added |
 | 2026-10-08 | v0.4 exit: §8.4, §12.2, §18 updated; D285–D290 added |
 | 2026-10-09 | v0.5 started: CI's tests in parts (§23, D291) |
+| 2026-10-09 | K1 (UI components): §12.2 updated; D244 accepted; D292–D297 added |

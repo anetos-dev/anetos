@@ -9,6 +9,7 @@ import (
 	"anetos.dev/anetos/web"
 
 	"tracker/app/models"
+	"tracker/views/ui"
 )
 
 // endregion
@@ -17,35 +18,44 @@ import (
 // IssuesPage lists a page of issues, with links to the pages around it.
 templ IssuesPage(page db.Page[models.Issue]) {
 	@Layout("Issues") {
-		<div class="page-header">
-			<h1>Issues</h1>
-			<a class="button" href={ web.URL(ctx, "issues.new") }>New issue</a>
-		</div>
-		if page.Total == 0 {
-			<p class="empty">No issues yet.</p>
-		} else {
-			<div class="table-wrap">
-				<table>
-					<tbody>
-						for _, issue := range page.Data {
-							<tr>
-								<td><span class={ "badge", templ.KV("success", issue.Status == "open") }>{ issue.Status }</span></td>
-								<td><a href={ templ.URL(fmt.Sprintf("/issues/%d", issue.ID)) }>{ issue.Title }</a></td>
-								<td class="muted">#{ issue.ID } by { issue.Author.Name }</td>
-							</tr>
-						}
-					</tbody>
-				</table>
-			</div>
+		@ui.PageHeader("Issues", "") {
+			@ui.LinkButton(web.MustURL(ctx, "issues.new"), ui.Primary) {
+				New issue
+			}
 		}
-		<nav class="pagination">
-			if page.HasPrev() {
-				<a href={ web.PageURL(ctx, page.CurrentPage-1) }>Newer</a>
+		if page.Total == 0 {
+			@ui.Empty("No issues yet.")
+		} else {
+			@ui.Table() {
+				<tbody>
+					for _, issue := range page.Data {
+						<tr>
+							<td>
+								@statusBadge(issue.Status)
+							</td>
+							<td><a href={ templ.URL(fmt.Sprintf("/issues/%d", issue.ID)) }>{ issue.Title }</a></td>
+							<td><small>#{ issue.ID } by { issue.Author.Name }</small></td>
+						</tr>
+					}
+				</tbody>
 			}
-			if page.HasMore() {
-				<a href={ web.PageURL(ctx, page.CurrentPage+1) }>Older</a>
-			}
-		</nav>
+		}
+		if page.LastPage > 1 {
+			@ui.Pagination(ui.PagesOf(ctx, page, "Pages", "", "Newer", "Older"))
+		}
+	}
+}
+
+// statusBadge shows an issue's status: green while it's open.
+templ statusBadge(status string) {
+	if status == "open" {
+		@ui.Badge(ui.Success) {
+			{ status }
+		}
+	} else {
+		@ui.Badge(ui.Neutral) {
+			{ status }
+		}
 	}
 }
 
@@ -57,42 +67,35 @@ templ IssuesPage(page db.Page[models.Issue]) {
 // messages.
 templ IssueForm(issue models.Issue) {
 	@Layout("Issue") {
-		<div class="narrow">
+		@ui.Narrow() {
 			if issue.ID == 0 {
 				<h1>New issue</h1>
-				<form method="post" action={ web.URL(ctx, "issues.store") } class="card">
-					@issueFields(issue)
-				</form>
+				@ui.Card("") {
+					@ui.Form(web.MustURL(ctx, "issues.store"), "POST", nil) {
+						@issueFields(issue)
+					}
+				}
 			} else {
 				<h1>Edit #{ issue.ID }</h1>
-				<form method="post" action={ web.URL(ctx, "issues.update", issue.ID) } class="card">
-					@view.MethodField("PUT")
-					@issueFields(issue)
-				</form>
+				@ui.Card("") {
+					@ui.Form(web.MustURL(ctx, "issues.update", issue.ID), "PUT", nil) {
+						@issueFields(issue)
+					}
+				}
 			}
-		</div>
+		}
 	}
 }
 
 templ issueFields(issue models.Issue) {
-	@view.CSRFField(ctx)
-	<div class="field">
-		<label for="title">Title</label>
-		<input id="title" name="title" value={ view.Old(ctx, "title", issue.Title) }/>
-		@fieldError("title")
-	</div>
-	<div class="field">
-		<label for="body">Description</label>
-		<textarea id="body" name="body" rows="6">{ view.Old(ctx, "body", issue.Body) }</textarea>
-		@fieldError("body")
-	</div>
-	<button type="submit">Save</button>
-}
-
-// fieldError shows the message of a field that failed validation.
-templ fieldError(field string) {
-	if msg := view.Errors(ctx).Get(field); msg != "" {
-		<p class="error">{ msg }</p>
+	@ui.Field("title", "Title", "") {
+		@ui.Input("title", "", view.Old(ctx, "title", issue.Title), nil)
+	}
+	@ui.Field("body", "Description", "") {
+		@ui.Textarea("body", view.Old(ctx, "body", issue.Body), templ.Attributes{"rows": "6"})
+	}
+	@ui.Button(ui.Primary, nil) {
+		Save
 	}
 }
 

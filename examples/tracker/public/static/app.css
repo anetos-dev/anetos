@@ -1,7 +1,8 @@
 /*
  * The app's styles: Anetos's starter theme, yours to change or replace.
  * No build step: edit this file and reload. Plain HTML looks right as it
- * is (forms, buttons, tables); a few classes do the rest:
+ * is (forms, buttons, tables); a few classes do the rest, which the
+ * components of views/ui write for the pages:
  *
  *   Layout   .container .topbar .brand .nav .nav-end .site-footer
  *   Pages    .page-header .narrow .stack .cluster .grid .muted .empty
@@ -10,7 +11,7 @@
  *   Forms    .field .hint .error .check .inline .form-actions
  *   Buttons  button .button  + .secondary .danger .ghost .small .full
  *   Others   .table-wrap .badge (+ .success .warning .danger .info)
- *            .flash (+ .warning .error) .pagination .sr-only
+ *            .flash (+ .success .warning .error .info) .pagination .sr-only
  *
  * Colors are the variables below; dark mode follows the system, or
  * data-theme="dark" (or "light") on <html>.
@@ -250,9 +251,11 @@ td.actions { text-align: end; white-space: nowrap; }
 
 /* Messages */
 
-.flash { padding: .7rem 1rem; border-radius: var(--radius); background: var(--success-bg); color: var(--success); border: 1px solid transparent; margin-bottom: 1.25rem; }
+.flash { padding: .7rem 1rem; border-radius: var(--radius); background: var(--surface-2); color: var(--text); border: 1px solid transparent; margin-bottom: 1.25rem; }
+.flash.success { background: var(--success-bg); color: var(--success); }
 .flash.warning { background: var(--warning-bg); color: var(--warning); }
-.flash.error { background: var(--danger-bg); color: var(--danger); }
+.flash.error, .flash.danger { background: var(--danger-bg); color: var(--danger); }
+.flash.info { background: var(--info-bg); color: var(--info); }
 
 /* Pagination */
 
@@ -273,10 +276,10 @@ td.actions { text-align: end; white-space: nowrap; }
 }
 
 /*
- * The tracker's own styles, on top of the starter theme above.
+ * The tracker's own styles, on top of the kit's theme above: those of
+ * its own components (views/ui/tracker.templ).
  */
 
-form > label:not(.check) { margin-top: .9rem; }
 .title { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1rem; margin-bottom: 1.25rem; }
 .title h1 { margin: 0 auto 0 0; }
 .row { display: flex; gap: .5rem; align-items: center; }
@@ -289,8 +292,8 @@ input[type="color"] { width: 2.75rem; height: 2.4rem; padding: .15rem; border: 1
 button.link { background: none; border: 0; padding: 0; color: var(--primary); font-weight: 400; text-decoration: underline; }
 button.link:hover { background: none; color: var(--primary-hover); }
 button.link.danger { color: var(--danger); }
-.actions { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; margin: 1rem 0; }
-.actions form { margin: 0; }
+.toolbar { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; margin: 1rem 0; }
+.toolbar form { margin: 0; }
 form.inline select { width: auto; }
 
 /* Lists of projects, issues and members */
@@ -313,12 +316,8 @@ form.inline select { width: auto; }
 .filters input[type="search"] { flex: 2 1 12rem; width: auto; }
 .filters select { flex: 1 1 8rem; width: auto; }
 .filters button { flex: none; }
-.pages { display: flex; gap: 1rem; justify-content: center; align-items: center; margin: 1.25rem 0; }
 
 /* An issue's page */
-dl.meta { display: grid; grid-template-columns: max-content 1fr; gap: .4rem 1rem; font-size: 1rem; color: var(--text); }
-dl.meta dt { color: var(--muted); font-weight: 600; }
-dl.meta dd { margin: 0; }
 .body { white-space: pre-wrap; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.25rem; margin-bottom: 1.25rem; }
 .comments { list-style: none; padding: 0; }
 .comment { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: .75rem 1rem; margin-bottom: .75rem; }

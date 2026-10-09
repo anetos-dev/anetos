@@ -191,6 +191,12 @@ bundled with htmx in `view/htmx`, appends the pieces:
 </div>
 ```
 
+`msg`, `tool` and `error` are the example's own classes: its pages are
+`html/template`, with their own styles. In a project made with
+`anetos new`, make a chat message a component of your own in
+`views/ui`, next to the others, so its class names stay in one place
+([Style your app](styling.md#5-add-your-own-component)).
+
 `sse-close="done"` matters: browsers reconnect to a stream that ends,
 which would ask the model again. The reply handler also answers a
 reconnecting browser with an empty stream when the question is answered

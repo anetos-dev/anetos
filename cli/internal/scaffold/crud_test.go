@@ -28,16 +28,17 @@ func TestMakeCrud(t *testing.T) {
 			t.Errorf("missing %s in %v", want, res.Created)
 		}
 	}
-	if !res.Routed || !res.Linked || res.Plural != "BlogPosts" || res.Path != "/blog-posts" {
+	if !res.Routed || !res.Linked || res.Plural != "BlogPosts" || res.Path != "/blog-posts" || res.Kit != "" {
 		t.Errorf("result %+v", res)
 	}
+	classless(t, dir, false)
 	for file, wants := range map[string][]string{
 		"app/models/blog_post.go": {"type BlogPost struct", "ImageURL string `db:\"image_url\"`", "DueOn anetos.Date `db:\"due_on\"`"},
 		"database/migrations/2030_01_02_030405_create_blog_posts_table.go": {`s.Create("blog_posts"`, `t.String("title", 255)`, `t.Date("due_on").Nullable()`, `t.String("email", 255).Unique()`},
 		"app/handlers/blog_posts.go":                                       {"type BlogPostInput struct", `validate:"required|max:255"`, `json:"image_url" validate:"max:255"`, `validate:"required|email|max:255|unique:blog_posts,email,ID"`, `"example.com/shop/views"`},
 		"routes/blog_posts.go":                                             {`r.Delete("/blog-posts/{id}", web.H(h.Delete)).Name("blog-posts.destroy")`},
 		"routes/web.go":                                                    {"\tBlogPosts(pages) // anetos make:crud\n}"},
-		"views/layout.templ":                                               {"\t\t\t\t\t\t@navLink(\"home\", i18n.T(ctx, \"nav.home\"))\n\t\t\t\t\t\t@navLink(\"blog-posts.index\", i18n.T(ctx, \"blog_posts.title\"))\n\t\t\t\t\t</nav>"},
+		"views/layout.templ":                                               {"\t\t\t\t\t@navLink(\"home\", i18n.T(ctx, \"nav.home\"))\n\t\t\t\t\t@navLink(\"blog-posts.index\", i18n.T(ctx, \"blog_posts.title\"))\n\t\t\t\t}\n"},
 		"locales/en/blog_posts.yaml":                                       {"blog_posts:\n title: \"Blog posts\"", `new: "New blog post"`, `"image_url": "Image URL"`},
 		"blog_posts_test.go":                                               {"func TestBlogPosts(", `AssertValidationErrors("title", "email")`, `"due_on": {"2026-10-06"}`},
 	} {
@@ -55,7 +56,7 @@ func TestMakeCrud(t *testing.T) {
 	if got := read(t, filepath.Join(dir, "routes", "web.go")); !strings.Contains(got, "\tBlogPosts(pages) // anetos make:crud\n\tTags(pages) // anetos make:crud\n}") {
 		t.Errorf("routes/web.go:\n%s", got)
 	}
-	if got := read(t, filepath.Join(dir, "views", "layout.templ")); !strings.Contains(got, "\"blog_posts.title\"))\n\t\t\t\t\t\t@navLink(\"tags.index\", i18n.T(ctx, \"tags.title\"))\n\t\t\t\t\t</nav>") {
+	if got := read(t, filepath.Join(dir, "views", "layout.templ")); !strings.Contains(got, "\"blog_posts.title\"))\n\t\t\t\t\t@navLink(\"tags.index\", i18n.T(ctx, \"tags.title\"))\n\t\t\t\t}\n") {
 		t.Errorf("layout:\n%s", got)
 	}
 	// Nothing is overwritten, and bad fields are refused before writing.
@@ -131,19 +132,83 @@ func TestCrudPatches(t *testing.T) {
 			t.Errorf("%q:\n%s", src, read(t, file))
 		}
 	}
-	for src, want := range map[string]bool{
-		"<header>\n\t<nav>\n\t</nav>\n</header>\n": true,
-		"<header><nav></nav></header>\n":           false,
-		"<nav>\n</nav>\n":                          false,
+	// The layout since v0.5: the nav is @ui.Nav's block.
+	uiLayout := "templ Layout() {\n\t@ui.Header(\"A\", h) {\n\t\t@ui.Nav(l) {\n\t\t\t@navLink(\"home\", x)\n\t\t}\n\t}\n}\n\ntempl navLink(route, label string) {\n}\n"
+	write(uiLayout)
+	if got, err := addNavLink(file, "posts.index", "posts.title"); err != nil || !got ||
+		!strings.Contains(read(t, file), "\t\t\t@navLink(\"home\", x)\n\t\t\t@navLink(\"posts.index\", i18n.T(ctx, \"posts.title\"))\n\t\t}\n\t}\n") {
+		t.Errorf("ui layout: %v, %v:\n%s", got, err, read(t, file))
+	}
+	write("templ Layout() {\n\t@ui.Nav(l) {\n\t\t@navLink(\"home\", x)\n}\n\ntempl navLink(route, label string) {\n}\n")
+	if got, err := addNavLink(file, "posts.index", "posts.title"); err != nil || got {
+		t.Errorf("ui nav without its closing line: %v, %v", got, err)
+	}
+	for src, want := range map[string]string{
+		"<header>\n\t<nav>\n\t</nav>\n</header>\n": "<header>\n\t<nav>\n\t</nav>\n\t@AccountMenu()\n</header>\n",
+		"<header><nav></nav></header>\n":           "",
+		"<nav>\n</nav>\n":                          "",
+		"@ui.Header(\"A\", h) {\n\t@ui.Nav(l) {\n\t\t@navLink(\"home\", x)\n\t}\n}\n": "@ui.Header(\"A\", h) {\n\t@ui.Nav(l) {\n\t\t@navLink(\"home\", x)\n\t}\n\t@AccountMenu()\n}\n",
 	} {
 		write(src)
 		got, err := addAccountMenu(file)
-		if err != nil || got != want {
+		if err != nil || got != (want != "") {
 			t.Errorf("%q: %v, %v", src, got, err)
 		}
-		if want && read(t, file) != "<header>\n\t<nav>\n\t</nav>\n\t@AccountMenu()\n</header>\n" {
+		if want != "" && read(t, file) != want {
 			t.Errorf("%q:\n%s", src, read(t, file))
 		}
+	}
+}
+
+// A project made before v0.5 has no views/ui: make:crud writes the kit
+// its stylesheet looks like first, and the pages that call it.
+func TestCrudWritesUI(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "shop")
+	if _, err := Create(Project{Dir: dir, Module: "example.com/shop", DB: "sqlite", Replace: "../../.."}); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(filepath.Join(dir, "views", "ui")); err != nil {
+		t.Fatal(err)
+	}
+	res, err := MakeCrud(dir, "Post", []string{"title:string"}, time.Date(2030, 1, 2, 3, 4, 5, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Kit != "anetos" || !slices.Contains(res.Created, "views/ui/form.templ") || !HasUI(dir) {
+		t.Errorf("result %+v", res)
+	}
+	// A write failing after views/ui (locales/en/tags.yaml is a
+	// directory): nothing is left, views/ui included.
+	if err := os.RemoveAll(filepath.Join(dir, "views", "ui")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "locales", "en", "tags.yaml", "x"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := MakeCrud(dir, "Tag", []string{"name:string"}, time.Now()); err == nil || HasUI(dir) {
+		t.Errorf("a failed make:crud: %v, views/ui %v", err, HasUI(dir))
+	}
+	if _, err := os.Stat(filepath.Join(dir, "views", "ui")); err == nil {
+		t.Error("views/ui left behind")
+	}
+}
+
+// A layout with Windows line ends gets its new lines with them.
+func TestNavEndCRLF(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "layout.templ")
+	src := "templ Layout() {\r\n\t@ui.Header(\"A\", h) {\r\n\t\t@ui.Nav(l) {\r\n\t\t\t@navLink(\"home\", x)\r\n\t\t}\r\n\t}\r\n}\r\n\r\ntempl navLink(route, label string) {\r\n}\r\n"
+	if err := os.WriteFile(file, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if ok, err := addNavLink(file, "posts.index", "posts.title"); !ok || err != nil {
+		t.Fatalf("addNavLink: %v %v", ok, err)
+	}
+	if ok, err := addAccountMenu(file); !ok || err != nil {
+		t.Fatalf("addAccountMenu: %v %v", ok, err)
+	}
+	got := read(t, file)
+	if strings.Count(got, "\n") != strings.Count(got, "\r\n") || !strings.Contains(got, "@navLink(\"posts.index\", i18n.T(ctx, \"posts.title\"))\r\n\t\t}\r\n\t\t@AccountMenu()\r\n") {
+		t.Errorf("layout:\n%q", got)
 	}
 }
 

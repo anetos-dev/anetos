@@ -93,6 +93,10 @@ type AuthResult struct {
 	// API says the project is an API project ([IsAPI]): the accounts are
 	// JSON endpoints signing in with API tokens.
 	API bool
+	// Kit is the design kit whose views/ui MakeAuth wrote first, in a
+	// project made before v0.5, which had none (the pages call it); ""
+	// when the project had views/ui. Its files are in Created.
+	Kit string
 }
 
 // MakeAuth writes the account scaffolding into the project at root:
@@ -189,10 +193,21 @@ func MakeAuth(root string, now time.Time) (AuthResult, error) {
 			_ = os.Remove(filepath.Join(root, filepath.FromSlash(c)))
 		}
 		_ = os.Remove(filepath.Join(root, "app", "mailers")) // if make:auth created it, it's empty
+		if res.Kit != "" {
+			_ = os.Remove(filepath.Join(root, "views", "ui"))
+		}
 		for _, name := range res.Env {
 			_ = os.WriteFile(filepath.Join(root, name), envBefore[name], 0o600)
 		}
 		return AuthResult{}, fmt.Errorf("%w (the files written were removed)", err)
+	}
+	if !res.API && !HasUI(root) {
+		res.Kit = GuessKit(root)
+		written, err := WriteUI(root, mod, res.Kit)
+		res.Created = append(res.Created, written...)
+		if err != nil {
+			return undo(err)
+		}
 	}
 	for i, f := range files {
 		if err := writeNew(filepath.Join(root, filepath.FromSlash(f[1])), out[i], 0o644); err != nil {
@@ -232,8 +247,8 @@ func MakeAuth(root string, now time.Time) (AuthResult, error) {
 const accountMenu = "@AccountMenu()"
 
 // addAccountMenu adds @AccountMenu() to the layout's header, on the line
-// after the header's </nav>, as anetos new writes it, and reports
-// whether the layout shows it. It leaves a layout without such a line
+// after the header's nav (navEnd), as anetos new writes it, and reports
+// whether the layout shows it. It leaves a layout without such a nav
 // alone, reporting false.
 func addAccountMenu(layout string) (bool, error) {
 	src, err := os.ReadFile(layout)
@@ -246,21 +261,50 @@ func addAccountMenu(layout string) (bool, error) {
 	if bytes.Contains(src, []byte(accountMenu)) {
 		return true, nil
 	}
-	header := bytes.Index(src, []byte("<header"))
-	end := bytes.Index(src, []byte("</header>"))
-	if header < 0 || end < header {
+	_, at, indent, ok := navEnd(src)
+	if !ok {
 		return false, nil
 	}
-	m := navClose.FindSubmatchIndex(src[header:end])
-	if m == nil {
-		return false, nil
-	}
-	at := header + m[1] // after the line's newline
-	indent := src[header+m[2] : header+m[3]]
-	line := append(append(append([]byte(nil), indent...), accountMenu...), '\n')
+	line := append(append(append([]byte(nil), indent...), accountMenu...), newline(src)...)
 	patched := append(append(append([]byte(nil), src[:at]...), line...), src[at:]...)
 	return true, os.WriteFile(layout, patched, 0o644)
 }
+
+// newline is a file's line ending: \r\n when it has one, else \n.
+func newline(src []byte) []byte {
+	if bytes.Contains(src, []byte("\r\n")) {
+		return []byte("\r\n")
+	}
+	return []byte("\n")
+}
+
+// navEnd finds the line ending the header's nav in a layout: the }
+// closing @ui.Nav(…) { (anetos new since v0.5), or else a </nav> inside
+// <header> (before). It returns the line's start and end (after its
+// newline) and its indentation.
+func navEnd(src []byte) (start, end int, indent []byte, ok bool) {
+	if m := uiNavOpen.FindSubmatchIndex(src); m != nil {
+		indent = src[m[2]:m[3]]
+		closing := regexp.MustCompile(`(?m)^` + regexp.QuoteMeta(string(indent)) + `\}[ \t]*\r?\n`)
+		if c := closing.FindIndex(src[m[1]:]); c != nil {
+			return m[1] + c[0], m[1] + c[1], indent, true
+		}
+		return 0, 0, nil, false
+	}
+	header := bytes.Index(src, []byte("<header"))
+	last := bytes.Index(src, []byte("</header>"))
+	if header < 0 || last < header {
+		return 0, 0, nil, false
+	}
+	m := navClose.FindSubmatchIndex(src[header:last])
+	if m == nil {
+		return 0, 0, nil, false
+	}
+	return header + m[0], header + m[1], src[header+m[2] : header+m[3]], true
+}
+
+// uiNavOpen is the line opening the header's @ui.Nav(…) block.
+var uiNavOpen = regexp.MustCompile(`(?m)^([ \t]*)@ui\.Nav\(.*\{[ \t]*\r?\n`)
 
 // navClose is a line closing a <nav>.
 var navClose = regexp.MustCompile(`(?m)^([ \t]*)</nav>[ \t]*\r?\n`)
@@ -337,7 +381,7 @@ var authNames = map[string][]string{
 	"app/models":         {"User", "Users", "UserCols"},
 	"app/handlers":       {"Accounts", "RegisterInput", "LoginInput", "ForgotInput", "ResetInput", "TokenQuery", "NewTokenInput", "TokenID", "CodeInput", "PasswordInput", "ProfileInput", "EmailInput", "NewPasswordInput", "PreferencesInput", "RevertInput", "sendEmailChange", "SocialUser", "SendVerification", "SendPasswordReset", "emailTaken", "cleanName"},
 	"app/mailers":        {"VerifyEmail", "ResetPassword", "ChangeEmail", "EmailChanging"},
-	"views":              {"AccountMenu", "SocialButton", "Register", "Login", "ForgotPassword", "ResetPassword", "Dashboard", "TwoFactorChallenge", "ConfirmPassword", "TwoFactorPage", "TwoFactor", "Choice", "SettingsPage", "Settings", "RevertEmail", "ChangeEmailMail", "EmailChangingMail", "socialButtons", "authError", "VerifyEmailMail", "ResetPasswordMail", "authMail"},
+	"views":              {"AccountMenu", "SocialButton", "Register", "Login", "ForgotPassword", "ResetPassword", "Dashboard", "TwoFactorChallenge", "ConfirmPassword", "TwoFactorPage", "TwoFactor", "Choice", "SettingsPage", "Settings", "RevertEmail", "ChangeEmailMail", "EmailChangingMail", "socialButtons", "localeOptions", "zoneOptions", "VerifyEmailMail", "ResetPasswordMail", "authMail"},
 	"routes":             {"Auth"},
 	"database/factories": {"Users", "UserPassword", "userHash"},
 	"":                   {"setupAuth", "authRegister", "authLink", "TestRegisterAndVerify", "TestResendVerification", "TestRegisterValidation", "TestLoginAndLogout", "TestTwoFactor", "TestSettings", "TestChangeEmail", "TestRevertEmailChange", "TestDisabledAccount", "TestLoginReturnsToTheRequestedPage", "TestPasswordReset", "TestResetSignsOutAndRevokesTokens", "TestAPIToken", "TestSocialSignIn", "TestSocialSignInFindsVerifiedAccounts"},

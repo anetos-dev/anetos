@@ -8,6 +8,7 @@ import (
 	"anetos.dev/anetos/web"
 
 	"anetos.dev/anetos/examples/tracker/app/models"
+	"anetos.dev/anetos/examples/tracker/views/ui"
 )
 
 // IssueFormPage opens an issue, or edits one when f.Issue.ID is set.
@@ -16,61 +17,49 @@ templ IssueFormPage(f IssueForm) {
 		<p><a href={ web.URL(ctx, "projects.show", f.Project.Key) }>← { f.Project.Name }</a></p>
 		<h1>{ issueFormTitle(ctx, f) }</h1>
 		if f.Issue.ID == 0 {
-			<form method="post" action={ web.URL(ctx, "issues.store", f.Project.Key) }>
+			@ui.Form(web.MustURL(ctx, "issues.store", f.Project.Key), "POST", nil) {
 				@issueFields(f)
-			</form>
+			}
 		} else {
-			<form method="post" action={ web.URL(ctx, "issues.update", f.Project.Key, f.Issue.Number) }>
-				@view.MethodField("PUT")
+			@ui.Form(web.MustURL(ctx, "issues.update", f.Project.Key, f.Issue.Number), "PUT", nil) {
 				@issueFields(f)
-			</form>
+			}
 		}
 	}
 }
 
 // issueFields are the fields of the issue form.
 templ issueFields(f IssueForm) {
-	@view.CSRFField(ctx)
-	<label for="title">{ i18n.T(ctx, "issues.fields.title") }</label>
-	<input id="title" name="title" required maxlength="200" value={ view.Old(ctx, "title", f.Issue.Title) }/>
-	@fieldError("title")
-	<label for="body">{ i18n.T(ctx, "issues.fields.body") }</label>
-	<textarea id="body" name="body" rows="8">{ view.Old(ctx, "body", f.Issue.Body) }</textarea>
-	@fieldError("body")
-	<div class="row">
-		<div>
-			<label for="priority">{ i18n.T(ctx, "issues.fields.priority") }</label>
-			<select id="priority" name="priority">
-				for _, p := range models.Priorities {
-					<option value={ p } selected?={ p == view.Old(ctx, "priority", f.Issue.Priority) }>{ i18n.T(ctx, "issues.priorities." + p) }</option>
-				}
-			</select>
-			@fieldError("priority")
-		</div>
-		<div>
-			<label for="assignee">{ i18n.T(ctx, "issues.fields.assignee") }</label>
-			<select id="assignee" name="assignee_id">
-				<option value="">{ i18n.T(ctx, "issues.nobody") }</option>
-				for _, u := range f.Assignees {
-					<option value={ idString(u.ID) } selected?={ idString(u.ID) == view.Old(ctx, "assignee_id", assigneeValue(f.Issue.AssigneeID)) }>{ u.Name }</option>
-				}
-			</select>
-			@fieldError("assignee_id")
-		</div>
-	</div>
+	@ui.Field("title", i18n.T(ctx, "issues.fields.title"), "") {
+		@ui.Input("title", "", view.Old(ctx, "title", f.Issue.Title), templ.Attributes{"required": true, "maxlength": "200"})
+	}
+	@ui.Field("body", i18n.T(ctx, "issues.fields.body"), "") {
+		@ui.Textarea("body", view.Old(ctx, "body", f.Issue.Body), templ.Attributes{"rows": "8"})
+	}
+	@ui.Row() {
+		@ui.Field("priority", i18n.T(ctx, "issues.fields.priority"), "") {
+			@ui.Select("priority", priorityOptions(ctx), view.Old(ctx, "priority", f.Issue.Priority), nil)
+		}
+		@ui.Field("assignee_id", i18n.T(ctx, "issues.fields.assignee"), "") {
+			@ui.Select("assignee_id", assigneeOptions(ctx, f.Assignees), view.Old(ctx, "assignee_id", assigneeValue(f.Issue.AssigneeID)), nil)
+		}
+	}
 	if len(f.Labels) > 0 {
 		<fieldset>
 			<legend>{ i18n.T(ctx, "issues.fields.labels") }</legend>
 			for _, l := range f.Labels {
-				<label class="check">
-					<input type="checkbox" name="labels" value={ idString(l.ID) } checked?={ hasLabel(f.Issue, l.ID) }/>
-					@labelChip(l)
-				</label>
+				@ui.CheckOption("labels", idString(l.ID), hasLabel(f.Issue, l.ID)) {
+					@ui.Label(l.Name, l.Color)
+				}
 			}
 		</fieldset>
-		@fieldError("labels")
+		@ui.FieldError("labels")
 	}
-	<p><button type="submit">{ i18n.T(ctx, "issues.save") }</button></p>
+	@ui.Actions() {
+		@ui.Button(ui.Primary, nil) {
+			{ i18n.T(ctx, "issues.save") }
+		}
+	}
 }
 
 // IssuePageView is an issue's page.
@@ -78,107 +67,112 @@ templ IssuePageView(p IssuePage) {
 	@Layout(p.Issue.Ref(p.Project.Key) + " " + p.Issue.Title) {
 		<p><a href={ web.URL(ctx, "projects.show", p.Project.Key) }>← { p.Project.Name }</a></p>
 		@IssueHeader(p.Project, p.Issue, p.CanEdit)
-		<dl class="meta">
-			<dt>{ i18n.T(ctx, "issues.opened_by") }</dt>
-			<dd>{ p.Issue.Author.Name }, <time datetime={ p.Issue.CreatedAt.UTC().Format("2006-01-02T15:04:05Z") }>{ i18n.DateTime(ctx, p.Issue.CreatedAt, i18n.Short) }</time></dd>
-			<dt>{ i18n.T(ctx, "issues.fields.priority") }</dt>
-			<dd><span class={ "priority", p.Issue.Priority }>{ i18n.T(ctx, "issues.priorities." + p.Issue.Priority) }</span></dd>
-			<dt>{ i18n.T(ctx, "issues.fields.assignee") }</dt>
-			<dd>
+		@ui.Details() {
+			@ui.Detail(i18n.T(ctx, "issues.opened_by")) {
+				{ p.Issue.Author.Name }, <time datetime={ p.Issue.CreatedAt.UTC().Format("2006-01-02T15:04:05Z") }>{ i18n.DateTime(ctx, p.Issue.CreatedAt, i18n.Short) }</time>
+			}
+			@ui.Detail(i18n.T(ctx, "issues.fields.priority")) {
+				@ui.Priority(p.Issue.Priority, i18n.T(ctx, "issues.priorities."+p.Issue.Priority))
+			}
+			@ui.Detail(i18n.T(ctx, "issues.fields.assignee")) {
 				if p.Issue.Assignee != nil {
 					{ p.Issue.Assignee.Name }
 				} else {
 					{ i18n.T(ctx, "issues.nobody") }
 				}
-			</dd>
-			if len(p.Issue.Labels) > 0 {
-				<dt>{ i18n.T(ctx, "issues.fields.labels") }</dt>
-				<dd>
-					for _, l := range p.Issue.Labels {
-						@labelChip(l)
-					}
-				</dd>
 			}
-		</dl>
+			if len(p.Issue.Labels) > 0 {
+				@ui.Detail(i18n.T(ctx, "issues.fields.labels")) {
+					for _, l := range p.Issue.Labels {
+						@ui.Label(l.Name, l.Color)
+					}
+				}
+			}
+		}
 		if p.CanEdit || p.CanDelete {
-			<div class="actions">
+			@ui.Toolbar() {
 				if p.CanEdit {
 					<a href={ web.URL(ctx, "issues.edit", p.Project.Key, p.Issue.Number) }>{ i18n.T(ctx, "issues.edit") }</a>
 				}
 				if p.CanDelete {
 					// To the trash: administrators can restore it in the admin.
-					<form class="inline" method="post" action={ web.URL(ctx, "issues.destroy", p.Project.Key, p.Issue.Number) }>
-						@view.CSRFField(ctx)
-						@view.MethodField("DELETE")
-						<button class="link danger" type="submit">{ i18n.T(ctx, "issues.delete") }</button>
-					</form>
+					@ui.PostLink(web.MustURL(ctx, "issues.destroy", p.Project.Key, p.Issue.Number), "DELETE", true) {
+						{ i18n.T(ctx, "issues.delete") }
+					}
 				}
-			</div>
+			}
 		}
 		if p.Issue.Body != "" {
-			<div class="body">{ p.Issue.Body }</div>
+			@ui.Body(p.Issue.Body)
 		}
 
 		<h2>{ i18n.T(ctx, "attachments.title") }</h2>
 		if len(p.Attachments) == 0 {
-			<p class="muted">{ i18n.T(ctx, "attachments.none") }</p>
+			@ui.Note() {
+				{ i18n.T(ctx, "attachments.none") }
+			}
 		}
-		<ul class="list">
+		@ui.List() {
 			for _, a := range p.Attachments {
 				<li>
 					<a href={ web.URL(ctx, "attachments.show", p.Project.Key, a.ID) }>{ a.Name }</a>
-					<span class="muted">{ size(a.Size) } · { a.Uploader.Name }</span>
+					@ui.Muted() {
+						{ size(a.Size) } · { a.Uploader.Name }
+					}
 					if p.CanEdit {
-						<form class="inline" method="post" action={ web.URL(ctx, "attachments.destroy", p.Project.Key, a.ID) }>
-							@view.CSRFField(ctx)
-							@view.MethodField("DELETE")
-							<button class="link" type="submit">{ i18n.T(ctx, "attachments.delete") }</button>
-						</form>
+						@ui.PostLink(web.MustURL(ctx, "attachments.destroy", p.Project.Key, a.ID), "DELETE", false) {
+							{ i18n.T(ctx, "attachments.delete") }
+						}
 					}
 				</li>
 			}
-		</ul>
+		}
 		if p.CanAttach {
-			<form method="post" enctype="multipart/form-data" action={ web.URL(ctx, "attachments.store", p.Project.Key, p.Issue.Number) }>
-				@view.CSRFField(ctx)
-				<div class="row">
+			@ui.Form(web.MustURL(ctx, "attachments.store", p.Project.Key, p.Issue.Number), "POST", templ.Attributes{"enctype": "multipart/form-data"}) {
+				@ui.Row() {
 					<input type="file" name="file" required aria-label={ i18n.T(ctx, "attachments.file") }/>
-					<button type="submit">{ i18n.T(ctx, "attachments.upload") }</button>
-				</div>
-				@fieldError("file")
-			</form>
+					@ui.Button(ui.Primary, nil) {
+						{ i18n.T(ctx, "attachments.upload") }
+					}
+				}
+				@ui.FieldError("file")
+			}
 		}
 
 		<h2>{ i18n.T(ctx, "comments.title") }</h2>
-		<ul id="comments" class="comments">
+		@ui.Comments("comments") {
 			for _, c := range p.Comments {
 				@CommentItem(c)
 			}
-		</ul>
+		}
 		if p.CanComment {
 			// With htmx, the new comment is added to the list without a page
 			// load; without, the form posts and the page reloads.
-			<form method="post" action={ web.URL(ctx, "comments.store", p.Project.Key, p.Issue.Number) }
-				hx-post={ web.URL(ctx, "comments.store", p.Project.Key, p.Issue.Number) } hx-target="#comments" hx-swap="beforeend"
-				hx-on::after-request="if (event.detail.successful) this.reset()">
-				@view.CSRFField(ctx)
-				<label for="comment">{ i18n.T(ctx, "comments.add") }</label>
-				<textarea id="comment" name="body" rows="4" required maxlength="10000">{ view.Old(ctx, "body") }</textarea>
-				@fieldError("body")
-				<p><button type="submit">{ i18n.T(ctx, "comments.submit") }</button></p>
-			</form>
+			@ui.Form(web.MustURL(ctx, "comments.store", p.Project.Key, p.Issue.Number), "POST", templ.Attributes{
+				"hx-post":              web.MustURL(ctx, "comments.store", p.Project.Key, p.Issue.Number),
+				"hx-target":            "#comments",
+				"hx-swap":              "beforeend",
+				"hx-on::after-request": "if (event.detail.successful) this.reset()",
+			}) {
+				@ui.Field("body", i18n.T(ctx, "comments.add"), "") {
+					@ui.Textarea("body", view.Old(ctx, "body"), templ.Attributes{"rows": "4", "required": true, "maxlength": "10000"})
+				}
+				@ui.Button(ui.Primary, nil) {
+					{ i18n.T(ctx, "comments.submit") }
+				}
+			}
 		}
 
 		if len(p.Activity) > 0 {
 			<h2>{ i18n.T(ctx, "activity.title") }</h2>
-			<ul class="activity">
+			@ui.Activity() {
 				for _, a := range p.Activity {
 					<li>
 						<time datetime={ a.At.UTC().Format("2006-01-02T15:04:05Z") }>{ i18n.DateTime(ctx, a.At, i18n.Short) }</time>
 						{ activityText(ctx, a) }
 					</li>
 				}
-			</ul>
+			}
 		}
 	}
 }
@@ -186,48 +180,58 @@ templ IssuePageView(p IssuePage) {
 // IssueHeader is the issue's title, number and state, with the button
 // that closes or reopens it: htmx swaps the header the post returns.
 templ IssueHeader(project models.Project, issue models.Issue, canEdit bool) {
-	<div id="issue-header" class="title">
-		<h1>{ issue.Title } <span class="key">{ issue.Ref(project.Key) }</span></h1>
-		<span class={ "status", issue.Status }>{ i18n.T(ctx, "issues.statuses." + issue.Status) }</span>
+	@ui.TitleBar("issue-header") {
+		<h1>
+			{ issue.Title }{ " " }
+			@ui.Key(issue.Ref(project.Key))
+		</h1>
+		@ui.Status(!issue.IsOpen(), i18n.T(ctx, "issues.statuses."+issue.Status))
 		if canEdit {
-			<form class="inline" method="post" action={ web.URL(ctx, "issues.status", project.Key, issue.Number) }
-				hx-post={ web.URL(ctx, "issues.status", project.Key, issue.Number) } hx-target="#issue-header" hx-swap="outerHTML">
-				@view.CSRFField(ctx)
+			@ui.InlineForm(web.MustURL(ctx, "issues.status", project.Key, issue.Number), "POST", templ.Attributes{
+				"hx-post":   web.MustURL(ctx, "issues.status", project.Key, issue.Number),
+				"hx-target": "#issue-header",
+				"hx-swap":   "outerHTML",
+			}) {
 				if issue.IsOpen() {
 					<input type="hidden" name="status" value="closed"/>
-					<button type="submit">{ i18n.T(ctx, "issues.close") }</button>
+					@ui.Button(ui.Primary, nil) {
+						{ i18n.T(ctx, "issues.close") }
+					}
 				} else {
 					<input type="hidden" name="status" value="open"/>
-					<button type="submit">{ i18n.T(ctx, "issues.reopen") }</button>
+					@ui.Button(ui.Primary, nil) {
+						{ i18n.T(ctx, "issues.reopen") }
+					}
 				}
-			</form>
+			}
 		}
-	</div>
+	}
 }
 
 // CommentItem is a comment, in the list or as htmx adds it.
 templ CommentItem(c models.Comment) {
-	<li class="comment" id={ "comment-" + idString(c.ID) }>
-		<p class="meta"><strong>{ c.Author.Name }</strong> <time datetime={ c.CreatedAt.UTC().Format("2006-01-02T15:04:05Z") }>{ i18n.Ago(ctx, c.CreatedAt) }</time></p>
-		<div class="body">{ c.Body }</div>
-	</li>
+	@ui.Comment("comment-"+idString(c.ID), c.Author.Name, c.Body) {
+		<time datetime={ c.CreatedAt.UTC().Format("2006-01-02T15:04:05Z") }>{ i18n.Ago(ctx, c.CreatedAt) }</time>
+	}
 }
 
 // AssignedList is the user's open issues, on the dashboard.
 templ AssignedList(issues []AssignedIssue) {
 	<h2>{ i18n.T(ctx, "dashboard.assigned") }</h2>
 	if len(issues) == 0 {
-		<p class="muted">{ i18n.T(ctx, "dashboard.none") }</p>
+		@ui.Note() {
+			{ i18n.T(ctx, "dashboard.none") }
+		}
 	}
-	<ul class="list">
+	@ui.List() {
 		for _, a := range issues {
 			<li>
 				<a href={ issueURL(ctx, a.ProjectKey, a.Issue.Number) }>{ a.Issue.Title }</a>
-				<span class="key">{ a.Issue.Ref(a.ProjectKey) }</span>
+				@ui.Key(a.Issue.Ref(a.ProjectKey))
 				if a.Issue.Priority != "normal" {
-					<span class={ "priority", a.Issue.Priority }>{ i18n.T(ctx, "issues.priorities." + a.Issue.Priority) }</span>
+					@ui.Priority(a.Issue.Priority, i18n.T(ctx, "issues.priorities."+a.Issue.Priority))
 				}
 			</li>
 		}
-	</ul>
+	}
 }

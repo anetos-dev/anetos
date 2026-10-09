@@ -10,6 +10,7 @@ nav:
   projects: "Projects"
   search: "Search issues"
 pages:
+  label: "Pages"
   prev: "Previous"
   next: "Next"
   of: "Page {page} of {last}"

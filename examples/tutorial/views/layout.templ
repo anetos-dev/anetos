@@ -8,11 +8,12 @@ import (
 	"anetos.dev/anetos/web"
 
 	"tracker/public"
+	"tracker/views/ui"
 )
 
 // Layout is the page shell: the header with the app's links, the flash
 // message, then the page, which passes its content as children. Its
-// styles are public/static/app.css.
+// markup is views/ui's components, styled by public/static/app.css.
 templ Layout(title string) {
 	<!DOCTYPE html>
 	<html lang={ i18n.Locale(ctx) } dir={ i18n.Dir(ctx) }>
@@ -24,36 +25,35 @@ templ Layout(title string) {
 				<link rel="alternate" hreflang={ a.Locale } href={ a.URL }/>
 			}
 			<link rel="icon" href={ public.Assets.URL("favicon.svg") } type="image/svg+xml"/>
-			<link rel="stylesheet" href={ public.Assets.URL("app.css") }/>
+			@ui.Head()
 			<script src={ public.Assets.URL("htmx.min.js") } defer></script>
 		</head>
 		<body hx-headers={ `{"X-CSRF-Token": "` + view.CSRFToken(ctx) + `"}` }>
-			<header class="topbar">
-				<div class="container">
-					<a class="brand" href={ web.URL(ctx, "home") }>Tracker</a>
-					<nav class="nav" aria-label={ i18n.T(ctx, "nav.label") }>
-						@navLink("home", i18n.T(ctx, "nav.home"))
-						// region: nav-issues
-						@navLink("issues.index", "Issues")
-						// endregion
-					</nav>
-					// region: nav-search
-					<form method="get" action={ web.URL(ctx, "search") } role="search">
-						<input type="search" name="q" placeholder="Search issues" aria-label="Search issues"/>
-					</form>
+			@ui.Header("Tracker", web.MustURL(ctx, "home")) {
+				@ui.Nav(i18n.T(ctx, "nav.label")) {
+					@navLink("home", i18n.T(ctx, "nav.home"))
+					// region: nav-issues
+					@navLink("issues.index", "Issues")
 					// endregion
-					@AccountMenu()
-				</div>
-			</header>
-			<main class="container">
+				}
+				// region: nav-search
+				<form method="get" action={ web.URL(ctx, "search") } role="search">
+					<input type="search" name="q" placeholder="Search issues" aria-label="Search issues"/>
+				</form>
+				// endregion
+				@AccountMenu()
+			}
+			@ui.Main() {
 				if msg := view.Flash(ctx, "status"); msg != "" {
-					<p class="flash" role="status">{ msg }</p>
+					@ui.Flash(ui.Success) {
+						{ msg }
+					}
 				}
 				{ children... }
-			</main>
-			<footer class="site-footer">
-				<div class="container"><p>Tracker</p></div>
-			</footer>
+			}
+			@ui.Footer() {
+				<p>Tracker</p>
+			}
 		</body>
 	</html>
 }
@@ -62,5 +62,5 @@ templ Layout(title string) {
 // request is for a route of its group: for posts.index, the routes named
 // posts.something (posts.show, posts.edit…).
 templ navLink(route, label string) {
-	<a href={ web.URL(ctx, route) } if web.RouteIs(ctx, route, strings.TrimSuffix(route, ".index")+".*") { aria-current="page" }>{ label }</a>
+	@ui.NavLink(web.MustURL(ctx, route), label, web.RouteIs(ctx, route, strings.TrimSuffix(route, ".index")+".*"))
 }

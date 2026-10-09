@@ -1,23 +1,21 @@
 package views
 
-import "anetos.dev/anetos/i18n"
+import (
+	"anetos.dev/anetos/i18n"
+
+	"[[.Module]]/views/ui"
+)
 
 // Home is the home page. Its text is in locales/en/app.yaml.
 templ Home() {
 	@Layout(i18n.T(ctx, "home.title")) {
-		<div class="page-header">
-			<div>
-				<h1>{ i18n.T(ctx, "home.welcome", "app", "[[.Title]]") }</h1>
-				<p class="muted">{ i18n.T(ctx, "home.edit") }</p>
-			</div>
-		</div>
-		<div class="card">
-			<h2>{ i18n.T(ctx, "home.next") }</h2>
+		@ui.PageHeader(i18n.T(ctx, "home.welcome", "app", "[[.Title]]"), i18n.T(ctx, "home.edit"))
+		@ui.Card(i18n.T(ctx, "home.next")) {
 			<ul>
 				<li><code>go tool anetos make:crud Post title:string body:text</code> { i18n.T(ctx, "home.crud") }</li>
 				<li><code>go tool anetos make:auth</code> { i18n.T(ctx, "home.auth") }</li>
 				<li><code>go run . migrate</code> { i18n.T(ctx, "home.migrate") }</li>
 			</ul>
-		</div>
+		}
 	}
 }

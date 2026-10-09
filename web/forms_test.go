@@ -277,6 +277,16 @@ func TestRenderAndHTMX(t *testing.T) {
 			return nil
 		})), nil
 	}))
+	r.Get("/must", func(c *Ctx) error {
+		name := c.Query("route")
+		if name == "" {
+			name = "fail"
+		}
+		return c.Render(http.StatusOK, view.ComponentFunc(func(ctx context.Context, w io.Writer) error {
+			_, _ = fmt.Fprintf(w, "<p>%s</p>", MustURL(ctx, name))
+			return nil
+		}))
+	})
 	r.Get("/fail", func(c *Ctx) error {
 		return c.Render(http.StatusOK, view.ComponentFunc(func(_ context.Context, w io.Writer) error {
 			_, _ = io.WriteString(w, "<p>half")
@@ -289,6 +299,12 @@ func TestRenderAndHTMX(t *testing.T) {
 	})
 	if res := do(t, r, http.MethodGet, "/ok", nil); res.status != 200 || res.body != "<p>/fail <nil></p>" {
 		t.Errorf("render: %d %q", res.status, res.body)
+	}
+	if res := do(t, r, http.MethodGet, "/must", nil); res.status != 200 || res.body != "<p>/fail</p>" {
+		t.Errorf("MustURL: %d %q", res.status, res.body)
+	}
+	if res := do(t, r, http.MethodGet, "/must?route=nope", nil); res.status != 500 {
+		t.Errorf("MustURL of a route that doesn't exist: %d %q", res.status, res.body)
 	}
 	if res := do(t, r, http.MethodGet, "/fail", nil); res.status != 500 || strings.Contains(res.body, "half") {
 		t.Errorf("failed render: %d %q", res.status, res.body)
@@ -468,6 +484,11 @@ func TestPageURL(t *testing.T) {
 	r.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/posts", nil))
 	if len(got) != 2 || got[0] != "?page=3" {
 		t.Errorf("PageURL without a query = %q", got)
+	}
+	got = nil
+	r.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/posts?q=a:b&page=2", nil))
+	if len(got) != 2 || got[0] != "?q=a%3Ab&page=3" {
+		t.Errorf("PageURL of a query with a colon = %q", got)
 	}
 	if u := PageURL(context.Background(), 2); u != "?page=2" {
 		t.Errorf("outside a request: %q", u)

@@ -531,6 +531,7 @@ installed from the module proxy.
 | WP | Status |
 |---|---|
 | CI1 CI in parts | ✅ Done 2026-10-09 (design D291): `test-part` jobs (core with the repository-wide checks and budgets; cli; the other modules with the examples on PostgreSQL and MySQL) for each Go release; `test (…)` jobs under the required names pass when every part does |
+| K1 UI components | ✅ Done 2026-10-09 (design §12.2, D292–D297; D244 accepted): `views/ui` in every web project, about 35 templ components (shell, page structure, forms, buttons, data; typed looks and tones; CSRF, method override and field errors built in), written by `anetos new` from a kit (`templates/kits/common` + `<kit>`: `anetos`, the starter theme, and `none`, plain HTML without classes, which `--css=none` now is); the layout, home and error pages and `make:crud`'s and `make:auth`'s pages call them and carry no classes (a test enforces it); older projects get the kit's `views/ui` from the first generator that needs it; `web.MustURL`; the tutorial (example and pages) and the tracker (with its own components) moved to it. Screenshots of a project made with `new`, `make:crud` and `make:auth` match v0.4.0's pixel for pixel in light and dark, except the error page's detail (now muted) and timestamps; the tracker's differ where its components now use the kit's spacing, and where two of its bugs are fixed |
 
 ---
 
@@ -692,3 +693,4 @@ something, and we fix the API rather than add the hook.
 | 2026-10-08 | AP5 (API docs and example) done (design D281–D284) |
 | 2026-10-08 | v0.4 exit criteria checked (a docs-only walkthrough and an audit; gaps fixed, D285–D290); v0.4.0 tagged; next v0.5 |
 | 2026-10-09 | v0.5 started: the order agreed; CI1 (CI in parts, D291) done |
+| 2026-10-09 | K1 (UI components) done (design D292–D297) |

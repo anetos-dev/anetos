@@ -19,20 +19,21 @@ const newUsage = `Usage: anetos new <directory> [--module=path] [--db=sqlite|pos
 
 Creates an Anetos project: routes, handlers, migrations, a test, the
 files to deploy it, and a .env with a fresh APP_KEY. The web stack (the
-default) has templ views with a layout styled by Anetos's starter theme
-(--css=none: no styles), sessions and CSRF protection, and static files
-with htmx. The api stack (--stack=api) serves JSON only: routes under
-/api/v1, errors as JSON problem details, CORS settings, an OpenAPI
-description (openapi.json); no views or sessions. Then it downloads the
-dependencies and generates the views (web) or openapi.json (api); skip
-with --skip-install.
+default) has templ views made of the components in views/ui, styled by
+Anetos's starter theme (--css=none: components writing plain HTML
+without classes, and no styles), sessions and CSRF protection, and
+static files with htmx. The api stack (--stack=api) serves JSON only:
+routes under /api/v1, errors as JSON problem details, CORS settings,
+an OpenAPI description (openapi.json); no views or sessions. Then it
+downloads the dependencies and generates the views (web) or
+openapi.json (api); skip with --skip-install.
 `
 
 func newProject(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("anetos new", flag.ContinueOnError)
 	module := fs.String("module", "", "Go module path (default: the directory's name)")
 	dbName := fs.String("db", "sqlite", "database: sqlite, postgres or mysql")
-	css := fs.String("css", "", "web stack's stylesheet: anetos (a starter theme, no build step; the default) or none")
+	css := fs.String("css", "", "web stack's design kit (views/ui and its stylesheet): anetos (the starter theme, no build step; the default) or none (plain HTML, no styles)")
 	stack := fs.String("stack", "web", "kind of app: web (pages, sessions) or api (JSON only)")
 	replace := fs.String("replace", "", "use a local Anetos checkout at this path (for framework development)")
 	skip := fs.Bool("skip-install", false, "don't download dependencies or generate code")

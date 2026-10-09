@@ -190,7 +190,7 @@ func TestComments(t *testing.T) {
 	member.WithHeader("HX-Request", "true")
 	member.PostForm(w.path("issues/1/comments"), form("body", "Fixed in <b>main</b>.")).
 		AssertOK().
-		AssertSee(`<li class="comment"`, "Max", "Fixed in &lt;b&gt;main&lt;/b&gt;.").
+		AssertSee(`id="comment-`, "Max", "Fixed in &lt;b&gt;main&lt;/b&gt;.").
 		AssertDontSee("<html")
 	member.WithHeader("HX-Request", "")
 	sent = anetostest.Mailables[mailers.Commented](w.app)

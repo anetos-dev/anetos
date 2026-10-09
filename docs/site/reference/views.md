@@ -10,7 +10,8 @@ weight: 201
 The APIs of packages `view`, `session` and `encryption`, and the HTML
 helpers of package `web`. See [Render HTML with templ](../guides/views.md),
 [Sessions and flash messages](../guides/sessions.md) and
-[Handle HTML forms](../guides/forms.md) for walkthroughs.
+[Handle HTML forms](../guides/forms.md) for walkthroughs. The components
+of a project's `views/ui` are in the [UI components reference](ui.md).
 
 ## Rendering (`web`)
 
@@ -19,6 +20,7 @@ helpers of package `web`. See [Render HTML with templ](../guides/views.md),
 | `c.Render(status, component)` | Renders a component (templ or `view.Component`) into a buffer and writes it as `text/html; charset=utf-8`; a render error becomes an error response |
 | `web.View(component)` | Responder rendering the component with 200 |
 | `web.URL(ctx, name, args...)` | `(string, error)`: path of a named route, from any request context (use in components); a trailing `url.Values` argument becomes the query string |
+| `web.MustURL(ctx, name, args...)` | The path of `web.URL` alone, for a component's string argument (`@ui.LinkButton(web.MustURL(ctx, "posts.edit", post.ID), ui.Secondary)`); panics on an unknown route name or arguments the route doesn't take, which the router answers with a 500 (v0.5) |
 | `web.RouteIs(ctx, names...)` | Whether the request's route has one of the names; `"issues.*"` matches the names starting with `issues.`. False outside a request or for an unnamed route (v0.3). The layout of `anetos new` marks the current page's link with it |
 | `web.PageURL(ctx, page)` | A relative link (`?…&page=N`) to page N of the current list, keeping the request's other query parameters as written; `?page=N` outside a request |
 | `c.IsHTMX()` | Whether `HX-Request: true`; adds `Vary: HX-Request` |

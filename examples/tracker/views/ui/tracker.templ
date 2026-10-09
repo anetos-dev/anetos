@@ -1,0 +1,182 @@
+// SPDX-License-Identifier: Apache-2.0
+
+package ui
+
+// The tracker's own components: its issues' statuses, priorities and
+// labels, its lists, tabs and filters, an issue's text, comments and
+// history. Their styles are the second part of public/static/app.css.
+
+// TitleBar is a page's title (an <h1>, its first child) with what goes
+// beside it: a status, buttons, links. id is the bar's, for htmx to
+// swap it ("" for none).
+templ TitleBar(id string) {
+	<div
+		if id != "" {
+			id={ id }
+		}
+		class="title"
+	>
+		{ children... }
+	</div>
+}
+
+// Key is a project's key or an issue's reference (WEB-12), in the
+// margin of a title or a row.
+templ Key(text string) {
+	<span class="key">{ text }</span>
+}
+
+// Status is an issue's status, label, as a chip: green while it's open,
+// grey once closed.
+templ Status(closed bool, label string) {
+	if closed {
+		<span class="status closed">{ label }</span>
+	} else {
+		<span class="status">{ label }</span>
+	}
+}
+
+// Priority is an issue's priority, label, in the color of its level:
+// low, normal, high or urgent.
+templ Priority(level, label string) {
+	<span class={ priorityClass(level) }>{ label }</span>
+}
+
+// Label is an issue's label, name, as a chip of its color (#rrggbb).
+templ Label(name, color string) {
+	<span class="label" style={ labelStyle(color) }>{ name }</span>
+}
+
+// Muted is secondary text in a line: an address beside a name, counts.
+templ Muted() {
+	<span class="muted">
+		{ children... }
+	</span>
+}
+
+// Meta is a row's details, smaller, at the end of an IssueList's rows:
+// the priority, the assignee, the date.
+templ Meta() {
+	<span class="meta">
+		{ children... }
+	</span>
+}
+
+// Notice is a lasting message about the page, in the warning color: the
+// project is archived.
+templ Notice() {
+	<p class="notice">
+		{ children... }
+	</p>
+}
+
+// Tabs is a row of Tab links, each showing the same list another way.
+templ Tabs() {
+	<nav class="tabs">
+		{ children... }
+	</nav>
+}
+
+// Tab is a link of Tabs, marked when it's the one shown.
+templ Tab(href, label string, current bool) {
+	<a href={ href } if current { aria-current="true" }>{ label }</a>
+}
+
+// Filters is a list's search and filter fields in a line, sent with GET
+// to action: its children are the fields and their button.
+templ Filters(action string) {
+	<form class="filters" method="get" action={ action }>
+		{ children... }
+	</form>
+}
+
+// List is a list of rows (<li>s, their children in a line) in a box:
+// projects, files, labels.
+templ List() {
+	<ul class="list">
+		{ children... }
+	</ul>
+}
+
+// IssueList is a List of issues, whose rows end with their Meta.
+templ IssueList() {
+	<ul class="list issues">
+		{ children... }
+	</ul>
+}
+
+// Row puts a field's controls side by side, sharing the width: an input
+// and its button, two selects; buttons keep their width.
+templ Row() {
+	<div class="row">
+		{ children... }
+	</div>
+}
+
+// Toolbar is a line of links and PostLinks about the page's subject.
+templ Toolbar() {
+	<div class="toolbar">
+		{ children... }
+	</div>
+}
+
+// PostLink is a button that looks like a link, in a form of its own
+// that sends method (POST, PUT, PATCH or DELETE) to action: remove a
+// member, delete a file. danger colors it as an action that deletes.
+templ PostLink(action, method string, danger bool) {
+	@InlineForm(action, method, nil) {
+		<button
+			type="submit"
+			if danger {
+				class="link danger"
+			} else {
+				class="link"
+			}
+		>
+			{ children... }
+		</button>
+	}
+}
+
+// CheckOption is a checkbox among others of the same name, sending value
+// when checked; its label is its children (a Label, say).
+templ CheckOption(name, value string, checked bool) {
+	<label class="check">
+		<input type="checkbox" name={ name } value={ value } checked?={ checked }/>
+		{ children... }
+	</label>
+}
+
+// Hint is a help text under a control, with an id for the control's
+// aria-describedby.
+templ Hint(id, text string) {
+	<p id={ id } class="hint">{ text }</p>
+}
+
+// Body is an issue's text, with its line breaks, in a box.
+templ Body(text string) {
+	<div class="body">{ text }</div>
+}
+
+// Comments is the list of Comments, with an id for htmx to add to it.
+templ Comments(id string) {
+	<ul id={ id } class="comments">
+		{ children... }
+	</ul>
+}
+
+// Comment is a comment: its author, then its children (when it was
+// written: a <time>), then its text. id is its element's.
+templ Comment(id, author, body string) {
+	<li class="comment" id={ id }>
+		<p class="meta"><strong>{ author }</strong>{ " " }{ children... }</p>
+		<div class="body">{ body }</div>
+	</li>
+}
+
+// Activity is an issue's history, a line (<li>) per change.
+templ Activity() {
+	<ul class="activity">
+		{ children... }
+	</ul>
+}

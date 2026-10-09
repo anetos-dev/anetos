@@ -6,6 +6,8 @@ import (
 
 	"anetos.dev/anetos/i18n"
 	"anetos.dev/anetos/web"
+
+	"[[.Module]]/views/ui"
 )
 
 // ErrorPage is the page of an error, such as a 404, in the app's layout
@@ -15,26 +17,29 @@ import (
 // session: the header shows the links of a guest.
 templ ErrorPage(e web.ErrorPage) {
 	@Layout(e.Title) {
-		<div class="narrow stack">
-			<div class="page-header">
-				<div>
-					<h1>{ e.Title }</h1>
-					if e.Detail != "" {
-						<p>{ e.Detail }</p>
+		@ui.Narrow() {
+			@ui.Stack() {
+				@ui.PageHeader(e.Title, e.Detail)
+				if len(e.Errors) > 0 {
+					@ui.Card("") {
+						<ul>
+							for _, field := range slices.Sorted(maps.Keys(e.Errors)) {
+								<li><strong>{ field }</strong>: { e.Errors[field] }</li>
+							}
+						</ul>
 					}
-				</div>
-			</div>
-			if len(e.Errors) > 0 {
-				<ul class="card">
-					for _, field := range slices.Sorted(maps.Keys(e.Errors)) {
-						<li><strong>{ field }</strong>: { e.Errors[field] }</li>
+				}
+				<p>
+					@ui.LinkButton(web.MustURL(ctx, "home"), ui.Primary) {
+						{ i18n.T(ctx, "errors.home") }
 					}
-				</ul>
+				</p>
+				if e.RequestID != "" {
+					@ui.Note() {
+						<small>{ i18n.T(ctx, "http.request_id", "id", e.RequestID) }</small>
+					}
+				}
 			}
-			<p><a class="button" href={ web.URL(ctx, "home") }>{ i18n.T(ctx, "errors.home") }</a></p>
-			if e.RequestID != "" {
-				<p class="muted"><small>{ i18n.T(ctx, "http.request_id", "id", e.RequestID) }</small></p>
-			}
-		</div>
+		}
 	}
 }

@@ -88,7 +88,10 @@ And `views/search.templ`, in package `views`:
 import (
 	"fmt"
 
+	"anetos.dev/anetos/web"
+
 	"tracker/app/models"
+	"tracker/views/ui"
 )
 ```
 
@@ -99,27 +102,31 @@ import (
 templ SearchPage(q string, found []models.Issue) {
 	@Layout("Search") {
 		<h1>Search</h1>
-		<form method="get" role="search" class="cluster">
-			<input type="search" name="q" value={ q } aria-label="Search issues"/>
-			<button type="submit">Search</button>
-		</form>
+		@ui.Form(web.MustURL(ctx, "search"), "GET", templ.Attributes{"role": "search"}) {
+			@ui.Cluster() {
+				@ui.Input("q", "search", q, templ.Attributes{"aria-label": "Search issues"})
+				@ui.Button(ui.Primary, nil) {
+					Search
+				}
+			}
+		}
 		if q != "" && len(found) == 0 {
-			<p class="empty">No issues match “{ q }”.</p>
+			@ui.Empty("No issues match “" + q + "”.")
 		}
 		if len(found) > 0 {
-			<div class="table-wrap">
-				<table>
-					<tbody>
-						for _, issue := range found {
-							<tr>
-								<td><span class={ "badge", templ.KV("success", issue.Status == "open") }>{ issue.Status }</span></td>
-								<td><a href={ templ.URL(fmt.Sprintf("/issues/%d", issue.ID)) }>{ issue.Title }</a></td>
-								<td class="muted">#{ issue.ID } by { issue.Author.Name }</td>
-							</tr>
-						}
-					</tbody>
-				</table>
-			</div>
+			@ui.Table() {
+				<tbody>
+					for _, issue := range found {
+						<tr>
+							<td>
+								@statusBadge(issue.Status)
+							</td>
+							<td><a href={ templ.URL(fmt.Sprintf("/issues/%d", issue.ID)) }>{ issue.Title }</a></td>
+							<td><small>#{ issue.ID } by { issue.Author.Name }</small></td>
+						</tr>
+					}
+				</tbody>
+			}
 		}
 	}
 }
@@ -136,7 +143,7 @@ members.Get("/search", web.H(issues.Search)).Name("search")
 (Copied from [`examples/tutorial/routes/auth.go`](../../../../examples/tutorial/routes/auth.go), region `routes-search`.)
 
 Last, a search box on every page. In `views/layout.templ`, add it to
-the header, below the nav's closing `</nav>`:
+the header, below the `@ui.Nav` block (before `@AccountMenu()`):
 
 ```templ
 <form method="get" action={ web.URL(ctx, "search") } role="search">

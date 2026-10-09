@@ -1,12 +1,15 @@
 package views
 
 import (
+	"context"
+
 	"anetos.dev/anetos/auth"
 	"anetos.dev/anetos/i18n"
 	"anetos.dev/anetos/view"
 	"anetos.dev/anetos/web"
 
 	"tracker/app/models"
+	"tracker/views/ui"
 )
 
 // The account settings page (anetos make:auth): yours to change, and to
@@ -15,6 +18,26 @@ import (
 // Choice is an option of a select: its value and its name for people.
 type Choice struct {
 	Value, Title string
+}
+
+// localeOptions are the language select's options: the browser's
+// language, then the app's.
+func localeOptions(ctx context.Context, locales []Choice) []ui.Option {
+	options := []ui.Option{{Value: "", Label: i18n.T(ctx, "auth.settings.language_auto")}}
+	for _, l := range locales {
+		options = append(options, ui.Option{Value: l.Value, Label: l.Title})
+	}
+	return options
+}
+
+// zoneOptions are the time zone select's options: the app's, then each
+// zone.
+func zoneOptions(ctx context.Context, zones []string) []ui.Option {
+	options := []ui.Option{{Value: "", Label: i18n.T(ctx, "auth.settings.time_zone_app")}}
+	for _, z := range zones {
+		options = append(options, ui.Option{Value: z, Label: z})
+	}
+	return options
 }
 
 // SettingsPage is what the settings page shows.
@@ -31,132 +54,117 @@ type SettingsPage struct {
 // Settings is the account settings page.
 templ Settings(p SettingsPage) {
 	@Layout(i18n.T(ctx, "auth.settings.title")) {
-		<div class="narrow">
-			<div class="page-header">
-				<h1>{ i18n.T(ctx, "auth.settings.title") }</h1>
-				<a class="button secondary" href={ web.URL(ctx, "dashboard") }>{ i18n.T(ctx, "auth.dashboard.title") }</a>
-			</div>
-
-			<section class="card">
-				<h2>{ i18n.T(ctx, "auth.settings.profile") }</h2>
-				<form method="post" action={ web.URL(ctx, "settings.profile") }>
-					@view.CSRFField(ctx)
-					<div class="field">
-						<label for="name">{ i18n.T(ctx, "auth.fields.name") }</label>
-						<input id="name" name="name" autocomplete="name" value={ view.Old(ctx, "name", p.User.Name) } if view.Errors(ctx).Has("name") { aria-invalid="true" }/>
-						@authError("name")
-					</div>
-					<button type="submit">{ i18n.T(ctx, "auth.settings.save") }</button>
-				</form>
-			</section>
-
-			<section class="card">
-				<h2>{ i18n.T(ctx, "auth.fields.email") }</h2>
+		@ui.Narrow() {
+			@ui.PageHeader(i18n.T(ctx, "auth.settings.title"), "") {
+				@ui.LinkButton(web.MustURL(ctx, "dashboard"), ui.Secondary) {
+					{ i18n.T(ctx, "auth.dashboard.title") }
+				}
+			}
+			@ui.Card(i18n.T(ctx, "auth.settings.profile")) {
+				@ui.Form(web.MustURL(ctx, "settings.profile"), "POST", nil) {
+					@ui.Field("name", i18n.T(ctx, "auth.fields.name"), "") {
+						@ui.Input("name", "", view.Old(ctx, "name", p.User.Name), templ.Attributes{"autocomplete": "name"})
+					}
+					@ui.Button(ui.Primary, nil) {
+						{ i18n.T(ctx, "auth.settings.save") }
+					}
+				}
+			}
+			@ui.Card(i18n.T(ctx, "auth.fields.email")) {
 				<p>
 					{ p.User.Email }
 					if p.User.EmailVerifiedAt == nil {
-						{ " " }<span class="badge warning">{ i18n.T(ctx, "auth.settings.unverified") }</span>
+						{ " " }
+						@ui.Badge(ui.Warning) {
+							{ i18n.T(ctx, "auth.settings.unverified") }
+						}
 					}
 				</p>
 				if p.EmailChange {
 					if p.User.PendingEmail != "" {
 						<p>{ i18n.T(ctx, "auth.settings.email_pending", "email", p.User.PendingEmail) }</p>
-						<form method="post" action={ web.URL(ctx, "settings.email.cancel") }>
-							@view.CSRFField(ctx)
-							<button type="submit" class="secondary">{ i18n.T(ctx, "auth.settings.email_cancel") }</button>
-						</form>
+						@ui.Form(web.MustURL(ctx, "settings.email.cancel"), "POST", nil) {
+							@ui.Button(ui.Secondary, nil) {
+								{ i18n.T(ctx, "auth.settings.email_cancel") }
+							}
+						}
 					}
-					<form method="post" action={ web.URL(ctx, "settings.email") }>
-						@view.CSRFField(ctx)
-						<div class="field">
-							<label for="email">{ i18n.T(ctx, "auth.settings.new_email") }</label>
-							<input id="email" name="email" type="email" autocomplete="email" value={ view.Old(ctx, "email") } if view.Errors(ctx).Has("email") { aria-invalid="true" }/>
-							@authError("email")
-						</div>
-						<button type="submit">{ i18n.T(ctx, "auth.settings.email_change") }</button>
-					</form>
+					@ui.Form(web.MustURL(ctx, "settings.email"), "POST", nil) {
+						@ui.Field("email", i18n.T(ctx, "auth.settings.new_email"), "") {
+							@ui.Input("email", "email", view.Old(ctx, "email"), templ.Attributes{"autocomplete": "email"})
+						}
+						@ui.Button(ui.Primary, nil) {
+							{ i18n.T(ctx, "auth.settings.email_change") }
+						}
+					}
 				}
-			</section>
-
-			<section class="card">
-				<h2>{ i18n.T(ctx, "auth.fields.password") }</h2>
-				<form method="post" action={ web.URL(ctx, "settings.password") }>
-					@view.CSRFField(ctx)
+			}
+			@ui.Card(i18n.T(ctx, "auth.fields.password")) {
+				@ui.Form(web.MustURL(ctx, "settings.password"), "POST", nil) {
 					if p.User.Password != "" {
-						<div class="field">
-							<label for="current_password">{ i18n.T(ctx, "auth.fields.current_password") }</label>
-							<input id="current_password" name="current_password" type="password" autocomplete="current-password" if view.Errors(ctx).Has("current_password") { aria-invalid="true" }/>
-							@authError("current_password")
-						</div>
+						@ui.Field("current_password", i18n.T(ctx, "auth.fields.current_password"), "") {
+							@ui.Input("current_password", "password", "", templ.Attributes{"autocomplete": "current-password"})
+						}
 					} else {
-						<p class="muted">{ i18n.T(ctx, "auth.settings.no_password") }</p>
+						@ui.Note() {
+							{ i18n.T(ctx, "auth.settings.no_password") }
+						}
 					}
-					<div class="field">
-						<label for="password">{ i18n.T(ctx, "auth.fields.new_password") }</label>
-						<input id="password" name="password" type="password" autocomplete="new-password" if view.Errors(ctx).Has("password") { aria-invalid="true" }/>
-						@authError("password")
-					</div>
-					<div class="field">
-						<label for="password_confirmation">{ i18n.T(ctx, "auth.fields.password_confirmation") }</label>
-						<input id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" if view.Errors(ctx).Has("password_confirmation") { aria-invalid="true" }/>
-					</div>
-					<button type="submit">{ i18n.T(ctx, "auth.settings.password_change") }</button>
-				</form>
-			</section>
-
-			<section class="card">
-				<h2>{ i18n.T(ctx, "auth.settings.preferences") }</h2>
-				<form method="post" action={ web.URL(ctx, "settings.preferences") }>
-					@view.CSRFField(ctx)
-					<div class="field">
-						<label for="locale">{ i18n.T(ctx, "auth.settings.language") }</label>
-						<select id="locale" name="locale">
-							<option value="">{ i18n.T(ctx, "auth.settings.language_auto") }</option>
-							for _, l := range p.Locales {
-								<option value={ l.Value } selected?={ l.Value == p.User.Locale }>{ l.Title }</option>
-							}
-						</select>
-						@authError("locale")
-					</div>
-					<div class="field">
-						<label for="time_zone">{ i18n.T(ctx, "auth.settings.time_zone") }</label>
-						<select id="time_zone" name="time_zone">
-							<option value="">{ i18n.T(ctx, "auth.settings.time_zone_app") }</option>
-							for _, z := range p.TimeZones {
-								<option value={ z } selected?={ z == p.User.TimeZone }>{ z }</option>
-							}
-						</select>
-						@authError("time_zone")
-					</div>
-					<button type="submit">{ i18n.T(ctx, "auth.settings.save") }</button>
-				</form>
-			</section>
-
+					@ui.Field("password", i18n.T(ctx, "auth.fields.new_password"), "") {
+						@ui.Input("password", "password", "", templ.Attributes{"autocomplete": "new-password"})
+					}
+					@ui.Field("password_confirmation", i18n.T(ctx, "auth.fields.password_confirmation"), "") {
+						@ui.Input("password_confirmation", "password", "", templ.Attributes{"autocomplete": "new-password"})
+					}
+					@ui.Button(ui.Primary, nil) {
+						{ i18n.T(ctx, "auth.settings.password_change") }
+					}
+				}
+			}
+			@ui.Card(i18n.T(ctx, "auth.settings.preferences")) {
+				@ui.Form(web.MustURL(ctx, "settings.preferences"), "POST", nil) {
+					@ui.Field("locale", i18n.T(ctx, "auth.settings.language"), "") {
+						@ui.Select("locale", localeOptions(ctx, p.Locales), p.User.Locale, nil)
+					}
+					@ui.Field("time_zone", i18n.T(ctx, "auth.settings.time_zone"), "") {
+						@ui.Select("time_zone", zoneOptions(ctx, p.TimeZones), p.User.TimeZone, nil)
+					}
+					@ui.Button(ui.Primary, nil) {
+						{ i18n.T(ctx, "auth.settings.save") }
+					}
+				}
+			}
 			if p.TwoFactor {
-				<section class="card">
-					<h2>{ i18n.T(ctx, "auth.two_factor.title") }</h2>
+				@ui.Card(i18n.T(ctx, "auth.two_factor.title")) {
 					<p>
 						if p.TwoFactorStatus.On {
-							<span class="badge success">{ i18n.T(ctx, "auth.settings.two_factor_on") }</span>
+							@ui.Badge(ui.Success) {
+								{ i18n.T(ctx, "auth.settings.two_factor_on") }
+							}
 						} else {
-							<span class="badge">{ i18n.T(ctx, "auth.settings.two_factor_off") }</span>
+							@ui.Badge(ui.Neutral) {
+								{ i18n.T(ctx, "auth.settings.two_factor_off") }
+							}
 						}
 					</p>
-					<a class="button secondary" href={ web.URL(ctx, "two-factor") }>{ i18n.T(ctx, "auth.settings.two_factor_manage") }</a>
-				</section>
+					@ui.LinkButton(web.MustURL(ctx, "two-factor"), ui.Secondary) {
+						{ i18n.T(ctx, "auth.settings.two_factor_manage") }
+					}
+				}
 			}
-
 			if p.DeleteAccount {
-				<section class="card">
-					<h2>{ i18n.T(ctx, "auth.settings.delete") }</h2>
-					<p class="muted">{ i18n.T(ctx, "auth.settings.delete_intro") }</p>
-					<form method="post" action={ web.URL(ctx, "settings.delete") }>
-						@view.CSRFField(ctx)
-						<button type="submit" class="danger">{ i18n.T(ctx, "auth.settings.delete_button") }</button>
-					</form>
-				</section>
+				@ui.Card(i18n.T(ctx, "auth.settings.delete")) {
+					@ui.Note() {
+						{ i18n.T(ctx, "auth.settings.delete_intro") }
+					}
+					@ui.Form(web.MustURL(ctx, "settings.delete"), "POST", nil) {
+						@ui.Button(ui.Danger, nil) {
+							{ i18n.T(ctx, "auth.settings.delete_button") }
+						}
+					}
+				}
 			}
-		</div>
+		}
 	}
 }
 
@@ -164,14 +172,14 @@ templ Settings(p SettingsPage) {
 // undoing its change to newEmail.
 templ RevertEmail(token, oldEmail, newEmail string) {
 	@Layout(i18n.T(ctx, "auth.revert.title")) {
-		<div class="card auth-card">
-			<h1>{ i18n.T(ctx, "auth.revert.title") }</h1>
+		@ui.AuthCard(i18n.T(ctx, "auth.revert.title")) {
 			<p>{ i18n.T(ctx, "auth.revert.intro", "old", oldEmail, "new", newEmail) }</p>
-			<form method="post" action={ web.URL(ctx, "settings.email.revert") }>
-				@view.CSRFField(ctx)
+			@ui.Form(web.MustURL(ctx, "settings.email.revert"), "POST", nil) {
 				<input type="hidden" name="token" value={ token }/>
-				<button type="submit" class="danger">{ i18n.T(ctx, "auth.revert.submit") }</button>
-			</form>
-		</div>
+				@ui.Button(ui.Danger, nil) {
+					{ i18n.T(ctx, "auth.revert.submit") }
+				}
+			}
+		}
 	}
 }

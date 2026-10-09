@@ -74,17 +74,21 @@ if _, err := setupAuth(app, srv.Router(), sessions); err != nil {
 If your `setup` no longer has that statement, `make:auth` says so and
 you add the call yourself.
 
-It also adds `@AccountMenu()` to the layout's header (after the nav's
-`</nav>`): links to log in and register for guests; the user's name
+It also adds `@AccountMenu()` to the layout's header, after its nav
+(the `@ui.Nav` block, or the `</nav>` line in a layout made before
+v0.5): links to log in and register for guests; the user's name
 (to the dashboard), the settings and a logout button for signed-in
 users. `setupAuth` calls `sessions.Use(a.Middleware)`, so every page
 with a session knows who is signed in, the home page of `routes/web.go`
 included. A layout without that nav gets nothing, and `make:auth` prints
 the line to add where you like.
 
-The pages use the starter theme's classes ([Style your
-app](styling.md)): a centered card for the forms, cards on the
-dashboard and the settings page.
+The pages are made of the components of `views/ui` ([Style your
+app](styling.md)): `ui.AuthCard`, a small centered card, for the forms,
+and `ui.Card`s on the dashboard and the settings page. `AccountMenu`
+is a `ui.NavEnd` with `ui.NavLink`s and buttons. In a project made
+before v0.5, which has no `views/ui`, `make:auth` writes it first and
+says so ([Projects made before v0.5](styling.md#projects-made-before-v05)).
 
 ### 2. Migrate and try it
 

@@ -1,0 +1,62 @@
+package ui
+
+// Lists, tables and values.
+
+// Table is a table in a box that scrolls sideways when it's too wide;
+// its children are the <thead> and <tbody>.
+templ Table() {
+	<div class="table-wrap">
+		<table>
+			{ children... }
+		</table>
+	</div>
+}
+
+// ActionsCell is a row's cell of buttons, at its end.
+templ ActionsCell() {
+	<td class="actions">
+		{ children... }
+	</td>
+}
+
+// Details is a list of terms and their values (Detail).
+templ Details() {
+	<dl class="details">
+		{ children... }
+	</dl>
+}
+
+// Detail is a term and its value (children).
+templ Detail(term string) {
+	<dt>{ term }</dt>
+	<dd>
+		{ children... }
+	</dd>
+}
+
+// Multiline is text of several lines, shown with its line breaks.
+templ Multiline(text string) {
+	<span class="prewrap">{ text }</span>
+}
+
+// Badge is a short label in a tone's color: a status, a count.
+templ Badge(tone Tone) {
+	<span class={ "badge" + tone.toneClass() }>
+		{ children... }
+	</span>
+}
+
+// Pagination links to the pages before and after a list's page.
+templ Pagination(p Pages) {
+	<nav class="pagination" aria-label={ p.Label }>
+		if p.Prev != "" {
+			<a href={ p.Prev } rel="prev">{ p.PrevLabel }</a>
+		}
+		if p.Status != "" {
+			<span>{ p.Status }</span>
+		}
+		if p.Next != "" {
+			<a href={ p.Next } rel="next">{ p.NextLabel }</a>
+		}
+	</nav>
+}

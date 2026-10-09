@@ -25,7 +25,7 @@ compiles its views. Its flags:
 |---|---|---|
 | `--db` | `sqlite` | `postgres` or `mysql` for a server database ([Choose a database](databases.md)) |
 | `--stack` | `web` | `api` for an app that serves JSON only ([below](#an-api-instead)) |
-| `--css` | `anetos` | The starter theme; `none` for an almost empty stylesheet, for your own CSS or a CSS framework ([Style your app](../guides/styling.md)) |
+| `--css` | `anetos` | The design kit: `anetos`, the starter theme; `none`, components without classes and an almost empty stylesheet, for your own CSS or a CSS framework ([Style your app](../guides/styling.md)) |
 | `--module` | the folder's name | The Go module path, such as `github.com/you/blog` |
 
 ## Run it

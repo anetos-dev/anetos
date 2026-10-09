@@ -1,7 +1,8 @@
 /*
  * The app's styles: Anetos's starter theme, yours to change or replace.
  * No build step: edit this file and reload. Plain HTML looks right as it
- * is (forms, buttons, tables); a few classes do the rest:
+ * is (forms, buttons, tables); a few classes do the rest, which the
+ * components of views/ui write for the pages:
  *
  *   Layout   .container .topbar .brand .nav .nav-end .site-footer
  *   Pages    .page-header .narrow .stack .cluster .grid .muted .empty
@@ -10,7 +11,7 @@
  *   Forms    .field .hint .error .check .inline .form-actions
  *   Buttons  button .button  + .secondary .danger .ghost .small .full
  *   Others   .table-wrap .badge (+ .success .warning .danger .info)
- *            .flash (+ .warning .error) .pagination .sr-only
+ *            .flash (+ .success .warning .error .info) .pagination .sr-only
  *
  * Colors are the variables below; dark mode follows the system, or
  * data-theme="dark" (or "light") on <html>.
@@ -250,9 +251,11 @@ td.actions { text-align: end; white-space: nowrap; }
 
 /* Messages */
 
-.flash { padding: .7rem 1rem; border-radius: var(--radius); background: var(--success-bg); color: var(--success); border: 1px solid transparent; margin-bottom: 1.25rem; }
+.flash { padding: .7rem 1rem; border-radius: var(--radius); background: var(--surface-2); color: var(--text); border: 1px solid transparent; margin-bottom: 1.25rem; }
+.flash.success { background: var(--success-bg); color: var(--success); }
 .flash.warning { background: var(--warning-bg); color: var(--warning); }
-.flash.error { background: var(--danger-bg); color: var(--danger); }
+.flash.error, .flash.danger { background: var(--danger-bg); color: var(--danger); }
+.flash.info { background: var(--info-bg); color: var(--info); }
 
 /* Pagination */
 

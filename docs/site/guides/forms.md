@@ -100,6 +100,61 @@ templ fieldError(field string) {
   the last post failed, else the fallback.
 - `view.Errors(ctx)` holds the messages of that post, keyed by field.
 
+In a project made with `anetos new`, the components of `views/ui` do
+most of this for you. The tutorial's form for an issue:
+
+```templ
+// IssueForm opens an issue, or edits one when issue.ID is set. After a
+// failed post, view.Old refills the fields and view.Errors has the
+// messages.
+templ IssueForm(issue models.Issue) {
+	@Layout("Issue") {
+		@ui.Narrow() {
+			if issue.ID == 0 {
+				<h1>New issue</h1>
+				@ui.Card("") {
+					@ui.Form(web.MustURL(ctx, "issues.store"), "POST", nil) {
+						@issueFields(issue)
+					}
+				}
+			} else {
+				<h1>Edit #{ issue.ID }</h1>
+				@ui.Card("") {
+					@ui.Form(web.MustURL(ctx, "issues.update", issue.ID), "PUT", nil) {
+						@issueFields(issue)
+					}
+				}
+			}
+		}
+	}
+}
+
+templ issueFields(issue models.Issue) {
+	@ui.Field("title", "Title", "") {
+		@ui.Input("title", "", view.Old(ctx, "title", issue.Title), nil)
+	}
+	@ui.Field("body", "Description", "") {
+		@ui.Textarea("body", view.Old(ctx, "body", issue.Body), templ.Attributes{"rows": "6"})
+	}
+	@ui.Button(ui.Primary, nil) {
+		Save
+	}
+}
+```
+
+(Copied from [`examples/tutorial/views/issues.templ`](../../../examples/tutorial/views/issues.templ), region `form`.)
+
+- `ui.Form(action, "PUT", nil)` writes the CSRF field, and the
+  `_method` field for PUT, PATCH and DELETE.
+- `ui.Field` writes the label and, after a failed post, the field's
+  message.
+- `ui.Input`, `ui.Textarea` and `ui.Select` are marked
+  `aria-invalid="true"` when their field failed; you still pass
+  `view.Old` as the value.
+
+The [UI components reference](../reference/ui.md#forms) lists the
+others: `ui.Select`, `ui.Checkbox`, `ui.Actions`, `ui.PostButton`…
+
 ### 3. Handle the post
 
 A typed handler with validation rules:
@@ -193,9 +248,10 @@ See [Test your app](testing.md#2-test-a-form).
 | Redirected to `/` after a failed post | The browser sent no `Referer` (a `Referrer-Policy` of `no-referrer`) | Keep the default policy (`strict-origin-when-cross-origin`) |
 | An htmx form gets a 422 page | htmx requests aren't redirected back | Use a regular or boosted form, or render the errors yourself |
 | curl or a script gets a 422 page instead of a redirect | It sends `Accept: */*`, so it isn't treated as a browser navigation | Send `Accept: text/html` to test the browser flow |
-| A checkbox is checked again after a failed post | `view.Old` can't tell an unchecked box (not sent) from no post | `checked?={ view.OldChecked(ctx, "publish", post.Published) }` |
+| A checkbox is checked again after a failed post | `view.Old` can't tell an unchecked box (not sent) from no post | `checked?={ view.OldChecked(ctx, "publish", post.Published) }`, or `ui.Checkbox("publish", "Publish", view.OldChecked(ctx, "publish", post.Published), nil)` |
 
 ## Next steps
 
 - [Validation rules reference](../reference/validation-rules.md)
 - [Views, sessions and forms reference](../reference/views.md)
+- [UI components reference](../reference/ui.md)

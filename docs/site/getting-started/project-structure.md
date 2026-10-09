@@ -27,7 +27,8 @@ blog/
 ├── views/
 │   ├── layout.templ      the page shell: the header, the flash message
 │   ├── home.templ        the home page
-│   └── errors.templ      error pages (404, 500…) in the layout
+│   ├── errors.templ      error pages (404, 500…) in the layout
+│   └── ui/               the components the pages are made of: cards, forms, buttons, tables…
 ├── locales/en/app.yaml   the pages' text
 ├── public/static/        CSS (app.css, the starter theme), the icon (favicon.svg) and other files
 ├── deploy/               a systemd unit and the production settings
@@ -49,6 +50,8 @@ welcome and a 404's JSON.
 2. The handler, in `app/handlers`, reads the request (typed input,
    validated) and the database (the models of `app/models`).
 3. It renders a view of `views/`, inside `Layout`, or answers JSON.
+   The views call the components of `views/ui`, which hold the markup
+   and the class names ([Style your app](../guides/styling.md)).
 
 [HTTP request lifecycle](../concepts/http-request-lifecycle.md)
 explains each step.

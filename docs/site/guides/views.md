@@ -68,6 +68,24 @@ the helpers work inside templates. `web.URL(ctx, name, args...)` builds a
 route's path; templ accepts its `(string, error)` result in attributes
 and text, and a wrong route name fails the render with an error page.
 
+A component's argument can't take a `(string, error)` pair. There,
+`web.MustURL(ctx, name, args...)` (v0.5) returns the path alone, and
+panics on a route name that doesn't exist or arguments the route
+doesn't take. The router answers the panic with a 500 page, and since
+rendering is buffered, the visitor never gets half a page:
+
+```templ
+// illustrative
+@ui.LinkButton(web.MustURL(ctx, "posts.edit", post.ID), ui.Secondary) {
+	Edit
+}
+```
+
+A project made with `anetos new` has a layout like this one, built from
+the components of its `views/ui` package (`ui.Header`, `ui.Nav`,
+`ui.Main`, `ui.Flash`…), which hold the markup and the class names
+([Style your app](styling.md)).
+
 ### 3. Write pages and render them
 
 A page wraps its content in the layout:
@@ -78,6 +96,26 @@ templ PostPage(p Post) {
 	@Layout(p.Title) {
 		<h1>{ p.Title }</h1>
 		<p>{ p.Body }</p>
+	}
+}
+```
+
+In a project made with `anetos new`, pages call the components of
+`views/ui` for their structure, and need no class names
+([UI components reference](../reference/ui.md)):
+
+```templ
+// illustrative
+templ PostPage(p Post) {
+	@Layout(p.Title) {
+		@ui.PageHeader(p.Title, "") {
+			@ui.LinkButton(web.MustURL(ctx, "posts.edit", p.ID), ui.Secondary) {
+				Edit
+			}
+		}
+		@ui.Card("") {
+			@ui.Multiline(p.Body)
+		}
 	}
 }
 ```
@@ -189,6 +227,23 @@ func (Notes) Delete(c *web.Ctx, in NoteID) (web.Responder, error) {
 
 (Copied from [`examples/forms`](../../../examples/forms/main.go), region `delete`.)
 
+With `views/ui`, `ui.Form` writes the same form, CSRF token and
+`_method` field included, and takes the htmx attributes:
+
+```templ
+// illustrative
+@ui.Form(web.MustURL(ctx, "notes.delete", n.ID), "DELETE", templ.Attributes{
+	"hx-delete":  web.MustURL(ctx, "notes.delete", n.ID),
+	"hx-target":  "closest li",
+	"hx-swap":    "outerHTML",
+	"hx-confirm": "Delete this note?",
+}) {
+	@ui.Button(ui.Danger|ui.Small, nil) {
+		Delete
+	}
+}
+```
+
 The layout puts the CSRF token in `hx-headers`, so every htmx request
 passes [CSRF protection](forms.md). `c.HTMX()` returns the other htmx
 headers (target, trigger, boosted).
@@ -255,11 +310,13 @@ request the page with `anetostest` and check it with `AssertSee`, as
 |---|---|---|
 | `undefined: NotesPage` | The `.templ` file wasn't generated | Run `go generate ./...` (or `go tool templ generate`) |
 | `web: unknown route name: "…"` when rendering | A typo in a route name | Use the name given with `.Name(…)` |
+| A 500 page, and a panic with `web: unknown route name` in the log | The same typo, in `web.MustURL` | Use the name given with `.Name(…)`; `go run . routes:list` lists them |
 | `view: no session for this request` | A page uses `view.CSRFField` on a route without the session middleware | Add the middleware to the route's group |
 | Browsers keep an old CSS file | A URL written by hand, without the hash | Use `assets.URL(name)` |
 
 ## Next steps
 
+- [Style your app](styling.md) with the components of `views/ui`
 - [Handle HTML forms](forms.md)
 - [Sessions and flash messages](sessions.md)
 - [Views, sessions and forms reference](../reference/views.md)

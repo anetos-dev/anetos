@@ -49,6 +49,21 @@ func URL(ctx context.Context, name string, args ...any) (string, error) {
 	return LocalePath(ctx, path), nil
 }
 
+// MustURL is [URL] for a component's arguments, where a call returning
+// an error doesn't fit: the path of the named route, or a panic (a
+// route that doesn't exist or arguments it doesn't take is a mistake in
+// the code; the router answers the handler's panic as a 500). Attributes
+// take URL itself, whose error templ returns:
+//
+//	@ui.LinkButton(web.MustURL(ctx, "posts.edit", post.ID), ui.Secondary) { Edit }
+func MustURL(ctx context.Context, name string, args ...any) string {
+	u, err := URL(ctx, name, args...)
+	if err != nil {
+		panic(err)
+	}
+	return u
+}
+
 // RouteIs reports whether the request was routed to one of the named
 // routes. A name ending in ".*" matches the names that start with what
 // comes before the star: "issues.*" matches issues.index and
@@ -82,7 +97,9 @@ func RouteIs(ctx context.Context, names ...string) bool {
 // PageURL returns a link to page n of the current list: the current
 // page's query string with its "page" parameter set to n, the other
 // parameters (a search, a filter, per_page) kept as they were. It is
-// relative ("?q=go&page=2"), so it works behind a path prefix or a proxy.
+// relative ("?q=go&page=2"), so it works behind a path prefix or a proxy;
+// a colon in the query is encoded (%3A), so the link can't be read as a
+// scheme.
 //
 //	if posts.HasPrev() {
 //		<a href={ web.PageURL(ctx, posts.CurrentPage-1) }>Newer</a>
@@ -98,7 +115,9 @@ func PageURL(ctx context.Context, page int) string {
 				k = uk
 			}
 			if k != "page" && p != "" {
-				parts = append(parts, p)
+				// A colon, which a link may carry unencoded (?q=a:b), would
+				// make the relative link read as a URL's scheme.
+				parts = append(parts, strings.ReplaceAll(p, ":", "%3A"))
 			}
 		}
 	}

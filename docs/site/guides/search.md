@@ -126,6 +126,12 @@ templ NotesPage(page db.Page[Note], q string) {
 
 (Copied from [`examples/forms/notes.templ`](../../../examples/forms/notes.templ), region `list`.)
 
+The notes app writes its own markup. In a project made with
+`anetos new`, build the box from the components of `views/ui`
+(`ui.Form` with `"GET"`, `ui.Input`, `ui.Button`), as the
+[tutorial's search page](../getting-started/tutorial/05-search.md) does,
+or as [below](#search-a-list-made-with-makecrud).
+
 Bound the input (`validate:"max:200"` on `Q`): a search box shouldn't
 accept a novel.
 
@@ -170,9 +176,9 @@ t.Cleanup(func() {
 
 ### Search a list made with make:crud
 
-The pages `make:crud` writes take a search box in three changes, in the
-starter theme's style and with their text in the locale file. For
-`posts`, after the migration of step 1:
+The pages `make:crud` writes take a search box in three changes, with
+the components of `views/ui` and with their text in the locale file.
+For `posts`, after the migration of step 1:
 
 1. The list's input takes the words, in `app/handlers/posts.go`, and the
    query searches them:
@@ -187,28 +193,35 @@ starter theme's style and with their text in the locale file. For
    page, err := db.Query[models.Post](c).OrderBy(models.PostCols.ID.Desc()).
    	Search(in.Q).
    	Paginate(in.Page, 20)
-   …
+   if err != nil {
+   	return nil, err
+   }
    return web.View(views.PostsPage(page, in.Q)), nil
    ```
 
 2. The page shows the box under its header, in `views/posts.templ`
    (`PostsPage(page db.Page[models.Post], q string)`), and says when
-   nothing matches:
+   nothing matches. In place of the `if page.Total == 0 {` line and its
+   `ui.Empty`:
 
    ```templ
    // illustrative
-   <form method="get" action={ web.URL(ctx, "posts.index") } role="search" class="cluster">
-   	<input type="search" name="q" value={ q } aria-label={ i18n.T(ctx, "posts.search") }/>
-   	<button type="submit" class="secondary">{ i18n.T(ctx, "posts.search") }</button>
-   </form>
-   if page.Total == 0 && q != "" {
-   	<p class="empty">{ i18n.T(ctx, "posts.no_match", "q", q) }</p>
-   } else if page.Total == 0 {
-   	<p class="empty">{ i18n.T(ctx, "posts.empty") }</p>
-   } else {
-   	…the table and the page links, as they were
+   @ui.Form(web.MustURL(ctx, "posts.index"), "GET", templ.Attributes{"role": "search"}) {
+   	@ui.Cluster() {
+   		@ui.Input("q", "search", q, templ.Attributes{"aria-label": i18n.T(ctx, "posts.search")})
+   		@ui.Button(ui.Secondary, nil) {
+   			{ i18n.T(ctx, "posts.search") }
+   		}
+   	}
    }
+   if page.Total == 0 && q != "" {
+   	@ui.Empty(i18n.T(ctx, "posts.no_match", "q", q))
+   } else if page.Total == 0 {
+   	@ui.Empty(i18n.T(ctx, "posts.empty"))
+   } else {
    ```
+
+   The `else` block, the table and the page links, stays as it was.
 
 3. Its text goes in `locales/en/posts.yaml`, under `posts:`:
 

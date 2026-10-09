@@ -8,7 +8,7 @@ weight: 22
 # Add pages for a model
 
 `make:crud` writes a model with its table, and the pages to list, show,
-create, edit and delete its rows, styled by the starter theme, with
+create, edit and delete its rows, made of your app's UI components, with
 their routes and a test. You get working pages in a minute, and code
 you can read and change.
 
@@ -63,6 +63,9 @@ For `Post`:
 It also adds `Posts(pages)` to `routes/web.go` (the page group, with
 sessions and CSRF protection) and a link to the list in the layout's
 header. It never overwrites a file: if one exists, it writes nothing.
+In a project made before v0.5, which has no `views/ui`, it writes the
+components first, and says so ([Style your
+app](../guides/styling.md#projects-made-before-v05)).
 
 | Route | URL | Does |
 |---|---|---|
@@ -100,7 +103,10 @@ The code is plain Anetos code: change it as you would your own.
   line to `fill`, and the input to `postFields` in the view.
 - **Other text.** Change `locales/en/posts.yaml`; add a language with
   its own folder ([Translations](../guides/translations.md)).
-- **Look.** The pages use the starter theme's classes ([Style your
+- **Look.** The pages call the components of `views/ui` (`ui.PageHeader`,
+  `ui.Table`, `ui.Form`, `ui.Field`…) and have no class names. Change
+  the colors in `public/static/app.css`, or a component's markup in
+  `views/ui`, and every page follows ([Style your
   app](../guides/styling.md)).
 
 `go test ./...` runs the test it wrote; keep it passing as you change
