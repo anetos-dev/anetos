@@ -7,6 +7,10 @@ tagged `drivers/gcs/vX.Y.Z`. The framework's own changes are in the
 
 ## [Unreleased]
 
+### Security
+- `golang.org/x/net` v0.60.0, an indirect dependency (GO-2026-6612,
+  GO-2026-6617).
+
 ## [0.4.0] - 2026-10-08
 
 Released with the framework's v0.4.0.

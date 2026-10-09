@@ -11,6 +11,15 @@ All notable changes to this project are documented here. The format follows
   `plugins/postmark` works with Anetos v0.5 too (`Requires`:
   `>= v0.2.0, < v0.6.0`) (after v0.4.0).
 
+### Security
+- `golang.org/x/net` v0.60.0 in the driver and example modules
+  (GO-2026-6612, GO-2026-6617: HTTP/2), where v0.4.0 had v0.59.0 or
+  older. Apps decide the version they build with: run
+  `go get golang.org/x/net@v0.60.0` if `go.mod` lists an older one. The
+  standard library's fixes (GO-2026-6612, GO-2026-6613, GO-2026-6617
+  in `net/http`) come with Go 1.27.2 and 1.26.9: build with those or
+  later.
+
 ## [0.4.0] - 2026-10-08
 
 The API stack: `anetos new --stack=api`, an app that serves JSON only;
