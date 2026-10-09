@@ -1,0 +1,12 @@
+// The header's menu button on a small screen: it shows or hides the
+// header's links (Bulma has no JavaScript of its own).
+document.addEventListener("DOMContentLoaded", () => {
+  for (const burger of document.querySelectorAll(".navbar-burger")) {
+    const menu = document.getElementById(burger.getAttribute("aria-controls"));
+    burger.addEventListener("click", () => {
+      const open = burger.classList.toggle("is-active");
+      menu?.classList.toggle("is-active", open);
+      burger.setAttribute("aria-expanded", String(open));
+    });
+  }
+});

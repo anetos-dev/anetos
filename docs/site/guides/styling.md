@@ -10,14 +10,15 @@ weight: 103
 A new project looks finished from the first page. Its pages are made of
 components in `views/ui`, a package of your app, styled by one
 stylesheet, `public/static/app.css`. Change the colors, change a
-component, add your own, or start without styles.
+component, add your own, start with Pico, Bootstrap or Bulma, or start
+without styles.
 
 ## Before you start
 
 A project made with `anetos new` v0.5 or later. (A project made before
 v0.5 has no `views/ui` yet: see [below](#projects-made-before-v05).)
-There is no build step, no CDN and no JavaScript: `anetos dev` reloads
-the page when you save a file.
+There is no build step and no CDN: `anetos dev` reloads the page when
+you save a file.
 
 ## Steps
 
@@ -27,12 +28,12 @@ The look of your app is two parts, which together are a *design kit*:
 
 | File | Holds |
 |---|---|
-| `views/ui/shell.templ` | The page's shell, which the layout puts together: `Head`, `Header`, `Nav`, `NavLink`, `NavEnd`, `Main`, `Footer`, `Flash` |
+| `views/ui/shell.templ` | The page's shell, which the layout puts together: `Head`, `Header`, `Nav`, `NavLink`, `NavEnd`, `NavItem`, `Main`, `Footer`, `Flash` |
 | `views/ui/page.templ` | A page's structure: `PageHeader`, `Card`, `Narrow`, `Stack`, `Cluster`, `Empty`… |
 | `views/ui/form.templ` | Forms: `Form`, `Field`, `Input`, `Textarea`, `Select`, `Checkbox`, `Button`, `LinkButton`, `PostButton`… |
 | `views/ui/data.templ` | Lists and values: `Table`, `Details`, `Badge`, `Pagination`… |
 | `views/ui/ui.go` | The types the components take: `Look`, `Tone`, `Option`, `Pages` |
-| `views/ui/classes.go` | The starter theme's classes for each look and tone (not in the `none` kit) |
+| `views/ui/classes.go` | The kit's classes for each look and tone (not in the `none` kit) |
 | `public/static/app.css` | The starter theme: light and dark, about 270 lines of plain CSS |
 
 Only `views/ui` has class names. The layout (`views/layout.templ`), the
@@ -191,24 +192,42 @@ templ Head() {
 `public.Assets.URL` adds a version to the URL, so browsers fetch the new
 file after a deploy; the binary embeds `public/`.
 
-### 7. Or start without styles
+### 7. Or start with another kit
+
+`anetos new` writes the starter theme's kit. `--css` picks another:
 
 ```sh
-anetos new blog --css=none
+anetos new blog --css=bootstrap
 ```
 
-writes the same components, with the same names and arguments, but
-their markup is plain HTML without classes, and `app.css` is a comment.
-A table has no scrolling box, a badge is a plain `<span>`, and a
-button's look and a message's tone change nothing. Style the elements
-in `app.css`, or put a CSS framework's classes in the components and
-link its stylesheet from `ui.Head`. Before v0.5, `--css=none` kept the
-starter theme's class names in the pages.
+| `--css` | The components' markup | `public/static/` |
+|---|---|---|
+| `anetos` (the default) | The starter theme's classes | `app.css`: the starter theme |
+| `none` | Plain HTML without classes | `app.css`: a comment, for your styles |
+| `pico` | [Pico CSS](https://picocss.com) 2.1.1: mostly plain HTML, which Pico styles | `pico.min.css`, `app.css` (what Pico has no style of: badges, colored messages, a danger button) |
+| `bootstrap` | [Bootstrap](https://getbootstrap.com) 5.3.8's classes; a menu button opens the header's links on a small screen | `bootstrap.min.css`, `bootstrap.bundle.min.js`, `theme.js` (dark mode from the system), `app.css` |
+| `bulma` | [Bulma](https://bulma.io) 1.0.4's classes; a menu button opens the header's links on a small screen | `bulma.min.css`, `nav.js` (the menu button), `app.css` |
 
-Ready-made design kits for Pico, Bootstrap, Bulma and Tailwind, and a
-command to switch a project's kit, are coming; they aren't available
-yet. A kit is `views/ui` with its `app.css`, so another kit restyles
-every page that calls the components.
+Every kit writes the same components, with the same names and
+arguments, so the layout, the home page and the pages of `make:crud` and
+`make:auth` are the same with each: only `views/ui` and
+`public/static/` differ. Each but `none` follows the visitor's light or
+dark mode.
+A framework's files are as released, with its license beside them
+(`pico.LICENSE.txt`: MIT, as are the others); the binary embeds them,
+and serves them gzipped to browsers that accept it.
+
+With `none`, a table has no scrolling box, a badge is a plain `<span>`,
+and a button's look and a message's tone change nothing. Style the
+elements in `app.css`, or put another CSS framework's classes in the
+components and link its stylesheet from `ui.Head`. Before v0.5,
+`--css=none` kept the starter theme's class names in the pages.
+
+With Bootstrap and Bulma, the header's menu button is named by
+`nav.menu` in `locales/<locale>/app.yaml` ("Menu"). A Tailwind kit, and
+a command to switch a project's kit, are coming; they aren't available
+yet. A kit is `views/ui` with its `public/static/` files, so another
+kit restyles every page that calls the components.
 
 ### Pages with classes of your own
 
@@ -252,9 +271,10 @@ Some components read the request's context (`ctx`): `ui.Form` adds the
 CSRF token, `ui.Field` shows its field's validation message, and
 `ui.Input`, `ui.Textarea`, `ui.Select` and `ui.Checkbox` are marked
 `aria-invalid="true"` when their field failed validation, which the
-theme shows with a red border. `ui.NavLink` marks the current page with
+kit shows with a red border. `ui.NavLink` marks the current page with
 `aria-current="page"` (the layout's `navLink` asks `web.RouteIs`), which
-the theme highlights.
+the kit highlights. A header entry that isn't a link (the logout button)
+is in a `ui.NavItem`, which each kit wraps as its menus need.
 
 The theme is variables, then base styles for the elements, then the
 classes. Forms and tables need no class: plain HTML looks right as it

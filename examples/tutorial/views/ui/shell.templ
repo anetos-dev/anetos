@@ -40,6 +40,12 @@ templ NavEnd() {
 	</div>
 }
 
+// NavItem is an entry of a Nav or NavEnd that isn't a NavLink: a
+// button, a form (log out). This kit wraps it in nothing.
+templ NavItem() {
+	{ children... }
+}
+
 // Main is the page's own content.
 templ Main() {
 	<main class="container">

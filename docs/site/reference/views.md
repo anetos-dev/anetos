@@ -65,7 +65,7 @@ Form posts key errors by `form` name where it differs from the `json` name.
 | `view.NewAssets(prefix, fsys...)` | Hashes every file (first file system wins; dot files skipped) |
 | `a.URL(name)` | `prefix/name?v=<hash>`; no hash for a missing file |
 | `a.Has(name)` | Whether the file exists |
-| `a` as `http.Handler` | GET/HEAD; `Cache-Control: public, max-age=31536000, immutable` with the current hash, else `no-cache`; `ETag` |
+| `a` as `http.Handler` | GET/HEAD; `Cache-Control: public, max-age=31536000, immutable` with the current hash, else `no-cache`; `ETag`. A text file of 1 KiB or more (`text/*` such as CSS, JavaScript, JSON, SVG, XML, wasm) is gzipped once, the first time it's requested, and served gzipped to a client that accepts it (`Content-Encoding: gzip`, `Vary: Accept-Encoding`, its own `ETag`), unless gzip saves less than a tenth (v0.5) |
 | `htmx.FS`, `htmx.Version` | The bundled `htmx.min.js` (package `view/htmx`) |
 
 ## Sessions (`session`)

@@ -114,18 +114,35 @@ func TestCreateDeployNames(t *testing.T) {
 	}
 }
 
-// Each design kit writes its stylesheet and views/ui; the layout and the
+// Each design kit writes its stylesheet and views/ui, and a CSS
+// framework's kit the framework's files as released; the layout and the
 // pages are the same for every kit, and only views/ui has classes
-// (design D292).
+// (design D292, D298).
 func TestCreateKits(t *testing.T) {
+	kits := map[string][]string{
+		"":          {"--primary:"},
+		"anetos":    {"--primary:"},
+		"none":      {"The app's styles."},
+		"pico":      {"after Pico's (pico.min.css, v" + KitVersions["pico"] + ")", "pico.min.css", "pico.LICENSE.txt"},
+		"bootstrap": {"after Bootstrap's (bootstrap.min.css, v" + KitVersions["bootstrap"] + ")", "bootstrap.min.css", "bootstrap.bundle.min.js", "bootstrap.LICENSE.txt", "popper.LICENSE.txt", "theme.js"},
+		"bulma":     {"after Bulma's (bulma.min.css, v" + KitVersions["bulma"] + ")", "bulma.min.css", "bulma.LICENSE.txt", "nav.js"},
+	}
+	if len(kits) != len(Kits)+1 {
+		t.Fatalf("Kits %v: test each", Kits)
+	}
 	var layouts []string
-	for css, want := range map[string]string{"": "--primary:", "anetos": "--primary:", "none": "The app's styles."} {
+	for css, want := range kits {
 		dir := filepath.Join(t.TempDir(), "a")
 		if _, err := Create(Project{Dir: dir, DB: "sqlite", CSS: css}); err != nil {
 			t.Fatal(err)
 		}
-		if got := read(t, filepath.Join(dir, "public", "static", "app.css")); !strings.Contains(got, want) {
+		if got := read(t, filepath.Join(dir, "public", "static", "app.css")); !strings.Contains(got, strings.ReplaceAll(want[0], "\n", " ")) {
 			t.Errorf("--css=%s: app.css:\n%s", css, got)
+		}
+		for _, f := range want[1:] {
+			if fi, err := os.Stat(filepath.Join(dir, "public", "static", f)); err != nil || fi.Size() == 0 {
+				t.Errorf("--css=%s: public/static/%s: %v", css, f, err)
+			}
 		}
 		for _, f := range []string{"ui.go", "shell.templ", "page.templ", "form.templ", "data.templ"} {
 			if _, err := os.Stat(filepath.Join(dir, "views", "ui", f)); err != nil {
@@ -135,11 +152,54 @@ func TestCreateKits(t *testing.T) {
 		classless(t, dir, css == "none")
 		layouts = append(layouts, read(t, filepath.Join(dir, "views", "layout.templ")))
 	}
-	if layouts[0] != layouts[1] || layouts[1] != layouts[2] {
-		t.Error("the layout differs between kits")
+	for _, l := range layouts[1:] {
+		if l != layouts[0] {
+			t.Error("the layout differs between kits")
+		}
 	}
 	if HasUI(t.TempDir()) {
 		t.Error("HasUI of an empty directory")
+	}
+}
+
+// The CSS frameworks' files a kit carries are the releases KitVersions
+// names (scripts/update-kits.sh fetches them), each with its license.
+func TestKitVersions(t *testing.T) {
+	for _, kit := range Kits {
+		dir := "templates/kits/" + kit + "/public/static"
+		entries, err := templates.ReadDir(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var vendored []string
+		for _, e := range entries {
+			if !strings.HasSuffix(e.Name(), ".tmpl") {
+				vendored = append(vendored, e.Name())
+			}
+		}
+		version, ok := KitVersions[kit]
+		if ok != (len(vendored) > 0) {
+			t.Errorf("%s: KitVersions %q, files %v", kit, version, vendored)
+			continue
+		}
+		for _, f := range vendored {
+			b, err := fs.ReadFile(templates, dir+"/"+f)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if strings.HasSuffix(f, ".LICENSE.txt") {
+				if !bytes.Contains(b, []byte("MIT License")) {
+					t.Errorf("%s: %s isn't the MIT license", kit, f)
+				}
+				continue
+			}
+			if !bytes.Contains(b[:min(len(b), 200)], []byte(" v"+version+" ")) {
+				t.Errorf("%s: %s isn't v%s: %q", kit, f, version, b[:min(len(b), 200)])
+			}
+		}
+		if ok && !slices.Contains(vendored, kit+".LICENSE.txt") {
+			t.Errorf("%s: no %s.LICENSE.txt", kit, kit)
+		}
 	}
 }
 
@@ -201,7 +261,7 @@ func TestWriteUI(t *testing.T) {
 			t.Errorf("%s: WriteUI wrote over views/ui", kit)
 		}
 	}
-	if _, err := WriteUI(t.TempDir(), "m", "bootstrap"); err == nil {
+	if _, err := WriteUI(t.TempDir(), "m", "nope"); err == nil {
 		t.Error("WriteUI of a kit that doesn't exist")
 	}
 }
@@ -426,8 +486,8 @@ func TestCreateErrors(t *testing.T) {
 		{Dir: filepath.Join(t.TempDir(), "fmt"), DB: "sqlite"},
 		{Dir: filepath.Join(t.TempDir(), "embed"), DB: "sqlite"},
 		{Dir: filepath.Join(t.TempDir(), "a"), DB: "sqlite", Replace: t.TempDir()},
-		{Dir: filepath.Join(t.TempDir(), "a"), DB: "sqlite", CSS: "bootstrap"}, // not yet
-		{Dir: filepath.Join(t.TempDir(), "a"), DB: "sqlite", Stack: "vue"},     // not yet
+		{Dir: filepath.Join(t.TempDir(), "a"), DB: "sqlite", CSS: "nope"},
+		{Dir: filepath.Join(t.TempDir(), "a"), DB: "sqlite", Stack: "vue"}, // not yet
 		{Dir: filepath.Join(t.TempDir(), "a"), DB: "sqlite", Stack: "api", CSS: "none"},
 		{Dir: filepath.Join(t.TempDir(), "a"), DB: "sqlite", Stack: "api", CSS: "anetos"},
 	} {

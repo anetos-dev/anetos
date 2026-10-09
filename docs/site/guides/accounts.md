@@ -86,9 +86,9 @@ the line to add where you like.
 The pages are made of the components of `views/ui` ([Style your
 app](styling.md)): `ui.AuthCard`, a small centered card, for the forms,
 and `ui.Card`s on the dashboard and the settings page. `AccountMenu`
-is a `ui.NavEnd` with `ui.NavLink`s and buttons. In a project made
-before v0.5, which has no `views/ui`, `make:auth` writes it first and
-says so ([Projects made before v0.5](styling.md#projects-made-before-v05)).
+is a `ui.NavEnd` with `ui.NavLink`s, and its buttons in `ui.NavItem`s.
+In a project made before v0.5, which has no `views/ui`, `make:auth`
+writes it first and says so ([Projects made before v0.5](styling.md#projects-made-before-v05)).
 
 ### 2. Migrate and try it
 

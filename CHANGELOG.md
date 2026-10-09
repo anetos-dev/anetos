@@ -18,6 +18,20 @@ All notable changes to this project are documented here. The format follows
   own. Guide "Style your app" rewritten; the UI components reference.
 - `web.MustURL`: `web.URL` for a component's arguments, panicking on a
   route that doesn't exist (K1, D295).
+- Design kits for CSS frameworks (K2, D298–D300): `anetos new
+  --css=pico`, `--css=bootstrap` and `--css=bulma` write `views/ui` in
+  Pico 2.1.1's, Bootstrap 5.3.8's or Bulma 1.0.4's markup, with the
+  framework's files as released (and its MIT license) in
+  `public/static/`; no build step or CDN, light and dark from the
+  system, a menu button on a small screen (Bootstrap, Bulma). The
+  pages are the same with every kit. `scripts/update-kits.sh` fetches
+  a framework's release.
+- `ui.NavItem`, a header entry that isn't a link (the logout button),
+  which `make:auth`'s `AccountMenu` uses; and `nav.menu` in a new
+  project's `locales/en/app.yaml` (K2, D299).
+- `view.Assets` serves a text file of 1 KiB or more gzipped to a client
+  that accepts it, compressed once, the first time it's requested (K2,
+  D300).
 
 ### Changed
 - `anetos new --css=none` writes components of plain HTML, without the

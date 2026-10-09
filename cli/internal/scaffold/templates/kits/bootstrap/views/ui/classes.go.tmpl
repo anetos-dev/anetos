@@ -1,0 +1,66 @@
+package ui
+
+import (
+	"context"
+	"strings"
+
+	"anetos.dev/anetos/i18n"
+)
+
+// Bootstrap's classes of the looks and tones.
+
+// class is a button's classes.
+func (l Look) class() string {
+	c := []string{"btn"}
+	switch l &^ (Small | Full) {
+	case Secondary:
+		c = append(c, "btn-outline-secondary")
+	case Danger:
+		c = append(c, "btn-danger")
+	case Ghost:
+		c = append(c, "btn-link")
+	default:
+		c = append(c, "btn-primary")
+	}
+	if l&Small != 0 {
+		c = append(c, "btn-sm")
+	}
+	if l&Full != 0 {
+		c = append(c, "w-100")
+	}
+	return strings.Join(c, " ")
+}
+
+// color is a tone's color name in Bootstrap's classes (text-bg-…,
+// alert-…).
+func (t Tone) color() string {
+	switch t {
+	case Success:
+		return "success"
+	case Warning:
+		return "warning"
+	case Error:
+		return "danger"
+	case Info:
+		return "info"
+	}
+	return "secondary"
+}
+
+// menuLabel is the name of the button that opens the header's links on a
+// small screen: nav.menu in locales/<locale>/app.yaml.
+func menuLabel(ctx context.Context) string {
+	if i18n.Has(ctx, "nav.menu") {
+		return i18n.T(ctx, "nav.menu")
+	}
+	return "Menu"
+}
+
+// control is a form control's classes: Bootstrap's, and is-invalid when
+// its field failed validation.
+func control(base string, invalid bool) string {
+	if invalid {
+		return base + " is-invalid"
+	}
+	return base
+}

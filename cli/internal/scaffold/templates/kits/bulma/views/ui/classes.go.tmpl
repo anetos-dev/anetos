@@ -1,0 +1,66 @@
+package ui
+
+import (
+	"context"
+	"strings"
+
+	"anetos.dev/anetos/i18n"
+)
+
+// Bulma's classes of the looks and tones.
+
+// class is a button's classes.
+func (l Look) class() string {
+	c := []string{"button"}
+	switch l &^ (Small | Full) {
+	case Secondary:
+		// Bulma's plain button.
+	case Danger:
+		c = append(c, "is-danger")
+	case Ghost:
+		c = append(c, "is-ghost")
+	default:
+		c = append(c, "is-primary")
+	}
+	if l&Small != 0 {
+		c = append(c, "is-small")
+	}
+	if l&Full != 0 {
+		c = append(c, "is-fullwidth")
+	}
+	return strings.Join(c, " ")
+}
+
+// color is a tone's color modifier in Bulma's classes (is-success…), ""
+// for Neutral.
+func (t Tone) color() string {
+	switch t {
+	case Success:
+		return " is-success"
+	case Warning:
+		return " is-warning"
+	case Error:
+		return " is-danger"
+	case Info:
+		return " is-info"
+	}
+	return ""
+}
+
+// menuLabel is the name of the button that opens the header's links on a
+// small screen: nav.menu in locales/<locale>/app.yaml.
+func menuLabel(ctx context.Context) string {
+	if i18n.Has(ctx, "nav.menu") {
+		return i18n.T(ctx, "nav.menu")
+	}
+	return "Menu"
+}
+
+// control is a form control's classes: Bulma's, and is-danger when its
+// field failed validation.
+func control(base string, invalid bool) string {
+	if invalid {
+		return base + " is-danger"
+	}
+	return base
+}

@@ -1,0 +1,43 @@
+package ui
+
+import "strings"
+
+// Pico's classes of the looks, and app.css's of the tones (Pico has no
+// danger, ghost, small or full button, badge or colored message: app.css
+// adds them).
+
+// class is a button's classes: "" for the primary one, which Pico styles
+// without any.
+func (l Look) class() string {
+	var c []string
+	switch l &^ (Small | Full) {
+	case Secondary:
+		c = append(c, "secondary")
+	case Danger:
+		c = append(c, "danger")
+	case Ghost:
+		c = append(c, "ghost")
+	}
+	if l&Small != 0 {
+		c = append(c, "small")
+	}
+	if l&Full != 0 {
+		c = append(c, "full")
+	}
+	return strings.Join(c, " ")
+}
+
+// toneClass is the class of a tone added to a badge's or a message's.
+func (t Tone) toneClass() string {
+	switch t {
+	case Success:
+		return " success"
+	case Warning:
+		return " warning"
+	case Error:
+		return " danger"
+	case Info:
+		return " info"
+	}
+	return ""
+}

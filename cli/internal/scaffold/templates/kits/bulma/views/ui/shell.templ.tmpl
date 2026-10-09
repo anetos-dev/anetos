@@ -1,0 +1,90 @@
+package ui
+
+import "[[.Module]]/public"
+
+// The page's shell, which the layout (views/layout.templ) puts together.
+
+// Head links Bulma, the app's stylesheet and nav.js, which opens the
+// header's links on a small screen: the layout's <head> calls it.
+templ Head() {
+	<link rel="stylesheet" href={ public.Assets.URL("bulma.min.css") }/>
+	<link rel="stylesheet" href={ public.Assets.URL("app.css") }/>
+	<script src={ public.Assets.URL("nav.js") } defer></script>
+}
+
+// Header is the top of every page: the app's name, linking to home,
+// then its children (a Nav, and a NavEnd with the account's links),
+// behind a menu button on a small screen.
+templ Header(brand, home string) {
+	<header class="navbar has-shadow">
+		<div class="container">
+			<div class="navbar-brand">
+				<a class="navbar-item has-text-weight-bold" href={ home }>{ brand }</a>
+				<button type="button" class="navbar-burger" aria-label={ menuLabel(ctx) } aria-expanded="false" aria-controls="navbar">
+					<span aria-hidden="true"></span>
+					<span aria-hidden="true"></span>
+					<span aria-hidden="true"></span>
+					<span aria-hidden="true"></span>
+				</button>
+			</div>
+			<div class="navbar-menu" id="navbar">
+				{ children... }
+			</div>
+		</div>
+	</header>
+}
+
+// Nav is the header's links (NavLink), named label for screen readers.
+templ Nav(label string) {
+	<nav class="navbar-start" aria-label={ label }>
+		{ children... }
+	</nav>
+}
+
+// NavLink is a link of the header, marked as the page being shown when
+// current is true.
+templ NavLink(href, label string, current bool) {
+	<a class="navbar-item" href={ href } if current { aria-current="page" }>{ label }</a>
+}
+
+// NavEnd is the end of the header: the account's links and buttons.
+templ NavEnd() {
+	<div class="navbar-end">
+		{ children... }
+	</div>
+}
+
+// NavItem is an entry of a Nav or NavEnd that isn't a NavLink: a
+// button, a form (log out).
+templ NavItem() {
+	<div class="navbar-item">
+		{ children... }
+	</div>
+}
+
+// Main is the page's own content, in Bulma's content, which styles the
+// pages' plain HTML (headings, paragraphs, lists).
+templ Main() {
+	<main class="section">
+		<div class="container content">
+			{ children... }
+		</div>
+	</main>
+}
+
+// Footer is the bottom of every page.
+templ Footer() {
+	<footer class="footer py-5">
+		<div class="container has-text-grey is-size-7">
+			{ children... }
+		</div>
+	</footer>
+}
+
+// Flash is a message about what just happened, in a tone's color, with
+// any buttons beside it.
+templ Flash(tone Tone) {
+	<div class={ "notification is-light is-flex is-flex-wrap-wrap is-align-items-center is-gap-2" + tone.color() } role="status">
+		{ children... }
+	</div>
+}

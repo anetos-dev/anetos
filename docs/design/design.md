@@ -1071,7 +1071,9 @@ Implemented in F10 (packages `view`, `session`, `encryption`; helpers in
 - **Assets** (D66): `view.NewAssets(prefix, fsys...)` hashes files once at
   startup; `assets.URL(name)` adds `?v=<hash>`, and requests with the current
   hash are cacheable for a year. The app declares its `*view.Assets` and
-  templates use it directly (no context lookup).
+  templates use it directly (no context lookup). Text files of 1 KiB or
+  more are gzipped once, the first time they're requested, and served
+  gzipped to clients that accept it (D300).
 - **htmx** 2.0.11 is bundled (`view/htmx`, 0BSD) and served through
   `view.NewAssets(…, htmx.FS)`, with its server-sent events extension
   (`htmx-ext-sse.min.js` 2.2.4, 0BSD, A3). `c.IsHTMX()` (adds `Vary: HX-Request`) and
@@ -1132,7 +1134,7 @@ markup a design kit decides; the layout and the pages call it and use
 plain HTML elements, never `class=`:
 
 - **The components:** the shell (`Head`, `Header`, `Nav`, `NavLink`,
-  `NavEnd`, `Main`, `Footer`, `Flash`), page structure (`PageHeader`,
+  `NavEnd`, `NavItem` (K2), `Main`, `Footer`, `Flash`), page structure (`PageHeader`,
   `Narrow`, `Stack`, `Cluster`, `Card`, `CardHeader`, `AuthCard`,
   `Empty`, `Note`, `SROnly`), forms (`Form`, `InlineForm`, `Field`,
   `Input`, `Textarea`, `Select`, `Checkbox`, `FieldError`, `Actions`,
@@ -1153,6 +1155,16 @@ plain HTML elements, never `class=`:
   with any (a test builds a `none` project with `make:crud` and
   `make:auth`). v0.5's other kits (K2, K3) and `css:use` (K4) add to
   this.
+- **CSS frameworks' kits (K2, D298–D300):** `pico` (2.1.1), `bootstrap`
+  (5.3.8) and `bulma` (1.0.4) write their framework's markup, and its
+  files as released (`scaffold.KitVersions`, fetched by
+  `scripts/update-kits.sh`, checked by a test) with its license into
+  `public/static/`, beside an `app.css` for what the framework has no
+  style of; Bootstrap and Bulma add a small script (dark mode, the menu
+  button). A kit's `classes.go` maps looks and tones to its classes.
+  `NavItem` wraps a header entry that isn't a link as each kit's menus
+  need. A test builds a project's pages against each kit's
+  `views/ui`.
 - **Projects made before v0.5** (no `views/ui`): `make:crud` and
   `make:auth` write the kit their stylesheet looks like first, and say
   so; the layout is left as it is.
@@ -2523,7 +2535,8 @@ write call the app's `views/ui` components (D292): `anetos new` writes
 a design kit, by default the starter theme's components and its
 `public/static/app.css` (plain CSS, no build step, light and dark, D240),
 so a new app looks finished; `--css=none` writes components of plain
-HTML and no styles (D293). `anetos new
+HTML and no styles (D293), and `--css=pico`, `bootstrap` or `bulma` a
+CSS framework's (D298). `anetos new
 --replace=<checkout>` (framework development) replaces every module of
 the checkout, drivers and plugins included, so `go get` and `anetos add`
 take them from it (D151).
@@ -3094,6 +3107,9 @@ unless new information arrives), **Open**, **Superseded**.
 | D295 | `web.MustURL(ctx, name, args...)` returns the route's path or panics (the router answers a handler's panic as a 500) | Accepted | Components take URLs as arguments, and a Go call can't take `web.URL`'s two results among other arguments. A route that doesn't exist is a mistake in the code, as a template's error is; `web.URL` stays for attributes, whose error templ returns |
 | D296 | The layout keeps its `navLink` helper, now calling `ui.NavLink`; `make:crud` adds its link at the end of the header's nav and `make:auth` its `AccountMenu` after the nav, found as the `}` closing `@ui.Nav(…) {` or, in older layouts, the `</nav>` inside `<header>`, with the file's line endings | Accepted | Generators edit layouts written before and after v0.5 by their shape (D241); keeping `navLink` keeps both shapes' link lines alike |
 | D297 | The examples use `views/ui`: `examples/tutorial` (its generated files and the reader's pages, so the tutorial teaches the components) and `examples/tracker`, which adds its own components (status, priority and label chips, tabs, lists, link-looking buttons…) to its `views/ui` with their CSS after the theme's | Accepted | The reference app should show the recommended way, including how an app extends the package (user's choice, 2026-10-09). Migrating it found two bugs (a tab's `aria-current` never matched its CSS; a rule broke the dashboard's token table), fixed |
+| D298 | `--css=pico`, `bootstrap` and `bulma` are kits like `anetos`'s: their `views/ui` in the framework's markup, and the framework's files as released (minified CSS, Bootstrap's bundle) vendored into the CLI and copied into `public/static/` with their MIT license; the CLI pins one release of each (`scaffold.KitVersions`), which `scripts/update-kits.sh` fetches from npm and a test checks against the files' headers. Each kit adds an `app.css` for what its framework has no style of (Pico's badges, colored messages and danger button) and only the JavaScript it needs: Bootstrap's bundle and a `theme.js` setting `data-bs-theme` from the system, Bulma's `nav.js` for the menu button; Pico needs none, its header wrapping on a small screen | Accepted | A CDN would make a new app depend on a third party at runtime, break offline development and need SRI hashes; vendoring keeps D240's "no build step, works offline", and the binary embeds the files. Pinning a release makes a project reproducible and its look reviewable; an update is a deliberate change with screenshots. Bootstrap and Bulma style plain HTML differently from Pico (Bulma resets it, so `Main` wraps the page in its `content`), so each kit decides how the pages' plain elements look |
+| D299 | `ui.NavItem` is a header entry that isn't a `NavLink` (a button, a form): `make:auth`'s `AccountMenu` wraps its logout and register buttons in it. The `anetos` and `none` kits write its children alone; Pico wraps it in an `<li>`, Bootstrap in a `nav-item`, Bulma in a `navbar-item`. The menu button of Bootstrap's and Bulma's headers is named by `nav.menu` in the app's locale files, "Menu" when it has none | Accepted | Frameworks' menus are lists of items, and a bare button in a `<ul>` or a navbar is invalid or unstyled; one more component keeps `AccountMenu` the same for every kit. Older apps' locale files lack `nav.menu`, hence the fallback (K4 adds it) |
+| D300 | `view.Assets` gzips a file once, the first time it is requested, when its type is text (`text/*`, JavaScript, JSON, SVG, XML, wasm), it is 1 KiB or more and gzip saves a tenth, and serves that copy, with its own `ETag`, its length and `Vary: Accept-Encoding`, to a request that accepts gzip (`q=0` refuses it); a 304 or an error isn't marked gzipped | Accepted | A framework's stylesheet is 80–680 KB, a tenth of that gzipped, and an app deployed as its single binary, without a proxy, would otherwise send it whole. Compressing once costs up to 60 ms for Bulma's stylesheet instead of CPU per request; doing it on the first request rather than in `NewAssets` keeps that off every start (commands, tests). Brotli would need a dependency for a few percent more |
 
 ---
 
@@ -3185,3 +3201,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-08 | v0.4 exit: §8.4, §12.2, §18 updated; D285–D290 added |
 | 2026-10-09 | v0.5 started: CI's tests in parts (§23, D291) |
 | 2026-10-09 | K1 (UI components): §12.2 updated; D244 accepted; D292–D297 added |
+| 2026-10-09 | K2 (Pico, Bootstrap, Bulma kits): §12.1, §12.2, §17.1 updated; D298–D300 added |

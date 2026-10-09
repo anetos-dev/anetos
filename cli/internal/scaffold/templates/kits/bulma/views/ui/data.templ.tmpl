@@ -1,0 +1,64 @@
+package ui
+
+// Lists, tables and values.
+
+// Table is a table in a box that scrolls sideways when it's too wide;
+// its children are the <thead> and <tbody>.
+templ Table() {
+	<div class="table-container">
+		<table class="table is-fullwidth is-hoverable">
+			{ children... }
+		</table>
+	</div>
+}
+
+// ActionsCell is a row's cell of buttons, at its end.
+templ ActionsCell() {
+	<td class="has-text-right">
+		{ children... }
+	</td>
+}
+
+// Details is a list of terms and their values (Detail).
+templ Details() {
+	<dl class="details">
+		{ children... }
+	</dl>
+}
+
+// Detail is a term and its value (children).
+templ Detail(term string) {
+	<dt class="has-text-weight-semibold has-text-grey">{ term }</dt>
+	<dd>
+		{ children... }
+	</dd>
+}
+
+// Multiline is text of several lines, shown with its line breaks.
+templ Multiline(text string) {
+	<span class="prewrap">{ text }</span>
+}
+
+// Badge is a short label in a tone's color: a status, a count.
+templ Badge(tone Tone) {
+	<span class={ "tag" + tone.color() }>
+		{ children... }
+	</span>
+}
+
+// Pagination links to the pages before and after a list's page.
+templ Pagination(p Pages) {
+	<nav class="pagination is-centered mt-5" aria-label={ p.Label }>
+		if p.Prev != "" {
+			<a class="pagination-previous" href={ p.Prev } rel="prev">{ p.PrevLabel }</a>
+		}
+		if p.Next != "" {
+			<a class="pagination-next" href={ p.Next } rel="next">{ p.NextLabel }</a>
+		}
+		if p.Status != "" {
+			<ul class="pagination-list">
+				<li><span class="pagination-ellipsis">{ p.Status }</span></li>
+			</ul>
+		}
+	</nav>
+}

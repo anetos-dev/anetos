@@ -1,0 +1,92 @@
+package ui
+
+import "[[.Module]]/public"
+
+// The page's shell, which the layout (views/layout.templ) puts together.
+
+// Head links Bootstrap, the app's stylesheet and scripts: theme.js
+// follows the system's light or dark setting, Bootstrap's script opens
+// the header's links on a small screen. The layout's <head> calls it.
+templ Head() {
+	<link rel="stylesheet" href={ public.Assets.URL("bootstrap.min.css") }/>
+	<link rel="stylesheet" href={ public.Assets.URL("app.css") }/>
+	<script src={ public.Assets.URL("theme.js") }></script>
+	<script src={ public.Assets.URL("bootstrap.bundle.min.js") } defer></script>
+}
+
+// Header is the top of every page: the app's name, linking to home,
+// then its children (a Nav, and a NavEnd with the account's links),
+// behind a menu button on a small screen.
+templ Header(brand, home string) {
+	<header class="navbar navbar-expand-md bg-body-tertiary border-bottom">
+		<div class="container">
+			<a class="navbar-brand fw-semibold" href={ home }>{ brand }</a>
+			<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label={ menuLabel(ctx) }>
+				<span class="navbar-toggler-icon"></span>
+			</button>
+			<div class="collapse navbar-collapse" id="navbar">
+				{ children... }
+			</div>
+		</div>
+	</header>
+}
+
+// Nav is the header's links (NavLink), named label for screen readers.
+templ Nav(label string) {
+	<nav class="me-auto" aria-label={ label }>
+		<ul class="navbar-nav">
+			{ children... }
+		</ul>
+	</nav>
+}
+
+// NavLink is a link of the header, marked as the page being shown when
+// current is true.
+templ NavLink(href, label string, current bool) {
+	<li class="nav-item">
+		if current {
+			<a class="nav-link active" href={ href } aria-current="page">{ label }</a>
+		} else {
+			<a class="nav-link" href={ href }>{ label }</a>
+		}
+	</li>
+}
+
+// NavEnd is the end of the header: the account's links and buttons.
+templ NavEnd() {
+	<ul class="navbar-nav ms-md-auto align-items-md-center gap-md-2">
+		{ children... }
+	</ul>
+}
+
+// NavItem is an entry of a Nav or NavEnd that isn't a NavLink: a
+// button, a form (log out).
+templ NavItem() {
+	<li class="nav-item">
+		{ children... }
+	</li>
+}
+
+// Main is the page's own content.
+templ Main() {
+	<main class="container py-4">
+		{ children... }
+	</main>
+}
+
+// Footer is the bottom of every page.
+templ Footer() {
+	<footer class="border-top py-3 text-body-secondary small">
+		<div class="container">
+			{ children... }
+		</div>
+	</footer>
+}
+
+// Flash is a message about what just happened, in a tone's color, with
+// any buttons beside it.
+templ Flash(tone Tone) {
+	<div class={ "alert alert-" + tone.color() + " d-flex flex-wrap align-items-center gap-2" } role="status">
+		{ children... }
+	</div>
+}

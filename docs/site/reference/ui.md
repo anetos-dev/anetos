@@ -13,10 +13,11 @@ and `make:auth` call. The package is your app's: this page describes it
 as `anetos new` writes it. See [Style your app](../guides/styling.md)
 for changing it.
 
-Every component exists in both kits, with the same name and arguments.
+Every component exists in every kit, with the same name and arguments.
 The tables show what the `anetos` kit (the starter theme) writes;
 [the `none` kit](#the-none-kit) writes the same elements without
-classes.
+classes, and [the CSS frameworks' kits](#the-css-frameworks-kits)
+write their framework's markup.
 
 ```templ
 // illustrative
@@ -50,7 +51,8 @@ together.
 | `Header(brand, home string)` | the `Nav` and `NavEnd` | `<header class="topbar">` with the app's name, `brand`, linking to `home` |
 | `Nav(label string)` | `NavLink`s | `<nav class="nav">`, named `label` for screen readers (`aria-label`) |
 | `NavLink(href, label string, current bool)` | | A link of the header; `aria-current="page"` when `current` |
-| `NavEnd()` | links and buttons | `<div class="nav-end">`: the end of the header, for the account's links (`make:auth`'s `AccountMenu`) |
+| `NavEnd()` | `NavLink`s and `NavItem`s | `<div class="nav-end">`: the end of the header, for the account's links (`make:auth`'s `AccountMenu`) |
+| `NavItem()` | a button, a form | An entry of a `Nav` or `NavEnd` that isn't a `NavLink`, such as the logout button. The `anetos` kit writes the children alone; a framework's kit wraps them as its menus need (`<li>`, `navbar-item`) |
 | `Main()` | the page | `<main class="container">` |
 | `Footer()` | its content | `<footer class="site-footer">` |
 | `Flash(tone Tone)` | the message, and any buttons | `<div class="flash cluster …" role="status">` in the tone's color |
@@ -199,6 +201,29 @@ and no classes. The differences:
 | `Badge`, `Flash` | The tone changes nothing |
 | `SROnly`, `Multiline` | An inline `style` hides the text visually, or keeps its line breaks (a Content-Security-Policy without `'unsafe-inline'` for styles blocks it: give them classes then) |
 
-Its `app.css` holds only a comment, and there is no `classes.go`. Kits
-for CSS frameworks (Pico, Bootstrap, Bulma, Tailwind) are coming in
-later releases.
+Its `app.css` holds only a comment, and there is no `classes.go`.
+
+## The CSS frameworks' kits
+
+`anetos new --css=pico`, `--css=bootstrap` and `--css=bulma` write the
+same components in their framework's markup, its stylesheet (and
+JavaScript) as released into `public/static/` with its license, and an
+`app.css` for the rest:
+
+| | `pico` (2.1.1) | `bootstrap` (5.3.8) | `bulma` (1.0.4) |
+|---|---|---|---|
+| `Head` | `pico.min.css`, `app.css` | `bootstrap.min.css`, `app.css`, `theme.js`, `bootstrap.bundle.min.js` | `bulma.min.css`, `app.css`, `nav.js` |
+| `Header` | The links wrap on a small screen | `navbar`, with a menu button on a small screen | `navbar`, with a menu button on a small screen |
+| `Nav`, `NavEnd`, `NavItem` | `<ul>`, each entry an `<li>` | `navbar-nav`, each entry a `nav-item` | `navbar-start`, `navbar-end`, `navbar-item` |
+| `Card`, `AuthCard` | `<article>`, the title in its `<header>` | `card` | `box` |
+| `Field` | Its message, then its hint, in `<small>` under the control | `form-control`, `invalid-feedback`, `form-text` | `field`, `control`, `help` |
+| `Button`, `LinkButton` | Pico's buttons (`secondary`); `danger`, `ghost`, `small`, `full` from `app.css`; a link is `role="button"` | `btn` and `btn-primary`, `btn-outline-secondary`, `btn-danger`, `btn-link`, `btn-sm`, `w-100` | `button` and `is-primary`, `is-danger`, `is-ghost`, `is-small`, `is-fullwidth` |
+| `Badge`, `Flash` | `badge`, `flash` and the tone from `app.css` | `badge`, `alert` | `tag`, `notification` |
+| `Table`, `Pagination` | `overflow-auto`; `<nav>` with a `<ul>` | `table-responsive`; `pagination` | `table-container`; `pagination` |
+| Dark mode | Pico's, from the system | `theme.js` sets `data-bs-theme` from the system | Bulma's, from the system |
+
+The menu button's name is `nav.menu` in `locales/<locale>/app.yaml`
+("Menu"). Each version of the CLI writes the framework releases above;
+a newer release of a framework comes with a newer CLI, or replace its
+files in `public/static/` yourself. A Tailwind kit is coming in a later
+release.

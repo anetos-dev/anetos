@@ -1,0 +1,85 @@
+package ui
+
+// The structure of a page's content.
+
+// PageHeader is a page's title, with a line under it when lead isn't "",
+// and its actions (children, such as a LinkButton) at the end.
+templ PageHeader(title, lead string) {
+	<div class="is-flex is-flex-wrap-wrap is-align-items-center is-justify-content-space-between is-gap-3 mb-5">
+		<div>
+			<h1 class="title is-4 mb-0">{ title }</h1>
+			if lead != "" {
+				<p class="has-text-grey mt-1">{ lead }</p>
+			}
+		</div>
+		{ children... }
+	</div>
+}
+
+// Narrow keeps its children to a readable width, for forms and text.
+templ Narrow() {
+	<div class="narrow">
+		{ children... }
+	</div>
+}
+
+// Stack puts its children one under the other, spaced evenly.
+templ Stack() {
+	<div class="is-flex is-flex-direction-column is-gap-3">
+		{ children... }
+	</div>
+}
+
+// Cluster puts its children side by side, wrapping: buttons, a search
+// field and its button.
+templ Cluster() {
+	<div class="is-flex is-flex-wrap-wrap is-align-items-center is-gap-2">
+		{ children... }
+	</div>
+}
+
+// Card is a box of related content, under a heading when title isn't "".
+templ Card(title string) {
+	<section class="box">
+		if title != "" {
+			<h2 class="title is-5">{ title }</h2>
+		}
+		{ children... }
+	</section>
+}
+
+// CardHeader is a card's heading with actions (children) beside it, for
+// a Card("").
+templ CardHeader(title string) {
+	<div class="is-flex is-flex-wrap-wrap is-align-items-center is-justify-content-space-between is-gap-2 mb-4">
+		<h2 class="title is-5 mb-0">{ title }</h2>
+		{ children... }
+	</div>
+}
+
+// AuthCard is a page made of one small card under its title, as the
+// sign-in pages are.
+templ AuthCard(title string) {
+	<div class="box auth-card">
+		<h1 class="title is-4">{ title }</h1>
+		{ children... }
+	</div>
+}
+
+// Empty says a list has nothing in it yet.
+templ Empty(text string) {
+	<p class="empty has-text-centered has-text-grey p-6">{ text }</p>
+}
+
+// Note is a paragraph of secondary text.
+templ Note() {
+	<p class="has-text-grey mb-4">
+		{ children... }
+	</p>
+}
+
+// SROnly is text for screen readers only, such as a column's heading
+// that a sighted reader doesn't need.
+templ SROnly(text string) {
+	<span class="is-sr-only">{ text }</span>
+}

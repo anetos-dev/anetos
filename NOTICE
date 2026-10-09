@@ -9,3 +9,11 @@ distributed under the Zero-Clause BSD license (view/htmx/LICENSE).
 This product bundles htmx-ext-sse 2.2.4 (https://htmx.org/extensions/sse/)
 in view/htmx, distributed under the Zero-Clause BSD license
 (view/htmx/LICENSE-sse).
+
+The anetos CLI (cli/) bundles, for the design kits that anetos new
+writes into projects, under the MIT license (each license beside the
+files, in cli/internal/scaffold/templates/kits/<kit>/public/static):
+- Pico CSS (https://picocss.com), pico.LICENSE.txt
+- Bootstrap (https://getbootstrap.com), bootstrap.LICENSE.txt, and
+  Popper (https://popper.js.org), in Bootstrap's bundle, popper.LICENSE.txt
+- Bulma (https://bulma.io), bulma.LICENSE.txt

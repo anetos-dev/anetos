@@ -1,0 +1,19 @@
+/*
+ * The app's styles, after Bootstrap's (bootstrap.min.css, v[[.KitVersion]]): yours
+ * to change. Bootstrap's own classes do most of the work; the components
+ * of views/ui write them. Light and dark follow the system (theme.js sets
+ * data-bs-theme on <html>).
+ */
+
+.narrow { max-width: 42rem; }
+.auth-card { max-width: 26rem; }
+.prewrap { white-space: pre-wrap; }
+
+/* A page's own <h1> (a form's page) as large as PageHeader's. */
+main h1 { font-size: calc(1.3rem + .6vw); }
+main h1:not([class]) { margin-bottom: 1rem; }
+@media (min-width: 1200px) { main h1 { font-size: 1.75rem; } }
+
+/* A ghost button in the header (log out) as its links are. */
+.navbar .btn-link { --bs-btn-color: var(--bs-nav-link-color); --bs-btn-hover-color: var(--bs-nav-link-hover-color); --bs-btn-padding-x: 0; text-decoration: none; }
+@media (min-width: 768px) { .navbar .btn-link { --bs-btn-padding-x: .5rem; } }

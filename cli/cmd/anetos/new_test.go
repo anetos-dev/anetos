@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"anetos.dev/anetos/cli/internal/scaffold"
 )
 
 // TestNewProject creates a project against this checkout, adds code with
@@ -418,10 +420,12 @@ func TestNewAPIProject(t *testing.T) {
 	}
 }
 
-// TestNewProjectKitNone builds a project made with --css=none, whose
+// TestNewProjectKits builds a project made with --css=none, whose
 // views/ui writes plain HTML, with make:crud's and make:auth's pages:
 // they call the same components as with the starter theme (design D292).
-func TestNewProjectKitNone(t *testing.T) {
+// Then it swaps views/ui for each CSS framework's kit, with which the
+// same pages build and pass their tests (design D298).
+func TestNewProjectKits(t *testing.T) {
 	if testing.Short() {
 		t.Skip("creates and builds a project")
 	}
@@ -445,10 +449,28 @@ func TestNewProjectKitNone(t *testing.T) {
 	if b := read(t, filepath.Join(dir, "views", "ui", "page.templ")); strings.Contains(b, "class=") {
 		t.Errorf("--css=none's views/ui has classes:\n%s", b)
 	}
-	cmd := exec.Command("go", "test", "./...")
-	cmd.Dir = dir
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("go test: %v\n%s", err, out)
+	goIn := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command("go", args...)
+		cmd.Dir = dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("go %s: %v\n%s", strings.Join(args, " "), err, out)
+		}
+	}
+	goIn("test", "./...")
+	for _, kit := range scaffold.Kits {
+		if kit == "anetos" || kit == "none" {
+			continue // the other tests' projects, and this one's
+		}
+		if err := os.RemoveAll(filepath.Join(dir, "views", "ui")); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := scaffold.WriteUI(dir, "plain", kit); err != nil {
+			t.Fatalf("%s: %v", kit, err)
+		}
+		goIn("tool", "templ", "generate", "-log-level=warn")
+		goIn("vet", "./...")
+		goIn("test", "./...")
 	}
 }
 

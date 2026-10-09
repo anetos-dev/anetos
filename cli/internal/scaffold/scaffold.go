@@ -57,8 +57,17 @@ type Project struct {
 // app's views/ui package (the components the layout and the generators'
 // pages call) and its public/static/app.css, from templates/kits/<kit>,
 // with templates/kits/common's views/ui files (the types every kit's
-// components take).
-var Kits = []string{"anetos", "none"}
+// components take). A CSS framework's kit adds the framework's files,
+// as released (files without .tmpl, copied as they are; KitVersions).
+var Kits = []string{"anetos", "none", "pico", "bootstrap", "bulma"}
+
+// KitVersions are the CSS frameworks' releases the kits carry, all
+// MIT-licensed; scripts/update-kits.sh fetches a framework's files.
+var KitVersions = map[string]string{
+	"pico":      "2.1.1",
+	"bootstrap": "5.3.8",
+	"bulma":     "1.0.4",
+}
 
 // Stacks are the values of [Project.Stack].
 var Stacks = []string{"web", "api"}
@@ -78,6 +87,7 @@ type projectData struct {
 	Stack                                         string // web or api
 	Web, API                                      bool   // the stack
 	Kit                                           string // the design kit, for the web stack
+	KitVersion                                    string // its CSS framework's (KitVersions)
 	Bin                                           string // anetos build's binary (BinaryName)
 	Image                                         string // the name in lower case, for Docker and platforms
 	// GoMinor is the Go release of go.mod's go line ("1.26"), for the
@@ -193,7 +203,7 @@ func Create(p Project) ([]string, error) {
 	case p.Stack == "api":
 	case p.CSS == "":
 		p.CSS = "anetos"
-	case p.CSS == "anetos", p.CSS == "none":
+	case slices.Contains(Kits, p.CSS):
 	default:
 		return nil, fmt.Errorf("anetos new: --css must be one of %s", strings.Join(Kits, ", "))
 	}
@@ -306,17 +316,28 @@ func renderKit(kit string, data projectData) ([]KitFile, error) {
 	if !slices.Contains(Kits, kit) {
 		return nil, fmt.Errorf("scaffold: no design kit %q (kits: %s)", kit, strings.Join(Kits, ", "))
 	}
+	data.KitVersion = KitVersions[kit]
 	var files []KitFile
 	for _, root := range []string{"templates/kits/common", "templates/kits/" + kit} {
 		err := fs.WalkDir(templates, root, func(src string, d fs.DirEntry, err error) error {
 			if err != nil || d.IsDir() {
 				return err
 			}
+			rel := strings.TrimPrefix(src, root+"/")
+			if !strings.HasSuffix(src, ".tmpl") {
+				// A CSS framework's own files, as they are released.
+				out, err := fs.ReadFile(templates, src)
+				if err != nil {
+					return err
+				}
+				files = append(files, KitFile{rel, out})
+				return nil
+			}
 			out, err := render(src, "", data)
 			if err != nil {
 				return err
 			}
-			files = append(files, KitFile{strings.TrimSuffix(strings.TrimPrefix(src, root+"/"), ".tmpl"), out})
+			files = append(files, KitFile{strings.TrimSuffix(rel, ".tmpl"), out})
 			return nil
 		})
 		if err != nil {

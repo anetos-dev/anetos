@@ -28,13 +28,17 @@ templ AccountMenu() {
 		if u, ok := auth.User[*models.User](ctx); ok {
 			@ui.NavLink(web.MustURL(ctx, "dashboard"), u.Name, false)
 			@ui.NavLink(web.MustURL(ctx, "settings"), i18n.T(ctx, "auth.settings.title"), false)
-			@ui.PostButton(web.MustURL(ctx, "logout"), "POST", ui.Ghost) {
-				{ i18n.T(ctx, "auth.dashboard.logout") }
+			@ui.NavItem() {
+				@ui.PostButton(web.MustURL(ctx, "logout"), "POST", ui.Ghost) {
+					{ i18n.T(ctx, "auth.dashboard.logout") }
+				}
 			}
 		} else {
 			@ui.NavLink(web.MustURL(ctx, "login"), i18n.T(ctx, "auth.login.title"), false)
-			@ui.LinkButton(web.MustURL(ctx, "register"), ui.Primary|ui.Small) {
-				{ i18n.T(ctx, "auth.register.title") }
+			@ui.NavItem() {
+				@ui.LinkButton(web.MustURL(ctx, "register"), ui.Primary|ui.Small) {
+					{ i18n.T(ctx, "auth.register.title") }
+				}
 			}
 		}
 	}

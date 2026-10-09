@@ -1,0 +1,28 @@
+/*
+ * The app's styles, after Bulma's (bulma.min.css, v[[.KitVersion]]): yours to
+ * change. Bulma's own classes do most of the work; the components of
+ * views/ui write them. Light and dark follow the system.
+ */
+
+.narrow { max-width: 42rem; }
+.auth-card { max-width: 26rem; margin: 1rem auto; }
+.prewrap { white-space: pre-wrap; }
+.empty { border: 1px dashed var(--bulma-border); border-radius: var(--bulma-radius); }
+.details { display: grid; grid-template-columns: minmax(8rem, max-content) 1fr; gap: .6rem 1.5rem; margin: 0; }
+.details dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 40rem) {
+	.details { grid-template-columns: 1fr; gap: .15rem; }
+	.details dd { margin-bottom: .6rem; }
+}
+
+/* The page being shown, in the header. */
+.navbar-item[aria-current="page"] { color: var(--bulma-link-text); font-weight: 600; }
+
+/* Bulma's content (Main) styles the pages' plain HTML: a page's own <h1>
+   as large as PageHeader's, and no list style for the pagination's. */
+.content h1 { font-size: 1.5rem; }
+.content .pagination-list { margin: 0; }
+.content .pagination-list li + li { margin-top: 0; }
+
+/* A ghost button in the header (log out) placed as its links are. */
+.navbar .button.is-ghost { padding-inline: 0; height: auto; color: inherit; }

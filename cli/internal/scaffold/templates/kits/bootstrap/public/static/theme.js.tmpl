@@ -1,0 +1,9 @@
+// The app's color mode for Bootstrap: dark or light as the system is
+// set, and when the setting changes. Bootstrap reads data-bs-theme on
+// <html>. Loaded before the page renders, so it never flashes.
+(() => {
+  const dark = window.matchMedia("(prefers-color-scheme: dark)");
+  const apply = () => document.documentElement.setAttribute("data-bs-theme", dark.matches ? "dark" : "light");
+  apply();
+  dark.addEventListener("change", apply);
+})();

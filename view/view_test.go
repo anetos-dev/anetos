@@ -3,12 +3,15 @@
 package view_test
 
 import (
+	"compress/gzip"
 	"context"
 	"errors"
 	"html/template"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -178,6 +181,82 @@ func TestAssets(t *testing.T) {
 	}
 	if _, err := view.NewAssets("assets", files); err == nil {
 		t.Error("relative prefix accepted")
+	}
+}
+
+// Text files of 1 KiB or more go gzipped to clients that take it.
+func TestAssetsGzip(t *testing.T) {
+	css := strings.Repeat(".card { padding: 1rem; }\n", 200)
+	files := fstest.MapFS{
+		"app.css":  {Data: []byte(css)},
+		"tiny.css": {Data: []byte("body{}")},
+		"logo.png": {Data: []byte(strings.Repeat("x", 4096))},
+	}
+	a, err := view.NewAssets("/assets", files)
+	if err != nil {
+		t.Fatal(err)
+	}
+	get := func(name, accept string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodGet, a.URL(name), nil)
+		if accept != "" {
+			req.Header.Set("Accept-Encoding", accept)
+		}
+		rec := httptest.NewRecorder()
+		a.ServeHTTP(rec, req)
+		return rec
+	}
+	rec := get("app.css", "br, gzip, deflate")
+	if rec.Code != 200 || rec.Header().Get("Content-Encoding") != "gzip" || rec.Header().Get("Vary") != "Accept-Encoding" ||
+		!strings.HasPrefix(rec.Header().Get("Content-Type"), "text/css") || rec.Body.Len() >= len(css)/5 {
+		t.Fatalf("gzip: %d %v %d bytes", rec.Code, rec.Header(), rec.Body.Len())
+	}
+	if cl := rec.Header().Get("Content-Length"); cl != strconv.Itoa(rec.Body.Len()) {
+		t.Errorf("gzip: Content-Length %q, %d bytes", cl, rec.Body.Len())
+	}
+	gzLen := rec.Body.Len()
+	zr, err := gzip.NewReader(rec.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b, err := io.ReadAll(zr); err != nil || string(b) != css {
+		t.Errorf("gunzipped: %v %d bytes", err, len(b))
+	}
+	gzTag := rec.Header().Get("ETag")
+	for _, accept := range []string{"", "identity", "gzip;q=0", "gzip; Q=0.0", "gzip;foo=1;q=0", "gzip;q=x", "deflate", "*"} {
+		rec := get("app.css", accept)
+		if rec.Header().Get("Content-Encoding") != "" || rec.Body.String() != css || rec.Header().Get("Vary") != "Accept-Encoding" || rec.Header().Get("ETag") == gzTag {
+			t.Errorf("Accept-Encoding %q: %v", accept, rec.Header())
+		}
+	}
+	for _, name := range []string{"tiny.css", "logo.png"} {
+		if rec := get(name, "gzip"); rec.Header().Get("Content-Encoding") != "" || rec.Header().Get("Vary") != "" {
+			t.Errorf("%s: %v", name, rec.Header())
+		}
+	}
+	// Revalidating the gzipped representation.
+	req := httptest.NewRequest(http.MethodGet, "/assets/app.css", nil)
+	req.Header.Set("Accept-Encoding", "gzip")
+	req.Header.Set("If-None-Match", gzTag)
+	rec = httptest.NewRecorder()
+	a.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotModified || rec.Header().Get("Content-Encoding") != "" {
+		t.Errorf("revalidation: %d %v", rec.Code, rec.Header())
+	}
+	// HEAD has the gzipped length; a range is of the gzipped bytes.
+	req = httptest.NewRequest(http.MethodHead, "/assets/app.css", nil)
+	req.Header.Set("Accept-Encoding", "gzip")
+	rec = httptest.NewRecorder()
+	a.ServeHTTP(rec, req)
+	if rec.Header().Get("Content-Length") != strconv.Itoa(gzLen) || rec.Header().Get("Content-Encoding") != "gzip" {
+		t.Errorf("HEAD: %v", rec.Header())
+	}
+	req = httptest.NewRequest(http.MethodGet, "/assets/app.css", nil)
+	req.Header.Set("Accept-Encoding", "gzip")
+	req.Header.Set("Range", "bytes=0-9")
+	rec = httptest.NewRecorder()
+	a.ServeHTTP(rec, req)
+	if rec.Code != http.StatusPartialContent || rec.Body.Len() != 10 || rec.Header().Get("Content-Encoding") != "gzip" {
+		t.Errorf("range: %d %v", rec.Code, rec.Header())
 	}
 }
 
