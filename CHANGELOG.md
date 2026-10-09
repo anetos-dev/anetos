@@ -55,6 +55,12 @@ All notable changes to this project are documented here. The format follows
   `plugins/postmark` works with Anetos v0.5 too (`Requires`:
   `>= v0.2.0, < v0.6.0`) (after v0.4.0).
 
+### Fixed
+- `events.Bus.Close`, when its context ends with listeners still
+  running, counts those it cancels before canceling them: a listener
+  that returned at once was missed, and the error (and the shutdown
+  log) said "0 canceled" (after K2).
+
 ### Security
 - `golang.org/x/net` v0.60.0 in the driver and example modules
   (GO-2026-6612, GO-2026-6617: HTTP/2), where v0.4.0 had v0.59.0 or

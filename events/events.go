@@ -14,6 +14,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"anetos.dev/anetos"
@@ -35,6 +36,7 @@ type Bus struct {
 	stopped   bool // the async workers have stopped: nobody may emit
 
 	pending counter        // async events not handled yet
+	running atomic.Int64   // async events a listener is handling
 	sending sync.WaitGroup // enqueues past the closed check, until their send ends
 	stop    chan struct{}  // closed when the async workers must stop
 	once    sync.Once      // closes stop
@@ -535,7 +537,9 @@ func (b *Bus) work(l *listener) {
 		case <-b.stop:
 			return
 		case d := <-l.ch:
+			b.running.Add(1)
 			b.handle(l, d)
+			b.running.Add(-1)
 			b.pending.done()
 		}
 	}
@@ -590,11 +594,11 @@ func (b *Bus) Close(ctx context.Context) error {
 	b.stopped = true // no enqueue gets past the check now
 	b.mu.Unlock()
 	b.once.Do(func() { close(b.stop) })
-	b.cancel()
 	b.sending.Wait() // sends in progress land in a buffer, or give up on stop
 	// Drop what is still buffered (after a timeout, or an event a
 	// goroutine of a listener emitted late); running listeners finish on
-	// their own, their contexts canceled.
+	// their own, their contexts canceled once they're counted (a listener
+	// that returns when canceled would otherwise be gone before the count).
 	lost := 0
 	b.mu.RLock()
 	for _, ls := range b.listeners {
@@ -611,13 +615,14 @@ func (b *Bus) Close(ctx context.Context) error {
 		}
 	}
 	b.mu.RUnlock()
+	running := b.running.Load()
+	b.cancel()
 	if err == nil && lost == 0 {
 		return nil
 	}
 	if err == nil {
 		err = errors.New("emitted after the async listeners finished")
 	}
-	running := b.pending.n()
 	b.log.Error("events: async events lost at shutdown", "dropped", lost, "canceled", running)
 	return fmt.Errorf("events: %d async event(s) not handled, %d canceled: %w", lost, running, err)
 }
@@ -645,12 +650,6 @@ func (c *counter) done() {
 	if c.count == 0 {
 		close(c.zero)
 	}
-}
-
-func (c *counter) n() int {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.count
 }
 
 func (c *counter) wait(ctx context.Context) error {
