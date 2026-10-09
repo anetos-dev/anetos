@@ -194,6 +194,12 @@ func TestBinaryOverride(t *testing.T) {
 	if bin, err := Binary(context.Background(), logf); err != nil || bin != same || len(logged) != 0 {
 		t.Errorf("same version: %q, %v, %v", bin, err, logged)
 	}
+	// With CI=true or FORCE_COLOR, Tailwind colors its --help.
+	colored := script("colored", "\033[3m\033[1m\033[34m≈\033[39m\033[22m\033[23m tailwindcss \033[34mv"+Version+"\033[39m")
+	t.Setenv(Env, colored)
+	if bin, err := Binary(context.Background(), logf); err != nil || bin != colored || len(logged) != 0 {
+		t.Errorf("colored: %q, %v, %v", bin, err, logged)
+	}
 	other := script("other", "≈ tailwindcss v4.0.0")
 	t.Setenv(Env, other)
 	if bin, err := Binary(context.Background(), logf); err != nil || bin != other || len(logged) != 1 {

@@ -240,8 +240,10 @@ func TestTailwindKitCSS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if out, _ := exec.Command(bin, "--help").CombinedOutput(); !strings.Contains(string(out), "tailwindcss v"+tailwind.Version+"\n") {
-		t.Fatalf("%s isn't Tailwind CSS v%s: %.80s", bin, tailwind.Version, out)
+	help := exec.Command(bin, "--help")
+	help.Env = append(os.Environ(), "CI=", "FORCE_COLOR=") // no colors, which CI=true brings
+	if out, _ := help.CombinedOutput(); !strings.Contains(string(out), "tailwindcss v"+tailwind.Version+"\n") {
+		t.Fatalf("%s isn't Tailwind CSS v%s: %q", bin, tailwind.Version, out[:min(len(out), 80)])
 	}
 	css, err := tailwind.Compile(context.Background(), bin, root)
 	if err != nil {

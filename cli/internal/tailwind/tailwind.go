@@ -266,10 +266,12 @@ func removeStale(dir, asset string) {
 
 var versionRE = regexp.MustCompile(`tailwindcss v(\d+\.\d+\.\d+\S*)`)
 
-// binaryVersion runs bin --help and reads its version.
+// binaryVersion runs bin --help and reads its version, without the
+// colors Tailwind adds when it thinks a terminal shows them (CI=true,
+// FORCE_COLOR).
 func binaryVersion(ctx context.Context, bin string) (string, error) {
 	out, err := exec.CommandContext(ctx, bin, "--help").CombinedOutput()
-	m := versionRE.FindSubmatch(out)
+	m := versionRE.FindSubmatch(ansi.ReplaceAll(out, nil))
 	if m == nil {
 		if err == nil {
 			err = errors.New("no version in its --help")
