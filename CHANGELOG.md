@@ -40,6 +40,14 @@ All notable changes to this project are documented here. The format follows
   dev` keeps the `app.css` there is. `anetos css:build [--check]`
   compiles it alone. A Tailwind project's `Dockerfile` caches the
   download.
+- `anetos css:use <kit> [--force]` switches a project's design kit (K4,
+  D304–D306): it writes the kit's components and stylesheets, removes
+  the old kit's files, and records the kit in `views/ui/kit.json` (the
+  SHA-256 of each file it wrote), so it refuses to replace a kit file
+  you changed unless `--force`. With the project's own kit, it updates
+  the kit's files to the CLI's version. `anetos new` and the generators
+  (in a project made before v0.5) write `kit.json`; `css:use` adds
+  `nav.menu` to older projects' `locales/en/app.yaml`.
 - `view.Assets` serves a text file of 1 KiB or more gzipped to a client
   that accepts it, compressed once, the first time it's requested (K2,
   D300).

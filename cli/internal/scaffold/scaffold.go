@@ -295,6 +295,8 @@ func Create(p Project) ([]string, error) {
 		for _, f := range kit {
 			files = append(files, file{f.Rel, f.Content, 0o644})
 		}
+		rec := newKitRecord(p.CSS, kit).file()
+		files = append(files, file{rec.Rel, rec.Content, 0o644})
 	}
 	slices.SortFunc(files, func(a, b file) int { return strings.Compare(a.rel, b.rel) })
 	_, statErr := os.Stat(abs)
@@ -363,10 +365,14 @@ func HasUI(root string) bool {
 	return err == nil
 }
 
-// GuessKit is the design kit closest to a project's stylesheet, for a
-// project made before v0.5 (without views/ui): "anetos" when
-// public/static/app.css has the starter theme's cards, else "none".
+// GuessKit is the project's design kit: the one views/ui/kit.json
+// records, else, for a project made before v0.5 (without views/ui), the
+// one closest to its stylesheet: "anetos" when public/static/app.css has
+// the starter theme's cards, else "none".
 func GuessKit(root string) string {
+	if r, err := ReadKitRecord(root); err == nil && slices.Contains(Kits, r.Kit) {
+		return r.Kit
+	}
 	b, err := os.ReadFile(filepath.Join(root, "public", "static", "app.css"))
 	if err == nil && bytes.Contains(b, []byte(".card")) {
 		return "anetos"
@@ -375,8 +381,9 @@ func GuessKit(root string) string {
 }
 
 // WriteUI writes a design kit's views/ui package into the project in
-// root (module is its module path), for a project without one; the
-// stylesheet is left as it is. It returns the files written.
+// root (module is its module path), for a project without one, and
+// views/ui/kit.json recording them; the stylesheet is left as it is. It
+// returns the files written.
 func WriteUI(root, module, kit string) ([]string, error) {
 	if HasUI(root) {
 		return nil, fmt.Errorf("%s already exists", filepath.Join(root, "views", "ui", "ui.go"))
@@ -395,7 +402,17 @@ func WriteUI(root, module, kit string) ([]string, error) {
 		}
 		written = append(written, f.Rel)
 	}
-	return written, nil
+	var ui []KitFile
+	for _, f := range files {
+		if strings.HasPrefix(f.Rel, "views/ui/") {
+			ui = append(ui, f)
+		}
+	}
+	rec := newKitRecord(kit, ui).file()
+	if err := writeNew(filepath.Join(root, filepath.FromSlash(rec.Rel)), rec.Content, 0o644); err != nil {
+		return written, err
+	}
+	return append(written, rec.Rel), nil
 }
 
 // walkStack calls fn for each template of a stack's layers, with its

@@ -313,6 +313,9 @@ func TestWriteUI(t *testing.T) {
 		if got := read(t, filepath.Join(dir, "public", "static", "app.css")); got != css {
 			t.Errorf("%s: the stylesheet changed: %s", kit, got)
 		}
+		if r, err := ReadKitRecord(dir); err != nil || r.Kit != kit || r.Files["views/ui/shell.templ"] == "" || r.Files["public/static/app.css"] != "" {
+			t.Errorf("%s: record %+v, %v", kit, r, err)
+		}
 		if ui := read(t, filepath.Join(dir, "views", "ui", "shell.templ")); !strings.Contains(ui, `"example.com/blog/public"`) {
 			t.Errorf("%s: shell.templ:\n%s", kit, ui)
 		}

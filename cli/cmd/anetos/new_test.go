@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -423,8 +424,8 @@ func TestNewAPIProject(t *testing.T) {
 // TestNewProjectKits builds a project made with --css=none, whose
 // views/ui writes plain HTML, with make:crud's and make:auth's pages:
 // they call the same components as with the starter theme (design D292).
-// Then it swaps views/ui for each CSS framework's kit, with which the
-// same pages build and pass their tests (design D298).
+// Then css:use switches it to each other kit, with which the same pages
+// build and pass their tests (design D298, D304).
 func TestNewProjectKits(t *testing.T) {
 	if testing.Short() {
 		t.Skip("creates and builds a project")
@@ -462,28 +463,37 @@ func TestNewProjectKits(t *testing.T) {
 		}
 	}
 	goIn("test", "./...")
-	for _, kit := range scaffold.Kits {
-		if kit == "anetos" || kit == "none" {
-			continue // the other tests' projects, and this one's
+	if os.Getenv("ANETOS_TEST_TAILWIND") != "1" {
+		t.Setenv("ANETOS_TAILWIND", filepath.Join(dir, "no-tailwind")) // css:use goes on without it
+	}
+	// css:use switches the project to each kit; the same pages build and
+	// pass their tests with each (design D298, D304).
+	for _, kit := range slices.Concat(scaffold.Kits[2:], []string{"anetos"}) {
+		code, out, errOut := runCmd(t, "css:use", kit)
+		if code != 0 {
+			t.Fatalf("css:use %s: %d\n%s\n%s", kit, code, out, errOut)
 		}
-		if err := os.RemoveAll(filepath.Join(dir, "views", "ui")); err != nil {
-			t.Fatal(err)
+		if code, out, _ := runCmd(t, "css:use"); code != 0 || !strings.HasPrefix(out, kit+" ") {
+			t.Errorf("css:use: %d %q", code, out)
 		}
-		if _, err := scaffold.WriteUI(dir, "plain", kit); err != nil {
-			t.Fatalf("%s: %v", kit, err)
-		}
-		goIn("tool", "templ", "generate", "-log-level=warn")
-		goIn("vet", "./...")
-		goIn("test", "./...")
+		goIn("test", "./...") // css:use built it; go test vets it too
 		if kit == "tailwind" && os.Getenv("ANETOS_TEST_TAILWIND") == "1" {
 			// The pages add no classes: Tailwind compiles the stylesheet
 			// the kit carries (design D301).
-			if code, out, errOut := runCmd(t, "css:build"); code != 0 {
-				t.Fatalf("css:build: %d\n%s\n%s", code, out, errOut)
-			}
 			if css := read(t, filepath.Join(dir, "public", "static", "app.css")); css != string(kitCSS) {
 				t.Errorf("Tailwind writes another app.css (%d bytes) than the kit's (%d) for the pages of make:crud and make:auth", len(css), len(kitCSS))
 			}
+		}
+	}
+	// The round trip ends with the starter theme's files, as anetos new
+	// writes them.
+	fresh := filepath.Join(t.TempDir(), "plain")
+	if code, out, errOut := runCmd(t, "new", fresh, "--skip-install", "--replace", repo); code != 0 {
+		t.Fatalf("new: %d\n%s\n%s", code, out, errOut)
+	}
+	for _, f := range []string{"views/ui/shell.templ", "views/ui/classes.go", "public/static/app.css", "views/ui/kit.json"} {
+		if read(t, filepath.Join(dir, f)) != read(t, filepath.Join(fresh, f)) {
+			t.Errorf("after css:use anetos, %s isn't a new project's", f)
 		}
 	}
 }

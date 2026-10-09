@@ -226,10 +226,10 @@ components and link its stylesheet from `ui.Head`. Before v0.5,
 `--css=none` kept the starter theme's class names in the pages.
 
 With Bootstrap and Bulma, the header's menu button is named by
-`nav.menu` in `locales/<locale>/app.yaml` ("Menu"). A command to switch
-a project's kit is coming; it isn't available yet. A kit is `views/ui`
+`nav.menu` in `locales/<locale>/app.yaml` ("Menu"). A kit is `views/ui`
 with its `public/static/` files, so another kit restyles every page
-that calls the components.
+that calls the components: [step 8](#8-switch-kits) switches a
+project's.
 
 ### With Tailwind CSS
 
@@ -274,12 +274,61 @@ the visitor's system (`dark:` classes). A class must be written whole
 in a file of `views/`: Tailwind finds `bg-red-600` in `"bg-red-600"`,
 not in `"bg-" + color`.
 
+### 8. Switch kits
+
+```sh
+go tool anetos css:use bulma
+```
+
+switches the project to another kit. It writes the kit's components
+(`views/ui`) and stylesheets (`public/static/`), removes the old kit's
+files the new one hasn't (`pico.min.css`, `theme.js`, `tailwind.css`…),
+and runs `templ generate` (and, for Tailwind, `css:build`). The layout,
+the pages and your own files in `views/ui` stay as they are: the pages
+call the components, so every one of them takes the new look.
+`go tool anetos css:use` alone prints the project's kit.
+
+`views/ui/kit.json` records the kit: its name, its framework's version,
+and the SHA-256 of each file it wrote (`anetos new` writes it, and
+`css:use` updates it). With it, `css:use` knows which kit files you
+changed since: a component you edited, your colors in `app.css`. It
+names them and writes nothing:
+
+```text
+anetos css:use: these files changed since the anetos kit wrote them, or aren't its:
+  public/static/app.css
+  views/ui/page.templ
+Nothing was written. Run again with --force to replace them (commit first: git then shows what changed), or undo the changes.
+```
+
+`--force` replaces them; commit first, and `git diff` shows what to
+carry over (your colors into the new kit's stylesheet, say). A project
+without `kit.json` (or with one it can't read) needs `--force` too;
+then it can't tell the old kit's static files from yours, so it lists
+the files of `public/static/` it left for you to remove. A file of a
+kit that is a symbolic link counts as changed. Line endings don't: git
+on Windows may check files out with CRLF.
+
+After the switch, `css:use` builds the project: when your own code
+called something only the old kit had (an unexported helper of its
+`classes.go`), it says so and exits with status 1. It adds `nav.menu`
+to `locales/en/app.yaml` when missing, and names the other locales to
+translate it in.
+
+`css:use` with the kit the project already has updates the kit's files
+to your `anetos`'s version (after `go get -tool
+anetos.dev/anetos/cli/cmd/anetos@latest`: a newer Pico, fixed
+components), under the same rule. Moving to or from Tailwind, it says
+which cache line to add to (or remove from) your `Dockerfile`; it
+doesn't edit it.
+
 ### Pages with classes of your own
 
 A page can still use classes of its own (`<div class="hero">`), styled
 by your rules in `app.css`. They keep working, but they are outside the
-kit: a future kit switch restyles the components, not your pages'
-classes. When the markup repeats, make it a component (step 5).
+kit: `css:use` restyles the components, not your pages' classes, and
+says which of your own files in `views/ui` keep theirs. When the markup
+repeats, make it a component (step 5).
 
 ## Projects made before v0.5
 
@@ -309,8 +358,9 @@ To build the layout from the components too, compare it with the
 ## How it works
 
 `views/ui` is an ordinary package of your app. Nothing in the framework
-imports it, and updating Anetos never changes it, or `app.css`. A newer
-version's kit is in a new project.
+imports it, and updating Anetos never changes it, or `app.css`: a newer
+version's kit comes when you ask for it, with `css:use` and your kit's
+name ([step 8](#8-switch-kits)).
 
 Some components read the request's context (`ctx`): `ui.Form` adds the
 CSRF token, `ui.Field` shows its field's validation message, and

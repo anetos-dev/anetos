@@ -22,6 +22,7 @@
 //	make:admin:resource <Model>  add a model to the admin
 //	gen [-check] [packages]   generate typed columns for models (default ./...)
 //	css:build [--check]       compile the tailwind kit's stylesheet
+//	css:use [<kit>] [--force]  switch the project's design kit
 //	add <module>[@version]    install a plugin
 //	remove <module>           uninstall a plugin
 //	lang:add <locale>...      add translations of the framework's messages (also: add lang)
@@ -68,6 +69,7 @@ Commands:
   make:admin:resource <Model>  add a model to the admin (app/admin)
   gen [-check] [packages]   generate typed columns for models (default ./...)
   css:build [--check]       compile views/ui/tailwind.css into public/static/app.css (the tailwind kit)
+  css:use [<kit>] [--force]  switch the project's design kit (anetos, none, pico, bootstrap, bulma, tailwind)
   add <module>[@version]    install a plugin (go get, plugins.go, .env.example)
   remove <module>           uninstall a plugin
   lang:add <locale>...      add translations of the framework's messages to locales/ (also: add lang)
@@ -128,6 +130,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 		return cssBuild(ctx, args[1:], stdout, stderr)
+	case "css:use":
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		return cssUse(ctx, args[1:], stdout, stderr)
 	case "make:admin:resource":
 		return makeAdminResource(args[1:], stdout, stderr)
 	case "make:handler", "make:model", "make:migration", "make:middleware", "make:agent":
