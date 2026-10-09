@@ -148,12 +148,16 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # go.mod's "go 1.26.0" becomes "1.26.x": that release's latest patch.
+      # go.mod's "go 1.26.0" becomes "1.26.x": that release's latest patch,
+      # looked up even when the runner has an older one installed
+      # (check-latest), so a new security release is used the day it's out.
       - id: minimum
         if: matrix.minimum
         run: echo "go-version=$(sed -n 's/^go \([0-9]*\.[0-9]*\).*/\1/p' go.mod).x" >>"$GITHUB_OUTPUT"
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: ${{ matrix.go-version || steps.minimum.outputs.go-version }}
+          check-latest: true
+      - run: go version
       - run: go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
       - run: make vuln
