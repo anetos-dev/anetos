@@ -51,7 +51,7 @@ func newWorld(t *testing.T, opts ...anetostest.Option) *world {
 	return w
 }
 
-// as signs u in for the requests that follow.
+// as logs u in for the requests that follow.
 func (w *world) as(u models.User) *anetostest.App { return anetostest.ActingAs(w.app, &u) }
 
 // issue creates an issue in the project, by the owner, with fn's changes.

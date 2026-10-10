@@ -14,7 +14,7 @@ import (
 )
 
 // Auth adds the account routes (anetos make:auth) to the API, version 1,
-// as in api.go. Clients sign in with a token: register or log in (with a
+// as in api.go. Clients log in with a token: register or log in (with a
 // two-factor code if the user has it on) to get one, then send it in
 // every request as "Authorization: Bearer <token>".
 func Auth(r *web.Router, a *auth.Auth[*models.User]) {
@@ -44,8 +44,8 @@ func Auth(r *web.Router, a *auth.Auth[*models.User]) {
 	// The account itself, for tokens with every ability ("*", a login's):
 	// a token made for a program, with narrower ones, gets 403. Changing
 	// the password, creating a token, and starting, turning off or
-	// renewing two-factor sign-in also take the current password in the
-	// request: a stolen token alone can't change how the account signs in.
+	// renewing two-factor authentication also take the current password in the
+	// request: a stolen token alone can't change how the account logs in.
 	account := me.Group("", auth.RequireAbilities("*"))
 	account.Put("/password", web.H(h.ChangePassword)).Name("password.change")
 	account.Get("/tokens", web.H(h.Tokens)).Name("tokens.index")

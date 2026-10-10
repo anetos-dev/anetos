@@ -17,7 +17,7 @@ import (
 	"anetos.dev/anetos/examples/saas/app/tasks"
 )
 
-// signUp registers ada and returns the app, signed in.
+// signUp registers ada and returns the app, logged in.
 func signUp(t *testing.T, app *anetostest.App) {
 	t.Helper()
 	app.Get("/register")
@@ -39,14 +39,14 @@ func TestWelcome(t *testing.T) {
 	app.Get("/dashboard").AssertSee("Plan: trial, until October 16")
 }
 
-// A first sign-in with Google creates a user and welcomes them; the next
-// sign-in doesn't.
-func TestWelcomeAfterSocialSignIn(t *testing.T) {
+// A first login with Google creates a user and welcomes them; the next
+// login doesn't.
+func TestWelcomeAfterSocialLogin(t *testing.T) {
 	app := anetostest.New(t, setup, anetostest.FakeSocial())
 	grace := anetostest.SocialAccount{ID: "g-1", Email: "grace@example.com", EmailVerified: true, Name: "Grace"}
-	app.SocialSignIn("/auth/google/redirect", grace).AssertRedirect("/dashboard")
+	app.SocialLogin("/auth/google/redirect", grace).AssertRedirect("/dashboard")
 	app.PostForm("/logout", nil)
-	app.SocialSignIn("/auth/google/redirect", grace).AssertRedirect("/dashboard")
+	app.SocialLogin("/auth/google/redirect", grace).AssertRedirect("/dashboard")
 	if sent := anetostest.Mailables[mailers.Welcome](app); len(sent) != 1 || sent[0].Name != "Grace" {
 		t.Errorf("welcome emails: %+v", sent)
 	}

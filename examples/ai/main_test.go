@@ -39,7 +39,7 @@ func TestAsk(t *testing.T) {
 		ai.FakeToolCall("find_order", FindOrderInput{Number: 1042}), // the model looks the order up
 		ai.FakeText("Your kettle shipped yesterday."),               // then answers
 	))
-	app.WithHeader("X-Customer", "ada") // a signed-in customer, in a real app
+	app.WithHeader("X-Customer", "ada") // a logged-in customer, in a real app
 	app.PostJSON("/questions", map[string]string{"question": "Where is order 1042?"}).
 		AssertOK().AssertJSONPath("answer", "Your kettle shipped yesterday.")
 

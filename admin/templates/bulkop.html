@@ -2,7 +2,7 @@
 <h1>{{$.Title}}</h1>
 <dl class="details">
   <dt>When</dt><dd>{{.Event.When}}</dd>
-  <dt>Who</dt><dd>{{if .Event.WhoURL}}<a href="{{.Event.WhoURL}}">{{.Event.Who}}</a>{{else}}{{.Event.Who}}{{end}}{{if .Event.ActingAs}}, acting as {{.Event.ActingAs}}{{end}}</dd>
+  <dt>Who</dt><dd>{{if .Event.WhoURL}}<a href="{{.Event.WhoURL}}">{{.Event.Who}}</a>{{else}}{{.Event.Who}}{{end}}{{if .Event.ActingAs}}, impersonating {{.Event.ActingAs}}{{end}}</dd>
   <dt>What</dt><dd><code>{{.Event.Action}}</code> of {{.Event.Rows}} rows of <code>{{.Event.Record}}</code></dd>
   {{if .Condition}}<dt>Where</dt><dd><code>{{.Condition}}</code></dd>{{end}}
   {{if .Assignments}}<dt>Set</dt><dd><code>{{.Assignments}}</code></dd>{{end}}

@@ -99,10 +99,10 @@ s.Invalidate()  // on logout: everything removed, new ID
 ```
 
 [Authentication](authentication.md) calls these for you (`a.Login` and
-`a.Logout`); call them yourself if you sign users in another way. With a
+`a.Logout`); call them yourself if you log users in another way. With a
 server-side driver it matters more: a session cookie planted in a
-victim's browser before they sign in would otherwise share their
-signed-in session. With the default cookie
+victim's browser before they log in would otherwise share their
+logged-in session. With the default cookie
 driver, `Invalidate` empties the session in this browser only: the session
 lives in the cookie, so a copy of an earlier cookie (stolen, or saved
 before logout) keeps working until it expires, after `SESSION_TTL`
@@ -143,7 +143,7 @@ For Redis, add the `drivers/redis` module and pass its driver
 sessions, err := session.New(app, redis.SessionDriver()) // SESSION_DRIVER=redis
 ```
 
-Changing the driver ends every current session: visitors sign in again.
+Changing the driver ends every current session: visitors log in again.
 
 ### Rotate the key
 

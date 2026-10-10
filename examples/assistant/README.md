@@ -35,7 +35,7 @@ The vectors have 1536 dimensions
 model that makes others, change it. After changing the model, `go run .
 ai:embed` embeds the articles again.
 
-Open http://localhost:8080 and sign in. For a local model, use
+Open http://localhost:8080 and log in. For a local model, use
 `AI_PROVIDER=openai-compatible`, `AI_MODEL` (say, `llama3.1`) and
 `OPENAI_COMPATIBLE_URL=http://localhost:11434/v1` (Ollama), with an
 embedding model of the same server (`AI_EMBEDDING_MODEL`; set

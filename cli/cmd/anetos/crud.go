@@ -144,7 +144,7 @@ the routes to a group with sessions and CSRF protection yourself:
 	}
 	if res.Routed {
 		fmt.Fprintf(stdout, `
-The pages are open to everyone. To let only signed-in users in (after
+The pages are open to everyone. To let only logged-in users in (after
 make:auth), move the %s(pages) call to routes/auth.go's members group.
 `, res.Plural)
 	}

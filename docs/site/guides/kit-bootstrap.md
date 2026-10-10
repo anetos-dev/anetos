@@ -28,7 +28,7 @@ with `go tool anetos css:use bootstrap`.
 |---|---|
 | `public/static/bootstrap.min.css`, `bootstrap.bundle.min.js` | Bootstrap as released (the bundle includes Popper), with `bootstrap.LICENSE.txt` and `popper.LICENSE.txt` (MIT) |
 | `public/static/theme.js` | Sets `data-bs-theme` on `<html>` from the visitor's light or dark mode, and follows its changes |
-| `public/static/app.css` | The few rules Bootstrap has no class for (a narrow column, the sign-in card's width) |
+| `public/static/app.css` | The few rules Bootstrap has no class for (a narrow column, the login card's width) |
 | `views/ui/*.templ` | The components: `navbar`, `card`, `form-control`, `alert`, `badge`, `pagination`… |
 | `views/ui/classes.go` | The classes of each look (`btn btn-primary`, `btn-outline-secondary`, `btn-danger`, `btn-link`, `btn-sm`, `w-100`) and tone |
 

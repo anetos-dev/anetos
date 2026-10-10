@@ -7,7 +7,7 @@ grown into everything v0.2 adds:
   GitHub; email verification; password reset; API tokens (all from
   `make:auth`).
 - **A welcome email from a queue job**: registration and a first
-  sign-in with a provider dispatch `jobs.SendWelcome` once the user is
+  login with a provider dispatch `jobs.SendWelcome` once the user is
   committed, and a worker sends the email
   ([`app/jobs/welcome.go`](app/jobs/welcome.go)).
 - **A pub/sub topic**: the billing service publishes to

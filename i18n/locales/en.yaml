@@ -106,11 +106,11 @@ binding:
   value: "is not a valid value"
 
 auth:
-  social_failed: "We couldn't sign you in. Please try again."
-  social_account: "We couldn't sign you in with that account. Please try again."
-  social_incomplete: "The sign-in didn't complete. Please try again."
-  social_canceled: "The sign-in was canceled."
-  social_error: "The sign-in service reported an error. Please try again."
+  social_failed: "We couldn't log you in. Please try again."
+  social_account: "We couldn't log you in with that account. Please try again."
+  social_incomplete: "The login didn't complete. Please try again."
+  social_canceled: "The login was canceled."
+  social_error: "The login service reported an error. Please try again."
 
 ai:
   usage_limit: "You've reached your AI usage limit. Try again in {wait}."

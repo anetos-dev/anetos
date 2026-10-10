@@ -134,7 +134,7 @@ and check the browser's console for blocked resources before you ship.
 
 With [`make:auth`](accounts.md):
 
-- Offer [two-factor sign-in](two-factor.md), and require it for
+- Offer [two-factor authentication](two-factor.md), and require it for
   admins.
 - Put sensitive pages behind `a.RequireConfirmed` (the password typed
   again): the generated code does for two-factor settings, API tokens
@@ -167,7 +167,7 @@ What Anetos does without settings, and where to change it:
 |---|---|
 | CSRF: unsafe requests need a same-origin `Origin` (or `Sec-Fetch-Site`) and a token from the session | `web.CSRF`, on the `pages` group ([Forms](forms.md)) |
 | Sessions: AES-256-GCM cookies, `HttpOnly`, `Secure` outside development, `SameSite=Lax` | `session.New` ([Sessions](sessions.md)) |
-| Signed-in pages aren't cached: `Cache-Control: no-store` | `auth.Require` |
+| Logged-in pages aren't cached: `Cache-Control: no-store` | `auth.Require` |
 | Headers: `X-Content-Type-Options`, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy`, `Cross-Origin-Opener-Policy`; HSTS in production | `web.NewServer` |
 | Limits: 10 MB bodies, 30 s requests, 10 s for headers | `HTTP_MAX_BODY`, `HTTP_REQUEST_TIMEOUT`, `HTTP_READ_HEADER_TIMEOUT` |
 | Queries are parameterized; `Contains` and `StartsWith` escape `LIKE` wildcards | [Query builder](../reference/query-builder.md) |
@@ -218,5 +218,5 @@ code := app.ExecuteArgs(ctx, []string{"doctor"}, &out, &out)
 ## Next steps
 
 - [Deploy](deployment.md)
-- [Add two-factor sign-in](two-factor.md)
+- [Add two-factor authentication](two-factor.md)
 - [CLI reference: doctor](../reference/cli.md#anetos-doctor---strict---vuln)

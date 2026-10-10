@@ -21,7 +21,7 @@ and permissions (package auth/rbac) with an admin role and mounts the
 admin at ADMIN_PATH (/admin) or ADMIN_HOST, with the users (app/admin/
 users.go) and roles; and the app/admin package, where make:admin:resource
 adds a resource per model. It adds the module to go.mod, the ADMIN_*
-settings to .env and .env.example, the banner shown while acting as a
+settings to .env and .env.example, the banner shown while impersonating a
 user to views/layout.templ, and calls setupAdmin from setup in main.go.
 `
 
@@ -90,7 +90,7 @@ func makeAdmin(ctx context.Context, args []string, stdout, stderr io.Writer) int
 		fmt.Fprintln(stdout, "updated main.go: setup calls setupAdmin")
 	}
 	if res.Banner {
-		fmt.Fprintln(stdout, "updated views/layout.templ: the banner shown while acting as a user")
+		fmt.Fprintln(stdout, "updated views/layout.templ: the banner shown while impersonating a user")
 	}
 	finish := func(err error) int {
 		fmt.Fprintf(stderr, "anetos make:admin: %v\nThe files are written; once fixed, finish with:\n\tgo mod tidy && go tool templ generate && go build ./...\n", err)
@@ -107,14 +107,14 @@ func makeAdmin(ctx context.Context, args []string, stdout, stderr io.Writer) int
 		}
 	} else {
 		fmt.Fprint(stdout, `
-views/layout.templ isn't anetos new's: show the banner of acting as a
+views/layout.templ isn't anetos new's: show the banner of impersonating a
 user yourself, at the top of <body>: @admin.Banner()
 `)
 	}
 	if res.Users && (!res.Disabled || !res.SessionKey) {
 		fmt.Fprint(stdout, `
 app/models/user.go is an older make:auth's: disabling accounts and
-signing users out everywhere need a disabled_at and a session_key column
+logging users out everywhere need a disabled_at and a session_key column
 and auth.Users' Disabled, SessionKey and SetSessionKey (see the guide
 "Add an admin panel"). The rest works without them.
 `)

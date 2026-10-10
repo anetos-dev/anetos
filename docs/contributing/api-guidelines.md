@@ -43,6 +43,13 @@ follow [Effective Go](https://go.dev/doc/effective_go) and
   `Open` opens a connection pool from explicit settings (`db.Open`, as
   `sql.Open`), `LoadConfig` reads a package's settings, `Register` adds
   to a registry at startup.
+- Users **log in** and **log out** ("login", "logout" as nouns and in
+  identifiers: `Login`, `LogoutEverywhere`, `LoginResponse`), never
+  "sign in"; "sign up" and "single sign-on" keep their names (design
+  D312). A method that says whether a feature is
+  available is `SupportsX` (`SupportsTwoFactor`); `Can` is for
+  permissions. An error type is `XError` (`NoAccountError`), an error
+  value `ErrX`.
 - No package name shadows a standard library package (design §5).
 - **Settings** (environment keys) start with their area (`DB_`,
   `CACHE_`, `MAIL_`…); the one that picks a backend is `<AREA>_DRIVER`, a
@@ -214,3 +221,5 @@ that isn't obvious.
 |---|---|
 | 2026-10-10 | Initial guidelines (M8a, D308, D309) |
 | 2026-10-10 | §1 the familiar word first; §2 `New(app)` and `Connect` instead of `ForApp` (M8b-1, D310) |
+| 2026-10-10 | §1 settings (M8b-2, D311) |
+| 2026-10-10 | §1 log in, `Supports`, error types (M8b-3, D312) |

@@ -19,7 +19,7 @@ import (
 )
 
 // discoveryBackoff is how long a failed discovery is remembered, so that
-// an outage at the provider doesn't turn every sign-in into a request;
+// an outage at the provider doesn't turn every login into a request;
 // discoveryTTL is how long a discovered document is used before it is
 // read again (in the background, keeping the old one if that fails).
 const (

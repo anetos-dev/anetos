@@ -114,7 +114,7 @@ func TestActors(t *testing.T) {
 		t.Errorf("WithActor = %v", a)
 	}
 
-	// The signed-in (here: acting) user, and an error loading them.
+	// The logged-in (here: acting) user, and an error loading them.
 	cfg, err := auth.LoadConfig(config.Map{})
 	if err != nil {
 		t.Fatal(err)
@@ -135,16 +135,16 @@ func TestActors(t *testing.T) {
 			}
 			return user(id), nil
 		},
-		ByLogin: func(context.Context, string) (user, error) { return "", auth.ErrNoUser },
+		ByLogin: func(context.Context, string) (user, error) { return "", auth.ErrUserNotFound },
 	}, enc)
 	if err != nil {
 		t.Fatal(err)
 	}
-	acting := a.ActAs(context.WithValue(ctx, carriedKey{}, User("7")), "42")
+	acting := a.WithUser(context.WithValue(ctx, carriedKey{}, User("7")), "42")
 	if got, err := ActorOf(acting); err != nil || got != User("42") {
 		t.Errorf("acting user = %v, %v", got, err)
 	}
-	if _, err := ActorOf(a.ActAs(ctx, "down")); !errors.Is(err, errDown) {
+	if _, err := ActorOf(a.WithUser(ctx, "down")); !errors.Is(err, errDown) {
 		t.Errorf("a user who can't be loaded: %v", err)
 	}
 }

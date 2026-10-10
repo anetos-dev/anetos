@@ -13,8 +13,8 @@ import (
 	"anetos.dev/anetos/db"
 )
 
-// signIn seeds the users and signs in with the email.
-func signIn(t *testing.T, email string) *anetostest.App {
+// login seeds the users and logs in with the email.
+func login(t *testing.T, email string) *anetostest.App {
 	t.Helper()
 	app := anetostest.New(t, setup)
 	if err := seed(app.Context()); err != nil {
@@ -28,7 +28,7 @@ func signIn(t *testing.T, email string) *anetostest.App {
 
 // region: test-products
 func TestEditorManagesProducts(t *testing.T) {
-	app := signIn(t, "editor@example.com")
+	app := login(t, "editor@example.com")
 	books, err := db.Query[Category](app.Context()).Where(db.C("name").Eq("Books")).First()
 	if err != nil {
 		t.Fatal(err)
@@ -79,7 +79,7 @@ func TestEditorManagesProducts(t *testing.T) {
 // endregion
 
 func TestAdministrator(t *testing.T) {
-	app := signIn(t, "admin@example.com")
+	app := login(t, "admin@example.com")
 	app.Get("/admin/categories/new").AssertOK()
 	app.PostForm("/admin/categories", url.Values{"name": {"Music"}}).Follow().AssertSee("Category created.", "Music")
 	for _, sku := range []string{"a", "b"} {
@@ -102,22 +102,22 @@ func TestAdministrator(t *testing.T) {
 
 // region: test-users
 func TestStaffAccounts(t *testing.T) {
-	app := signIn(t, "admin@example.com")
+	app := login(t, "admin@example.com")
 	eve, err := db.Query[User](app.Context()).Where(db.C("email").Eq("editor@example.com")).First()
 	if err != nil {
 		t.Fatal(err)
 	}
 	page := fmt.Sprintf("/admin/users/%d", eve.ID)
 
-	// Acting as Eve: the app as she sees it, with the banner, once Ada
+	// Impersonating Eve: the app as she sees it, with the banner, once Ada
 	// confirmed her password.
 	app.PostForm("/admin/confirm", url.Values{"password": {"secret password"}}).AssertRedirect("/admin")
 	app.PostForm(page+"/actions/impersonate", nil).AssertRedirect("/")
-	app.Get("/").AssertSee("Hello, Eve", "acting as <strong>Eve</strong>")
+	app.Get("/").AssertSee("Hello, Eve", "impersonating <strong>Eve</strong>")
 	app.PostForm("/admin/impersonation/stop", nil).AssertRedirect(page)
-	app.Get("/").AssertSee("Hello, Ada").AssertDontSee("acting as")
+	app.Get("/").AssertSee("Hello, Ada").AssertDontSee("impersonating")
 
-	// Disabled, Eve can't sign in. Back as herself, Ada confirms her
+	// Disabled, Eve can't log in. Back as herself, Ada confirms her
 	// password again.
 	app.PostForm("/admin/confirm", url.Values{"password": {"secret password"}})
 	app.PostForm(page+"/actions/disable", nil).Follow().AssertSee("Account disabled.")
@@ -134,7 +134,7 @@ func TestStaffAccounts(t *testing.T) {
 // endregion
 
 func TestDashboard(t *testing.T) {
-	app := signIn(t, "admin@example.com")
+	app := login(t, "admin@example.com")
 	if err := db.Create(app.Context(), &Product{Name: "Last one", SKU: "last", Stock: 1, Status: "active"}); err != nil {
 		t.Fatal(err)
 	}

@@ -50,7 +50,7 @@ type Moment interface {
 //	i18n.Date(ctx, order.PlacedAt)           // en: Jan 15, 2026; bn: ১৫ জানু, ২০২৬
 //	i18n.Date(ctx, user.Birthday, i18n.Long) // en: January 15, 2026
 //
-// A time is shown in ctx's time zone (the signed-in user's, or
+// A time is shown in ctx's time zone (the logged-in user's, or
 // APP_TIMEZONE), so the day is theirs. A zero value gives "".
 func Date[M Moment](ctx context.Context, v M, style ...Style) string {
 	return pattern(ctx, any(v), "format.date."+styleOf(style))

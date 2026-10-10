@@ -29,13 +29,13 @@ import (
 
 // ---- A page as an app made with anetos new and make:auth serves it ----
 //
-// GET /posts for a signed-in user: the server's middleware with the
+// GET /posts for a logged-in user: the server's middleware with the
 // access log on (JSON, to io.Discard), the request's language, the
-// session in an encrypted cookie, CSRF, the signed-in user loaded from
+// session in an encrypted cookie, CSRF, the logged-in user loaded from
 // the database, 20 rows of a list, and HTML rendered as templ renders it
 // (escaped strings written in order).
 
-// User is the signed-in user of the page benchmarks.
+// User is the logged-in user of the page benchmarks.
 type User struct {
 	db.Model
 	Name     string `db:"name"`
@@ -53,7 +53,7 @@ var benchUsers = auth.Users[*User]{
 	ByID: func(ctx context.Context, id string) (*User, error) {
 		n, err := strconv.ParseInt(id, 10, 64)
 		if err != nil {
-			return nil, auth.ErrNoUser
+			return nil, auth.ErrUserNotFound
 		}
 		u, err := db.Find[User](ctx, n)
 		return &u, err
@@ -97,7 +97,7 @@ func postsPage(title, user, token string, posts []Post) view.Component {
 }
 
 // pageApp returns the app, its router, and request makers for a path,
-// carrying a signed-in user's session cookie.
+// carrying a logged-in user's session cookie.
 func pageApp(b testing.TB, logger *slog.Logger) (*anetos.App, *web.Router, func(path string) func() *http.Request) {
 	b.Helper()
 	src := config.Map{"APP_ENV": "production", "APP_KEY": benchKey, "DB_NAME": ":memory:"}
@@ -147,7 +147,7 @@ func pageApp(b testing.TB, logger *slog.Logger) (*anetos.App, *web.Router, func(
 	r.Group("", sessions.Middleware).Get("/session", hello)
 	pages.Get("/csrf", hello)
 	members := pages.Group("", a.Require)
-	members.Get("/signed-in", hello)
+	members.Get("/logged-in", hello)
 	members.Get("/posts", func(c *web.Ctx) error {
 		posts, err := db.Query[Post](c).OrderBy(colPostID.Desc()).Limit(20).Get()
 		if err != nil {
@@ -181,12 +181,12 @@ func pageApp(b testing.TB, logger *slog.Logger) (*anetos.App, *web.Router, func(
 			b.Fatal(err)
 		}
 	}
-	// Sign in, as the login form would, and keep the cookie.
+	// Log in, as the login form would, and keep the cookie.
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, httptest.NewRequestWithContext(ctx, http.MethodGet, "/_login", nil))
 	cookies := rec.Result().Cookies()
 	if rec.Code != http.StatusOK || len(cookies) == 0 {
-		b.Fatalf("sign in: %d %v %s", rec.Code, cookies, rec.Body)
+		b.Fatalf("log in: %d %v %s", rec.Code, cookies, rec.Body)
 	}
 	return app, r, func(path string) func() *http.Request {
 		return func() *http.Request {
@@ -202,12 +202,12 @@ func pageApp(b testing.TB, logger *slog.Logger) (*anetos.App, *web.Router, func(
 // BenchmarkPage serves the page ("Full"), and the hello route through
 // more and more of its stack: the server's middleware with the access log
 // ("Server"), plus the session ("Session"), plus CSRF ("CSRF"), plus
-// the signed-in user ("SignedIn"). The rest of "Full" is the list query
+// the logged-in user ("SignedIn"). The rest of "Full" is the list query
 // and the rendering.
 func BenchmarkPage(b *testing.B) {
 	_, r, req := pageApp(b, slog.New(slog.NewJSONHandler(io.Discard, nil)))
 	for _, c := range []struct{ name, path string }{
-		{"Server", "/hello"}, {"Session", "/session"}, {"CSRF", "/csrf"}, {"SignedIn", "/signed-in"}, {"Full", "/posts"},
+		{"Server", "/hello"}, {"Session", "/session"}, {"CSRF", "/csrf"}, {"SignedIn", "/logged-in"}, {"Full", "/posts"},
 	} {
 		b.Run(c.name, func(b *testing.B) { serveNoCookie(b, r, req(c.path)) })
 	}

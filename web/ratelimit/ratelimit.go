@@ -58,7 +58,7 @@ func PerHour(n int) Limit { return Per(n, time.Hour) }
 func PerDay(n int) Limit { return Per(n, 24*time.Hour) }
 
 // By returns the limit counting hits per key(r) instead of per client IP,
-// for [Middleware]: the signed-in user, an API token, a form field. A key
+// for [Middleware]: the logged-in user, an API token, a form field. A key
 // of "" leaves the request unlimited by this limit.
 //
 //	ratelimit.PerMinute(600).By(func(r *http.Request) string { return apiToken(r) })

@@ -24,7 +24,7 @@ walkthrough.
 | `anetostest.FakeEvents(events...)` | Option: events of the types of the values (all, with none) are recorded only (`events.Bus.Fake`): their listeners don't run. Fails the test if `setup` has no bus |
 | `anetostest.FakePubSub()` | Option: published messages are recorded only (`pubsub.PubSub.Fake`): the broker doesn't get them. Fails the test if `setup` has no pub/sub |
 | `anetostest.FakeAI(replies...)` | Option: the model's answers, one per request to the app's AI client, in order (`ai.FakeText`, `ai.FakeObject`, `ai.FakeToolCall`, `ai.FakeError`, or an `ai.FakeReply` function). Options add up. Fails the test if `setup` has no AI client (`ai.New`). See [AI](#ai-anetostest) |
-| `anetostest.FakeSocial()` | Option: social login (`auth/social`) signs in through a stand-in OpenID Connect provider on a local TLS server, for every provider (GitHub's API and other `Provider.Profile` functions aren't called); `social.Configured` keeps every provider, with test credentials where settings are missing. Sign in with `app.SocialSignIn` |
+| `anetostest.FakeSocial()` | Option: social login (`auth/social`) logs in through a stand-in OpenID Connect provider on a local TLS server, for every provider (GitHub's API and other `Provider.Profile` functions aren't called); `social.Configured` keeps every provider, with test credentials where settings are missing. Log in with `app.SocialLogin` |
 | `app.Context()` | The context of the test's requests: the app's services, the database and the test's transaction. Pass it to your own code. (It hides the embedded `anetos.App.Context(parent)`; call `app.App.Context` for that) |
 | `app.Router()` | The app's `*web.Router`, or nil |
 | `app.App` | The embedded `*anetos.App`: `app.Config()`, `anetos.Resolve[T](app.App)`, … |
@@ -78,9 +78,9 @@ an URL on another site fails the test. Requests go to the router as
 | `res.Follow()` | GET to the redirect's `Location`; fails the test for another site | the request's |
 | `app.WithHeader(name, value)` | Sets a header on every later request; returns app | |
 | `app.WithSession(func(*session.Session))` | Changes the session later requests carry; returns app. Needs `session.New` in setup | |
-| `anetostest.ActingAs(app, u)` | Signs u in for later requests, as a password sign-in without remember-me would (`auth.Auth.LoginSession`), replacing whoever was signed in (and dropping a remember-me cookie); returns app. U is the type given to `auth.New` (`*models.User`); needs `session.New` and `auth.New` in setup; a disabled user fails the test (v0.3) | |
+| `anetostest.ActingAs(app, u)` | Logs u in for later requests, as a password login without remember-me would, without asking for a two-factor code (`auth.Auth.LoginSession`), replacing whoever was logged in (and dropping a remember-me cookie); returns app. U is the type given to `auth.New` (`*models.User`); needs `session.New` and `auth.New` in setup; a disabled user fails the test (v0.3) | |
 | `app.Session()` | The `*session.Session` the next request will carry (flash values and errors from the last response included), to read | |
-| `app.SocialSignIn(redirect, anetostest.SocialAccount{ID, Email, EmailVerified, Name, AvatarURL})` | GET redirect (the app's route to the provider, such as `/auth/google/redirect`), the stand-in provider's sign-in as the account, then GET the app's callback; returns the callback's response. Needs `FakeSocial`; `ID` is required | `text/html` |
+| `app.SocialLogin(redirect, anetostest.SocialAccount{ID, Email, EmailVerified, Name, AvatarURL})` | GET redirect (the app's route to the provider, such as `/auth/google/redirect`), the stand-in provider's login as the account, then GET the app's callback; returns the callback's response. Needs `FakeSocial`; `ID` is required | `text/html` |
 
 ## Responses (`anetostest.Response`)
 

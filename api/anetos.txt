@@ -511,6 +511,7 @@ pkg anetos.dev/anetos/anetostest, method (*App) PutJSON(string, any) *Response
 pkg anetos.dev/anetos/anetostest, method (*App) RepeatedQueries() []db.RepeatedQuery
 pkg anetos.dev/anetos/anetostest, method (*App) Router() *web.Router
 pkg anetos.dev/anetos/anetostest, method (*App) Session() *session.Session
+pkg anetos.dev/anetos/anetostest, method (*App) SocialLogin(string, SocialAccount) *Response
 pkg anetos.dev/anetos/anetostest, method (*App) SocialSignIn(string, SocialAccount) *Response
 pkg anetos.dev/anetos/anetostest, method (*App) Travel(time.Duration)
 pkg anetos.dev/anetos/anetostest, method (*App) Unfreeze()
@@ -665,7 +666,7 @@ pkg anetos.dev/anetos/audit, type Subject struct, ID string
 pkg anetos.dev/anetos/audit, type Subject struct, Type string
 pkg anetos.dev/anetos/audit, type Trail struct
 pkg anetos.dev/anetos/audit, var System Actor
-pkg anetos.dev/anetos/auth, func ActAs(context.Context, string, ...ActOption) (context.Context, error)
+pkg anetos.dev/anetos/auth, func ActAs(context.Context, string, ...UserOption) (context.Context, error)
 pkg anetos.dev/anetos/auth, func AllowsUser[U Authenticatable](context.Context, func(context.Context, U) bool) bool
 pkg anetos.dev/anetos/auth, func Allows[U Authenticatable, T any](context.Context, func(context.Context, U, T) bool, T) bool
 pkg anetos.dev/anetos/auth, func AuthorizeUser[U Authenticatable](context.Context, func(context.Context, U) bool) error
@@ -687,11 +688,12 @@ pkg anetos.dev/anetos/auth, func RequireAbilities(...string) web.Middleware
 pkg anetos.dev/anetos/auth, func TokenCan(context.Context, string) bool
 pkg anetos.dev/anetos/auth, func TwoFactorCode(string, time.Time) (string, error)
 pkg anetos.dev/anetos/auth, func User[U Authenticatable](context.Context) (U, bool)
-pkg anetos.dev/anetos/auth, func WithAbilities([]string) ActOption
+pkg anetos.dev/anetos/auth, func WithAbilities([]string) UserOption
 pkg anetos.dev/anetos/auth, func WithInsecureCookies() Option
 pkg anetos.dev/anetos/auth, func WithIssuer(string) Option
 pkg anetos.dev/anetos/auth, func WithLogger(*slog.Logger) Option
-pkg anetos.dev/anetos/auth, method (*Auth[U]) ActAs(context.Context, string, ...ActOption) context.Context
+pkg anetos.dev/anetos/auth, func WithUser(context.Context, string, ...UserOption) (context.Context, error)
+pkg anetos.dev/anetos/auth, method (*Auth[U]) ActAs(context.Context, string, ...UserOption) context.Context
 pkg anetos.dev/anetos/auth, method (*Auth[U]) Attempt(context.Context, string, string, bool) (U, error)
 pkg anetos.dev/anetos/auth, method (*Auth[U]) AttemptCredentials(context.Context, string, string) (U, error)
 pkg anetos.dev/anetos/auth, method (*Auth[U]) AttemptTwoFactor(context.Context, string) (U, error)
@@ -717,6 +719,8 @@ pkg anetos.dev/anetos/auth, method (*Auth[U]) Impersonate(context.Context, U) er
 pkg anetos.dev/anetos/auth, method (*Auth[U]) Login(context.Context, U, bool) error
 pkg anetos.dev/anetos/auth, method (*Auth[U]) LoginSession(*session.Session, U) error
 pkg anetos.dev/anetos/auth, method (*Auth[U]) Logout(context.Context) error
+pkg anetos.dev/anetos/auth, method (*Auth[U]) LogoutEverywhere(context.Context, U) error
+pkg anetos.dev/anetos/auth, method (*Auth[U]) LogoutOthers(context.Context, U) error
 pkg anetos.dev/anetos/auth, method (*Auth[U]) Middleware(http.Handler) http.Handler
 pkg anetos.dev/anetos/auth, method (*Auth[U]) NewRecoveryCodes(context.Context, U) ([]string, error)
 pkg anetos.dev/anetos/auth, method (*Auth[U]) PasswordConfirmed(context.Context) bool
@@ -733,11 +737,15 @@ pkg anetos.dev/anetos/auth, method (*Auth[U]) SignOutOthers(context.Context, U) 
 pkg anetos.dev/anetos/auth, method (*Auth[U]) StartTwoFactor(context.Context, U, string) (TwoFactorSetup, error)
 pkg anetos.dev/anetos/auth, method (*Auth[U]) StartedTwoFactor(U, string) (TwoFactorSetup, error)
 pkg anetos.dev/anetos/auth, method (*Auth[U]) StopImpersonating(context.Context) (U, error)
+pkg anetos.dev/anetos/auth, method (*Auth[U]) SupportsLogoutEverywhere() bool
+pkg anetos.dev/anetos/auth, method (*Auth[U]) SupportsRemember() bool
+pkg anetos.dev/anetos/auth, method (*Auth[U]) SupportsTwoFactor() bool
 pkg anetos.dev/anetos/auth, method (*Auth[U]) TokenMiddleware(http.Handler) http.Handler
 pkg anetos.dev/anetos/auth, method (*Auth[U]) Tokens(context.Context, U) ([]Token, error)
 pkg anetos.dev/anetos/auth, method (*Auth[U]) TwoFactor(U) (TwoFactorStatus, error)
 pkg anetos.dev/anetos/auth, method (*Auth[U]) TwoFactorPending(context.Context) bool
 pkg anetos.dev/anetos/auth, method (*Auth[U]) VerificationToken(U, string) string
+pkg anetos.dev/anetos/auth, method (*Auth[U]) WithUser(context.Context, string, ...UserOption) context.Context
 pkg anetos.dev/anetos/auth, method (*ThrottledError) Error() string
 pkg anetos.dev/anetos/auth, method (*ThrottledError) HTTPStatus() int
 pkg anetos.dev/anetos/auth, method (*Token) Can(string) bool
@@ -746,7 +754,7 @@ pkg anetos.dev/anetos/auth, method (*TwoFactorChallenge) HTTPStatus() int
 pkg anetos.dev/anetos/auth, method (*TwoFactorChallenge) Is(error) bool
 pkg anetos.dev/anetos/auth, method (Config) Validate() error
 pkg anetos.dev/anetos/auth, method (Token) TableName() string
-pkg anetos.dev/anetos/auth, type ActOption func(*state)
+pkg anetos.dev/anetos/auth, type ActOption = UserOption
 pkg anetos.dev/anetos/auth, type Auth[U Authenticatable] struct
 pkg anetos.dev/anetos/auth, type Authenticatable interface
 pkg anetos.dev/anetos/auth, type Authenticatable interface, AuthID() string
@@ -786,6 +794,7 @@ pkg anetos.dev/anetos/auth, type TwoFactorStatus struct
 pkg anetos.dev/anetos/auth, type TwoFactorStatus struct, On bool
 pkg anetos.dev/anetos/auth, type TwoFactorStatus struct, RecoveryCodes int
 pkg anetos.dev/anetos/auth, type TwoFactorStatus struct, Started bool
+pkg anetos.dev/anetos/auth, type UserOption func(*state)
 pkg anetos.dev/anetos/auth, type Users[U Authenticatable] struct
 pkg anetos.dev/anetos/auth, type Users[U Authenticatable] struct, ByID func(context.Context, string) (U, error)
 pkg anetos.dev/anetos/auth, type Users[U Authenticatable] struct, ByLogin func(context.Context, string) (U, error)
@@ -802,6 +811,7 @@ pkg anetos.dev/anetos/auth, var ErrForbidden error
 pkg anetos.dev/anetos/auth, var ErrInvalidCode error
 pkg anetos.dev/anetos/auth, var ErrInvalidCredentials error
 pkg anetos.dev/anetos/auth, var ErrInvalidToken error
+pkg anetos.dev/anetos/auth, var ErrNoPendingLogin error
 pkg anetos.dev/anetos/auth, var ErrNoPendingSignIn error
 pkg anetos.dev/anetos/auth, var ErrNoUser error
 pkg anetos.dev/anetos/auth, var ErrNotImpersonating error
@@ -810,6 +820,7 @@ pkg anetos.dev/anetos/auth, var ErrTwoFactorOff error
 pkg anetos.dev/anetos/auth, var ErrTwoFactorOn error
 pkg anetos.dev/anetos/auth, var ErrTwoFactorRequired error
 pkg anetos.dev/anetos/auth, var ErrUnauthenticated error
+pkg anetos.dev/anetos/auth, var ErrUserNotFound error
 pkg anetos.dev/anetos/auth/password, const MaxLength = 1024
 pkg anetos.dev/anetos/auth/password, func Defaults() Params
 pkg anetos.dev/anetos/auth/password, func Dummy(string)
@@ -925,7 +936,7 @@ pkg anetos.dev/anetos/auth/social, func WithCallbackPath(string) Option
 pkg anetos.dev/anetos/auth/social, func WithHTTPClient(*http.Client) Option
 pkg anetos.dev/anetos/auth/social, func WithHomeURL(string) Option
 pkg anetos.dev/anetos/auth/social, func WithLogger(*slog.Logger) Option
-pkg anetos.dev/anetos/auth/social, method (*ErrNoAccount) Error() string
+pkg anetos.dev/anetos/auth/social, method (*NoAccountError) Error() string
 pkg anetos.dev/anetos/auth/social, method (*Social[U]) Callback(*web.Ctx) error
 pkg anetos.dev/anetos/auth/social, method (*Social[U]) CallbackURL(string) string
 pkg anetos.dev/anetos/auth/social, method (*Social[U]) Providers() []string
@@ -941,8 +952,9 @@ pkg anetos.dev/anetos/auth/social, type Account struct, embedded db.Model
 pkg anetos.dev/anetos/auth/social, type Credentials struct
 pkg anetos.dev/anetos/auth/social, type Credentials struct, ClientID string
 pkg anetos.dev/anetos/auth/social, type Credentials struct, ClientSecret anetos.Secret
-pkg anetos.dev/anetos/auth/social, type ErrNoAccount struct
-pkg anetos.dev/anetos/auth/social, type ErrNoAccount struct, Message string
+pkg anetos.dev/anetos/auth/social, type ErrNoAccount = NoAccountError
+pkg anetos.dev/anetos/auth/social, type NoAccountError struct
+pkg anetos.dev/anetos/auth/social, type NoAccountError struct, Message string
 pkg anetos.dev/anetos/auth/social, type Option func(*options)
 pkg anetos.dev/anetos/auth/social, type Profile struct
 pkg anetos.dev/anetos/auth/social, type Profile struct, AvatarURL string

@@ -115,8 +115,8 @@ and return the response, so they chain. `Follow` loads the redirect's
 target (on the test site only). `AssertSee` finds text as it is or
 HTML-escaped, as templates write it.
 
-Sign a user in with `anetostest.ActingAs`, for the requests that follow
-(v0.3): it writes the session a password sign-in would, so the test
+Log a user in with `anetostest.ActingAs`, for the requests that follow
+(v0.3): it writes the session a password login would, so the test
 needn't post the login form. Call it again to switch users:
 
 ```go
@@ -240,8 +240,8 @@ it with typed assertions. By default these still happen as usual (with
 | `anetostest.FakePubSub()` | Published messages are recorded, not sent to the broker |
 
 Email is never sent in tests (`MAIL_DRIVER=memory`), so it needs no
-fake. For sign-in with Google or GitHub, `anetostest.FakeSocial()` puts
-a stand-in provider in their place and `app.SocialSignIn` signs in with
+fake. For login with Google or GitHub, `anetostest.FakeSocial()` puts
+a stand-in provider in their place and `app.SocialLogin` logs in with
 the account you give (see [Social login](social-login.md#3-test)).
 Models are never called either (`AI_PROVIDER=fake`):
 `anetostest.FakeAI(…)` scripts their answers, and `app.AssertPrompted`

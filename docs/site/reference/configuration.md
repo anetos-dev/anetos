@@ -24,7 +24,7 @@ Read by `anetos.New` into `anetos.AppConfig`.
 | `APP_LOCALE` | locale (`en`, `bn`, `pt-BR`) | `en` | The default locale: of requests that ask for no supported one, and of code outside requests. Read by `i18n.New` | v0.3 |
 | `APP_FALLBACK_LOCALE` | locale | `en` | Where a locale's missing messages come from, after its parents (`bn-BD`, then `bn`); the framework's English messages come last | v0.3 |
 | `APP_LOCALES` | list of locales | `APP_LOCALE` and every locale with a catalog | The locales requests can ask for. `APP_LOCALE` must be one of them | v0.3 |
-| `APP_LOCALE_STRATEGY` | `none` \| `prefix` \| `subdomain` | `none` | Where a request's locale is in its URL: nowhere (the `locale` cookie, the session, the signed-in user's preference, `Accept-Language`), a path prefix (`/bn/about`; the default locale has none), or a subdomain (`bn.example.com`; needs `APP_URL`). See [Translations](../guides/translations.md#4-choose-how-visitors-get-their-language) | v0.3 |
+| `APP_LOCALE_STRATEGY` | `none` \| `prefix` \| `subdomain` | `none` | Where a request's locale is in its URL: nowhere (the `locale` cookie, the session, the logged-in user's preference, `Accept-Language`), a path prefix (`/bn/about`; the default locale has none), or a subdomain (`bn.example.com`; needs `APP_URL`). See [Translations](../guides/translations.md#4-choose-how-visitors-get-their-language) | v0.3 |
 | `LOG_LEVEL` | `debug` \| `info` \| `warn` \| `error` | `info` | Minimum log level | v0.1 |
 | `LOG_FORMAT` | `text` \| `json` \| empty | empty | Log format; empty means JSON in production, text elsewhere | v0.1 |
 
@@ -378,15 +378,15 @@ Read by `auth.New` (or `auth.LoadConfig`) into `auth.Config`.
 | Key | Type | Default | Description | Since |
 |---|---|---|---|---|
 | `AUTH_LOGIN_URL` | path | `/login` | Where `Require` sends guests asking for a page | v0.2 |
-| `AUTH_HOME_URL` | path | `/` (`auth.DefaultHomeURL` sets another; `make:auth`'s is `/dashboard`) | The page for signed-in users: where signing in or registering leads when there's no page they asked for, and where `Guest` sends them | v0.2 |
+| `AUTH_HOME_URL` | path | `/` (`auth.DefaultHomeURL` sets another; `make:auth`'s is `/dashboard`) | The page for logged-in users: where logging in or registering leads when there's no page they asked for, and where `Guest` sends them | v0.2 |
 | `AUTH_REMEMBER_TTL` | duration | `720h` | How long "remember me" lasts | v0.2 |
 | `AUTH_THROTTLE` | int | `5` | Login attempts allowed per minute for one login, or one account, from one IP address (cleared by a success) | v0.2 |
 | `AUTH_THROTTLE_IP` | int | `50` | Failed logins allowed per minute from one IP address (IPv6: its /64), whatever the login | v0.2 |
 | `AUTH_RESET_TTL` | duration | `60m` | How long a password-reset token works | v0.2 |
 | `AUTH_VERIFY_TTL` | duration | `24h` | How long an email-verification token works | v0.2 |
 | `AUTH_REVERT_TTL` | duration | `168h` | How long the link that undoes a change of email address works | v0.3 |
-| `AUTH_CHALLENGE_URL` | path | `/two-factor-challenge` | Where a sign-in waiting for a two-factor code asks for it (social login sends users there) | v0.3 |
-| `AUTH_TWO_FACTOR_URL` | path | `/two-factor` | Where users turn two-factor sign-in on and off (the admin links there) | v0.3 |
+| `AUTH_CHALLENGE_URL` | path | `/two-factor-challenge` | Where a login waiting for a two-factor code asks for it (social login sends users there) | v0.3 |
+| `AUTH_TWO_FACTOR_URL` | path | `/two-factor` | Where users turn two-factor authentication on and off (the admin links there) | v0.3 |
 | `AUTH_SETTINGS_URL` | path | `/settings` | The account settings page (`make:auth`'s); the admin links the user's name to it when the app has it | v0.3 |
 | `AUTH_CONFIRM_URL` | path | `/confirm-password` | Where `RequireConfirmed` sends users to confirm their password | v0.3 |
 | `AUTH_CONFIRM_TTL` | duration | `15m` | How long a confirmed password holds | v0.3 |
@@ -417,8 +417,8 @@ See [Add an admin panel](../guides/admin.md).
 | `ADMIN_HOST` | string | empty | A host the admin answers on alone (`admin.example.com`, on any port; a port given here goes into its URLs); empty for every host | v0.3 |
 | `ADMIN_TITLE` | string | `APP_NAME` | The admin's name in its pages (overrides `admin.Title`) | v0.3 |
 | `ADMIN_PER_PAGE` | int | `25` | How many records a list shows, 1 to 500 (a resource's `PerPage` overrides it) | v0.3 |
-| `ADMIN_CONFIRM` | bool | `true` | Ask for the password again (`AUTH_CONFIRM_TTL`) before dangerous actions: deleting, disabling, roles and permissions, acting as a user, forgetting every failed job, actions marked `Danger` | v0.3 |
-| `ADMIN_TWO_FACTOR` | `optional`, `required` | `optional` | `required` lets in only users with two-factor sign-in on; the others are told to turn it on (`AUTH_TWO_FACTOR_URL`) | v0.3 |
+| `ADMIN_CONFIRM` | bool | `true` | Ask for the password again (`AUTH_CONFIRM_TTL`) before dangerous actions: deleting, disabling, roles and permissions, impersonating a user, forgetting every failed job, actions marked `Danger` | v0.3 |
+| `ADMIN_TWO_FACTOR` | `optional`, `required` | `optional` | `required` lets in only users with two-factor authentication on; the others are told to turn it on (`AUTH_TWO_FACTOR_URL`) | v0.3 |
 | `ADMIN_ALLOW_IPS` | list | empty | Addresses or networks (`10.0.0.0/8`), comma-separated, the admin answers; others get 404. The client's address is read behind trusted proxies only (`HTTP_TRUSTED_PROXIES`). Empty for every address | v0.3 |
 
 ## Social login

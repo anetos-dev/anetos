@@ -43,11 +43,11 @@ func testAuthTokens(t *testing.T, ctx context.Context) {
 	a, err := auth.NewWithConfig(cfg, auth.Users[stAuthUser]{
 		ByID: func(_ context.Context, id string) (stAuthUser, error) {
 			if id == "gone" {
-				return stAuthUser{}, auth.ErrNoUser
+				return stAuthUser{}, auth.ErrUserNotFound
 			}
 			return stAuthUser{id}, nil
 		},
-		ByLogin: func(context.Context, string) (stAuthUser, error) { return stAuthUser{}, auth.ErrNoUser },
+		ByLogin: func(context.Context, string) (stAuthUser, error) { return stAuthUser{}, auth.ErrUserNotFound },
 	}, enc)
 	check(t, err)
 

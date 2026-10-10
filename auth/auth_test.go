@@ -76,7 +76,7 @@ func (s *store) users() auth.Users[*user] {
 			}
 			u, ok := s.byID[id]
 			if !ok {
-				return nil, auth.ErrNoUser
+				return nil, auth.ErrUserNotFound
 			}
 			return &u, nil
 		},
@@ -88,7 +88,7 @@ func (s *store) users() auth.Users[*user] {
 					return &u, nil
 				}
 			}
-			return nil, auth.ErrNoUser
+			return nil, auth.ErrUserNotFound
 		},
 		RememberToken: func(u *user) string { return u.Remember },
 		SetRememberToken: func(_ context.Context, u *user, tok string) error {
@@ -356,7 +356,7 @@ func TestLoginFlow(t *testing.T) {
 		t.Errorf("policy: %d", res.StatusCode)
 	}
 
-	// A password change elsewhere signs this session out.
+	// A password change elsewhere logs this session out.
 	s.setPassword(t, "1", "new secret")
 	if res := b.do(http.MethodGet, "/dashboard", nil); res.StatusCode != http.StatusSeeOther {
 		t.Errorf("after a password change: %d", res.StatusCode)
@@ -417,7 +417,7 @@ func TestRememberMe(t *testing.T) {
 	if remember == nil {
 		t.Fatal("no remember-me cookie")
 	}
-	// The session ends (the browser closed): the cookie signs back in.
+	// The session ends (the browser closed): the cookie logs back in.
 	b.drop("anetos_session")
 	if res := b.do(http.MethodGet, "/dashboard", nil); res.StatusCode != http.StatusOK {
 		t.Fatalf("remembered: %d", res.StatusCode)
@@ -425,7 +425,7 @@ func TestRememberMe(t *testing.T) {
 	if sessionCookie(b) == "" {
 		t.Error("no new session after a remembered login")
 	}
-	// Logout signs out every remembered browser.
+	// Logout logs out every remembered browser.
 	other := &browser{t: t, h: b.h, ctx: b.ctx, jar: mustJar()}
 	other.jar.SetCookies(base, []*http.Cookie{remember})
 	b.do(http.MethodPost, "/logout", nil)
@@ -453,11 +453,11 @@ func TestRehashAndLoadErrors(t *testing.T) {
 	if s.rehashed != 1 || password.NeedsRehash(s.byID["1"].Password) {
 		t.Errorf("hash not upgraded (%d)", s.rehashed)
 	}
-	// The upgraded hash doesn't sign the session out.
+	// The upgraded hash doesn't log the session out.
 	if res := b.do(http.MethodGet, "/dashboard", nil); res.StatusCode != http.StatusOK {
 		t.Errorf("after the upgrade: %d", res.StatusCode)
 	}
-	// A failure to load the user is an error, not a sign-out.
+	// A failure to load the user is an error, not a logout.
 	s.failLoads = true
 	if res := b.do(http.MethodGet, "/dashboard", nil); res.StatusCode != http.StatusInternalServerError {
 		t.Errorf("load failure: %d", res.StatusCode)
@@ -476,7 +476,7 @@ func TestCurrentID(t *testing.T) {
 	}
 	login(b, "bob@example.com", "secret", false)
 	if res := b.do(http.MethodGet, "/id", nil); res.StatusCode != http.StatusOK || res.Body != "2" {
-		t.Errorf("signed in: %d %q", res.StatusCode, res.Body)
+		t.Errorf("logged in: %d %q", res.StatusCode, res.Body)
 	}
 	s.failLoads = true
 	if res := b.do(http.MethodGet, "/id", nil); res.StatusCode != http.StatusInternalServerError {
@@ -487,16 +487,16 @@ func TestCurrentID(t *testing.T) {
 	}
 }
 
-func TestActAs(t *testing.T) {
+func TestWithUser(t *testing.T) {
 	s := newStore(t)
 	_, _, app := newAppWith(t, s)
 	ctx := app.Context(context.Background())
-	asBob, err := auth.ActAs(ctx, "2")
+	asBob, err := auth.WithUser(ctx, "2")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if u, ok := auth.User[*user](asBob); !ok || u.Email != "bob@example.com" {
-		t.Errorf("acting as bob: %+v, %v", u, ok)
+		t.Errorf("WithUser bob: %+v, %v", u, ok)
 	}
 	if id, err := auth.CurrentID(asBob); err != nil || id != "2" {
 		t.Errorf("CurrentID: %q, %v", id, err)
@@ -508,21 +508,21 @@ func TestActAs(t *testing.T) {
 		t.Error("a token")
 	}
 	// The limits of the token a request had.
-	limited, _ := auth.ActAs(ctx, "2", auth.WithAbilities([]string{"posts:read"}))
+	limited, _ := auth.WithUser(ctx, "2", auth.WithAbilities([]string{"posts:read"}))
 	if tok, ok := auth.CurrentToken(limited); !ok || tok.UserID != "2" || !auth.TokenCan(limited, "posts:read") || auth.TokenCan(limited, "posts:write") {
 		t.Errorf("abilities: %+v", tok)
 	}
-	gone, _ := auth.ActAs(ctx, "99")
+	gone, _ := auth.WithUser(ctx, "99")
 	if auth.Check(gone) {
-		t.Error("a user that doesn't exist is signed in")
+		t.Error("a user that doesn't exist is logged in")
 	}
 	s.failLoads = true
-	failing, _ := auth.ActAs(ctx, "1")
+	failing, _ := auth.WithUser(ctx, "1")
 	if _, err := auth.Current[*user](failing); err == nil || errors.Is(err, auth.ErrUnauthenticated) {
 		t.Errorf("a load failure: %v", err)
 	}
-	if _, err := auth.ActAs(context.Background(), "1"); err == nil {
-		t.Error("ActAs without an Auth in the context")
+	if _, err := auth.WithUser(context.Background(), "1"); err == nil {
+		t.Error("WithUser without an Auth in the context")
 	}
 }
 
@@ -754,7 +754,7 @@ func TestIPLimitCountsFailures(t *testing.T) {
 }
 
 // LoginSession refuses disabled users before touching the session (the
-// signed-in case is anetostest.ActingAs's test).
+// logged-in case is anetostest.ActingAs's test).
 func TestLoginSessionDisabled(t *testing.T) {
 	a, _ := newApp(t, newStore(t))
 	if err := a.LoginSession(nil, &user{ID: "9", Disabled: true}); !errors.Is(err, auth.ErrDisabled) {
@@ -818,10 +818,10 @@ func TestRequireAbilities(t *testing.T) {
 	ctx := app.Context(context.Background())
 	mw := auth.RequireAbilities("posts:read", "posts:write")
 	h := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusNoContent) }))
-	reader, _ := auth.ActAs(ctx, "2", auth.WithAbilities([]string{"posts:read"}))
-	writer, _ := auth.ActAs(ctx, "2", auth.WithAbilities([]string{"posts:read", "posts:write"}))
-	all, _ := auth.ActAs(ctx, "2", auth.WithAbilities([]string{"*"}))
-	session, _ := auth.ActAs(ctx, "2")
+	reader, _ := auth.WithUser(ctx, "2", auth.WithAbilities([]string{"posts:read"}))
+	writer, _ := auth.WithUser(ctx, "2", auth.WithAbilities([]string{"posts:read", "posts:write"}))
+	all, _ := auth.WithUser(ctx, "2", auth.WithAbilities([]string{"*"}))
+	session, _ := auth.WithUser(ctx, "2")
 	for _, c := range []struct {
 		name   string
 		ctx    context.Context
@@ -841,7 +841,7 @@ func TestRequireAbilities(t *testing.T) {
 	}
 	// A user that can't be loaded is that error, not a guest.
 	s.failLoads = true
-	failing, _ := auth.ActAs(ctx, "2", auth.WithAbilities([]string{"*"}))
+	failing, _ := auth.WithUser(ctx, "2", auth.WithAbilities([]string{"*"}))
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequestWithContext(failing, http.MethodGet, "/", nil))
 	if rec.Code != http.StatusInternalServerError {

@@ -23,16 +23,16 @@ import (
 // The account pages (anetos make:auth): yours to change. Their text is
 // in locales/en/auth.yaml.
 
-// SocialButton is a "Sign in with …" button.
+// SocialButton is a "Log in with …" button.
 type SocialButton struct {
 	Name  string // the provider in URLs: google
 	Title string // its name for people: Google
 }
 
-// AccountMenu is the header's account links: the signed-in user's
+// AccountMenu is the header's account links: the logged-in user's
 // dashboard, settings and logout, or log in and register. make:auth adds
 // it to the layout's header; setupAuth's sessions.Use(a.Middleware) lets
-// every page with a session know who is signed in.
+// every page with a session know who is logged in.
 func AccountMenu() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -1876,7 +1876,7 @@ type TwoFactorPage struct {
 	RecoveryCodes []string // just made: shown once
 }
 
-// TwoFactor turns two-factor sign-in on and off.
+// TwoFactor turns two-factor authentication on and off.
 func TwoFactor(p TwoFactorPage) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -2321,7 +2321,7 @@ func TwoFactor(p TwoFactorPage) templ.Component {
 	})
 }
 
-// socialButtons shows a button per provider, and why a sign-in failed.
+// socialButtons shows a button per provider, and why a login failed.
 func socialButtons(buttons []SocialButton) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -2397,9 +2397,9 @@ func socialButtons(buttons []SocialButton) templ.Component {
 						}
 						ctx = templ.InitializeContext(ctx)
 						var templ_7745c5c3_Var134 string
-						templ_7745c5c3_Var134, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, "auth.social.sign_in_with", "provider", b.Title))
+						templ_7745c5c3_Var134, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, "auth.social.login_with", "provider", b.Title))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/auth.templ`, Line: 323, Col: 67}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/auth.templ`, Line: 323, Col: 65}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var134))
 						if templ_7745c5c3_Err != nil {

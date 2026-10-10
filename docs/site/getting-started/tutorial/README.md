@@ -20,7 +20,7 @@ issues, ready to deploy.
 | Part | You add |
 |---|---|
 | [1. Create the app](01-create-the-app.md) | The project, running with live reload |
-| [2. Accounts](02-accounts.md) | Sign-up, sign-in, email verification, settings |
+| [2. Accounts](02-accounts.md) | Sign-up, login, email verification, settings |
 | [3. Issues](03-issues.md) | A model, a migration, pages to list, open and edit issues, a test |
 | [4. The issue page](04-the-issue-page.md) | Comments posted with htmx, closing issues, an event |
 | [5. Search](05-search.md) | A full-text index and a search page |

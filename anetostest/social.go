@@ -18,21 +18,21 @@ import (
 	"anetos.dev/anetos/internal/socialstub"
 )
 
-// FakeSocial makes social login (package auth/social) sign in through a
+// FakeSocial makes social login (package auth/social) log in through a
 // stand-in provider the test controls, for every provider the app has:
-// [App.SocialSignIn] signs in with an account of your choosing. Every
+// [App.SocialLogin] logs in with an account of your choosing. Every
 // provider counts as configured (social.Configured), with test
 // credentials when its SOCIAL_<NAME>_* settings are missing. Nothing
 // reaches Google or GitHub.
 //
 //	app := anetostest.New(t, setup, anetostest.FakeSocial())
-//	app.SocialSignIn("/auth/google/redirect", anetostest.SocialAccount{
+//	app.SocialLogin("/auth/google/redirect", anetostest.SocialAccount{
 //		ID: "g-1", Email: "ada@example.com", EmailVerified: true, Name: "Ada",
 //	}).AssertRedirect("/dashboard")
 func FakeSocial() Option { return func(o *options) { o.fakeSocial = true } }
 
-// SocialAccount is the account a test signs in with at the stand-in
-// provider ([App.SocialSignIn]): the profile the app's resolver gets.
+// SocialAccount is the account a test logs in with at the stand-in
+// provider ([App.SocialLogin]): the profile the app's resolver gets.
 type SocialAccount struct {
 	// ID is the account's identifier at the provider (the profile's
 	// Subject). Required.
@@ -51,7 +51,7 @@ type SocialAccount struct {
 type idp struct {
 	srv   *httptest.Server
 	mu    sync.Mutex
-	codes map[string]idpCode // authorization code → its sign-in
+	codes map[string]idpCode // authorization code → its login
 }
 
 type idpCode struct {
@@ -65,7 +65,7 @@ func (a *App) startIDP() {
 	p := &idp{codes: map[string]idpCode{}}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /authorize", func(w http.ResponseWriter, _ *http.Request) {
-		http.Error(w, "anetostest: sign in with app.SocialSignIn", http.StatusBadRequest)
+		http.Error(w, "anetostest: log in with app.SocialLogin", http.StatusBadRequest)
 	})
 	mux.HandleFunc("POST /token", p.token)
 	p.srv = httptest.NewTLSServer(mux)
@@ -101,33 +101,33 @@ func (p *idp) token(w http.ResponseWriter, r *http.Request) {
 		"expires_in": 3600, "id_token": idToken + "c2ln"})
 }
 
-// SocialSignIn signs in with acct through social login, as a browser
+// SocialLogin logs in with acct through social login, as a browser
 // would: it follows redirect (the app's route that sends users to the
 // provider, "/auth/google/redirect", with ?remember=1 if you like), plays
-// the provider's sign-in page for acct, and returns the app's answer to
+// the provider's login page for acct, and returns the app's answer to
 // the callback: a redirect to the intended page or AUTH_HOME_URL, or back
 // to the login page with a "social" error. It needs [FakeSocial].
-func (a *App) SocialSignIn(redirect string, acct SocialAccount) *Response {
+func (a *App) SocialLogin(redirect string, acct SocialAccount) *Response {
 	a.t.Helper()
 	if a.idp == nil {
-		a.t.Fatalf("anetostest: SocialSignIn needs the FakeSocial option")
+		a.t.Fatalf("anetostest: SocialLogin needs the FakeSocial option")
 		return nil
 	}
 	if acct.ID == "" {
-		a.t.Fatalf("anetostest: SocialSignIn: the account needs an ID")
+		a.t.Fatalf("anetostest: SocialLogin: the account needs an ID")
 		return nil
 	}
 	res := a.Get(redirect)
 	loc := res.Header.Get("Location")
 	if !strings.HasPrefix(loc, a.idp.srv.URL+"/authorize?") {
-		a.t.Fatalf("anetostest: SocialSignIn: GET %s didn't redirect to the provider (status %d, Location %q)", redirect, res.StatusCode, loc)
+		a.t.Fatalf("anetostest: SocialLogin: GET %s didn't redirect to the provider (status %d, Location %q)", redirect, res.StatusCode, loc)
 		return nil
 	}
 	u, _ := url.Parse(loc)
 	q := u.Query()
 	callback, err := url.Parse(q.Get("redirect_uri"))
 	if err != nil || callback.Path == "" {
-		a.t.Fatalf("anetostest: SocialSignIn: bad redirect_uri %q", q.Get("redirect_uri"))
+		a.t.Fatalf("anetostest: SocialLogin: bad redirect_uri %q", q.Get("redirect_uri"))
 		return nil
 	}
 	now := a.Now()
@@ -144,4 +144,13 @@ func (a *App) SocialSignIn(redirect string, acct SocialAccount) *Response {
 	a.idp.codes[code] = idpCode{claims: claims, challenge: q.Get("code_challenge")}
 	a.idp.mu.Unlock()
 	return a.Get(callback.EscapedPath() + "?" + url.Values{"code": {code}, "state": {q.Get("state")}}.Encode())
+}
+
+// SocialSignIn is [App.SocialLogin].
+//
+// Deprecated: Use SocialLogin; SocialSignIn is removed in v0.6.
+//
+//go:fix inline
+func (a *App) SocialSignIn(redirect string, acct SocialAccount) *Response {
+	return a.SocialLogin(redirect, acct)
 }

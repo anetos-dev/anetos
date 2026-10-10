@@ -231,11 +231,11 @@ func TestPreferences(t *testing.T) {
 	ctx := app.Context(context.Background())
 
 	if l, z := i18n.Preferences(ctx); l != "" || z != nil {
-		t.Errorf("signed out: %q, %v", l, z)
+		t.Errorf("logged out: %q, %v", l, z)
 	}
 	current = user{locale: "bn-BD", zone: "Asia/Dhaka"}
 	if l, z := i18n.Preferences(ctx); l != "bn-BD" || z == nil || z.String() != "Asia/Dhaka" {
-		t.Errorf("signed in: %q, %v", l, z)
+		t.Errorf("logged in: %q, %v", l, z)
 	}
 
 	// ForUser: the communication locale, else the display one; the zone.

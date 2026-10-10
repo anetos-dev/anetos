@@ -31,8 +31,8 @@ import (
 
 // Accounts serves the API's accounts (anetos make:auth): registration,
 // login with an API token (and a two-factor code for users who have it
-// on), logout, the signed-in user, email verification, password reset
-// and change, API tokens and two-factor sign-in. Hashing, tokens and
+// on), logout, the logged-in user, email verification, password reset
+// and change, API tokens and two-factor authentication. Hashing, tokens and
 // throttling are package auth's; this is your code to change.
 type Accounts struct {
 	Auth *auth.Auth[*models.User]
@@ -40,8 +40,8 @@ type Accounts struct {
 
 // The lifetimes of the tokens the API gives.
 const (
-	signInTTL = 30 * 24 * time.Hour // a registration's or login's token
-	tokenTTL  = 90 * 24 * time.Hour // a token made with POST /tokens
+	loginTTL = 30 * 24 * time.Hour // a registration's or login's token
+	tokenTTL = 90 * 24 * time.Hour // a token made with POST /tokens
 )
 
 // UserResponse is how the API shows a user: the fields chosen here, so
@@ -58,11 +58,11 @@ func userResponse(u *models.User) UserResponse {
 	return UserResponse{ID: u.ID, Name: u.Name, Email: u.Email, EmailVerifiedAt: u.EmailVerifiedAt, CreatedAt: u.CreatedAt}
 }
 
-// SignInResponse answers registration and login: a token for the
+// LoginResponse answers registration and login: a token for the
 // Authorization header, and its user. For a user with two-factor
-// sign-in on, login answers instead with TwoFactor and a Challenge, to
+// authentication on, login answers instead with TwoFactor and a Challenge, to
 // send back with a code to POST /api/v1/login/two-factor.
-type SignInResponse struct {
+type LoginResponse struct {
 	Token     string        `json:"token,omitempty"`
 	User      *UserResponse `json:"user,omitempty"`
 	TwoFactor bool          `json:"two_factor,omitempty"`
@@ -85,7 +85,7 @@ type LoginInput struct {
 	DeviceName string `json:"device_name" validate:"max:100"`
 }
 
-// ChallengeInput is the second step of a login with two-factor sign-in:
+// ChallengeInput is the second step of a login with two-factor authentication:
 // the challenge the login answered, and a code of the user's
 // authenticator app or one of their recovery codes.
 type ChallengeInput struct {
@@ -178,14 +178,14 @@ type NewTokenResponse struct {
 	TokenResponse
 }
 
-// TwoFactorResponse is the user's two-factor sign-in.
+// TwoFactorResponse is the user's two-factor authentication.
 type TwoFactorResponse struct {
-	Enabled       bool `json:"enabled"`        // sign-in asks for a code
+	Enabled       bool `json:"enabled"`        // login asks for a code
 	Started       bool `json:"started"`        // a setup waits for POST /two-factor/confirm
 	RecoveryCodes int  `json:"recovery_codes"` // unused recovery codes left
 }
 
-// TwoFactorSetupResponse starts turning on two-factor sign-in: the key
+// TwoFactorSetupResponse starts turning on two-factor authentication: the key
 // for the authenticator app, as a QR code (an SVG image) or typed.
 type TwoFactorSetupResponse struct {
 	Secret string `json:"secret"`
@@ -193,7 +193,7 @@ type TwoFactorSetupResponse struct {
 	QRCode string `json:"qr_code"` // an SVG image
 }
 
-// RecoveryCodesResponse is the recovery codes, shown once: each signs in
+// RecoveryCodesResponse is the recovery codes, shown once: each logs in
 // once without the authenticator app.
 type RecoveryCodesResponse struct {
 	RecoveryCodes []string `json:"recovery_codes"`
@@ -201,22 +201,22 @@ type RecoveryCodesResponse struct {
 
 // Register creates the account, emails the verification link, and
 // answers with a token (201: the route's Status).
-func (h Accounts) Register(c *web.Ctx, in RegisterInput) (SignInResponse, error) {
+func (h Accounts) Register(c *web.Ctx, in RegisterInput) (LoginResponse, error) {
 	name := cleanName(in.Name)
 	if name == "" {
-		return SignInResponse{}, validate.Fail("name", i18n.T(c, "auth.errors.name_required"))
+		return LoginResponse{}, validate.Fail("name", i18n.T(c, "auth.errors.name_required"))
 	}
 	email := strings.ToLower(in.Email) // stored and looked up in lower case
 	taken, err := emailTaken(c, email)
 	if err != nil {
-		return SignInResponse{}, err
+		return LoginResponse{}, err
 	}
 	if taken {
-		return SignInResponse{}, validate.Fail("email", i18n.T(c, "auth.errors.email_taken"))
+		return LoginResponse{}, validate.Fail("email", i18n.T(c, "auth.errors.email_taken"))
 	}
 	hash, err := password.Hash(in.Password)
 	if err != nil {
-		return SignInResponse{}, err
+		return LoginResponse{}, err
 	}
 	u := &models.User{Name: name, Email: email, Password: hash}
 	// The user and the email, or neither: the email is queued once the
@@ -229,13 +229,13 @@ func (h Accounts) Register(c *web.Ctx, in RegisterInput) (SignInResponse, error)
 	})
 	if err != nil {
 		if taken, _ := emailTaken(c, email); taken { // registered meanwhile
-			return SignInResponse{}, validate.Fail("email", i18n.T(c, "auth.errors.email_taken"))
+			return LoginResponse{}, validate.Fail("email", i18n.T(c, "auth.errors.email_taken"))
 		}
-		return SignInResponse{}, err
+		return LoginResponse{}, err
 	}
-	res, err := h.signedIn(c, u, in.DeviceName)
+	res, err := h.loginResponse(c, u, in.DeviceName)
 	if err != nil {
-		return SignInResponse{}, err
+		return LoginResponse{}, err
 	}
 	return res, nil
 }
@@ -257,20 +257,20 @@ func cleanName(name string) string {
 	return strings.Join(strings.Fields(name), " ")
 }
 
-// signedIn gives u a token named after the client's device, with every
+// loginResponse gives u a token named after the client's device, with every
 // ability.
-func (h Accounts) signedIn(c *web.Ctx, u *models.User, device string) (SignInResponse, error) {
+func (h Accounts) loginResponse(c *web.Ctx, u *models.User, device string) (LoginResponse, error) {
 	device = cleanName(device)
 	if device == "" {
 		device = "API"
 	}
-	plain, _, err := h.Auth.CreateToken(c, u, device, []string{"*"}, signInTTL)
+	plain, _, err := h.Auth.CreateToken(c, u, device, []string{"*"}, loginTTL)
 	if err != nil {
-		return SignInResponse{}, err
+		return LoginResponse{}, err
 	}
 	c.SetHeader("Cache-Control", "no-store") // a token: kept by no cache
 	user := userResponse(u)
-	return SignInResponse{Token: plain, User: &user}, nil
+	return LoginResponse{Token: plain, User: &user}, nil
 }
 
 // SendVerification emails u a link to the client app (AUTH_CLIENT_URL)
@@ -294,9 +294,9 @@ func SendPasswordReset(ctx context.Context, a *auth.Auth[*models.User], u *model
 }
 
 // Login checks the email and password (throttled: AUTH_THROTTLE) and
-// answers with a token; or, for a user with two-factor sign-in on, with
+// answers with a token; or, for a user with two-factor authentication on, with
 // a challenge for POST /login/two-factor.
-func (h Accounts) Login(c *web.Ctx, in LoginInput) (SignInResponse, error) {
+func (h Accounts) Login(c *web.Ctx, in LoginInput) (LoginResponse, error) {
 	u, err := h.Auth.AttemptCredentials(c, in.Email, in.Password)
 	var (
 		challenge *auth.TwoFactorChallenge
@@ -305,38 +305,38 @@ func (h Accounts) Login(c *web.Ctx, in LoginInput) (SignInResponse, error) {
 	switch {
 	case errors.As(err, &challenge):
 		c.SetHeader("Cache-Control", "no-store")
-		return SignInResponse{TwoFactor: true, Challenge: challenge.Token}, nil
+		return LoginResponse{TwoFactor: true, Challenge: challenge.Token}, nil
 	case errors.Is(err, auth.ErrInvalidCredentials):
-		return SignInResponse{}, validate.Fail("email", i18n.T(c, "auth.errors.credentials"))
+		return LoginResponse{}, validate.Fail("email", i18n.T(c, "auth.errors.credentials"))
 	case errors.Is(err, auth.ErrDisabled):
-		return SignInResponse{}, validate.Fail("email", i18n.T(c, "auth.errors.disabled"))
+		return LoginResponse{}, validate.Fail("email", i18n.T(c, "auth.errors.disabled"))
 	case errors.As(err, &throttled):
-		return SignInResponse{}, tooMany(c, throttled)
+		return LoginResponse{}, tooMany(c, throttled)
 	case err != nil:
-		return SignInResponse{}, err
+		return LoginResponse{}, err
 	}
-	return h.signedIn(c, u, in.DeviceName)
+	return h.loginResponse(c, u, in.DeviceName)
 }
 
 // LoginTwoFactor finishes a login with the challenge and a code of the
 // authenticator app, or a recovery code, and answers with a token.
-func (h Accounts) LoginTwoFactor(c *web.Ctx, in ChallengeInput) (SignInResponse, error) {
+func (h Accounts) LoginTwoFactor(c *web.Ctx, in ChallengeInput) (LoginResponse, error) {
 	u, err := h.Auth.AttemptTwoFactorChallenge(c, in.Challenge, in.Code)
 	var throttled *auth.ThrottledError
 	switch {
 	case errors.Is(err, auth.ErrInvalidCode):
-		return SignInResponse{}, validate.Fail("code", i18n.T(c, "auth.errors.code"))
-	case errors.Is(err, auth.ErrNoPendingSignIn):
+		return LoginResponse{}, validate.Fail("code", i18n.T(c, "auth.errors.code"))
+	case errors.Is(err, auth.ErrNoPendingLogin):
 		// Expired (after 10 minutes), or the password changed: log in again.
-		return SignInResponse{}, validate.Fail("challenge", i18n.T(c, "auth.errors.sign_in_again"))
+		return LoginResponse{}, validate.Fail("challenge", i18n.T(c, "auth.errors.login_again"))
 	case errors.Is(err, auth.ErrDisabled):
-		return SignInResponse{}, validate.Fail("challenge", i18n.T(c, "auth.errors.disabled"))
+		return LoginResponse{}, validate.Fail("challenge", i18n.T(c, "auth.errors.disabled"))
 	case errors.As(err, &throttled):
-		return SignInResponse{}, tooMany(c, throttled)
+		return LoginResponse{}, tooMany(c, throttled)
 	case err != nil:
-		return SignInResponse{}, err
+		return LoginResponse{}, err
 	}
-	return h.signedIn(c, u, in.DeviceName)
+	return h.loginResponse(c, u, in.DeviceName)
 }
 
 // tooMany is a 429 for throttled tries, saying when to try again.
@@ -351,7 +351,7 @@ func tooManyFor(c *web.Ctx, retryAfter time.Duration, key string) error {
 	return web.Error(http.StatusTooManyRequests, i18n.T(c, key))
 }
 
-// Me answers the signed-in user.
+// Me answers the logged-in user.
 func (Accounts) Me(c *web.Ctx, _ struct{}) (UserResponse, error) {
 	u, err := auth.Current[*models.User](c)
 	if err != nil {
@@ -441,7 +441,7 @@ func (h Accounts) ForgotPassword(c *web.Ctx, in EmailInput) (web.Empty, error) {
 // ResetPassword sets the new password of a reset link: 204. The link
 // works once: it is tied to the old password. The new one revokes every
 // API token of the user. For an address never verified, the link
-// verifies it, and turns off the two-factor sign-in whoever registered
+// verifies it, and turns off the two-factor authentication whoever registered
 // it may have set up.
 func (h Accounts) ResetPassword(c *web.Ctx, in ResetInput) (web.Empty, error) {
 	u, err := h.Auth.CheckPasswordResetToken(c, in.Token)
@@ -482,7 +482,7 @@ func (h Accounts) ResetPassword(c *web.Ctx, in ResetInput) (web.Empty, error) {
 				return err
 			}
 		}
-		// The API tokens stop working (older reset links and sign-in
+		// The API tokens stop working (older reset links and login
 		// challenges did with the password).
 		return h.Auth.RevokeAllTokens(ctx, u)
 	})
@@ -494,7 +494,7 @@ func (h Accounts) ResetPassword(c *web.Ctx, in ResetInput) (web.Empty, error) {
 
 // ChangePassword sets a new password, given the current one: 204. The
 // user's other API tokens are revoked (the request's keeps working),
-// and so are older reset links and sign-in challenges.
+// and so are older reset links and login challenges.
 func (h Accounts) ChangePassword(c *web.Ctx, in ChangePasswordInput) (web.Empty, error) {
 	u, err := auth.Current[*models.User](c)
 	if err != nil {
@@ -598,7 +598,7 @@ func (h Accounts) RevokeToken(c *web.Ctx, in TokenID) (web.Empty, error) {
 	return web.Empty{}, h.Auth.RevokeToken(c, u, in.ID)
 }
 
-// TwoFactor answers the user's two-factor sign-in.
+// TwoFactor answers the user's two-factor authentication.
 func (h Accounts) TwoFactor(c *web.Ctx, _ struct{}) (TwoFactorResponse, error) {
 	u, err := auth.Current[*models.User](c)
 	if err != nil {
@@ -611,7 +611,7 @@ func (h Accounts) TwoFactor(c *web.Ctx, _ struct{}) (TwoFactorResponse, error) {
 	return TwoFactorResponse{Enabled: st.On, Started: st.Started, RecoveryCodes: st.RecoveryCodes}, nil
 }
 
-// StartTwoFactor starts turning on two-factor sign-in, given the
+// StartTwoFactor starts turning on two-factor authentication, given the
 // current password: the key for the authenticator app. It is on once
 // POST /two-factor/confirm has a code of the app. 409 if it's on.
 func (h Accounts) StartTwoFactor(c *web.Ctx, in PasswordInput) (TwoFactorSetupResponse, error) {
@@ -633,7 +633,7 @@ func (h Accounts) StartTwoFactor(c *web.Ctx, in PasswordInput) (TwoFactorSetupRe
 	return TwoFactorSetupResponse{Secret: setup.Secret, URI: setup.URI, QRCode: svg}, nil
 }
 
-// ConfirmTwoFactor turns on two-factor sign-in with a code of the app,
+// ConfirmTwoFactor turns on two-factor authentication with a code of the app,
 // and answers the recovery codes. The user's other API tokens are
 // revoked: they were made with the password alone.
 func (h Accounts) ConfirmTwoFactor(c *web.Ctx, in CodeInput) (RecoveryCodesResponse, error) {
@@ -658,7 +658,7 @@ func (h Accounts) ConfirmTwoFactor(c *web.Ctx, in CodeInput) (RecoveryCodesRespo
 }
 
 // NewRecoveryCodes replaces the recovery codes, given the current
-// password, and answers the new ones. 409 if two-factor sign-in is off.
+// password, and answers the new ones. 409 if two-factor authentication is off.
 func (h Accounts) NewRecoveryCodes(c *web.Ctx, in PasswordInput) (RecoveryCodesResponse, error) {
 	u, err := auth.Current[*models.User](c)
 	if err != nil {
@@ -674,7 +674,7 @@ func (h Accounts) NewRecoveryCodes(c *web.Ctx, in PasswordInput) (RecoveryCodesR
 	return RecoveryCodesResponse{RecoveryCodes: codes}, nil
 }
 
-// DisableTwoFactor turns off two-factor sign-in, given the current
+// DisableTwoFactor turns off two-factor authentication, given the current
 // password: 204.
 func (h Accounts) DisableTwoFactor(c *web.Ctx, in PasswordInput) (web.Empty, error) {
 	u, err := auth.Current[*models.User](c)

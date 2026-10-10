@@ -80,6 +80,6 @@ func TestBudgets(t *testing.T) {
 	// (the request built by the test included).
 	_, r, req := pageApp(t, slog.New(slog.NewJSONHandler(io.Discard, nil)))
 	check("page: server and session", allocs(r, req("/session")), 125)
-	check("page: signed in", allocs(r, req("/signed-in")), 235)
+	check("page: logged in", allocs(r, req("/logged-in")), 235)
 	check("page: list of 20 rows, rendered", allocs(r, req("/posts")), 640)
 }

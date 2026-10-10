@@ -26,7 +26,7 @@ Errors are JSON problem details ([RFC 9457](https://www.rfc-editor.org/rfc/rfc94
 whatever the client accepts. Browsers on other origins may call the API
 once `HTTP_CORS_ORIGINS` lists them.
 
-Add user accounts that sign in with API tokens (registration, login
+Add user accounts that log in with API tokens (registration, login
 with two-factor codes, email verification, password reset, token
 management) with `go tool anetos make:auth`, then `go run . migrate`.
 

@@ -14,25 +14,33 @@ import (
 // Disabled reports whether u's account is disabled (Users.Disabled).
 func (a *Auth[U]) Disabled(u U) bool { return a.disabled(u) }
 
-// CanSignOutEverywhere reports whether [Auth.SignOutEverywhere] is
+// SupportsLogoutEverywhere reports whether [Auth.LogoutEverywhere] is
 // available: Users has SessionKey and SetSessionKey.
-func (a *Auth[U]) CanSignOutEverywhere() bool { return a.users.SetSessionKey != nil }
+func (a *Auth[U]) SupportsLogoutEverywhere() bool { return a.users.SetSessionKey != nil }
 
-var errNoSessionKey = errors.New("auth: SignOutEverywhere needs Users.SessionKey and Users.SetSessionKey")
+// CanSignOutEverywhere is [Auth.SupportsLogoutEverywhere].
+//
+// Deprecated: Use SupportsLogoutEverywhere; CanSignOutEverywhere is
+// removed in v0.6.
+//
+//go:fix inline
+func (a *Auth[U]) CanSignOutEverywhere() bool { return a.SupportsLogoutEverywhere() }
+
+var errNoSessionKey = errors.New("auth: LogoutEverywhere needs Users.SessionKey and Users.SetSessionKey")
 
 var errNoSetPassword = errors.New("auth: ChangePassword needs Users.SetPassword")
 
-// ChangePassword changes the signed-in user u's password to pw (hashed
+// ChangePassword changes the logged-in user u's password to pw (hashed
 // with password.Hash), when current is their password; a user without a
-// password (who signs in with Google, say) sets one if they signed in in
-// the last AUTH_CONFIRM_TTL. It signs u out of their other sessions
+// password (who logs in with Google, say) sets one if they logged in within
+// the last AUTH_CONFIRM_TTL. It logs u out of their other sessions
 // (with Users.SessionKey) and remember-me cookies, keeping this one
-// ([Auth.SignOutOthers]). It
+// ([Auth.LogoutOthers]). It
 // fails with [ErrInvalidCredentials] for a wrong current password,
-// [ErrPasswordNotConfirmed] for a user without one who didn't sign in
+// [ErrPasswordNotConfirmed] for a user without one who didn't log in
 // lately, password.ErrTooLong, and a [*ThrottledError] after
 // AUTH_THROTTLE tries in a minute, or 50 wrong passwords in a day (UTC,
-// with [Auth.ConfirmPassword]'s). Not while acting as another user.
+// with [Auth.ConfirmPassword]'s). Not while impersonating another user.
 // Check pw's length and the like before (validate rules).
 func (a *Auth[U]) ChangePassword(ctx context.Context, u U, current, pw string) error {
 	if a.users.SetPassword == nil {
@@ -73,15 +81,15 @@ func (a *Auth[U]) ChangePassword(ctx context.Context, u U, current, pw string) e
 	}
 	a.clearHits(ctx, limit, key)
 	a.clearHits(ctx, perDay, dayKey)
-	return a.SignOutOthers(ctx, u)
+	return a.LogoutOthers(ctx, u)
 }
 
-// SignOutEverywhere ends every session of u, and every browser they are
+// LogoutEverywhere ends every session of u, and every browser they are
 // remembered in: it gives them a new session key (Users.SetSessionKey),
 // which their sessions and remember-me cookies no longer match, and a new
 // remember-me token. Their API tokens are untouched (RevokeAllTokens).
-// The current request, if it is u's, stays signed in until it ends.
-func (a *Auth[U]) SignOutEverywhere(ctx context.Context, u U) error {
+// The current request, if it is u's, stays logged in until it ends.
+func (a *Auth[U]) LogoutEverywhere(ctx context.Context, u U) error {
 	if a.users.SetSessionKey == nil {
 		return errNoSessionKey
 	}
@@ -94,20 +102,29 @@ func (a *Auth[U]) SignOutEverywhere(ctx context.Context, u U) error {
 	return nil
 }
 
+// SignOutEverywhere is [Auth.LogoutEverywhere].
+//
+// Deprecated: Use LogoutEverywhere; SignOutEverywhere is removed in v0.6.
+//
+//go:fix inline
+func (a *Auth[U]) SignOutEverywhere(ctx context.Context, u U) error {
+	return a.LogoutEverywhere(ctx, u)
+}
+
 var (
-	errImpersonating       = errors.New("auth: already acting as another user: stop first")
+	errImpersonating       = errors.New("auth: already impersonating another user: stop first")
 	errImpersonateToken    = errors.New("auth: Impersonate needs a session, not an API token")
-	errImpersonateYourself = errors.New("auth: can't act as yourself")
+	errImpersonateYourself = errors.New("auth: can't impersonate yourself")
 )
 
-// Impersonate signs the current user in as u, to see the app as u does
-// (support, an admin's "act as"): the session keeps who they are, and
-// [Auth.StopImpersonating] signs them back in. It is for sessions only
+// Impersonate logs the current user in as u, to see the app as u does
+// (support, an admin's "impersonate"): the session keeps who they are, and
+// [Auth.StopImpersonating] logs them back in. It is for sessions only
 // (not API tokens), doesn't nest, and refuses a disabled u
 // ([ErrDisabled]) or the user themselves. While it lasts, [Impersonator]
 // returns the impersonator's ID, and each request checks that they may
-// still sign in; Logout ends both. Check that the current user may act
-// as u first (rbac.AuthorizeOver).
+// still log in; Logout ends both. Check that the current user may
+// impersonate u first (rbac.AuthorizeOver).
 func (a *Auth[U]) Impersonate(ctx context.Context, u U) error {
 	st := stateFrom(ctx)
 	s := session.From(ctx)
@@ -130,7 +147,7 @@ func (a *Auth[U]) Impersonate(ctx context.Context, u U) error {
 		return errImpersonateYourself
 	}
 	id, hash := s.String(keyID), s.String(keyHash)
-	if err := a.login(ctx, u, u.AuthPassword(), false); err != nil {
+	if err := a.startSession(ctx, u, u.AuthPassword(), false); err != nil {
 		return err
 	}
 	s.Put(keyImpersonator, id)
@@ -138,10 +155,10 @@ func (a *Auth[U]) Impersonate(ctx context.Context, u U) error {
 	return nil
 }
 
-// StopImpersonating ends [Auth.Impersonate]: it signs the impersonator
-// back in and returns them. If they can no longer sign in (deleted,
-// disabled, password changed, signed out everywhere), the session is
-// signed out and the error says why. Without impersonation it returns
+// StopImpersonating ends [Auth.Impersonate]: it logs the impersonator
+// back in and returns them. If they can no longer log in (deleted,
+// disabled, password changed, logged out everywhere), the session is
+// logged out and the error says why. Without impersonation it returns
 // [ErrNotImpersonating].
 func (a *Auth[U]) StopImpersonating(ctx context.Context) (U, error) {
 	var zero U
@@ -165,7 +182,7 @@ func (a *Auth[U]) StopImpersonating(ctx context.Context) (U, error) {
 		err = ErrUnauthenticated
 	}
 	if err == nil {
-		err = a.login(ctx, u, u.AuthPassword(), false) // ErrDisabled for a disabled one
+		err = a.startSession(ctx, u, u.AuthPassword(), false) // ErrDisabled for a disabled one
 	}
 	if err != nil {
 		s.Invalidate()
@@ -177,7 +194,7 @@ func (a *Auth[U]) StopImpersonating(ctx context.Context) (U, error) {
 }
 
 // impersonatorValid reports whether the session's impersonator may still
-// sign in.
+// log in.
 func (a *Auth[U]) impersonatorValid(ctx context.Context, s *session.Session) (bool, error) {
 	u, err := a.users.ByID(ctx, s.String(keyImpersonator))
 	switch {
@@ -189,7 +206,7 @@ func (a *Auth[U]) impersonatorValid(ctx context.Context, s *session.Session) (bo
 	return a.sessionPrint(u, u.AuthPassword()) == s.String(keyImpersonatorHash) && !a.disabled(u), nil
 }
 
-// Impersonator returns the ID of the user acting as the signed-in one
+// Impersonator returns the ID of the user impersonating the logged-in one
 // ([Auth.Impersonate]), and false if no one is.
 func Impersonator(ctx context.Context) (string, bool) {
 	s := session.From(ctx)

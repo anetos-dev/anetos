@@ -16,7 +16,7 @@ a language with one command.
 - Translations set up with `i18n.New` ([Translations](translations.md)):
   an app made with `anetos new` has them.
 - Everything below follows the request's locale (`i18n.Locale(ctx)`) and
-  time zone (`i18n.TimeZone(ctx)`: the signed-in user's, or
+  time zone (`i18n.TimeZone(ctx)`: the logged-in user's, or
   `APP_TIMEZONE`).
 
 ## Steps

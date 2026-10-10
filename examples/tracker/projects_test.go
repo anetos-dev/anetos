@@ -12,7 +12,7 @@ import (
 	"anetos.dev/anetos/examples/tracker/app/models"
 )
 
-func TestHomeRedirectsSignedInUsers(t *testing.T) {
+func TestHomeRedirectsLoggedInUsers(t *testing.T) {
 	w := newWorld(t)
 	w.app.Get("/").AssertOK().AssertSee("Track your team")
 	w.app.Get("/projects").AssertRedirect("/login")

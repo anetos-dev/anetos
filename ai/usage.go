@@ -86,13 +86,13 @@ type UsageConfig struct {
 	Prices map[string]Price
 	// Budget returns a user's budget (none, its zero value, for no limit):
 	// one for everyone, or by the user's plan. It runs once per call, for
-	// calls with a user ([ForUser], or the signed-in user).
+	// calls with a user ([ForUser], or the logged-in user).
 	Budget func(ctx context.Context, userID string) (Budget, error)
 }
 
 // TrackUsage records the usage and cost of every response in the
 // ai_usage table ([Migrations]), for the user it's for ([ForUser], or the
-// signed-in user), and enforces their [Budget]: a call whose user has
+// logged-in user), and enforces their [Budget]: a call whose user has
 // spent theirs fails with a [*BudgetError] (429) before its next request
 // to the model. A response can go past the budget: what it will use isn't
 // known beforehand. Budgets need the app's cache (cache.New). Call it
@@ -111,7 +111,7 @@ func (cl *Client) usageConfig() *UsageConfig {
 
 // ForUser makes the call for the user with userID (an AuthID): its usage
 // is recorded for them and counts against their budget
-// ([Client.TrackUsage]). By default, a call is for the signed-in user, if
+// ([Client.TrackUsage]). By default, a call is for the logged-in user, if
 // any: set it in queue jobs and other work done for a user outside their
 // requests.
 func ForUser(userID string) Option {

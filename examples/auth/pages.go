@@ -13,7 +13,7 @@ import (
 
 // render shows the named page with data, plus what every page needs: the
 // CSRF token, the flashed status, the form's errors and old input, and
-// the signed-in user.
+// the logged-in user.
 func render(c *web.Ctx, name string, data map[string]any) error {
 	if data == nil {
 		data = map[string]any{}
@@ -29,17 +29,17 @@ func render(c *web.Ctx, name string, data map[string]any) error {
 }
 
 // page is a handler showing a page with the query's token (reset links)
-// and the sign-in providers.
+// and the login providers.
 func (h Accounts) page(name string) func(c *web.Ctx) error {
 	return func(c *web.Ctx) error {
 		return render(c, name, map[string]any{"Token": c.Request().URL.Query().Get("token"), "Providers": h.providers()})
 	}
 }
 
-// provider is a sign-in button.
+// provider is a login button.
 type provider struct{ Name, Title string }
 
-// providers returns the sign-in buttons: "Sign in with Google".
+// providers returns the login buttons: "Log in with Google".
 func (h Accounts) providers() []provider {
 	var ps []provider
 	for _, name := range h.social.Providers() {
@@ -93,7 +93,7 @@ var pages = template.Must(template.New("").Funcs(template.FuncMap{"field": field
 <button>Log in</button>
 </form>
 {{template "error" (field . "social")}}
-{{range .Providers}}<p><a href="/auth/{{.Name}}/redirect">Sign in with {{.Title}}</a></p>{{end}}
+{{range .Providers}}<p><a href="/auth/{{.Name}}/redirect">Log in with {{.Title}}</a></p>{{end}}
 <p><a href="/forgot-password">Forgot your password?</a> · <a href="/register">Register</a></p></body></html>{{end}}
 
 {{define "forgot"}}{{template "top" "Forgot password"}}
@@ -118,7 +118,7 @@ var pages = template.Must(template.New("").Funcs(template.FuncMap{"field": field
 <h1>Hello, {{.User.Name}}</h1>
 {{if not .User.EmailVerifiedAt}}<p>Please verify your email address: we sent you a link.</p>{{end}}
 <form method="post" action="/logout"><input type="hidden" name="_token" value="{{.CSRF}}"><button>Log out</button></form>
-<p><a href="/two-factor">Two-factor sign-in</a></p>
+<p><a href="/two-factor">Two-factor authentication</a></p>
 <h2>Password</h2>
 <form method="post" action="/password">
 <input type="hidden" name="_token" value="{{.CSRF}}">
@@ -137,13 +137,13 @@ var pages = template.Must(template.New("").Funcs(template.FuncMap{"field": field
 <button>Create token</button>
 </form></body></html>{{end}}
 
-{{define "challenge"}}{{template "top" "Two-factor sign-in"}}
-<h1>Two-factor sign-in</h1>
+{{define "challenge"}}{{template "top" "Two-factor authentication"}}
+<h1>Two-factor authentication</h1>
 <p>Enter the code your authenticator app shows, or one of your recovery codes.</p>
 <form method="post" action="/two-factor-challenge">
 <input type="hidden" name="_token" value="{{.CSRF}}">
 <label>Code <input name="code" autocomplete="one-time-code" autofocus></label>{{template "error" (field . "code")}}
-<button>Sign in</button>
+<button>Log in</button>
 </form></body></html>{{end}}
 
 {{define "confirm"}}{{template "top" "Confirm your password"}}
@@ -154,9 +154,9 @@ var pages = template.Must(template.New("").Funcs(template.FuncMap{"field": field
 <button>Confirm</button>
 </form></body></html>{{end}}
 
-{{define "two-factor"}}{{template "top" "Two-factor sign-in"}}
-<h1>Two-factor sign-in</h1>
-{{if .Codes}}<p>Your recovery codes (each signs you in once without the app; they won't be shown again):</p>
+{{define "two-factor"}}{{template "top" "Two-factor authentication"}}
+<h1>Two-factor authentication</h1>
+{{if .Codes}}<p>Your recovery codes (each logs you in once without the app; they won't be shown again):</p>
 <ul>{{range .Codes}}<li><code>{{.}}</code></li>{{end}}</ul>{{end}}
 {{if .On}}<p>On: {{.Left}} recovery codes left.</p>
 <form method="post" action="/two-factor/disable"><input type="hidden" name="_token" value="{{.CSRF}}"><button>Turn off</button></form>
@@ -167,7 +167,7 @@ var pages = template.Must(template.New("").Funcs(template.FuncMap{"field": field
 <label>Code <input name="code" autocomplete="one-time-code" inputmode="numeric"></label>{{template "error" (field . "code")}}
 <button>Turn on</button>
 </form>
-{{else}}<p>Off: your password alone signs you in.</p>
+{{else}}<p>Off: your password alone logs you in.</p>
 <form method="post" action="/two-factor"><input type="hidden" name="_token" value="{{.CSRF}}"><button>Turn on</button></form>{{end}}
 </body></html>{{end}}
 

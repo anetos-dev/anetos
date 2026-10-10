@@ -29,10 +29,10 @@ import (
 	"[[.Module]]/views"
 )
 
-// Accounts serves registration, login and logout, sign-in with Google
-// and GitHub, two-factor sign-in, password confirmation, email
+// Accounts serves registration, login and logout, login with Google
+// and GitHub, two-factor authentication, password confirmation, email
 // verification, password reset and API tokens (anetos make:auth). Hashing, tokens, sessions and throttling are package
-// auth's, and the sign-in flow package social's; this is your code to
+// auth's, and the login flow package social's; this is your code to
 // change.
 type Accounts struct {
 	Auth   *auth.Auth[*models.User]
@@ -103,7 +103,7 @@ func (h Accounts) RegisterPage(c *web.Ctx) error {
 	return c.Render(http.StatusOK, views.Register(h.socialButtons()))
 }
 
-// Register creates the account, emails the verification link and signs
+// Register creates the account, emails the verification link and logs
 // the user in, then goes to AUTH_HOME_URL.
 func (h Accounts) Register(c *web.Ctx, in RegisterInput) (web.Responder, error) {
 	name := cleanName(in.Name)
@@ -192,7 +192,7 @@ func (h Accounts) LoginPage(c *web.Ctx) error {
 	return c.Render(http.StatusOK, views.Login(h.socialButtons()))
 }
 
-// socialButtons returns a "Sign in with …" button per provider whose
+// socialButtons returns a "Log in with …" button per provider whose
 // SOCIAL_<NAME>_CLIENT_ID and _CLIENT_SECRET are set.
 func (h Accounts) socialButtons() []views.SocialButton {
 	var buttons []views.SocialButton
@@ -202,13 +202,13 @@ func (h Accounts) socialButtons() []views.SocialButton {
 	return buttons
 }
 
-// SocialUser returns the user of an account signing in with Google or
+// SocialUser returns the user of an account logging in with Google or
 // GitHub: the one it is linked to; else the user with its verified email
-// address (who then signs in either way); else a new user, without a
+// address (who then logs in either way); else a new user, without a
 // password. An address the provider hasn't verified can't be trusted to
 // find anyone, and nor can one the user hasn't verified here: someone
 // could have registered it first, with a password, to take over the
-// account of whoever signs in with it later.
+// account of whoever logs in with it later.
 func SocialUser(ctx context.Context, p social.Profile) (*models.User, error) {
 	id, linked, err := social.FindLink(ctx, p)
 	if err != nil {
@@ -225,7 +225,7 @@ func SocialUser(ctx context.Context, p social.Profile) (*models.User, error) {
 		}
 	}
 	if p.Email == "" || !p.EmailVerified {
-		return nil, &social.ErrNoAccount{Message: i18n.T(ctx, "auth.errors.social_no_email")}
+		return nil, &social.NoAccountError{Message: i18n.T(ctx, "auth.errors.social_no_email")}
 	}
 	var u *models.User
 	err = db.Tx(ctx, func(ctx context.Context) error { // the user and the link, or neither
@@ -243,7 +243,7 @@ func SocialUser(ctx context.Context, p social.Profile) (*models.User, error) {
 			return err
 		}
 		if u.EmailVerifiedAt == nil {
-			return &social.ErrNoAccount{Message: i18n.T(ctx, "auth.errors.social_unverified")}
+			return &social.NoAccountError{Message: i18n.T(ctx, "auth.errors.social_unverified")}
 		}
 		// Linked already to another account there: the address was
 		// reused, not the same person.
@@ -252,14 +252,14 @@ func SocialUser(ctx context.Context, p social.Profile) (*models.User, error) {
 			return err
 		}
 		if slices.ContainsFunc(links, func(l social.Account) bool { return l.Provider == p.Provider }) {
-			return &social.ErrNoAccount{Message: i18n.T(ctx, "auth.errors.social_other_account")}
+			return &social.NoAccountError{Message: i18n.T(ctx, "auth.errors.social_other_account")}
 		}
 		return social.Link(ctx, p, u.AuthID())
 	})
 	return u, err
 }
 
-// Login signs the user in, throttling repeated failures (AUTH_THROTTLE),
+// Login logs the user in, throttling repeated failures (AUTH_THROTTLE),
 // and goes to the page they wanted, or AUTH_HOME_URL (the dashboard,
 // unless set).
 func (h Accounts) Login(c *web.Ctx, in LoginInput) (web.Responder, error) {
@@ -280,7 +280,7 @@ func (h Accounts) Login(c *web.Ctx, in LoginInput) (web.Responder, error) {
 	return web.Redirect(auth.Intended(c, h.Auth.Config().HomeURL)), nil
 }
 
-// ChallengePage asks for the two-factor code of a sign-in waiting for it.
+// ChallengePage asks for the two-factor code of a login waiting for it.
 func (h Accounts) ChallengePage(c *web.Ctx) error {
 	if !h.Auth.TwoFactorPending(c) {
 		return c.Redirect(http.StatusSeeOther, web.LocalePath(c, "/login"))
@@ -288,7 +288,7 @@ func (h Accounts) ChallengePage(c *web.Ctx) error {
 	return c.Render(http.StatusOK, views.TwoFactorChallenge())
 }
 
-// Challenge finishes the sign-in with the code of the user's
+// Challenge finishes the login with the code of the user's
 // authenticator app, or a recovery code.
 func (h Accounts) Challenge(c *web.Ctx, in CodeInput) (web.Responder, error) {
 	_, err := h.Auth.AttemptTwoFactor(c, in.Code)
@@ -298,8 +298,8 @@ func (h Accounts) Challenge(c *web.Ctx, in CodeInput) (web.Responder, error) {
 		return nil, validate.Fail("code", i18n.T(c, "auth.errors.code"))
 	case errors.As(err, &throttled):
 		return nil, validate.Fail("code", i18n.T(c, "auth.errors.throttled"))
-	case errors.Is(err, auth.ErrNoPendingSignIn), errors.Is(err, auth.ErrDisabled):
-		c.Session().Flash("status", i18n.T(c, "auth.errors.sign_in_again"))
+	case errors.Is(err, auth.ErrNoPendingLogin), errors.Is(err, auth.ErrDisabled):
+		c.Session().Flash("status", i18n.T(c, "auth.errors.login_again"))
 		return web.RedirectRoute("login"), nil
 	case err != nil:
 		return nil, err
@@ -328,7 +328,7 @@ func (h Accounts) ConfirmPassword(c *web.Ctx, in PasswordInput) (web.Responder, 
 	return web.Redirect(auth.Intended(c, h.Auth.Config().HomeURL)), nil
 }
 
-// TwoFactorPage shows two-factor sign-in: off, being set up (the QR code
+// TwoFactorPage shows two-factor authentication: off, being set up (the QR code
 // to scan), or on; and the recovery codes once, just after they're made.
 func (h Accounts) TwoFactorPage(c *web.Ctx) error {
 	u, err := auth.Current[*models.User](c)
@@ -354,7 +354,7 @@ func (h Accounts) TwoFactorPage(c *web.Ctx) error {
 	return c.Render(http.StatusOK, views.TwoFactor(page))
 }
 
-// StartTwoFactor starts turning on two-factor sign-in: a new secret, for
+// StartTwoFactor starts turning on two-factor authentication: a new secret, for
 // the authenticator app.
 func (h Accounts) StartTwoFactor(c *web.Ctx) error {
 	u, err := auth.Current[*models.User](c)
@@ -367,7 +367,7 @@ func (h Accounts) StartTwoFactor(c *web.Ctx) error {
 	return c.RedirectRoute("two-factor")
 }
 
-// ConfirmTwoFactor turns on two-factor sign-in with a code of the app,
+// ConfirmTwoFactor turns on two-factor authentication with a code of the app,
 // and shows the recovery codes.
 func (h Accounts) ConfirmTwoFactor(c *web.Ctx, in CodeInput) (web.Responder, error) {
 	u, err := auth.Current[*models.User](c)
@@ -405,7 +405,7 @@ func (h Accounts) NewRecoveryCodes(c *web.Ctx) error {
 	return c.RedirectRoute("two-factor")
 }
 
-// DisableTwoFactor turns off two-factor sign-in.
+// DisableTwoFactor turns off two-factor authentication.
 func (h Accounts) DisableTwoFactor(c *web.Ctx) error {
 	u, err := auth.Current[*models.User](c)
 	if err != nil {
@@ -418,7 +418,7 @@ func (h Accounts) DisableTwoFactor(c *web.Ctx) error {
 	return c.RedirectRoute("two-factor")
 }
 
-// Logout signs the user out.
+// Logout logs the user out.
 func (h Accounts) Logout(c *web.Ctx) error {
 	if err := h.Auth.Logout(c); err != nil {
 		return err
@@ -504,9 +504,9 @@ func (Accounts) ResetPage(c *web.Ctx) error {
 }
 
 // Reset sets the new password. The link works once: it is tied to the
-// old password. The new one signs out every session and remembered
+// old password. The new one logs out every session and remembered
 // browser, and revokes the API tokens. For an address never verified, the
-// link verifies it, and turns off two-factor sign-in and the links to
+// link verifies it, and turns off two-factor authentication and the links to
 // Google and GitHub that whoever registered it may have set up.
 func (h Accounts) Reset(c *web.Ctx, in ResetInput) (web.Responder, error) {
 	u, err := h.Auth.CheckPasswordResetToken(c, in.Token)
@@ -540,7 +540,7 @@ func (h Accounts) Reset(c *web.Ctx, in ResetInput) (web.Responder, error) {
 				Update(models.UserCols.EmailVerifiedAt.Set(&now), models.UserCols.PendingEmail.Set("")); err != nil {
 				return err
 			}
-			if h.Auth.CanTwoFactor() {
+			if h.Auth.SupportsTwoFactor() {
 				if err := h.Auth.DisableTwoFactor(ctx, u); err != nil {
 					return err
 				}
@@ -555,7 +555,7 @@ func (h Accounts) Reset(c *web.Ctx, in ResetInput) (web.Responder, error) {
 				}
 			}
 		}
-		// Other browsers are signed out (the password changed); API
+		// Other browsers are logged out (the password changed); API
 		// tokens too.
 		return h.Auth.RevokeAllTokens(ctx, u)
 	})

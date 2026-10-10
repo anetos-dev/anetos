@@ -19,7 +19,7 @@ import (
 // region: job
 
 // SendWelcome emails a new user the welcome email. Registration and the
-// first sign-in with Google or GitHub dispatch it once the user is
+// first login with Google or GitHub dispatch it once the user is
 // committed; a worker runs it, with the queue's retries.
 type SendWelcome struct {
 	UserID int64 `json:"user_id"`

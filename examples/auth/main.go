@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Command auth is a small app with accounts: registration, login with
-// "remember me" and login throttling, two-factor sign-in, logout, email
+// "remember me" and login throttling, two-factor authentication, logout, email
 // verification, password reset, API tokens and typed policies, over
 // SQLite. The
 // verification and reset links are emailed (MAIL_DRIVER=log writes them
@@ -146,7 +146,7 @@ type CodeInput struct {
 }
 
 // region: challenge
-// Challenge finishes a sign-in waiting for a code (after Login).
+// Challenge finishes a login waiting for a code (after Login).
 func (h Accounts) Challenge(c *web.Ctx, in CodeInput) (web.Responder, error) {
 	_, err := h.auth.AttemptTwoFactor(c, in.Code)
 	var throttled *auth.ThrottledError
@@ -155,7 +155,7 @@ func (h Accounts) Challenge(c *web.Ctx, in CodeInput) (web.Responder, error) {
 		return nil, validate.Fail("code", "That code isn't right.")
 	case errors.As(err, &throttled):
 		return nil, validate.Fail("code", "Too many tries. Try again in a minute.")
-	case errors.Is(err, auth.ErrNoPendingSignIn): // none, or it expired
+	case errors.Is(err, auth.ErrNoPendingLogin): // none, or it expired
 		return web.Redirect("/login"), nil
 	case err != nil:
 		return nil, err
@@ -173,8 +173,8 @@ type NewPasswordInput struct {
 }
 
 // region: change-password
-// ChangePassword changes the signed-in user's password. Their other
-// browsers and devices are signed out; this one stays signed in.
+// ChangePassword changes the logged-in user's password. Their other
+// browsers and devices are logged out; this one stays logged in.
 func (h Accounts) ChangePassword(c *web.Ctx, in NewPasswordInput) (web.Responder, error) {
 	u, err := auth.Current[*User](c)
 	if err != nil {
@@ -213,7 +213,7 @@ func (h Accounts) ConfirmPassword(c *web.Ctx, in PasswordInput) (web.Responder, 
 // endregion
 
 // region: two-factor
-// TwoFactor shows two-factor sign-in: off, being set up (a QR code for
+// TwoFactor shows two-factor authentication: off, being set up (a QR code for
 // the authenticator app), or on; and the recovery codes, once.
 func (h Accounts) TwoFactor(c *web.Ctx) error {
 	u, err := auth.Current[*User](c)
@@ -356,7 +356,7 @@ func (h Accounts) Reset(c *web.Ctx, in ResetInput) (web.Responder, error) {
 	if n == 0 {
 		return nil, validate.Fail("password", "This reset link is invalid or has expired. Ask for a new one.")
 	}
-	// The new password signs out every session and remembered browser
+	// The new password logs out every session and remembered browser
 	// (their password fingerprint no longer matches); API tokens are
 	// revoked too.
 	if err := h.auth.RevokeAllTokens(c, u); err != nil {
@@ -469,7 +469,7 @@ func setup(app *anetos.App) (*web.Server, error) {
 		return nil, err
 	}
 	// region: setup
-	// AUTH_* settings. Signing in leads to /dashboard, unless
+	// AUTH_* settings. Logging in leads to /dashboard, unless
 	// AUTH_HOME_URL names another page.
 	a, err := auth.New(app, users, auth.DefaultHomeURL("/dashboard"))
 	if err != nil {
@@ -499,7 +499,7 @@ func routes(r *web.Router, sessions *session.Manager, a *auth.Auth[*User], s *so
 	pages.Get("/", func(c *web.Ctx) error { return c.Redirect(http.StatusSeeOther, "/dashboard") })
 	pages.Get("/verify-email", web.H(h.VerifyEmail))
 
-	guests := pages.Group("", a.Guest) // signed-in users go to AUTH_HOME_URL
+	guests := pages.Group("", a.Guest) // logged-in users go to AUTH_HOME_URL
 	guests.Get("/register", h.page("register"))
 	guests.Post("/register", web.H(h.Register))
 	guests.Get("/login", h.page("login"))
@@ -508,7 +508,7 @@ func routes(r *web.Router, sessions *session.Manager, a *auth.Auth[*User], s *so
 	guests.With(ratelimit.Middleware("forgot-password", ratelimit.PerMinute(5))).Post("/forgot-password", web.H(h.SendReset))
 	guests.Get("/reset-password", h.page("reset"))
 	guests.Post("/reset-password", web.H(h.Reset))
-	guests.Get("/auth/{provider}/redirect", s.Redirect) // "Sign in with …" links here
+	guests.Get("/auth/{provider}/redirect", s.Redirect) // "Log in with …" links here
 	guests.Get("/auth/{provider}/callback", s.Callback)
 	guests.Get("/two-factor-challenge", h.page("challenge")) // AUTH_CHALLENGE_URL
 	guests.Post("/two-factor-challenge", web.H(h.Challenge))
@@ -523,7 +523,7 @@ func routes(r *web.Router, sessions *session.Manager, a *auth.Auth[*User], s *so
 	members.Get("/confirm-password", h.page("confirm")) // AUTH_CONFIRM_URL
 	members.Post("/confirm-password", web.H(h.ConfirmPassword))
 
-	// Two-factor sign-in (AUTH_TWO_FACTOR_URL) and API tokens (they work
+	// Two-factor authentication (AUTH_TWO_FACTOR_URL) and API tokens (they work
 	// without the browser): the password again first.
 	secure := members.Group("", a.RequireConfirmed)
 	secure.Post("/tokens", web.H(h.CreateToken))

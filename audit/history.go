@@ -26,7 +26,7 @@ func SubjectOf(row any) (Subject, error) {
 }
 
 // Record adds an entry for something the app did that isn't a write of a
-// tracked model: an export, a sign-in, a permission check that failed.
+// tracked model: an export, a login, a permission check that failed.
 // The actor and the unit of work are found as for tracked writes;
 // properties are the details, stored as JSON. With a transaction in ctx,
 // the entry is part of it.
@@ -262,7 +262,7 @@ func Prune(ctx context.Context) (Pruned, error) {
 }
 
 // Anonymize replaces actor a with a placeholder ("erased") in every entry
-// and bulk entry, as the actor and as the user acted as (ActingAs), and
+// and bulk entry, as the actor and as the impersonated user (ActingAs), and
 // drops the IP addresses of the entries a made, for a request to
 // erase a person's data; it records that it did ("audit.anonymized",
 // without the ID) and returns how many entries changed. Entries about the
@@ -287,7 +287,7 @@ func Anonymize(ctx context.Context, a Actor) (int64, error) {
 		if err != nil {
 			return err
 		}
-		// Entries of others acting as the person.
+		// Entries of others impersonating the person.
 		as := []db.Expr{db.C("acting_as").Eq(a.String())}
 		erased := db.Col[string]("acting_as").Set(Actor{Type: a.Type, ID: "erased"}.String())
 		k, err := db.Query[Entry](ctx).Where(as...).Update(erased)

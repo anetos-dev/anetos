@@ -37,7 +37,7 @@ type User struct {
 	RememberToken   string     `db:"remember_token" json:"-"`
 	EmailVerifiedAt *time.Time `db:"email_verified_at" json:"email_verified_at"`
 	Admin           bool       `db:"admin" json:"admin"`
-	TwoFactor       string     `db:"two_factor" json:"-"` // two-factor sign-in, encrypted by package auth
+	TwoFactor       string     `db:"two_factor" json:"-"` // two-factor authentication, encrypted by package auth
 }
 
 // AuthID implements auth.Authenticatable.
@@ -58,7 +58,7 @@ var users = auth.Users[*User]{
 	ByID: func(ctx context.Context, id string) (*User, error) {
 		n, err := strconv.ParseInt(id, 10, 64)
 		if err != nil {
-			return nil, auth.ErrNoUser
+			return nil, auth.ErrUserNotFound
 		}
 		u, err := db.Find[User](ctx, n) // db.ErrNotFound: no such user
 		return &u, err
@@ -76,7 +76,7 @@ var users = auth.Users[*User]{
 		_, err := db.Query[User](ctx).Where(colID.Eq(u.ID)).Update(colPassword.Set(hash))
 		return err
 	},
-	// Two-factor sign-in: package auth stores its state (the secret
+	// Two-factor authentication: package auth stores its state (the secret
 	// encrypted with APP_KEY, the recovery codes hashed) in a column.
 	TwoFactor: func(u *User) string { return u.TwoFactor },
 	SetTwoFactor: func(ctx context.Context, u *User, state string) error {
@@ -89,14 +89,14 @@ var users = auth.Users[*User]{
 
 (Copied from [`examples/auth/users.go`](../../../examples/auth/users.go), region `users`.)
 
-`ByID` and `ByLogin` return `db.ErrNotFound` (or `auth.ErrNoUser`) when
+`ByID` and `ByLogin` return `db.ErrNotFound` (or `auth.ErrUserNotFound`) when
 there is no such user. Store email addresses in lower case, and look them
 up the same way.
 
 ### 2. Set up auth and protect routes
 
 ```go
-// AUTH_* settings. Signing in leads to /dashboard, unless
+// AUTH_* settings. Logging in leads to /dashboard, unless
 // AUTH_HOME_URL names another page.
 a, err := auth.New(app, users, auth.DefaultHomeURL("/dashboard"))
 if err != nil {
@@ -107,7 +107,7 @@ if err != nil {
 (Copied from [`examples/auth`](../../../examples/auth/main.go), region `setup`.)
 
 Add `a.Middleware` after the session middleware, then `a.Require` on the
-routes for signed-in users and `a.Guest` on the login and registration
+routes for logged-in users and `a.Guest` on the login and registration
 pages:
 
 ```go
@@ -115,7 +115,7 @@ pages := r.Group("", sessions.Middleware, web.CSRF(), a.Middleware)
 pages.Get("/", func(c *web.Ctx) error { return c.Redirect(http.StatusSeeOther, "/dashboard") })
 pages.Get("/verify-email", web.H(h.VerifyEmail))
 
-guests := pages.Group("", a.Guest) // signed-in users go to AUTH_HOME_URL
+guests := pages.Group("", a.Guest) // logged-in users go to AUTH_HOME_URL
 guests.Get("/register", h.page("register"))
 guests.Post("/register", web.H(h.Register))
 guests.Get("/login", h.page("login"))
@@ -124,7 +124,7 @@ guests.Get("/forgot-password", h.page("forgot"))
 guests.With(ratelimit.Middleware("forgot-password", ratelimit.PerMinute(5))).Post("/forgot-password", web.H(h.SendReset))
 guests.Get("/reset-password", h.page("reset"))
 guests.Post("/reset-password", web.H(h.Reset))
-guests.Get("/auth/{provider}/redirect", s.Redirect) // "Sign in with …" links here
+guests.Get("/auth/{provider}/redirect", s.Redirect) // "Log in with …" links here
 guests.Get("/auth/{provider}/callback", s.Callback)
 guests.Get("/two-factor-challenge", h.page("challenge")) // AUTH_CHALLENGE_URL
 guests.Post("/two-factor-challenge", web.H(h.Challenge))
@@ -139,7 +139,7 @@ members.Post("/password", web.H(h.ChangePassword))
 members.Get("/confirm-password", h.page("confirm")) // AUTH_CONFIRM_URL
 members.Post("/confirm-password", web.H(h.ConfirmPassword))
 
-// Two-factor sign-in (AUTH_TWO_FACTOR_URL) and API tokens (they work
+// Two-factor authentication (AUTH_TWO_FACTOR_URL) and API tokens (they work
 // without the browser): the password again first.
 secure := members.Group("", a.RequireConfirmed)
 secure.Post("/tokens", web.H(h.CreateToken))
@@ -156,22 +156,29 @@ api.Get("/me", h.Me)
 
 `Require` sends guests asking for a page to `AUTH_LOGIN_URL` (remembering
 the page for `auth.Intended`), and answers other requests (JSON, htmx)
-with 401. `Guest` sends signed-in users to `AUTH_HOME_URL`.
+with 401. `Guest` sends logged-in users to `AUTH_HOME_URL`.
 
-Read the current user in a handler with `auth.User` (or `auth.Current`,
-which also returns the error if loading the user failed):
+Read the current user in a handler with `auth.User` or `auth.Current`:
 
 ```go
 // illustrative
-u, ok := auth.User[*User](c)
+u, ok := auth.User[*User](c)    // pages that show a guest something else
+u, err := auth.Current[*User](c) // handlers that need the user: return err
 ```
+
+`auth.User` answers whether there is a user: a guest and a user who
+couldn't be loaded (the database is down; it's logged) are both "no".
+Use it in views and pages that change for guests. `auth.Current` returns
+`auth.ErrUnauthenticated` (401) for a guest, or the error that kept the
+user from loading, which a handler returns as it is: use it behind
+`Require`, and anywhere a failure must not pass for a guest.
 
 The user is loaded from the database when first asked for, once per
 request.
 
 ### 3. Register
 
-Hash the password, create the user and sign them in:
+Hash the password, create the user and log them in:
 
 ```go
 func (h Accounts) Register(c *web.Ctx, in RegisterInput) (web.Responder, error) {
@@ -207,7 +214,7 @@ func (h Accounts) Register(c *web.Ctx, in RegisterInput) (web.Responder, error) 
 
 ### 4. Log in and out
 
-`Attempt` checks the password and signs the user in; turn its errors
+`Attempt` checks the password and logs the user in; turn its errors
 into a form error:
 
 ```go
@@ -246,7 +253,7 @@ one account, from one IP address, and after `AUTH_THROTTLE_IP` failures
 `*auth.ThrottledError` without checking the password. Users whose hash is
 stronger than the defaults (made with `password.HashWith`) also take
 longer to check than unknown logins. `Login` (and so `Attempt`) gives the
-session a new ID; `Logout` empties it and signs the user out of every
+session a new ID; `Logout` empties it and logs the user out of every
 browser where they chose "remember me". With the default cookie
 sessions, a copy of the session cookie taken before the logout keeps
 working until it expires; use a server-side `SESSION_DRIVER` to revoke
@@ -319,7 +326,7 @@ func (h Accounts) Reset(c *web.Ctx, in ResetInput) (web.Responder, error) {
 	if n == 0 {
 		return nil, validate.Fail("password", "This reset link is invalid or has expired. Ask for a new one.")
 	}
-	// The new password signs out every session and remembered browser
+	// The new password logs out every session and remembered browser
 	// (their password fingerprint no longer matches); API tokens are
 	// revoked too.
 	if err := h.auth.RevokeAllTokens(c, u); err != nil {
@@ -335,7 +342,7 @@ func (h Accounts) Reset(c *web.Ctx, in ResetInput) (web.Responder, error) {
 A reset token works for `AUTH_RESET_TTL` (an hour) and only until the
 password changes, so it works once; the update is conditional on the old
 hash, so two uses at the same moment change it once. Changing the
-password signs the user out of every other session (cookie sessions:
+password logs the user out of every other session (cookie sessions:
 when they're next used, as the password fingerprint no longer matches)
 and remembered browser; `a.RevokeAllTokens` removes their API tokens.
 Throttle the form that sends links, as the example does, so it can't be
@@ -345,15 +352,15 @@ used to flood someone's inbox.
 
 `a.ChangePassword(ctx, u, current, new)` checks the current password
 (throttled, `AUTH_THROTTLE` tries a minute), stores the new one hashed,
-and signs the user out of their other sessions and remembered browsers
-(`a.SignOutOthers`), keeping the one they're using: it gets a new
-session ID, and stays remembered if it was. A user without a password (who signs in
-with Google, say) sets one without `current`, if they signed in in the
+and logs the user out of their other sessions and remembered browsers
+(`a.LogoutOthers`), keeping the one they're using: it gets a new
+session ID, and stays remembered if it was. A user without a password (who logs in
+with Google, say) sets one without `current`, if they logged in within the
 last `AUTH_CONFIRM_TTL`.
 
 ```go
-// ChangePassword changes the signed-in user's password. Their other
-// browsers and devices are signed out; this one stays signed in.
+// ChangePassword changes the logged-in user's password. Their other
+// browsers and devices are logged out; this one stays logged in.
 func (h Accounts) ChangePassword(c *web.Ctx, in NewPasswordInput) (web.Responder, error) {
 	u, err := auth.Current[*User](c)
 	if err != nil {
@@ -416,19 +423,19 @@ would refuse API clients' posts, and without sessions `a.Require`
 answers 401 instead of redirecting. Other `Authorization` schemes are
 ignored (the request is a guest). `auth.TokenCan` checks a
 token's abilities, and `auth.RequireAbilities(…)` is middleware
-answering 403 to a token without them; a user signed in with a session
+answering 403 to a token without them; a user logged in with a session
 (your own pages and front end) may do anything. `a.Tokens` lists a user's tokens and
 `a.RevokeToken` deletes one.
 
 Put the route that creates tokens behind `a.RequireConfirmed`, as the
 example does: a token outlives the session, so someone holding a stolen
 session shouldn't be able to make one without the password. `CreateToken`
-refuses while an admin acts as the user (403), for the same reason (v0.3).
+refuses while an admin impersonates the user (403), for the same reason (v0.3).
 
-An API whose clients sign in with tokens, without sessions (since
+An API whose clients log in with tokens, without sessions (since
 v0.4), uses `a.AttemptCredentials(ctx, login, password)`: `Attempt`'s
 check and throttling, returning the user to give a token to. For a user
-with two-factor sign-in on, it fails with a `*auth.TwoFactorChallenge`
+with two-factor authentication on, it fails with a `*auth.TwoFactorChallenge`
 whose `Token` the client sends back with a code to
 `a.AttemptTwoFactorChallenge`. Where pages use `RequireConfirmed`, an
 API asks for the password in the request: `a.CheckPassword(ctx, u,
@@ -465,7 +472,7 @@ func TestRegisterAndLogin(t *testing.T) {
 
 (Copied from [`examples/auth/main_test.go`](../../../examples/auth/main_test.go), region `test-auth`.)
 
-Tests that need a signed-in user can log in through the form, as above,
+Tests that need a logged-in user can log in through the form, as above,
 or create the user and post to your login route. API tokens work in tests
 like in production:
 
@@ -492,10 +499,10 @@ func TestAPIToken(t *testing.T) {
 ## How it works
 
 The session holds the user's ID and a fingerprint of their password hash:
-when the password changes, other sessions no longer match and are signed
+when the password changes, other sessions no longer match and are logged
 out. "Remember me" sets a second cookie, encrypted with `APP_KEY`, holding
 the user's ID and remember token (a column of your users table): when the
-session has ended, the cookie signs the user back in to a new session.
+session has ended, the cookie logs the user back in to a new session.
 `Logout` replaces the token, which invalidates every remembered browser.
 
 Verification and reset tokens aren't stored: they are encrypted with
@@ -510,7 +517,7 @@ bcrypt hashes (from Laravel, say) still work (bcrypt only checks a
 password's first 72 bytes), and `Attempt` replaces them, and argon2id
 hashes weaker than the defaults, after the next login when you set
 `Users.SetPassword`. The new hash changes the password fingerprint, so
-the user's other sessions are signed out once.
+the user's other sessions are logged out once.
 
 > **Coming from Laravel?** `Auth::attempt`, `Auth::login`, `Auth::logout`,
 > `auth()->user()` and the `auth`/`guest` middleware map to `a.Attempt`,
@@ -529,7 +536,7 @@ the user's other sessions are signed out once.
 | `auth: New called twice for one app` | Two `auth.New` calls | An app has one Auth, for one user type |
 | `the current user was asked for while it was being loaded` | `Users.ByID` calls `auth.User` or `auth.Check` (through a query scope, say) | Don't ask for the current user while finding it |
 | Every page redirects to the login page after logging in | `a.Middleware` runs before the session middleware | Put the session middleware first |
-| Users are signed out when they change their password | By design: other sessions end | Call `a.Login` again after changing the password in the current request |
+| Users are logged out when they change their password | By design: other sessions end | Use `a.ChangePassword`, or call `a.LogoutOthers(ctx, u)` after storing the new hash: it keeps the current session, bound to the new password |
 | "Remember me" returns an error | `Users.RememberToken`/`SetRememberToken` are unset | Add a `remember_token` column and set both |
 | API requests get 401 with a valid token | The route uses the session middleware and `a.Middleware` but not `a.TokenMiddleware` | Put API routes in a group with `a.TokenMiddleware` |
 
@@ -538,6 +545,6 @@ the user's other sessions are signed out once.
 - [Authorization](authorization.md)
 - [Roles and permissions](roles-and-permissions.md)
 - [Social login](social-login.md)
-- [Two-factor sign-in and password confirmation](two-factor.md)
+- [Two-factor authentication and password confirmation](two-factor.md)
 - [Rate limiting](rate-limiting.md)
 - [Sessions and flash messages](sessions.md)

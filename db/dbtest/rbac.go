@@ -305,7 +305,7 @@ type stGrant struct {
 
 func (stGrant) TableName() string { return "rbac_grants" }
 
-// testRBACRequests checks the signed-in user's permissions, through API
+// testRBACRequests checks the logged-in user's permissions, through API
 // tokens, the middleware and the commands.
 func testRBACRequests(t *testing.T, ctx context.Context, reg *rbac.Registry, acme rbac.Scope) {
 	k, _ := encryption.ParseKey(encryption.GenerateKey())
@@ -314,7 +314,7 @@ func testRBACRequests(t *testing.T, ctx context.Context, reg *rbac.Registry, acm
 	check(t, err)
 	a, err := auth.NewWithConfig(cfg, auth.Users[stAuthUser]{
 		ByID:    func(_ context.Context, id string) (stAuthUser, error) { return stAuthUser{id}, nil },
-		ByLogin: func(context.Context, string) (stAuthUser, error) { return stAuthUser{}, auth.ErrNoUser },
+		ByLogin: func(context.Context, string) (stAuthUser, error) { return stAuthUser{}, auth.ErrUserNotFound },
 	}, enc)
 	check(t, err)
 	full, _, err := a.CreateToken(ctx, stAuthUser{"ada"}, "full", []string{"*"}, 0)
@@ -428,7 +428,7 @@ func testRBACRequests(t *testing.T, ctx context.Context, reg *rbac.Registry, acm
 		{"root", "root", true},
 		{"ada", "nobody", true},
 	} {
-		err := rbac.AuthorizeOver(a.ActAs(ctx, c.as), c.over)
+		err := rbac.AuthorizeOver(a.WithUser(ctx, c.as), c.over)
 		if (err == nil) != c.ok || err != nil && !errors.Is(err, auth.ErrForbidden) {
 			t.Errorf("%s over %s: %v", c.as, c.over, err)
 		}
@@ -440,7 +440,7 @@ func testRBACRequests(t *testing.T, ctx context.Context, reg *rbac.Registry, acm
 	// A disabled user's tokens stop working.
 	dis, err := auth.NewWithConfig(cfg, auth.Users[stAuthUser]{
 		ByID:     func(_ context.Context, id string) (stAuthUser, error) { return stAuthUser{id}, nil },
-		ByLogin:  func(context.Context, string) (stAuthUser, error) { return stAuthUser{}, auth.ErrNoUser },
+		ByLogin:  func(context.Context, string) (stAuthUser, error) { return stAuthUser{}, auth.ErrUserNotFound },
 		Disabled: func(u stAuthUser) bool { return u.id == "ada" },
 	}, enc)
 	check(t, err)

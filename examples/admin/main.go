@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Command admin is a shop's back office (package admin): staff sign in
+// Command admin is a shop's back office (package admin): staff log in
 // and manage the products and categories, with roles and permissions
 // (package auth/rbac) and every change to a product in the audit log
 // (package audit), and the staff's accounts and roles managed there. seed
@@ -50,7 +50,7 @@ var editor = slices.Concat(
 )
 
 // support are the permissions of support staff: they look after the
-// staff's accounts, and may act as them to see what they see.
+// staff's accounts, and may impersonate them to see what they see.
 var support = slices.Concat(
 	[]rbac.Permission{admin.Access, "admin.users.impersonate"},
 	admin.PermissionsOf("users", "view", "update"),
@@ -150,11 +150,11 @@ func setup(app *anetos.App) (*web.Server, error) {
 	return srv, nil
 }
 
-// pages are the sign-in page and signing out.
+// pages are the login page and logging out.
 func pages(r *web.Router, sessions *session.Manager, a *auth.Auth[*User]) {
 	g := r.Group("", sessions.Middleware, web.CSRF(), a.Middleware)
-	// The app's home page: who is signed in, and the banner while
-	// acting as someone (admin.Banner).
+	// The app's home page: who is logged in, and the banner while
+	// impersonating someone (admin.Banner).
 	g.With(a.Require).Get("/", func(c *web.Ctx) error {
 		u, err := auth.Current[*User](c)
 		if err != nil {
@@ -190,7 +190,7 @@ func pages(r *web.Router, sessions *session.Manager, a *auth.Auth[*User]) {
 	})
 }
 
-// LoginInput is the sign-in form.
+// LoginInput is the login form.
 type LoginInput struct {
 	Email    string `json:"email" validate:"required|email"`
 	Password string `json:"password" validate:"required"`
@@ -206,14 +206,14 @@ var loginPage = template.Must(template.New("login").Funcs(template.FuncMap{
 	"csrf":  view.CSRFToken,
 	"error": func(c *web.Ctx) string { return view.Errors(c).Get("email") },
 	"old":   func(c *web.Ctx) string { return view.Old(c, "email") },
-}).Parse(`<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Sign in</title></head><body>
-<h1>Sign in</h1>
+}).Parse(`<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Log in</title></head><body>
+<h1>Log in</h1>
 <form method="post" action="/login">
 <input type="hidden" name="_token" value="{{csrf .}}">
 {{with error .}}<p>{{.}}</p>{{end}}
 <label>Email <input type="email" name="email" value="{{old .}}"></label>
 <label>Password <input type="password" name="password"></label>
-<button>Sign in</button>
+<button>Log in</button>
 </form></body></html>`))
 
 func seed(ctx context.Context) error {

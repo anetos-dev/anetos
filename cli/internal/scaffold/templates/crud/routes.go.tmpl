@@ -7,7 +7,7 @@ import (
 )
 
 // [[.Plural]] adds the [[.PluralW]] pages (anetos make:crud): Register calls it
-// with its pages group. To let only signed-in users in, call it from
+// with its pages group. To let only logged-in users in, call it from
 // routes/auth.go with the members group instead.
 func [[.Plural]](r *web.Router) {
 	var h handlers.[[.Plural]]

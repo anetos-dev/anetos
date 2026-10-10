@@ -27,7 +27,7 @@ type User struct {
 	RememberToken   string     `db:"remember_token" json:"-"`
 	EmailVerifiedAt *time.Time `db:"email_verified_at" json:"email_verified_at"`
 	Admin           bool       `db:"admin" json:"admin"`
-	TwoFactor       string     `db:"two_factor" json:"-"` // two-factor sign-in, encrypted by package auth
+	TwoFactor       string     `db:"two_factor" json:"-"` // two-factor authentication, encrypted by package auth
 }
 
 // AuthID implements auth.Authenticatable.
@@ -53,7 +53,7 @@ var users = auth.Users[*User]{
 	ByID: func(ctx context.Context, id string) (*User, error) {
 		n, err := strconv.ParseInt(id, 10, 64)
 		if err != nil {
-			return nil, auth.ErrNoUser
+			return nil, auth.ErrUserNotFound
 		}
 		u, err := db.Find[User](ctx, n) // db.ErrNotFound: no such user
 		return &u, err
@@ -71,7 +71,7 @@ var users = auth.Users[*User]{
 		_, err := db.Query[User](ctx).Where(colID.Eq(u.ID)).Update(colPassword.Set(hash))
 		return err
 	},
-	// Two-factor sign-in: package auth stores its state (the secret
+	// Two-factor authentication: package auth stores its state (the secret
 	// encrypted with APP_KEY, the recovery codes hashed) in a column.
 	TwoFactor: func(u *User) string { return u.TwoFactor },
 	SetTwoFactor: func(ctx context.Context, u *User, state string) error {
@@ -86,10 +86,10 @@ var users = auth.Users[*User]{
 // region: social
 // findOrCreate returns the user of a provider account: the one it is
 // linked to; else the user with its verified email address (who then
-// signs in with either); else a new user. An address the provider hasn't
+// logs in with either); else a new user. An address the provider hasn't
 // verified can't be trusted to find anyone, and nor can one the user
 // hasn't verified here: someone could have registered it first, with a
-// password, to take over the account of whoever signs in with it later.
+// password, to take over the account of whoever logs in with it later.
 func findOrCreate(ctx context.Context, p social.Profile) (*User, error) {
 	id, linked, err := social.FindLink(ctx, p)
 	if err != nil {
@@ -106,7 +106,7 @@ func findOrCreate(ctx context.Context, p social.Profile) (*User, error) {
 		}
 	}
 	if p.Email == "" || !p.EmailVerified {
-		return nil, &social.ErrNoAccount{Message: "Your " + p.Provider + " account has no verified email address."}
+		return nil, &social.NoAccountError{Message: "Your " + p.Provider + " account has no verified email address."}
 	}
 	var u *User
 	err = db.Tx(ctx, func(ctx context.Context) error { // the user and the link, or neither
@@ -124,7 +124,7 @@ func findOrCreate(ctx context.Context, p social.Profile) (*User, error) {
 			return err
 		}
 		if u.EmailVerifiedAt == nil {
-			return &social.ErrNoAccount{Message: "An account with this email address exists. Log in with your password and verify the address, then sign in with " + p.Provider + "."}
+			return &social.NoAccountError{Message: "An account with this email address exists. Log in with your password and verify the address, then log in with " + p.Provider + "."}
 		}
 		// Linked already to another account at the provider: the address
 		// was reused, not the same person.
@@ -133,7 +133,7 @@ func findOrCreate(ctx context.Context, p social.Profile) (*User, error) {
 			return err
 		}
 		if slices.ContainsFunc(links, func(l social.Account) bool { return l.Provider == p.Provider }) {
-			return &social.ErrNoAccount{Message: "The account with this email address signs in with another " + p.Provider + " account."}
+			return &social.NoAccountError{Message: "The account with this email address logs in with another " + p.Provider + " account."}
 		}
 		return social.Link(ctx, p, u.AuthID())
 	})

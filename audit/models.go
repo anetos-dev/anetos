@@ -121,7 +121,7 @@ type Entry struct {
 	ActorType string `db:"actor_type" json:"actor_type"`
 	// ActorID identifies the actor within its type.
 	ActorID string `db:"actor_id" json:"actor_id"`
-	// ActingAs is the user the actor was acting as (auth.Impersonate),
+	// ActingAs is the user the actor was impersonating (auth.Impersonate),
 	// "user:42"; "" if none.
 	ActingAs string `db:"acting_as" json:"acting_as,omitempty"`
 	// Action is what happened: [Created], [Updated]… or the app's own.
@@ -185,7 +185,7 @@ type BulkOp struct {
 	ActorType string `db:"actor_type" json:"actor_type"`
 	// ActorID identifies the actor within its type.
 	ActorID string `db:"actor_id" json:"actor_id"`
-	// ActingAs is the user the actor was acting as (auth.Impersonate),
+	// ActingAs is the user the actor was impersonating (auth.Impersonate),
 	// "user:42"; "" if none.
 	ActingAs string `db:"acting_as" json:"acting_as,omitempty"`
 	// Action is [Created], [Updated], [Deleted], [Restored],

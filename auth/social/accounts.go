@@ -67,7 +67,7 @@ func FindLink(ctx context.Context, p Profile) (string, bool, error) {
 	return a.UserID, true, nil
 }
 
-// Link links p's account to the user userID (an AuthID), so that signing
+// Link links p's account to the user userID (an AuthID), so that logging
 // in with it again finds that user. Linking an account that is already
 // linked moves it.
 func Link(ctx context.Context, p Profile, userID string) error {

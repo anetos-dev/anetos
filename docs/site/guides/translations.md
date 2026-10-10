@@ -174,7 +174,7 @@ With `none`, the locale is the first supported one of:
 1. the `locale` cookie, set when the visitor chose a language on this
    device;
 2. the session's `locale`;
-3. the signed-in user's preference (step 5);
+3. the logged-in user's preference (step 5);
 4. the browser's `Accept-Language`;
 5. `APP_LOCALE`.
 
@@ -218,7 +218,7 @@ func (u *User) CommunicationLocale() string { return u.MailLocale } // i18n.Comm
 func (u *User) PreferredTimeZone() string   { return u.TimeZone }   // i18n.TimeZonePreference
 ```
 
-With `auth.New`, a signed-in user's `PreferredLocale` is the request's
+With `auth.New`, a logged-in user's `PreferredLocale` is the request's
 with `APP_LOCALE_STRATEGY=none` (unless they chose another on this device), and
 `i18n.TimeZone(ctx)` is their zone, which `i18n.Date` and `i18n.Time`
 show times in ([Numbers, dates and languages](formatting.md)). A settings
@@ -240,7 +240,7 @@ dispatched them, so a job dispatched by a Bangla page, or with
 
 ### 6. Translate the framework's messages
 
-The framework's own text (validation messages, error pages, sign-in
+The framework's own text (validation messages, error pages, login
 messages, month names) is in its English catalog. For Bangla, French and
 Spanish, copy the community's translations into your catalogs, with
 `make:auth`'s pages and emails if you have them:

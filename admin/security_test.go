@@ -18,7 +18,7 @@ import (
 	"anetos.dev/anetos/db"
 )
 
-// unconfirmed signs in a new user with perms who hasn't confirmed their
+// unconfirmed logs in a new user with perms who hasn't confirmed their
 // password.
 func unconfirmed(t *testing.T, app *anetostest.App, name string, perms ...string) *User {
 	t.Helper()
@@ -86,7 +86,7 @@ func TestConfirmOff(t *testing.T) {
 
 func TestConfirmWithoutPassword(t *testing.T) {
 	app := anetostest.New(t, setup)
-	u := &User{Name: "Ada"} // signs in another way
+	u := &User{Name: "Ada"} // logs in another way
 	if err := db.Create(app.Context(), u); err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +96,7 @@ func TestConfirmWithoutPassword(t *testing.T) {
 	app.PostForm("/test/login/"+u.AuthID(), nil).AssertNoContent()
 	p := newPost(t, app, "Doomed", "draft")
 	app.PostForm(postURL(p, "/delete"), nil).AssertRedirect("/admin/confirm?back=%2Fadmin")
-	app.Get("/admin/confirm").AssertOK().AssertSee("Your account has no password (you sign in another way)")
+	app.Get("/admin/confirm").AssertOK().AssertSee("Your account has no password (you log in another way)")
 }
 
 func TestReservedNames(t *testing.T) {
@@ -110,7 +110,7 @@ func TestReservedNames(t *testing.T) {
 	}))
 }
 
-// turnOnTwoFactor turns on u's two-factor sign-in.
+// turnOnTwoFactor turns on u's two-factor authentication.
 func turnOnTwoFactor(t *testing.T, app *anetostest.App, u *User) {
 	t.Helper()
 	a := anetos.MustResolve[*auth.Auth[*User]](app.App)
@@ -129,30 +129,30 @@ func turnOnTwoFactor(t *testing.T, app *anetostest.App, u *User) {
 
 func TestTwoFactorRequired(t *testing.T) {
 	app := anetostest.New(t, setup, anetostest.Env(map[string]string{"ADMIN_TWO_FACTOR": "required"}))
-	ada := signIn(t, app, "Ada", "admin")
+	ada := login(t, app, "Ada", "admin")
 	app.Get("/admin/posts").AssertRedirect("/admin/two-factor-required").Follow().AssertStatus(403).
-		AssertSee("Two-factor sign-in required", `href="/two-factor"`)
+		AssertSee("Two-factor authentication required", `href="/two-factor"`)
 	app.PostForm("/admin/posts/bulk", url.Values{"action": {"feature"}}).AssertForbidden()
 	turnOnTwoFactor(t, app, ada)
-	app.Get("/admin/posts").AssertRedirect("/login") // turning it on signed out the sessions without a code
+	app.Get("/admin/posts").AssertRedirect("/login") // turning it on logged out the sessions without a code
 	app.PostForm("/test/login/"+ada.AuthID(), nil).AssertNoContent()
 	app.Get("/admin/posts").AssertOK()
 	app.Get("/admin/two-factor-required").AssertRedirect("/admin")
 	// Without the admin's permission: 403 as ever.
-	signIn(t, app, "Mallory")
+	login(t, app, "Mallory")
 	app.Get("/admin/two-factor-required").AssertForbidden()
 }
 
 func TestAllowIPs(t *testing.T) {
 	// The test client's address is 192.0.2.1.
 	app := anetostest.New(t, setup, anetostest.Env(map[string]string{"ADMIN_ALLOW_IPS": "10.0.0.0/8, 2001:db8::1"}))
-	signIn(t, app, "Ada", "admin")
+	login(t, app, "Ada", "admin")
 	app.Get("/admin").AssertNotFound()
 	app.Get("/admin/_assets/admin.css").AssertNotFound()
 	app.PostForm("/admin/impersonation/stop", nil).AssertNotFound()
 
 	app = anetostest.New(t, setup, anetostest.Env(map[string]string{"ADMIN_ALLOW_IPS": "10.0.0.1,192.0.2.0/24"}))
-	signIn(t, app, "Ada", "admin")
+	login(t, app, "Ada", "admin")
 	app.Get("/admin").AssertOK()
 }
 
@@ -174,13 +174,13 @@ func TestTwoFactorOffForAUser(t *testing.T) {
 	turnOnTwoFactor(t, app, bob)
 	turnOnTwoFactor(t, app, ada)
 	as(app, ada)
-	app.Get(userURL(bob, "")).AssertSee("Two-factor sign-in", "On, 8 recovery codes left", ">Turn off two-factor sign-in<")
+	app.Get(userURL(bob, "")).AssertSee("Two-factor authentication", "On, 8 recovery codes left", ">Turn off two-factor authentication<")
 	app.PostForm(userURL(bob, "/actions/two-factor-off"), nil).AssertRedirect(userURL(bob, "")).Follow().
-		AssertSee("Two-factor sign-in turned off.", "<dd>Off</dd>").AssertDontSee(">Turn off two-factor sign-in<")
+		AssertSee("Two-factor authentication turned off.", "<dd>Off</dd>").AssertDontSee(">Turn off two-factor authentication<")
 	if got := events(t, app, bob); len(got) != 1 || !strings.HasPrefix(got[0], "user.two_factor_disabled") {
 		t.Errorf("events %v", got)
 	}
-	app.PostForm(userURL(ada, "/actions/two-factor-off"), nil).Follow().AssertSee("Turn off your own two-factor sign-in")
+	app.PostForm(userURL(ada, "/actions/two-factor-off"), nil).Follow().AssertSee("Turn off your own two-factor authentication")
 }
 
 // Every dangerous action asks first, after the permission is checked.
@@ -242,7 +242,7 @@ func TestLocalBack(t *testing.T) {
 func TestTwoFactorRequiredAtAHost(t *testing.T) {
 	app := anetostest.New(t, setup, anetostest.Env(map[string]string{"ADMIN_TWO_FACTOR": "required",
 		"ADMIN_HOST": "admin.example.com", "APP_URL": "https://example.com"}))
-	signIn(t, app, "Ada", "admin")
+	login(t, app, "Ada", "admin")
 	get := func(path string) *anetostest.Response {
 		req, err := http.NewRequest(http.MethodGet, path, nil)
 		if err != nil {
@@ -259,10 +259,10 @@ func TestTwoFactorRequiredAtAHost(t *testing.T) {
 // page.
 func TestAccountLink(t *testing.T) {
 	app := anetostest.New(t, setup)
-	signIn(t, app, "Ada", "admin")
+	login(t, app, "Ada", "admin")
 	app.Get("/admin").AssertSee(`<a class="user" href="/settings" title="Your account">Ada</a>`)
 
 	app = anetostest.New(t, setup, anetostest.Env(map[string]string{"AUTH_SETTINGS_URL": "/account"}))
-	signIn(t, app, "Ada", "admin")
+	login(t, app, "Ada", "admin")
 	app.Get("/admin").AssertSee(`<span class="user">Ada</span>`).AssertDontSee("Your account")
 }

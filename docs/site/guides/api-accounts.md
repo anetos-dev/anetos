@@ -8,7 +8,7 @@ weight: 301
 # Add accounts to an API
 
 In a project made with `anetos new --stack=api`, `make:auth` writes
-accounts that sign in with API tokens: registration, login (with
+accounts that log in with API tokens: registration, login (with
 two-factor codes for users who turn them on), logout, email
 verification, password reset and change, and token management, as JSON
 endpoints under `/api/v1`. There are no sessions or cookies: a client
@@ -79,7 +79,7 @@ A login's token has every ability (`*`) and lasts 30 days; it's named
 after `device_name` (`API` without one). `POST /api/v1/logout` revokes
 it.
 
-### 4. Two-factor sign-in
+### 4. Two-factor authentication
 
 A user turns it on in three requests, with their token:
 
@@ -168,7 +168,7 @@ a token with every ability (`*`). Errors are [problem details](handlers.md#error
   new one.
 - 401 without a valid token, with `WWW-Authenticate: Bearer`; 403 for a
   token without the `*` ability on the account's routes.
-- 409 when two-factor sign-in is on already (`POST /two-factor`) or off
+- 409 when two-factor authentication is on already (`POST /two-factor`) or off
   (`/two-factor/confirm` without a started setup,
   `/two-factor/recovery-codes`).
 - 429 with `Retry-After` after too many tries.
@@ -177,16 +177,16 @@ a token with every ability (`*`). Errors are [problem details](handlers.md#error
 
 The handlers call package `auth` without a session:
 `AttemptCredentials` checks the password with the same throttling as
-the pages' login, and for a user with two-factor sign-in on returns a
+the pages' login, and for a user with two-factor authentication on returns a
 `*auth.TwoFactorChallenge`, an encrypted note of the user and a
 fingerprint of their password; `AttemptTwoFactorChallenge` checks it
 and the code, each code working once. `CheckPassword` asks for the
 password again where the pages use `RequireConfirmed`: a stolen token
-alone can't make more tokens or change two-factor sign-in.
+alone can't make more tokens or change two-factor authentication.
 [Authentication](authentication.md) explains tokens and the rest.
 
 The responses are structs of `app/handlers/auth.go`
-(`UserResponse`, `SignInResponse`, `TokenResponse`…), never the
+(`UserResponse`, `LoginResponse`, `TokenResponse`…), never the
 `User` model, so a new column never shows by accident. The emails are
 `app/mailers/auth.html`, an `html/template` file, with their text in
 `locales/en/auth.yaml`: `anetos lang:add` brings the same keys'
@@ -198,7 +198,7 @@ address, verification links 3 a minute per client address and 6 an
 hour per user, logins and codes as `AUTH_THROTTLE` and
 `AUTH_THROTTLE_IP` say.
 
-> **Note:** Signing in with Google or GitHub, changing the email
+> **Note:** Logging in with Google or GitHub, changing the email
 > address and deleting the account are the pages' features: an API
 > project's `make:auth` leaves them out. Add the endpoints you need to
 > the generated handlers.
@@ -212,7 +212,7 @@ account's routes adds the `*` ability).
 ## Testing it
 
 `auth_test.go` tests every endpoint through HTTP: registering,
-verifying, logging in and out, two-factor sign-in, resets, password
+verifying, logging in and out, two-factor authentication, resets, password
 changes and tokens. It sets `AUTH_CLIENT_URL` with `anetostest.Env`,
 reads the emails' links with `anetostest.Mailables`, and signs requests
 with `app.WithHeader("Authorization", "Bearer "+token)`. Run it with

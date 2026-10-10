@@ -138,12 +138,12 @@ func TestUserAccounts(t *testing.T) {
 	as(app, ada)
 
 	app.Get(userURL(bob, "")).AssertOK().AssertSee("Account", "Active", "Not verified", "Roles and permissions", "API tokens",
-		">Disable<", ">Mark email verified<", ">Send verification email<", ">Send password reset<", ">Sign out everywhere<", ">Act as user<")
+		">Disable<", ">Mark email verified<", ">Send verification email<", ">Send password reset<", ">Log out everywhere<", ">Impersonate<")
 	app.Get("/admin/users?status=active&email=unverified").AssertSee("Bob")
 	app.Get("/admin/users?status=disabled").AssertDontSee(">Bob<")
 
 	app.PostForm(userURL(bob, "/actions/disable"), nil).AssertRedirect(userURL(bob, "")).Follow().
-		AssertSee("Account disabled.", "Disabled on", ">Enable<").AssertDontSee(">Act as user<")
+		AssertSee("Account disabled.", "Disabled on", ">Enable<").AssertDontSee(">Impersonate<")
 	if reload(t, app, bob).DisabledAt == nil {
 		t.Error("not disabled")
 	}
@@ -156,7 +156,7 @@ func TestUserAccounts(t *testing.T) {
 	if fmt.Sprint(m.sent) != "[verify bob@example.com reset bob@example.com]" {
 		t.Errorf("sent %v", m.sent)
 	}
-	app.PostForm(userURL(bob, "/actions/sign-out"), nil).Follow().AssertSee("Signed out of every browser and device.")
+	app.PostForm(userURL(bob, "/actions/logout"), nil).Follow().AssertSee("Logged out of every browser and device.")
 	if reload(t, app, bob).SessionKey == "" {
 		t.Error("no new session key")
 	}
@@ -194,7 +194,7 @@ func TestUserAccounts(t *testing.T) {
 	// Everything is in the log, by Ada.
 	got := events(t, app, bob)
 	for _, want := range []string{"user.disabled by " + ada.AuthID(), "user.enabled by " + ada.AuthID(), "user.verification_sent by " + ada.AuthID(),
-		"user.verified by " + ada.AuthID(), "user.password_reset_sent by " + ada.AuthID(), "user.signed_out_everywhere by " + ada.AuthID(),
+		"user.verified by " + ada.AuthID(), "user.password_reset_sent by " + ada.AuthID(), "user.logged_out_everywhere by " + ada.AuthID(),
 		"user.token_revoked by " + ada.AuthID(), "user.tokens_revoked by " + ada.AuthID(), "rbac.role_assigned by " + ada.AuthID(),
 		"rbac.role_removed by " + ada.AuthID(), "rbac.permission_revoked by " + ada.AuthID()} {
 		if !slices.Contains(got, want) {
@@ -219,9 +219,9 @@ func TestWhoManagesWhom(t *testing.T) {
 	app, _ := usersApp(t)
 	ada, sue, bob := person(t, app, "Ada", "admin"), person(t, app, "Sue", "support"), person(t, app, "Bob")
 
-	// Oneself: not disabled, deleted, acted as or given roles.
+	// Oneself: not disabled, deleted, impersonated or given roles.
 	as(app, ada)
-	app.Get(userURL(ada, "")).AssertOK().AssertDontSee(">Disable<", ">Act as user<", ">Give role<", `value="delete"`)
+	app.Get(userURL(ada, "")).AssertOK().AssertDontSee(">Disable<", ">Impersonate<", ">Give role<", `value="delete"`)
 	app.PostForm(userURL(ada, "/actions/disable"), nil).Follow().AssertSee("You can&#39;t disable your own account.")
 	app.PostForm(userURL(ada, "/delete"), nil).Follow().AssertSee("You can&#39;t delete your own account here.")
 	app.PostForm(userURL(ada, "/roles"), url.Values{"role": {"support"}}).Follow().AssertSee("You can&#39;t change your own roles.")
@@ -234,8 +234,8 @@ func TestWhoManagesWhom(t *testing.T) {
 
 	// Support manages plain users, not administrators.
 	as(app, sue)
-	app.Get(userURL(bob, "")).AssertOK().AssertSee(">Disable<", ">Act as user<", ">Edit<")
-	app.Get(userURL(ada, "")).AssertOK().AssertDontSee(">Disable<", ">Act as user<")
+	app.Get(userURL(bob, "")).AssertOK().AssertSee(">Disable<", ">Impersonate<", ">Edit<")
+	app.Get(userURL(ada, "")).AssertOK().AssertDontSee(">Disable<", ">Impersonate<")
 	app.PostForm(userURL(ada, "/actions/disable"), nil).Follow().AssertSee("You may not manage Ada: they have permissions you don&#39;t.")
 	if reload(t, app, ada).DisabledAt != nil {
 		t.Fatal("support disabled an admin")
@@ -266,15 +266,15 @@ func TestImpersonation(t *testing.T) {
 	app, _ := usersApp(t)
 	ada, bob := person(t, app, "Ada", "admin"), person(t, app, "Bob")
 	as(app, ada)
-	app.Get("/test/banner").AssertOK().AssertDontSee("acting as")
+	app.Get("/test/banner").AssertOK().AssertDontSee("impersonating")
 
 	app.PostForm(userURL(bob, "/actions/impersonate"), nil).AssertRedirect("/")
-	app.Get("/test/banner").AssertSee("You're acting as <strong>Bob</strong> (signed in as Ada).", `action="/admin/impersonation/stop"`)
+	app.Get("/test/banner").AssertSee("You're impersonating <strong>Bob</strong> (logged in as Ada).", `action="/admin/impersonation/stop"`)
 	app.Get("/admin").AssertForbidden() // Bob has no access
 	app.PostForm("/test/rename", url.Values{"name": {"Robert"}}).AssertNoContent()
 
 	app.PostForm("/admin/impersonation/stop", nil).AssertRedirect(userURL(bob, "")).Follow().AssertSee("You&#39;re yourself again.", "Robert")
-	app.Get("/test/banner").AssertDontSee("acting as")
+	app.Get("/test/banner").AssertDontSee("impersonating")
 	app.PostForm("/admin/impersonation/stop", nil).AssertRedirect("/admin")
 
 	got := events(t, app, bob)
@@ -282,19 +282,19 @@ func TestImpersonation(t *testing.T) {
 	if !slices.Equal(got, want) {
 		t.Errorf("events %v, want %v", got, want)
 	}
-	// While acting as someone, the admin's own pages show the banner too,
-	// and no one else can be acted as until it stops.
+	// While impersonating someone, the admin's own pages show the banner too,
+	// and no one else can be impersonated until it stops.
 	carl := person(t, app, "Carl")
-	// Signing back in forgot the confirmed password.
+	// Logging back in forgot the confirmed password.
 	app.PostForm(userURL(bob, "/actions/impersonate"), nil).AssertRedirect("/admin/confirm?back=%2Fadmin%2Fusers%2F" + bob.AuthID())
 	app.PostForm("/admin/confirm", url.Values{"password": {"secret"}, "back": {userURL(bob, "")}}).AssertRedirect(userURL(bob, ""))
 	app.PostForm(userURL(bob, "/actions/impersonate"), nil).AssertRedirect("/")
 	if err := rbac.Assign(app.Context(), bob.AuthID(), rbac.Global, "support"); err != nil {
 		t.Fatal(err)
 	}
-	app.Get("/admin").AssertOK().AssertSee(`class="anetos-acting"`, "Stop acting as Robert")
-	app.Get(userURL(carl, "")).AssertOK().AssertDontSee(">Act as user<")
-	app.PostForm(userURL(carl, "/actions/impersonate"), nil).Follow().AssertSee("You&#39;re acting as someone already")
+	app.Get("/admin").AssertOK().AssertSee(`class="anetos-acting"`, "Stop impersonating Robert")
+	app.Get(userURL(carl, "")).AssertOK().AssertDontSee(">Impersonate<")
+	app.PostForm(userURL(carl, "/actions/impersonate"), nil).Follow().AssertSee("You&#39;re impersonating someone already")
 	if got := events(t, app, carl); len(got) != 0 {
 		t.Errorf("events of carl: %v", got)
 	}
@@ -308,7 +308,7 @@ func TestNoImpersonationAtAHost(t *testing.T) {
 	p := anetos.MustResolve[*Panel](app.App)
 	r := p.byName["users"].(*res[User, struct{}])
 	if slices.ContainsFunc(r.Actions, func(a Action[User]) bool { return a.Name == "impersonate" }) {
-		t.Error("acting as a user is offered at a host of the admin's own")
+		t.Error("impersonating a user is offered at a host of the admin's own")
 	}
 }
 

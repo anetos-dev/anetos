@@ -63,9 +63,9 @@ func QueueAgents(app *anetos.App, agents ...Agent) error {
 // with [Conversation.Add]), from a queue job: [Conversation.Reply] with
 // the agent passed to [QueueAgents] under agent.Name (the registered
 // agent's settings: the job carries only the name), as the
-// conversation's user (auth.ActAs, when the app has auth: its tools see
+// conversation's user (auth.WithUser, when the app has auth: its tools see
 // the user as in a request, with the abilities of the API token ctx was
-// signed in with, if any). The conversation's Status is [StatusQueued]
+// logged in with, if any). The conversation's Status is [StatusQueued]
 // until the reply is stored, or [StatusFailed] (with Error) if it fails
 // for good; poll it to show the answer. The job is dispatched when the
 // transaction in ctx, if any, commits; with the sync queue driver, it
@@ -147,11 +147,11 @@ func (j replyJob) Handle(ctx context.Context) error {
 		return err
 	}
 	if j.User != "" {
-		var opts []auth.ActOption
+		var opts []auth.UserOption
 		if j.Abilities != nil {
 			opts = append(opts, auth.WithAbilities(j.Abilities))
 		}
-		if acting, err := auth.ActAs(ctx, j.User, opts...); err == nil {
+		if acting, err := auth.WithUser(ctx, j.User, opts...); err == nil {
 			ctx = acting
 		}
 	}

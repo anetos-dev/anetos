@@ -123,7 +123,7 @@ func (j NotifyComment) Handle(ctx context.Context) error {
 
 // canSee reports whether the user may still see the project's issues.
 func canSee(ctx context.Context, u models.User, projectKey string) bool {
-	g, err := rbac.Of(ctx, u.AuthID()) // a job has no signed-in user: ask for theirs
+	g, err := rbac.Of(ctx, u.AuthID()) // a job has no logged-in user: ask for theirs
 	return err == nil && g.CanIn(access.Project(projectKey), access.ViewIssues)
 }
 

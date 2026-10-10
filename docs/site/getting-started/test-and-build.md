@@ -28,7 +28,7 @@ func TestHome(t *testing.T) {
 Each test runs in a transaction that is rolled back, so tests don't see
 each other's rows. `make:crud` and `make:auth` wrote tests for their
 pages; add one for each page and form you write. [Test your
-app](../guides/testing.md) shows forms, signed-in users, emails and
+app](../guides/testing.md) shows forms, logged-in users, emails and
 queue jobs.
 
 ## Build

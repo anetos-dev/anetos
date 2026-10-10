@@ -1,11 +1,11 @@
 ---
-title: Two-factor sign-in and password confirmation
+title: Two-factor authentication and password confirmation
 since: v0.3.0
 group: "Accounts and security"
 weight: 304
 ---
 
-# Two-factor sign-in and password confirmation
+# Two-factor authentication and password confirmation
 
 Ask for more than a password: a code from an authenticator app (Google
 Authenticator, 1Password, Authy… : TOTP, RFC 6238) after it, with
@@ -16,13 +16,13 @@ pages call it. The complete app is
 [`examples/auth`](../../../examples/auth).
 
 An app made with [`make:auth`](accounts.md) has all of this already: a
-"Two-factor sign-in" link on the dashboard, the code after the password,
+"Two-factor authentication" link on the dashboard, the code after the password,
 and the password asked again before turning it on or off. This guide
 explains that code, and how to add it to an app of your own.
 
 ## Before you start
 
-Set up [authentication](authentication.md) first. Two-factor sign-in
+Set up [authentication](authentication.md) first. Two-factor authentication
 keeps its state in the users table: add a column for it (text, up to
 1,024 characters, empty by default):
 
@@ -46,7 +46,7 @@ var users = auth.Users[*User]{
 	ByID: func(ctx context.Context, id string) (*User, error) {
 		n, err := strconv.ParseInt(id, 10, 64)
 		if err != nil {
-			return nil, auth.ErrNoUser
+			return nil, auth.ErrUserNotFound
 		}
 		u, err := db.Find[User](ctx, n) // db.ErrNotFound: no such user
 		return &u, err
@@ -64,7 +64,7 @@ var users = auth.Users[*User]{
 		_, err := db.Query[User](ctx).Where(colID.Eq(u.ID)).Update(colPassword.Set(hash))
 		return err
 	},
-	// Two-factor sign-in: package auth stores its state (the secret
+	// Two-factor authentication: package auth stores its state (the secret
 	// encrypted with APP_KEY, the recovery codes hashed) in a column.
 	TwoFactor: func(u *User) string { return u.TwoFactor },
 	SetTwoFactor: func(ctx context.Context, u *User, state string) error {
@@ -88,7 +88,7 @@ recovery codes, to show once. Until then, `a.StartedTwoFactor` shows the
 same setup again; `a.TwoFactor(u)` says where it stands.
 
 ```go
-// TwoFactor shows two-factor sign-in: off, being set up (a QR code for
+// TwoFactor shows two-factor authentication: off, being set up (a QR code for
 // the authenticator app), or on; and the recovery codes, once.
 func (h Accounts) TwoFactor(c *web.Ctx) error {
 	u, err := auth.Current[*User](c)
@@ -163,10 +163,10 @@ The issuer the app shows is `APP_NAME`. `a.NewRecoveryCodes(ctx, u)`
 replaces the recovery codes; `a.DisableTwoFactor(ctx, u)` turns it off
 (the admin's users pages can too, for someone who lost their phone).
 
-### 3. Ask for the code at sign-in
+### 3. Ask for the code at login
 
 For a user with it on, `a.Attempt` checks the password, then stops:
-it returns `auth.ErrTwoFactorRequired`, and the sign-in waits, in the
+it returns `auth.ErrTwoFactorRequired`, and the login waits, in the
 session, for 10 minutes. Send the user to the code page
 (`AUTH_CHALLENGE_URL`, default `/two-factor-challenge`):
 
@@ -197,11 +197,11 @@ func (h Accounts) Logout(c *web.Ctx) error {
 
 (Copied from [`examples/auth/main.go`](../../../examples/auth/main.go), region `login`.)
 
-There, `a.AttemptTwoFactor(ctx, code)` finishes the sign-in with the
+There, `a.AttemptTwoFactor(ctx, code)` finishes the login with the
 app's code or a recovery code, which is then used up:
 
 ```go
-// Challenge finishes a sign-in waiting for a code (after Login).
+// Challenge finishes a login waiting for a code (after Login).
 func (h Accounts) Challenge(c *web.Ctx, in CodeInput) (web.Responder, error) {
 	_, err := h.auth.AttemptTwoFactor(c, in.Code)
 	var throttled *auth.ThrottledError
@@ -210,7 +210,7 @@ func (h Accounts) Challenge(c *web.Ctx, in CodeInput) (web.Responder, error) {
 		return nil, validate.Fail("code", "That code isn't right.")
 	case errors.As(err, &throttled):
 		return nil, validate.Fail("code", "Too many tries. Try again in a minute.")
-	case errors.Is(err, auth.ErrNoPendingSignIn): // none, or it expired
+	case errors.Is(err, auth.ErrNoPendingLogin): // none, or it expired
 		return web.Redirect("/login"), nil
 	case err != nil:
 		return nil, err
@@ -221,22 +221,22 @@ func (h Accounts) Challenge(c *web.Ctx, in CodeInput) (web.Responder, error) {
 
 (Copied from [`examples/auth/main.go`](../../../examples/auth/main.go), region `challenge`.)
 
-Other ways of signing in ask for the code too: sign-in with Google or
+Other ways of logging in ask for the code too: login with Google or
 GitHub ([social login](social-login.md)) sends users with it on to
-`AUTH_CHALLENGE_URL`. In your own sign-in code, use `a.SignIn(ctx, u,
-remember)`, which does the same; `a.Login` signs in without asking
-(after registration, say). A remember-me cookie, given after the code,
-keeps the user signed in without it.
+`AUTH_CHALLENGE_URL`. In your own login code, `a.Login(ctx, u,
+remember)` does the same: it answers `auth.ErrTwoFactorRequired` for a
+user who has turned it on. A remember-me cookie, given after the code,
+keeps the user logged in without it.
 
 An API without sessions (since v0.4) gets the code in a second request:
 `a.AttemptCredentials` answers a `*auth.TwoFactorChallenge`, whose
 `Token` the client sends back with the code to
 `a.AttemptTwoFactorChallenge`, under the same limits
-([Add accounts to an API](api-accounts.md#4-two-factor-sign-in)).
+([Add accounts to an API](api-accounts.md#4-two-factor-login)).
 
 ### 4. Ask for the password again
 
-Before sensitive pages (turning two-factor sign-in on or off, changing
+Before sensitive pages (turning two-factor authentication on or off, changing
 the email address, deleting the account), ask for the password again
 with the `a.RequireConfirmed` middleware: users who haven't confirmed it
 in the last `AUTH_CONFIRM_TTL` (15 minutes) go to `AUTH_CONFIRM_URL`
@@ -265,7 +265,7 @@ pages := r.Group("", sessions.Middleware, web.CSRF(), a.Middleware)
 pages.Get("/", func(c *web.Ctx) error { return c.Redirect(http.StatusSeeOther, "/dashboard") })
 pages.Get("/verify-email", web.H(h.VerifyEmail))
 
-guests := pages.Group("", a.Guest) // signed-in users go to AUTH_HOME_URL
+guests := pages.Group("", a.Guest) // logged-in users go to AUTH_HOME_URL
 guests.Get("/register", h.page("register"))
 guests.Post("/register", web.H(h.Register))
 guests.Get("/login", h.page("login"))
@@ -274,7 +274,7 @@ guests.Get("/forgot-password", h.page("forgot"))
 guests.With(ratelimit.Middleware("forgot-password", ratelimit.PerMinute(5))).Post("/forgot-password", web.H(h.SendReset))
 guests.Get("/reset-password", h.page("reset"))
 guests.Post("/reset-password", web.H(h.Reset))
-guests.Get("/auth/{provider}/redirect", s.Redirect) // "Sign in with …" links here
+guests.Get("/auth/{provider}/redirect", s.Redirect) // "Log in with …" links here
 guests.Get("/auth/{provider}/callback", s.Callback)
 guests.Get("/two-factor-challenge", h.page("challenge")) // AUTH_CHALLENGE_URL
 guests.Post("/two-factor-challenge", web.H(h.Challenge))
@@ -289,7 +289,7 @@ members.Post("/password", web.H(h.ChangePassword))
 members.Get("/confirm-password", h.page("confirm")) // AUTH_CONFIRM_URL
 members.Post("/confirm-password", web.H(h.ConfirmPassword))
 
-// Two-factor sign-in (AUTH_TWO_FACTOR_URL) and API tokens (they work
+// Two-factor authentication (AUTH_TWO_FACTOR_URL) and API tokens (they work
 // without the browser): the password again first.
 secure := members.Group("", a.RequireConfirmed)
 secure.Post("/tokens", web.H(h.CreateToken))
@@ -306,7 +306,7 @@ api.Get("/me", h.Me)
 
 The [admin](admin.md) asks for the password before its dangerous
 actions too, and with `ADMIN_TWO_FACTOR=required` lets in only users
-with two-factor sign-in on.
+with two-factor authentication on.
 
 ## How it works
 
@@ -321,29 +321,29 @@ them), stored as SHA-256 hashes, each used once.
 The state is one encrypted value: `APP_KEY` encrypts it for that user
 alone, so it can't be copied to another; rotate keys with
 `APP_PREVIOUS_KEYS`, as for everything `APP_KEY` encrypts. If it can't
-be read (the key was lost), signing in fails rather than skipping the
+be read (the key was lost), logging in fails rather than skipping the
 code; turn it off for the user (`DisableTwoFactor`, or the admin).
 
 Codes, like passwords, are throttled: `AUTH_THROTTLE` tries a minute
-for a user, from any address, while signing in, confirming a setup or a
-password; and at sign-in, 50 wrong codes a day for a user, after which
+for a user, from any address, while logging in, confirming a setup or a
+password; and at login, 50 wrong codes a day for a user, after which
 codes are refused until the day is over (someone who has the password
 gets very few guesses; the warnings in the log say so, and the user
-should change their password). A sign-in waiting for its code ends
-after 10 minutes, at a password change, and when another sign-in
-starts in the session. Turning two-factor sign-in on signs the user out
+should change their password). A login waiting for its code ends
+after 10 minutes, at a password change, and when another login
+starts in the session. Turning two-factor authentication on logs the user out
 of their other sessions (with `Users.SessionKey`) and remember-me
-cookies, which were signed in without a code.
+cookies, which were logged in without a code.
 
-Confirming the password lasts `AUTH_CONFIRM_TTL`; signing in or out, and
-acting as another user, forget it. Users without a password (they sign
-in with Google or GitHub) can't type one: for them, a sign-in through
-`a.SignIn` (social login's) counts as a confirmation for
-`AUTH_CONFIRM_TTL`, so they confirm by signing out and in again.
+Confirming the password lasts `AUTH_CONFIRM_TTL`; logging in or out, and
+impersonating another user, forget it. Users without a password (they log
+in with Google or GitHub) can't type one: for them, a login through
+`a.Login` (social login's) counts as a confirmation for
+`AUTH_CONFIRM_TTL`, so they confirm by logging out and in again.
 
 | Setting | Default | |
 |---|---|---|
-| `AUTH_CHALLENGE_URL` | `/two-factor-challenge` | Where a sign-in asks for its code |
+| `AUTH_CHALLENGE_URL` | `/two-factor-challenge` | Where a login asks for its code |
 | `AUTH_TWO_FACTOR_URL` | `/two-factor` | Where users turn it on and off (the admin links there) |
 | `AUTH_CONFIRM_URL` | `/confirm-password` | Where `RequireConfirmed` sends users |
 | `AUTH_CONFIRM_TTL` | `15m` | How long a confirmed password holds |
@@ -353,7 +353,7 @@ in with Google or GitHub) can't type one: for them, a sign-in through
 `auth.TwoFactorCode(secret, t)` is the code an app shows at `t`:
 
 ```go
-// Two-factor sign-in: turned on with a code of the authenticator app
+// Two-factor authentication: turned on with a code of the authenticator app
 // (auth.TwoFactorCode computes it), then asked for after the password.
 func TestTwoFactor(t *testing.T) {
 	app := anetostest.New(t, setup)
@@ -377,7 +377,7 @@ func TestTwoFactor(t *testing.T) {
 	app.PostForm("/logout", nil)
 	app.Get("/login")
 	app.PostForm("/login", url.Values{"email": {"ada@example.com"}, "password": {"password1"}}).AssertRedirect("/two-factor-challenge")
-	app.Get("/dashboard").AssertRedirect("/login") // not signed in yet
+	app.Get("/dashboard").AssertRedirect("/login") // not logged in yet
 	app.Get("/two-factor-challenge")
 	app.PostForm("/two-factor-challenge", url.Values{"code": {code}}).AssertValidationErrors("code") // used already
 	app.Travel(30 * time.Second)
@@ -394,11 +394,10 @@ func TestTwoFactor(t *testing.T) {
 |---|---|---|
 | "That code isn't right" with a fresh code | The phone's clock is off by more than 30 seconds | Set its time automatically |
 | Every code refused with 429 for hours | 50 wrong codes in a day for that user | Wait, and change the password: someone may have it |
-| A user who signs in with Google is sent to confirm a password | Users without a password confirm by signing in again | Sign out and in again, then go back within `AUTH_CONFIRM_TTL` |
+| A user who logs in with Google is sent to confirm a password | Users without a password confirm by logging in again | Log out and in again, then go back within `AUTH_CONFIRM_TTL` |
 | The code is refused right after turning it on | That code was used to turn it on: each is used once | Wait for the next one |
 | `the user's two-factor state can't be read` | `APP_KEY` changed without the old key in `APP_PREVIOUS_KEYS` | Put the old key back in `APP_PREVIOUS_KEYS`, or turn it off for the user |
-| `two-factor sign-in needs Users.TwoFactor and Users.SetTwoFactor` | `auth.Users` lacks them | Add them (step 1) |
-| Social sign-in skips the code | Your callback signs in with `a.Login` | Use `a.SignIn` |
+| `two-factor authentication needs Users.TwoFactor and Users.SetTwoFactor` | `auth.Users` lacks them | Add them (step 1) |
 
 ## Next steps
 

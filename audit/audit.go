@@ -485,7 +485,7 @@ type (
 )
 
 // WithActor returns ctx in which entries are attributed to a, rather than
-// to the signed-in user or the system: a webhook's handler, say.
+// to the logged-in user or the system: a webhook's handler, say.
 //
 //	ctx = audit.WithActor(ctx, audit.Actor{Type: "service", ID: "stripe"})
 //
@@ -507,8 +507,8 @@ const unknownActor = "!unknown"
 var errUnknownActor = errors.New("audit: who started this work isn't known: loading the user failed where it was dispatched")
 
 // ActorOf returns who entries made with ctx are attributed to: the actor
-// set with [WithActor]; the signed-in user, or the one a job acts as
-// (auth.CurrentID), or the user acting as them (auth.Impersonator); in a
+// set with [WithActor]; the logged-in user, or the one a job acts as
+// (auth.CurrentID), or the user impersonating them (auth.Impersonator); in a
 // queue job or async event listener, the actor of the work that started
 // it; otherwise [System]. An error loading the user is returned: the log
 // doesn't guess.
@@ -517,7 +517,7 @@ func ActorOf(ctx context.Context) (Actor, error) {
 	return a, err
 }
 
-// actorOf returns the actor, and the user they act as ("" if none:
+// actorOf returns the actor, and the user they impersonate ("" if none:
 // auth.Impersonate).
 func actorOf(ctx context.Context) (Actor, string, error) {
 	if a, ok := ctx.Value(actorKey{}).(Actor); ok {

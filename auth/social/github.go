@@ -17,14 +17,14 @@ import (
 // profiles from (GitHub Enterprise Server: https://HOST/api/v3).
 const GitHubAPI = "https://api.github.com"
 
-// GitHub is GitHub's sign-in (OAuth 2.0), asking to read the profile and
+// GitHub is GitHub's login (OAuth 2.0), asking to read the profile and
 // email addresses. The profile's email is the account's primary address,
 // if GitHub has verified it.
 func GitHub() Provider {
 	return GitHubAt("https://github.com", GitHubAPI)
 }
 
-// GitHubAt is GitHub's sign-in on another host (GitHub Enterprise
+// GitHubAt is GitHub's login on another host (GitHub Enterprise
 // Server): web is its site, api its API's base URL.
 func GitHubAt(web, api string) Provider {
 	return Provider{

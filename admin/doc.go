@@ -36,11 +36,11 @@
 // choices from Resource.Choices), admin:"help=…", admin:"-".
 //
 // [Users] adds the app's users as a resource, with their accounts managed
-// on their pages: disabling, verification, signing out everywhere, API
-// tokens, roles, and acting as them ([Banner] shows it on the app's
+// on their pages: disabling, verification, logging out everywhere, API
+// tokens, roles, and impersonating them ([Banner] shows it on the app's
 // pages). [Roles] adds the roles pages.
 //
-// Only signed-in users with the permission [Access] get in. Each resource
+// Only logged-in users with the permission [Access] get in. Each resource
 // has four more, admin.<name>.view, .create, .update and .delete, which
 // [New] and [Add] declare in the app's registry so roles (in code or in
 // the database) can grant them. Models with db.SoftDeletes get a trash,

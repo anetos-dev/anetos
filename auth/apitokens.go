@@ -76,7 +76,7 @@ var (
 	colLastUsed = db.Col[*time.Time]("last_used_at")
 )
 
-var errTokenActing = &statusError{http.StatusForbidden, "auth: API tokens can't be created while acting as another user"}
+var errTokenActing = &statusError{http.StatusForbidden, "auth: API tokens can't be created while impersonating another user"}
 
 func hashSecret(secret string) string {
 	sum := sha256.Sum256([]byte(secret))
@@ -86,7 +86,7 @@ func hashSecret(secret string) string {
 // CreateToken issues an API token for u with abilities ("*" for all),
 // expiring after ttl (0: never). It returns the token to give the client,
 // shown once (only its hash is stored), and the stored Token. Not while
-// acting as another user ([Auth.Impersonate]): a token would outlive the
+// impersonating another user ([Auth.Impersonate]): a token would outlive the
 // impersonation and its checks (403).
 //
 //	plain, tok, err := a.CreateToken(c, u, "deploy script", []string{"deploy"}, 90*24*time.Hour)
@@ -135,7 +135,7 @@ func (a *Auth[U]) RevokeAllTokens(ctx context.Context, u U) error {
 
 // RevokeOtherTokens deletes every API token of u but keep (the
 // request's, after a password change through the API, say: the API's
-// "sign out other devices"). A keep of 0 keeps none.
+// "log out other devices"). A keep of 0 keeps none.
 func (a *Auth[U]) RevokeOtherTokens(ctx context.Context, u U, keep int64) error {
 	_, err := db.Query[Token](ctx).Where(colUserID.Eq(u.AuthID()), colID.Ne(keep)).Delete()
 	return err
@@ -164,7 +164,7 @@ func lookup(ctx context.Context, plain string) (*Token, error) {
 	return &t, nil
 }
 
-// TokenMiddleware signs in the user of the request's API token, sent as
+// TokenMiddleware logs in the user of the request's API token, sent as
 // "Authorization: Bearer <token>". A request without one (or with another
 // Authorization scheme) goes through as a guest: put [Auth.Require] after
 // it to refuse those. One with an invalid, expired or revoked token gets
@@ -234,8 +234,8 @@ func CurrentToken(ctx context.Context) (*Token, bool) {
 	return st.token, st.token != nil
 }
 
-// TokenCan reports whether the request may do ability: a request signed
-// in with an API token needs the ability on the token; one signed in
+// TokenCan reports whether the request may do ability: a request logged
+// in with an API token needs the ability on the token; one logged in
 // with a session (the app's own pages and front end) may do anything its
 // user may. A guest may do nothing.
 func TokenCan(ctx context.Context, ability string) bool {
@@ -262,7 +262,7 @@ func RequireAbilities(abilities ...string) web.Middleware {
 		panic("auth: RequireAbilities needs abilities")
 	}
 	doc := web.MiddlewareDoc{Security: "bearer", Scopes: slices.Clone(abilities), Responses: map[int]string{
-		http.StatusUnauthorized: "The request isn't signed in: it has no valid API token.",
+		http.StatusUnauthorized: "The request isn't logged in: it has no valid API token.",
 		http.StatusForbidden:    "The token lacks an ability the operation needs: " + strings.Join(abilities, ", ") + ".",
 	}}
 	return func(next http.Handler) http.Handler {

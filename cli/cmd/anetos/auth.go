@@ -18,22 +18,22 @@ import (
 const makeAuthUsage = `Usage: anetos make:auth
 
 Adds accounts to the project: registration, login with "remember me"
-and throttling, sign-in with Google and GitHub, logout, email
+and throttling, login with Google and GitHub, logout, email
 verification, password reset and API tokens. It writes the User model,
 the handlers, the pages and emails, the routes, the users table's
 migration, setupAuth (auth.go) and its tests, adds the SOCIAL_*
 settings to .env and .env.example, calls setupAuth from setup in
 main.go, and adds the account links (AccountMenu) to the layout's
-header. Signing in leads to /dashboard: AUTH_HOME_URL, or the default in
+header. Logging in leads to /dashboard: AUTH_HOME_URL, or the default in
 auth.go, sets another page. The code is yours to change; hashing, tokens, sessions and
-throttling stay in package auth, the sign-in flow in package social.
+throttling stay in package auth, the login flow in package social.
 
 In an API project (anetos new --stack=api), it writes JSON endpoints
 under /api/v1 instead: registration and login answering with an API
 token (with two-factor codes for users who turn them on), logout, /me,
 email verification and password reset by emails linking to the client
 app (AUTH_CLIENT_URL, added to the settings files), password change,
-token management and two-factor sign-in; the User model, the users
+token management and two-factor authentication; the User model, the users
 table's migration, setupAuth (auth.go), the emails (app/mailers) and
 their tests.
 `
@@ -160,7 +160,7 @@ Next:
   go run . migrate     create the users, api_tokens and social_accounts tables
   go test ./...        the account tests (auth_test.go)
   go tool anetos dev   then open /register; emails go to the log (MAIL_DRIVER=log)
-Sign in with Google or GitHub: set its SOCIAL_* settings in .env.
+Log in with Google or GitHub: set its SOCIAL_* settings in .env.
 `)
 	return 0
 }

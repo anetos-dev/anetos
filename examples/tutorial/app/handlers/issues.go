@@ -52,7 +52,7 @@ func (Issues) New(c *web.Ctx) error {
 	return c.Render(http.StatusOK, views.IssueForm(models.Issue{}))
 }
 
-// Create opens an issue by the signed-in user.
+// Create opens an issue by the logged-in user.
 func (Issues) Create(c *web.Ctx, in IssueInput) (web.Responder, error) {
 	u, err := auth.Current[*models.User](c)
 	if err != nil {
@@ -81,7 +81,7 @@ type UpdateIssue struct {
 	IssueInput
 }
 
-// own returns the issue if the signed-in user wrote it: others get a
+// own returns the issue if the logged-in user wrote it: others get a
 // 403, and an issue that doesn't exist is a 404 (db.ErrNotFound).
 func own(c *web.Ctx, id int64) (models.Issue, error) {
 	issue, err := db.Find[models.Issue](c, id)

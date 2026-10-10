@@ -26,7 +26,7 @@ import (
 )
 
 // The account settings (anetos make:auth): the user's name, email
-// address, password, language and time zone, two-factor sign-in, and
+// address, password, language and time zone, two-factor authentication, and
 // deleting the account. Add your own fields here, in views/settings.templ
 // and in routes/auth.go.
 
@@ -41,7 +41,7 @@ type EmailInput struct {
 }
 
 // NewPasswordInput is the change of password form. CurrentPassword is
-// empty for users without a password (who sign in with Google, say).
+// empty for users without a password (who log in with Google, say).
 type NewPasswordInput struct {
 	CurrentPassword      string `json:"current_password"`
 	Password             string `json:"password" validate:"required|min:8|max:1024|confirmed"`
@@ -62,7 +62,7 @@ func (h Accounts) Settings(c *web.Ctx) error {
 		return err
 	}
 	page := views.SettingsPage{User: u, EmailChange: h.AllowEmailChange, DeleteAccount: h.AllowAccountDeletion,
-		TimeZones: i18n.TimeZones(), TwoFactor: h.Auth.CanTwoFactor()}
+		TimeZones: i18n.TimeZones(), TwoFactor: h.Auth.SupportsTwoFactor()}
 	if tr := i18n.From(c); tr != nil {
 		for _, l := range tr.Supported() {
 			page.Locales = append(page.Locales, views.Choice{Value: l, Title: i18n.LanguageName(c, l)})
@@ -96,7 +96,7 @@ func (h Accounts) UpdateProfile(c *web.Ctx, in ProfileInput) (web.Responder, err
 // ChangeEmail starts a change of email address (once the password is
 // confirmed again): the new address gets a link, which makes it the
 // user's (VerifyEmailChange); the old one is told. Until then, the user
-// signs in with the old one.
+// logs in with the old one.
 func (h Accounts) ChangeEmail(c *web.Ctx, in EmailInput) (web.Responder, error) {
 	if !h.AllowEmailChange {
 		return nil, web.Error(http.StatusNotFound, "")
@@ -203,7 +203,7 @@ func (h Accounts) VerifyEmailChange(c *web.Ctx, in TokenQuery) (web.Responder, e
 		return nil, err
 	}
 	// Sessions elsewhere and reset links sent to the old address end.
-	if err := h.Auth.SignOutOthers(c, u); err != nil {
+	if err := h.Auth.LogoutOthers(c, u); err != nil {
 		return nil, err
 	}
 	c.Session().Flash("status", i18n.T(c, "auth.status.email_changed", "email", email))
@@ -233,8 +233,8 @@ func (h Accounts) RevertEmailPage(c *web.Ctx) error {
 // RevertEmail undoes a change of email address the owner of the old one
 // didn't make: someone else has the account, and its password. The old
 // address is the account's again (verified), the password is cleared,
-// two-factor sign-in turned off, links to Google and GitHub and API
-// tokens removed, everyone signed out; then the old address gets a link
+// two-factor authentication turned off, links to Google and GitHub and API
+// tokens removed, everyone logged out; then the old address gets a link
 // to choose a new password.
 func (h Accounts) RevertEmail(c *web.Ctx, in RevertInput) (web.Responder, error) {
 	u, old, email, err := h.Auth.CheckEmailRevertToken(c, in.Token)
@@ -260,7 +260,7 @@ func (h Accounts) RevertEmail(c *web.Ctx, in RevertInput) (web.Responder, error)
 			return err
 		}
 		u.Email, u.PendingEmail, u.EmailVerifiedAt, u.Password = old, "", &now, ""
-		if h.Auth.CanTwoFactor() {
+		if h.Auth.SupportsTwoFactor() {
 			if err := h.Auth.DisableTwoFactor(ctx, u); err != nil {
 				return err
 			}
@@ -277,7 +277,7 @@ func (h Accounts) RevertEmail(c *web.Ctx, in RevertInput) (web.Responder, error)
 		if err := h.Auth.RevokeAllTokens(ctx, u); err != nil {
 			return err
 		}
-		if err := h.Auth.SignOutEverywhere(ctx, u); err != nil {
+		if err := h.Auth.LogoutEverywhere(ctx, u); err != nil {
 			return err
 		}
 		fresh, err := models.Users.ByID(ctx, u.AuthID()) // with its new session key, which the reset link is for
@@ -298,10 +298,10 @@ func (h Accounts) RevertEmail(c *web.Ctx, in RevertInput) (web.Responder, error)
 	return web.RedirectRoute("login"), nil
 }
 
-// ChangePassword changes the password, and signs the user out of their
-// other browsers and devices (this one stays signed in, and remembered if
+// ChangePassword changes the password, and logs the user out of their
+// other browsers and devices (this one stays logged in, and remembered if
 // it was). Users without a password set one, if they
-// signed in in the last few minutes (AUTH_CONFIRM_TTL).
+// logged in within the last few minutes (AUTH_CONFIRM_TTL).
 func (h Accounts) ChangePassword(c *web.Ctx, in NewPasswordInput) (web.Responder, error) {
 	u, err := auth.Current[*models.User](c)
 	if err != nil {
@@ -317,7 +317,7 @@ func (h Accounts) ChangePassword(c *web.Ctx, in NewPasswordInput) (web.Responder
 	case errors.Is(err, auth.ErrInvalidCredentials):
 		return nil, validate.Fail(current, i18n.T(c, "auth.errors.password"))
 	case errors.Is(err, auth.ErrPasswordNotConfirmed):
-		return nil, validate.Fail("password", i18n.T(c, "auth.errors.sign_in_first"))
+		return nil, validate.Fail("password", i18n.T(c, "auth.errors.login_first"))
 	case errors.Is(err, password.ErrTooLong):
 		return nil, validate.Fail("password", i18n.T(c, "auth.errors.password_too_long"))
 	case errors.As(err, &throttled):
@@ -359,7 +359,7 @@ func (h Accounts) UpdatePreferences(c *web.Ctx, in PreferencesInput) (web.Respon
 
 // DeleteAccount deletes the user's account (once the password is
 // confirmed again), with their API tokens and their links to Google and
-// GitHub, and signs them out. If the app gives users roles (auth/rbac),
+// GitHub, and logs them out. If the app gives users roles (auth/rbac),
 // remove them here too: rbac.RemoveUser.
 func (h Accounts) DeleteAccount(c *web.Ctx) error {
 	if !h.AllowAccountDeletion {

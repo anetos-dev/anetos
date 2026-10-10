@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Command assistant is a help center with an AI assistant: users sign in
+// Command assistant is a help center with an AI assistant: users log in
 // and chat with an agent that searches and reads the help-center
 // articles (a hybrid search: their embeddings, and their words).
 // Conversations are stored, answers stream
@@ -162,7 +162,7 @@ type LoginInput struct {
 // LoginPage shows the login form.
 func (Handlers) LoginPage(c *web.Ctx) error { return render(c, "login", nil) }
 
-// Login signs a user in.
+// Login logs a user in.
 func (h Handlers) Login(c *web.Ctx, in LoginInput) (web.Responder, error) {
 	_, err := h.auth.Attempt(c, in.Email, in.Password, false)
 	if errors.Is(err, auth.ErrInvalidCredentials) {
@@ -174,7 +174,7 @@ func (h Handlers) Login(c *web.Ctx, in LoginInput) (web.Responder, error) {
 	return web.Redirect(auth.Intended(c, "/")), nil
 }
 
-// Logout signs the user out.
+// Logout logs the user out.
 func (h Handlers) Logout(c *web.Ctx) error {
 	if err := h.auth.Logout(c); err != nil {
 		return err
@@ -232,7 +232,7 @@ type ChatPath struct {
 	ID int64 `path:"id"`
 }
 
-// conversation returns the signed-in user's conversation, or 404.
+// conversation returns the logged-in user's conversation, or 404.
 func conversation(c *web.Ctx, id int64) (*ai.Conversation, error) {
 	userID, err := auth.CurrentID(c)
 	if err != nil {

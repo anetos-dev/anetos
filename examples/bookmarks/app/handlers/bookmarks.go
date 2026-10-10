@@ -95,7 +95,7 @@ func (in BookmarkInput) fill(row *models.Bookmark) {
 
 // region: owner
 
-// owner is the signed-in user's ID: a request sees their bookmarks only.
+// owner is the logged-in user's ID: a request sees their bookmarks only.
 func owner(c *web.Ctx) (int64, error) {
 	u, err := auth.Current[*models.User](c)
 	if err != nil {

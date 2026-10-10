@@ -24,8 +24,8 @@ type UserForm struct {
 
 // Users is the admin's users (anetos make:admin), at /admin/users: their
 // list, their pages and editing them, with their accounts managed there:
-// disabling, verification, signing out everywhere, API tokens, roles,
-// acting as them. Users sign up themselves, so they aren't created here.
+// disabling, verification, logging out everywhere, API tokens, roles,
+// impersonating them. Users sign up themselves, so they aren't created here.
 func Users(p *admin.Panel, a *auth.Auth[*models.User]) error {
 	return admin.Users(p, admin.Resource[models.User, UserForm]{
 		Name: "users",

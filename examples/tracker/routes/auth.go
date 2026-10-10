@@ -15,8 +15,8 @@ import (
 
 // Auth adds the account routes (anetos make:auth). Guests may register,
 // log in (with a password, Google or GitHub, then a two-factor code if
-// they have it on) and reset their password; signed-in users have a
-// dashboard, API tokens, two-factor sign-in and logout; API clients use
+// they have it on) and reset their password; logged-in users have a
+// dashboard, API tokens, two-factor authentication and logout; API clients use
 // /api with a token.
 func Auth(r *web.Router, sessions *session.Manager, a *auth.Auth[*models.User], s *social.Social[*models.User]) {
 	// On /settings, users may change their email address, and not delete
@@ -30,7 +30,7 @@ func Auth(r *web.Router, sessions *session.Manager, a *auth.Auth[*models.User], 
 	pages.Get("/settings/email/revert", h.RevertEmailPage).Name("settings.email.revert")
 	pages.With(ratelimit.Middleware("email-revert", ratelimit.PerMinute(10))).Post("/settings/email/revert", web.H(h.RevertEmail))
 
-	guests := pages.Group("", a.Guest) // signed-in users go to AUTH_HOME_URL
+	guests := pages.Group("", a.Guest) // logged-in users go to AUTH_HOME_URL
 	guests.Get("/register", h.RegisterPage).Name("register")
 	guests.With(ratelimit.Middleware("register", ratelimit.PerMinute(10))).Post("/register", web.H(h.Register))
 	guests.Get("/login", h.LoginPage).Name("login")
@@ -40,11 +40,11 @@ func Auth(r *web.Router, sessions *session.Manager, a *auth.Auth[*models.User], 
 		Post("/forgot-password", web.H(h.SendReset)).Name("password.email")
 	guests.Get("/reset-password", h.ResetPage).Name("password.reset")
 	guests.Post("/reset-password", web.H(h.Reset)).Name("password.update")
-	// Sign in with a provider: to its page, and back (404 for providers
+	// Log in with a provider: to its page, and back (404 for providers
 	// whose settings aren't set).
 	guests.Get("/auth/{provider}/redirect", s.Redirect).Name("social.redirect")
 	guests.Get("/auth/{provider}/callback", s.Callback).Name("social.callback")
-	// The code of two-factor sign-in, after the password (AUTH_CHALLENGE_URL).
+	// The code of two-factor authentication, after the password (AUTH_CHALLENGE_URL).
 	guests.Get("/two-factor-challenge", h.ChallengePage).Name("two-factor.challenge")
 	guests.Post("/two-factor-challenge", web.H(h.Challenge))
 
@@ -63,7 +63,7 @@ func Auth(r *web.Router, sessions *session.Manager, a *auth.Auth[*models.User], 
 	members.Get("/confirm-password", h.ConfirmPage).Name("password.confirm") // AUTH_CONFIRM_URL
 	members.Post("/confirm-password", web.H(h.ConfirmPassword))
 
-	// Two-factor sign-in (AUTH_TWO_FACTOR_URL), a new email address, API
+	// Two-factor authentication (AUTH_TWO_FACTOR_URL), a new email address, API
 	// tokens and deleting the account, once the password is confirmed
 	// again (AUTH_CONFIRM_TTL).
 	secure := members.Group("", a.RequireConfirmed)

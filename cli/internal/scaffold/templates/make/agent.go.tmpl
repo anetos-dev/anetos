@@ -12,7 +12,7 @@ import (
 //	res, err := agents.[[.Type]].Prompt(c, question)        // the answer, after any tool calls
 //	for ev, err := range agents.[[.Type]].Stream(c, question) { … } // as it's written
 //
-// Its tools run with the call's context, as the signed-in user: check
+// Its tools run with the call's context, as the logged-in user: check
 // their permissions in the tools, as in a handler. Test it with
 // anetostest.FakeAI, which scripts the model's replies.
 var [[.Type]] = ai.Agent{

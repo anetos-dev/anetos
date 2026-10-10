@@ -16,7 +16,7 @@ import (
 // Home serves the home page.
 type Home struct{}
 
-// Show renders the home page, for guests; signed-in users go to their
+// Show renders the home page, for guests; logged-in users go to their
 // projects.
 func (Home) Show(c *web.Ctx) error {
 	if _, ok := auth.User[*models.User](c); ok {

@@ -25,8 +25,8 @@ var userHash = sync.OnceValue(func() string {
 	return h
 })
 
-// Users makes verified users who sign in with UserPassword (anetos
-// make:auth). In tests, sign one in without the login form:
+// Users makes verified users who log in with UserPassword (anetos
+// make:auth). In tests, log one in without the login form:
 //
 //	ada := anetostest.Create(app, factories.Users)
 //	anetostest.ActingAs(app, &ada).Get("/dashboard").AssertOK()

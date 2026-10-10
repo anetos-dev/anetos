@@ -29,7 +29,7 @@
 // messages the framework shows; an app overrides one by defining its key.
 //
 // A request's locale is resolved when first needed. With APP_LOCALE_STRATEGY=none
-// (the default): the locale cookie, the session, the signed-in user's
+// (the default): the locale cookie, the session, the logged-in user's
 // preference ([LocalePreference]), Accept-Language, then APP_LOCALE. With
 // prefix or subdomain: the URL's, else APP_LOCALE. Queue jobs carry the
 // locale and time zone of the context that dispatched them. [ForUser]

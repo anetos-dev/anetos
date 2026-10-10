@@ -30,10 +30,10 @@ import (
 	"anetos.dev/anetos/examples/saas/views"
 )
 
-// Accounts serves registration, login and logout, sign-in with Google
+// Accounts serves registration, login and logout, login with Google
 // and GitHub, email verification, password reset and API tokens (anetos
 // make:auth). Hashing, tokens, sessions and throttling are package
-// auth's, and the sign-in flow package social's; this is your code to
+// auth's, and the login flow package social's; this is your code to
 // change.
 type Accounts struct {
 	Auth   *auth.Auth[*models.User]
@@ -87,7 +87,7 @@ func (h Accounts) RegisterPage(c *web.Ctx) error {
 	return c.Render(http.StatusOK, views.Register(h.socialButtons()))
 }
 
-// Register creates the account, emails the verification link and signs
+// Register creates the account, emails the verification link and logs
 // the user in, then goes to AUTH_HOME_URL.
 func (h Accounts) Register(c *web.Ctx, in RegisterInput) (web.Responder, error) {
 	name := cleanName(in.Name)
@@ -171,7 +171,7 @@ func (h Accounts) LoginPage(c *web.Ctx) error {
 	return c.Render(http.StatusOK, views.Login(h.socialButtons()))
 }
 
-// socialButtons returns a "Sign in with …" button per provider whose
+// socialButtons returns a "Log in with …" button per provider whose
 // SOCIAL_<NAME>_CLIENT_ID and _CLIENT_SECRET are set.
 func (h Accounts) socialButtons() []views.SocialButton {
 	var buttons []views.SocialButton
@@ -181,13 +181,13 @@ func (h Accounts) socialButtons() []views.SocialButton {
 	return buttons
 }
 
-// SocialUser returns the user of an account signing in with Google or
+// SocialUser returns the user of an account logging in with Google or
 // GitHub: the one it is linked to; else the user with its verified email
-// address (who then signs in either way); else a new user, without a
+// address (who then logs in either way); else a new user, without a
 // password. An address the provider hasn't verified can't be trusted to
 // find anyone, and nor can one the user hasn't verified here: someone
 // could have registered it first, with a password, to take over the
-// account of whoever signs in with it later.
+// account of whoever logs in with it later.
 func SocialUser(ctx context.Context, p social.Profile) (*models.User, error) {
 	id, linked, err := social.FindLink(ctx, p)
 	if err != nil {
@@ -204,7 +204,7 @@ func SocialUser(ctx context.Context, p social.Profile) (*models.User, error) {
 		}
 	}
 	if p.Email == "" || !p.EmailVerified {
-		return nil, &social.ErrNoAccount{Message: "Your account there has no verified email address."}
+		return nil, &social.NoAccountError{Message: "Your account there has no verified email address."}
 	}
 	var u *models.User
 	err = db.Tx(ctx, func(ctx context.Context) error { // the user and the link, or neither
@@ -225,7 +225,7 @@ func SocialUser(ctx context.Context, p social.Profile) (*models.User, error) {
 			return err
 		}
 		if u.EmailVerifiedAt == nil {
-			return &social.ErrNoAccount{Message: "An account with this email address exists. Log in with your password and verify the address first."}
+			return &social.NoAccountError{Message: "An account with this email address exists. Log in with your password and verify the address first."}
 		}
 		// Linked already to another account there: the address was
 		// reused, not the same person.
@@ -234,14 +234,14 @@ func SocialUser(ctx context.Context, p social.Profile) (*models.User, error) {
 			return err
 		}
 		if slices.ContainsFunc(links, func(l social.Account) bool { return l.Provider == p.Provider }) {
-			return &social.ErrNoAccount{Message: "The account with this email address signs in with another account there."}
+			return &social.NoAccountError{Message: "The account with this email address logs in with another account there."}
 		}
 		return social.Link(ctx, p, u.AuthID())
 	})
 	return u, err
 }
 
-// Login signs the user in, throttling repeated failures (AUTH_THROTTLE),
+// Login logs the user in, throttling repeated failures (AUTH_THROTTLE),
 // and goes to the page they wanted, or AUTH_HOME_URL (the dashboard,
 // unless set).
 func (h Accounts) Login(c *web.Ctx, in LoginInput) (web.Responder, error) {
@@ -258,7 +258,7 @@ func (h Accounts) Login(c *web.Ctx, in LoginInput) (web.Responder, error) {
 	return web.Redirect(auth.Intended(c, h.Auth.Config().HomeURL)), nil
 }
 
-// Logout signs the user out.
+// Logout logs the user out.
 func (h Accounts) Logout(c *web.Ctx) error {
 	if err := h.Auth.Logout(c); err != nil {
 		return err
@@ -348,7 +348,7 @@ func (Accounts) ResetPage(c *web.Ctx) error {
 }
 
 // Reset sets the new password. The link works once: it is tied to the
-// old password. The new one signs out every session and remembered
+// old password. The new one logs out every session and remembered
 // browser, and revokes the API tokens.
 func (h Accounts) Reset(c *web.Ctx, in ResetInput) (web.Responder, error) {
 	u, err := h.Auth.CheckPasswordResetToken(c, in.Token)

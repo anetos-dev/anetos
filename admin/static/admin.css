@@ -84,7 +84,7 @@ td.actions button { margin-left: .25rem; }
 .part h2 { font-size: 1.15rem; margin: 0 0 .75rem; }
 .assign { margin-top: .75rem; }
 code { font-size: .9em; }
-/* The banner while acting as a user (admin.Banner), styled here as the admin's CSP blocks its inline styles. */
+/* The banner while impersonating a user (admin.Banner), styled here as the admin's CSP blocks its inline styles. */
 .anetos-acting { position: sticky; top: 0; z-index: 1000; display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; justify-content: center; padding: .5rem 1rem; background: #7a2e0e; color: #fff; }
 .anetos-acting form { margin: 0; }
 .anetos-acting button { border-color: #fff; background: transparent; color: #fff; }

@@ -53,7 +53,7 @@ func TestBookmarksAreTheUsers(t *testing.T) {
 	app.PostJSON("/api/v1/bookmarks", map[string]any{"url": "https://ada.example.com", "title": "Ada's"}).
 		AssertCreated().JSON(&ada)
 
-	var bob handlers.SignInResponse
+	var bob handlers.LoginResponse
 	app.PostJSON("/api/v1/register", map[string]any{
 		"name": "Bob", "email": "bob@example.com", "password": "correct horse", "password_confirmation": "correct horse",
 	}).AssertCreated().JSON(&bob)

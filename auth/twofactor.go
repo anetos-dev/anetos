@@ -27,48 +27,53 @@ import (
 	"anetos.dev/anetos/web/ratelimit"
 )
 
-// Two-factor sign-in: a code from an authenticator app (TOTP, RFC 6238:
+// Two-factor authentication: a code from an authenticator app (TOTP, RFC 6238:
 // six digits, a new one every 30 seconds), or a recovery code, after the
 // password. See docs/site/guides/two-factor.md.
 
-// Errors of two-factor sign-in.
+// Errors of two-factor authentication.
 var (
-	// ErrTwoFactorRequired is returned by Attempt and SignIn when the
-	// password (or other sign-in) checked out and the user has two-factor
-	// sign-in on: the sign-in waits for a code ([Auth.AttemptTwoFactor]),
+	// ErrTwoFactorRequired is returned by Attempt and Login when the
+	// password (or other login) checked out and the user has two-factor
+	// authentication on: the login waits for a code ([Auth.AttemptTwoFactor]),
 	// at AUTH_CHALLENGE_URL. 401.
 	ErrTwoFactorRequired error = &statusError{http.StatusUnauthorized, "auth: a two-factor code is required"}
-	// ErrNoPendingSignIn is returned by AttemptTwoFactor when no sign-in
+	// ErrNoPendingLogin is returned by AttemptTwoFactor when no login
 	// waits for a code: there was none, it expired (after 10 minutes),
 	// or the user's password changed meanwhile. 401.
-	ErrNoPendingSignIn error = &statusError{http.StatusUnauthorized, "auth: no sign-in waits for a code"}
+	ErrNoPendingLogin error = &statusError{http.StatusUnauthorized, "auth: no login waits for a code"}
+	// ErrNoPendingSignIn is ErrNoPendingLogin.
+	//
+	// Deprecated: Use ErrNoPendingLogin; ErrNoPendingSignIn is removed in
+	// v0.6.
+	ErrNoPendingSignIn error = ErrNoPendingLogin
 	// ErrInvalidCode is returned for a wrong, expired or used two-factor
 	// or recovery code. 422.
 	ErrInvalidCode error = &statusError{http.StatusUnprocessableEntity, "auth: invalid code"}
 	// ErrTwoFactorOn is returned by StartTwoFactor for a user who has
-	// two-factor sign-in on already: turn it off first. 409.
-	ErrTwoFactorOn error = &statusError{http.StatusConflict, "auth: two-factor sign-in is on already"}
+	// two-factor authentication on already: turn it off first. 409.
+	ErrTwoFactorOn error = &statusError{http.StatusConflict, "auth: two-factor authentication is on already"}
 	// ErrTwoFactorOff is returned by ConfirmTwoFactor without a started
 	// setup, and by NewRecoveryCodes for a user without two-factor
-	// sign-in. 409.
-	ErrTwoFactorOff error = &statusError{http.StatusConflict, "auth: two-factor sign-in isn't on"}
+	// authentication. 409.
+	ErrTwoFactorOff error = &statusError{http.StatusConflict, "auth: two-factor authentication isn't on"}
 )
 
-var errNoTwoFactor = errors.New("auth: two-factor sign-in needs Users.TwoFactor and Users.SetTwoFactor")
+var errNoTwoFactor = errors.New("auth: two-factor authentication needs Users.TwoFactor and Users.SetTwoFactor")
 
-// pendingTTL is how long a sign-in waits for its code.
+// pendingTTL is how long a login waits for its code.
 const pendingTTL = 10 * time.Minute
 
 // recoveryCodes is how many recovery codes a user gets.
 const recoveryCodes = 8
 
-// codesPerDay caps a user's wrong two-factor codes at sign-in in a day,
+// codesPerDay caps a user's wrong two-factor codes at login in a day,
 // beyond AUTH_THROTTLE a minute: someone with the password can't try
 // codes for long (at most about 0.015% a day, UTC, to guess one).
 const codesPerDay = 50
 
 // confirmsPerDay caps a user's wrong passwords in a day when confirming
-// or changing it while signed in, beyond AUTH_THROTTLE a minute: someone
+// or changing it while logged in, beyond AUTH_THROTTLE a minute: someone
 // with a stolen session can't keep guessing the password, which unlocks
 // two-factor settings, the email address and API tokens.
 const confirmsPerDay = 50
@@ -95,7 +100,7 @@ type twoFactorState struct {
 	LastStep  int64    `json:"t,omitempty"` // the last TOTP step used
 }
 
-// pending is a sign-in waiting for a code, in the session.
+// pending is a login waiting for a code, in the session.
 type pending struct {
 	ID       string `json:"id"`
 	Print    string `json:"p"`
@@ -136,10 +141,10 @@ func (a *Auth[U]) saveTwoFactor(ctx context.Context, u U, st *twoFactorState) er
 	return a.users.SetTwoFactor(ctx, u, a.enc.EncryptString(string(b), twoFactorContext(u.AuthID())))
 }
 
-// TwoFactorStatus is a user's two-factor sign-in, as [Auth.TwoFactor]
+// TwoFactorStatus is a user's two-factor authentication, as [Auth.TwoFactor]
 // reports it.
 type TwoFactorStatus struct {
-	// On says sign-in asks for a code.
+	// On says login asks for a code.
 	On bool
 	// Started says a setup was started and not confirmed.
 	Started bool
@@ -147,7 +152,7 @@ type TwoFactorStatus struct {
 	RecoveryCodes int
 }
 
-// TwoFactor reports u's two-factor sign-in. It fails if the state can't
+// TwoFactor reports u's two-factor authentication. It fails if the state can't
 // be read (APP_KEY changed without APP_PREVIOUS_KEYS).
 func (a *Auth[U]) TwoFactor(u U) (TwoFactorStatus, error) {
 	st, err := a.twoFactor(u)
@@ -157,9 +162,16 @@ func (a *Auth[U]) TwoFactor(u U) (TwoFactorStatus, error) {
 	return TwoFactorStatus{On: st.Confirmed, Started: !st.Confirmed, RecoveryCodes: len(st.Codes)}, nil
 }
 
-// CanTwoFactor reports whether two-factor sign-in is available: Users has
-// TwoFactor and SetTwoFactor.
-func (a *Auth[U]) CanTwoFactor() bool { return a.users.TwoFactor != nil }
+// SupportsTwoFactor reports whether two-factor authentication is
+// available: Users has TwoFactor and SetTwoFactor.
+func (a *Auth[U]) SupportsTwoFactor() bool { return a.users.TwoFactor != nil }
+
+// CanTwoFactor is [Auth.SupportsTwoFactor].
+//
+// Deprecated: Use SupportsTwoFactor; CanTwoFactor is removed in v0.6.
+//
+//go:fix inline
+func (a *Auth[U]) CanTwoFactor() bool { return a.SupportsTwoFactor() }
 
 // TwoFactorSetup is a started two-factor setup: what the user's
 // authenticator app needs.
@@ -170,7 +182,7 @@ type TwoFactorSetup struct {
 	URI string
 }
 
-// StartTwoFactor starts turning on u's two-factor sign-in: it stores a
+// StartTwoFactor starts turning on u's two-factor authentication: it stores a
 // new secret (replacing a setup started before) and returns it. The
 // user adds it to their authenticator app (account names them there,
 // with APP_NAME as the issuer), and [Auth.ConfirmTwoFactor] turns it on
@@ -240,10 +252,10 @@ func twoFactorSetup(secret []byte, issuer, account string) TwoFactorSetup {
 	return TwoFactorSetup{Secret: s, URI: "otpauth://totp/" + label + "?" + query}
 }
 
-// ConfirmTwoFactor turns on u's two-factor sign-in, started with
+// ConfirmTwoFactor turns on u's two-factor authentication, started with
 // [Auth.StartTwoFactor], when code is the current one of their
 // authenticator app, and returns their recovery codes: shown once, each
-// signs in once without the app. It fails with [ErrInvalidCode] for a
+// logs in once without the app. It fails with [ErrInvalidCode] for a
 // wrong code, [ErrTwoFactorOff] without a started setup, and
 // [ErrTwoFactorOn] if it is on already. Attempts are throttled
 // (AUTH_THROTTLE a minute).
@@ -286,20 +298,20 @@ func (a *Auth[U]) ConfirmTwoFactor(ctx context.Context, u U, code string) ([]str
 		return nil, err
 	}
 	a.clearHits(ctx, limit, key)
-	if err := a.SignOutOthers(ctx, u); err != nil {
+	if err := a.LogoutOthers(ctx, u); err != nil {
 		return nil, err
 	}
 	return codes, nil
 }
 
-// SignOutOthers ends u's other sessions (with Users.SessionKey), their
+// LogoutOthers ends u's other sessions (with Users.SessionKey), their
 // other remember-me cookies and their password-reset links, keeping the
 // request's session if it is u's: it gets a new ID (copies of its cookie
 // stop working, with a server-side session driver), and a remember-me
 // cookie it had is issued again. ChangePassword and ConfirmTwoFactor call
 // it; call it when something else about the account changes, such as its
 // email address.
-func (a *Auth[U]) SignOutOthers(ctx context.Context, u U) error {
+func (a *Auth[U]) LogoutOthers(ctx context.Context, u U) error {
 	s, st := session.From(ctx), stateFrom(ctx)
 	mine := s != nil && st != nil && !st.acting && s.String(keyID) == u.AuthID() && s.String(keyImpersonator) == ""
 	var remembered rememberValue
@@ -345,7 +357,7 @@ func (a *Auth[U]) SignOutOthers(ctx context.Context, u U) error {
 	return nil
 }
 
-// DisableTwoFactor turns off u's two-factor sign-in (or drops a started
+// DisableTwoFactor turns off u's two-factor authentication (or drops a started
 // setup); their recovery codes stop working.
 func (a *Auth[U]) DisableTwoFactor(ctx context.Context, u U) error {
 	if a.users.TwoFactor == nil {
@@ -357,7 +369,7 @@ func (a *Auth[U]) DisableTwoFactor(ctx context.Context, u U) error {
 }
 
 // NewRecoveryCodes replaces u's recovery codes with new ones, and returns
-// them. It fails with [ErrTwoFactorOff] if two-factor sign-in is off.
+// them. It fails with [ErrTwoFactorOff] if two-factor authentication is off.
 func (a *Auth[U]) NewRecoveryCodes(ctx context.Context, u U) ([]string, error) {
 	if a.users.TwoFactor == nil {
 		return nil, errNoTwoFactor
@@ -379,7 +391,7 @@ func (a *Auth[U]) NewRecoveryCodes(ctx context.Context, u U) ([]string, error) {
 }
 
 // twoFactorLock names the lock of a user's two-factor state, which every
-// change of it holds (a code used, new recovery codes, two-factor sign-in
+// change of it holds (a code used, new recovery codes, two-factor authentication
 // turned on or off), so concurrent changes don't overwrite each other.
 func twoFactorLock(id string) string { return "auth:2fa:" + id }
 
@@ -400,23 +412,23 @@ func (a *Auth[U]) lockedTwoFactor(ctx context.Context, u U, fn func(ctx context.
 	})
 }
 
-// SignIn signs u in, as [Auth.Login] does, unless they have two-factor
-// sign-in on: then the sign-in waits for a code, for 10 minutes, and it
-// returns [ErrTwoFactorRequired]; send them to AUTH_CHALLENGE_URL, whose
-// handler calls [Auth.AttemptTwoFactor]. Use it for sign-in methods
-// other than passwords (package auth/social does).
+// SignIn is [Auth.Login], which now asks for the two-factor code too.
+//
+// Deprecated: Use Login; SignIn is removed in v0.6.
+//
+//go:fix inline
 func (a *Auth[U]) SignIn(ctx context.Context, u U, remember bool) error {
-	return a.signIn(ctx, u, u.AuthPassword(), remember)
+	return a.Login(ctx, u, remember)
 }
 
-// signIn is SignIn with hash, the password hash the session checks.
-func (a *Auth[U]) signIn(ctx context.Context, u U, hash string, remember bool) error {
+// login is Login with hash, the password hash the session checks.
+func (a *Auth[U]) login(ctx context.Context, u U, hash string, remember bool) error {
 	st, err := a.twoFactor(u)
 	if err != nil {
 		return err
 	}
 	if st == nil || !st.Confirmed {
-		if err := a.login(ctx, u, hash, remember); err != nil {
+		if err := a.startSession(ctx, u, hash, remember); err != nil {
 			return err
 		}
 		a.markFresh(ctx, u, hash)
@@ -436,7 +448,7 @@ func (a *Auth[U]) signIn(ctx context.Context, u U, hash string, remember bool) e
 	if a.disabled(u) {
 		return ErrDisabled
 	}
-	// Whoever was signed in isn't any more: the session waits for u.
+	// Whoever was logged in isn't any more: the session waits for u.
 	s.Regenerate()
 	for _, k := range []string{keyID, keyHash, keyImpersonator, keyImpersonatorHash, keyConfirmed} {
 		s.Delete(k)
@@ -448,7 +460,7 @@ func (a *Auth[U]) signIn(ctx context.Context, u U, hash string, remember bool) e
 	return ErrTwoFactorRequired
 }
 
-// TwoFactorPending reports whether the session has a sign-in waiting for
+// TwoFactorPending reports whether the session has a login waiting for
 // a two-factor code: the challenge page shows only then.
 func (a *Auth[U]) TwoFactorPending(ctx context.Context) bool {
 	_, ok := a.pending(ctx)
@@ -464,11 +476,11 @@ func (a *Auth[U]) pending(ctx context.Context) (pending, bool) {
 	return p, true
 }
 
-// AttemptTwoFactor finishes the sign-in waiting for a code ([Auth.SignIn],
+// AttemptTwoFactor finishes the login waiting for a code ([Auth.Login],
 // [Auth.Attempt]): code is the current one of the user's authenticator
 // app (each used once), or one of their recovery codes (then used up).
-// It fails with [ErrInvalidCode] for a wrong code, [ErrNoPendingSignIn]
-// if no sign-in waits (send them to sign in again), and a
+// It fails with [ErrInvalidCode] for a wrong code, [ErrNoPendingLogin]
+// if no login waits (send them to log in again), and a
 // [*ThrottledError] after AUTH_THROTTLE attempts in a minute for the
 // user, from any address.
 //
@@ -485,27 +497,27 @@ func (a *Auth[U]) AttemptTwoFactor(ctx context.Context, code string) (U, error) 
 	p, ok := a.pending(ctx)
 	if !ok {
 		s.Delete(keyPending)
-		return zero, ErrNoPendingSignIn
+		return zero, ErrNoPendingLogin
 	}
 	u, hash, err := a.checkCode(ctx, p.ID, p.Print, code)
-	if errors.Is(err, ErrNoPendingSignIn) {
-		s.Delete(keyPending) // the password changed, or they signed out everywhere
+	if errors.Is(err, ErrNoPendingLogin) {
+		s.Delete(keyPending) // the password changed, or they logged out everywhere
 	}
 	if err != nil {
 		return zero, err
 	}
 	s.Delete(keyPending)
-	if err := a.login(ctx, u, hash, p.Remember); err != nil {
+	if err := a.startSession(ctx, u, hash, p.Remember); err != nil {
 		return zero, err
 	}
 	a.markFresh(ctx, u, hash)
 	return u, nil
 }
 
-// checkCode checks a two-factor code for the sign-in of user id, whose
+// checkCode checks a two-factor code for the login of user id, whose
 // password and session key had the fingerprint print when it began, and
-// returns the user and their password hash. Two-factor sign-in turned
-// off meanwhile lets the sign-in through (the password was enough).
+// returns the user and their password hash. Two-factor authentication turned
+// off meanwhile lets the login through (the password was enough).
 func (a *Auth[U]) checkCode(ctx context.Context, id, print, code string) (U, string, error) {
 	var zero U
 	key := "auth:2fa\x00" + id
@@ -526,20 +538,20 @@ func (a *Auth[U]) checkCode(ctx context.Context, id, print, code string) (U, str
 	var (
 		u       U
 		hash    string
-		skipped bool // two-factor sign-in was turned off meanwhile
+		skipped bool // two-factor authentication was turned off meanwhile
 	)
 	err := cache.WithLock(ctx, twoFactorLock(id), 10*time.Second, func(ctx context.Context) error {
 		var err error
 		u, err = a.users.ByID(ctx, id)
 		if notFound(err) {
-			return ErrNoPendingSignIn
+			return ErrNoPendingLogin
 		}
 		if err != nil {
 			return err
 		}
 		hash = u.AuthPassword()
 		if a.sessionPrint(u, hash) != print {
-			return ErrNoPendingSignIn // the password changed, or they signed out everywhere
+			return ErrNoPendingLogin // the password changed, or they logged out everywhere
 		}
 		st, err := a.twoFactor(u)
 		if err != nil {
@@ -560,7 +572,7 @@ func (a *Auth[U]) checkCode(ctx context.Context, id, print, code string) (U, str
 			}
 			return ErrInvalidCode
 		}
-		// Stored before signing in: a code is used once, even if the
+		// Stored before logging in: a code is used once, even if the
 		// rest fails.
 		return a.saveTwoFactor(ctx, u, st)
 	})
@@ -575,8 +587,8 @@ func (a *Auth[U]) checkCode(ctx context.Context, id, print, code string) (U, str
 }
 
 // TwoFactorChallenge is the error of [Auth.AttemptCredentials] for a
-// user with two-factor sign-in on: the password was right, and the
-// sign-in waits for a code. errors.Is(err, ErrTwoFactorRequired) is
+// user with two-factor authentication on: the password was right, and the
+// login waits for a code. errors.Is(err, ErrTwoFactorRequired) is
 // true. 401.
 type TwoFactorChallenge struct {
 	// Token is the challenge to give the client, which sends it back
@@ -604,14 +616,14 @@ func (a *Auth[U]) challengeToken(u U, hash string) string {
 	return a.enc.EncryptString(string(b), challengeContext)
 }
 
-// AttemptTwoFactorChallenge finishes an API's sign-in that
+// AttemptTwoFactorChallenge finishes an API's login that
 // [Auth.AttemptCredentials] answered with a [*TwoFactorChallenge]:
 // challenge is its Token, code the current one of the user's
 // authenticator app (each used once) or one of their recovery codes
-// (then used up). It returns the user, to give an API token; it signs
-// nothing in to a session. It fails as [Auth.AttemptTwoFactor] does:
+// (then used up). It returns the user, to give an API token; it logs
+// no one in to a session. It fails as [Auth.AttemptTwoFactor] does:
 // [ErrInvalidCode], a [*ThrottledError] (AUTH_THROTTLE tries a minute
-// and 50 wrong codes a day for the user), and [ErrNoPendingSignIn] for
+// and 50 wrong codes a day for the user), and [ErrNoPendingLogin] for
 // a malformed or expired challenge, or one made before the user's
 // password or session key changed; and [ErrDisabled] for a disabled
 // account. A challenge works more than once in its 10 minutes, each
@@ -620,7 +632,7 @@ func (a *Auth[U]) AttemptTwoFactorChallenge(ctx context.Context, challenge, code
 	var zero U
 	v, ok := a.open(challenge, challengeContext)
 	if !ok || v.Hash == "" {
-		return zero, ErrNoPendingSignIn
+		return zero, ErrNoPendingLogin
 	}
 	u, _, err := a.checkCode(ctx, v.ID, v.Hash, code)
 	if err != nil {
@@ -734,7 +746,7 @@ func matchRecovery(hashes []string, code string) int {
 	return found
 }
 
-// Password confirmation: a signed-in user types their password again
+// Password confirmation: a logged-in user types their password again
 // before something dangerous; it holds for AUTH_CONFIRM_TTL.
 
 // ErrPasswordNotConfirmed is returned by RequireConfirmed to API clients
@@ -742,16 +754,16 @@ func matchRecovery(hashes []string, code string) int {
 // 423.
 var ErrPasswordNotConfirmed error = &statusError{http.StatusLocked, "auth: confirm your password first"}
 
-var errConfirmActing = &statusError{http.StatusForbidden, "auth: a password can't be confirmed or changed while acting as another user"}
+var errConfirmActing = &statusError{http.StatusForbidden, "auth: a password can't be confirmed or changed while impersonating another user"}
 
-// ConfirmPassword checks the signed-in user's password and, if it is
+// ConfirmPassword checks the logged-in user's password and, if it is
 // right, marks it confirmed in the session for AUTH_CONFIRM_TTL
 // ([Auth.PasswordConfirmed]). It fails with [ErrInvalidCredentials] for a
 // wrong one (or a user without a password), [ErrUnauthenticated] for a
 // guest, and a [*ThrottledError] after AUTH_THROTTLE attempts in a
 // minute, or 50 wrong passwords for the user in a day (UTC; wrong
 // passwords given to [Auth.ChangePassword] count too), so a stolen
-// session can't be used to guess the password. Not while acting as
+// session can't be used to guess the password. Not while impersonating
 // another user ([Auth.Impersonate]).
 func (a *Auth[U]) ConfirmPassword(ctx context.Context, pw string) error {
 	s := session.From(ctx)
@@ -782,11 +794,11 @@ func (a *Auth[U]) ConfirmPassword(ctx context.Context, pw string) error {
 // any address, so a stolen session or API token can't be used to guess
 // it. It needs no session: an API asks for the password in the request
 // of what the pages put behind [Auth.RequireConfirmed] (creating a
-// token, changing two-factor sign-in). It fails with
+// token, changing two-factor authentication). It fails with
 // [ErrInvalidCredentials] for a wrong password (or a user without one)
 // and a [*ThrottledError].
 func (a *Auth[U]) CheckPassword(ctx context.Context, u U, pw string) error {
-	key := "auth:confirm\x00" + u.AuthID() // signed in already: from any address
+	key := "auth:confirm\x00" + u.AuthID() // logged in already: from any address
 	limit := ratelimit.PerMinute(a.cfg.Throttle)
 	dayKey, perDay := "auth:confirm-day\x00"+u.AuthID(), ratelimit.PerDay(confirmsPerDay)
 	if err := dayAllowed(ctx, dayKey, perDay); err != nil {
@@ -823,19 +835,19 @@ type confirmed struct {
 	At int64  `json:"t"`
 }
 
-// markFresh counts a sign-in just made as a confirmation for a user
-// without a password (signing in with Google, say), who can't confirm
-// one: they confirm by signing in again.
+// markFresh counts a login just made as a confirmation for a user
+// without a password (logging in with Google, say), who can't confirm
+// one: they confirm by logging in again.
 func (a *Auth[U]) markFresh(ctx context.Context, u U, hash string) {
 	if s := session.From(ctx); s != nil && hash == "" {
 		s.Put(keyConfirmed, confirmed{ID: u.AuthID(), At: a.now().Unix()})
 	}
 }
 
-// PasswordConfirmed reports whether the signed-in user confirmed their
+// PasswordConfirmed reports whether the logged-in user confirmed their
 // password ([Auth.ConfirmPassword]) in the last AUTH_CONFIRM_TTL; for a
-// user without a password, whether they signed in in that time. Signing
-// in, out, or acting as another user forgets it; requests signed in with
+// user without a password, whether they logged in within that time. Logging
+// in, out, or impersonating another user forgets it; requests logged in with
 // an API token never have it.
 func (a *Auth[U]) PasswordConfirmed(ctx context.Context) bool {
 	s := session.From(ctx)
@@ -898,3 +910,10 @@ func sameSitePath(r *http.Request, ref string) string {
 	}
 	return p
 }
+
+// SignOutOthers is [Auth.LogoutOthers].
+//
+// Deprecated: Use LogoutOthers; SignOutOthers is removed in v0.6.
+//
+//go:fix inline
+func (a *Auth[U]) SignOutOthers(ctx context.Context, u U) error { return a.LogoutOthers(ctx, u) }

@@ -47,19 +47,19 @@ var ProjectRoles = []string{Owner, Member, Viewer}
 // change, so the grants stay with the project.
 func Project(key string) rbac.Scope { return rbac.ScopeOf("project", key) }
 
-// Can reports whether the signed-in user has the permission in the
+// Can reports whether the logged-in user has the permission in the
 // project.
 func Can(ctx context.Context, projectKey string, p rbac.Permission) bool {
 	return rbac.CanIn(ctx, Project(projectKey), p)
 }
 
-// Authorize returns nil if the signed-in user has the permission in the
+// Authorize returns nil if the logged-in user has the permission in the
 // project, else a 403 error.
 func Authorize(ctx context.Context, projectKey string, p rbac.Permission) error {
 	return rbac.AuthorizeIn(ctx, Project(projectKey), p)
 }
 
-// VisibleKeys returns the keys of the projects the signed-in user has a
+// VisibleKeys returns the keys of the projects the logged-in user has a
 // role in, and whether they see every project (an administrator).
 func VisibleKeys(ctx context.Context) (keys []string, all bool, err error) {
 	if rbac.Can(ctx, ViewIssues) { // a global grant: administrators

@@ -21,7 +21,7 @@ import (
 // setupAdmin adds the admin interface (anetos make:admin) at ADMIN_PATH
 // (default /admin), or at ADMIN_HOST: the users and roles, and the
 // resources of app/admin, which anetos make:admin:resource adds to. Only
-// signed-in users with the permission admin.access get in; the admin
+// logged-in users with the permission admin.access get in; the admin
 // role has every permission: `go run . rbac:assign <user-id> admin`. setup calls it after setupAuth.
 func setupAdmin(app *anetos.App, r *web.Router, sessions *session.Manager, a *auth.Auth[*models.User]) error {
 	// Roles and permissions (package auth/rbac): roles in code here, and
@@ -78,6 +78,6 @@ func setupAdmin(app *anetos.App, r *web.Router, sessions *session.Manager, a *au
 		}
 	}
 	// The middleware of the app's pages: sessions, CSRF protection, and
-	// the signed-in user.
+	// the logged-in user.
 	return p.Mount(r, sessions.Middleware, web.CSRF(), a.Middleware)
 }

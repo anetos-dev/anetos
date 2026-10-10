@@ -15,18 +15,18 @@ import (
 
 var errNoMiddleware = errors.New("auth: no auth state in the context; add the Auth middleware (after the session middleware) to the route")
 
-var errActing = errors.New("auth: the context acts as a user (ActAs): there is no session to sign in or out")
+var errActing = errors.New("auth: the context has a user without a session (WithUser): there is no session to log in or out")
 
-// Attempt signs in the user whose login and password match, and returns
+// Attempt logs in the user whose login and password match, and returns
 // them. It fails with [ErrInvalidCredentials] for an unknown login or a
 // wrong password (taking about as long either way), and with a
 // [*ThrottledError] after AUTH_THROTTLE attempts in a minute for this
 // login, or this account, from this IP address, or AUTH_THROTTLE_IP
 // failures in a minute from this IP address. A success clears the
 // login's and account's counts, upgrades a weaker password hash (with
-// Users.SetPassword) and signs the user in, as [Auth.SignIn] does: for a
-// user with two-factor sign-in on, it returns the user and
-// [ErrTwoFactorRequired], and the sign-in waits for a code.
+// Users.SetPassword) and logs the user in, as [Auth.Login] does: for a
+// user with two-factor authentication on, it returns the user and
+// [ErrTwoFactorRequired], and the login waits for a code.
 //
 //	u, err := a.Attempt(c, in.Email, in.Password, in.Remember)
 //	if errors.Is(err, auth.ErrInvalidCredentials) {
@@ -41,15 +41,15 @@ func (a *Auth[U]) Attempt(ctx context.Context, login, pw string, remember bool) 
 	if err != nil {
 		return zero, err
 	}
-	return u, a.signIn(ctx, u, hash, remember)
+	return u, a.login(ctx, u, hash, remember)
 }
 
 // AttemptCredentials checks a login and password as [Auth.Attempt] does
 // (the same throttling, timing and rehashing) and returns the user,
-// without signing anyone in to a session: for an API's login, which
+// without logging anyone in to a session: for an API's login, which
 // answers with an API token ([Auth.CreateToken]). It fails as Attempt
 // does, and with [ErrDisabled] for a disabled account. For a user with
-// two-factor sign-in on, it fails with a [*TwoFactorChallenge] (which
+// two-factor authentication on, it fails with a [*TwoFactorChallenge] (which
 // is [ErrTwoFactorRequired]): give the client its Token, to send back
 // with a code to [Auth.AttemptTwoFactorChallenge]. The route needs
 // [Auth.TokenMiddleware] (or [Auth.Middleware]), which knows the
@@ -58,7 +58,7 @@ func (a *Auth[U]) Attempt(ctx context.Context, login, pw string, remember bool) 
 //	u, err := a.AttemptCredentials(c, in.Email, in.Password)
 //	var challenge *auth.TwoFactorChallenge
 //	if errors.As(err, &challenge) {
-//		return SignInResponse{TwoFactor: true, Challenge: challenge.Token}, nil
+//		return LoginResponse{TwoFactor: true, Challenge: challenge.Token}, nil
 //	}
 func (a *Auth[U]) AttemptCredentials(ctx context.Context, login, pw string) (U, error) {
 	var zero U
@@ -128,7 +128,7 @@ func (a *Auth[U]) checkCredentials(ctx context.Context, login, pw string) (U, st
 		hash = u.AuthPassword()
 	}
 	if hash == "" {
-		// Unknown, or without a password (social sign-in only): take as
+		// Unknown, or without a password (social login only): take as
 		// long as a check.
 		if err := password.DummyContext(ctx, pw); err != nil {
 			return zero, "", err
@@ -174,18 +174,23 @@ func (a *Auth[U]) hit(ctx context.Context, key string, limit ratelimit.Limit) er
 	return nil
 }
 
-// Login signs u in: the session gets a new ID (so a session identifier
+// Login logs u in: the session gets a new ID (so a session identifier
 // seen before the login is useless) and remembers the user; with
-// remember, a remember-me cookie keeps them signed in for
-// AUTH_REMEMBER_TTL after the session ends. Use it after
-// registration. It doesn't ask for a two-factor code: for sign-in
-// methods other than passwords, use [Auth.SignIn].
+// remember, a remember-me cookie keeps them logged in for
+// AUTH_REMEMBER_TTL after the session ends. When u has two-factor
+// authentication on, the login waits for a code instead, for 10
+// minutes, and Login returns [ErrTwoFactorRequired]: send them to
+// AUTH_CHALLENGE_URL, whose handler calls [Auth.AttemptTwoFactor]. Use it
+// after registration, and for login methods other than passwords
+// (package auth/social does); a password login goes through
+// [Auth.Attempt].
 func (a *Auth[U]) Login(ctx context.Context, u U, remember bool) error {
 	return a.login(ctx, u, u.AuthPassword(), remember)
 }
 
-// LoginSession writes a signed-in session for u into s, as [Auth.Login]
-// without remember-me would, but without a request: for tests (see
+// LoginSession writes a logged-in session for u into s, as [Auth.Login]
+// without remember-me would for a user without two-factor authentication
+// (it doesn't ask for the code), but without a request: for tests (see
 // anetostest.ActingAs) and tools that prepare sessions. It returns
 // [ErrDisabled] for a disabled account.
 func (a *Auth[U]) LoginSession(s *session.Session, u U) error {
@@ -203,8 +208,9 @@ func (a *Auth[U]) LoginSession(s *session.Session, u U) error {
 
 var errNoRemember = errors.New("auth: remember me needs Users.RememberToken and Users.SetRememberToken")
 
-// login signs u in, with hash as the password hash the session checks.
-func (a *Auth[U]) login(ctx context.Context, u U, hash string, remember bool) error {
+// startSession logs u in without asking for a two-factor code, with hash
+// as the password hash the session checks.
+func (a *Auth[U]) startSession(ctx context.Context, u U, hash string, remember bool) error {
 	st := stateFrom(ctx)
 	s := session.From(ctx)
 	if st == nil || s == nil {
@@ -245,9 +251,9 @@ func (a *Auth[U]) login(ctx context.Context, u U, hash string, remember bool) er
 	return nil
 }
 
-// Logout signs the request's user out: the session is emptied and gets a
+// Logout logs the request's user out: the session is emptied and gets a
 // new ID, the remember-me cookie is removed, and the user's remember-me
-// token is replaced, which signs them out of every remembered browser.
+// token is replaced, which logs them out of every remembered browser.
 // With cookie sessions (SESSION_DRIVER=cookie), a copy of the session
 // cookie taken before the logout keeps working until it expires; a
 // server-side session driver revokes it.
@@ -261,8 +267,8 @@ func (a *Auth[U]) Logout(ctx context.Context) error {
 		return errActing
 	}
 	u, err := Current[U](ctx)
-	// Acting as u (Impersonate): logging out is the impersonator's, and
-	// mustn't sign u out of their remembered browsers.
+	// Impersonating u (Impersonate): logging out is the impersonator's, and
+	// mustn't log u out of their remembered browsers.
 	acting := s.String(keyImpersonator) != ""
 	s.Invalidate()
 	a.clearRemember(st)

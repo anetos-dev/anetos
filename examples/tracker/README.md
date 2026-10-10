@@ -16,7 +16,7 @@ builds a smaller version of it step by step.
 | Each issue's history | [`app/handlers/issues.go`](app/handlers/issues.go) (`activity`) | [Audit log](../../docs/site/guides/audit-log.md) |
 | Emails about assignments and comments, from queue jobs, in each user's language | [`app/jobs`](app/jobs/notify.go), [`app/mailers`](app/mailers/issues.go) | [Queues](../../docs/site/guides/queues.md), [Mail](../../docs/site/guides/mail.md) |
 | A digest every weekday morning | [`app/tasks`](app/tasks/digest.go), `schedules` in [`main.go`](main.go) | [Scheduling](../../docs/site/guides/scheduling.md) |
-| Accounts, settings (with an email preference), two-factor sign-in | `make:auth`'s files | [Accounts](../../docs/site/guides/accounts.md) |
+| Accounts, settings (with an email preference), two-factor authentication | `make:auth`'s files | [Accounts](../../docs/site/guides/accounts.md) |
 | An admin for users, roles, projects, issues (with a trash) and the activity | [`admin.go`](admin.go), [`app/admin`](app/admin) | [Admin](../../docs/site/guides/admin.md) |
 | A JSON API with tokens, read-only ones included | [`app/handlers/api.go`](app/handlers/api.go), [`routes/tracker.go`](routes/tracker.go) | [Handlers](../../docs/site/guides/handlers.md) |
 | Every page's text in a catalog | [`locales/en`](locales/en/app.yaml) | [Translations](../../docs/site/guides/translations.md) |
@@ -32,7 +32,7 @@ go run . db:seed                      # Ada and Grace, two projects
 go tool anetos dev                    # http://localhost:8080
 ```
 
-Sign in as `ada@example.com` (an administrator: `/admin`) or
+Log in as `ada@example.com` (an administrator: `/admin`) or
 `grace@example.com`, both with the password `correct horse`. Emails go
 to the log (`MAIL_DRIVER=log`).
 
@@ -48,7 +48,7 @@ go test ./...
 The tests (`*_test.go` here) cover each feature through HTTP, as a
 browser or an API client would: [`tracker_test.go`](tracker_test.go)
 builds a project with an owner, a member, a viewer and an outsider, and
-signs them in with `anetostest.ActingAs`. They run on an in-memory
+logs them in with `anetostest.ActingAs`. They run on an in-memory
 SQLite database; for PostgreSQL or MySQL, create a database and set
 `DB_DRIVER` and `DB_URL`:
 

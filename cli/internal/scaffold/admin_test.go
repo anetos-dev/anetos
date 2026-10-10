@@ -201,7 +201,7 @@ type Post struct {
 	// A User model of an older make:auth: no disabling.
 	dir = fresh(true)
 	user := read(t, filepath.Join(dir, "app/models/user.go"))
-	user = strings.Replace(user, "\tDisabledAt      *time.Time `db:\"disabled_at\" json:\"disabled_at\"` // set: can't sign in\n", "", 1)
+	user = strings.Replace(user, "\tDisabledAt      *time.Time `db:\"disabled_at\" json:\"disabled_at\"` // set: can't log in\n", "", 1)
 	write(dir, "app/models/user.go", user)
 	if res, err := MakeAdmin(dir); err != nil || res.Disabled || !res.Users {
 		t.Errorf("an older User: %+v, %v", res, err)

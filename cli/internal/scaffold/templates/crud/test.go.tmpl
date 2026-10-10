@@ -15,7 +15,7 @@ import (
 // pages (anetos make:crud).
 func Test[[.Plural]](t *testing.T) {
 	app := anetostest.New(t, setup)
-	// Pages in make:auth's members group need a signed-in user first:
+	// Pages in make:auth's members group need a logged-in user first:
 	//
 	//	ada := anetostest.Create(app, factories.Users)
 	//	anetostest.ActingAs(app, &ada)

@@ -1,6 +1,6 @@
 {{define "content"}}{{with .Data}}
 <h1>{{$.Title}}</h1>
-{{if .NoPassword}}<p class="empty">Your account has no password (you sign in another way): sign out and in again, then do this within a few minutes.</p>
+{{if .NoPassword}}<p class="empty">Your account has no password (you log in another way): log out and in again, then do this within a few minutes.</p>
 <p><a class="button" href="{{.Back}}">Back</a></p>
 {{else}}<p>This is a sensitive action: type your password again first. It holds for a while.</p>
 <form method="post" action="{{.Action}}" class="edit" novalidate>

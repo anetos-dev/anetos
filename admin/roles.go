@@ -21,7 +21,7 @@ import (
 // Roles adds the roles pages: every role, those declared in code and
 // those stored in the database, with their permissions and how many users
 // have them; and creating, editing and deleting the stored ones, with the
-// permissions the signed-in user has. Permissions: admin.roles.view,
+// permissions the logged-in user has. Permissions: admin.roles.view,
 // .create, .update and .delete; giving roles to users is
 // [AssignRoles], on their pages ([Users]).
 func Roles(p *Panel) error {
@@ -108,7 +108,7 @@ type permGroup struct {
 type permView struct {
 	Name    string
 	Checked bool
-	Kept    bool // on the role, but not the signed-in user's to give
+	Kept    bool // on the role, but not the logged-in user's to give
 }
 
 // groups returns the permissions grouped by what comes before their last
@@ -204,7 +204,7 @@ func (r *rolesRes) crumbs(more ...navItem) []navItem {
 	return append([]navItem{{Title: r.p.cfg.Title, URL: r.p.URL()}, {Title: "Roles", URL: r.url("")}}, more...)
 }
 
-// mayGive reports whether the signed-in user has every permission of role
+// mayGive reports whether the logged-in user has every permission of role
 // (everywhere), as making, changing or deleting it needs.
 func (r *rolesRes) mayGive(ctx context.Context, role rbac.Role) bool {
 	return rbac.AuthorizeRole(ctx, rbac.Global, role.Name) == nil
@@ -233,7 +233,7 @@ func (r *rolesRes) declared(perms []rbac.Permission) []rbac.Permission {
 	return out
 }
 
-// givable returns the permissions the signed-in user has everywhere.
+// givable returns the permissions the logged-in user has everywhere.
 func (r *rolesRes) givable(ctx context.Context) []rbac.Permission {
 	var out []rbac.Permission
 	for _, p := range sortedPerms(r.p.reg.Permissions()) {
@@ -332,7 +332,7 @@ func roleMessage(err error) (string, bool) {
 	return "", false
 }
 
-// editable returns the role of the path, its page, and why the signed-in
+// editable returns the role of the path, its page, and why the logged-in
 // user may not change it ("" if they may).
 func (r *rolesRes) editable(c *web.Ctx) (role rbac.Role, show, refusal string, err error) {
 	if role, err = r.find(c); err != nil {

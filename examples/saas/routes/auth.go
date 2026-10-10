@@ -15,14 +15,14 @@ import (
 
 // Auth adds the account routes (anetos make:auth). Guests may register,
 // log in (with a password, Google or GitHub) and reset their password;
-// signed-in users have a dashboard, API tokens and logout; API clients
+// logged-in users have a dashboard, API tokens and logout; API clients
 // use /api with a token.
 func Auth(r *web.Router, sessions *session.Manager, a *auth.Auth[*models.User], s *social.Social[*models.User]) {
 	h := handlers.Accounts{Auth: a, Social: s}
 	pages := r.Group("", sessions.Middleware, web.CSRF(), a.Middleware)
 	pages.Get("/verify-email", web.H(h.VerifyEmail)).Name("verification.verify")
 
-	guests := pages.Group("", a.Guest) // signed-in users go to AUTH_HOME_URL
+	guests := pages.Group("", a.Guest) // logged-in users go to AUTH_HOME_URL
 	guests.Get("/register", h.RegisterPage).Name("register")
 	guests.With(ratelimit.Middleware("register", ratelimit.PerMinute(10))).Post("/register", web.H(h.Register))
 	guests.Get("/login", h.LoginPage).Name("login")
@@ -32,7 +32,7 @@ func Auth(r *web.Router, sessions *session.Manager, a *auth.Auth[*models.User], 
 		Post("/forgot-password", web.H(h.SendReset)).Name("password.email")
 	guests.Get("/reset-password", h.ResetPage).Name("password.reset")
 	guests.Post("/reset-password", web.H(h.Reset)).Name("password.update")
-	// Sign in with a provider: to its page, and back (404 for providers
+	// Log in with a provider: to its page, and back (404 for providers
 	// whose settings aren't set).
 	guests.Get("/auth/{provider}/redirect", s.Redirect).Name("social.redirect")
 	guests.Get("/auth/{provider}/callback", s.Callback).Name("social.callback")

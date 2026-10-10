@@ -312,7 +312,7 @@ func CardHeader(title string) templ.Component {
 }
 
 // AuthCard is a page made of one small card under its title, as the
-// sign-in pages are.
+// login pages are.
 func AuthCard(title string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context

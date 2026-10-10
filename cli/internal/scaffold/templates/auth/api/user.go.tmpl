@@ -18,10 +18,10 @@ type User struct {
 	Name            string     `db:"name"`
 	Email           string     `db:"email"`       // stored in lower case
 	Password        string     `db:"password"`    // password.Hash
-	SessionKey      string     `db:"session_key"` // replaced when the password changes or two-factor sign-in is turned on: older reset links and sign-in challenges stop working
+	SessionKey      string     `db:"session_key"` // replaced when the password changes or two-factor authentication is turned on: older reset links and login challenges stop working
 	EmailVerifiedAt *time.Time `db:"email_verified_at"`
-	DisabledAt      *time.Time `db:"disabled_at"` // set: can't sign in, and its tokens stop working
-	TwoFactor       string     `db:"two_factor"`  // two-factor sign-in, encrypted by package auth
+	DisabledAt      *time.Time `db:"disabled_at"` // set: can't log in, and its tokens stop working
+	TwoFactor       string     `db:"two_factor"`  // two-factor authentication, encrypted by package auth
 }
 
 // AuthID implements auth.Authenticatable.
@@ -32,12 +32,12 @@ func (u *User) AuthPassword() string { return u.Password }
 
 // Users tells package auth how to find users, which are disabled, and
 // how to store their session keys, upgraded password hashes and
-// two-factor sign-in.
+// two-factor authentication.
 var Users = auth.Users[*User]{
 	ByID: func(ctx context.Context, id string) (*User, error) {
 		n, err := strconv.ParseInt(id, 10, 64)
 		if err != nil {
-			return nil, auth.ErrNoUser
+			return nil, auth.ErrUserNotFound
 		}
 		u, err := db.Find[User](ctx, n) // db.ErrNotFound: no such user
 		return &u, err

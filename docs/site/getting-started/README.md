@@ -32,7 +32,7 @@ built separately.
 
 1. [Create a project](create-a-project.md#an-api-instead) with
    `--stack=api`.
-2. [Add accounts to an API](../guides/api-accounts.md): sign-in with
+2. [Add accounts to an API](../guides/api-accounts.md): login with
    tokens.
 3. [Add endpoints for a model](crud.md#in-an-api-project) with
    `make:crud`.

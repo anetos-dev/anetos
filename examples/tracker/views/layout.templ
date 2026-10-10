@@ -31,7 +31,7 @@ templ Layout(title string) {
 			<script src={ public.Assets.URL("htmx.min.js") } defer></script>
 		</head>
 		<body hx-headers={ `{"X-CSRF-Token": "` + view.CSRFToken(ctx) + `"}` }>
-			@admin.Banner() // while acting as a user (anetos make:admin)
+			@admin.Banner() // while impersonating a user (anetos make:admin)
 			@ui.Header("Tracker", web.MustURL(ctx, "home")) {
 				if auth.Check(ctx) {
 					@ui.Nav(i18n.T(ctx, "nav.label")) {

@@ -84,12 +84,12 @@ the project's `web.MethodOverride` reads.
 
 The code is plain Anetos code: change it as you would your own.
 
-- **Only for signed-in users.** After [`make:auth`](add-accounts.md),
+- **Only for logged-in users.** After [`make:auth`](add-accounts.md),
   move the `Posts(pages)` call from `routes/web.go` to the `members`
   group of `routes/auth.go` (`Posts(members)`): guests then go to the
-  login page. Sign a user in at the start of `TestPosts`, as its comment
+  login page. Log a user in at the start of `TestPosts`, as its comment
   shows (`make:auth` wrote `factories.Users`), and show the header's
-  link to signed-in users only, in `views/layout.templ` (importing
+  link to logged-in users only, in `views/layout.templ` (importing
   `anetos.dev/anetos/auth` and the app's `app/models`):
 
   ```templ

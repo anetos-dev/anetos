@@ -15,7 +15,7 @@ Packages `auth`, `auth/password`, `auth/social` and `auth/rbac`. How-to: [Authen
 | API | Does |
 |---|---|
 | `auth.Authenticatable` | `AuthID() string` and `AuthPassword() string`, implemented by the app's user type |
-| `auth.Users[U]{ByID, ByLogin, RememberToken, SetRememberToken, SetPassword, Disabled, SessionKey, SetSessionKey, TwoFactor, SetTwoFactor}` | How to find users (required: `ByID`, `ByLogin`; they return `db.ErrNotFound` or `auth.ErrNoUser`), store remember-me tokens and upgraded hashes; which accounts are disabled (`Disabled`, v0.3); the session key sessions are bound to (`SessionKey` and `SetSessionKey`, both or neither, v0.3); the two-factor state, stored encrypted (`TwoFactor` and `SetTwoFactor`, both or neither, v0.3) |
+| `auth.Users[U]{ByID, ByLogin, RememberToken, SetRememberToken, SetPassword, Disabled, SessionKey, SetSessionKey, TwoFactor, SetTwoFactor}` | How to find users (required: `ByID`, `ByLogin`; they return `db.ErrNotFound` or `auth.ErrUserNotFound`), store remember-me tokens and upgraded hashes; which accounts are disabled (`Disabled`, v0.3); the session key sessions are bound to (`SessionKey` and `SetSessionKey`, both or neither, v0.3); the two-factor state, stored encrypted (`TwoFactor` and `SetTwoFactor`, both or neither, v0.3) |
 | `auth.New(app, users, opts...)` | `*auth.Auth[U]` from `AUTH_*` and `APP_KEY`; needs `cache.New` first; provided to the app; once per app. Options as `NewWithConfig`'s, after its own, and `auth.DefaultHomeURL(path)`: `AUTH_HOME_URL`'s default (v0.3) |
 | `auth.NewWithConfig(cfg, users, enc, opts...)` | Without an app; `auth.WithLogger`, `auth.WithInsecureCookies`, `auth.WithIssuer(name)` (two-factor setups' issuer; `auth.New` uses `APP_NAME`, v0.3) |
 | `auth.Migrations()` | The `api_tokens` table, for `migrate.New` |
@@ -25,60 +25,59 @@ Packages `auth`, `auth/password`, `auth/social` and `auth/rbac`. How-to: [Authen
 | API | Does |
 |---|---|
 | `a.Middleware` | Makes the request's user available (from the session or a remember-me cookie); after the session middleware |
-| `a.Require` | Signed-in users only: guests asking for a page are redirected to `AUTH_LOGIN_URL`; others, and every request on routes without sessions, get 401, with `WWW-Authenticate: Bearer` on routes without sessions or behind `TokenMiddleware` (v0.4). Responses to signed-in users get `Cache-Control: no-store` unless the handler sets another (v0.3) |
-| `a.Guest` | Guests only: signed-in users are redirected to `AUTH_HOME_URL` |
-| `a.TokenMiddleware` | Signs in the user of a `Bearer` API token; invalid tokens get 401; no token (or another scheme) passes as a guest |
+| `a.Require` | Logged-in users only: guests asking for a page are redirected to `AUTH_LOGIN_URL`; others, and every request on routes without sessions, get 401, with `WWW-Authenticate: Bearer` on routes without sessions or behind `TokenMiddleware` (v0.4). Responses to logged-in users get `Cache-Control: no-store` unless the handler sets another (v0.3) |
+| `a.Guest` | Guests only: logged-in users are redirected to `AUTH_HOME_URL` |
+| `a.TokenMiddleware` | Logs in the user of a `Bearer` API token; invalid tokens get 401; no token (or another scheme) passes as a guest |
 | `a.RequireConfirmed` | Users who confirmed their password in the last `AUTH_CONFIRM_TTL` only: others are sent to `AUTH_CONFIRM_URL`, to come back after (to the page for GET, else to the page the form was on); API clients and htmx requests get `auth.ErrPasswordNotConfirmed` (423). After `Require` (v0.3) |
 
-## Signing in and out
+## Logging in and out
 
 | API | Does |
 |---|---|
-| `a.Attempt(ctx, login, password, remember)` | Checks the password and signs in; `auth.ErrInvalidCredentials` (401), `*auth.ThrottledError` (429) past `AUTH_THROTTLE` attempts a minute per login or account and IP, or `AUTH_THROTTLE_IP` failures per IP; for a user with two-factor sign-in on, the user and `auth.ErrTwoFactorRequired` (401): the sign-in waits for a code (v0.3) |
-| `a.Login(ctx, u, remember)` | Signs `u` in: new session ID; with `remember`, the remember-me cookie; doesn't ask for a two-factor code |
+| `a.Attempt(ctx, login, password, remember)` | Checks the password and logs in; `auth.ErrInvalidCredentials` (401), `*auth.ThrottledError` (429) past `AUTH_THROTTLE` attempts a minute per login or account and IP, or `AUTH_THROTTLE_IP` failures per IP; for a user with two-factor authentication on, the user and `auth.ErrTwoFactorRequired` (401): the login waits for a code (v0.3) |
+| `a.Login(ctx, u, remember)` | Logs `u` in: new session ID; with `remember`, the remember-me cookie. For a user with two-factor authentication on, `auth.ErrTwoFactorRequired` instead, and a login waiting for a code (10 minutes). For logging in after registration and by other means than a password (v0.5: it used to skip the code; `SignIn`, which asked for it, is deprecated) |
 | `a.RememberCookie()` | The remember-me cookie's name (`__Host-anetos_remember`, `anetos_remember` with `WithInsecureCookies`) (v0.3) |
-| `a.LoginSession(s, u)` | Writes a signed-in session for `u` into the `*session.Session` without a request, as `Login` without remember-me would: for tests (`anetostest.ActingAs`) and tools; `auth.ErrDisabled` for a disabled user (v0.3) |
-| `a.SignIn(ctx, u, remember)` | `Login`, or for a user with two-factor sign-in on, `auth.ErrTwoFactorRequired` and a sign-in waiting for a code (10 minutes): for sign-in methods other than passwords (v0.3) |
-| `a.AttemptTwoFactor(ctx, code)` | Finishes the waiting sign-in with the authenticator app's code (each used once) or a recovery code (used up); `auth.ErrInvalidCode` (422), `auth.ErrNoPendingSignIn` (401: none, expired, or the password changed), `*auth.ThrottledError` past `AUTH_THROTTLE` a minute or 50 wrong codes a day (UTC) for the user; `auth.ErrDisabled` (v0.3) |
-| `a.TwoFactorPending(ctx)` | Whether a sign-in waits for a code in the session (v0.3) |
-| `a.AttemptCredentials(ctx, login, password)` | `Attempt`'s check (its errors, throttling and rehashing) without a session: returns the user, for an API's login to give a token; `auth.ErrDisabled` (403); for a user with two-factor sign-in on, a `*auth.TwoFactorChallenge` (401, `errors.Is` `auth.ErrTwoFactorRequired`) whose `Token` the client sends back with a code. The route needs `TokenMiddleware` or `Middleware` (v0.4) |
-| `a.AttemptTwoFactorChallenge(ctx, challenge, code)` | Finishes such a login: checks the challenge (10 minutes, until the password or session key changes) and the code as `AttemptTwoFactor` does (its lock, limits and errors; `auth.ErrNoPendingSignIn` for a bad, expired or outdated challenge) and returns the user; no session. A challenge works again within its 10 minutes, with a new code (v0.4) |
+| `a.LoginSession(s, u)` | Writes a logged-in session for `u` into the `*session.Session` without a request, as `Login` without remember-me would, without asking for a two-factor code: for tests (`anetostest.ActingAs`) and tools; `auth.ErrDisabled` for a disabled user (v0.3) |
+| `a.AttemptTwoFactor(ctx, code)` | Finishes the waiting login with the authenticator app's code (each used once) or a recovery code (used up); `auth.ErrInvalidCode` (422), `auth.ErrNoPendingLogin` (401: none, expired, or the password changed), `*auth.ThrottledError` past `AUTH_THROTTLE` a minute or 50 wrong codes a day (UTC) for the user; `auth.ErrDisabled` (v0.3) |
+| `a.TwoFactorPending(ctx)` | Whether a login waits for a code in the session (v0.3) |
+| `a.AttemptCredentials(ctx, login, password)` | `Attempt`'s check (its errors, throttling and rehashing) without a session: returns the user, for an API's login to give a token; `auth.ErrDisabled` (403); for a user with two-factor authentication on, a `*auth.TwoFactorChallenge` (401, `errors.Is` `auth.ErrTwoFactorRequired`) whose `Token` the client sends back with a code. The route needs `TokenMiddleware` or `Middleware` (v0.4) |
+| `a.AttemptTwoFactorChallenge(ctx, challenge, code)` | Finishes such a login: checks the challenge (10 minutes, until the password or session key changes) and the code as `AttemptTwoFactor` does (its lock, limits and errors; `auth.ErrNoPendingLogin` for a bad, expired or outdated challenge) and returns the user; no session. A challenge works again within its 10 minutes, with a new code (v0.4) |
 | `a.CheckPassword(ctx, u, password)` | Checks `u`'s password with `ConfirmPassword`'s budget (`AUTH_THROTTLE` a minute, 50 wrong a day), without a session: for an API, before what pages put behind `RequireConfirmed`; `auth.ErrInvalidCredentials`, `*auth.ThrottledError` (v0.4) |
-| `a.ConfirmPassword(ctx, password)`, `a.PasswordConfirmed(ctx)` | Checks the signed-in user's password again, which holds for `AUTH_CONFIRM_TTL`; `auth.ErrInvalidCredentials` (also without a password); `AUTH_THROTTLE` tries a minute for the user, from any address, and 50 wrong passwords a day (UTC, shared with `ChangePassword`); not while acting as another user. For a user without a password, a sign-in through `SignIn` counts. Signing in or out, and acting as someone, forget it; never for API tokens (v0.3) |
-| `a.CanRemember()` | Whether "remember me" is available (`Users.RememberToken` set) |
+| `a.ConfirmPassword(ctx, password)`, `a.PasswordConfirmed(ctx)` | Checks the logged-in user's password again, which holds for `AUTH_CONFIRM_TTL`; `auth.ErrInvalidCredentials` (also without a password); `AUTH_THROTTLE` tries a minute for the user, from any address, and 50 wrong passwords a day (UTC, shared with `ChangePassword`); not while impersonating another user. For a user without a password, a login through `Login` counts. Logging in or out, and impersonating someone, forget it; never for API tokens (v0.3) |
+| `a.SupportsRemember()` | Whether "remember me" is available (`Users.RememberToken` set) |
 | `a.Logout(ctx)` | Empties the session, removes the cookie, replaces the remember token |
-| `auth.User[U](ctx)` | The signed-in user, and whether there is one |
-| `auth.Current[U](ctx)` | The signed-in user, `auth.ErrUnauthenticated`, or the load error |
-| `auth.Check(ctx)` | Whether a user is signed in |
-| `auth.CurrentID(ctx)` | The signed-in user's `AuthID`, `auth.ErrUnauthenticated`, or the load error, for code that works with any user type (v0.3) |
-| `a.ActAs(ctx, userID, opts...)`, `auth.ActAs(ctx, userID, opts...)` | A context whose signed-in user is that user (loaded with `Users.ByID` when asked for; none if it doesn't exist), for queue jobs and commands working for a user; no session (`Attempt`, `Login` and `Logout` refuse) and no token, unless `auth.WithAbilities(abilities)` gives it a token's limits. The function finds the app's Auth in ctx (v0.3) |
+| `auth.User[U](ctx)` | The logged-in user, and whether there is one |
+| `auth.Current[U](ctx)` | The logged-in user, `auth.ErrUnauthenticated`, or the load error |
+| `auth.Check(ctx)` | Whether a user is logged in |
+| `auth.CurrentID(ctx)` | The logged-in user's `AuthID`, `auth.ErrUnauthenticated`, or the load error, for code that works with any user type (v0.3) |
+| `a.WithUser(ctx, userID, opts...)`, `auth.WithUser(ctx, userID, opts...)` | A context whose logged-in user is that user (loaded with `Users.ByID` when asked for; none if it doesn't exist), for queue jobs and commands working for a user; no session (`Attempt`, `Login` and `Logout` refuse) and no token, unless `auth.WithAbilities(abilities)` gives it a token's limits. The function finds the app's Auth in ctx (v0.3) |
 | `auth.Intended(ctx, fallback)` | The page a guest asked for before logging in, or `fallback` |
 
 ## Accounts
 
 | API | Does |
 |---|---|
-| `Users.Disabled`, `a.Disabled(u)` | A disabled user is signed out on their next request; `Attempt` (once the password checks out) and `Login` return `auth.ErrDisabled` (403); their remember-me cookies and API tokens stop working; `ActAs` treats them as a guest (v0.3) |
-| `a.ChangePassword(ctx, u, current, new)` | Changes `u`'s password (needs `Users.SetPassword`), signing them out of their other sessions and remember-me cookies (`SignOutOthers`); `auth.ErrInvalidCredentials` for a wrong `current`; a user without a password sets one without `current` within `AUTH_CONFIRM_TTL` of signing in (`auth.ErrPasswordNotConfirmed` after); `AUTH_THROTTLE` tries a minute, and 50 wrong passwords a day (UTC, shared with `ConfirmPassword`); not while acting as someone (v0.3) |
-| `a.SignOutOthers(ctx, u)` | Ends `u`'s other sessions (with `Users.SessionKey`), remember-me cookies and password-reset links, keeping the request's session if it is `u`'s (with a new session ID, and a new remember-me cookie if it had one) (v0.3) |
-| `a.SignOutEverywhere(ctx, u)`, `a.CanSignOutEverywhere()` | Ends every session and remember-me cookie of `u` by giving them a new session key (`Users.SetSessionKey`) and remember token; API tokens stay (v0.3) |
-| `a.Impersonate(ctx, u)` | Signs the current user in as `u`, keeping who they are in the session; not through API tokens, not nested, not for a disabled `u` (`ErrDisabled`) or oneself. Each request checks that the impersonator may still sign in; `Logout` ends both (leaving `u`'s remember-me token alone). The impersonator's remember-me cookie is removed. Check who may first (`rbac.AuthorizeOver`) (v0.3) |
-| `a.StopImpersonating(ctx)` | Signs the impersonator back in and returns them; `auth.ErrNotImpersonating` (409) without impersonation; if they can't sign in any more, signs out and returns why (v0.3) |
-| `auth.Impersonator(ctx)` | The ID of the user acting as the signed-in one, and whether there is one (v0.3) |
+| `Users.Disabled`, `a.Disabled(u)` | A disabled user is logged out on their next request; `Attempt` (once the password checks out) and `Login` return `auth.ErrDisabled` (403); their remember-me cookies and API tokens stop working; `WithUser` treats them as a guest (v0.3) |
+| `a.ChangePassword(ctx, u, current, new)` | Changes `u`'s password (needs `Users.SetPassword`), logging them out of their other sessions and remember-me cookies (`LogoutOthers`); `auth.ErrInvalidCredentials` for a wrong `current`; a user without a password sets one without `current` within `AUTH_CONFIRM_TTL` of logging in (`auth.ErrPasswordNotConfirmed` after); `AUTH_THROTTLE` tries a minute, and 50 wrong passwords a day (UTC, shared with `ConfirmPassword`); not while impersonating someone (v0.3) |
+| `a.LogoutOthers(ctx, u)` | Ends `u`'s other sessions (with `Users.SessionKey`), remember-me cookies and password-reset links, keeping the request's session if it is `u`'s (with a new session ID, and a new remember-me cookie if it had one) (v0.3) |
+| `a.LogoutEverywhere(ctx, u)`, `a.SupportsLogoutEverywhere()` | Ends every session and remember-me cookie of `u` by giving them a new session key (`Users.SetSessionKey`) and remember token; API tokens stay (v0.3) |
+| `a.Impersonate(ctx, u)` | Logs the current user in as `u`, keeping who they are in the session; not through API tokens, not nested, not for a disabled `u` (`ErrDisabled`) or oneself. Each request checks that the impersonator may still log in; `Logout` ends both (leaving `u`'s remember-me token alone). The impersonator's remember-me cookie is removed. Check who may first (`rbac.AuthorizeOver`) (v0.3) |
+| `a.StopImpersonating(ctx)` | Logs the impersonator back in and returns them; `auth.ErrNotImpersonating` (409) without impersonation; if they can't log in any more, logs out and returns why (v0.3) |
+| `auth.Impersonator(ctx)` | The ID of the user impersonating the logged-in one, and whether there is one (v0.3) |
 
-## Two-factor sign-in
+## Two-factor authentication
 
 TOTP (RFC 6238: six digits, 30 seconds, HMAC-SHA-1) and recovery codes;
-see [Two-factor sign-in](../guides/two-factor.md). Needs
+see [Two-factor authentication](../guides/two-factor.md). Needs
 `Users.TwoFactor` and `SetTwoFactor`. All v0.3.
 
 | API | Does |
 |---|---|
-| `a.CanTwoFactor()` | Whether two-factor sign-in is available |
+| `a.SupportsTwoFactor()` | Whether two-factor authentication is available |
 | `a.TwoFactor(u)` | `auth.TwoFactorStatus{On, Started, RecoveryCodes}`; an error if the state can't be read (`APP_KEY` changed) |
 | `a.StartTwoFactor(ctx, u, account)` | Stores a new secret, replacing a started setup; returns `auth.TwoFactorSetup{Secret, URI}` (base32 key, `otpauth://` URI with `APP_NAME` as issuer); `auth.ErrTwoFactorOn` (409) if on |
 | `a.StartedTwoFactor(u, account)` | The started setup again; `auth.ErrTwoFactorOff` if none, `ErrTwoFactorOn` once on |
-| `a.ConfirmTwoFactor(ctx, u, code)` | Turns it on with a current code; returns 8 recovery codes (`abcde-fghij`), to show once; ends `u`'s other sessions and remember-me cookies (`SignOutOthers`); `auth.ErrInvalidCode`, `ErrTwoFactorOff`, `ErrTwoFactorOn`; throttled |
+| `a.ConfirmTwoFactor(ctx, u, code)` | Turns it on with a current code; returns 8 recovery codes (`abcde-fghij`), to show once; ends `u`'s other sessions and remember-me cookies (`LogoutOthers`); `auth.ErrInvalidCode`, `ErrTwoFactorOff`, `ErrTwoFactorOn`; throttled |
 | `a.NewRecoveryCodes(ctx, u)` | Replaces the recovery codes; `auth.ErrTwoFactorOff` if off |
 | `a.DisableTwoFactor(ctx, u)` | Turns it off (or drops a started setup) |
 | `auth.TwoFactorCode(secret, t)` | The code an app shows at `t`, for tests |
@@ -90,7 +89,7 @@ see [Two-factor sign-in](../guides/two-factor.md). Needs
 | `a.PasswordResetToken(u)`, `a.CheckPasswordResetToken(ctx, token)` | Reset tokens: `AUTH_RESET_TTL`, until the password or the session key changes; `auth.ErrInvalidToken` (400) |
 | `a.VerificationToken(u, email)`, `a.CheckVerificationToken(ctx, token)` | Email-verification tokens: `AUTH_VERIFY_TTL`; returns the user and the address |
 | `a.EmailRevertToken(u, old, new)`, `a.CheckEmailRevertToken(ctx, token)` | Tokens for the link, sent to the old address, that undoes a change of email address: `AUTH_REVERT_TTL`; returns the user and both addresses (v0.3) |
-| `a.CreateToken(ctx, u, name, abilities, ttl)` | An API token (`<id>\|<secret>`, shown once) and its stored `auth.Token`; 403 while acting as another user (v0.3). Put the route behind `RequireConfirmed` |
+| `a.CreateToken(ctx, u, name, abilities, ttl)` | An API token (`<id>\|<secret>`, shown once) and its stored `auth.Token`; 403 while impersonating another user (v0.3). Put the route behind `RequireConfirmed` |
 | `a.Tokens(ctx, u)`, `a.RevokeToken(ctx, u, id)`, `a.RevokeAllTokens(ctx, u)` | A user's API tokens; delete one, or all |
 | `a.RevokeOtherTokens(ctx, u, keep)` | Deletes `u`'s API tokens but `keep` (the request's, after a password change through the API) (v0.4) |
 | `a.ClientLink(path, query)` | `AUTH_CLIENT_URL` joined with `path` and `query`: the link an API's emails give to the client app; an error naming the setting when it isn't set (v0.4) |
@@ -129,8 +128,8 @@ see [Two-factor sign-in](../guides/two-factor.md). Needs
 | `s.Redirect`, `s.Callback` | Handlers for `/auth/{provider}/redirect` (`?remember=1`) and `/auth/{provider}/callback` |
 | `s.Providers()`, `s.CallbackURL(name)` | Provider names, in the order given; a provider's callback URL to register |
 | `social.Resolver[U]`, `social.Profile` | `func(ctx, Profile) (U, error)`: finds or creates the user; the profile has `Provider`, `Subject`, `Email`, `EmailVerified`, `Name`, `AvatarURL`, `Token` |
-| `social.ErrNoAccount{Message}` | Refuses a sign-in with a message on the login page (`social` field) |
-| `s.Providers()`, `s.Title(name)` | The providers' names, in the order given, and their titles, for sign-in buttons |
+| `social.NoAccountError{Message}` | Refuses a login with a message on the login page (`social` field) |
+| `s.Providers()`, `s.Title(name)` | The providers' names, in the order given, and their titles, for login buttons |
 | `social.Migrations()` | The `social_accounts` table |
 | `social.FindLink(ctx, p)`, `social.Link(ctx, p, userID)`, `social.Links(ctx, userID)`, `social.Unlink(ctx, userID, provider)` | Links between provider accounts and users |
 
@@ -147,7 +146,7 @@ Package `auth/rbac` (v0.3). Concepts: [Roles and permissions](../concepts/roles-
 | `rbac.New(app, permissions, roles...)` | `*rbac.Registry`, checked (unique names, roles of declared permissions); provided to the app and its contexts; caches grants per unit of work; adds the commands below; once per app |
 | `rbac.NewRegistry(permissions, roles...)`, `rbac.WithRegistry(ctx, reg)`, `rbac.From(ctx)` | Without an app; `rbac.ErrNoRegistry` when the context has none |
 | `reg.Declare(permissions...)` | Adds permissions to the registry, for packages that bring their own (the admin); idempotent; call it at setup, before the app serves (v0.3) |
-| `rbac.AuthorizeOver(ctx, userID)` | nil if the signed-in user has every permission `userID` has in every scope (and a super role wherever they have one), else `auth.ErrForbidden`: for managing their account (v0.3) |
+| `rbac.AuthorizeOver(ctx, userID)` | nil if the logged-in user has every permission `userID` has in every scope (and a super role wherever they have one), else `auth.ErrForbidden`: for managing their account (v0.3) |
 | `rbac.GivenTo(ctx, userID)` | The roles and permissions given to a user, as stored (`rbac.Given{Scope, Role, Permission}`), by scope and name (v0.3) |
 | `rbac.RoleCounts(ctx)`, `rbac.Holders(ctx, role, limit)` | How many users have each role; who has a role, and where (`rbac.Holder{UserID, Scope}`) (v0.3) |
 | `reg.Permissions()`, `reg.Declared(p)`, `reg.Roles()`, `reg.Role(name)` | What was declared |
@@ -161,9 +160,9 @@ Package `auth/rbac` (v0.3). Concepts: [Roles and permissions](../concepts/roles-
 | `rbac.ScopeOf(kind, id)` | `"team:42"`; `kind` is lowercase letters, digits, `_` and `-` (panics otherwise); IDs compare exactly (`ABC` isn't `abc`, on every database); stored scopes are up to 100 bytes (`rbac.ErrInvalidScope`, 422) |
 | `s.Kind()`, `s.ID()`, `s.String()` | `"team"`, `"42"`; `"global"` for `rbac.Global` |
 
-### Checking the signed-in user
+### Checking the logged-in user
 
-A global grant applies in every scope. For a request signed in with an
+A global grant applies in every scope. For a request logged in with an
 API token, a permission must also be among the token's abilities (or
 the token has `*`), and role checks are false unless it has `*`.
 
@@ -176,7 +175,7 @@ the token has `*`), and role checks are false unless it has `*`.
 | `rbac.AuthorizeRolesOf(ctx, scope, userID)` | nil if the user may give every role `userID` has in exactly `scope`, so may change or remove them; else 401 or 403 |
 | `rbac.Require(perms...)`, `rbac.RequireIn(scopeFn, perms...)` | Middleware: every permission, globally or in `scopeFn(r)`'s scope; the error of `Authorize` otherwise. After the auth middleware |
 | `rbac.PathScope(kind, param)` | A `scopeFn` from a path parameter: `PathScope("team", "team")` on `/teams/{team}`; 404 without it |
-| `rbac.Current(ctx)` | The signed-in user's `*rbac.Grants` (token limits applied), or `auth.ErrUnauthenticated` |
+| `rbac.Current(ctx)` | The logged-in user's `*rbac.Grants` (token limits applied), or `auth.ErrUnauthenticated` |
 
 ### Any user's grants
 

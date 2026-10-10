@@ -77,8 +77,8 @@ can't.
 ## Who did it
 
 The actor is found from the context, in order: one set with
-`audit.WithActor`; the signed-in user, or the one a job acts as (and
-while someone acts as a user, `auth.Impersonate`, that someone, with
+`audit.WithActor`; the logged-in user, or the one a job acts as (and
+while someone impersonates a user, `auth.Impersonate`, that someone, with
 the user in `acting_as`: the person who did it is the actor); the actor
 carried from the work that dispatched a queue job or emitted an
 event for an async listener (the kernel's carriers move it with the
@@ -110,7 +110,7 @@ Counters and caches don't belong in the log: leave them out with
   conflict value, is refused.)
 - An entry's "before" values are the database's at the time of the change.
 - An entry names an actor; if none can be determined it is `system`, and if
-  the signed-in user can't be loaded the change doesn't happen.
+  the logged-in user can't be loaded the change doesn't happen.
 - Writes that bypass the `db` package are not recorded.
 
 ## Related

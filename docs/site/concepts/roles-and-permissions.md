@@ -78,14 +78,14 @@ each team.
 ## Who asks
 
 The package functions (`rbac.Can`, `rbac.AuthorizeIn`, `rbac.Require`…)
-check the request's signed-in user, as package `auth` finds them, in the
+check the request's logged-in user, as package `auth` finds them, in the
 context. Anything that has the request's context can ask: handlers,
 templates, policies, and the tools an AI model calls, which run with the
 context of the call, so a model can't do more than its user. Jobs and
-other code without a signed-in user check a user by ID: `rbac.Of(ctx,
+other code without a logged-in user check a user by ID: `rbac.Of(ctx,
 id)`.
 
-A request signed in with an API token may use only the permissions that
+A request logged in with an API token may use only the permissions that
 are also the token's abilities (a token with `*` has its user's). A
 permission's name is the ability, so a token made with
 `projects.view` can view projects, whatever roles its user has. Role
@@ -97,7 +97,7 @@ actions with permissions.
 
 A user who may manage a team's members could give a role with more than
 they have. `rbac.AuthorizeRole(ctx, scope, role)` refuses unless the
-signed-in user has, in that scope, every permission the role allows (and
+logged-in user has, in that scope, every permission the role allows (and
 is super there, for a super role): an owner can make owners, not
 administrators. `rbac.AuthorizeRolesOf(ctx, scope, userID)` applies the
 same rule to the roles someone has, before changing or removing them, so

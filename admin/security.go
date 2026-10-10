@@ -25,7 +25,7 @@ type security struct {
 	confirm func(ctx context.Context, pw string) error
 	// hasPassword reports whether the user has a password to confirm.
 	hasPassword func(ctx context.Context) bool
-	// twoFactorOn reports whether the user has two-factor sign-in on;
+	// twoFactorOn reports whether the user has two-factor authentication on;
 	// nil if the app has none.
 	twoFactorOn func(ctx context.Context) (bool, error)
 	// twoFactorURL is where users turn it on (AUTH_TWO_FACTOR_URL).
@@ -45,7 +45,7 @@ func securityOf[U auth.Authenticatable](a *auth.Auth[U]) security {
 		twoFactorURL: a.Config().TwoFactorURL,
 		settingsURL:  a.Config().SettingsURL,
 	}
-	if a.CanTwoFactor() {
+	if a.SupportsTwoFactor() {
 		s.twoFactorOn = func(ctx context.Context) (bool, error) {
 			u, err := auth.Current[U](ctx)
 			if err != nil {
@@ -101,11 +101,11 @@ func (p *Panel) allowIPs(next http.Handler) http.Handler {
 	})
 }
 
-// twoFactorPath is the page telling users to turn on two-factor sign-in.
+// twoFactorPath is the page telling users to turn on two-factor authentication.
 const twoFactorPath = "/two-factor-required"
 
 // requireTwoFactor, with ADMIN_TWO_FACTOR=required, lets in only users
-// with two-factor sign-in on; others are sent to a page telling them to
+// with two-factor authentication on; others are sent to a page telling them to
 // turn it on (requests other than GET get 403).
 func (p *Panel) requireTwoFactor(next http.Handler) http.Handler {
 	if p.cfg.TwoFactor != "required" {
@@ -121,7 +121,7 @@ func (p *Panel) requireTwoFactor(next http.Handler) http.Handler {
 		case r.Method == http.MethodGet && r.Header.Get("HX-Request") == "":
 			http.Redirect(w, r, p.base+twoFactorPath, http.StatusSeeOther)
 		default:
-			web.WriteError(w, r, web.Error(http.StatusForbidden, "Turn on two-factor sign-in to use the admin."))
+			web.WriteError(w, r, web.Error(http.StatusForbidden, "Turn on two-factor authentication to use the admin."))
 		}
 	})
 }
@@ -132,7 +132,7 @@ func (p *Panel) twoFactorRequired(c *web.Ctx) error {
 	} else if on {
 		return c.Redirect(http.StatusSeeOther, p.URL())
 	}
-	return p.render(c, "twofactor", page{Title: "Two-factor sign-in required", status: http.StatusForbidden,
+	return p.render(c, "twofactor", page{Title: "Two-factor authentication required", status: http.StatusForbidden,
 		Data: struct{ URL string }{p.appURL(c, p.sec.twoFactorURL)}})
 }
 

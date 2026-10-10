@@ -116,7 +116,7 @@ func setup(app *anetos.App) (*web.Server, error) {
 	}
 	routes.Register(srv.Router(), sessions)
 	// Accounts (anetos make:auth): registration, login with a password,
-	// Google or GitHub, two-factor sign-in, account settings, email
+	// Google or GitHub, two-factor authentication, account settings, email
 	// verification, password reset and API tokens.
 	if _, err := setupAuth(app, srv.Router(), sessions); err != nil {
 		return nil, err

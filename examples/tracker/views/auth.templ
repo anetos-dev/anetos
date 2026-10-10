@@ -15,16 +15,16 @@ import (
 // The account pages (anetos make:auth): yours to change. Their text is
 // in locales/en/auth.yaml.
 
-// SocialButton is a "Sign in with …" button.
+// SocialButton is a "Log in with …" button.
 type SocialButton struct {
 	Name  string // the provider in URLs: google
 	Title string // its name for people: Google
 }
 
-// AccountMenu is the header's account links: the signed-in user's
+// AccountMenu is the header's account links: the logged-in user's
 // dashboard, settings and logout, or log in and register. make:auth adds
 // it to the layout's header; setupAuth's sessions.Use(a.Middleware) lets
-// every page with a session know who is signed in.
+// every page with a session know who is logged in.
 templ AccountMenu() {
 	@ui.NavEnd() {
 		if u, ok := auth.User[*models.User](ctx); ok {
@@ -255,7 +255,7 @@ type TwoFactorPage struct {
 	RecoveryCodes []string // just made: shown once
 }
 
-// TwoFactor turns two-factor sign-in on and off.
+// TwoFactor turns two-factor authentication on and off.
 templ TwoFactor(p TwoFactorPage) {
 	@Layout(i18n.T(ctx, "auth.two_factor.title")) {
 		@ui.Narrow() {
@@ -311,7 +311,7 @@ templ TwoFactor(p TwoFactorPage) {
 	}
 }
 
-// socialButtons shows a button per provider, and why a sign-in failed.
+// socialButtons shows a button per provider, and why a login failed.
 templ socialButtons(buttons []SocialButton) {
 	if len(buttons) > 0 {
 		@ui.Note() {
@@ -320,7 +320,7 @@ templ socialButtons(buttons []SocialButton) {
 		@ui.Stack() {
 			for _, b := range buttons {
 				@ui.LinkButton(web.MustURL(ctx, "social.redirect", b.Name), ui.Secondary|ui.Full) {
-					{ i18n.T(ctx, "auth.social.sign_in_with", "provider", b.Title) }
+					{ i18n.T(ctx, "auth.social.login_with", "provider", b.Title) }
 				}
 			}
 		}

@@ -128,7 +128,7 @@ type UserForm struct {
 }
 
 // addUsers adds the staff to the admin, with their accounts: disabling,
-// signing out, API tokens, roles, acting as them.
+// logging out, API tokens, roles, impersonating them.
 func addUsers(p *admin.Panel, a *auth.Auth[*User]) error {
 	return admin.Users(p, admin.Resource[User, UserForm]{
 		Name:     "users",

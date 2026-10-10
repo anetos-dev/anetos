@@ -1,6 +1,6 @@
 # Admin: a shop's back office
 
-Staff sign in and manage a shop's products and categories, with the
+Staff log in and manage a shop's products and categories, with the
 admin interface of module `anetos.dev/anetos/admin`:
 
 - **Resources** ([`admin.go`](admin.go)): products and categories, each a
@@ -20,9 +20,9 @@ admin interface of module `anetos.dev/anetos/admin`:
   look after the staff's accounts, with the admin's permissions
   (`admin.PermissionsOf`). Roles stored in the database are made on the
   roles pages (`admin.Roles`).
-- **Staff accounts** (`admin.Users`): disable and enable them, sign them
+- **Staff accounts** (`admin.Users`): disable and enable them, log them
   out everywhere, revoke their API tokens, give and take away roles, and
-  act as them (the app's home page shows the banner, `admin.Banner`).
+  impersonate them (the app's home page shows the banner, `admin.Banner`).
   No one manages someone with permissions they lack: support can't touch
   an editor's account.
 - **Audit log**: products are tracked (package `audit`), so every change
@@ -38,13 +38,13 @@ go run . seed                 # admin@, editor@ and support@example.com
 go run .
 ```
 
-Then open <http://localhost:8080/admin> and sign in as
+Then open <http://localhost:8080/admin> and log in as
 `admin@example.com`, `editor@example.com` or `support@example.com`,
 password `secret password`.
 
 ## Tests
 
-`go test` signs in and uses the admin against a fresh SQLite database
+`go test` logs in and uses the admin against a fresh SQLite database
 with `anetostest`: [`main_test.go`](main_test.go).
 
 The guide: [Add an admin panel](../../docs/site/guides/admin.md).

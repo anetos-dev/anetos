@@ -2,7 +2,7 @@
 
 // Command teams is a JSON API where users work in teams, with roles in
 // each team (owner, member, guest) and across all of them (admin,
-// support), and roles administrators add: package auth/rbac. Users sign
+// support), and roles administrators add: package auth/rbac. Users log
 // in with API tokens; seed creates some.
 //
 //	anetos key:generate >> .env   # APP_KEY, once

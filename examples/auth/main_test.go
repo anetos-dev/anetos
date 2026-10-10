@@ -206,7 +206,7 @@ func TestResetLinkExpires(t *testing.T) {
 // endregion
 
 // region: test-two-factor
-// Two-factor sign-in: turned on with a code of the authenticator app
+// Two-factor authentication: turned on with a code of the authenticator app
 // (auth.TwoFactorCode computes it), then asked for after the password.
 func TestTwoFactor(t *testing.T) {
 	app := anetostest.New(t, setup)
@@ -230,7 +230,7 @@ func TestTwoFactor(t *testing.T) {
 	app.PostForm("/logout", nil)
 	app.Get("/login")
 	app.PostForm("/login", url.Values{"email": {"ada@example.com"}, "password": {"password1"}}).AssertRedirect("/two-factor-challenge")
-	app.Get("/dashboard").AssertRedirect("/login") // not signed in yet
+	app.Get("/dashboard").AssertRedirect("/login") // not logged in yet
 	app.Get("/two-factor-challenge")
 	app.PostForm("/two-factor-challenge", url.Values{"code": {code}}).AssertValidationErrors("code") // used already
 	app.Travel(30 * time.Second)

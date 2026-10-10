@@ -69,7 +69,7 @@ together.
 | `Cluster()` | content | `<div class="cluster">`: its children side by side, wrapping (buttons, a search field and its button) |
 | `Card(title string)` | content | `<section class="card">`, with the title in an `<h2>` when it isn't `""` |
 | `CardHeader(title string)` | the card's actions | `<div class="card-header">`: an `<h2>` with the children beside it, at the top of a `Card("")` |
-| `AuthCard(title string)` | content | `<div class="card auth-card">`: a small centered card under an `<h1>`, as the sign-in pages are |
+| `AuthCard(title string)` | content | `<div class="card auth-card">`: a small centered card under an `<h1>`, as the login pages are |
 | `Empty(text string)` | | `<p class="empty">`: what a list shows when it has nothing |
 | `Note()` | text | `<p class="muted">`: secondary text |
 | `SROnly(text string)` | | `<span class="sr-only">`: text for screen readers only, such as a column's heading |

@@ -43,12 +43,12 @@ type Config struct {
 	PerPage int `env:"ADMIN_PER_PAGE" default:"25"`
 	// Confirm asks users for their password again (auth's
 	// ConfirmPassword, valid for AUTH_CONFIRM_TTL) before dangerous
-	// actions: deleting, disabling, roles and permissions, acting as a
+	// actions: deleting, disabling, roles and permissions, impersonating a
 	// user, forgetting every failed job, and actions marked Danger.
 	// ADMIN_CONFIRM, default true.
 	Confirm bool `env:"ADMIN_CONFIRM" default:"true"`
 	// TwoFactor is "required" to let in only users with two-factor
-	// sign-in on (the others are told to turn it on, at
+	// authentication on (the others are told to turn it on, at
 	// AUTH_TWO_FACTOR_URL), or "optional". ADMIN_TWO_FACTOR, default
 	// optional.
 	TwoFactor string `env:"ADMIN_TWO_FACTOR" default:"optional"`
@@ -99,7 +99,7 @@ type Panel struct {
 	mounted  bool
 	base     string // the admin's path prefix
 	userName func(ctx context.Context) string
-	stop     web.HandlerFunc // stops acting as a user
+	stop     web.HandlerFunc // stops impersonating a user
 	// usersName is the users resource's name (Users), "" without.
 	usersName string
 	// widgets are the dashboard's.
@@ -148,7 +148,7 @@ func Title(title string) Option {
 	}
 }
 
-// UserName sets how the admin names the signed-in user in its pages;
+// UserName sets how the admin names the logged-in user in its pages;
 // by default, their AdminName or String method, else "User <id>".
 func UserName[U auth.Authenticatable](name func(u U) string) Option {
 	return func(p *Panel) {
@@ -169,7 +169,7 @@ var reservedNames = []string{strings.Trim(confirmPath, "/"), strings.Trim(twoFac
 // New creates the app's admin, for the users of a (the app's auth.Auth,
 // from auth.New): it reads the ADMIN_* settings and declares
 // [Access] in the app's roles and permissions (rbac.New must have run).
-// Only signed-in users with that permission get in; give it with a role
+// Only logged-in users with that permission get in; give it with a role
 // (a super role, or one in the database), for example
 // `rbac:assign <user-id> admin`.
 func New[U auth.Authenticatable](app *anetos.App, a *auth.Auth[U], opts ...Option) (*Panel, error) {
@@ -192,7 +192,7 @@ func New[U auth.Authenticatable](app *anetos.App, a *auth.Auth[U], opts ...Optio
 		return nil, err
 	}
 	if cfg.TwoFactor == "required" && p.sec.twoFactorOn == nil {
-		return nil, errors.New("admin: ADMIN_TWO_FACTOR=required needs two-factor sign-in: auth.Users.TwoFactor and SetTwoFactor")
+		return nil, errors.New("admin: ADMIN_TWO_FACTOR=required needs two-factor authentication: auth.Users.TwoFactor and SetTwoFactor")
 	}
 	p.userName = func(ctx context.Context) string {
 		u, ok := auth.User[U](ctx)
@@ -233,7 +233,7 @@ func (p *Panel) Config() Config { return p.cfg }
 //
 //	err := panel.Mount(r, sessions.Middleware, web.CSRF(), a.Middleware)
 //
-// Guests are sent to sign in (AUTH_LOGIN_URL); signed-in users without
+// Guests are sent to log in (AUTH_LOGIN_URL); logged-in users without
 // [Access] get 403. Routes are named admin.*. Mount it once, after
 // adding the resources.
 func (p *Panel) Mount(r *web.Router, mws ...web.Middleware) error {
@@ -259,15 +259,15 @@ func (p *Panel) Mount(r *web.Router, mws ...web.Middleware) error {
 	p.assets = assets
 	// Assets need no session: they are the same for everyone.
 	r.Group(p.base, p.allowIPs).HandleStd(http.MethodGet, "/_assets/{file...}", assets).Name("admin.assets")
-	// Stopping acting as a user needs no admin permission: the user
-	// acted as may have none.
+	// Stopping impersonating a user needs no admin permission: the user
+	// impersonated may have none.
 	r.Group(p.base, append([]web.Middleware{p.allowIPs}, append(slices.Clip(mws), secureHeaders)...)...).
 		Post(stopPath, p.stop).Name("admin.impersonation.stop")
-	signedIn := r.Group(p.base, append([]web.Middleware{p.allowIPs}, append(slices.Clip(mws), secureHeaders, p.require, rbac.Require(Access))...)...)
+	loggedIn := r.Group(p.base, append([]web.Middleware{p.allowIPs}, append(slices.Clip(mws), secureHeaders, p.require, rbac.Require(Access))...)...)
 	if p.cfg.TwoFactor == "required" {
-		signedIn.Get(twoFactorPath, p.twoFactorRequired).Name("admin.two-factor")
+		loggedIn.Get(twoFactorPath, p.twoFactorRequired).Name("admin.two-factor")
 	}
-	g := signedIn.Group("", p.requireTwoFactor)
+	g := loggedIn.Group("", p.requireTwoFactor)
 	g.Get("/", p.home).Name("admin.home")
 	g.Get(confirmPath, p.confirmPage).Name("admin.confirm")
 	g.Post(confirmPath, p.confirmPassword).Name("admin.confirm.store")

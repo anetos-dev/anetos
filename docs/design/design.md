@@ -246,7 +246,7 @@ anetos.dev/anetos/       ← core module (github.com/anetos-dev/anetos)
 ├── session/             encrypted cookie sessions, flash, CSRF token (F10)
 ├── encryption/          AES-256-GCM with APP_KEY and key rotation (F10)
 ├── cache/               cache, memory and database stores, locks (B1); cache/cachetest: store conformance suite
-├── auth/                login, remember me, API tokens, reset/verification tokens, policies (B3); two-factor sign-in, password confirmation (AD2b); auth/password: argon2id; auth/social: OAuth/OIDC sign-in (B4); auth/rbac: roles and permissions (R1)
+├── auth/                login, remember me, API tokens, reset/verification tokens, policies (B3); two-factor authentication, password confirmation (AD2b); auth/password: argon2id; auth/social: OAuth/OIDC login (B4); auth/rbac: roles and permissions (R1)
 ├── audit/               the audit log: tracked models' writes, bulk entries, recorded events, history, retention, anonymization (AU1)
 ├── queue/               jobs, workers, sync/memory/database stores, failed jobs (B5); queue/queuetest: store conformance suite
 ├── events/              typed in-process events: sync, async (bounded pools), queued listeners (B6)
@@ -963,8 +963,8 @@ events, next, err := audit.History(ctx, audit.Subject{Type: "posts", ID: "42"}, 
   assignments, the row count, and the rows' values before (and after) up
   to `AUDIT_BULK_MAX_VALUES` rows (default 10,000), with a flag saying
   whether it kept them all. Keys are always kept (D205).
-- **The actor** is, in order: one set with `audit.WithActor`; the signed-in
-  user (`auth.CurrentID`, which `auth.ActAs` sets in jobs); for a queue job
+- **The actor** is, in order: one set with `audit.WithActor`; the logged-in
+  user (`auth.CurrentID`, which `auth.WithUser` sets in jobs); for a queue job
   or async event listener, the actor of the work that dispatched it,
   carried with it (kernel carriers, D207); otherwise `system`. An error
   loading the user fails the write: the log doesn't guess.
@@ -1246,11 +1246,11 @@ writes an app that serves JSON only:
   a missing URL's problem details.
 
 **API accounts (AP2, D263–D268).** `make:auth` in an API project writes
-accounts whose sign-in is an API token: no sessions, cookies or CSRF.
+accounts whose login is an API token: no sessions, cookies or CSRF.
 
 - **Endpoints** (`routes/auth.go`, in the `api` group, `/api/v1`):
   guests `POST /register` (201: a token and the user), `POST /login`
-  (a token and the user; or, for a user with two-factor sign-in,
+  (a token and the user; or, for a user with two-factor authentication,
   `{"two_factor": true, "challenge": …}`), `POST /login/two-factor`
   (the challenge and a code: a token), `POST /forgot-password`,
   `POST /reset-password`, `POST /verify-email` (the token of an emailed
@@ -1259,27 +1259,27 @@ accounts whose sign-in is an API token: no sessions, cookies or CSRF.
   `GET`/`POST /tokens`, `DELETE /tokens/{id}`, and `GET /two-factor`,
   `POST /two-factor`, `/two-factor/confirm`, `/two-factor/recovery-codes`
   and `/two-factor/disable`. Actions without content answer 204; the
-  others answer output structs (`UserResponse`, `SignInResponse`,
+  others answer output structs (`UserResponse`, `LoginResponse`,
   `TokenResponse`…), never the model (D263). Registration and token
   creation answer `web.Created(…)` and actions a nil `web.Responder`
-  (204) were settled by D269 with AP3: typed results (`SignInResponse`,
+  (204) were settled by D269 with AP3: typed results (`LoginResponse`,
   `NewTokenResponse`, `web.Empty`) and `Route.Status(201)` on the
   routes that create. The login's two shapes (a token, or a challenge)
   are one struct with optional members.
-- **Tokens:** a sign-in's token has every ability (`*`), is named after
+- **Tokens:** a login's token has every ability (`*`), is named after
   the client's `device_name` (default "API"), and expires in 30 days;
   `POST /tokens` names its abilities (default `*`) and lasts 90 days.
   `POST /logout` revokes the request's token; a new password revokes
   every other token of the user, keeping the request's (D265).
 - **The password again** (the web pages' `RequireConfirmed`): creating
-  a token, starting or turning off two-factor sign-in and new recovery
+  a token, starting or turning off two-factor authentication and new recovery
   codes take the current password in the request, checked with
   `ConfirmPassword`'s budget (`AUTH_THROTTLE` a minute, 50 wrong a day);
   confirming a started setup takes its code, and revokes the user's
-  other tokens, as the pages sign out other sessions (D265).
-- **Two-factor sign-in at login** without a session: `AttemptCredentials`
+  other tokens, as the pages log out other sessions (D265).
+- **Two-factor authentication at login** without a session: `AttemptCredentials`
   checks the password as `Attempt` does (its throttling and timing) but
-  signs nothing in; with two-factor sign-in on it fails with a
+  logs no one in; with two-factor authentication on it fails with a
   `*TwoFactorChallenge` (an `ErrTwoFactorRequired`) whose `Token` the
   client gets: encrypted, naming the user, a fingerprint of the password
   hash and session key, 10 minutes; `AttemptTwoFactorChallenge` checks
@@ -1300,13 +1300,13 @@ accounts whose sign-in is an API token: no sessions, cookies or CSRF.
 - **Abilities:** the account's own routes (`/password`, `/tokens`,
   `/two-factor`) take a token with every ability (`*`, a login's); a
   token made for a program, with narrower ones, gets 403 there, so it
-  can't make tokens, revoke the others or change how the account signs
+  can't make tokens, revoke the others or change how the account logs
   in (review48). `/me`, `/logout` and the verification link work with
   any token.
 - **401s** of `Require` behind `TokenMiddleware` carry
   `WWW-Authenticate: Bearer`, as RFC 6750 asks, with or without a
   session (D267).
-- **Not in AP2** (D268): sign-in with Google and GitHub, changing the
+- **Not in AP2** (D268): login with Google and GitHub, changing the
   email address, deleting the account and the settings page's
   preferences. They are the web pages' or need a redirect flow; the
   generated code is the place to add them.
@@ -1430,7 +1430,7 @@ SPA-style (v0.6):
   error bag, redirect semantics. Inertia's own client adapters cover Vue,
   React and Svelte.
 - `anetos new --stack=vue|react|svelte` (v0.6), on the API stack's
-  pieces, with session-cookie sign-in for single-page apps on the app's
+  pieces, with session-cookie login for single-page apps on the app's
   own domain.
 
 ### 12.3 Admin interface (v0.3: AD1, AD2)
@@ -1471,8 +1471,8 @@ which the app edits like any code (validation, filters, actions).
 
 **Where it lives.** `ADMIN_PATH` (default `/admin`) or `ADMIN_HOST`
 (`admin.example.com`, with the path `/`): the router gets host routes
-(`Router.Host`), and URLs of host routes are absolute (D214). Sign-in is
-the app's (`make:auth`): the admin's routes require a signed-in user
+(`Router.Host`), and URLs of host routes are absolute (D214). Login is
+the app's (`make:auth`): the admin's routes require a logged-in user
 (`auth.Require`, so guests go to `AUTH_LOGIN_URL`) with the permission
 `admin.access`.
 
@@ -1513,33 +1513,33 @@ with account management on top (D220):
   and unverified addresses, from the columns named in `Accounts`
   (`DisabledAt`, `VerifiedAt`, both `*time.Time` fields).
 - **Disable and enable** (D215): package `auth` learns of disabled
-  accounts through `Users.Disabled`. A disabled user is signed out on
-  their next request, can't sign in (`auth.ErrDisabled`, said only once
+  accounts through `Users.Disabled`. A disabled user is logged out on
+  their next request, can't log in (`auth.ErrDisabled`, said only once
   the password checks out), and their API tokens and remember-me cookies
-  stop working; `ActAs` treats them as a guest.
+  stop working; `WithUser` treats them as a guest.
 - **Verification:** mark an address verified; send the verification
   email or a password-reset link again through the app's own mail code
   (`Accounts.SendVerification`, `SendPasswordReset`), which `make:auth`
   exports for this.
-- **Sessions and tokens** (D216): "sign out everywhere" replaces the
+- **Sessions and tokens** (D216): "log out everywhere" replaces the
   user's session key (`Users.SessionKey`, `SetSessionKey`), which every
   session and remember-me cookie is bound to with the password hash, so
   all of them end at once; the API tokens are listed (name, abilities,
   last use, expiry) and revoked one by one or all together.
-- **Acting as the user** (D217): `auth.Auth.Impersonate` signs the admin
+- **Impersonating the user** (D217): `auth.Auth.Impersonate` logs the admin
   in as the user, keeping who they are in the session; a banner
   (`admin.Banner`, in the app's layout and the admin's) says so and stops
   it. It needs `admin.users.impersonate`, isn't possible for disabled
-  users, oneself, through API tokens, while already acting as someone, or
+  users, oneself, through API tokens, while already impersonating someone, or
   with `ADMIN_HOST` (the app's pages are on another host, with another
   session), and is logged: its start and its stop, and every change
-  made meanwhile, which the audit log attributes to the admin, acting as
-  the user (`acting_as`); signing out ends it too, unlogged.
+  made meanwhile, which the audit log attributes to the admin, impersonating
+  the user (`acting_as`); logging out ends it too, unlogged.
 - **Who may manage whom** (D218): changing a user (editing, disabling,
-  signing out, acting as, deleting, their roles) needs every permission
+  logging out, impersonating, deleting, their roles) needs every permission
   they have, in every scope (`rbac.AuthorizeOver`), so support staff
-  can't take over an administrator's account; and no one disables, acts
-  as, deletes or changes the roles of themselves.
+  can't take over an administrator's account; and no one disables,
+  impersonates, deletes or changes the roles of themselves.
 - **Roles and permissions** of the user, by scope: roles given and taken
   away (`rbac.AuthorizeRole`: no one gives more than they have), direct
   permissions revoked.
@@ -1585,29 +1585,29 @@ running are logged. Counting and finding a failed job are optional store
 methods (`queue.FailedCounter`, `queue.FailedFinder`, with
 `queue.CountFailed` and `queue.FindFailed` reading the list otherwise).
 
-**Security (AD2b, D224–D226).** Two-factor sign-in with TOTP (RFC 6238:
+**Security (AD2b, D224–D226).** Two-factor authentication with TOTP (RFC 6238:
 six digits, 30-second steps, HMAC-SHA-1, a step either side, each step
 used once) and recovery codes (eight, 50 bits, hashed, each used once)
 in package `auth`: `Users.TwoFactor` and `SetTwoFactor` store one value,
 encrypted with `APP_KEY` for that user; `StartTwoFactor`,
 `StartedTwoFactor`, `ConfirmTwoFactor`, `NewRecoveryCodes`,
-`DisableTwoFactor`. `Attempt` (and `SignIn`, which package `social`
+`DisableTwoFactor`. `Attempt` (and `Login`, which package `social`
 uses) stops at `ErrTwoFactorRequired` for users who have it on, the
-session holding a sign-in that waits ten minutes; `AttemptTwoFactor`
+session holding a login that waits ten minutes; `AttemptTwoFactor`
 finishes it with a code (throttled per user: `AUTH_THROTTLE` a minute,
 50 wrong codes a day). Turning it on ends the user's other sessions and
 remember-me cookies. Password confirmation:
 `Auth.ConfirmPassword`, `PasswordConfirmed` and the `RequireConfirmed`
 middleware (`AUTH_CONFIRM_URL`, `AUTH_CONFIRM_TTL`, default 15 minutes;
-for users without a password, a fresh `SignIn` counts),
+for users without a password, a fresh `Login` counts),
 which the admin asks for on its own page before dangerous actions
-(deleting, disabling, roles and permissions, acting as a user,
+(deleting, disabling, roles and permissions, impersonating a user,
 forgetting every failed job, actions marked `Danger`; `ADMIN_CONFIRM`).
-`ADMIN_TWO_FACTOR=required` sends admins without two-factor sign-in to
+`ADMIN_TWO_FACTOR=required` sends admins without two-factor authentication to
 turn it on (`AUTH_TWO_FACTOR_URL`); `ADMIN_ALLOW_IPS` lets in only some
 addresses (others get 404). Package `qr` draws QR codes as SVG (for
-the setup). `make:auth` adds the pages: the code at sign-in, turning
-two-factor sign-in on and off, and confirming the password.
+the setup). `make:auth` adds the pages: the code at login, turning
+two-factor authentication on and off, and confirming the password.
 
 ---
 
@@ -2104,13 +2104,13 @@ for ev, err := range support.Stream(ctx, question) { … }  // the answer as it'
   period, from a function of the user, so plans differ), counted with
   `ratelimit.AllowN` in the app's cache and checked before each request:
   over budget, a `*BudgetError` inside a 429 `HTTPError` with a message for
-  the user. Streams stopped partway are counted with an estimate. A call is for `ForUser`'s user, else the signed-in one
+  the user. Streams stopped partway are counted with an estimate. A call is for `ForUser`'s user, else the logged-in one
   (`auth.CurrentID`); `TotalUsage` sums a user's records.
 - **Queued replies** (A3, D177): `ai.QueueAgents(app, agents...)`
   registers the `ai.reply` job (30-minute timeout) with the agents, by
   name; `conv.QueueReply(ctx, agent)` sets the status to `queued` and
   dispatches after commit. The job acts as the conversation's user
-  (`auth.ActAs`, new in A3, with the queuing request's token abilities),
+  (`auth.WithUser`, new in A3, with the queuing request's token abilities),
   so tools see them as in a request; retries rerun the tools; it does
   nothing if the conversation's message count changed since dispatch
   (answered by an earlier attempt, or a newer question), 4xx errors fail
@@ -2207,7 +2207,7 @@ mailer.Send(i18n.ForUser(ctx, u), mails.Welcome{User: u}) // the user's mail lan
   and script the matcher rates at least High (`fr-CH` → `fr-CA`; never
   `zh` → `zh-Hant`, nor `hy` → `ru`, a fallback the matcher offers). `APP_LOCALE_STRATEGY`
   chooses the strategy:
-  - `none` (default): the `locale` cookie, the session, the signed-in
+  - `none` (default): the `locale` cookie, the session, the logged-in
     user's preference, `Accept-Language`, `APP_LOCALE`. The cookie and
     session hold a choice made on this device (a switcher, `c.SetLocale`),
     which beats the account's default; a settings page that changes the
@@ -2236,13 +2236,13 @@ mailer.Send(i18n.ForUser(ctx, u), mails.Welcome{User: u}) // the user's mail lan
   logged and carry the security headers) and before the body limit and
   timeout (whose error pages are then translated), inactive
   without `i18n.New`; `i18n.WithResolver` lets other code supply its
-  own. The session and the signed-in user are consulted only if the
+  own. The session and the logged-in user are consulted only if the
   first use comes after their middleware, as in handlers.
 - **Users' preferences.** A user model may implement `PreferredLocale()`,
   `CommunicationLocale()` and `PreferredTimeZone()` (each optional): the
   site shows the first, mail and notifications use the second (default:
   the first), times are shown in the third (default `APP_TIMEZONE`).
-  `auth` makes the signed-in user's preference part of the request's
+  `auth` makes the logged-in user's preference part of the request's
   locale (with `APP_LOCALE_STRATEGY=none`) and zone, and `i18n.ForUser(ctx, u)` returns ctx in the user's
   communication locale and zone. Queue jobs carry the locale and zone of
   the context that dispatched them, so a job, and mail rendered in it,
@@ -2252,7 +2252,7 @@ mailer.Send(i18n.ForUser(ctx, u), mails.Welcome{User: u}) // the user's mail lan
   tag, then the humanized name), rule parameters
   (`validation.values.<parameter>`), error pages (`http.status.<code>`,
   `<html lang>`), conversion errors of binding (`binding.<kind>`), CSRF,
-  sign-in and AI budget messages. A struct's `ValidationMessages` value
+  login and AI budget messages. A struct's `ValidationMessages` value
   that is a catalog key is translated, and a `web.HTTPError` with a `Key`
   shows that key's message (its `Message` stays for logs). Errors meant
   for logs (`Error()` strings) stay English. `make:auth` writes its pages'
@@ -2323,9 +2323,17 @@ if err := auth.Authorize(c, policies.Post.Update, &post); err != nil { return ni
   and login; optionally store remember tokens and upgraded hashes), so
   the app keeps its model and queries (D96).
 - **Sessions:** the session holds the user ID and a fingerprint of the
-  password hash (a password change signs out other sessions). `Login`
+  password hash (a password change logs out other sessions). `Login`
   regenerates the session ID; `Logout` invalidates it. The user loads
   lazily, once per request (D96).
+- **Words** (D312): users log in and log out, in the code as in the
+  pages (`Login`, `Logout`, `LogoutOthers`, `LogoutEverywhere`,
+  `ErrNoPendingLogin`; "login" as a noun). `Login` asks for the
+  two-factor code of a user who has it on, whatever logged them in
+  (a password through `Attempt`, a provider, registration). A feature
+  check is `Supports…` (`SupportsTwoFactor`, `SupportsRemember`), as
+  `Can` checks a permission; seeing the app as another user is
+  impersonating (`Impersonate`, the admin's **Impersonate**).
 - **Password auth:** argon2id (OWASP parameters, at most GOMAXPROCS
   computations at once) via `golang.org/x/crypto`, bcrypt verified for
   migrated users; weaker hashes upgraded after login; `Attempt` throttles
@@ -2341,9 +2349,9 @@ if err := auth.Authorize(c, policies.Post.Update, &post); err != nil { return ni
   single-use (D97).
 - **API tokens:** personal access tokens with abilities (Sanctum-like),
   `<id>|<secret>`, SHA-256 of the secret stored in `api_tokens`; Bearer
-  middleware; session users pass `TokenCan` (D99). An API's sign-in
+  middleware; session users pass `TokenCan` (D99). An API's login
   issues one (AP2, §12.2): `AttemptCredentials`, `TwoFactorChallenge` and
-  `AttemptTwoFactorChallenge` sign in without a session, `CheckPassword`
+  `AttemptTwoFactorChallenge` log in without a session, `CheckPassword`
   confirms the password per request, `RevokeOtherTokens` keeps only the
   request's, and `ClientLink` builds emailed links to `AUTH_CLIENT_URL`
   (D264–D266).
@@ -2361,7 +2369,7 @@ if err := auth.Authorize(c, policies.Post.Update, &post); err != nil { return ni
   to users, and email is used only when verified on both sides (D102).
   Credentials come from `SOCIAL_<NAME>_*`, callbacks from the new
   `APP_URL` (D103). Failures return to the login page with a `social`
-  field error; success signs in with `a.Login` and goes to the intended
+  field error; success logs in with `a.Login` and goes to the intended
   page, else `AUTH_HOME_URL` or `WithHomeURL`. Providers carry a `Title`
   for buttons. Tests swap every provider for a stand-in: an internal
   stub provided to the app before `New`, honored only with
@@ -2380,7 +2388,7 @@ if err := auth.Authorize(c, policies.Post.Update, &post); err != nil { return ni
   hierarchy; a scope's members are its grants (D170). A user's grants are
   read in one query (a second for roles of the database) once per unit of
   work, cached in the unit's context (`AroundUnits`), refreshed by the
-  package's own writes (D171). The signed-in user is checked by
+  package's own writes (D171). The logged-in user is checked by
   `rbac.Authorize`/`AuthorizeIn` (401/403), `Can`/`CanIn`,
   `HasRole`/`HasRoleIn`, `Require`/`RequireIn` with `PathScope`; any user
   by `rbac.Of`; a token-authenticated request may use only the permissions
@@ -2388,10 +2396,10 @@ if err := auth.Authorize(c, policies.Post.Update, &post); err != nil { return ni
   `AuthorizeRole` lets a user give only roles whose permissions they have
   in the scope, `AuthorizeRolesOf` change only roles they could give
   (D173).
-- **Acting as a user** (A3, D177): `a.ActAs(ctx, userID)` and
-  `auth.ActAs(ctx, userID)` (the app's Auth from the context) give work
+- **A user without a session** (A3, D177, D312): `a.WithUser(ctx, userID)` and
+  `auth.WithUser(ctx, userID)` (the app's Auth from the context) give work
   done for a user outside their requests (queue jobs, commands) a
-  signed-in user, loaded by ID when first asked for, with no session or
+  logged-in user, loaded by ID when first asked for, with no session or
   token: `auth.Current`, policies, `rbac` checks and AI tools see them. Checking an undeclared permission is an error, not
   a no (D174). Commands: `rbac:roles`, `rbac:user`, `rbac:assign`,
   `rbac:unassign`. `examples/teams` shows team and global roles.
@@ -2409,7 +2417,7 @@ if err := auth.Authorize(c, policies.Post.Update, &post); err != nil { return ni
   reset links go out with `mailer.Queue`, absolute on `APP_URL`.
   Security-critical pieces (hashing, tokens, session handling,
   throttling) stay in the library so fixes reach everyone through
-  `go get -u`. Since v0.3 (M10, D237, D238): signing in leads to the
+  `go get -u`. Since v0.3 (M10, D237, D238): logging in leads to the
   page asked for, else `AUTH_HOME_URL`, whose default `setupAuth` sets
   in code (`auth.DefaultHomeURL("/dashboard")`; the setting wins); the
   layout's header shows `AccountMenu`, and `sessions.Use(a.Middleware)`
@@ -2524,7 +2532,7 @@ batch, across sets).
   lists them (D133).
   `make:auth` also writes the account settings page (AC1, D227, D228):
   `/settings` (`AUTH_SETTINGS_URL`) with the name, the password
-  (`Auth.ChangePassword`, which signs out the user's other sessions), the
+  (`Auth.ChangePassword`, which logs out the user's other sessions), the
   language and time zone (`i18n.TimeZones`), a new email address (kept in
   `pending_email` until the link sent to it is followed; the old address
   is told, with a link that undoes the change and secures the account;
@@ -2655,8 +2663,8 @@ func TestCreatePost(t *testing.T) {
   redirects (by path or route name), headers, text (as is or
   HTML-escaped), JSON and JSON paths, validation errors (422 problem or
   flashed), session values. `Follow()` loads a redirect.
-  `anetostest.ActingAs(app, u)` signs a user in by writing the session a
-  password sign-in would (`auth.Auth.LoginSession`), so tests that switch
+  `anetostest.ActingAs(app, u)` logs a user in by writing the session a
+  password login would (`auth.Auth.LoginSession`), so tests that switch
   users needn't post the login form (D235).
 - **Data** (D77, D78): factories (`db/factory`) and generic database
   assertions (`AssertDatabaseHas[T]`, `…Missing`, `…Count`,
@@ -2672,7 +2680,7 @@ func TestCreatePost(t *testing.T) {
   `AssertMailSent[M]` / `AssertMailQueued[M]`, `AssertPublished[T]`);
   `app.Disk(name)` checks files. `FakeSocial()` runs a stand-in OpenID
   Connect provider on a local TLS server for social login, and
-  `app.SocialSignIn(redirect, account)` signs in through the real flow
+  `app.SocialLogin(redirect, account)` logs in through the real flow
   (D149). The AI client uses its fake provider: `FakeAI(replies…)`
   scripts the model's answers, `app.AI()` and `AssertPrompted` check what
   it was sent (D165).
@@ -2731,7 +2739,7 @@ Secure by default, opt-out only when you mean it. Reviewed in M7
   No Content-Security-Policy for app pages: a policy must fit the app's
   scripts, and the dev server injects an inline reload script; the admin sets a strict one,
   and the guide shows one that fits generated apps (D250). `auth.Require`
-  makes signed-in responses `no-store` (D247).
+  makes logged-in responses `no-store` (D247).
 - The client's address only from `X-Forwarded-For` sent by
   `HTTP_TRUSTED_PROXIES` (D247).
 - Every query parameterized; the raw SQL API has no string-interpolation
@@ -2801,7 +2809,7 @@ Reviewed in M6 (v0.3; D251–D253). Numbers, method and code:
   (d) a list of 20 rows; and the cost of each part of the page an app
   made with `anetos new` and `make:auth` serves (server middleware with
   the access log, the request's locale, the session cookie, CSRF, the
-  signed-in user, the list, the rendering), which has no hand-written
+  logged-in user, the list, the rendering), which has no hand-written
   equivalent. Other routers and frameworks (chi, Gin, Echo) doing the
   same hello and JSON work are measured beside them (D253).
 - **Rules:** no per-request reflection; bind plans and route data
@@ -3175,6 +3183,7 @@ unless new information arrives), **Open**, **Superseded**.
 | D309 | From v0.5, the first public release, a renamed or removed identifier is kept one minor release as `// Deprecated:`, with `//go:fix inline` where the old name can be written with the new one (a wrapper function or a type alias), and removed in the next minor; renames found by the API stability pass (M8b) are shimmed this way until v0.6. `docs/contributing/api-guidelines.md` is the standard new API and the pass are held to | Accepted | User's choice (2026-10-10). Pre-1.0 rules allow breaking changes, but public users need a release to move; Go 1.26 (the minimum) runs `//go:fix inline` in `go fix`, which makes a rename a one-command migration. One minor keeps the deprecated names from piling up before v1.0. Supersedes the "from v1.0" deprecation rule of §23 |
 | D310 | Names are the ones developers already know: Go's for Go-shaped things, Laravel's or Rails' for framework concepts; a new word only for a new concept, with a glossary entry. Services the app builds from its settings are `pkg.New(app, …)` (they were `ForApp`, a word no library uses, never decided, copied from F10's `session.ForApp`); a client of an external server is `Connect` (`db.Connect`, `redis.Connect`); the constructors from explicit parts that were `New` take the type's name or `NewWith<Part>` (`events.NewBus`, `cache.NewWithStore`); `openapi.ForApp` is `openapi.Register` (it builds nothing). A second `New` (or `db.Connect`) for one app is an error, except `encryption.New`, which returns the same encrypter, and `redis.Connect`, which returns the same client (the cache, queue, session and pub/sub drivers all call it). `ForApp` stays deprecated with `//go:fix inline` until v0.6 (D309) | Accepted | User's direction (2026-10-10): "nobody will like to use a new keyword for something they are used to". A vocabulary review of the four repositories (`docs/planning/dx-vocabulary-findings.md`) found `ForApp` the most visible invented word (≈975 uses, nine in every new `main.go`, never explained); the other deviations it found are fixed in M8b-2 to M8b-6. Errors on a second call replace four different behaviours (an error, a second connection then a misleading failure, a silent second service, a new one each time) |
 | D311 | Settings: every key starts with its area's prefix; the key that picks a backend is `<AREA>_DRIVER` (`DB_DRIVER`, `CACHE_DRIVER`; `AI_PROVIDER` stays); a driver's keys are `<AREA>_<DRIVER>_*`, and a plugin's own start with its name (ext's rule: postmark's mail driver reads `MAIL_POSTMARK_*`, its webhook `POSTMARK_WEBHOOK_*`); how long something stays valid is `_TTL` (`SESSION_TTL`, `AUTH_REMEMBER_TTL`, as `AUTH_RESET_TTL`); the database's are `DB_NAME`, `DB_USER`, `DB_MIGRATE_*`, `DB_SEARCH_*`; `LOCALE_URL` is `APP_LOCALE_STRATEGY`. Keys an ecosystem names stay (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `REDIS_URL`, `STORAGE_EMULATOR_HOST`, `DB_CONN_MAX_LIFETIME` after `database/sql`), and the platforms' `PORT` is read when `HTTP_ADDR` isn't, their `postgres://` `DATABASE_URL` when nothing else says where the database is (no `DB_URL`, `DB_HOST`, `DB_NAME`; `DB_DRIVER` unset or postgres), logged when used and ignored by tests. A renamed key is read under its former name until v0.6 through a `was` tag, which the app's configuration source reports (a warning at startup, a doctor finding); the same source records the keys read and the former names, so doctor points at a `.env` key that is another framework's name (`QUEUE_CONNECTION`: use `QUEUE_DRIVER`), a former name left beside its new one, or a typo of a setting; a key it can't place is the app's own, or a driver's not selected, and it says nothing | Accepted | User's choices (2026-10-10): "all DB related variables should be prefixed with DB… similar rule for other env variables", `DB_USER` over `DB_USERNAME`, `DB_NAME`, `_TTL` everywhere, migrations and search under `DB_`, the platform fallbacks. Laravel's names (`DB_CONNECTION`, `CACHE_STORE`, `QUEUE_CONNECTION`, `MAIL_MAILER`) name entries of its config files, a layer Anetos doesn't have, and disagree among themselves; a wrong guess used to be ignored silently (`CACHE_DRIVER=redis` left a per-instance memory cache) |
+| D312 | Logging in has one vocabulary: "log in" and "log out" (verbs), "login" and "logout" (nouns and identifiers), in the API, the generated pages, the messages and the docs ("single sign-on" and "sign up" stay); `Auth.Login` asks for the two-factor code (it was `SignIn`'s job, and `Login` skipped it); `SignOutOthers`, `SignOutEverywhere`, `ErrNoPendingSignIn` are `LogoutOthers`, `LogoutEverywhere`, `ErrNoPendingLogin`; `ErrNoUser` is `ErrUserNotFound`; feature checks are `Supports…` (`SupportsTwoFactor`, `SupportsRemember`, `SupportsLogoutEverywhere`), as `Can` is a permission check (RBAC's `Can`); `auth.ActAs` is `auth.WithUser` (as `context.WithValue`: it returns a context) and its option `UserOption`; `social.ErrNoAccount` (a struct) is `NoAccountError`, Go's name for an error type; `anetostest.App.SocialSignIn` is `SocialLogin`; the admin's "Act as user" is "Impersonate", and "two-factor sign-in" is two-factor authentication. The old names stay deprecated until v0.6 (D309); `auth.User` and `auth.Current` both stay | Accepted | User's choice (2026-10-10): "Log in" for the code, one word in the UI. The framework said "sign in" in some places and "log in" in others (its routes, `/login`, and Laravel's said log in), and had two methods for one act whose difference (the code) was a trap: a callback that used `Login` skipped two-factor authentication. Laravel, Django and Rails' generators say log in; Filament and Nova say impersonate |
 
 ---
 
@@ -3273,3 +3282,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-10 | M8a (API rules and files): §23 updated; D308, D309 added |
 | 2026-10-10 | M8b-1 (constructing services): `ForApp` → `New` throughout; D310 added |
 | 2026-10-10 | M8b-2 (settings): §7 updated; D311 added |
+| 2026-10-10 | M8b-3 (logging in): §15 updated; D312 added |

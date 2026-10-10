@@ -83,7 +83,7 @@ func opsApp(t *testing.T, ran chan<- string, hold <-chan struct{}, env ...string
 
 func TestDashboard(t *testing.T) {
 	app := opsApp(t, make(chan string, 1), nil)
-	signIn(t, app, "Ada", "admin")
+	login(t, app, "Ada", "admin")
 	newPost(t, app, "First", "draft")
 	if err := db.Create(app.Context(), &ai.UsageRecord{UserID: "1", Provider: "fake", Model: "m", InputTokens: 1000, OutputTokens: 234, Cost: 0.5}); err != nil {
 		t.Fatal(err)
@@ -136,14 +136,14 @@ func TestDashboardErrors(t *testing.T) {
 // Without the activity pages, recent activity links nowhere.
 func TestRecentActivityAlone(t *testing.T) {
 	app := anetostest.New(t, setupWith(func(p *Panel) error { return p.Dashboard(RecentActivity(5)) }))
-	signIn(t, app, "Ada", "admin")
+	login(t, app, "Ada", "admin")
 	newPost(t, app, "First", "draft")
 	app.Get("/admin").AssertOK().AssertSee("Recent activity", "posts #1").AssertDontSee("/admin/activity")
 }
 
 func TestActivityPages(t *testing.T) {
 	app := opsApp(t, make(chan string, 1), nil)
-	ada := signIn(t, app, "Ada", "admin")
+	ada := login(t, app, "Ada", "admin")
 	p := newPost(t, app, "First", "draft")
 	app.PostForm(postURL(p, ""), url.Values{"title": {"Renamed"}, "status": {"draft"}}).AssertStatus(303)
 	app.PostForm("/admin/posts/bulk", url.Values{"action": {"feature"}, "ids": {fmt.Sprint(p.ID)}}).AssertStatus(303)
@@ -175,7 +175,7 @@ func TestActivityPages(t *testing.T) {
 	app.Get(fmt.Sprintf("/admin/activity/bulk/%d", o.ID)).AssertOK().AssertSee("Rows", `href="/admin/posts/`+fmt.Sprint(p.ID)+`"`, "featured")
 
 	// Without the permission: nothing of it.
-	signIn(t, app, "Vera", Access, "admin.posts.view")
+	login(t, app, "Vera", Access, "admin.posts.view")
 	app.Get("/admin/activity").AssertForbidden()
 	app.Get(postURL(p, "")).AssertOK().AssertDontSee("<h2>History</h2>")
 	app.Get("/admin").AssertDontSee("Recent activity", "Queue", "Secret")
@@ -183,7 +183,7 @@ func TestActivityPages(t *testing.T) {
 
 func TestJobsPage(t *testing.T) {
 	app := opsApp(t, make(chan string, 1), nil)
-	signIn(t, app, "Ada", "admin")
+	login(t, app, "Ada", "admin")
 	q := anetos.MustResolve[*queue.Queue](app.App)
 	ctx := app.Context()
 	fail := func(id string) {
@@ -225,7 +225,7 @@ func TestJobsPage(t *testing.T) {
 	if fmt.Sprint(actions) != "[job.retried job.forgotten jobs.retried jobs.flushed]" {
 		t.Errorf("logged %v", actions)
 	}
-	signIn(t, app, "Vera", Access, "admin.jobs.view")
+	login(t, app, "Vera", Access, "admin.jobs.view")
 	app.Get("/admin/jobs").AssertOK().AssertDontSee("Retry all")
 	app.PostForm("/admin/jobs/failed/flush", nil).AssertForbidden()
 }
@@ -245,7 +245,7 @@ func TestJobsHost(t *testing.T) {
 	if err := q.Store().Fail(ctx, r, "boom"); err != nil {
 		t.Fatal(err)
 	}
-	signIn(t, app, "Ada", "admin")
+	login(t, app, "Ada", "admin")
 	req, err := http.NewRequest(http.MethodGet, "/jobs", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -258,7 +258,7 @@ func TestSchedulePage(t *testing.T) {
 	ran := make(chan string, 1)
 	hold := make(chan struct{})
 	app := opsApp(t, ran, hold)
-	signIn(t, app, "Ada", "admin")
+	login(t, app, "Ada", "admin")
 	app.Get("/admin/schedule").AssertOK().AssertSee("prune", "without overlapping", "Not known", "Run now")
 	app.PostForm("/admin/schedule/prune/run", nil).AssertRedirect("/admin/schedule").Follow().AssertSee("The task prune is running.")
 	select {
@@ -292,7 +292,7 @@ func TestSchedulePage(t *testing.T) {
 		t.Fatal(err)
 	}
 	app.Get("/admin/schedule").AssertOK().AssertSee("Not known").AssertDontSee("disk full")
-	signIn(t, app, "Vera", Access, "admin.schedule.view")
+	login(t, app, "Vera", Access, "admin.schedule.view")
 	app.Get("/admin/schedule").AssertOK().AssertDontSee("Run now")
 	app.PostForm("/admin/schedule/prune/run", nil).AssertForbidden()
 }

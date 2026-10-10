@@ -16,7 +16,7 @@ support, and for "who changed this?".
 - [Connect to a database](database.md) and run your
   [migrations](migrations.md) with `migrate.New`.
 - To record *who*, set up [authentication](authentication.md): changes
-  are attributed to the signed-in user. Without it, they are attributed
+  are attributed to the logged-in user. Without it, they are attributed
   to the system.
 
 The code here comes from [`examples/audit`](../../../examples/audit), a
@@ -265,13 +265,13 @@ table.
 Changes are attributed, in order, to:
 
 1. the actor you set with `audit.WithActor`;
-2. the signed-in user, or the one a job acts as (`auth.ActAs`); while
-   someone acts as a user (`auth.Impersonate`, the admin's "Act as
-   user"), that someone, with the user in the entry's `ActingAs`
+2. the logged-in user, or the one a job acts as (`auth.WithUser`); while
+   someone impersonates a user (`auth.Impersonate`, the admin's
+   "Impersonate"), that someone, with the user in the entry's `ActingAs`
    (`"user:42"`; jobs dispatched meanwhile carry that someone alone);
 3. in a queue job or an async event listener, the actor of the work that
    started it: a job a user's request dispatched is attributed to that
-   user (dispatching loads the signed-in user, once per request, to know
+   user (dispatching loads the logged-in user, once per request, to know
    who; if that fails, the job's tracked writes fail rather than guess);
 4. otherwise `system` (commands, scheduled tasks).
 
@@ -282,7 +282,7 @@ A webhook's handler names its sender:
 ctx := audit.WithActor(c, audit.Actor{Type: "service", ID: "stripe"})
 ```
 
-If the signed-in user can't be loaded (the database is down), the write
+If the logged-in user can't be loaded (the database is down), the write
 fails: the log doesn't guess who did it.
 
 ### 8. Keep entries for as long as you must, and no longer
@@ -297,7 +297,7 @@ fails: the log doesn't guess who did it.
   the GDPR, so decide, and say so in your privacy notice.
 - **Erasure requests:** `audit:anonymize user 42` (or `audit.Anonymize`)
   replaces the user with `erased` in every entry, as the actor and as the
-  user someone acted as, and drops the IP addresses of the entries they
+  user someone impersonated, and drops the IP addresses of the entries they
   made. Entries *about* the person's own rows keep their values:
   delete those with `db.Query[audit.Entry]` if the request covers them.
 

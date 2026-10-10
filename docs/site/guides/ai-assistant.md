@@ -28,7 +28,7 @@ index).
 
 ### 1. Write the agent
 
-The agent's tools query the app's data. They run as the signed-in user,
+The agent's tools query the app's data. They run as the logged-in user,
 so a tool sees only what the user may see. Here, one searches the
 articles by their embeddings and words (`articles.Tool`, from
 [Search by meaning](semantic-search.md)), and one reads an article:
@@ -264,7 +264,7 @@ func (Handlers) Status(c *web.Ctx, in ChatPath) (web.Responder, error) {
 
 (Copied from [`examples/assistant`](../../../examples/assistant/main.go), region `later`.)
 
-The job runs the agent as the user (`auth.ActAs`): its tools see them as
+The job runs the agent as the user (`auth.WithUser`): its tools see them as
 in a request. A job retried after it answered, or that finds a newer
 question, does nothing, so each question gets one answer. A failed
 attempt is retried from the start, tools included: make tools that
@@ -330,7 +330,7 @@ func TestAssistant(t *testing.T) {
 		ai.FakeToolCall("read_article", ReadInput{ID: export.ID}),
 		ai.FakeText("Open Settings, then Data, and choose Export (Export your lists)."),
 	)
-	signIn(t, app, "Ada")
+	login(t, app, "Ada")
 
 	chat := startChat(t, app, "How do I export my lists?")
 	app.Get(chat).AssertSee("How do I export my lists?", `sse-connect="`+chat+`/reply"`)
@@ -364,7 +364,7 @@ its transaction commits, so a test sees the answer at once:
 func TestAnswerLater(t *testing.T) {
 	// QUEUE_DRIVER is sync by default: the job runs at once.
 	app := anetostest.New(t, setup, anetostest.FakeAI(ai.FakeText("Hello!"), ai.FakeText("Shared lists need a Team plan.")))
-	signIn(t, app, "Ada")
+	login(t, app, "Ada")
 	chat := startChat(t, app, "Hi")
 	app.Get(chat + "/reply")
 

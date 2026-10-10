@@ -29,7 +29,7 @@ export DB_NAME=/tmp/tracker.db STORAGE_ROOT=/tmp/tracker-files HTTP_ADDR=:8081
 ```
 
 `APP_DEBUG=false` overrides `.env`, which the app still reads in the
-project's folder. Production cookies are HTTPS-only, so signing in needs
+project's folder. Production cookies are HTTPS-only, so logging in needs
 HTTPS: put a proxy in front, as the deploy guide shows.
 
 ## Or as an image

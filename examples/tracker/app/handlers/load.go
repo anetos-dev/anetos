@@ -31,7 +31,7 @@ type IssuePath struct {
 	Number  int    `path:"number"`
 }
 
-// loadProject returns the project with the key if the signed-in user may
+// loadProject returns the project with the key if the logged-in user may
 // do p in it. A project they can't see is a 404, as if it didn't exist;
 // one they see but may not do p in, a 403. Archived projects are
 // read-only: only viewing is allowed.
@@ -78,7 +78,7 @@ func loadIssue(ctx context.Context, in IssuePath, p rbac.Permission) (models.Pro
 	return project, issue, err
 }
 
-// currentUser returns the signed-in user.
+// currentUser returns the logged-in user.
 func currentUser(ctx context.Context) (*models.User, error) {
 	return auth.Current[*models.User](ctx)
 }

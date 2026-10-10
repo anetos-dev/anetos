@@ -55,7 +55,7 @@ and `ratelimit.Per(n, window)` for any window.
 ### 2. Count per user or token
 
 By default, hits are counted per client IP address (per `/64` network for
-IPv6). Count per something else with `By`, such as the signed-in user:
+IPv6). Count per something else with `By`, such as the logged-in user:
 
 ```go
 // illustrative
@@ -64,7 +64,7 @@ perUser := ratelimit.PerMinute(600).By(func(r *http.Request) string {
 })
 perGuest := ratelimit.PerMinute(60).By(func(r *http.Request) string {
 	if userID(r) != "" {
-		return "" // signed in: perUser applies
+		return "" // logged in: perUser applies
 	}
 	return ratelimit.IP(r)
 })

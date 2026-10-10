@@ -49,13 +49,13 @@ func (s *raceStore) users() auth.Users[*raceUser] {
 				time.Sleep(50 * time.Millisecond) // database latency
 			}
 			if id != "1" {
-				return nil, auth.ErrNoUser
+				return nil, auth.ErrUserNotFound
 			}
 			return s.get(), nil
 		},
 		ByLogin: func(ctx context.Context, l string) (*raceUser, error) {
 			if !strings.EqualFold(l, "ada@example.com") {
-				return nil, auth.ErrNoUser
+				return nil, auth.ErrUserNotFound
 			}
 			return s.get(), nil
 		},
@@ -97,7 +97,7 @@ func (c *raceClient) post(t *testing.T, path string, form url.Values) int {
 	return w.Code
 }
 
-// Two concurrent challenges with the same code: only one signs in
+// Two concurrent challenges with the same code: only one logs in
 // (the check and the update are under a lock).
 func TestTOTPReuseRace(t *testing.T) {
 	h, _ := password.Hash("secret")
@@ -159,6 +159,6 @@ func TestTOTPReuseRace(t *testing.T) {
 	}
 	wg.Wait()
 	if codes[0] == http.StatusNoContent && codes[1] == http.StatusNoContent {
-		t.Errorf("one code signed in two sessions: %v", codes)
+		t.Errorf("one code logged in two sessions: %v", codes)
 	}
 }

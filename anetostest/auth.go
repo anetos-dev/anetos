@@ -10,9 +10,9 @@ import (
 	"anetos.dev/anetos/session"
 )
 
-// ActingAs signs u in for the requests that follow, as a password sign-in
+// ActingAs logs u in for the requests that follow, as a password login
 // without remember-me would, so a test needn't post the login form. It
-// replaces whoever was signed in, and drops a remember-me cookie. U is
+// replaces whoever was logged in, and drops a remember-me cookie. U is
 // the user type given to
 // auth.New in setup (*models.User):
 //
@@ -33,7 +33,7 @@ func ActingAs[U auth.Authenticatable](a *App, u U) *App {
 	if loginErr != nil {
 		a.t.Fatalf("anetostest: ActingAs: %v", loginErr)
 	}
-	// An earlier user's remember-me cookie would sign them back in if
+	// An earlier user's remember-me cookie would log them back in if
 	// the session went.
 	a.jar.set([]*http.Cookie{{Name: au.RememberCookie(), Path: "/", MaxAge: -1}})
 	return a

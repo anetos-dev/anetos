@@ -14,13 +14,13 @@ import (
 	"anetos.dev/anetos/db/migrate"
 )
 
-// User is a member of staff, who signs in with an email and a password.
+// User is a member of staff, who logs in with an email and a password.
 type User struct {
 	db.Model
 	Name       string     `db:"name" json:"name"`
 	Email      string     `db:"email" json:"email"`
 	Password   string     `db:"password" json:"-"`
-	SessionKey string     `db:"session_key" json:"-"` // replaced to sign out everywhere
+	SessionKey string     `db:"session_key" json:"-"` // replaced to log out everywhere
 	DisabledAt *time.Time `db:"disabled_at" json:"disabled_at"`
 }
 
@@ -35,12 +35,12 @@ func (u *User) AdminName() string { return u.Name }
 
 // region: users
 // users tells package auth how to find users, which are disabled, and
-// how to sign them out everywhere.
+// how to log them out everywhere.
 var users = auth.Users[*User]{
 	ByID: func(ctx context.Context, id string) (*User, error) {
 		n, err := strconv.ParseInt(id, 10, 64)
 		if err != nil {
-			return nil, auth.ErrNoUser
+			return nil, auth.ErrUserNotFound
 		}
 		return found(db.Find[User](ctx, n))
 	},
@@ -59,7 +59,7 @@ var users = auth.Users[*User]{
 
 func found(u User, err error) (*User, error) {
 	if errors.Is(err, db.ErrNotFound) {
-		return nil, auth.ErrNoUser
+		return nil, auth.ErrUserNotFound
 	}
 	return &u, err
 }

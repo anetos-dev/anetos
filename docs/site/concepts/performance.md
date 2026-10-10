@@ -35,7 +35,7 @@ query and scan, and a list of 20 rows the same few microseconds.
 ## Where a page's time goes
 
 The page an app made with `anetos new` and `make:auth` serves to a
-signed-in user, with 20 rows from SQLite:
+logged-in user, with 20 rows from SQLite:
 
 ```mermaid
 flowchart LR

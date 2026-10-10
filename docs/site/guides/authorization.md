@@ -7,12 +7,12 @@ weight: 305
 
 # Authorization
 
-Decide what a signed-in user may do, with policies the compiler checks.
+Decide what a logged-in user may do, with policies the compiler checks.
 
 ## Before you start
 
 Set up [authentication](authentication.md): policies check the request's
-signed-in user.
+logged-in user.
 
 Policies decide from the user and the thing acted on ("authors edit
 their own posts"). For roles stored per user, globally or in a team
@@ -98,8 +98,8 @@ a comment, and there are no ability names to misspell.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Every check returns 401 | The route lacks the auth middleware, or no one is signed in | Add `a.Middleware` (or `a.Require`) to the route |
-| `the signed-in user isn't of the type asked for` | The policy's user type differs from the one given to `auth.New` | Use the same type (`*User` in both) |
+| Every check returns 401 | The route lacks the auth middleware, or no one is logged in | Add `a.Middleware` (or `a.Require`) to the route |
+| `the logged-in user isn't of the type asked for` | The policy's user type differs from the one given to `auth.New` | Use the same type (`*User` in both) |
 
 ## Next steps
 

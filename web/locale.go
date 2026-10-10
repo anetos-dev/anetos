@@ -59,7 +59,7 @@ func localeFrom(ctx context.Context) *localeState {
 // without one to the locale they chose before (the cookie) or their
 // browser prefers. With none, ?locale= on a page switches, and the
 // request gets a lazy resolver: the locale cookie, the session, the
-// signed-in user's preference, Accept-Language, then APP_LOCALE.
+// logged-in user's preference, Accept-Language, then APP_LOCALE.
 func localize(app *anetos.App) Middleware {
 	var cached atomic.Pointer[localeSetup]
 	var none atomic.Bool
@@ -297,7 +297,7 @@ func setLocaleCookie(w http.ResponseWriter, st *localeState, loc string) {
 var ErrUnsupportedLocale = &HTTPError{Status: http.StatusUnprocessableEntity, Message: "unsupported locale", Key: "http.unsupported_locale"}
 
 // SetLocale makes locale the visitor's: it is stored in the locale cookie
-// and the session (if the route has one), which come before a signed-in
+// and the session (if the route has one), which come before a logged-in
 // user's preference, and used for the rest of the request. A settings
 // page that saves a user's preferred locale calls it too, so the change
 // shows at once. With APP_LOCALE_STRATEGY=prefix or subdomain, send the visitor
@@ -323,7 +323,7 @@ func (c *Ctx) SetLocale(locale string) error {
 
 // ForgetLocale drops the visitor's chosen locale (the locale cookie and
 // the session's, which SetLocale and ?locale= keep), so later requests go
-// by the signed-in user's preference or the browser's language: for a
+// by the logged-in user's preference or the browser's language: for a
 // settings page where a user chooses "the browser's language". This
 // request keeps its locale.
 func (c *Ctx) ForgetLocale() {

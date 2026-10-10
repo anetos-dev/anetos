@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Package social signs users in with an account at another service:
+// Package social logs users in with an account at another service:
 // Google, GitHub, or any OpenID Connect provider. It runs the OAuth 2.0
 // authorization-code flow (with PKCE, state and, for OpenID Connect, a
 // nonce), and hands the account's profile to an app function that finds
-// or creates the user, whom package auth then signs in.
+// or creates the user, whom package auth then logs in.
 //
 //	s, err := social.New(app, a, findOrCreate, social.Configured(app, social.Google(), social.GitHub()))
 //	guests.Get("/auth/{provider}/redirect", s.Redirect)
@@ -39,7 +39,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// Profile is what a provider says about the account that signed in.
+// Profile is what a provider says about the account that logged in.
 type Profile struct {
 	// Provider is the provider's name ("google").
 	Provider string
@@ -60,14 +60,14 @@ type Profile struct {
 	Token *oauth2.Token
 }
 
-// Provider is a service users sign in with. [Google], [GitHub] and [OIDC]
+// Provider is a service users log in with. [Google], [GitHub] and [OIDC]
 // return the built-in ones; their fields can be changed (Scopes, say)
 // before they are passed to [New].
 type Provider struct {
 	// Name is the provider's name in URLs and settings: lower-case
 	// letters, digits, "-" and "_".
 	Name string
-	// Title is its name for people, on sign-in buttons ("Google");
+	// Title is its name for people, on login buttons ("Google");
 	// [Social.Title] falls back to Name.
 	Title string
 	// Endpoint is the provider's OAuth 2.0 authorization and token URLs.
@@ -107,7 +107,7 @@ type provider struct {
 	failedAt time.Time // when it failed: retried after discoveryBackoff
 }
 
-// Google is Google's sign-in (OpenID Connect), asking for the email
+// Google is Google's login (OpenID Connect), asking for the email
 // address and profile.
 func Google() Provider {
 	return Provider{
@@ -136,27 +136,35 @@ func Google() Provider {
 // (Microsoft Entra ID, by default) give profiles whose address isn't
 // verified.
 //
-// Set its Title for sign-in buttons ("Okta"); it defaults to name.
+// Set its Title for login buttons ("Okta"); it defaults to name.
 func OIDC(name, issuer string) Provider {
 	return Provider{Name: name, Issuer: issuer, Discover: true, Scopes: []string{"openid", "email", "profile"}}
 }
 
 // Resolver finds the app's user for a profile, creating or linking one as
-// the app decides; see [FindLink] and [Link]. An error signs no one in;
-// return [ErrNoAccount] to refuse with a message on the login page.
+// the app decides; see [FindLink] and [Link]. An error logs no one in;
+// return a [*NoAccountError] to refuse with a message on the login page.
 type Resolver[U auth.Authenticatable] func(ctx context.Context, p Profile) (U, error)
 
-// ErrNoAccount is what a Resolver returns to refuse a sign-in: the user is
-// sent back to the login page with Message as the "social" field error.
-type ErrNoAccount struct {
+// NoAccountError is what a Resolver returns to refuse a login: the user
+// is sent back to the login page with Message as the "social" field
+// error.
+type NoAccountError struct {
 	// Message is shown on the login page.
 	Message string
 }
 
 // Error implements error.
-func (e *ErrNoAccount) Error() string { return "social: " + e.Message }
+func (e *NoAccountError) Error() string { return "social: " + e.Message }
 
-// Social runs the sign-in flow for an app's providers.
+// ErrNoAccount is [NoAccountError].
+//
+// Deprecated: Use NoAccountError; ErrNoAccount is removed in v0.6.
+//
+//go:fix inline
+type ErrNoAccount = NoAccountError
+
+// Social runs the login flow for an app's providers.
 type Social[U auth.Authenticatable] struct {
 	auth      *auth.Auth[U]
 	resolve   Resolver[U]
@@ -194,7 +202,7 @@ func WithLogger(l *slog.Logger) Option { return func(o *options) { o.log = l } }
 // "/auth/{provider}/callback".
 func WithCallbackPath(p string) Option { return func(o *options) { o.callback = p } }
 
-// WithHomeURL sets where users go after signing in, when there's no page
+// WithHomeURL sets where users go after logging in, when there's no page
 // they were trying to reach (auth.Intended): a path of the app, such as
 // "/dashboard". Default AUTH_HOME_URL.
 func WithHomeURL(path string) Option { return func(o *options) { o.home = path } }
@@ -230,7 +238,7 @@ type Credentials struct {
 	ClientSecret anetos.Secret
 }
 
-// NewWithConfig returns a Social signing users in with a, for providers with the
+// NewWithConfig returns a Social logging users in with a, for providers with the
 // credentials given by name; baseURL is the app's public URL (APP_URL),
 // to which the callback path is added for the redirect URIs registered
 // with the providers.
@@ -372,11 +380,11 @@ func validName(n string) bool {
 }
 
 // Providers returns the names of the providers, in the order given, for
-// sign-in buttons.
+// login buttons.
 func (s *Social[U]) Providers() []string { return slices.Clone(s.order) }
 
 // Title returns the provider's name for people ([Provider.Title], or its
-// name), for sign-in buttons: "Sign in with Google".
+// name), for login buttons: "Log in with Google".
 func (s *Social[U]) Title(name string) string {
 	if p, ok := s.providers[name]; ok && p.Title != "" {
 		return p.Title
@@ -434,7 +442,7 @@ func httpsOnly(c *http.Client) *http.Client {
 }
 
 // Redirect sends the browser to the provider named by the route's
-// {provider} parameter to sign in; ?remember=1 asks for "remember me".
+// {provider} parameter to log in; ?remember=1 asks for "remember me".
 // Its route needs the session middleware.
 func (s *Social[U]) Redirect(c *web.Ctx) error {
 	r := c.Request()
@@ -446,9 +454,9 @@ func (s *Social[U]) Redirect(c *web.Ctx) error {
 	ctx := context.WithValue(c, oauth2.HTTPClient, s.client)
 	conf, err := s.config(ctx, p)
 	if err != nil {
-		return s.fail(c, err, "The sign-in service isn't available right now. Try again later.")
+		return s.fail(c, err, "The login service isn't available right now. Try again later.")
 	}
-	f := flow{State: random(), Verifier: oauth2.GenerateVerifier(), Remember: r.URL.Query().Get("remember") == "1" && s.auth.CanRemember(),
+	f := flow{State: random(), Verifier: oauth2.GenerateVerifier(), Remember: r.URL.Query().Get("remember") == "1" && s.auth.SupportsRemember(),
 		Expires: s.now().Add(flowTTL).Unix()}
 	opts := []oauth2.AuthCodeOption{oauth2.S256ChallengeOption(f.Verifier)}
 	if p.Issuer != "" {
@@ -459,9 +467,9 @@ func (s *Social[U]) Redirect(c *web.Ctx) error {
 	return c.Redirect(http.StatusSeeOther, conf.AuthCodeURL(f.State, opts...))
 }
 
-// Callback finishes the sign-in when the provider sends the browser back:
+// Callback finishes the login when the provider sends the browser back:
 // it checks the state, exchanges the code for tokens, reads the profile,
-// asks the Resolver for the user and signs them in, then redirects to
+// asks the Resolver for the user and logs them in, then redirects to
 // the page they wanted (auth.Intended) or AUTH_HOME_URL ([WithHomeURL]). Failures send
 // the browser to AUTH_LOGIN_URL with a "social" field error. Its route
 // needs the session and auth middleware.
@@ -494,7 +502,7 @@ func (s *Social[U]) Callback(c *web.Ctx) error {
 		return s.fail(c, err, i18n.T(c, "auth.social_account"))
 	}
 	u, err := s.resolve(c, prof)
-	if refused, ok := errors.AsType[*ErrNoAccount](err); ok {
+	if refused, ok := errors.AsType[*NoAccountError](err); ok {
 		return s.fail(c, err, refused.Message)
 	}
 	if err != nil {
@@ -503,8 +511,8 @@ func (s *Social[U]) Callback(c *web.Ctx) error {
 	if v := reflect.ValueOf(any(u)); !v.IsValid() || (v.Kind() == reflect.Pointer && v.IsNil()) {
 		return s.fail(c, errors.New("social: the Resolver returned no user and no error"), i18n.T(c, "auth.social_failed"))
 	}
-	// Two-factor sign-in, if the user has it on, still asks for a code.
-	switch err := s.auth.SignIn(c, u, f.Remember); {
+	// Two-factor authentication, if the user has it on, still asks for a code.
+	switch err := s.auth.Login(c, u, f.Remember); {
 	case errors.Is(err, auth.ErrTwoFactorRequired):
 		return c.Redirect(http.StatusSeeOther, web.LocalePath(c, s.auth.Config().ChallengeURL))
 	case err != nil:
@@ -519,7 +527,7 @@ func (s *Social[U]) Callback(c *web.Ctx) error {
 
 // fail logs err and sends the browser to the login page with msg.
 func (s *Social[U]) fail(c *web.Ctx, err error, msg string) error {
-	s.log.Warn("social: sign-in failed", "provider", c.Request().PathValue("provider"), "error", err)
+	s.log.Warn("social: login failed", "provider", c.Request().PathValue("provider"), "error", err)
 	if sess := session.From(c); sess != nil {
 		sess.FlashErrors(session.FieldError{Field: "social", Message: msg})
 	}

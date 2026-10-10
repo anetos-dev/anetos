@@ -20,7 +20,7 @@ type LogTransport struct {
 func NewLogTransport(log *slog.Logger) *LogTransport { return &LogTransport{log: log} }
 
 // WithoutBodies returns the transport logging everything but the emails'
-// bodies, which may hold sign-in or reset links: what MAIL_DRIVER=log
+// bodies, which may hold login or reset links: what MAIL_DRIVER=log
 // does in production, where logs are read by more people.
 func (t *LogTransport) WithoutBodies() *LogTransport { return &LogTransport{log: t.log, noBody: true} }
 

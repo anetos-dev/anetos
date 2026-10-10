@@ -48,7 +48,7 @@ Applied in order: the client's defaults, an agent's, the call's.
 | `ai.Tools(tools...)` | Adds tools | none |
 | `ai.MaxSteps(n)` | The most requests in a call with tools; then `ai.ErrMaxSteps`. `GenerateObject`'s retry is a second call, with its own limit | `ai.DefaultMaxSteps` (10) |
 | `ai.ProviderOptions(v)` | The driver's own request options (a type it defines) | none |
-| `ai.ForUser(userID)` | The user the call is for: its usage records and budget (`TrackUsage`) | the signed-in user, if any; a conversation's user |
+| `ai.ForUser(userID)` | The user the call is for: its usage records and budget (`TrackUsage`) | the logged-in user, if any; a conversation's user |
 | `ai.Using(c)` | Use client c, not the context's | the context's |
 | an `ai.Agent` | Its settings | |
 
@@ -157,7 +157,7 @@ Recursive types are an error.
 | `conv.Add(ctx, msgs...)` | Stores messages at the end, without calling a model (the user's question) | v0.3 |
 | `conv.Prompt(ctx, prompt, opts...)`, `conv.Stream(…)` | `Generate` and `Stream` after its messages; the prompt and answers are stored if the call succeeds (before `EventDone`) | v0.3 |
 | `conv.Reply(ctx, opts...)`, `conv.StreamReply(…)` | Answer its last message (the user's); stored the same way | v0.3 |
-| `conv.QueueReply(ctx, agent)` | Answers its last message from a queue job, with the agent registered under `agent.Name`, as its user (`auth.ActAs`, with the abilities of the API token ctx was signed in with, if any); `Status` is `ai.StatusQueued`, then `""`, or `ai.StatusFailed` with `Error`. A retry runs the tools again; a job that finds the conversation changed does nothing. With the sync queue driver, it runs in the calling request, after its commit | v0.3 |
+| `conv.QueueReply(ctx, agent)` | Answers its last message from a queue job, with the agent registered under `agent.Name`, as its user (`auth.WithUser`, with the abilities of the API token ctx was logged in with, if any); `Status` is `ai.StatusQueued`, then `""`, or `ai.StatusFailed` with `Error`. A retry runs the tools again; a job that finds the conversation changed does nothing. With the sync queue driver, it runs in the calling request, after its commit | v0.3 |
 | `conv.Delete(ctx)` | Deletes it and its messages (its usage records stay) | v0.3 |
 | `ai.QueueAgents(app, agents...)` | Registers the `ai.reply` job type on the app's queue, with the agents queued replies may use (by `Name`); needs `queue.New` first. Jobs time out after `AI_QUEUE_TIMEOUT` | v0.3 |
 

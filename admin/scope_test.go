@@ -75,7 +75,7 @@ func notesApp(t *testing.T, scoped bool, env ...string) *anetostest.App {
 
 func TestNullableTimesAndHiddenFields(t *testing.T) {
 	app := notesApp(t, false)
-	signIn(t, app, "Ada", "admin")
+	login(t, app, "Ada", "admin")
 	// A NULL created_at (a nil *time.Time) shows as nothing.
 	n := Note{Title: "Undated", Status: "draft", Featured: true}
 	if err := db.Create(app.Context(), &n); err != nil {
@@ -111,7 +111,7 @@ func TestNullableTimesAndHiddenFields(t *testing.T) {
 
 func TestScopeOnSave(t *testing.T) {
 	app := notesApp(t, true)
-	signIn(t, app, "Ada", "admin")
+	login(t, app, "Ada", "admin")
 	// A record Apply puts outside Query isn't created, nor moved out.
 	app.Get("/admin/notes/new")
 	app.PostForm("/admin/notes", url.Values{"title": {"Out"}, "status": {"published"}}).
@@ -133,7 +133,7 @@ func TestScopeOnSave(t *testing.T) {
 
 func TestSearchFragmentAndHostWithPort(t *testing.T) {
 	app := notesApp(t, false)
-	signIn(t, app, "Ada", "admin")
+	login(t, app, "Ada", "admin")
 	for _, title := range []string{"100% sure", "100 percent"} {
 		if err := db.Create(app.Context(), &Note{Title: title, Status: "draft"}); err != nil {
 			t.Fatal(err)
@@ -144,7 +144,7 @@ func TestSearchFragmentAndHostWithPort(t *testing.T) {
 		AssertSee(`<div id="results">`, "100% sure").AssertDontSee("100 percent")
 
 	host := notesApp(t, false, "ADMIN_HOST", "admin.localhost:8080")
-	signIn(t, host, "Ada", "admin")
+	login(t, host, "Ada", "admin")
 	req, err := http.NewRequest(http.MethodGet, "/notes", nil)
 	if err != nil {
 		t.Fatal(err)

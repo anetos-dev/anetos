@@ -11,15 +11,15 @@ import (
 	"anetos.dev/anetos/web"
 )
 
-// Can reports whether the request's signed-in user may do p globally:
+// Can reports whether the request's logged-in user may do p globally:
 // false for a guest. Use it to show or hide links and buttons. A failure
 // to read the grants is logged and counts as no; [Authorize] returns it.
 //
-// For a request signed in with an API token, p must also be among the
+// For a request logged in with an API token, p must also be among the
 // token's abilities (or the token must have "*").
 func Can(ctx context.Context, p Permission) bool { return CanIn(ctx, Global, p) }
 
-// CanIn reports whether the signed-in user may do p in scope, by a grant
+// CanIn reports whether the logged-in user may do p in scope, by a grant
 // in scope or a global one ([Can]).
 func CanIn(ctx context.Context, scope Scope, p Permission) bool {
 	err := AuthorizeIn(ctx, scope, p)
@@ -29,7 +29,7 @@ func CanIn(ctx context.Context, scope Scope, p Permission) bool {
 	return err == nil
 }
 
-// Authorize checks that the signed-in user may do p globally: nil if so,
+// Authorize checks that the logged-in user may do p globally: nil if so,
 // [auth.ErrUnauthenticated] (401) for a guest, [auth.ErrForbidden] (403)
 // otherwise, so a handler can return the error as it is. Other errors
 // (the database is down; p isn't declared, a bug) are returned too.
@@ -39,7 +39,7 @@ func CanIn(ctx context.Context, scope Scope, p Permission) bool {
 //	}
 func Authorize(ctx context.Context, p Permission) error { return AuthorizeIn(ctx, Global, p) }
 
-// AuthorizeIn checks that the signed-in user may do p in scope, by a grant
+// AuthorizeIn checks that the logged-in user may do p in scope, by a grant
 // in scope or a global one ([Authorize]).
 func AuthorizeIn(ctx context.Context, scope Scope, p Permission) error {
 	reg, err := From(ctx)
@@ -59,13 +59,13 @@ func AuthorizeIn(ctx context.Context, scope Scope, p Permission) error {
 	return nil
 }
 
-// HasRole reports whether the signed-in user has the role globally: false
-// for a guest. For a request signed in with an API token, it is false
+// HasRole reports whether the logged-in user has the role globally: false
+// for a guest. For a request logged in with an API token, it is false
 // unless the token has every ability ("*"); prefer permissions, which
 // tokens narrow one by one.
 func HasRole(ctx context.Context, role string) bool { return HasRoleIn(ctx, Global, role) }
 
-// HasRoleIn reports whether the signed-in user has the role in scope or
+// HasRoleIn reports whether the logged-in user has the role in scope or
 // globally ([HasRole]).
 func HasRoleIn(ctx context.Context, scope Scope, role string) bool {
 	g, err := Current(ctx)
@@ -78,7 +78,7 @@ func HasRoleIn(ctx context.Context, scope Scope, role string) bool {
 	return g.HasRoleIn(scope, role)
 }
 
-// AuthorizeRole checks that the signed-in user may give the role to
+// AuthorizeRole checks that the logged-in user may give the role to
 // others in scope: they must be allowed, in scope, every permission the
 // role allows (for a super role, be super there, with a token having
 // every ability), so no one can give more than they have. nil if so;
@@ -102,7 +102,7 @@ func AuthorizeRole(ctx context.Context, scope Scope, role string) error {
 	return g.mayGive(scope, r)
 }
 
-// AuthorizeRolesOf checks that the signed-in user may give every role
+// AuthorizeRolesOf checks that the logged-in user may give every role
 // the user with userID has in exactly scope ([AuthorizeRole]), so may
 // change or take them away: a team's owners can't be demoted or removed
 // by someone who couldn't make owners. nil if so (or the user has no
@@ -133,10 +133,10 @@ func AuthorizeRolesOf(ctx context.Context, scope Scope, userID string) error {
 	return nil
 }
 
-// AuthorizeOver returns nil if the signed-in user holds, in every scope,
+// AuthorizeOver returns nil if the logged-in user holds, in every scope,
 // every permission userID has there (and a super role wherever userID
 // has one), and [auth.ErrForbidden] otherwise: for managing their account
-// (editing it, disabling it, acting as them, their roles), so no one
+// (editing it, disabling it, impersonating them, their roles), so no one
 // takes over the account of someone with more power. It doesn't refuse
 // the user themselves; check that apart where it matters.
 func AuthorizeOver(ctx context.Context, userID string) error {
@@ -182,7 +182,7 @@ func (g *Grants) mayGive(scope Scope, r Role) error {
 	return nil
 }
 
-// Require is middleware letting through only signed-in users allowed
+// Require is middleware letting through only logged-in users allowed
 // every one of perms globally; others get the error of [Authorize] (401,
 // 403). Put it after the auth middleware, and after auth's Require on
 // pages, which sends guests to the login page. API descriptions (package
@@ -222,7 +222,7 @@ func RequireIn(scope func(*http.Request) (Scope, error), perms ...Permission) we
 // requireDoc is what Require and RequireIn tell API descriptions
 // (web.Documented).
 var requireDoc = web.MiddlewareDoc{Responses: map[int]string{
-	http.StatusUnauthorized: "The request isn't signed in.",
+	http.StatusUnauthorized: "The request isn't logged in.",
 	http.StatusForbidden:    "The user may not do this.",
 }}
 

@@ -30,7 +30,7 @@ func Search(c *web.Ctx, in SearchInput) (web.Responder, error) {
 }
 
 // searchIssues returns up to limit issues matching q in the projects the
-// signed-in user sees.
+// logged-in user sees.
 func searchIssues(ctx context.Context, q string, limit int) ([]views.SearchResult, error) {
 	if q == "" {
 		return nil, nil

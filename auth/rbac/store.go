@@ -94,7 +94,7 @@ func Migrations() *migrate.Set {
 
 // Assign gives the user with userID (an AuthID, up to 100 bytes) roles
 // in scope ([Global] for everywhere). Roles the user has stay. Each role must be declared or
-// in the database ([ErrUnknownRole]). Check that the signed-in user may
+// in the database ([ErrUnknownRole]). Check that the logged-in user may
 // give them first: [AuthorizeRole].
 func Assign(ctx context.Context, userID string, scope Scope, roles ...string) error {
 	if err := checkRoles(ctx, roles); err != nil {

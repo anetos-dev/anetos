@@ -75,6 +75,25 @@ All notable changes to this project are documented here. The format follows
   D300).
 
 ### Changed
+- Logging in has one vocabulary, "log in" and "log out" (M8b-3, D312):
+  `auth.Auth.Login` asks for the two-factor code of a user who has it
+  on (it logged them in without one; `SignIn` did), and a user without a
+  password it logs in counts as having confirmed it lately, and
+  `LogoutOthers`, `LogoutEverywhere`, `SupportsTwoFactor`,
+  `SupportsRemember`, `SupportsLogoutEverywhere`, `WithUser` (and
+  `auth.WithUser`, `auth.UserOption`), `ErrNoPendingLogin`,
+  `ErrUserNotFound` (its text is `auth: user not found`; other texts say
+  log in and impersonate, `auth: not logged in`…),
+  `social.NoAccountError` and `anetostest.App.SocialLogin` replace the
+  `SignIn`, `SignOut…`, `Can…`, `ActAs`, `ErrNoUser` and
+  `ErrNoAccount` names. `make:auth`'s pages and messages, the
+  framework's social login messages, the admin ("Impersonate", "Log
+  out everywhere", whose action is `logout` and audit action
+  `user.logged_out_everywhere`) and the docs say log in; the API
+  stack's `SignInResponse` is `LoginResponse`; the locale keys
+  `auth.social.sign_in_with`, `auth.errors.sign_in_again` and
+  `sign_in_first` are `login_with`, `login_again`, `login_first`. See
+  the [upgrade guide](docs/site/upgrade/v0.5.md).
 - Settings have one prefix per area and one word per idea (M8b-2,
   D311): `DB_DRIVER`, `DB_NAME`, `DB_USER` (were `DB_CONNECTION`,
   `DB_DATABASE`, `DB_USERNAME`), `DB_MIGRATE_ON_START`,
@@ -101,7 +120,7 @@ All notable changes to this project are documented here. The format follows
   See the [upgrade guide](docs/site/upgrade/v0.5.md).
 - A second `New` (or `db.Connect`, `admin.New`) for one app returns an
   error in every package; cache, queue, pub/sub and migrate used to open
-  a second store first, and sessions, social sign-in and the database
+  a second store first, and sessions, social login and the database
   replaced the first silently. `encryption.New(app)` returns the same
   encrypter each time (M8b-1, D310).
 - From v0.5, an identifier renamed or removed is kept one minor release,
@@ -130,6 +149,12 @@ All notable changes to this project are documented here. The format follows
   `>= v0.2.0, < v0.6.0`) (after v0.4.0).
 
 ### Deprecated
+- `auth.Auth`'s `SignIn`, `SignOutOthers`, `SignOutEverywhere`,
+  `CanTwoFactor`, `CanRemember`, `CanSignOutEverywhere`, `ActAs`;
+  `auth.ActAs`, `auth.ActOption`, `auth.ErrNoPendingSignIn`,
+  `auth.ErrNoUser`; `social.ErrNoAccount`;
+  `anetostest.App.SocialSignIn`: use the names above. Removed in v0.6
+  (M8b-3).
 - `i18n.URLNone`, `URLPrefix`, `URLSubdomain`: use `StrategyNone`,
   `StrategyPrefix`, `StrategySubdomain` (M8b-2).
 - `ForApp` in every package (`cache.ForApp`… `openapi.ForApp`): use

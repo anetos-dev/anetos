@@ -419,7 +419,7 @@ func testAuditBulk(t *testing.T, ctx context.Context) {
 		t.Errorf("anonymized bulk entry: %d, %+v", anonymized, got)
 	}
 
-	// And entries of someone acting as the person, exactly them (MySQL's
+	// And entries of someone impersonating the person, exactly them (MySQL's
 	// text collations ignore case and trailing spaces).
 	var acted []int64
 	for _, as := range []string{"user:abc", "user:ABC", "user:abc "} {

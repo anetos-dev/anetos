@@ -34,7 +34,7 @@ func twoFactorRoutes(r *web.Router, a *auth.Auth[*user], s *store) {
 		if err != nil {
 			return err
 		}
-		if err := a.SignIn(c, u, false); err != nil {
+		if err := a.Login(c, u, false); err != nil {
 			return err
 		}
 		return c.NoContent()
@@ -91,7 +91,7 @@ func TestTOTP(t *testing.T) {
 	}
 }
 
-// setUp turns on two-factor sign-in for the signed-in user, at now, and
+// setUp turns on two-factor authentication for the logged-in user, at now, and
 // returns the secret and the recovery codes.
 func setUp(t *testing.T, b *browser, now time.Time) (string, []string) {
 	t.Helper()
@@ -140,10 +140,10 @@ func TestTwoFactor(t *testing.T) {
 		t.Fatalf("login: %d", res.StatusCode)
 	}
 	if b.do(http.MethodGet, "/pending", nil).Body != "pending" {
-		t.Error("no pending sign-in")
+		t.Error("no pending login")
 	}
 	if res := b.do(http.MethodGet, "/dashboard", nil); res.StatusCode != http.StatusSeeOther {
-		t.Errorf("signed in before the code: %d", res.StatusCode)
+		t.Errorf("logged in before the code: %d", res.StatusCode)
 	}
 	if res := b.do(http.MethodPost, "/two-factor-challenge", url.Values{"code": {"123456"}}); res.StatusCode != http.StatusUnprocessableEntity {
 		t.Errorf("a wrong code: %d", res.StatusCode)
@@ -186,7 +186,7 @@ func TestTwoFactor(t *testing.T) {
 		t.Errorf("throttled: %d", res.StatusCode)
 	}
 
-	// The sign-in waits 10 minutes.
+	// The login waits 10 minutes.
 	now = now.Add(11 * time.Minute)
 	if res := b.do(http.MethodPost, "/two-factor-challenge", url.Values{"code": {auth.TOTP(secret, now)}}); res.StatusCode != http.StatusUnauthorized {
 		t.Errorf("expired: %d", res.StatusCode)
@@ -201,13 +201,13 @@ func TestTwoFactor(t *testing.T) {
 		t.Error("still pending")
 	}
 
-	// Other sign-in methods (SignIn) ask for the code too; Login doesn't.
+	// Other login methods (Login) ask for the code too.
 	if res := b.do(http.MethodPost, "/social/1", nil); res.StatusCode != http.StatusUnauthorized {
-		t.Errorf("SignIn: %d", res.StatusCode)
+		t.Errorf("Login: %d", res.StatusCode)
 	}
 	now = now.Add(time.Minute)
 	if res := b.do(http.MethodPost, "/two-factor-challenge", url.Values{"code": {auth.TOTP(secret, now)}}); res.StatusCode != http.StatusSeeOther {
-		t.Errorf("SignIn's code: %d", res.StatusCode)
+		t.Errorf("Login's code: %d", res.StatusCode)
 	}
 
 	// New recovery codes replace the old; turning it off ends it.
@@ -230,7 +230,7 @@ func TestTwoFactor(t *testing.T) {
 		t.Errorf("login without two-factor: %d", res.StatusCode)
 	}
 	if res := b.do(http.MethodPost, "/two-factor-challenge", url.Values{"code": {"123456"}}); res.StatusCode != http.StatusUnauthorized {
-		t.Errorf("no pending sign-in: %d", res.StatusCode)
+		t.Errorf("no pending login: %d", res.StatusCode)
 	}
 }
 
@@ -269,19 +269,19 @@ func TestStartedTwoFactor(t *testing.T) {
 	}
 }
 
-func TestTwoFactorPendingSignsOut(t *testing.T) {
+func TestTwoFactorPendingLogsOut(t *testing.T) {
 	s := newStore(t)
 	a, b := newApp(t, s)
 	login(b, "ada@example.com", "secret", false)
 	setUp(t, b, time.Now())
-	// Bob, signed in, signs in as Ada: he is signed out while it waits.
+	// Bob, logged in, logs in as Ada: he is logged out while it waits.
 	other := &browser{t: t, h: b.h, ctx: b.ctx, jar: mustJar()}
 	login(other, "bob@example.com", "secret", false)
 	if res := login(other, "ada@example.com", "secret", false); res.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("login: %d", res.StatusCode)
 	}
 	if res := other.do(http.MethodGet, "/id", nil); res.StatusCode != http.StatusUnauthorized {
-		t.Errorf("still signed in: %d %s", res.StatusCode, res.Body)
+		t.Errorf("still logged in: %d %s", res.StatusCode, res.Body)
 	}
 	// A state that can't be read fails closed.
 	u, _ := s.users().ByID(b.ctx, "1")
@@ -329,16 +329,16 @@ func TestConfirmPassword(t *testing.T) {
 	if res.Header.Get("Location") != "/settings?tab=2" {
 		t.Errorf("back to %s", res.Header.Get("Location"))
 	}
-	// Signing in again forgets it, as does acting as another user.
+	// Logging in again forgets it, as does impersonating another user.
 	b.do(http.MethodPost, "/logout", nil)
 	login(b, "ada@example.com", "secret", false)
 	if res := b.do(http.MethodGet, "/danger", nil); res.StatusCode != http.StatusSeeOther {
-		t.Errorf("after signing in again: %d", res.StatusCode)
+		t.Errorf("after logging in again: %d", res.StatusCode)
 	}
 	b.do(http.MethodPost, "/confirm-password", url.Values{"password": {"secret"}})
 	b.do(http.MethodPost, "/impersonate/3", nil)
 	if res := b.do(http.MethodGet, "/danger", nil); res.StatusCode != http.StatusSeeOther {
-		t.Errorf("acting as another user: %d", res.StatusCode)
+		t.Errorf("impersonating another user: %d", res.StatusCode)
 	}
 	if res := b.do(http.MethodPost, "/confirm-password", url.Values{"password": {"secret"}}); res.StatusCode != http.StatusForbidden {
 		t.Errorf("confirming while acting: %d", res.StatusCode)
@@ -351,9 +351,9 @@ func TestConfirmPassword(t *testing.T) {
 	if res := other.do(http.MethodPost, "/confirm-password", url.Values{"password": {""}}); res.StatusCode != http.StatusUnauthorized {
 		t.Errorf("no password: %d", res.StatusCode)
 	}
-	// Signing in again confirms it, for AUTH_CONFIRM_TTL.
+	// Logging in again confirms it, for AUTH_CONFIRM_TTL.
 	if body := other.do(http.MethodGet, "/danger", nil).Body; body != "dangerous page" {
-		t.Errorf("signed in afresh without a password: %q", body)
+		t.Errorf("logged in afresh without a password: %q", body)
 	}
 	now = now.Add(16 * time.Minute)
 	if res := other.do(http.MethodGet, "/danger", nil); res.StatusCode != http.StatusSeeOther {
@@ -373,7 +373,7 @@ func rememberCookie(b *browser) *http.Cookie {
 	return nil
 }
 
-// Turning it on ends the remember-me cookies and other sessions signed in
+// Turning it on ends the remember-me cookies and other sessions logged in
 // without a code, keeping this one; remember me then waits for the code.
 func TestTwoFactorAndRememberMe(t *testing.T) {
 	s := newStore(t)
@@ -416,7 +416,7 @@ func TestTwoFactorAndRememberMe(t *testing.T) {
 		t.Errorf("remembered: %d", res.StatusCode)
 	}
 
-	// Disabled while the sign-in waits: refused.
+	// Disabled while the login waits: refused.
 	b.do(http.MethodPost, "/logout", nil)
 	now = now.Add(time.Minute)
 	login(b, "ada@example.com", "secret", false)
@@ -510,23 +510,23 @@ func TestChangePassword(t *testing.T) {
 		t.Errorf("the new password: %d", res.StatusCode)
 	}
 
-	// Acting as someone: not theirs to change.
+	// Impersonating someone: not theirs to change.
 	b.do(http.MethodPost, "/impersonate/3", nil)
 	if res := b.do(http.MethodPost, "/password", url.Values{"current": {"secret"}, "new": {"x"}}); res.StatusCode != http.StatusForbidden {
-		t.Errorf("acting as someone: %d", res.StatusCode)
+		t.Errorf("impersonating someone: %d", res.StatusCode)
 	}
 
-	// Without a password: one is set after a fresh sign-in.
+	// Without a password: one is set after a fresh login.
 	social := &browser{t: t, h: b.h, ctx: b.ctx, jar: mustJar()}
 	social.do(http.MethodPost, "/social/4", nil)
 	if res := social.do(http.MethodPost, "/password", url.Values{"new": {"first password"}}); res.StatusCode != http.StatusNoContent {
 		t.Fatalf("a first password: %d", res.StatusCode)
 	}
 	if res := social.do(http.MethodGet, "/dashboard", nil); res.StatusCode != http.StatusOK {
-		t.Errorf("still signed in: %d", res.StatusCode)
+		t.Errorf("still logged in: %d", res.StatusCode)
 	}
 	if res := login(&browser{t: t, h: b.h, ctx: b.ctx, jar: mustJar()}, "social@example.com", "first password", false); res.StatusCode != http.StatusSeeOther {
-		t.Errorf("signing in with it: %d", res.StatusCode)
+		t.Errorf("logging in with it: %d", res.StatusCode)
 	}
 	late := &browser{t: t, h: b.h, ctx: b.ctx, jar: mustJar()}
 	s.mu.Lock()
@@ -537,7 +537,7 @@ func TestChangePassword(t *testing.T) {
 	late.do(http.MethodPost, "/social/4", nil)
 	now = now.Add(16 * time.Minute)
 	if res := late.do(http.MethodPost, "/password", url.Values{"new": {"x"}}); res.StatusCode != http.StatusLocked {
-		t.Errorf("long after signing in: %d", res.StatusCode)
+		t.Errorf("long after logging in: %d", res.StatusCode)
 	}
 }
 
@@ -563,9 +563,9 @@ func TestChangePasswordEndsCopiesOfTheSession(t *testing.T) {
 	}
 }
 
-// Reset links end when the user is signed out elsewhere (a new session
+// Reset links end when the user is logged out elsewhere (a new session
 // key), as after a change of email address.
-func TestSignOutOthersEndsResetLinks(t *testing.T) {
+func TestLogoutOthersEndsResetLinks(t *testing.T) {
 	s := newStore(t)
 	a, b, _ := newAppWith(t, s)
 	u, _ := s.users().ByID(b.ctx, "1")
@@ -573,11 +573,11 @@ func TestSignOutOthersEndsResetLinks(t *testing.T) {
 	if _, err := a.CheckPasswordResetToken(b.ctx, tok); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.SignOutOthers(b.ctx, u); err != nil {
+	if err := a.LogoutOthers(b.ctx, u); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := a.CheckPasswordResetToken(b.ctx, tok); !errors.Is(err, auth.ErrInvalidToken) {
-		t.Errorf("after SignOutOthers: %v", err)
+		t.Errorf("after LogoutOthers: %v", err)
 	}
 }
 
@@ -665,6 +665,6 @@ func TestTwoFactorStaleUser(t *testing.T) {
 		t.Errorf("new recovery codes with a stale copy: %v, want ErrTwoFactorOff (turning it back on)", err)
 	}
 	if fresh, _ := s.users().ByID(b.ctx, "1"); func() bool { st, _ := a.TwoFactor(fresh); return st.On }() {
-		t.Error("two-factor sign-in came back on")
+		t.Error("two-factor authentication came back on")
 	}
 }

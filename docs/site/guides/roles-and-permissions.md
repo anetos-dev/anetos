@@ -13,7 +13,7 @@ with package `auth/rbac`.
 ## Before you start
 
 - Set up [authentication](authentication.md): permissions are checked
-  for the request's signed-in user, signed in with a session or an API
+  for the request's logged-in user, logged in with a session or an API
   token.
 - Run the migrations of `rbac.Migrations()` (the `rbac_grants` and
   `rbac_roles` tables) with your own.
@@ -285,7 +285,7 @@ A grant is a role or a permission of a user in a scope, a row of
 `rbac_grants`. A user's grants are read in one query the first time a
 request (or a job, or a tool call) checks them, and kept for the rest of
 it; changes made with the package's functions are seen at once. A
-request signed in with an API token may use only the permissions among
+request logged in with an API token may use only the permissions among
 the token's abilities, so a token for reading can't delete, whatever
 its user's roles. See [Roles and permissions](../concepts/roles-and-permissions.md).
 
@@ -300,7 +300,7 @@ its user's roles. See [Roles and permissions](../concepts/roles-and-permissions.
 ## Testing it
 
 Give users roles in the test's database, then make requests as them.
-`examples/teams` signs in with API tokens:
+`examples/teams` logs in with API tokens:
 
 ```go
 // newUser creates a user with a role (none for "") and returns them with

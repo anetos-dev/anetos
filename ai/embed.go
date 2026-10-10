@@ -109,7 +109,7 @@ const maxEmbedBatch = 96
 // requests of at most 96 texts. dims asks for vectors of that size (0 for
 // the model's); vectors of another size are an error. With
 // [Client.TrackUsage], each request's usage is recorded, for the
-// signed-in user if any, and a spent [Budget] refuses it. Most apps use
+// logged-in user if any, and a spent [Budget] refuses it. Most apps use
 // [Embeddings], which stores them.
 func Embed(ctx context.Context, dims int, texts ...string) ([]Vector, error) {
 	return embed(ctx, EmbedForDocument, dims, dims, texts)

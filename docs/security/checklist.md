@@ -45,7 +45,7 @@ change behaviour.
 | Content-Security-Policy | **Accepted**: none by default for app pages (the admin sets a strict one): a default policy would break apps' inline scripts and the dev server's reload script. The guide shows one to add |
 | Request limits: body size, header and request timeouts | Sound (doctor warns when they are turned off) |
 | Session cookies: AES-256-GCM, `HttpOnly`, `Secure` outside development, `SameSite=Lax`, `__Host-` prefix when possible, key rotation | Sound |
-| Caching of signed-in pages | **Fixed**: `auth.Require` sets `Cache-Control: no-store` (sessions already set `private`) |
+| Caching of logged-in pages | **Fixed**: `auth.Require` sets `Cache-Control: no-store` (sessions already set `private`) |
 | Error pages and debug output | Sound: `APP_DEBUG=true` is refused in production |
 | `anetos dev`: DNS rebinding (a web page reading the dev server through a name that resolves to 127.0.0.1) | **Fixed**: requests for host names other than localhost, IP addresses, `APP_URL`'s host and `--host` get 403; binding beyond loopback prints a warning |
 | An anonymous page view that touches the session writes a row with server-side sessions | **Accepted**: the price of server-side sessions; the cookie driver (the default) writes nothing, and the database driver's rows expire |
@@ -60,13 +60,13 @@ change behaviour.
 | A TOTP code or recovery code used twice by two requests at the same moment | **Fixed**: the check and its record run under a cache lock per user |
 | Password confirmation as a way to guess the password from a stolen session | **Fixed**: at most 50 wrong confirmations (and password changes) per account a day (a UTC day) |
 | API tokens: SHA-256 of the secret stored, constant-time check, expiry | Sound |
-| API tokens created by a stolen session, or while impersonating | **Fixed**: `make:auth`'s token route needs a recent password confirmation; `CreateToken` refuses while acting as another user |
-| A reset link used twice at once; an account someone registered with another person's address | **Fixed** in `make:auth`'s code: the reset runs in one transaction that changes the password only if it is still the one the link was made for, revokes API tokens, and, for an address never verified, turns off the two-factor sign-in and social links the first registrant may have set up |
-| Verification and reset links: tokens encrypted with `APP_KEY`, expiring, bound to their purpose; a reset token stops working once the password changes or the user is signed out everywhere | Sound |
+| API tokens created by a stolen session, or while impersonating | **Fixed**: `make:auth`'s token route needs a recent password confirmation; `CreateToken` refuses while impersonating another user |
+| A reset link used twice at once; an account someone registered with another person's address | **Fixed** in `make:auth`'s code: the reset runs in one transaction that changes the password only if it is still the one the link was made for, revokes API tokens, and, for an address never verified, turns off the two-factor authentication and social links the first registrant may have set up |
+| Verification and reset links: tokens encrypted with `APP_KEY`, expiring, bound to their purpose; a reset token stops working once the password changes or the user is logged out everywhere | Sound |
 | No limit per account across addresses: guessing one account's password from many addresses isn't slowed | **Accepted**: a limit per account would let anyone lock its owner out; slow argon2id hashes, the per-address limits and two-factor are the defence |
 | "Forgot password" answers a little faster for unknown emails | **Accepted** and documented: the same answer is shown either way; mail is queued |
 | The link that reverts an email change lasts 7 days | **Accepted**: the owner of the old address may only notice days later |
-| Changing a user's email in the admin doesn't sign them out | **Accepted**: the admin is trusted; signing out is one action away |
+| Changing a user's email in the admin doesn't log them out | **Accepted**: the admin is trusted; logging out is one action away |
 
 ### Data
 

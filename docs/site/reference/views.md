@@ -76,7 +76,7 @@ Form posts key errors by `form` name where it differs from the `json` name.
 | `session.Migrations(table)` | The database driver's table, for `migrate.New` |
 | `session.NewManager(cfg, enc, opts...)` | Manager from a `session.Config` and an `*encryption.Encrypter`; `session.WithLogger`, `session.WithStore(store, prefix)` (any `cache.Store`) |
 | `m.Middleware` | Loads the session into the request context and saves it when the response starts; adds `Cache-Control: private` (if unset) and `Vary: Cookie` for requests with a session. Does nothing if the same manager already runs for the request |
-| `m.Use(mw...)` | Middleware that run inside `m.Middleware`, wherever it runs (every group with sessions), after the session is loaded and before the group's other middleware, in order; for routes registered before and after. Call it at setup. `make:auth`'s `setupAuth` calls `sessions.Use(a.Middleware)`, so every page knows the signed-in user (v0.3) |
+| `m.Use(mw...)` | Middleware that run inside `m.Middleware`, wherever it runs (every group with sessions), after the session is loaded and before the group's other middleware, in order; for routes registered before and after. Call it at setup. `make:auth`'s `setupAuth` calls `sessions.Use(a.Middleware)`, so every page knows the logged-in user (v0.3) |
 | `m.CookieName()` | `SESSION_COOKIE`, with the `__Host-` prefix when Secure, without Domain, with Path `/` |
 | `session.From(ctx)` | The session, or nil |
 | `session.NewSession()`, `session.NewContext(ctx, s)` | A session for tests |

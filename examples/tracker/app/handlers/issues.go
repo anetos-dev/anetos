@@ -111,7 +111,7 @@ func (Issues) Create(c *web.Ctx, in NewIssueInput) (web.Responder, error) {
 	return web.RedirectRoute("issues.show", project.Key, issue.Number), nil
 }
 
-// openIssue opens an issue in the project, by the signed-in user,
+// openIssue opens an issue in the project, by the logged-in user,
 // numbered after the project's newest one. Its assignee is told by
 // email, once the issue is committed.
 func openIssue(ctx context.Context, project models.Project, in IssueFields) (models.Issue, error) {

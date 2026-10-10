@@ -11,7 +11,7 @@ import (
 	"anetos.dev/anetos/db/migrate"
 )
 
-// User is an account. They sign in with API tokens only, in this example.
+// User is an account. They log in with API tokens only, in this example.
 type User struct {
 	db.Model
 	Name  string `db:"name" json:"name"`
@@ -49,12 +49,12 @@ var users = auth.Users[*User]{
 	ByID: func(ctx context.Context, id string) (*User, error) {
 		n, err := strconv.ParseInt(id, 10, 64)
 		if err != nil {
-			return nil, auth.ErrNoUser
+			return nil, auth.ErrUserNotFound
 		}
 		u, err := db.Find[User](ctx, n)
 		return &u, err
 	},
-	ByLogin: func(context.Context, string) (*User, error) { return nil, auth.ErrNoUser },
+	ByLogin: func(context.Context, string) (*User, error) { return nil, auth.ErrUserNotFound },
 }
 
 // Migrations creates the app's tables.

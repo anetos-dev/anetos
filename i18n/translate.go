@@ -203,20 +203,20 @@ func (r *request) get(ctx context.Context) (string, *time.Location, bool) {
 // results, computed the first time [Locale] or [TimeZone] asks and kept;
 // concurrent first calls wait for the one resolving. The HTTP server
 // uses it for each request: resolve gets the context of that first call,
-// which has the request's session and signed-in user only when the first
+// which has the request's session and logged-in user only when the first
 // call comes from a handler or a middleware after theirs (a middleware of
 // the app's that translates before them fixes the locale without them).
 // While resolve runs, [Locale] in its context gives the default; if it
 // panics, the default is kept. Other goroutines of the request wait for
 // it (or for their context to end), so code resolve calls, such as
-// loading the signed-in user, shouldn't wait for one of them.
+// loading the logged-in user, shouldn't wait for one of them.
 func WithResolver(ctx context.Context, resolve func(ctx context.Context) (locale string, zone *time.Location)) context.Context {
 	return context.WithValue(ctx, resolverKey{}, &request{resolve: resolve, done: make(chan struct{})})
 }
 
 // Locale returns the locale of ctx: the one set with [WithLocale] (or
 // [ForUser]), else the request's (with APP_LOCALE_STRATEGY=none, the locale
-// cookie, the session, the signed-in user's preference, Accept-Language;
+// cookie, the session, the logged-in user's preference, Accept-Language;
 // with prefix or subdomain, the URL's), else the default (APP_LOCALE).
 // It is canonical: "en", "pt-BR".
 func Locale(ctx context.Context) string {
@@ -244,7 +244,7 @@ func WithLocale(ctx context.Context, locale string) context.Context {
 }
 
 // TimeZone returns the time zone times are shown in for ctx: the one set
-// with [WithTimeZone] (or [ForUser]), else the signed-in user's, else the
+// with [WithTimeZone] (or [ForUser]), else the logged-in user's, else the
 // app's (APP_TIMEZONE).
 func TimeZone(ctx context.Context) *time.Location {
 	if loc, ok := ctx.Value(zoneKey{}).(*time.Location); ok && loc != nil {
@@ -344,13 +344,13 @@ func userZone(user any) *time.Location {
 
 type userKey struct{}
 
-// SetCurrentUser tells the app how to find the signed-in user of a
+// SetCurrentUser tells the app how to find the logged-in user of a
 // request's context, for [Preferences]. Package auth calls it in New.
 func SetCurrentUser(app *anetos.App, current func(ctx context.Context) (any, bool)) {
 	app.AddContextValue(userKey{}, current)
 }
 
-// Preferences returns the signed-in user's preferred locale (matched
+// Preferences returns the logged-in user's preferred locale (matched
 // against the supported locales; "" if none) and time zone (nil if none).
 func Preferences(ctx context.Context) (locale string, zone *time.Location) {
 	current, ok := ctx.Value(userKey{}).(func(context.Context) (any, bool))

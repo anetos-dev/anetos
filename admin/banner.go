@@ -12,8 +12,8 @@ import (
 	"anetos.dev/anetos/view"
 )
 
-// Banner shows, while someone acts as another user ("Act as user" on a
-// user's page in the admin), whom they act as, with a button that stops
+// Banner shows, while someone impersonates another user ("Impersonate" on a
+// user's page in the admin), whom they impersonate, with a button that stops
 // it. Put it at the top of the app's layout, inside <body> (make:admin
 // does): it renders nothing the rest of the time.
 //
@@ -30,7 +30,7 @@ func Banner() view.Component {
 	})
 }
 
-// bannerHTML renders the banner, "" when no one acts as another user.
+// bannerHTML renders the banner, "" when no one impersonates another user.
 func bannerHTML(ctx context.Context) (template.HTML, error) {
 	if _, ok := auth.Impersonator(ctx); !ok {
 		return "", nil

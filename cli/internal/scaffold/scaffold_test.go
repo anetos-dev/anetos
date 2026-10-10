@@ -398,7 +398,7 @@ func TestCreateAPI(t *testing.T) {
 					t.Errorf("%s:\n%s", f, env)
 				}
 			}
-			if readme := read(t, filepath.Join(dir, "README.md")); strings.Contains(readme, "views") || !strings.Contains(readme, "sign in with API tokens") || !strings.Contains(readme, "/api/v1") {
+			if readme := read(t, filepath.Join(dir, "README.md")); strings.Contains(readme, "views") || !strings.Contains(readme, "log in with API tokens") || !strings.Contains(readme, "/api/v1") {
 				t.Errorf("README.md:\n%s", readme)
 			}
 		})
@@ -483,10 +483,10 @@ func TestMakeInAPIProject(t *testing.T) {
 	// make:auth writes the API's accounts, unless a name it declares is
 	// taken.
 	taken := filepath.Join(root, "app", "handlers", "mine.go")
-	if err := os.WriteFile(taken, []byte("package handlers\n\ntype SignInResponse struct{}\n"), 0o644); err != nil {
+	if err := os.WriteFile(taken, []byte("package handlers\n\ntype LoginResponse struct{}\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := MakeAuth(root, now); err == nil || !strings.Contains(err.Error(), "app/handlers already declares SignInResponse") {
+	if _, err := MakeAuth(root, now); err == nil || !strings.Contains(err.Error(), "app/handlers already declares LoginResponse") {
 		t.Errorf("make:auth with a name taken: %v", err)
 	}
 	if err := os.Remove(taken); err != nil {

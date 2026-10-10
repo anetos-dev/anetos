@@ -15,7 +15,7 @@ auth:
     code: "That code isn't right."
     password: "That isn't your password."
     password_too_long: "That password is too long."
-    sign_in_again: "Please log in again."
+    login_again: "Please log in again."
   mail:
     hello: "Hello {name},"
     verify:

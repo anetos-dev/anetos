@@ -51,9 +51,9 @@ func (c *club) setup(app *anetos.App) (*web.Server, error) {
 			if m, ok := c.members[id]; ok {
 				return m, nil
 			}
-			return nil, auth.ErrNoUser
+			return nil, auth.ErrUserNotFound
 		},
-		ByLogin: func(context.Context, string) (*member, error) { return nil, auth.ErrNoUser },
+		ByLogin: func(context.Context, string) (*member, error) { return nil, auth.ErrUserNotFound },
 	})
 	if err != nil {
 		return nil, err
@@ -63,7 +63,7 @@ func (c *club) setup(app *anetos.App) (*web.Server, error) {
 		defer c.mu.Unlock()
 		c.profiles = append(c.profiles, p)
 		if !p.EmailVerified {
-			return nil, &social.ErrNoAccount{Message: "No verified address."}
+			return nil, &social.NoAccountError{Message: "No verified address."}
 		}
 		m := &member{ID: p.Provider + ":" + p.Subject, Name: p.Name}
 		c.members[m.ID] = m
@@ -78,7 +78,7 @@ func (c *club) setup(app *anetos.App) (*web.Server, error) {
 	pages.Get("/login", func(ctx *web.Ctx) error {
 		var b strings.Builder
 		for _, p := range s.Providers() {
-			b.WriteString("Sign in with " + s.Title(p) + ". ")
+			b.WriteString("Log in with " + s.Title(p) + ". ")
 		}
 		for _, e := range ctx.Session().Errors() {
 			b.WriteString(e.Message)
@@ -98,25 +98,25 @@ func (c *club) setup(app *anetos.App) (*web.Server, error) {
 func TestFakeSocial(t *testing.T) {
 	c := &club{members: map[string]*member{}}
 	app := anetostest.New(t, c.setup, anetostest.FakeSocial())
-	app.Get("/login").AssertSee("Sign in with Google.", "Sign in with GitHub.") // configured without settings
+	app.Get("/login").AssertSee("Log in with Google.", "Log in with GitHub.") // configured without settings
 
 	app.Freeze(time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)) // the ID token follows the app's clock
-	app.SocialSignIn("/auth/google/redirect", anetostest.SocialAccount{ID: "g-1", Email: "ada@example.com", EmailVerified: true, Name: "Ada", AvatarURL: "https://example.com/a.png"}).
+	app.SocialLogin("/auth/google/redirect", anetostest.SocialAccount{ID: "g-1", Email: "ada@example.com", EmailVerified: true, Name: "Ada", AvatarURL: "https://example.com/a.png"}).
 		AssertRedirect("/")
 	app.Get("/me").AssertSee("google:g-1 Ada")
 
 	// GitHub (OAuth 2.0, not OpenID Connect) goes through the stand-in too.
-	app.SocialSignIn("/auth/github/redirect", anetostest.SocialAccount{ID: "42", Email: "bob@example.com", EmailVerified: true, Name: "Bob"}).
+	app.SocialLogin("/auth/github/redirect", anetostest.SocialAccount{ID: "42", Email: "bob@example.com", EmailVerified: true, Name: "Bob"}).
 		AssertRedirect("/")
 	app.Get("/me").AssertSee("github:42 Bob")
 
 	// The resolver refuses: back to the login page with its message.
-	app.SocialSignIn("/auth/google/redirect", anetostest.SocialAccount{ID: "g-2", Email: "eve@example.com"}).
+	app.SocialLogin("/auth/google/redirect", anetostest.SocialAccount{ID: "g-2", Email: "eve@example.com"}).
 		AssertRedirect("/login").Follow().AssertSee("No verified address.")
 
 	// WithHomeURL: where users go without an intended page.
 	app2 := anetostest.New(t, (&club{members: map[string]*member{}, opts: []social.Option{social.WithHomeURL("/me")}}).setup, anetostest.FakeSocial())
-	app2.SocialSignIn("/auth/google/redirect", anetostest.SocialAccount{ID: "g-1", EmailVerified: true}).AssertRedirect("/me")
+	app2.SocialLogin("/auth/google/redirect", anetostest.SocialAccount{ID: "g-1", EmailVerified: true}).AssertRedirect("/me")
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -136,15 +136,15 @@ func TestFakeSocial(t *testing.T) {
 func TestFakeSocialMisuse(t *testing.T) {
 	c := &club{members: map[string]*member{}}
 	if msg := fatalOf(func() {
-		anetostest.New(&fakeT{TB: t}, c.setup).SocialSignIn("/auth/google/redirect", anetostest.SocialAccount{ID: "1"})
+		anetostest.New(&fakeT{TB: t}, c.setup).SocialLogin("/auth/google/redirect", anetostest.SocialAccount{ID: "1"})
 	}); !strings.Contains(msg, "needs the FakeSocial option") {
 		t.Errorf("without FakeSocial: %q", msg)
 	}
 	app := anetostest.New(&fakeT{TB: t}, c.setup, anetostest.FakeSocial())
-	if msg := fatalOf(func() { app.SocialSignIn("/auth/google/redirect", anetostest.SocialAccount{}) }); !strings.Contains(msg, "needs an ID") {
+	if msg := fatalOf(func() { app.SocialLogin("/auth/google/redirect", anetostest.SocialAccount{}) }); !strings.Contains(msg, "needs an ID") {
 		t.Errorf("no ID: %q", msg)
 	}
-	if msg := fatalOf(func() { app.SocialSignIn("/login", anetostest.SocialAccount{ID: "1"}) }); !strings.Contains(msg, "didn't redirect to the provider") {
+	if msg := fatalOf(func() { app.SocialLogin("/login", anetostest.SocialAccount{ID: "1"}) }); !strings.Contains(msg, "didn't redirect to the provider") {
 		t.Errorf("not a redirect route: %q", msg)
 	}
 }

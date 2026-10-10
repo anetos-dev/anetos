@@ -37,7 +37,7 @@ v0.5. APIs will change.
   the framework ([`examples/i18n`](examples/i18n)); an audit log and
   soft deletes ([`examples/audit`](examples/audit)); the admin (module
   `anetos.dev/anetos/admin`, [`examples/admin`](examples/admin)) with
-  two-factor sign-in; account settings; Google Cloud Storage; `anetos
+  two-factor authentication; account settings; Google Cloud Storage; `anetos
   build`, a Dockerfile and a systemd unit
   ([Deploy](docs/site/guides/deployment.md)); a starter theme,
   `make:crud` and error pages in the app's layout; a security review
@@ -46,7 +46,7 @@ v0.5. APIs will change.
   against plain `net/http`, chi, Gin and Echo, with CI holding every
   change to allocation budgets.
 - **v0.4, the API stack:** `anetos new --stack=api`, an app that serves
-  JSON only; accounts that sign in with API tokens, with two-factor
+  JSON only; accounts that log in with API tokens, with two-factor
   codes and abilities; `make:crud` JSON endpoints with pages, sorting
   and filters; typed results with the route's status; an OpenAPI 3.1
   description generated from the handlers, served and checked in a
@@ -88,7 +88,7 @@ docker build -t blog .     # or the image, from the generated Dockerfile
 
 anetos new shop --stack=api # or JSON only: routes under /api/v1, errors as problem details,
                             # an OpenAPI 3.1 description (openapi.json) a test keeps current;
-                            # there, make:auth writes accounts that sign in with API tokens,
+                            # there, make:auth writes accounts that log in with API tokens,
                             # and make:crud JSON endpoints (pages, sorting, filters)
 ```
 

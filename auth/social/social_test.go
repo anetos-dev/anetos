@@ -56,9 +56,9 @@ func (s *users) auth() auth.Users[*user] {
 				c := *u
 				return &c, nil
 			}
-			return nil, auth.ErrNoUser
+			return nil, auth.ErrUserNotFound
 		},
-		ByLogin:   func(context.Context, string) (*user, error) { return nil, auth.ErrNoUser },
+		ByLogin:   func(context.Context, string) (*user, error) { return nil, auth.ErrUserNotFound },
 		TwoFactor: func(u *user) string { return u.TwoF },
 		SetTwoFactor: func(_ context.Context, u *user, st string) error {
 			s.mu.Lock()
@@ -84,7 +84,7 @@ func (s *users) resolve(_ context.Context, p social.Profile) (*user, error) {
 		return nil, nil
 	}
 	if !p.EmailVerified {
-		return nil, &social.ErrNoAccount{Message: "Your account has no verified email address."}
+		return nil, &social.NoAccountError{Message: "Your account has no verified email address."}
 	}
 	id := p.Provider + ":" + p.Subject
 	if _, ok := s.byID[id]; !ok {
@@ -141,7 +141,7 @@ func newProvider(t *testing.T) *provider {
 	return p
 }
 
-// authorize plays the provider's sign-in page: it reads the request the
+// authorize plays the provider's login page: it reads the request the
 // app redirected to and returns the callback URL it would redirect back to.
 func (p *provider) authorize(t *testing.T, location string) string {
 	t.Helper()
@@ -247,7 +247,7 @@ func setup(t *testing.T, p *provider, providers ...social.Provider) (*users, *br
 	return store, &browser{t: t, h: srv.Router(), ctx: app.Context(context.Background()), jar: jar}
 }
 
-func signIn(t *testing.T, p *provider, b *browser, provider string) response {
+func login(t *testing.T, p *provider, b *browser, provider string) response {
 	t.Helper()
 	res := b.get("/auth/" + provider + "/redirect")
 	if res.code != http.StatusSeeOther {
@@ -256,20 +256,20 @@ func signIn(t *testing.T, p *provider, b *browser, provider string) response {
 	return b.get(p.authorize(t, res.location))
 }
 
-func TestOIDCSignIn(t *testing.T) {
+func TestOIDCLogin(t *testing.T) {
 	p := newProvider(t)
 	store, b := setup(t, p)
-	b.get("/login") // a session before the sign-in
+	b.get("/login") // a session before the login
 	before := sessionCookie(b)
-	res := signIn(t, p, b, "fake")
+	res := login(t, p, b, "fake")
 	if after := sessionCookie(b); after == "" || after == before {
-		t.Error("the session wasn't regenerated at sign-in")
+		t.Error("the session wasn't regenerated at login")
 	}
 	if res.code != http.StatusSeeOther || res.location != "/" {
 		t.Fatalf("callback: %d %s", res.code, res.location)
 	}
 	if got := b.get("/home"); got.body != "hello ada@example.com" {
-		t.Errorf("signed in: %d %q", got.code, got.body)
+		t.Errorf("logged in: %d %q", got.code, got.body)
 	}
 	prof := store.seen[0]
 	if prof.Provider != "fake" || prof.Subject != "u-42" || !prof.EmailVerified || prof.Name != "Ada" || prof.Token.AccessToken != "at" {
@@ -277,11 +277,11 @@ func TestOIDCSignIn(t *testing.T) {
 	}
 }
 
-// A user with two-factor sign-in on is asked for a code.
+// A user with two-factor authentication on is asked for a code.
 func TestTwoFactor(t *testing.T) {
 	p := newProvider(t)
 	store, b := setup(t, p)
-	signIn(t, p, b, "fake")
+	login(t, p, b, "fake")
 	var u *user
 	for _, x := range store.byID { // the one user
 		u = x
@@ -299,11 +299,11 @@ func TestTwoFactor(t *testing.T) {
 	}
 	jar, _ := cookiejar.New(nil)
 	b2 := &browser{t: t, h: b.h, ctx: b.ctx, jar: jar}
-	if res := signIn(t, p, b2, "fake"); res.code != http.StatusSeeOther || res.location != "/two-factor-challenge" {
+	if res := login(t, p, b2, "fake"); res.code != http.StatusSeeOther || res.location != "/two-factor-challenge" {
 		t.Errorf("callback: %d %s", res.code, res.location)
 	}
 	if got := b2.get("/home"); got.code != http.StatusSeeOther {
-		t.Errorf("signed in without the code: %d", got.code)
+		t.Errorf("logged in without the code: %d", got.code)
 	}
 }
 
@@ -322,7 +322,7 @@ func TestCallbackChecks(t *testing.T) {
 		}
 	}
 
-	// A callback without a sign-in started from this session, or a replay.
+	// A callback without a login started from this session, or a replay.
 	res := b.get("/auth/fake/redirect")
 	cb := p.authorize(t, res.location)
 	forged, _ := url.Parse(cb)
@@ -352,7 +352,7 @@ func TestCallbackChecks(t *testing.T) {
 		p.mu.Lock()
 		p.claims = claims
 		p.mu.Unlock()
-		fails(name, p.authorize(t, b.get("/auth/fake/redirect").location), "couldn't sign you in with that account")
+		fails(name, p.authorize(t, b.get("/auth/fake/redirect").location), "couldn't log you in with that account")
 	}
 	p.claims = nil
 
@@ -418,7 +418,7 @@ func TestDiscovery(t *testing.T) {
 	p.discovery = map[string]string{"issuer": p.URL + "/"}
 	p.claims = map[string]any{"iss": p.URL + "/"}
 	_, b = setup(t, p, social.OIDC("fake", p.URL+"/"))
-	if res := signIn(t, p, b, "fake"); res.location != "/" {
+	if res := login(t, p, b, "fake"); res.location != "/" {
 		t.Errorf("issuer with a trailing slash: %d %s", res.code, res.location)
 	}
 }
@@ -437,7 +437,7 @@ func TestInsecureRedirects(t *testing.T) {
 	})
 	p.Config.Handler = mux
 	store, b := setup(t, p)
-	res := signIn(t, p, b, "fake")
+	res := login(t, p, b, "fake")
 	if res.location != "/login" || len(store.seen) != 0 {
 		t.Errorf("redirect to http: %d %s, profiles %v", res.code, res.location, store.seen)
 	}
@@ -644,7 +644,7 @@ func TestResolverWithoutUser(t *testing.T) {
 	p := newProvider(t)
 	store, b := setup(t, p)
 	store.nilUser = true // a Resolver returning (nil, nil)
-	if res := signIn(t, p, b, "fake"); res.location != "/login" {
+	if res := login(t, p, b, "fake"); res.location != "/login" {
 		t.Errorf("no user: %d %s", res.code, res.location)
 	}
 }

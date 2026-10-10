@@ -21,9 +21,9 @@ own and can change:
 | File | Holds |
 |---|---|
 | `app/models/user.go` | `User`, and `models.Users`, which tells package `auth` how to find and update users |
-| `app/handlers/auth.go`, `app/handlers/settings.go` | Registration, sign-in (with a password, Google or GitHub), email verification, password reset, two-factor sign-in, API tokens, the settings page |
+| `app/handlers/auth.go`, `app/handlers/settings.go` | Registration, login (with a password, Google or GitHub), email verification, password reset, two-factor authentication, API tokens, the settings page |
 | `views/auth.templ`, `views/settings.templ` | Their pages, and `AccountMenu`, the header's links to log in, register and log out, which `make:auth` adds to `views/layout.templ` |
-| `routes/auth.go` | Their routes. Pages for signed-in users go in its `members` group |
+| `routes/auth.go` | Their routes. Pages for logged-in users go in its `members` group |
 | `auth_test.go` | Their tests |
 | `database/factories/users.go` | `factories.Users`, which makes users for your own tests |
 

@@ -50,8 +50,8 @@ go run . migrate
 ```
 
 `make:auth` writes registration, login, logout, email verification,
-password reset, two-factor sign-in and token management, as JSON
-endpoints that sign in with API tokens. Sign up:
+password reset, two-factor authentication and token management, as JSON
+endpoints that log in with API tokens. Sign up:
 
 ```sh
 curl -X POST http://localhost:8080/api/v1/register \
@@ -123,11 +123,11 @@ Then `go tool anetos gen` (the typed column `BookmarkCols.UserID`) and
 `go run . migrate` again.
 
 In `app/handlers/bookmarks.go`, two helpers (import
-`anetos.dev/anetos/auth`): the signed-in user, and a bookmark of
+`anetos.dev/anetos/auth`): the logged-in user, and a bookmark of
 theirs:
 
 ```go
-// owner is the signed-in user's ID: a request sees their bookmarks only.
+// owner is the logged-in user's ID: a request sees their bookmarks only.
 func owner(c *web.Ctx) (int64, error) {
 	u, err := auth.Current[*models.User](c)
 	if err != nil {
@@ -178,7 +178,7 @@ in place of `db.Find[models.Bookmark](c, in.ID)`. While you're in the
 file, check that links are links: the input's `url` field gets the
 `url` rule, `validate:"required|url|max:255"`.
 
-Last, only signed-in clients may reach the bookmarks. Remove the
+Last, only logged-in clients may reach the bookmarks. Remove the
 `Bookmarks(api)` line from `routes/api.go`, and call it from
 `routes/auth.go`, in the group whose routes need a token:
 
@@ -314,7 +314,7 @@ func TestBookmarksAreTheUsers(t *testing.T) {
 	app.PostJSON("/api/v1/bookmarks", map[string]any{"url": "https://ada.example.com", "title": "Ada's"}).
 		AssertCreated().JSON(&ada)
 
-	var bob handlers.SignInResponse
+	var bob handlers.LoginResponse
 	app.PostJSON("/api/v1/register", map[string]any{
 		"name": "Bob", "email": "bob@example.com", "password": "correct horse", "password_confirmation": "correct horse",
 	}).AssertCreated().JSON(&bob)
@@ -409,7 +409,7 @@ in it.
 ## Next steps
 
 - [Add accounts to an API](../guides/api-accounts.md): every account
-  endpoint, two-factor sign-in, throttling.
+  endpoint, two-factor authentication, throttling.
 - [Describe an API with OpenAPI](../guides/openapi.md) and its
   [reference](../reference/openapi.md).
 - [Roles and permissions](../guides/roles-and-permissions.md): what

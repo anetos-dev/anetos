@@ -21,11 +21,11 @@ import (
 const (
 	keyID   = "_auth.id"
 	keyHash = "_auth.hash"
-	// The user acting as keyID's (Impersonate), and their fingerprint.
+	// The user impersonating keyID's (Impersonate), and their fingerprint.
 	keyImpersonator     = "_auth.impersonator"
 	keyImpersonatorHash = "_auth.impersonator_hash"
 	keyIntended         = "_auth.intended"
-	// A sign-in waiting for a two-factor code, and when the password was
+	// A login waiting for a two-factor code, and when the password was
 	// last confirmed.
 	keyPending   = "_auth.pending"
 	keyConfirmed = "_auth.confirmed"
@@ -45,7 +45,7 @@ type state struct {
 	loading chan struct{} // closed when the load in progress ends
 	user    any           // nil for a guest
 	token   *Token        // the API token the request authenticated with
-	acting  bool          // made by ActAs: no session to sign in or out
+	acting  bool          // made by WithUser: no session to log in or out
 	bearer  bool          // went through TokenMiddleware: a 401 asks for a Bearer token
 }
 
@@ -117,7 +117,7 @@ func (st *state) set(u any, tok *Token) {
 
 // Middleware makes the request's user available to [User], [Check] and
 // the Auth methods. Put it after the session middleware: it finds the
-// user from the session, or from a remember-me cookie (signing them in
+// user from the session, or from a remember-me cookie (logging them in
 // to a new session). The user is loaded when first asked for, so pages
 // that don't need one don't query for it.
 func (a *Auth[U]) Middleware(next http.Handler) http.Handler {
@@ -150,8 +150,8 @@ func (a *Auth[U]) load(ctx context.Context, st *state) (any, error) {
 		case err != nil:
 			return nil, err
 		case a.sessionPrint(u, u.AuthPassword()) != s.String(keyHash):
-			// The password changed since this session signed in, or the
-			// user was signed out everywhere: sign it out.
+			// The password changed since this session logged in, or the
+			// user was logged out everywhere: log it out.
 			s.Invalidate()
 			return nil, nil
 		case a.disabled(u):
@@ -159,7 +159,7 @@ func (a *Auth[U]) load(ctx context.Context, st *state) (any, error) {
 			return nil, nil
 		}
 		if s.String(keyImpersonator) != "" {
-			// Acting as u: only while the impersonator may still sign in.
+			// Impersonating u: only while the impersonator may still log in.
 			if ok, err := a.impersonatorValid(ctx, s); err != nil {
 				return nil, err
 			} else if !ok {
@@ -172,7 +172,7 @@ func (a *Auth[U]) load(ctx context.Context, st *state) (any, error) {
 	return a.fromRemember(ctx, st, s)
 }
 
-// forget signs the session out without ending it.
+// forget logs the session out without ending it.
 func (a *Auth[U]) forget(s *session.Session) {
 	s.Delete(keyID)
 	s.Delete(keyHash)
@@ -191,7 +191,7 @@ type rememberValue struct {
 
 const rememberContext = "anetos/auth\x00remember"
 
-// fromRemember signs in the user of a valid remember-me cookie.
+// fromRemember logs in the user of a valid remember-me cookie.
 func (a *Auth[U]) fromRemember(ctx context.Context, st *state, s *session.Session) (any, error) {
 	if a.users.RememberToken == nil || st.r == nil {
 		return nil, nil
@@ -215,7 +215,7 @@ func (a *Auth[U]) fromRemember(ctx context.Context, st *state, s *session.Sessio
 	tok := a.users.RememberToken(u)
 	if tok == "" || subtle.ConstantTimeCompare([]byte(tok), []byte(v.Token)) != 1 ||
 		v.Hash != a.sessionPrint(u, u.AuthPassword()) || a.disabled(u) {
-		a.clearRemember(st) // signed out everywhere, the password changed, or disabled
+		a.clearRemember(st) // logged out everywhere, the password changed, or disabled
 		return nil, nil
 	}
 	s.Regenerate()
@@ -253,23 +253,29 @@ func (a *Auth[U]) clearRemember(st *state) {
 	}
 }
 
-// User returns the request's signed-in user, and whether there is one. A
+// User returns the request's logged-in user, and whether there is one. A
 // failure to load the user (the database is down) is logged and counts as
-// no user; use [Current] to tell the two apart.
+// no user: use it where a page shows guests something else, and
+// [Current] where a handler needs the user and returns the error.
 //
 //	u, ok := auth.User[*models.User](c)
 func User[U Authenticatable](ctx context.Context) (U, bool) {
 	u, err := Current[U](ctx)
 	if err != nil && !errors.Is(err, ErrUnauthenticated) {
 		if st := stateFrom(ctx); st != nil {
-			st.log.Error("auth: loading the signed-in user failed", "error", err)
+			st.log.Error("auth: loading the logged-in user failed", "error", err)
 		}
 	}
 	return u, err == nil
 }
 
-// Current returns the request's signed-in user, [ErrUnauthenticated] if
+// Current returns the request's logged-in user, [ErrUnauthenticated] if
 // there is none, or the error that kept it from being loaded.
+//
+//	u, err := auth.Current[*models.User](c)
+//	if err != nil {
+//		return nil, err // 401 for a guest
+//	}
 func Current[U Authenticatable](ctx context.Context) (U, error) {
 	var zero U
 	st := stateFrom(ctx)
@@ -285,13 +291,13 @@ func Current[U Authenticatable](ctx context.Context) (U, error) {
 	}
 	typed, ok := u.(U)
 	if !ok {
-		return zero, errors.New("auth: the signed-in user isn't of the type asked for")
+		return zero, errors.New("auth: the logged-in user isn't of the type asked for")
 	}
 	return typed, nil
 }
 
 // CurrentID returns the [Authenticatable.AuthID] of the request's
-// signed-in user, [ErrUnauthenticated] if there is none, or the error that
+// logged-in user, [ErrUnauthenticated] if there is none, or the error that
 // kept it from being loaded. It is for code that works with any user type,
 // such as package auth/rbac; handlers use [Current] or [User].
 func CurrentID(ctx context.Context) (string, error) {
@@ -310,7 +316,7 @@ func CurrentID(ctx context.Context) (string, error) {
 	return a.AuthID(), nil
 }
 
-// Check reports whether the request has a signed-in user.
+// Check reports whether the request has a logged-in user.
 func Check(ctx context.Context) bool {
 	st := stateFrom(ctx)
 	if st == nil {
@@ -320,12 +326,12 @@ func Check(ctx context.Context) bool {
 	return err == nil && u != nil
 }
 
-// Require lets only signed-in users through. Guests asking for a page are
+// Require lets only logged-in users through. Guests asking for a page are
 // redirected to AUTH_LOGIN_URL, and the page they wanted is remembered
 // for [Intended]; other requests (JSON, htmx) get 401, with
 // "WWW-Authenticate: Bearer" on routes without sessions or behind
 // [Auth.TokenMiddleware]. Responses to
-// signed-in users get "Cache-Control: no-store" (a handler may set
+// logged-in users get "Cache-Control: no-store" (a handler may set
 // another), so browsers don't keep them after logout. API descriptions
 // (package web/openapi) show its routes as needing a bearer token.
 func (a *Auth[U]) Require(next http.Handler) http.Handler {
@@ -333,7 +339,7 @@ func (a *Auth[U]) Require(next http.Handler) http.Handler {
 		_, err := Current[U](r.Context())
 		switch {
 		case err == nil:
-			// A signed-in user's page stays out of every cache, the
+			// A logged-in user's page stays out of every cache, the
 			// browser's too, so it isn't shown again after logout on a
 			// shared computer. Handlers may set another.
 			w.Header().Set("Cache-Control", "no-store")
@@ -359,10 +365,10 @@ func (a *Auth[U]) Require(next http.Handler) http.Handler {
 // requireDoc is what Require tells API descriptions (web.Documented):
 // on an API, a token.
 var requireDoc = web.MiddlewareDoc{Security: "bearer", Responses: map[int]string{
-	http.StatusUnauthorized: "The request isn't signed in: it has no valid API token.",
+	http.StatusUnauthorized: "The request isn't logged in: it has no valid API token.",
 }}
 
-// Guest lets only guests through: signed-in users are redirected to
+// Guest lets only guests through: logged-in users are redirected to
 // AUTH_HOME_URL. Use it on the login and registration pages.
 func (a *Auth[U]) Guest(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -390,21 +396,28 @@ func Intended(ctx context.Context, fallback string) string {
 	return web.LocalePath(ctx, fallback)
 }
 
-// actor finds users by ID for [ActAs]; New puts the app's Auth in its
+// actor finds users by ID for [WithUser]; New puts the app's Auth in its
 // contexts as one.
 type actor interface {
-	ActAs(ctx context.Context, userID string, opts ...ActOption) context.Context
+	WithUser(ctx context.Context, userID string, opts ...UserOption) context.Context
 }
 
-// ActOption configures [Auth.ActAs].
-type ActOption func(*state)
+// UserOption configures [Auth.WithUser].
+type UserOption func(*state)
+
+// ActOption is [UserOption].
+//
+// Deprecated: Use UserOption; ActOption is removed in v0.6.
+//
+//go:fix inline
+type ActOption = UserOption
 
 // WithAbilities limits the context to abilities, as an API token with
 // them would ([TokenCan], and packages that read [CurrentToken], such as
-// auth/rbac): for work done for a request that was signed in with a
+// auth/rbac): for work done for a request that was logged in with a
 // token, so that it can't do more than the token could. Its Token has
 // the abilities and user ID, and no ID.
-func WithAbilities(abilities []string) ActOption {
+func WithAbilities(abilities []string) UserOption {
 	return func(st *state) {
 		st.token = &Token{Abilities: slices.Clone(abilities)}
 	}
@@ -412,7 +425,7 @@ func WithAbilities(abilities []string) ActOption {
 
 type actorKey struct{}
 
-// idLoader loads the user an [Auth.ActAs] context acts as.
+// idLoader loads the user of an [Auth.WithUser] context.
 type idLoader[U Authenticatable] struct {
 	a  *Auth[U]
 	id string
@@ -431,14 +444,14 @@ func (l idLoader[U]) load(ctx context.Context, _ *state) (any, error) {
 	return u, nil
 }
 
-// ActAs returns ctx in which the user with userID is the signed-in user,
-// for work done for a user outside their requests: a queue job, a
+// WithUser returns ctx in which the user with userID is the logged-in
+// user, for work done for a user outside their requests: a queue job, a
 // command. [User], [Current], [CurrentID], policies and what builds on
 // them (package auth/rbac, AI tools) see that user, loaded from
 // Users.ByID when first asked for; a user that doesn't exist is a guest.
 // There is no session: Attempt, Login and Logout fail. There is no API
 // token either, unless [WithAbilities] gives the limits of one.
-func (a *Auth[U]) ActAs(ctx context.Context, userID string, opts ...ActOption) context.Context {
+func (a *Auth[U]) WithUser(ctx context.Context, userID string, opts ...UserOption) context.Context {
 	st := &state{loader: idLoader[U]{a, userID}, log: a.log, acting: true}
 	for _, opt := range opts {
 		opt(st)
@@ -449,13 +462,31 @@ func (a *Auth[U]) ActAs(ctx context.Context, userID string, opts ...ActOption) c
 	return context.WithValue(ctx, stateKey{}, st)
 }
 
-// ActAs is [Auth.ActAs] with the app's Auth (auth.New), from ctx: for
-// packages that don't know the app's user type, such as package ai's
+// ActAs is [Auth.WithUser].
+//
+// Deprecated: Use WithUser; ActAs is removed in v0.6.
+//
+//go:fix inline
+func (a *Auth[U]) ActAs(ctx context.Context, userID string, opts ...UserOption) context.Context {
+	return a.WithUser(ctx, userID, opts...)
+}
+
+// WithUser is [Auth.WithUser] with the app's Auth (auth.New), from ctx:
+// for packages that don't know the app's user type, such as package ai's
 // queued replies.
-func ActAs(ctx context.Context, userID string, opts ...ActOption) (context.Context, error) {
+func WithUser(ctx context.Context, userID string, opts ...UserOption) (context.Context, error) {
 	a, ok := ctx.Value(actorKey{}).(actor)
 	if !ok {
-		return nil, errors.New("auth: ActAs needs the app's Auth in the context (auth.New)")
+		return nil, errors.New("auth: WithUser needs the app's Auth in the context (auth.New)")
 	}
-	return a.ActAs(ctx, userID, opts...), nil
+	return a.WithUser(ctx, userID, opts...), nil
+}
+
+// ActAs is [WithUser].
+//
+// Deprecated: Use WithUser; ActAs is removed in v0.6.
+//
+//go:fix inline
+func ActAs(ctx context.Context, userID string, opts ...UserOption) (context.Context, error) {
+	return WithUser(ctx, userID, opts...)
 }

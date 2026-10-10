@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Package auth signs users in and out, remembers them, finds the current
+// Package auth logs users in and out, remembers them, finds the current
 // user of a request, issues API tokens and password-reset and
 // email-verification tokens, and checks typed policies. Passwords are
 // hashed by package auth/password.
@@ -16,7 +16,7 @@
 //	pages := r.Group("", sessions.Middleware, web.CSRF(), a.Middleware)
 //	pages.Group("", a.Require).Get("/dashboard", …)
 //
-// Handlers sign users in with [Auth.Attempt] (checks the password, with
+// Handlers log users in with [Auth.Attempt] (checks the password, with
 // login throttling) and out with [Auth.Logout], and read the current user
 // with [User]:
 //
@@ -54,17 +54,17 @@ type Authenticatable interface {
 	// in API tokens: usually the primary key as text.
 	AuthID() string
 	// AuthPassword returns the user's password hash (from
-	// password.Hash), or "" for users who can't sign in with a password.
+	// password.Hash), or "" for users who can't log in with a password.
 	AuthPassword() string
 }
 
 // Users tells package auth how to find and update the app's users. ByID
-// and ByLogin are required; they return [ErrNoUser] or db.ErrNotFound
+// and ByLogin are required; they return [ErrUserNotFound] or db.ErrNotFound
 // when there is no such user.
 type Users[U Authenticatable] struct {
 	// ByID returns the user with the identifier from U.AuthID.
 	ByID func(ctx context.Context, id string) (U, error)
-	// ByLogin returns the user who signs in with login: usually an email
+	// ByLogin returns the user who logs in with login: usually an email
 	// address, compared without regard to case.
 	ByLogin func(ctx context.Context, login string) (U, error)
 	// RememberToken returns the user's remember-me token, stored with
@@ -73,27 +73,27 @@ type Users[U Authenticatable] struct {
 	RememberToken func(u U) string
 	// SetRememberToken stores a new remember-me token for the user. Auth
 	// sets one at the first remembered login and replaces it at logout,
-	// which signs the user out of every remembered browser.
+	// which logs the user out of every remembered browser.
 	SetRememberToken func(ctx context.Context, u U, token string) error
 	// SetPassword stores a new password hash for the user. Optional:
 	// Attempt uses it to upgrade old hashes (password.NeedsRehash) after
 	// a successful login.
 	SetPassword func(ctx context.Context, u U, hash string) error
 	// Disabled reports whether the user's account is disabled (a
-	// disabled_at column). Optional. A disabled user is signed out on
-	// their next request and can't sign in ([ErrDisabled]); their API
+	// disabled_at column). Optional. A disabled user is logged out on
+	// their next request and can't log in ([ErrDisabled]); their API
 	// tokens and remember-me cookies stop working.
 	Disabled func(u U) bool
 	// SessionKey returns the user's session key (a session_key column),
 	// "" if none yet. Optional: with SetSessionKey, it enables
-	// [Auth.SignOutEverywhere]. Sessions and remember-me cookies are
+	// [Auth.LogoutEverywhere]. Sessions and remember-me cookies are
 	// bound to it, as to the password hash.
 	SessionKey func(u U) string
 	// SetSessionKey stores a new session key for the user.
 	SetSessionKey func(ctx context.Context, u U, key string) error
-	// TwoFactor returns the user's two-factor sign-in state, as stored
+	// TwoFactor returns the user's two-factor authentication state, as stored
 	// (a two_factor column, text), "" if none. Optional: with
-	// SetTwoFactor, it enables two-factor sign-in ([Auth.StartTwoFactor]).
+	// SetTwoFactor, it enables two-factor authentication ([Auth.StartTwoFactor]).
 	// Package auth writes it: the secret encrypted with APP_KEY, the
 	// recovery codes hashed.
 	TwoFactor func(u U) string
@@ -106,8 +106,8 @@ type Config struct {
 	// LoginURL is where [Auth.Require] sends guests. AUTH_LOGIN_URL,
 	// default /login.
 	LoginURL string `env:"AUTH_LOGIN_URL" default:"/login"`
-	// HomeURL is the app's page for signed-in users: where [Auth.Guest]
-	// sends them, and where signing in leads when there's no page they
+	// HomeURL is the app's page for logged-in users: where [Auth.Guest]
+	// sends them, and where logging in leads when there's no page they
 	// wanted ([Intended]'s usual fallback). AUTH_HOME_URL, default /
 	// ([DefaultHomeURL] sets another default).
 	HomeURL string `env:"AUTH_HOME_URL" default:"/"`
@@ -131,14 +131,14 @@ type Config struct {
 	// works ([Auth.EmailRevertToken]). AUTH_REVERT_TTL, default 168h (7
 	// days).
 	RevertTTL time.Duration `env:"AUTH_REVERT_TTL" default:"168h"`
-	// ChallengeURL is where a sign-in waiting for a two-factor code
+	// ChallengeURL is where a login waiting for a two-factor code
 	// asks for it ([ErrTwoFactorRequired]). AUTH_CHALLENGE_URL, default
 	// /two-factor-challenge.
 	ChallengeURL string `env:"AUTH_CHALLENGE_URL" default:"/two-factor-challenge"`
-	// TwoFactorURL is where users turn two-factor sign-in on and off.
+	// TwoFactorURL is where users turn two-factor authentication on and off.
 	// AUTH_TWO_FACTOR_URL, default /two-factor.
 	TwoFactorURL string `env:"AUTH_TWO_FACTOR_URL" default:"/two-factor"`
-	// SettingsURL is where signed-in users change their account settings
+	// SettingsURL is where logged-in users change their account settings
 	// (make:auth's page; the admin links there). AUTH_SETTINGS_URL,
 	// default /settings.
 	SettingsURL string `env:"AUTH_SETTINGS_URL" default:"/settings"`
@@ -183,7 +183,7 @@ func (c Config) Validate() error {
 // LoadConfig reads the AUTH_* settings.
 func LoadConfig(src config.Source) (Config, error) { return config.Get[Config](src) }
 
-// Auth signs users of type U in and out. Create it with [New] or
+// Auth logs users of type U in and out. Create it with [New] or
 // [NewWithConfig]; it is safe for concurrent use.
 type Auth[U Authenticatable] struct {
 	cfg    Config
@@ -210,11 +210,11 @@ type options struct {
 func WithLogger(l *slog.Logger) Option { return func(o *options) { o.log = l } }
 
 // WithIssuer names the app in users' authenticator apps (two-factor
-// sign-in). New uses APP_NAME.
+// authentication). New uses APP_NAME.
 func WithIssuer(name string) Option { return func(o *options) { o.issuer = name } }
 
 // DefaultHomeURL sets HomeURL's default, for [New]: the page users go
-// to after signing in when AUTH_HOME_URL isn't set, instead of /.
+// to after logging in when AUTH_HOME_URL isn't set, instead of /.
 // make:auth's setupAuth gives /dashboard. AUTH_HOME_URL still wins, so
 // each deployment can choose. [NewWithConfig] takes its Config as it is and
 // ignores it.
@@ -262,7 +262,7 @@ func NewWithConfig[U Authenticatable](cfg Config, users Users[U], enc *encryptio
 // cookie are fixed, so a second one would read the first one's users.
 // The options come after New's own (the app's logger, APP_NAME as the
 // issuer, insecure cookies outside production); [DefaultHomeURL] sets
-// where users go after signing in, unless AUTH_HOME_URL is set.
+// where users go after logging in, unless AUTH_HOME_URL is set.
 func New[U Authenticatable](app *anetos.App, users Users[U], opts ...Option) (*Auth[U], error) {
 	if _, ok := anetos.Lookup[appAuth](app); ok {
 		return nil, errors.New("auth: New called twice for one app")
@@ -302,7 +302,7 @@ func New[U Authenticatable](app *anetos.App, users Users[U], opts ...Option) (*A
 	anetos.Provide(app, a)
 	anetos.Provide(app, appAuth{})
 	app.AddContextValue(actorKey{}, actor(a))
-	// The signed-in user's language and time zone (i18n.LocalePreference,
+	// The logged-in user's language and time zone (i18n.LocalePreference,
 	// i18n.TimeZonePreference) are the request's.
 	i18n.SetCurrentUser(app, func(ctx context.Context) (any, bool) {
 		st := stateFrom(ctx)
@@ -351,20 +351,31 @@ func (a *Auth[U]) Config() Config { return a.cfg }
 // RememberCookie returns the remember-me cookie's name.
 func (a *Auth[U]) RememberCookie() string { return a.cookie }
 
-// CanRemember reports whether "remember me" is available: Users has
+// SupportsRemember reports whether "remember me" is available: Users has
 // RememberToken and SetRememberToken.
-func (a *Auth[U]) CanRemember() bool { return a.users.RememberToken != nil }
+func (a *Auth[U]) SupportsRemember() bool { return a.users.RememberToken != nil }
+
+// CanRemember is [Auth.SupportsRemember].
+//
+// Deprecated: Use SupportsRemember; CanRemember is removed in v0.6.
+//
+//go:fix inline
+func (a *Auth[U]) CanRemember() bool { return a.SupportsRemember() }
 
 // Errors. Each has an HTTP status, so a handler can return it.
 var (
-	// ErrNoUser is what Users functions return when there is no such
-	// user (db.ErrNotFound works too).
-	ErrNoUser = errors.New("auth: no such user")
+	// ErrUserNotFound is what Users functions return when there is no
+	// such user (db.ErrNotFound works too).
+	ErrUserNotFound = errors.New("auth: user not found")
+	// ErrNoUser is ErrUserNotFound.
+	//
+	// Deprecated: Use ErrUserNotFound; ErrNoUser is removed in v0.6.
+	ErrNoUser error = ErrUserNotFound
 	// ErrInvalidCredentials is returned by Attempt for an unknown login
 	// or a wrong password (which of the two isn't said). 401.
 	ErrInvalidCredentials error = &statusError{http.StatusUnauthorized, "auth: invalid credentials"}
-	// ErrUnauthenticated means the request has no signed-in user. 401.
-	ErrUnauthenticated error = &statusError{http.StatusUnauthorized, "auth: not signed in"}
+	// ErrUnauthenticated means the request has no logged-in user. 401.
+	ErrUnauthenticated error = &statusError{http.StatusUnauthorized, "auth: not logged in"}
 	// ErrForbidden means a policy refused the action. 403.
 	ErrForbidden error = &statusError{http.StatusForbidden, "auth: not allowed"}
 	// ErrInvalidToken means a password-reset or verification token is
@@ -375,8 +386,8 @@ var (
 	// 403.
 	ErrDisabled error = &statusError{http.StatusForbidden, "auth: this account is disabled"}
 	// ErrNotImpersonating is returned by StopImpersonating when the
-	// session isn't acting as anyone. 409.
-	ErrNotImpersonating error = &statusError{http.StatusConflict, "auth: not acting as another user"}
+	// session isn't impersonating anyone. 409.
+	ErrNotImpersonating error = &statusError{http.StatusConflict, "auth: not impersonating another user"}
 )
 
 type statusError struct {
@@ -402,10 +413,12 @@ func (e *ThrottledError) Error() string {
 // HTTPStatus implements web.StatusCoder.
 func (e *ThrottledError) HTTPStatus() int { return http.StatusTooManyRequests }
 
-func notFound(err error) bool { return errors.Is(err, ErrNoUser) || errors.Is(err, db.ErrNotFound) }
+func notFound(err error) bool {
+	return errors.Is(err, ErrUserNotFound) || errors.Is(err, db.ErrNotFound)
+}
 
 // fingerprint identifies a password hash without revealing it: stored in
-// the session, it signs the user out when the password changes.
+// the session, it logs the user out when the password changes.
 // sessionPrint is what sessions and remember-me cookies of u are bound
 // to: the password hash and, if any, the session key. Without a key, it
 // is the hash's fingerprint, as before keys.

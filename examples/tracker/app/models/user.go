@@ -20,10 +20,10 @@ type User struct {
 	Email           string     `db:"email" json:"email"` // stored in lower case
 	Password        string     `db:"password" json:"-"`  // password.Hash
 	RememberToken   string     `db:"remember_token" json:"-"`
-	SessionKey      string     `db:"session_key" json:"-"` // replaced to sign out everywhere
+	SessionKey      string     `db:"session_key" json:"-"` // replaced to log out everywhere
 	EmailVerifiedAt *time.Time `db:"email_verified_at" json:"email_verified_at"`
-	DisabledAt      *time.Time `db:"disabled_at" json:"disabled_at"` // set: can't sign in
-	TwoFactor       string     `db:"two_factor" json:"-"`            // two-factor sign-in, encrypted by package auth
+	DisabledAt      *time.Time `db:"disabled_at" json:"disabled_at"` // set: can't log in
+	TwoFactor       string     `db:"two_factor" json:"-"`            // two-factor authentication, encrypted by package auth
 	PendingEmail    string     `db:"pending_email" json:"-"`         // a new address, until its link is followed
 	Locale          string     `db:"locale" json:"locale"`           // the language chosen in the settings, "" for the browser's
 	TimeZone        string     `db:"time_zone" json:"time_zone"`     // the time zone chosen in the settings, "" for the app's
@@ -46,12 +46,12 @@ func (u *User) PreferredTimeZone() string { return u.TimeZone }
 
 // Users tells package auth how to find users, which are disabled, and
 // how to store their tokens, session keys, upgraded password hashes and
-// two-factor sign-in.
+// two-factor authentication.
 var Users = auth.Users[*User]{
 	ByID: func(ctx context.Context, id string) (*User, error) {
 		n, err := strconv.ParseInt(id, 10, 64)
 		if err != nil {
-			return nil, auth.ErrNoUser
+			return nil, auth.ErrUserNotFound
 		}
 		u, err := db.Find[User](ctx, n) // db.ErrNotFound: no such user
 		return &u, err

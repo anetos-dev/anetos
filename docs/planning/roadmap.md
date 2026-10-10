@@ -541,6 +541,7 @@ installed from the module proxy.
 | M8a API rules and files | ✅ Done 2026-10-10 (design §23, D308, D309): `docs/contributing/api-guidelines.md` (names, constructors and options, context and errors, types and interfaces, what to export, doc comments, changing the API with `//go:fix inline` deprecations kept one minor); `internal/cmd/apisnap` writes `api/<module>.txt` for the 13 library modules (about 2,900 lines) and `make api-check`, part of `make check` and CI's core part, fails when they differ from the source |
 | M8b-1 Constructing services | ✅ Done 2026-10-10 (design D310): every `X.ForApp(app, …)` is `X.New(app, …)` (17 packages; `openapi.Register`), the constructors from parts renamed (`cache.NewWithStore`, `events.NewBus`…, `session.NewSession`), `ForApp` kept deprecated with `//go:fix inline` until v0.6; a second `New`/`db.Connect` for one app is an error in every package (`encryption.New` returns the same one); the guidelines' first rule is the familiar word; the lifecycle page explains `setup`; the upgrade guide's table. Part of M8b, after the API and vocabulary reviews (`docs/planning/m8b-plan.md`) |
 | M8b-2 Settings | ✅ Done 2026-10-10 (design §7, D311): every key starts with its area; `DB_DRIVER`, `DB_NAME`, `DB_USER`, `DB_MIGRATE_ON_START`, `DB_MIGRATE_READINESS`, `DB_SEARCH_*`, `CACHE_DRIVER`, `SESSION_TTL`, `SESSION_MAX_TTL`, `AUTH_REMEMBER_TTL`, `QUEUE_POLL_INTERVAL`, `APP_LOCALE_STRATEGY`, the config fields with them (`db.Config.Driver`/`Name`/`User`…); the former names read until v0.6 through `config`'s new `was` tag, logged once and listed by doctor; doctor warns about `.env` keys of a known area that nothing reads, with a pointer for other frameworks' names; `PORT` and `DATABASE_URL` as fallbacks |
+| M8b-3 Logging in | ✅ Done 2026-10-10 (design §15, D312): "log in"/"log out" in the API, the pages, the messages and the docs; `Auth.Login` asks for the two-factor code (`SignIn` deprecated); `LogoutOthers`, `LogoutEverywhere`, `Supports…` feature checks, `WithUser` (was `ActAs`), `ErrNoPendingLogin`, `ErrUserNotFound`, `social.NoAccountError`, `anetostest.SocialLogin`; the admin's "Impersonate"; "two-factor authentication"; the locale keys `login_with`, `login_again`, `login_first` (and the bn, es, fr translations in anetos-dev/locales); old names deprecated until v0.6 |
 
 ---
 
@@ -552,7 +553,7 @@ Goal: modern SPA-style frontends without giving up server-side routing.
 |---|---|---|
 | V1 | Vite integration | Dev-server proxy, manifest reading, assets embedded in the production binary |
 | V2 | Inertia adapter | Server-side protocol: shared props, partial reloads, validation errors, redirects (SSR later) |
-| V3 | Starter kits | `anetos new --stack=vue\|react\|svelte`, each with auth UI on v0.4's API pieces, and sign-in by session cookie for single-page apps on the app's own domain |
+| V3 | Starter kits | `anetos new --stack=vue\|react\|svelte`, each with auth UI on v0.4's API pieces, and login by session cookie for single-page apps on the app's own domain |
 | V4 | Docs | A guide per stack, plus a migration guide from htmx to an SPA stack |
 
 ---
@@ -708,3 +709,4 @@ something, and we fix the API rather than add the hook.
 | 2026-10-10 | M8 split into M8a–c; M8a (API guidelines, API files) done (design D308, D309) |
 | 2026-10-10 | M8b in six parts after the API and vocabulary reviews (`m8b-plan.md`); M8b-1 (`ForApp` → `New`) done (design D310) |
 | 2026-10-10 | M8b-2 (settings) done (design D311) |
+| 2026-10-10 | M8b-3 (logging in) done (design D312) |

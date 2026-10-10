@@ -15,7 +15,7 @@ import (
 	"anetos.dev/anetos/examples/tracker/app/models"
 )
 
-// Tracker adds the tracker's pages, for signed-in users, and its JSON
+// Tracker adds the tracker's pages, for logged-in users, and its JSON
 // API, for API tokens. Each handler checks the user's role in the
 // project (handlers.loadProject).
 func Tracker(r *web.Router, sessions *session.Manager, a *auth.Auth[*models.User]) {

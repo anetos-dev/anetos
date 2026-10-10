@@ -23,7 +23,7 @@ import (
 )
 
 // Accounts are what [Users] does to the app's users beyond editing them:
-// disabling, verification, signing out, API tokens, roles, acting as
+// disabling, verification, logging out, API tokens, roles, impersonating
 // them.
 type Accounts[U auth.Authenticatable] struct {
 	// Auth is the app's auth.Auth (required).
@@ -53,11 +53,11 @@ const AssignRoles rbac.Permission = "admin.roles.assign"
 
 // Users adds the app's users as a resource, r, as [Add] does, with their
 // accounts managed on their pages (acc): disabling and enabling,
-// verifying addresses, emailing verification and reset links, signing
-// out everywhere, API tokens, roles and permissions, and acting as them
+// verifying addresses, emailing verification and reset links, logging
+// out everywhere, API tokens, roles and permissions, and impersonating them
 // ("admin.<name>.impersonate"). Only those who have every permission a
 // user has may change them (rbac.AuthorizeOver), and no one disables,
-// deletes, acts as or changes the roles of themselves. What it does is
+// deletes, impersonates or changes the roles of themselves. What it does is
 // recorded in the audit log, if the app keeps one. Deleting a user for
 // good also removes their roles and API tokens.
 //
@@ -212,7 +212,7 @@ func (u *userAdmin[T, U, F]) actions(p *Panel) []Action[T] {
 	if u.disabled != nil {
 		out = append(out,
 			Action[T]{Name: "disable", Title: "Disable", Danger: true, Done: "Account disabled.",
-				Confirm: "Disable this account? They'll be signed out, and can't sign in or use their API tokens.",
+				Confirm: "Disable this account? They'll be logged out, and can't log in or use their API tokens.",
 				When:    func(row T) bool { return timeOf(&row, u.disabled) == nil },
 				Run: func(ctx context.Context, row *T) error {
 					return u.setAndRecord(ctx, row, u.disabled, u.acc.DisabledAt, now(ctx), "user.disabled")
@@ -259,20 +259,20 @@ func (u *userAdmin[T, U, F]) actions(p *Panel) []Action[T] {
 				return record(ctx, "user.password_reset_sent", u.subject(row), nil)
 			}})
 	}
-	if u.acc.Auth.CanSignOutEverywhere() {
-		out = append(out, Action[T]{Name: "sign-out", Title: "Sign out everywhere", Done: "Signed out of every browser and device.",
-			Confirm: "Sign this user out of every browser and device? Their API tokens keep working.",
+	if u.acc.Auth.SupportsLogoutEverywhere() {
+		out = append(out, Action[T]{Name: "logout", Title: "Log out everywhere", Done: "Logged out of every browser and device.",
+			Confirm: "Log this user out of every browser and device? Their API tokens keep working.",
 			Run: func(ctx context.Context, row *T) error {
-				if err := u.acc.Auth.SignOutEverywhere(ctx, U(row)); err != nil {
+				if err := u.acc.Auth.LogoutEverywhere(ctx, U(row)); err != nil {
 					return err
 				}
-				return record(ctx, "user.signed_out_everywhere", u.subject(row), nil)
+				return record(ctx, "user.logged_out_everywhere", u.subject(row), nil)
 			}})
 	}
-	if a := u.acc.Auth; a.CanTwoFactor() {
-		out = append(out, Action[T]{Name: "two-factor-off", Title: "Turn off two-factor sign-in", Danger: true,
-			Done:    "Two-factor sign-in turned off.",
-			Confirm: "Turn off this user's two-factor sign-in? Their password alone will sign them in, until they turn it on again.",
+	if a := u.acc.Auth; a.SupportsTwoFactor() {
+		out = append(out, Action[T]{Name: "two-factor-off", Title: "Turn off two-factor authentication", Danger: true,
+			Done:    "Two-factor authentication turned off.",
+			Confirm: "Turn off this user's two-factor authentication? Their password alone will log them in, until they turn it on again.",
 			When: func(row T) bool {
 				st, err := a.TwoFactor(U(&row))
 				return err != nil || st.On || st.Started
@@ -289,18 +289,18 @@ func (u *userAdmin[T, U, F]) actions(p *Panel) []Action[T] {
 	// Not at a host of its own: the app's pages are on another host, whose
 	// session is another (cookies are the host's).
 	if u.impersonate != "" && p.cfg.Host == "" {
-		out = append(out, Action[T]{Name: "impersonate", Title: "Act as user", Permission: string(u.impersonate),
-			Confirm:   "Act as this user? You'll see the app as they do, until you stop. It is logged.",
+		out = append(out, Action[T]{Name: "impersonate", Title: "Impersonate", Permission: string(u.impersonate),
+			Confirm:   "Impersonate this user? You'll see the app as they do, until you stop. It is logged.",
 			When:      func(row T) bool { return u.disabled == nil || timeOf(&row, u.disabled) == nil },
 			Run:       u.startImpersonating,
-			Done:      "You're acting as this user.",
+			Done:      "You're impersonating this user.",
 			sensitive: true,
 			then:      func(*web.Ctx, T) string { return u.acc.Auth.Config().HomeURL }})
 	}
 	return out
 }
 
-// Session keys of acting as a user, for the banner and for stopping.
+// Session keys of impersonating a user, for the banner and for stopping.
 const (
 	keyActingAs   = "_admin.acting_as"   // the user's name
 	keyActingBy   = "_admin.acting_by"   // the admin's name
@@ -312,7 +312,7 @@ const (
 func (u *userAdmin[T, U, F]) startImpersonating(ctx context.Context, row *T) error {
 	c, ok := ctx.(*web.Ctx)
 	if !ok {
-		return errors.New("admin: acting as a user needs the request")
+		return errors.New("admin: impersonating a user needs the request")
 	}
 	by := u.res.p.userName(c)
 	subject := u.subject(row)
@@ -342,12 +342,12 @@ var selfOps = map[string]string{
 	"delete":                "You can't delete your own account here.",
 	"bulk:delete":           "You can't delete your own account here.",
 	"action:disable":        "You can't disable your own account.",
-	"action:impersonate":    "You can't act as yourself.",
-	"action:two-factor-off": "Turn off your own two-factor sign-in on your account's page.",
+	"action:impersonate":    "You can't impersonate yourself.",
+	"action:two-factor-off": "Turn off your own two-factor authentication on your account's page.",
 	"roles":                 "You can't change your own roles.",
 }
 
-// guard lets the signed-in user change only users they have every
+// guard lets the logged-in user change only users they have every
 // permission of, and not do some things to themselves.
 func (u *userAdmin[T, U, F]) guard(c *web.Ctx, row T, op string) error {
 	me, err := auth.CurrentID(c)
@@ -356,7 +356,7 @@ func (u *userAdmin[T, U, F]) guard(c *web.Ctx, row T, op string) error {
 	}
 	if op == "action:impersonate" {
 		if _, acting := auth.Impersonator(c); acting {
-			return validate.Fail("account", "You're acting as someone already: stop first.")
+			return validate.Fail("account", "You're impersonating someone already: stop first.")
 		}
 	}
 	id := U(&row).AuthID()
@@ -435,7 +435,7 @@ type grantView struct {
 type rolesView struct {
 	CSRF      string
 	Grants    []grantView
-	Roles     []Choice // the roles the signed-in user may give
+	Roles     []Choice // the roles the logged-in user may give
 	AssignURL string
 }
 
@@ -459,7 +459,7 @@ type tokensView struct {
 func (u *userAdmin[T, U, F]) sections(c *web.Ctx, row T) ([]section, error) {
 	var out []section
 	p := u.res.p
-	if u.disabled != nil || u.verified != nil || u.acc.Auth.CanTwoFactor() {
+	if u.disabled != nil || u.verified != nil || u.acc.Auth.SupportsTwoFactor() {
 		var av accountView
 		if u.disabled != nil {
 			av.Status = "Active"
@@ -473,7 +473,7 @@ func (u *userAdmin[T, U, F]) sections(c *web.Ctx, row T) ([]section, error) {
 				av.Email, av.Verified = "Verified on "+timeText(c, *t), true
 			}
 		}
-		if u.acc.Auth.CanTwoFactor() {
+		if u.acc.Auth.SupportsTwoFactor() {
 			switch st, err := u.acc.Auth.TwoFactor(U(&row)); {
 			case err != nil:
 				av.TwoFactor = "Can't be read (was APP_KEY changed?)"
@@ -534,7 +534,7 @@ func (u *userAdmin[T, U, F]) sections(c *web.Ctx, row T) ([]section, error) {
 	return out, nil
 }
 
-// rolesOf returns the user's roles and permissions, and what the signed-in
+// rolesOf returns the user's roles and permissions, and what the logged-in
 // user may change of them.
 func (u *userAdmin[T, U, F]) rolesOf(c *web.Ctx, row T, base string) (rolesView, error) {
 	rv := rolesView{CSRF: csrfToken(c)}
@@ -761,10 +761,10 @@ func (u *userAdmin[T, U, F]) revokeAllTokens(c *web.Ctx) error {
 	return done(c, "Every API token revoked.", to)
 }
 
-// stopPath is where acting as a user stops, under the admin's path.
+// stopPath is where impersonating a user stops, under the admin's path.
 const stopPath = "/impersonation/stop"
 
-// stopImpersonating ends acting as a user, for the Panel's stop route.
+// stopImpersonating ends impersonating a user, for the Panel's stop route.
 func stopImpersonating[U auth.Authenticatable](a *auth.Auth[U], p *Panel) web.HandlerFunc {
 	return func(c *web.Ctx) error {
 		s := c.Session()
@@ -777,7 +777,7 @@ func stopImpersonating[U auth.Authenticatable](a *auth.Auth[U], p *Panel) web.Ha
 		case errors.Is(err, auth.ErrNotImpersonating):
 			return c.Redirect(http.StatusSeeOther, p.URL())
 		case err != nil:
-			// The admin can't sign in any more: signed out.
+			// The admin can't log in any more: logged out.
 			return c.Redirect(http.StatusSeeOther, a.Config().LoginURL)
 		}
 		if typ, id, ok := strings.Cut(subj, "\x00"); ok {

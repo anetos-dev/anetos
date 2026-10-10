@@ -15,7 +15,7 @@ the [audit log](audit-log.md) for the models it tracks.
 
 ## Before you start
 
-- Users who sign in with a session: [accounts with make:auth](accounts.md)
+- Users who log in with a session: [accounts with make:auth](accounts.md)
   or [authentication](authentication.md) of your own.
 - [Roles and permissions](roles-and-permissions.md) (`rbac.New`):
   `make:admin` sets them up when the app doesn't.
@@ -76,8 +76,8 @@ func setupAdmin(app *anetos.App, r *web.Router, sessions *session.Manager, a *au
 
 (Copied from [`examples/admin`](../../../examples/admin/main.go), region `setup-admin`.)
 
-Only signed-in users with the permission `admin.access` get in: guests
-are sent to sign in (`AUTH_LOGIN_URL`), others get 403. Let a user in
+Only logged-in users with the permission `admin.access` get in: guests
+are sent to log in (`AUTH_LOGIN_URL`), others get 403. Let a user in
 with the `admin` role:
 
 ```sh
@@ -218,7 +218,7 @@ var editor = slices.Concat(
 )
 
 // support are the permissions of support staff: they look after the
-// staff's accounts, and may act as them to see what they see.
+// staff's accounts, and may impersonate them to see what they see.
 var support = slices.Concat(
 	[]rbac.Permission{admin.Access, "admin.users.impersonate"},
 	admin.PermissionsOf("users", "view", "update"),
@@ -256,7 +256,7 @@ type UserForm struct {
 }
 
 // addUsers adds the staff to the admin, with their accounts: disabling,
-// signing out, API tokens, roles, acting as them.
+// logging out, API tokens, roles, impersonating them.
 func addUsers(p *admin.Panel, a *auth.Auth[*User]) error {
 	return admin.Users(p, admin.Resource[User, UserForm]{
 		Name:     "users",
@@ -283,30 +283,30 @@ func addUsers(p *admin.Panel, a *auth.Auth[*User]) error {
 On a user's page, as the `Accounts` allow:
 
 - **Disable and enable.** Package `auth` refuses disabled users (its
-  `Users.Disabled`): they are signed out at their next request, can't
-  sign in, and their API tokens stop working.
+  `Users.Disabled`): they are logged out at their next request, can't
+  log in, and their API tokens stop working.
 - **Verification:** mark the address verified, or email the link again;
   email a password-reset link (`SendVerification`, `SendPasswordReset`,
   which `make:auth` exports from `app/handlers`).
-- **Sign out everywhere:** every browser and device, at once. It replaces
+- **Log out everywhere:** every browser and device, at once. It replaces
   the user's session key (`Users.SessionKey`, `SetSessionKey`).
 - **API tokens:** listed (name, abilities, last use), revoked one by one
   or all at once.
 - **Roles and permissions,** by scope: given and taken away, by those
   with `admin.roles.assign`, and only roles they could hold themselves.
-- **Act as user,** below.
+- **Impersonate,** below.
 
-Disabling and signing out everywhere need two columns of the users table,
+Disabling and logging out everywhere need two columns of the users table,
 which `make:auth` makes since v0.3, and the `auth.Users` that read them:
 
 ```go
 // users tells package auth how to find users, which are disabled, and
-// how to sign them out everywhere.
+// how to log them out everywhere.
 var users = auth.Users[*User]{
 	ByID: func(ctx context.Context, id string) (*User, error) {
 		n, err := strconv.ParseInt(id, 10, 64)
 		if err != nil {
-			return nil, auth.ErrNoUser
+			return nil, auth.ErrUserNotFound
 		}
 		return found(db.Find[User](ctx, n))
 	},
@@ -329,8 +329,8 @@ timestamp) and `session_key` (a string) with a migration, the fields to
 `User`, and those three functions to `models.Users`.
 
 Changing a user needs every permission they have, in every scope: support
-staff can't edit, disable or act as an administrator. No one disables,
-deletes, acts as or changes the roles of themselves here. Each of these
+staff can't edit, disable or impersonate an administrator. No one disables,
+deletes, impersonates or changes the roles of themselves here. Each of these
 is recorded in the [audit log](audit-log.md) (`user.disabled`,
 `rbac.role_assigned`, …), when the app keeps one.
 
@@ -342,10 +342,10 @@ database are created, edited and deleted here, from the permissions the
 admin has (no one makes a role with more than they have). Permissions:
 `admin.roles.view`, `.create`, `.update` and `.delete`.
 
-### 6. Act as a user
+### 6. Impersonate a user
 
 To see what a user sees, an admin with `admin.users.impersonate` presses
-**Act as user**: they are signed in as the user, and the app's pages show
+**Impersonate**: they are logged in as the user, and the app's pages show
 a banner with a button that stops it. `make:admin` puts the banner in
 `views/layout.templ`; in your own layout, put it first in `<body>`:
 
@@ -356,12 +356,12 @@ a banner with a button that stops it. `make:admin` puts the banner in
 ```
 
 While it lasts, the audit log attributes what is done to the admin,
-acting as the user (`ActingAs`); jobs it dispatches are attributed to the
+impersonating the user (`ActingAs`); jobs it dispatches are attributed to the
 admin alone. Its start and its stop are logged (`user.impersonated`,
-`user.impersonation_ended`); signing out ends it too, unlogged. The admin
-can't act as disabled users, as those with permissions they lack, or as
-anyone while already acting as someone. Each request checks that the
-admin may still sign in (not that they still have
+`user.impersonation_ended`); logging out ends it too, unlogged. The admin
+can't impersonate disabled users, those with permissions they lack, or
+anyone while already impersonating someone. Each request checks that the
+admin may still log in (not that they still have
 `admin.users.impersonate`: taking it away ends nothing under way). The
 admin's remember-me cookie goes when it starts. An admin at a host of
 its own (`ADMIN_HOST`) doesn't offer it: the app's pages are on another
@@ -457,29 +457,29 @@ log.
 
 The admin asks for the password again before dangerous actions:
 deleting, disabling, giving and taking roles and permissions, editing
-roles, acting as a user, forgetting every failed job, and actions marked
+roles, impersonating a user, forgetting every failed job, and actions marked
 `Danger`. After it, the user does the action again; the password holds
-for `AUTH_CONFIRM_TTL` (15 minutes). Users who sign in without a
-password (Google, GitHub) confirm by signing out and in again; set
+for `AUTH_CONFIRM_TTL` (15 minutes). Users who log in without a
+password (Google, GitHub) confirm by logging out and in again; set
 `ADMIN_CONFIRM=false` to not ask at all.
 
 ```env
-ADMIN_TWO_FACTOR=required          # only users with two-factor sign-in on
+ADMIN_TWO_FACTOR=required          # only users with two-factor authentication on
 ADMIN_ALLOW_IPS=10.0.0.0/8,203.0.113.7   # only these addresses; others get 404
 ```
 
 With `ADMIN_TWO_FACTOR=required`, users without
-[two-factor sign-in](two-factor.md) are told to turn it on, at
+[two-factor authentication](two-factor.md) are told to turn it on, at
 `AUTH_TWO_FACTOR_URL` (`make:auth`'s page). With `ADMIN_ALLOW_IPS`, the
 client's address is read behind trusted proxies only
 (`HTTP_TRUSTED_PROXIES`). A user's page shows whether they have
-two-factor sign-in on, and **Turn off two-factor sign-in** helps someone
+two-factor authentication on, and **Turn off two-factor authentication** helps someone
 who lost their phone (not oneself).
 
 The user's name, at the top of every page, links to their account
 settings in the app (`AUTH_SETTINGS_URL`, [`make:auth`](accounts.md)'s
 `/settings`), when the app has that page: their password, two-factor
-sign-in, language and time zone.
+authentication, language and time zone.
 
 ## How it works
 
@@ -499,11 +499,11 @@ To serve the admin on a host of its own, set `ADMIN_HOST`
 
 ## Testing it
 
-Sign in as the app's tests do, then use the admin's pages:
+Log in as the app's tests do, then use the admin's pages:
 
 ```go
 func TestEditorManagesProducts(t *testing.T) {
-	app := signIn(t, "editor@example.com")
+	app := login(t, "editor@example.com")
 	books, err := db.Query[Category](app.Context()).Where(db.C("name").Eq("Books")).First()
 	if err != nil {
 		t.Fatal(err)
@@ -558,22 +558,22 @@ And the accounts:
 
 ```go
 func TestStaffAccounts(t *testing.T) {
-	app := signIn(t, "admin@example.com")
+	app := login(t, "admin@example.com")
 	eve, err := db.Query[User](app.Context()).Where(db.C("email").Eq("editor@example.com")).First()
 	if err != nil {
 		t.Fatal(err)
 	}
 	page := fmt.Sprintf("/admin/users/%d", eve.ID)
 
-	// Acting as Eve: the app as she sees it, with the banner, once Ada
+	// Impersonating Eve: the app as she sees it, with the banner, once Ada
 	// confirmed her password.
 	app.PostForm("/admin/confirm", url.Values{"password": {"secret password"}}).AssertRedirect("/admin")
 	app.PostForm(page+"/actions/impersonate", nil).AssertRedirect("/")
-	app.Get("/").AssertSee("Hello, Eve", "acting as <strong>Eve</strong>")
+	app.Get("/").AssertSee("Hello, Eve", "impersonating <strong>Eve</strong>")
 	app.PostForm("/admin/impersonation/stop", nil).AssertRedirect(page)
-	app.Get("/").AssertSee("Hello, Ada").AssertDontSee("acting as")
+	app.Get("/").AssertSee("Hello, Ada").AssertDontSee("impersonating")
 
-	// Disabled, Eve can't sign in. Back as herself, Ada confirms her
+	// Disabled, Eve can't log in. Back as herself, Ada confirms her
 	// password again.
 	app.PostForm("/admin/confirm", url.Values{"password": {"secret password"}})
 	app.PostForm(page+"/actions/disable", nil).Follow().AssertSee("Account disabled.")
@@ -602,7 +602,7 @@ func TestStaffAccounts(t *testing.T) {
 | A resource isn't in the menu | The user lacks its `view` permission | Give `admin.<name>.view` |
 | `admin: Users: auth.Users.Disabled doesn't report users whose disabled_at is set` | `Accounts.DisabledAt` names a column `auth` doesn't read | Add `Disabled` to the app's `auth.Users` |
 | "You may not manage X: they have permissions you don't." | X has a permission the admin lacks somewhere | Have someone with more permissions do it |
-| No "Disable" or "Sign out everywhere" on a user's page | The users table or `auth.Users` lack `disabled_at` or the session key | Add them (step 4) |
+| No "Disable" or "Log out everywhere" on a user's page | The users table or `auth.Users` lack `disabled_at` or the session key | Add them (step 4) |
 | `admin: resource posts: column "titel" is not a column of posts` | A column, search, or sort names a column the model doesn't have | Use the database's column name |
 | `form field X: a … can't be edited in a form` | The form struct has a field of a type forms don't render | Use a string, number, bool, `admin.DateTime` or `anetos.Date`, or tag it `admin:"-"` |
 

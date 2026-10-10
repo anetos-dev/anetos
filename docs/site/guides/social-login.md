@@ -7,7 +7,7 @@ weight: 303
 
 # Social login
 
-Let users sign in with Google, GitHub, or any OpenID Connect provider
+Let users log in with Google, GitHub, or any OpenID Connect provider
 (Okta, Auth0, Microsoft Entra ID, Keycloak, GitLab…). The complete app is
 [`examples/auth`](../../../examples/auth).
 
@@ -19,7 +19,7 @@ your own.
 ## Before you start
 
 Set up [authentication](authentication.md) first: social login finds or
-creates your user and signs them in with `auth`. You also need:
+creates your user and logs them in with `auth`. You also need:
 
 - `APP_URL`, the app's public URL (`https://example.com`, or
   `http://localhost:8080` in development). Providers send users back to
@@ -50,10 +50,10 @@ that finds the user for a provider account:
 ```go
 // findOrCreate returns the user of a provider account: the one it is
 // linked to; else the user with its verified email address (who then
-// signs in with either); else a new user. An address the provider hasn't
+// logs in with either); else a new user. An address the provider hasn't
 // verified can't be trusted to find anyone, and nor can one the user
 // hasn't verified here: someone could have registered it first, with a
-// password, to take over the account of whoever signs in with it later.
+// password, to take over the account of whoever logs in with it later.
 func findOrCreate(ctx context.Context, p social.Profile) (*User, error) {
 	id, linked, err := social.FindLink(ctx, p)
 	if err != nil {
@@ -70,7 +70,7 @@ func findOrCreate(ctx context.Context, p social.Profile) (*User, error) {
 		}
 	}
 	if p.Email == "" || !p.EmailVerified {
-		return nil, &social.ErrNoAccount{Message: "Your " + p.Provider + " account has no verified email address."}
+		return nil, &social.NoAccountError{Message: "Your " + p.Provider + " account has no verified email address."}
 	}
 	var u *User
 	err = db.Tx(ctx, func(ctx context.Context) error { // the user and the link, or neither
@@ -88,7 +88,7 @@ func findOrCreate(ctx context.Context, p social.Profile) (*User, error) {
 			return err
 		}
 		if u.EmailVerifiedAt == nil {
-			return &social.ErrNoAccount{Message: "An account with this email address exists. Log in with your password and verify the address, then sign in with " + p.Provider + "."}
+			return &social.NoAccountError{Message: "An account with this email address exists. Log in with your password and verify the address, then log in with " + p.Provider + "."}
 		}
 		// Linked already to another account at the provider: the address
 		// was reused, not the same person.
@@ -97,7 +97,7 @@ func findOrCreate(ctx context.Context, p social.Profile) (*User, error) {
 			return err
 		}
 		if slices.ContainsFunc(links, func(l social.Account) bool { return l.Provider == p.Provider }) {
-			return &social.ErrNoAccount{Message: "The account with this email address signs in with another " + p.Provider + " account."}
+			return &social.NoAccountError{Message: "The account with this email address logs in with another " + p.Provider + " account."}
 		}
 		return social.Link(ctx, p, u.AuthID())
 	})
@@ -112,10 +112,10 @@ change, and can be reused. When you delete a user, delete their links
 (`social.Unlink`); the example also forgets a link whose user is gone. Only use an email address to find an existing
 user when both the provider and your app have verified it; otherwise
 someone could register the address first, with a password, and take over
-the account of whoever later signs in with it. Nor does the example link
+the account of whoever later logs in with it. Nor does the example link
 a second account of the same provider to a user by email: an address
 the provider gave to someone new (a closed account, a reused work
-address) isn't the same person. Return `*social.ErrNoAccount` to refuse
+address) isn't the same person. Return `*social.NoAccountError` to refuse
 with a message on the login page.
 
 ### 2. Set up the providers and routes
@@ -155,38 +155,38 @@ and a link per provider on the login page, from `s.Providers()` (their
 names, in URLs) and `s.Title(name)` (their names for people, "Google"):
 
 ```html
-<a href="/auth/github/redirect">Sign in with GitHub</a>
-<a href="/auth/google/redirect?remember=1">Sign in with Google (remember me)</a>
+<a href="/auth/github/redirect">Log in with GitHub</a>
+<a href="/auth/google/redirect?remember=1">Log in with Google (remember me)</a>
 ```
 
-A failed or canceled sign-in returns to `AUTH_LOGIN_URL` with an error on
+A failed or canceled login returns to `AUTH_LOGIN_URL` with an error on
 the `social` field (`view.Errors(ctx).Get("social")`); a successful one
 goes to the page the user wanted, or `AUTH_HOME_URL`, as a login does
-(`social.WithHomeURL("/welcome")` sets another for social sign-ins).
+(`social.WithHomeURL("/welcome")` sets another for social logins).
 
 ### 3. Test
 
-With the `anetostest.FakeSocial` option, every provider signs in through a
+With the `anetostest.FakeSocial` option, every provider logs in through a
 stand-in provider the test controls (nothing reaches Google or GitHub,
-and no settings are needed). `app.SocialSignIn` follows the redirect
+and no settings are needed). `app.SocialLogin` follows the redirect
 route, plays the provider's page for the account you give, and returns
 the app's answer to the callback:
 
 ```go
-func TestSocialSignIn(t *testing.T) {
-	// FakeSocial: Google and GitHub sign in through a stand-in provider.
+func TestSocialLogin(t *testing.T) {
+	// FakeSocial: Google and GitHub log in through a stand-in provider.
 	app := anetostest.New(t, setup, anetostest.FakeSocial())
-	app.Get("/login").AssertSee(`href="/auth/google/redirect"`, "Sign in with Google")
+	app.Get("/login").AssertSee(`href="/auth/google/redirect"`, "Log in with Google")
 
 	// A new account: a user is created, with the address verified.
 	grace := anetostest.SocialAccount{ID: "g-1", Email: "grace@example.com", EmailVerified: true, Name: "Grace"}
-	app.SocialSignIn("/auth/google/redirect", grace).AssertRedirect("/dashboard") // AUTH_HOME_URL
+	app.SocialLogin("/auth/google/redirect", grace).AssertRedirect("/dashboard") // AUTH_HOME_URL
 	app.Get("/dashboard").AssertSee("Hello, Grace").AssertDontSee("Please verify")
 	app.PostForm("/logout", nil)
 
 	// The same account again, with a new address: the linked user.
 	grace.Email = "grace@new.example"
-	app.SocialSignIn("/auth/google/redirect", grace).AssertRedirect("/dashboard")
+	app.SocialLogin("/auth/google/redirect", grace).AssertRedirect("/dashboard")
 	n, err := db.RawFirst[int64](app.Context(), "SELECT COUNT(*) FROM users")
 	if err != nil || n != 1 {
 		t.Errorf("users: %d, %v", n, err)
@@ -222,7 +222,7 @@ honored only with `APP_ENV=testing`) before `setup` runs:
 `social.New` then points every provider at it (keeping their names,
 titles and scopes), and `social.Configured` keeps every provider. The
 flow is the real one, state, PKCE and ID token checks included, with
-one difference: every provider signs in as an OpenID Connect provider,
+one difference: every provider logs in as an OpenID Connect provider,
 so a provider that reads the profile from its API (GitHub's
 `/user/emails`, a `Provider.Profile` of your own) doesn't run that code
 in these tests.
@@ -230,8 +230,8 @@ in these tests.
 `Profile.Token` holds the provider's tokens, for calling its API with the
 scopes asked for; change `Provider.Scopes` to ask for more.
 
-A user with [two-factor sign-in](two-factor.md) on isn't signed in by
-the callback: it signs in with `a.SignIn`, and sends them to
+A user with [two-factor authentication](two-factor.md) on isn't logged in by
+the callback: it logs in with `a.Login`, which asks for the code, and sends them to
 `AUTH_CHALLENGE_URL` for their code.
 
 > **Coming from Laravel?** This is Socialite's `redirect()` and `user()`
@@ -243,7 +243,7 @@ the callback: it signs in with `a.SignIn`, and sends them to
 |---|---|---|
 | `social: APP_URL "" must be the app's public URL` | `APP_URL` isn't set | Set it; it must match the callback URL registered with the provider |
 | The provider says `redirect_uri_mismatch` | The registered callback URL differs from `APP_URL/auth/<name>/callback` | Register exactly that URL (scheme, host, port) |
-| Every sign-in returns to the login page with "didn't complete" | The session cookie isn't sent back from the provider (a `SameSite=Strict` cookie, or another host) | Keep `SESSION_SAME_SITE=lax` and use the same host as `APP_URL` |
+| Every login returns to the login page with "didn't complete" | The session cookie isn't sent back from the provider (a `SameSite=Strict` cookie, or another host) | Keep `SESSION_SAME_SITE=lax` and use the same host as `APP_URL` |
 | `social: set SOCIAL_GOOGLE_CLIENT_ID and SOCIAL_GOOGLE_CLIENT_SECRET` | A provider was passed without credentials | Set them, or pass the providers through `social.Configured` |
 | "has no verified email address" | The account's address isn't verified at the provider | Verify it there, or link accounts another way |
 

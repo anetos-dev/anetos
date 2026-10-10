@@ -38,10 +38,10 @@ func authApp(t *testing.T) *anetostest.App {
 
 // authRegister signs ada up, and sends her token with the requests that
 // follow.
-func authRegister(t *testing.T) (*anetostest.App, handlers.SignInResponse) {
+func authRegister(t *testing.T) (*anetostest.App, handlers.LoginResponse) {
 	t.Helper()
 	app := authApp(t)
-	var res handlers.SignInResponse
+	var res handlers.LoginResponse
 	app.PostJSON("/api/v1/register", map[string]any{
 		"name": "Ada", "email": "Ada@Example.com", "device_name": "Ada's phone",
 		"password": "correct horse", "password_confirmation": "correct horse",
@@ -121,7 +121,7 @@ func TestLoginAndLogout(t *testing.T) {
 	app.GetJSON("/api/v1/me").AssertStatus(http.StatusUnauthorized).AssertHeader("WWW-Authenticate", "Bearer")
 
 	authLogin(app, "wrong").AssertValidationErrors("email")
-	var res handlers.SignInResponse
+	var res handlers.LoginResponse
 	authLogin(app, "correct horse").AssertOK().JSON(&res)
 	if res.Token == "" || res.TwoFactor {
 		t.Fatalf("login: %+v", res)
@@ -141,11 +141,11 @@ func TestLoginThrottled(t *testing.T) {
 	}
 }
 
-// Two-factor sign-in: turned on with the authenticator app's code, then
+// Two-factor authentication: turned on with the authenticator app's code, then
 // asked for after the password; a recovery code works once.
 func TestTwoFactor(t *testing.T) {
 	app, reg := authRegister(t)
-	var other handlers.SignInResponse
+	var other handlers.LoginResponse
 	authLogin(app, "correct horse").AssertOK().JSON(&other)
 	app.PostJSON("/api/v1/two-factor", map[string]any{"password": "wrong"}).AssertValidationErrors("password")
 	var setup handlers.TwoFactorSetupResponse
@@ -172,31 +172,31 @@ func TestTwoFactor(t *testing.T) {
 
 	// The password isn't enough now: the login answers a challenge.
 	app.WithHeader("Authorization", "")
-	var res handlers.SignInResponse
+	var res handlers.LoginResponse
 	authLogin(app, "correct horse").AssertOK().JSON(&res)
 	if !res.TwoFactor || res.Challenge == "" || res.Token != "" {
 		t.Fatalf("login: %+v", res)
 	}
 	app.PostJSON("/api/v1/login/two-factor", map[string]any{"challenge": res.Challenge, "code": "000000"}).AssertValidationErrors("code")
 	app.PostJSON("/api/v1/login/two-factor", map[string]any{"challenge": "nonsense", "code": codes.RecoveryCodes[0]}).AssertValidationErrors("challenge")
-	var signedIn handlers.SignInResponse
-	app.PostJSON("/api/v1/login/two-factor", map[string]any{"challenge": res.Challenge, "code": codes.RecoveryCodes[0]}).AssertOK().JSON(&signedIn)
-	if signedIn.Token == "" {
-		t.Fatalf("two-factor login: %+v", signedIn)
+	var loggedIn handlers.LoginResponse
+	app.PostJSON("/api/v1/login/two-factor", map[string]any{"challenge": res.Challenge, "code": codes.RecoveryCodes[0]}).AssertOK().JSON(&loggedIn)
+	if loggedIn.Token == "" {
+		t.Fatalf("two-factor login: %+v", loggedIn)
 	}
 	app.PostJSON("/api/v1/login/two-factor", map[string]any{"challenge": res.Challenge, "code": codes.RecoveryCodes[0]}).AssertValidationErrors("code") // used
 
-	app.WithHeader("Authorization", "Bearer "+signedIn.Token)
+	app.WithHeader("Authorization", "Bearer "+loggedIn.Token)
 	app.PostJSON("/api/v1/two-factor/recovery-codes", map[string]any{"password": "correct horse"}).AssertOK().JSON(&codes)
 	if len(codes.RecoveryCodes) != 8 {
 		t.Errorf("new recovery codes: %+v", codes)
 	}
 	app.PostJSON("/api/v1/two-factor/disable", map[string]any{"password": "correct horse"}).AssertNoContent()
 	app.WithHeader("Authorization", "")
-	var again handlers.SignInResponse
+	var again handlers.LoginResponse
 	authLogin(app, "correct horse").AssertOK().JSON(&again)
 	if again.TwoFactor || again.Token == "" {
-		t.Errorf("login with two-factor sign-in off: %+v", again)
+		t.Errorf("login with two-factor authentication off: %+v", again)
 	}
 }
 
@@ -235,7 +235,7 @@ func TestPasswordReset(t *testing.T) {
 }
 
 // A reset link proves the address: a never-verified one is verified, and
-// the two-factor sign-in whoever registered it set up is turned off.
+// the two-factor authentication whoever registered it set up is turned off.
 func TestResetOfUnverifiedAddress(t *testing.T) {
 	app, _ := authRegister(t)
 	var setup handlers.TwoFactorSetupResponse
@@ -251,7 +251,7 @@ func TestResetOfUnverifiedAddress(t *testing.T) {
 	app.PostJSON("/api/v1/reset-password", map[string]any{
 		"token": token, "password": "new password", "password_confirmation": "new password",
 	}).AssertNoContent()
-	var res handlers.SignInResponse
+	var res handlers.LoginResponse
 	authLogin(app, "new password").AssertOK().JSON(&res)
 	if res.TwoFactor || res.User == nil || res.User.EmailVerifiedAt == nil {
 		t.Errorf("login after the reset: %+v", res)
@@ -275,7 +275,7 @@ func TestResetRevokesTokens(t *testing.T) {
 // A new password keeps the request's token, and revokes the others.
 func TestChangePassword(t *testing.T) {
 	app, reg := authRegister(t)
-	var other handlers.SignInResponse
+	var other handlers.LoginResponse
 	authLogin(app, "correct horse").AssertOK().JSON(&other)
 	app.PutJSON("/api/v1/password", map[string]any{
 		"current_password": "wrong", "password": "new password", "password_confirmation": "new password",

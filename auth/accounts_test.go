@@ -28,8 +28,8 @@ func TestDisabledAccounts(t *testing.T) {
 		t.Fatalf("dashboard: %d", res.StatusCode)
 	}
 
-	// Disabled: signed out at the next request, the remember-me cookie
-	// stops working, and signing in says why only once the password is
+	// Disabled: logged out at the next request, the remember-me cookie
+	// stops working, and logging in says why only once the password is
 	// right. (API tokens: in the admin's tests, which have a database.)
 	s.set("1", func(u *user) { u.Disabled = true })
 	if res := b.do(http.MethodGet, "/dashboard", nil); res.StatusCode != http.StatusSeeOther {
@@ -39,7 +39,7 @@ func TestDisabledAccounts(t *testing.T) {
 		t.Errorf("a wrong password: %d", res.StatusCode)
 	}
 	if res := login(b, "ada@example.com", "secret", false); res.StatusCode != http.StatusForbidden {
-		t.Errorf("signing in disabled: %d", res.StatusCode)
+		t.Errorf("logging in disabled: %d", res.StatusCode)
 	}
 	if u, _ := s.users().ByID(context.Background(), "1"); !a.Disabled(u) {
 		t.Error("Disabled")
@@ -48,47 +48,47 @@ func TestDisabledAccounts(t *testing.T) {
 	if res := b.do(http.MethodGet, "/dashboard", nil); res.StatusCode != http.StatusSeeOther {
 		t.Errorf("remembered while disabled: %d", res.StatusCode)
 	}
-	ctx := a.ActAs(b.ctx, "1")
+	ctx := a.WithUser(b.ctx, "1")
 	if _, err := auth.CurrentID(ctx); !errors.Is(err, auth.ErrUnauthenticated) {
-		t.Errorf("ActAs a disabled user: %v", err)
+		t.Errorf("WithUser a disabled user: %v", err)
 	}
 
 	// Enabled again: in again.
 	s.set("1", func(u *user) { u.Disabled = false })
 	if res := login(b, "ada@example.com", "secret", false); res.StatusCode != http.StatusSeeOther {
-		t.Errorf("signing in enabled: %d", res.StatusCode)
+		t.Errorf("logging in enabled: %d", res.StatusCode)
 	}
 }
 
-func TestSignOutEverywhere(t *testing.T) {
+func TestLogoutEverywhere(t *testing.T) {
 	s := newStore(t)
 	a, phone := newApp(t, s)
 	laptop := &browser{t: t, h: phone.h, ctx: phone.ctx, jar: mustJar()}
 	login(phone, "ada@example.com", "secret", true)
 	login(laptop, "ada@example.com", "secret", false)
-	if !a.CanSignOutEverywhere() {
-		t.Fatal("CanSignOutEverywhere")
+	if !a.SupportsLogoutEverywhere() {
+		t.Fatal("SupportsLogoutEverywhere")
 	}
 	u, _ := s.users().ByID(context.Background(), "1")
-	if err := a.SignOutEverywhere(phone.ctx, u); err != nil {
+	if err := a.LogoutEverywhere(phone.ctx, u); err != nil {
 		t.Fatal(err)
 	}
 	for name, b := range map[string]*browser{"phone": phone, "laptop": laptop} {
 		if res := b.do(http.MethodGet, "/dashboard", nil); res.StatusCode != http.StatusSeeOther {
-			t.Errorf("%s still signed in: %d", name, res.StatusCode)
+			t.Errorf("%s still logged in: %d", name, res.StatusCode)
 		}
 	}
 	// The phone's remember-me cookie stopped working too: dropping the
 	// session doesn't bring it back.
 	phone.drop("anetos_session")
 	if res := phone.do(http.MethodGet, "/dashboard", nil); res.StatusCode != http.StatusSeeOther {
-		t.Errorf("remembered after signing out everywhere: %d", res.StatusCode)
+		t.Errorf("remembered after logging out everywhere: %d", res.StatusCode)
 	}
 	if res := login(laptop, "ada@example.com", "secret", false); res.StatusCode != http.StatusSeeOther {
-		t.Errorf("signing in again: %d", res.StatusCode)
+		t.Errorf("logging in again: %d", res.StatusCode)
 	}
 	if res := laptop.do(http.MethodGet, "/dashboard", nil); res.StatusCode != http.StatusOK {
-		t.Errorf("signed in again: %d", res.StatusCode)
+		t.Errorf("logged in again: %d", res.StatusCode)
 	}
 
 	// Without the hooks, it isn't available.
@@ -106,8 +106,8 @@ func TestSignOutEverywhere(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if plain.CanSignOutEverywhere() || plain.SignOutEverywhere(context.Background(), u) == nil {
-		t.Error("SignOutEverywhere without session keys")
+	if plain.SupportsLogoutEverywhere() || plain.LogoutEverywhere(context.Background(), u) == nil {
+		t.Error("LogoutEverywhere without session keys")
 	}
 	users.SessionKey = s.users().SessionKey
 	if _, err := auth.NewWithConfig(a.Config(), users, enc); err == nil {
@@ -123,7 +123,7 @@ func TestImpersonate(t *testing.T) {
 	}
 	login(b, "bob@example.com", "secret", false)
 	if res := b.do(http.MethodPost, "/impersonate/2", nil); res.StatusCode < 400 {
-		t.Errorf("acting as oneself: %d", res.StatusCode)
+		t.Errorf("impersonating oneself: %d", res.StatusCode)
 	}
 	if res := b.do(http.MethodPost, "/stop", nil); res.StatusCode != http.StatusConflict {
 		t.Errorf("stop without impersonating: %d", res.StatusCode)
@@ -137,9 +137,9 @@ func TestImpersonate(t *testing.T) {
 	if res := b.do(http.MethodPost, "/impersonate/3", nil); res.StatusCode < 400 {
 		t.Errorf("nested: %d", res.StatusCode)
 	}
-	// No API token for the user acted as: it would outlive the act.
+	// No API token for the impersonated user: it would outlive the act.
 	if res := b.do(http.MethodPost, "/tokens", nil); res.StatusCode != http.StatusForbidden {
-		t.Errorf("a token while acting as another user: %d", res.StatusCode)
+		t.Errorf("a token while impersonating another user: %d", res.StatusCode)
 	}
 	if res := b.do(http.MethodPost, "/stop", nil); res.StatusCode != http.StatusOK || res.Body != "2" {
 		t.Errorf("stop: %d %q", res.StatusCode, res.Body)
@@ -148,18 +148,18 @@ func TestImpersonate(t *testing.T) {
 		t.Errorf("whoami after: %q", got)
 	}
 
-	// A disabled user can't be acted as.
+	// A disabled user can't be impersonated.
 	s.set("3", func(u *user) { u.Disabled = true })
 	if res := b.do(http.MethodPost, "/impersonate/3", nil); res.StatusCode != http.StatusForbidden {
-		t.Errorf("acting as a disabled user: %d", res.StatusCode)
+		t.Errorf("impersonating a disabled user: %d", res.StatusCode)
 	}
-	// An impersonator who is signed out everywhere meanwhile loses both.
+	// An impersonator who is logged out everywhere meanwhile loses both.
 	b.do(http.MethodPost, "/impersonate/1", nil)
 	s.set("2", func(u *user) { u.Key = "new" })
 	if got := b.do(http.MethodGet, "/whoami", nil).Body; got != " by " {
-		t.Errorf("whoami after the impersonator was signed out: %q", got)
+		t.Errorf("whoami after the impersonator was logged out: %q", got)
 	}
-	// Logout ends both, and doesn't sign the user acted as out of their
+	// Logout ends both, and doesn't log the impersonated user out of their
 	// remembered browsers.
 	s.set("2", func(u *user) { u.Key = "" })
 	phone := &browser{t: t, h: b.h, ctx: b.ctx, jar: mustJar()}
@@ -172,9 +172,9 @@ func TestImpersonate(t *testing.T) {
 	}
 	phone.drop("anetos_session")
 	if res := phone.do(http.MethodGet, "/dashboard", nil); res.StatusCode != http.StatusOK {
-		t.Errorf("the user acted as was signed out of a remembered browser: %d", res.StatusCode)
+		t.Errorf("the impersonated user was logged out of a remembered browser: %d", res.StatusCode)
 	}
-	// Stopping when the impersonator can't sign in any more signs out.
+	// Stopping when the impersonator can't log in any more logs out.
 	login(b, "bob@example.com", "secret", false)
 	b.do(http.MethodPost, "/impersonate/1", nil)
 	s.set("2", func(u *user) { u.Disabled = true })

@@ -29,7 +29,7 @@ type level struct {
 func (l *level) empty() bool { return len(l.roles) == 0 && len(l.perms) == 0 && !l.super }
 
 // Grants are a user's roles and permissions, read once: [Of] returns any
-// user's, [Current] the signed-in user's. A grant in [Global] applies in
+// user's, [Current] the logged-in user's. A grant in [Global] applies in
 // every scope. A Grants is a snapshot, safe for concurrent use.
 type Grants struct {
 	g     *grants
@@ -47,9 +47,9 @@ func Of(ctx context.Context, userID string) (*Grants, error) {
 	return &Grants{g: g}, nil
 }
 
-// Current returns the grants of the request's signed-in user (see [Of]),
+// Current returns the grants of the request's logged-in user (see [Of]),
 // [auth.ErrUnauthenticated] for a guest, or the error that kept them from
-// being loaded. For a request signed in with an API token, they allow
+// being loaded. For a request logged in with an API token, they allow
 // only the permissions among the token's abilities, and have no roles
 // unless the token has every ability ("*").
 func Current(ctx context.Context) (*Grants, error) {
@@ -89,7 +89,7 @@ func (g *Grants) CanIn(scope Scope, p Permission) bool {
 }
 
 // rolesHidden reports whether the grants' roles are hidden: for a request
-// signed in with an API token without every ability, since a role says
+// logged in with an API token without every ability, since a role says
 // nothing about what the token was given.
 func (g *Grants) rolesHidden() bool { return g.token != nil && !g.token.Can("*") }
 
@@ -98,7 +98,7 @@ func (g *Grants) HasRole(role string) bool { return g.HasRoleIn(Global, role) }
 
 // HasRoleIn reports whether the user has the role in scope or globally
 // (false for a role neither declared nor in the database). For a request
-// signed in with an API token, it is false unless the token has every
+// logged in with an API token, it is false unless the token has every
 // ability ("*"): gate actions with permissions, which tokens narrow one
 // by one.
 func (g *Grants) HasRoleIn(scope Scope, role string) bool {

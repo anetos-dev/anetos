@@ -14,7 +14,7 @@ import (
 // The admin's tests (anetos make:admin).
 
 func TestAdminAccess(t *testing.T) {
-	app := authRegister(t) // make:auth's: Ada, signed in
+	app := authRegister(t) // make:auth's: Ada, logged in
 	app.Get("/admin").AssertForbidden()
 
 	ada, err := db.Query[models.User](app.Context()).Where(models.UserCols.Email.Eq("ada@example.com")).First()

@@ -51,7 +51,7 @@ var authAPIFiles = [][2]string{
 
 // authCall is what make:auth adds to setup in main.go, after the routes.
 const authCall = `	// Accounts (anetos make:auth): registration, login with a password,
-	// Google or GitHub, two-factor sign-in, account settings, email
+	// Google or GitHub, two-factor authentication, account settings, email
 	// verification, password reset and API tokens.
 	if _, err := setupAuth(app, srv.Router(), sessions); err != nil {
 		return nil, err
@@ -91,7 +91,7 @@ type AuthResult struct {
 	// project, AUTH_CLIENT_URL) were added to.
 	Env []string
 	// API says the project is an API project ([IsAPI]): the accounts are
-	// JSON endpoints signing in with API tokens.
+	// JSON endpoints logging in with API tokens.
 	API bool
 	// Kit is the design kit whose views/ui MakeAuth wrote first, in a
 	// project made before v0.5, which had none (the pages call it); ""
@@ -309,9 +309,9 @@ var uiNavOpen = regexp.MustCompile(`(?m)^([ \t]*)@ui\.Nav\(.*\{[ \t]*\r?\n`)
 // navClose is a line closing a <nav>.
 var navClose = regexp.MustCompile(`(?m)^([ \t]*)</nav>[ \t]*\r?\n`)
 
-// socialSettings are the settings of sign-in with Google and GitHub.
+// socialSettings are the settings of login with Google and GitHub.
 const socialSettings = `
-# Sign in with Google and GitHub (anetos make:auth): each is on once its
+# Log in with Google and GitHub (anetos make:auth): each is on once its
 # client ID and secret are set. Register APP_URL/auth/google/callback
 # (or /github/) as the callback URL with the provider.
 SOCIAL_GOOGLE_CLIENT_ID=
@@ -384,13 +384,13 @@ var authNames = map[string][]string{
 	"views":              {"AccountMenu", "SocialButton", "Register", "Login", "ForgotPassword", "ResetPassword", "Dashboard", "TwoFactorChallenge", "ConfirmPassword", "TwoFactorPage", "TwoFactor", "Choice", "SettingsPage", "Settings", "RevertEmail", "ChangeEmailMail", "EmailChangingMail", "socialButtons", "localeOptions", "zoneOptions", "VerifyEmailMail", "ResetPasswordMail", "authMail"},
 	"routes":             {"Auth"},
 	"database/factories": {"Users", "UserPassword", "userHash"},
-	"":                   {"setupAuth", "authRegister", "authLink", "TestRegisterAndVerify", "TestResendVerification", "TestRegisterValidation", "TestLoginAndLogout", "TestTwoFactor", "TestSettings", "TestChangeEmail", "TestRevertEmailChange", "TestDisabledAccount", "TestLoginReturnsToTheRequestedPage", "TestPasswordReset", "TestResetSignsOutAndRevokesTokens", "TestAPIToken", "TestSocialSignIn", "TestSocialSignInFindsVerifiedAccounts"},
+	"":                   {"setupAuth", "authRegister", "authLink", "TestRegisterAndVerify", "TestResendVerification", "TestRegisterValidation", "TestLoginAndLogout", "TestTwoFactor", "TestSettings", "TestChangeEmail", "TestRevertEmailChange", "TestDisabledAccount", "TestLoginReturnsToTheRequestedPage", "TestPasswordReset", "TestResetLogsOutAndRevokesTokens", "TestAPIToken", "TestSocialLogin", "TestSocialLoginFindsVerifiedAccounts"},
 }
 
 // authAPINames are authNames in an API project.
 var authAPINames = map[string][]string{
 	"app/models":         {"User", "Users", "UserCols"},
-	"app/handlers":       {"Accounts", "signInTTL", "tokenTTL", "UserResponse", "userResponse", "SignInResponse", "RegisterInput", "LoginInput", "ChallengeInput", "EmailInput", "LinkInput", "ResetInput", "ChangePasswordInput", "PasswordInput", "CodeInput", "NewTokenInput", "TokenID", "TokenResponse", "NewTokenResponse", "TwoFactorResponse", "TwoFactorSetupResponse", "RecoveryCodesResponse", "emailTaken", "cleanName", "SendVerification", "SendPasswordReset", "tooMany", "tooManyFor", "tokenResponse"},
+	"app/handlers":       {"Accounts", "loginTTL", "tokenTTL", "UserResponse", "userResponse", "LoginResponse", "RegisterInput", "LoginInput", "ChallengeInput", "EmailInput", "LinkInput", "ResetInput", "ChangePasswordInput", "PasswordInput", "CodeInput", "NewTokenInput", "TokenID", "TokenResponse", "NewTokenResponse", "TwoFactorResponse", "TwoFactorSetupResponse", "RecoveryCodesResponse", "emailTaken", "cleanName", "SendVerification", "SendPasswordReset", "tooMany", "tooManyFor", "tokenResponse"},
 	"app/mailers":        {"authHTML", "authMail", "authMailData", "authBody", "VerifyEmail", "ResetPassword"},
 	"routes":             {"Auth"},
 	"database/factories": {"Users", "UserPassword", "userHash"},

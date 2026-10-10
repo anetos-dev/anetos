@@ -101,7 +101,7 @@ model, upstream, failed).
 ## Tools act as the user
 
 A tool runs with the context of the call: the request's, with its
-signed-in user. Inside, `auth.Current`, policies, permissions
+logged-in user. Inside, `auth.Current`, policies, permissions
 (`rbac.Authorize`) and scoped queries work as in a handler, so a model
 can do no more than the user could, whatever text it read. Within that,
 text the model reads (a page, an email, a document) can steer it into
@@ -158,7 +158,7 @@ reconnecting.
 `conv.QueueReply` answers from a queue job (`ai.QueueAgents` registers
 the job type, with the agents it may run, found by name: a job carries
 the name, not the agent). The job acts as the conversation's user
-(`auth.ActAs`), so the agent's tools see the same user as in a request,
+(`auth.WithUser`), so the agent's tools see the same user as in a request,
 limited to the abilities of the API token the reply was queued with, if
 any. Retries follow the queue's settings, and start the reply over: the
 tools run again, so tools that change things must be safe to repeat. The conversation's `Status`
@@ -171,7 +171,7 @@ often the job runs.
 ## Usage and budgets
 
 With `client.TrackUsage`, every model response is recorded in
-`ai_usage` for its user (the signed-in user, or `ai.ForUser`'s), with
+`ai_usage` for its user (the logged-in user, or `ai.ForUser`'s), with
 its conversation, agent, model, tokens and cost at the app's prices. A
 budget (tokens or cost per period, per user, from a function of the
 user, so plans can differ) is counted on the rate limiter, in the app's

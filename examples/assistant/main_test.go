@@ -15,8 +15,8 @@ import (
 	"anetos.dev/anetos/db"
 )
 
-// signIn creates a user and signs in as them.
-func signIn(t *testing.T, app *anetostest.App, name string) *User {
+// login creates a user and logs in as them.
+func login(t *testing.T, app *anetostest.App, name string) *User {
 	t.Helper()
 	hash, err := password.Hash("password1")
 	if err != nil {
@@ -76,7 +76,7 @@ func TestAssistant(t *testing.T) {
 		ai.FakeToolCall("read_article", ReadInput{ID: export.ID}),
 		ai.FakeText("Open Settings, then Data, and choose Export (Export your lists)."),
 	)
-	signIn(t, app, "Ada")
+	login(t, app, "Ada")
 
 	chat := startChat(t, app, "How do I export my lists?")
 	app.Get(chat).AssertSee("How do I export my lists?", `sse-connect="`+chat+`/reply"`)
@@ -104,7 +104,7 @@ func TestAssistant(t *testing.T) {
 
 func TestFollowUpAndUsage(t *testing.T) {
 	app := anetostest.New(t, setup, anetostest.FakeAI(ai.FakeText("Hello!"), ai.FakeText("Four dollars a month.")))
-	signIn(t, app, "Ada")
+	login(t, app, "Ada")
 	chat := startChat(t, app, "Hi")
 	app.Get(chat + "/reply").AssertSee("data: Hello!")
 
@@ -124,7 +124,7 @@ func TestFollowUpAndUsage(t *testing.T) {
 func TestBudget(t *testing.T) {
 	app := anetostest.New(t, setup, anetostest.Env(map[string]string{"ASSISTANT_DAILY_TOKENS": "3"}),
 		anetostest.FakeAI(ai.FakeText("one two three four")))
-	signIn(t, app, "Ada")
+	login(t, app, "Ada")
 	chat := startChat(t, app, "Hi")
 	app.Get(chat + "/reply").AssertSee("data: one ")
 	app.PostForm(chat, url.Values{"prompt": {"More?"}})
@@ -136,7 +136,7 @@ func TestBudget(t *testing.T) {
 func TestAnswerLater(t *testing.T) {
 	// QUEUE_DRIVER is sync by default: the job runs at once.
 	app := anetostest.New(t, setup, anetostest.FakeAI(ai.FakeText("Hello!"), ai.FakeText("Shared lists need a Team plan.")))
-	signIn(t, app, "Ada")
+	login(t, app, "Ada")
 	chat := startChat(t, app, "Hi")
 	app.Get(chat + "/reply")
 
@@ -149,10 +149,10 @@ func TestAnswerLater(t *testing.T) {
 
 func TestOtherUsersConversations(t *testing.T) {
 	app := anetostest.New(t, setup, anetostest.FakeAI(ai.FakeText("Hello!")))
-	signIn(t, app, "Ada")
+	login(t, app, "Ada")
 	chat := startChat(t, app, "Hi")
 	app.PostForm("/logout", nil)
-	signIn(t, app, "Bob")
+	login(t, app, "Bob")
 	for _, path := range []string{chat, chat + "/reply", chat + "/status"} {
 		app.Get(path).AssertNotFound()
 	}

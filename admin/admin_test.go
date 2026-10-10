@@ -121,15 +121,15 @@ var users = auth.Users[*User]{
 	ByID: func(ctx context.Context, id string) (*User, error) {
 		n, err := strconv.ParseInt(id, 10, 64)
 		if err != nil {
-			return nil, auth.ErrNoUser
+			return nil, auth.ErrUserNotFound
 		}
 		u, err := db.Find[User](ctx, n)
 		if errors.Is(err, db.ErrNotFound) {
-			return nil, auth.ErrNoUser
+			return nil, auth.ErrUserNotFound
 		}
 		return &u, err
 	},
-	ByLogin:    func(context.Context, string) (*User, error) { return nil, auth.ErrNoUser },
+	ByLogin:    func(context.Context, string) (*User, error) { return nil, auth.ErrUserNotFound },
 	Disabled:   func(u *User) bool { return u.DisabledAt != nil },
 	SessionKey: func(u *User) string { return u.SessionKey },
 	SetSessionKey: func(ctx context.Context, u *User, key string) error {
@@ -228,7 +228,7 @@ func setupWith(opts func(p *Panel) error) func(app *anetos.App) (*web.Server, er
 			if err != nil {
 				return err
 			}
-			if err := a.Login(c, u, false); err != nil {
+			if err := a.LoginSession(c.Session(), u); err != nil { // no two-factor code
 				return err
 			}
 			// Confirmed, unless asked not to: dangerous actions go on.
@@ -282,9 +282,9 @@ func setupWith(opts func(p *Panel) error) func(app *anetos.App) (*web.Server, er
 
 var setup = setupWith(nil)
 
-// signIn creates a user with perms (or the admin role for "admin") and
-// signs them in.
-func signIn(t *testing.T, app *anetostest.App, name string, perms ...rbac.Permission) *User {
+// login creates a user with perms (or the admin role for "admin") and
+// logs them in.
+func login(t *testing.T, app *anetostest.App, name string, perms ...rbac.Permission) *User {
 	t.Helper()
 	u := &User{Name: name, Password: testPassword}
 	if err := db.Create(app.Context(), u); err != nil {
@@ -318,7 +318,7 @@ func TestAccess(t *testing.T) {
 	app := anetostest.New(t, setup)
 	app.Get("/admin").AssertRedirect("/login")
 	app.Get("/admin/posts").AssertRedirect("/login")
-	signIn(t, app, "Mallory")
+	login(t, app, "Mallory")
 	app.Get("/admin").AssertForbidden()
 	app.Get("/admin/posts").AssertForbidden()
 }
@@ -327,7 +327,7 @@ func TestViewer(t *testing.T) {
 	app := anetostest.New(t, setup)
 	p := newPost(t, app, "Hello world", "draft")
 	newPost(t, app, "Second post", "published")
-	signIn(t, app, "Vera", Access, "admin.posts.view")
+	login(t, app, "Vera", Access, "admin.posts.view")
 
 	res := app.Get("/admin").AssertOK().AssertSee("Back office", "Vera", "Posts").AssertDontSee(`href="/admin/tags"`)
 	if csp := res.Header.Get("Content-Security-Policy"); !strings.Contains(csp, "default-src 'self'") {
@@ -368,7 +368,7 @@ func TestViewer(t *testing.T) {
 
 func TestCreateAndEdit(t *testing.T) {
 	app := anetostest.New(t, setup)
-	signIn(t, app, "Ada", "admin")
+	login(t, app, "Ada", "admin")
 
 	app.Get("/admin/posts/new").AssertOK().AssertSee(`name="title"`, `<textarea`, `<option value="published"`, "Markdown.", `type="checkbox"`)
 	app.Get("/admin/posts/new")
@@ -404,7 +404,7 @@ func TestCreateAndEdit(t *testing.T) {
 
 func TestDeleteTrashRestore(t *testing.T) {
 	app := anetostest.New(t, setup)
-	signIn(t, app, "Ada", "admin")
+	login(t, app, "Ada", "admin")
 	p := newPost(t, app, "Doomed", "draft")
 
 	app.Get(postURL(p, "")).AssertSee(`data-confirm="Delete Doomed?"`)
@@ -435,7 +435,7 @@ func TestDeleteTrashRestore(t *testing.T) {
 
 func TestActions(t *testing.T) {
 	app := anetostest.New(t, setup)
-	signIn(t, app, "Ada", "admin")
+	login(t, app, "Ada", "admin")
 	p := newPost(t, app, "Draft", "draft")
 	bad := newPost(t, app, "Unpublishable", "draft")
 
@@ -453,7 +453,7 @@ func TestActions(t *testing.T) {
 
 func TestBulk(t *testing.T) {
 	app := anetostest.New(t, setup)
-	signIn(t, app, "Ada", "admin")
+	login(t, app, "Ada", "admin")
 	a, b, c := newPost(t, app, "A", "draft"), newPost(t, app, "B", "draft"), newPost(t, app, "C", "draft")
 	id := func(p Post) string { return strconv.FormatInt(p.ID, 10) }
 
@@ -480,7 +480,7 @@ func TestScope(t *testing.T) {
 		r.Query = func(q *db.Q[Post]) *db.Q[Post] { return q.Where(db.C("status").Eq("draft")) }
 		return Add(p, r)
 	}))
-	signIn(t, app, "Ada", "admin")
+	login(t, app, "Ada", "admin")
 	d, pub := newPost(t, app, "Draft", "draft"), newPost(t, app, "Live", "published")
 	app.Get("/admin/drafts").AssertSee("Draft", "1 in all").AssertDontSee("Live")
 	app.Get(fmt.Sprintf("/admin/drafts/%d", pub.ID)).AssertNotFound()
@@ -494,7 +494,7 @@ func TestScope(t *testing.T) {
 
 func TestPaginationAndAssets(t *testing.T) {
 	app := anetostest.New(t, setup, anetostest.Env(map[string]string{"ADMIN_PER_PAGE": "2"}))
-	signIn(t, app, "Ada", "admin")
+	login(t, app, "Ada", "admin")
 	for i := range 5 {
 		newPost(t, app, fmt.Sprintf("Post %d", i), "draft")
 	}

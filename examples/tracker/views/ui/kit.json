@@ -6,7 +6,7 @@
 		"views/ui/classes.go": "a8d96e6360226a2530fc6a8e063bf9e449c4a5ab063ec6cbcde18b4e480eb916",
 		"views/ui/data.templ": "aef5daece60840128553ddbeaa4019341a75d23b5b6e65e8cc448458621983eb",
 		"views/ui/form.templ": "01588805beadc038fe0516d16832acf3a5af3800d700f02551d602010eac1cc9",
-		"views/ui/page.templ": "a6e1c32a7be6461857d93efd056f6a30f1e7a8ee9d4975afe48885bd409949ed",
+		"views/ui/page.templ": "f2ddf6b5384b07cabba1d1b9f292bf68d55b1b2fe444e91380a751e3a84b41de",
 		"views/ui/shell.templ": "06282a9ace74bce6ddcb428b8b4998e047a7e7bd996f457d70bd0161f91161f0",
 		"views/ui/ui.go": "fd8c1f01a7c31a5df07d0237684683b3788529284d32c4fd65679bf5b61b244f"
 	}

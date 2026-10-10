@@ -11,8 +11,8 @@ import (
 // APP_KEY, so nothing is stored: they carry the user, an expiry and, for
 // resets, a fingerprint of the password hash and the session key, which
 // makes a reset token stop working once the password has changed, or the
-// user was signed out everywhere ([Auth.SignOutEverywhere],
-// [Auth.SignOutOthers]).
+// user was logged out everywhere ([Auth.LogoutEverywhere],
+// [Auth.LogoutOthers]).
 
 const (
 	resetContext  = "anetos/auth\x00reset"
@@ -30,8 +30,8 @@ type signed struct {
 
 // PasswordResetToken returns a token for a link that lets u choose a new
 // password. It works for AUTH_RESET_TTL, and only until the password
-// changes, so it can be used once, or the user is signed out everywhere
-// (a new session key: SignOutEverywhere, SignOutOthers).
+// changes, so it can be used once, or the user is logged out everywhere
+// (a new session key: LogoutEverywhere, LogoutOthers).
 func (a *Auth[U]) PasswordResetToken(u U) string {
 	b, _ := json.Marshal(signed{ID: u.AuthID(), Expires: a.now().Add(a.cfg.ResetTTL).Unix(), Hash: a.sessionPrint(u, u.AuthPassword())})
 	return a.enc.EncryptString(string(b), resetContext)
@@ -39,7 +39,7 @@ func (a *Auth[U]) PasswordResetToken(u U) string {
 
 // CheckPasswordResetToken returns the user a token from
 // [Auth.PasswordResetToken] was made for, or [ErrInvalidToken] if it is
-// malformed, expired or already used. Store the new password, then sign
+// malformed, expired or already used. Store the new password, then log
 // the user in (or send them to the login page).
 func (a *Auth[U]) CheckPasswordResetToken(ctx context.Context, token string) (U, error) {
 	var zero U

@@ -29,7 +29,7 @@
 // An entry records:
 //
 //   - the actor ([ActorOf]): the one set with [WithActor], else the
-//     signed-in user (or the one a job acts as), else, in a queue job or
+//     logged-in user (or the one a job acts as), else, in a queue job or
 //     async event listener, the actor of the work that started it, else
 //     [System];
 //   - the action ([Created], [Updated], [Deleted], [Restored],

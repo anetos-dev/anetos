@@ -297,7 +297,7 @@ func (a *App) WithHeader(name, value string) *App {
 }
 
 // WithSession changes the session later requests carry, as if earlier
-// requests had stored the values: a signed-in user, a cart. It needs the
+// requests had stored the values: a logged-in user, a cart. It needs the
 // session middleware's manager (session.New).
 func (a *App) WithSession(fn func(s *session.Session)) *App {
 	a.t.Helper()

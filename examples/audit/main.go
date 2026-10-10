@@ -2,7 +2,7 @@
 
 // Command audit is a JSON API of documents whose every change is in an
 // audit log (package audit): who created, edited, archived, deleted and
-// restored each one, field by field, and who exported them. Users sign in
+// restored each one, field by field, and who exported them. Users log in
 // with API tokens; seed creates one.
 //
 //	anetos key:generate >> .env   # APP_KEY, once

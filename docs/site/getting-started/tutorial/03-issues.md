@@ -143,7 +143,7 @@ func (Issues) New(c *web.Ctx) error {
 	return c.Render(http.StatusOK, views.IssueForm(models.Issue{}))
 }
 
-// Create opens an issue by the signed-in user.
+// Create opens an issue by the logged-in user.
 func (Issues) Create(c *web.Ctx, in IssueInput) (web.Responder, error) {
 	u, err := auth.Current[*models.User](c)
 	if err != nil {
@@ -163,7 +163,7 @@ func (Issues) Create(c *web.Ctx, in IssueInput) (web.Responder, error) {
 The form's fields fill `IssueInput` by their `json` names, and its
 `validate` tags are checked first: when they fail, the browser goes back
 to the form with the messages and what was typed, and `Create` doesn't
-run. `auth.Current` is the signed-in user.
+run. `auth.Current` is the logged-in user.
 
 And editing one, which only its author may:
 
@@ -179,7 +179,7 @@ type UpdateIssue struct {
 	IssueInput
 }
 
-// own returns the issue if the signed-in user wrote it: others get a
+// own returns the issue if the logged-in user wrote it: others get a
 // 403, and an issue that doesn't exist is a 404 (db.ErrNotFound).
 func own(c *web.Ctx, id int64) (models.Issue, error) {
 	issue, err := db.Find[models.Issue](c, id)
@@ -350,11 +350,11 @@ since HTML forms can't send PUT, says the method in a field.
 
 ## The routes
 
-The pages are for signed-in users: in `routes/auth.go`, add the routes
+The pages are for logged-in users: in `routes/auth.go`, add the routes
 at the end of the `members` group, after the `/confirm-password` ones:
 
 ```go
-// The tracker's pages, for signed-in users.
+// The tracker's pages, for logged-in users.
 var issues handlers.Issues
 members.Get("/issues", web.H(issues.Index)).Name("issues.index")
 members.Get("/issues/new", issues.New).Name("issues.new")
@@ -385,7 +385,7 @@ issue pages, whose route names start with `issues.`.
 Open http://localhost:8080/issues. Open an issue with an empty title
 (the form says what's wrong), then with one. Edit it.
 
-> **Tip:** Signing in leads to `/dashboard`. To land on the issues
+> **Tip:** Logging in leads to `/dashboard`. To land on the issues
 > instead, add `AUTH_HOME_URL=/issues` to `.env`, or change the default
 > in `auth.go`: `auth.DefaultHomeURL("/issues")`.
 
@@ -415,7 +415,7 @@ import (
 func TestIssues(t *testing.T) {
 	app := anetostest.New(t, setup)
 	ada := anetostest.Create(app, factories.Users)
-	anetostest.ActingAs(app, &ada) // signed in for the requests that follow
+	anetostest.ActingAs(app, &ada) // logged in for the requests that follow
 
 	app.Get("/issues/new").AssertOK()
 	// Invalid: back to the form, with the errors.
@@ -445,7 +445,7 @@ func TestIssues(t *testing.T) {
 (Copied from [`examples/tutorial/issues_test.go`](../../../../examples/tutorial/issues_test.go), region `test`.)
 
 `anetostest.New` boots the app with an in-memory database, migrated, and
-`ActingAs` signs a user in. The requests go through the whole app,
+`ActingAs` logs a user in. The requests go through the whole app,
 middleware and CSRF protection included, as a browser's would.
 
 ```sh

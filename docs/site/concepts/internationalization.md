@@ -15,7 +15,7 @@ done for the user later.
 
 Messages live in YAML catalogs embedded in the binary: the app's
 (`locales/`), and the framework's own English one, which holds its
-validation messages, error pages and sign-in messages. They are read once,
+validation messages, error pages and login messages. They are read once,
 when the app starts; a broken file stops it there, not on a user's page.
 
 A key is looked up in a chain of catalogs, the first that has it wins:
@@ -57,7 +57,7 @@ a visitor asking for a page without a locale is sent.
 
 Without one (`none`), the same address shows each visitor their language,
 the first supported locale of: the `locale` cookie, the session, the
-signed-in user's preference, `Accept-Language`, `APP_LOCALE`. The cookie
+logged-in user's preference, `Accept-Language`, `APP_LOCALE`. The cookie
 and session hold a choice made on this device, which beats the account's
 default: someone who usually reads Bangla can switch to English on a
 shared computer. Responses say they vary by `Accept-Language` and
@@ -94,7 +94,7 @@ So a catalog's `format` section holds what dates need: month and day
 names and CLDR patterns for four styles. A language's file brings them,
 the core needs only its English, and a project fixes a pattern in its
 own catalog like any message. Times are shown in the context's zone, the
-signed-in user's, which is what makes "today" theirs; `anetos.Date`
+logged-in user's, which is what makes "today" theirs; `anetos.Date`
 values have no zone and are shown as they are.
 
 The framework ships English only. Other languages' translations of its

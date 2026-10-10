@@ -15,7 +15,7 @@ import (
 	"anetos.dev/anetos/web"
 )
 
-// apiLoginRoutes are an API's sign-in, without sessions: the user's ID,
+// apiLoginRoutes are an API's login, without sessions: the user's ID,
 // or a two-factor challenge (202).
 func apiLoginRoutes(r *web.Router, a *auth.Auth[*user]) {
 	api := r.Group("/api/v1", a.Middleware)
@@ -56,7 +56,7 @@ func TestAttemptCredentials(t *testing.T) {
 	if res := apiLogin("ada@example.com", "secret"); res.StatusCode != http.StatusOK || res.Body != "1" {
 		t.Fatalf("login: %d %q", res.StatusCode, res.Body)
 	}
-	// Nothing was signed in to a session.
+	// Nothing was logged in to a session.
 	if res := b.do(http.MethodGet, "/dashboard", nil); res.StatusCode != http.StatusSeeOther {
 		t.Errorf("a session after an API login: %d", res.StatusCode)
 	}
@@ -148,7 +148,7 @@ func TestTwoFactorChallenge(t *testing.T) {
 		t.Errorf("an expired challenge: %d", res.StatusCode)
 	}
 
-	// A new password (or signing out everywhere) ends the challenges
+	// A new password (or logging out everywhere) ends the challenges
 	// made before it.
 	challenge = b.do(http.MethodPost, "/api/v1/login", url.Values{"email": {"ada@example.com"}, "password": {"secret"}}).Body
 	s.setPassword(t, "1", "secret")
@@ -156,17 +156,17 @@ func TestTwoFactorChallenge(t *testing.T) {
 	if res := try(challenge, auth.TOTP(secret, now)); res.StatusCode != http.StatusUnauthorized {
 		t.Errorf("a challenge from before the password changed: %d", res.StatusCode)
 	}
-	// So does signing out everywhere (a new session key).
+	// So does logging out everywhere (a new session key).
 	challenge = b.do(http.MethodPost, "/api/v1/login", url.Values{"email": {"ada@example.com"}, "password": {"secret"}}).Body
 	ada, _ := s.users().ByID(b.ctx, "1")
-	if err := a.SignOutEverywhere(b.ctx, ada); err != nil {
+	if err := a.LogoutEverywhere(b.ctx, ada); err != nil {
 		t.Fatal(err)
 	}
 	now = now.Add(time.Minute)
 	if res := try(challenge, auth.TOTP(secret, now)); res.StatusCode != http.StatusUnauthorized {
-		t.Errorf("a challenge from before signing out everywhere: %d", res.StatusCode)
+		t.Errorf("a challenge from before logging out everywhere: %d", res.StatusCode)
 	}
-	// A disabled account: the code is right, the sign-in refused.
+	// A disabled account: the code is right, the login refused.
 	challenge = b.do(http.MethodPost, "/api/v1/login", url.Values{"email": {"ada@example.com"}, "password": {"secret"}}).Body
 	s.set("1", func(u *user) { u.Disabled = true })
 	now = now.Add(time.Minute)

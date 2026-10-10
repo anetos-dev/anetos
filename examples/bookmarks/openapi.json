@@ -123,7 +123,7 @@
             "$ref": "#/components/responses/InvalidValues"
           },
           "401": {
-            "description": "The API token is invalid, expired or revoked. The request isn't signed in: it has no valid API token.",
+            "description": "The API token is invalid, expired or revoked. The request isn't logged in: it has no valid API token.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -187,7 +187,7 @@
             "$ref": "#/components/responses/InvalidValues"
           },
           "401": {
-            "description": "The API token is invalid, expired or revoked. The request isn't signed in: it has no valid API token.",
+            "description": "The API token is invalid, expired or revoked. The request isn't logged in: it has no valid API token.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -254,7 +254,7 @@
             "$ref": "#/components/responses/InvalidValues"
           },
           "401": {
-            "description": "The API token is invalid, expired or revoked. The request isn't signed in: it has no valid API token.",
+            "description": "The API token is invalid, expired or revoked. The request isn't logged in: it has no valid API token.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -326,7 +326,7 @@
             "$ref": "#/components/responses/InvalidValues"
           },
           "401": {
-            "description": "The API token is invalid, expired or revoked. The request isn't signed in: it has no valid API token.",
+            "description": "The API token is invalid, expired or revoked. The request isn't logged in: it has no valid API token.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -384,7 +384,7 @@
             "$ref": "#/components/responses/InvalidValues"
           },
           "401": {
-            "description": "The API token is invalid, expired or revoked. The request isn't signed in: it has no valid API token.",
+            "description": "The API token is invalid, expired or revoked. The request isn't logged in: it has no valid API token.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -441,7 +441,7 @@
             "$ref": "#/components/responses/InvalidValues"
           },
           "401": {
-            "description": "The API token is invalid, expired or revoked. The request isn't signed in: it has no valid API token.",
+            "description": "The API token is invalid, expired or revoked. The request isn't logged in: it has no valid API token.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -484,7 +484,7 @@
             "description": "No Content"
           },
           "401": {
-            "description": "The API token is invalid, expired or revoked. The request isn't signed in: it has no valid API token.",
+            "description": "The API token is invalid, expired or revoked. The request isn't logged in: it has no valid API token.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -589,7 +589,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SignInResponse"
+                  "$ref": "#/components/schemas/LoginResponse"
                 }
               }
             }
@@ -639,7 +639,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SignInResponse"
+                  "$ref": "#/components/schemas/LoginResponse"
                 }
               }
             }
@@ -678,7 +678,7 @@
             "description": "No Content"
           },
           "401": {
-            "description": "The API token is invalid, expired or revoked. The request isn't signed in: it has no valid API token.",
+            "description": "The API token is invalid, expired or revoked. The request isn't logged in: it has no valid API token.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -716,7 +716,7 @@
             }
           },
           "401": {
-            "description": "The API token is invalid, expired or revoked. The request isn't signed in: it has no valid API token.",
+            "description": "The API token is invalid, expired or revoked. The request isn't logged in: it has no valid API token.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -760,7 +760,7 @@
             "$ref": "#/components/responses/InvalidValues"
           },
           "401": {
-            "description": "The API token is invalid, expired or revoked. The request isn't signed in: it has no valid API token.",
+            "description": "The API token is invalid, expired or revoked. The request isn't logged in: it has no valid API token.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -817,7 +817,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SignInResponse"
+                  "$ref": "#/components/schemas/LoginResponse"
                 }
               }
             }
@@ -929,7 +929,7 @@
             }
           },
           "401": {
-            "description": "The API token is invalid, expired or revoked. The request isn't signed in: it has no valid API token.",
+            "description": "The API token is invalid, expired or revoked. The request isn't logged in: it has no valid API token.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -990,7 +990,7 @@
             "$ref": "#/components/responses/InvalidValues"
           },
           "401": {
-            "description": "The API token is invalid, expired or revoked. The request isn't signed in: it has no valid API token.",
+            "description": "The API token is invalid, expired or revoked. The request isn't logged in: it has no valid API token.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1050,7 +1050,7 @@
             "$ref": "#/components/responses/InvalidValues"
           },
           "401": {
-            "description": "The API token is invalid, expired or revoked. The request isn't signed in: it has no valid API token.",
+            "description": "The API token is invalid, expired or revoked. The request isn't logged in: it has no valid API token.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1100,7 +1100,7 @@
             }
           },
           "401": {
-            "description": "The API token is invalid, expired or revoked. The request isn't signed in: it has no valid API token.",
+            "description": "The API token is invalid, expired or revoked. The request isn't logged in: it has no valid API token.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1161,7 +1161,7 @@
             "$ref": "#/components/responses/InvalidValues"
           },
           "401": {
-            "description": "The API token is invalid, expired or revoked. The request isn't signed in: it has no valid API token.",
+            "description": "The API token is invalid, expired or revoked. The request isn't logged in: it has no valid API token.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1227,7 +1227,7 @@
             "$ref": "#/components/responses/InvalidValues"
           },
           "401": {
-            "description": "The API token is invalid, expired or revoked. The request isn't signed in: it has no valid API token.",
+            "description": "The API token is invalid, expired or revoked. The request isn't logged in: it has no valid API token.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1286,7 +1286,7 @@
             "$ref": "#/components/responses/InvalidValues"
           },
           "401": {
-            "description": "The API token is invalid, expired or revoked. The request isn't signed in: it has no valid API token.",
+            "description": "The API token is invalid, expired or revoked. The request isn't logged in: it has no valid API token.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1352,7 +1352,7 @@
             "$ref": "#/components/responses/InvalidValues"
           },
           "401": {
-            "description": "The API token is invalid, expired or revoked. The request isn't signed in: it has no valid API token.",
+            "description": "The API token is invalid, expired or revoked. The request isn't logged in: it has no valid API token.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1615,6 +1615,30 @@
           "password"
         ]
       },
+      "LoginResponse": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "user": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "two_factor": {
+            "type": "boolean"
+          },
+          "challenge": {
+            "type": "string"
+          }
+        }
+      },
       "NewTokenInput": {
         "type": "object",
         "properties": {
@@ -1842,30 +1866,6 @@
           "token",
           "password"
         ]
-      },
-      "SignInResponse": {
-        "type": "object",
-        "properties": {
-          "token": {
-            "type": "string"
-          },
-          "user": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/UserResponse"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "two_factor": {
-            "type": "boolean"
-          },
-          "challenge": {
-            "type": "string"
-          }
-        }
       },
       "TokenResponse": {
         "type": "object",

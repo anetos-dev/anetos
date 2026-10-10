@@ -266,8 +266,8 @@ func TestLocaleUserPreference(t *testing.T) {
 	if _, err := i18n.New(app, catalogs); err != nil {
 		t.Fatal(err)
 	}
-	signedIn := false
-	i18n.SetCurrentUser(app, func(context.Context) (any, bool) { return prefUser{}, signedIn })
+	loggedIn := false
+	i18n.SetCurrentUser(app, func(context.Context) (any, bool) { return prefUser{}, loggedIn })
 	srv, err := web.NewServer(app)
 	if err != nil {
 		t.Fatal(err)
@@ -290,9 +290,9 @@ func TestLocaleUserPreference(t *testing.T) {
 		return rec.Body.String()
 	}
 	if got := get(false); got != "en UTC" {
-		t.Errorf("signed out: %q", got)
+		t.Errorf("logged out: %q", got)
 	}
-	signedIn = true
+	loggedIn = true
 	if got := get(false); got != "bn Asia/Dhaka" {
 		t.Errorf("the user's preference beats the browser's: %q", got)
 	}

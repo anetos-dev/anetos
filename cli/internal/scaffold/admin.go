@@ -41,7 +41,7 @@ type AdminResult struct {
 	// Users says it wrote app/admin/users.go, the users resource.
 	Users bool
 	// Disabled and SessionKey say the User model has DisabledAt and
-	// SessionKey (make:auth since AD1b): disabling and signing out
+	// SessionKey (make:auth since AD1b): disabling and logging out
 	// everywhere work.
 	Disabled, SessionKey bool
 	// Banner says the app's layout (views/layout.templ) now shows
@@ -152,7 +152,7 @@ func MakeAdmin(root string) (AdminResult, error) {
 	if res.AI, err = projectCalls(root, "TrackUsage("); err != nil {
 		return res, err
 	}
-	// The test signs in with make:auth's test helper, and gives the
+	// The test logs in with make:auth's test helper, and gives the
 	// admin role.
 	if res.RBAC && rootNames["authRegister"] && !rootNames["TestAdminAccess"] {
 		files = append(files, [2]string{"test.go.tmpl", "admin_test.go"})
@@ -210,7 +210,7 @@ func MakeAdmin(root string) (AdminResult, error) {
 			return undo(err)
 		}
 	}
-	// The banner while acting as a user, in the app's layout.
+	// The banner while impersonating a user, in the app's layout.
 	if layoutErr == nil {
 		if patched, ok := addBanner(layoutBefore); ok {
 			if err := os.WriteFile(layout, patched, 0o644); err != nil {
@@ -251,7 +251,7 @@ func addBanner(src []byte) ([]byte, bool) {
 		return nil, false
 	}
 	indent := s[loc[2]:loc[3]]
-	s = s[:loc[1]] + indent + "\t@admin.Banner() // while acting as a user (anetos make:admin)\n" + s[loc[1]:]
+	s = s[:loc[1]] + indent + "\t@admin.Banner() // while impersonating a user (anetos make:admin)\n" + s[loc[1]:]
 	s = s[:imp] + "import (\n\t\"anetos.dev/anetos/admin\"\n" + s[imp+len("import (\n"):]
 	return []byte(s), true
 }

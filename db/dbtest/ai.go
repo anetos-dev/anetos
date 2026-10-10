@@ -51,7 +51,7 @@ func testAIConversations(t *testing.T, ctx context.Context) {
 	check(t, err)
 	a, err := auth.New(app, auth.Users[stAuthUser]{
 		ByID:    func(_ context.Context, id string) (stAuthUser, error) { return stAuthUser{id}, nil },
-		ByLogin: func(context.Context, string) (stAuthUser, error) { return stAuthUser{}, auth.ErrNoUser },
+		ByLogin: func(context.Context, string) (stAuthUser, error) { return stAuthUser{}, auth.ErrUserNotFound },
 	})
 	check(t, err)
 	_, err = queue.New(app) // sync: queued jobs run at once
@@ -185,11 +185,11 @@ func testAIConversations(t *testing.T, ctx context.Context) {
 	if fake.Remaining() != 1 {
 		t.Error("the model was asked over budget")
 	}
-	// Embeddings count too: for the signed-in user, against their budget.
-	if _, err := ai.Embed(a.ActAs(ctx, "frugal"), 0, "spent"); web.StatusOf(err) != http.StatusTooManyRequests {
+	// Embeddings count too: for the logged-in user, against their budget.
+	if _, err := ai.Embed(a.WithUser(ctx, "frugal"), 0, "spent"); web.StatusOf(err) != http.StatusTooManyRequests {
 		t.Errorf("embedding over budget: %v", err)
 	}
-	if _, err := ai.Embed(a.ActAs(ctx, "embedder"), 0, "three little words", "and four more words"); err != nil {
+	if _, err := ai.Embed(a.WithUser(ctx, "embedder"), 0, "three little words", "and four more words"); err != nil {
 		t.Error(err)
 	}
 	if recs, err := db.Query[ai.UsageRecord](ctx).Where(db.Col[string]("user_id").Eq("embedder")).Get(); err != nil || len(recs) != 1 ||
@@ -226,13 +226,13 @@ func testAIConversations(t *testing.T, ctx context.Context) {
 	// of the token the reply was queued with.
 	check(t, other.Add(ctx, ai.UserMessage("Who am I?")))
 	fake.Add(ai.FakeToolCall("whoami", struct{}{}), ai.FakeText("Ada."))
-	check(t, other.QueueReply(a.ActAs(ctx, "ada", auth.WithAbilities([]string{"chat:write"})), support))
+	check(t, other.QueueReply(a.WithUser(ctx, "ada", auth.WithAbilities([]string{"chat:write"})), support))
 	if seen != "ada false" {
 		t.Errorf("the queued reply's tool ran as %q", seen)
 	}
 	check(t, other.Add(ctx, ai.UserMessage("And now?")))
 	fake.Add(ai.FakeToolCall("whoami", struct{}{}), ai.FakeText("Ada."))
-	check(t, other.QueueReply(a.ActAs(ctx, "ada"), support)) // a session: no token limits
+	check(t, other.QueueReply(a.WithUser(ctx, "ada"), support)) // a session: no token limits
 	if seen != "ada true" {
 		t.Errorf("the queued reply's tool ran as %q", seen)
 	}

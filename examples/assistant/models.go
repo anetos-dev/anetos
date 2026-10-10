@@ -12,7 +12,7 @@ import (
 	"anetos.dev/anetos/db/migrate"
 )
 
-// User is an account, signing in with a password.
+// User is an account, logging in with a password.
 type User struct {
 	db.Model
 	Name     string `db:"name" json:"name"`
@@ -40,7 +40,7 @@ var users = auth.Users[*User]{
 	ByID: func(ctx context.Context, id string) (*User, error) {
 		n, err := strconv.ParseInt(id, 10, 64)
 		if err != nil {
-			return nil, auth.ErrNoUser
+			return nil, auth.ErrUserNotFound
 		}
 		u, err := db.Find[User](ctx, n)
 		return &u, err
@@ -96,5 +96,5 @@ var helpCenter = []Article{
 	{Title: "Share a list with your team", Body: "Open the list, choose Share and enter your teammates' email addresses. They can view and edit the list; only you can delete it. Shared lists need a Team plan."},
 	{Title: "Plans and billing", Body: "The Free plan has five lists. The Pro plan has unlimited lists and reminders, for 4 dollars a month. The Team plan adds shared lists, for 8 dollars a user a month. Invoices are under Settings, then Billing."},
 	{Title: "Work offline", Body: "Tidy keeps your lists on your device: add and check off tasks without a connection. Changes sync when you're back online; if a task changed on two devices, the latest change wins."},
-	{Title: "Reset your password", Body: "On the sign-in page, choose Forgot password and enter your email address. The reset link works for one hour and only once."},
+	{Title: "Reset your password", Body: "On the login page, choose Forgot password and enter your email address. The reset link works for one hour and only once."},
 }

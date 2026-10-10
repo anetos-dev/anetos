@@ -17,7 +17,7 @@ import (
 func TestIssues(t *testing.T) {
 	app := anetostest.New(t, setup)
 	ada := anetostest.Create(app, factories.Users)
-	anetostest.ActingAs(app, &ada) // signed in for the requests that follow
+	anetostest.ActingAs(app, &ada) // logged in for the requests that follow
 
 	app.Get("/issues/new").AssertOK()
 	// Invalid: back to the form, with the errors.

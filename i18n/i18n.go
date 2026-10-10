@@ -42,7 +42,7 @@ type Config struct {
 	Locales []string `env:"APP_LOCALES"`
 
 	// URL is where a request's locale is in its URL: none (default; the
-	// locale comes from the locale cookie, the session, the signed-in
+	// locale comes from the locale cookie, the session, the logged-in
 	// user's preference or the browser),
 	// prefix (/bn/about; the default locale has none) or subdomain
 	// (bn.example.com; APP_URL's host is the default locale's). APP_LOCALE_STRATEGY.
