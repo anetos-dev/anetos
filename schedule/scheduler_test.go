@@ -442,15 +442,26 @@ func TestAppNew(t *testing.T) {
 	if strings.Contains(out, "m0s") {
 		t.Errorf("schedule:list shows seconds:\n%s", out)
 	}
-	var units []string
+	var (
+		unitsMu sync.Mutex // schedule:run runs due tasks side by side
+		units   []string
+	)
 	app.AroundUnits(func(ctx context.Context, u anetos.Unit) (context.Context, func()) {
+		unitsMu.Lock()
+		defer unitsMu.Unlock()
 		units = append(units, u.Kind+" "+u.Name)
 		return ctx, nil
 	})
 	before := reports.Load()
 	out, err = run("schedule:test", "daily-report")
-	if len(units) == 0 || units[0] != "task daily-report" { // then its job (sync driver)
-		t.Errorf("units %v", units)
+	unitsMu.Lock()
+	first := ""
+	if len(units) > 0 {
+		first = units[0]
+	}
+	unitsMu.Unlock()
+	if first != "task daily-report" { // then its job (sync driver)
+		t.Errorf("first unit %q", first)
 	}
 	if err != nil || !strings.HasPrefix(out, "Ran daily-report in") || reports.Load() != before+1 {
 		t.Errorf("schedule:test = %q, %v; %d reports", out, err, reports.Load()-before)
