@@ -18,7 +18,7 @@ guide is the `auth` package underneath, step by step.
 
 You need sessions ([Sessions and flash messages](sessions.md)), the
 cache (login throttling counts failures in it, see
-[Cache values](cache.md)) and a users table. Passwords are hashed with
+[Cache](cache.md)) and a users table. Passwords are hashed with
 `auth/password` (argon2id).
 
 ## Steps
@@ -430,10 +430,10 @@ answering 403 to a token without them; a user logged in with a session
 Put the route that creates tokens behind `a.RequireConfirmed`, as the
 example does: a token outlives the session, so someone holding a stolen
 session shouldn't be able to make one without the password. `CreateToken`
-refuses while an admin impersonates the user (403), for the same reason (v0.3).
+refuses while an admin impersonates the user (403), for the same reason.
 
-An API whose clients log in with tokens, without sessions (since
-v0.4), uses `a.AttemptCredentials(ctx, login, password)`: `Attempt`'s
+An API whose clients log in with tokens, without sessions,
+uses `a.AttemptCredentials(ctx, login, password)`: `Attempt`'s
 check and throttling, returning the user to give a token to. For a user
 with two-factor authentication on, it fails with a `*auth.TwoFactorChallenge`
 whose `Token` the client sends back with a code to

@@ -8,7 +8,7 @@ weight: 205
 # UI components reference
 
 The components of `views/ui`, the package `anetos new` writes into a
-web project (since v0.5), which the layout and the pages of `make:crud`
+web project, which the layout and the pages of `make:crud`
 and `make:auth` call. The package is your app's: this page describes it
 as `anetos new` writes it. See [Style your app](../guides/styling.md)
 for changing it.
@@ -179,7 +179,7 @@ These are the framework's, not `views/ui`'s; the
 
 | Function | Does |
 |---|---|
-| `web.MustURL(ctx, name, args...)` | The path of a named route, as `web.URL`, for a component's string arguments (`ui.LinkButton(web.MustURL(ctx, "posts.edit", post.ID), ui.Secondary)`). A name or arguments the route doesn't take is a panic, which the router answers with a 500 page (v0.5) |
+| `web.MustURL(ctx, name, args...)` | The path of a named route, as `web.URL`, for a component's string arguments (`ui.LinkButton(web.MustURL(ctx, "posts.edit", post.ID), ui.Secondary)`). A name or arguments the route doesn't take is a panic, which the router answers with a 500 page |
 | `web.RouteIs(ctx, names...)` | Whether the request's route has one of the names, for `NavLink`'s `current` (the layout's `navLink` uses it) |
 | `view.Old(ctx, field, fallback...)` | A control's value: what was typed, after a failed post, else the fallback |
 | `view.OldChecked(ctx, field, fallback)` | A `Checkbox`'s `checked`, the same way |

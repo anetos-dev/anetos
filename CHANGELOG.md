@@ -93,6 +93,10 @@ All notable changes to this project are documented here. The format follows
   `scripts/kit-screenshots/run.sh` makes the screenshots, and `make
   docs-check` checks a page's images: they exist, have alt text, and
   every image is shown.
+- A glossary page in the docs (Concepts → The app → Glossary): the words
+  Anetos uses, and Laravel's or Rails' for the same thing; an "Operations"
+  section in the application lifecycle page; the `anetos` package's
+  documentation, with a compiling example of `main.go` (M8b-6, D317).
 - The exported API of each library module is listed in
   `api/<module>.txt`; `make api-check` (in `make check` and CI) fails
   when the list differs from the source, and `make api-update` writes
@@ -102,6 +106,14 @@ All notable changes to this project are documented here. The format follows
   D300).
 
 ### Changed
+- The docs take v0.5, the first public release, as their baseline: the
+  "Since" notes and columns for v0.1–v0.4 are gone, and the v0.3 and
+  v0.4 upgrade guides are listed under "Before the first public
+  release". Navigation: Concepts in the top menu; "Mail, files, search
+  and cache" (with Cache, from Production); "Commands and the app
+  binary", "How testing works", "Translation file formats"; the
+  reference's "Commands and settings" and "Packages" groups (M8b-6,
+  D317).
 - The API's shapes that couldn't change after v0.5 (M8b-5, D316; see
   the [upgrade guide](docs/site/upgrade/v0.5.md)):
   - `ai.Request.Options` is a `[]any`, and `ai.ProviderOptions(v...)`

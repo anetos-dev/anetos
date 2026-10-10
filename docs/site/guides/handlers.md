@@ -92,7 +92,7 @@ func (h *Notes) Show(c *web.Ctx, in NoteID) (Note, error) {
 }
 ```
 
-Register it with `web.H`:
+Register it with `web.H` (H for handler):
 
 ```go
 // illustrative
@@ -103,12 +103,16 @@ api.Post("", web.H(notes.Create)).Name("create").Status(http.StatusCreated)
 type can't be bound or a `validate` tag is wrong (an unknown rule, a bad
 parameter), so a mistake never waits for the first request.
 
+`web.H` has nothing to do with Gin's `gin.H` map: it adapts a typed
+handler. A map is answered as JSON here too (`map[string]any`), with no
+special type.
+
 ### 3. Choose the response
 
 | Return | Response |
 |---|---|
-| Any value (struct, slice, map…) | JSON with the route's status: `200`, or what `Status` sets on the route (since v0.4); no body with `204` or `205` |
-| `web.Empty{}` (since v0.4) | `204` without a body (or the route's status, still without a body) |
+| Any value (struct, slice, map…) | JSON with the route's status: `200`, or what `Status` sets on the route; no body with `204` or `205` |
+| `web.Empty{}` | `204` without a body (or the route's status, still without a body) |
 | `web.Created(v)` | `201` with JSON |
 | `web.JSON(status, v)` | JSON with any status |
 | `web.NoContent()` or a nil `web.Responder` | `204` |
@@ -138,8 +142,9 @@ Return an error and let the framework respond:
 
 - `web.Error(status, "message")` gives that status with your message, which
   is shown to the client.
-- Your own errors can implement `HTTPStatus() int` to pick a status (for
-  example a repository's "not found" error returning 404).
+- Your own errors can implement `HTTPStatus() int` (`web.StatusCoder`) to
+  pick a status, for example a repository's "not found" error returning
+  404. The method is `HTTPStatus`, not go-kit's `StatusCode`.
 - Anything else is a **500**, and its message is **not** shown to clients
   unless `APP_DEBUG=true`.
 
@@ -188,7 +193,7 @@ Return an error and let the framework respond:
 
 <a id="json-errors"></a>An API can't count on its clients asking for JSON: `curl`, `fetch`
 without headers and many HTTP libraries send `Accept: */*` or nothing,
-and would get the HTML page. Put `web.JSONErrors` (since v0.4) on the
+and would get the HTML page. Put `web.JSONErrors` on the
 API's routes, and their errors are problem details whatever the client
 sends, never a page or a redirect back to a form:
 

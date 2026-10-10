@@ -1,7 +1,7 @@
 ---
 title: anetos generate reference
 since: v0.1.0
-group: "Tools"
+group: "Commands and settings"
 weight: 101
 ---
 

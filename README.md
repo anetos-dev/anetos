@@ -16,7 +16,7 @@ listeners and the scheduler run together in **one binary**.
 **Status:** pre-alpha. v0.4.0 is tagged; the first public release is
 v0.5. APIs will change.
 
-- **v0.1, the foundation:** the kernel, configuration, runtime
+- **v0.1, the foundation:** the app, configuration, runtime
   supervisor, HTTP layer, validation, data layer with relations,
   migrations, model code generation, views, sessions, forms, the CLI and
   testing helpers.

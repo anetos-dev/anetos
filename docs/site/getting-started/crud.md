@@ -121,7 +121,7 @@ the pages.
 
 ## In an API project
 
-Since v0.4, in a project made with `anetos new --stack=api`, the same
+In a project made with `anetos new --stack=api`, the same
 command writes JSON endpoints instead of pages: the model and its
 migration, `app/handlers/posts.go`, `routes/posts.go` and
 `posts_test.go`, and `Posts(api)` at the end of `Register` in

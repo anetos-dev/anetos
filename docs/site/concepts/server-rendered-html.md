@@ -128,9 +128,9 @@ a fresh random pad at every render so compressed pages never repeat it
 - **Changes after the response starts are lost**, as when streaming.
 - **Kept out of shared caches:** `Cache-Control: private` (unless you set
   one) and `Vary: Cookie`.
-- **Why cookies in v0.1:** no store to run, configure or clean up, and any
-  instance serves any request. Server-side stores, which can revoke
-  sessions, arrive with the v0.2 drivers.
+- **Why cookies by default:** no store to run, configure or clean up, and
+  any instance serves any request. Server-side stores, which can revoke
+  sessions, are a setting away (`SESSION_DRIVER`).
 
 > **Coming from Laravel?** This is the `cookie` session driver, always
 > encrypted. `@csrf`, `old()` and `$errors` map to `view.CSRFField`,

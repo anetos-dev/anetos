@@ -131,5 +131,5 @@ databases.
 
 - [Migrations](../guides/migrations.md), [Seed the database](../guides/seeders.md)
 - [Migrations reference](../reference/migrations.md)
-- [One binary](commands.md), [The data layer](data-layer.md)
+- [Commands and the app binary](commands.md), [The data layer](data-layer.md)
 - Package docs: `db/migrate`

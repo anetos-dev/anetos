@@ -7,7 +7,7 @@ weight: 204
 
 # OpenAPI reference
 
-Package `web/openapi` (v0.4) and what it writes. How to use it:
+Package `web/openapi` and what it writes. How to use it:
 [Describe an API with OpenAPI](../guides/openapi.md).
 
 ## API

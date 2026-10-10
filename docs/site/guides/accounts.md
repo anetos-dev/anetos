@@ -161,13 +161,13 @@ The routes:
 | `GET`, `POST /login` | Guests: log in (`AUTH_THROTTLE` limits failures) |
 | `GET`, `POST /two-factor-challenge` | Guests whose login waits for a two-factor code: the authenticator app's, or a recovery code |
 | `GET`, `POST /forgot-password` | Guests: email a reset link (5 posts a minute per client IP address; 3 links an hour per address, the same answer after) |
-| `GET`, `POST /reset-password` | Guests: choose a new password with the link. A reset logs the user out everywhere and revokes their API tokens (v0.3); for an address never verified, the link verifies it and turns off the two-factor authentication and Google and GitHub links that whoever registered it first may have set up. Two uses of the link at once change the password once |
+| `GET`, `POST /reset-password` | Guests: choose a new password with the link. A reset logs the user out everywhere and revokes their API tokens; for an address never verified, the link verifies it and turns off the two-factor authentication and Google and GitHub links that whoever registered it first may have set up. Two uses of the link at once change the password once |
 | `GET /auth/{provider}/redirect`, `GET /auth/{provider}/callback` | Guests: log in with Google or GitHub (404 for a provider whose settings aren't set) |
 | `GET /verify-email` | Anyone with the link: verify the address (400 if the link is bad, expired, or for an address the user has since changed) |
 | `GET /dashboard` | Logged-in users: the account and its API tokens |
 | `POST /logout` | Logged-in users |
 | `POST /email/verification-notification` | Logged-in users: email the link again (3 a minute per client IP address, 6 an hour per account) |
-| `POST /tokens` | Logged-in users who confirmed their password lately (v0.3): create an API token (shown once); refused while an admin impersonates the user |
+| `POST /tokens` | Logged-in users who confirmed their password lately: create an API token (shown once); refused while an admin impersonates the user |
 | `POST /tokens/{id}/delete` | Logged-in users: revoke an API token |
 | `GET /settings`; `POST /settings/profile`, `/settings/password`, `/settings/preferences` | Logged-in users: their settings (below) |
 | `POST /settings/email` | Logged-in users who confirmed their password lately: a new email address (with `AllowEmailChange`; 5 tries an hour per account) |

@@ -1,7 +1,7 @@
 ---
 title: anetos tool and app commands reference
 since: v0.1.0
-group: "Tools"
+group: "Commands and settings"
 weight: 100
 ---
 
@@ -30,8 +30,8 @@ status: 0 on success, 1 on errors, 2 for bad usage.
 |---|---|---|
 | `--module` | the directory's name | Go module path |
 | `--db` | `sqlite` | `sqlite`, `postgres` or `mysql`: the driver in `main.go` and the `DB_*` settings in `.env` |
-| `--stack` | `web` | `web`: pages rendered on the server, with sessions and CSRF protection; `api` (v0.4): JSON only, no views, static files or sessions ([the API project](#the-api-project)) |
-| `--css` | `anetos` | The web stack's CSS framework (v0.3): the components of `views/ui` (v0.5) and the stylesheet, `public/static/app.css`. `anetos`: the starter theme (light and dark, no build step) and components writing its classes; `none`: components writing plain HTML without classes, and a stylesheet holding only a comment, for your own CSS or a CSS framework (before v0.5, the pages kept the starter theme's classes); `pico`, `bootstrap`, `bulma` (v0.5): components writing Pico 2.1.1's, Bootstrap 5.3.8's or Bulma 1.0.4's markup, with the framework's files as released in `public/static/` (and its license), and an `app.css` for the rest; `tailwind` (v0.5): components with Tailwind CSS 4.3.3's classes, `views/ui/tailwind.css` and the `app.css` Tailwind compiles from it (`css:build`). See [Style your app](../guides/styling.md). Refused with `--stack=api` |
+| `--stack` | `web` | `web`: pages rendered on the server, with sessions and CSRF protection; `api`: JSON only, no views, static files or sessions ([the API project](#the-api-project)) |
+| `--css` | `anetos` | The web stack's CSS framework: the components of `views/ui` and the stylesheet, `public/static/app.css`. `anetos`: the starter theme (light and dark, no build step) and components writing its classes; `none`: components writing plain HTML without classes, and a stylesheet holding only a comment, for your own CSS or a CSS framework; `pico`, `bootstrap`, `bulma`: components writing Pico 2.1.1's, Bootstrap 5.3.8's or Bulma 1.0.4's markup, with the framework's files as released in `public/static/` (and its license), and an `app.css` for the rest; `tailwind`: components with Tailwind CSS 4.3.3's classes, `views/ui/tailwind.css` and the `app.css` Tailwind compiles from it (`css:build`). See [Style your app](../guides/styling.md). Refused with `--stack=api` |
 | `--skip-install` | `false` | Only write the files |
 | `--replace` | | A local Anetos checkout, used through `replace` directives (framework development): the core, the tool, and every driver and plugin module of the checkout, so `go get` and `anetos add` take them from it too |
 
@@ -60,15 +60,15 @@ The web stack's files:
 | `database/migrations/migrations.go` | The `All` migration set and `Seeders` |
 | `database/factories/factories.go` | The package for model factories (empty at first) |
 | `views/layout.templ`, `views/home.templ` | templ layout (`<html lang dir>` in the request's locale, `hreflang` links with `APP_LOCALE_STRATEGY=prefix` or `subdomain`, the header with the app's name and its nav (`ui.Header`, `ui.Nav`, and `navLink`, which marks the current page with `web.RouteIs`), flash messages, CSRF header for htmx) and home page, its text from the catalog; `views/errors.templ`: error pages (404, 500…) in the layout |
-| `views/ui/` | The CSS framework's components (v0.5), which the layout and the pages of `make:crud` and `make:auth` call: `ui.go` (the types: `Variant`, `Size`, `Tone`, `Option`, `Pages`), `shell.templ`, `page.templ`, `form.templ`, `data.templ`, and with every CSS framework but `none`, `classes.go` (the classes of each variant, size and tone), and `css.json`, the framework's record (`css:use`). See the [UI components reference](ui.md) |
+| `views/ui/` | The CSS framework's components, which the layout and the pages of `make:crud` and `make:auth` call: `ui.go` (the types: `Variant`, `Size`, `Tone`, `Option`, `Pages`), `shell.templ`, `page.templ`, `form.templ`, `data.templ`, and with every CSS framework but `none`, `classes.go` (the classes of each variant, size and tone), and `css.json`, the framework's record (`css:use`). See the [UI components reference](ui.md) |
 | `locales/locales.go`, `locales/en/app.yaml` | The translations, embedded: the home page's English text. Add a language with its folder (`locales/bn/app.yaml`); see [Translations](../guides/translations.md) |
-| `public/public.go`, `public/robots.txt`, `public/static/app.css`, `public/static/favicon.svg` | `public.Files`, the web root, served at `/` by `r.Static` (v0.5: `robots.txt`, allowing every page); `public.Assets`: the static files and htmx under `/assets`; the stylesheet (`--css`; a CSS framework adds the framework's files); the icon browsers show |
-| `Dockerfile`, `.dockerignore` | A container image (v0.3): `anetos build` in `golang:<go version>`, the binary alone in `gcr.io/distroless/static-debian12:nonroot` (user 65532), `/data` for the files (and the SQLite database, migrated when the server starts: `DB_MIGRATE_ON_START=true`), `HEALTHCHECK` with `health:check`. See [Deploy](../guides/deployment.md#run-it-in-a-container) |
-| `deploy/<name>.service`, `deploy/production.env.example` | A systemd unit (v0.3: migrations before start, restart on failure, sandboxed) and the production settings to fill in. See [Deploy](../guides/deployment.md#run-it-on-a-server-with-systemd) |
+| `public/public.go`, `public/robots.txt`, `public/static/app.css`, `public/static/favicon.svg` | `public.Files`, the web root, served at `/` by `r.Static` (`robots.txt`, allowing every page); `public.Assets`: the static files and htmx under `/assets`; the stylesheet (`--css`; a CSS framework adds the framework's files); the icon browsers show |
+| `Dockerfile`, `.dockerignore` | A container image: `anetos build` in `golang:<go version>`, the binary alone in `gcr.io/distroless/static-debian12:nonroot` (user 65532), `/data` for the files (and the SQLite database, migrated when the server starts: `DB_MIGRATE_ON_START=true`), `HEALTHCHECK` with `health:check`. See [Deploy](../guides/deployment.md#run-it-in-a-container) |
+| `deploy/<name>.service`, `deploy/production.env.example` | A systemd unit (migrations before start, restart on failure, sandboxed) and the production settings to fill in. See [Deploy](../guides/deployment.md#run-it-on-a-server-with-systemd) |
 
 ### The API project
 
-`--stack=api` (v0.4) writes the same `main.go` without sessions or
+`--stack=api` writes the same `main.go` without sessions or
 templ, `plugins.go`, `.env` files, `README.md`, `.gitignore`,
 `app/models/`, `database/`, `Dockerfile`, `.dockerignore` and
 `deploy/`, and in place of the web stack's routes, handlers, views and
@@ -76,7 +76,7 @@ static files:
 
 | Path | Holds |
 |---|---|
-| `routes/api.go` | `Register(r)`: `r.UseGlobal(web.JSONErrors)` (every error is problem JSON, whatever the client accepts; [Return errors](../guides/handlers.md#json-errors)) and the group `api`, `/api/v1` with route names `api.…`, where `make:handler` suggests routing its handlers; `OpenAPI`, the API's description's `openapi.Config` (v0.4) |
+| `routes/api.go` | `Register(r)`: `r.UseGlobal(web.JSONErrors)` (every error is problem JSON, whatever the client accepts; [Return errors](../guides/handlers.md#json-errors)) and the group `api`, `/api/v1` with route names `api.…`, where `make:handler` suggests routing its handlers; `OpenAPI`, the API's description's `openapi.Config` |
 | `app/handlers/welcome.go` | `GET /api/v1` (`api.welcome`): a typed handler (`web.H`) answering `WelcomeResponse`, `{"name", "message"}`, the message from the catalog in the request's language |
 | `locales/en/app.yaml` | The API's English messages |
 | `main_test.go` | Tests of `GET /api/v1`, of a missing URL's problem details, and that `openapi.json` is up to date (`openapi.Check`) |
@@ -87,8 +87,8 @@ static files:
 API; [configuration](configuration.md)) and no `SESSION_DRIVER` or
 `APP_LOCALE_STRATEGY`. In an API project (`routes/api.go` and no `routes/web.go`),
 `make:handler` (a typed handler, routed with `web.H`, answering a struct),
-`make:middleware`, `make:auth` (accounts logging in with API tokens,
-v0.4) and `make:crud` (JSON endpoints, v0.4) write for the API, and
+`make:middleware`, `make:auth` (accounts logging in with API tokens)
+and `make:crud` (JSON endpoints) write for the API, and
 `make:admin`, which writes pages, refuses.
 
 ## `anetos dev`
@@ -96,7 +96,7 @@ v0.4) and `make:crud` (JSON endpoints, v0.4) write for the API, and
 | Flag | Default | Meaning |
 |---|---|---|
 | `--addr` | `HTTP_ADDR` from `.env`, else `:8080`; without a host, on `127.0.0.1` only | Where to browse the app (`--addr=0.0.0.0:8080` to reach it from other machines, with a warning: the dev server shows build errors and your code's paths) |
-| `--host` | `localhost`, `*.localhost`, IP addresses and `APP_URL`'s host | Another host name browsers may use (repeat the flag for more); requests for other names get 403, which stops DNS-rebinding pages from reading the app (v0.3) |
+| `--host` | `localhost`, `*.localhost`, IP addresses and `APP_URL`'s host | Another host name browsers may use (repeat the flag for more); requests for other names get 403, which stops DNS-rebinding pages from reading the app |
 | `-- args…` | `run` | Arguments for the app binary |
 
 Run it in the project (any directory under `go.mod`). On start and on
@@ -104,7 +104,7 @@ every change it:
 
 1. runs `go tool templ generate` (if there are `.templ` files) and `anetos generate`,
    and in a project that uses Tailwind CSS compiles `public/static/app.css`
-   as `css:build` does (v0.5; when Tailwind can't run, it says why and
+   as `css:build` does (when Tailwind can't run, it says why and
    keeps the `app.css` there is until it's restarted),
 2. builds the app into `tmp/anetos-dev/`,
 3. stops the previous app (interrupt, then kill after 10 s) and starts the
@@ -125,7 +125,7 @@ page until the next change. On Linux the app is stopped even if
 
 ## `anetos build`
 
-`anetos build [-o file] [--target=os/arch] [--version=v1.2.0] [--cgo] [-- go build flags]` (v0.3)
+`anetos build [-o file] [--target=os/arch] [--version=v1.2.0] [--cgo] [-- go build flags]`
 
 | Flag | Default | Meaning |
 |---|---|---|
@@ -137,7 +137,7 @@ page until the next change. On Linux the app is stopped even if
 
 Run it in the project. It runs `go tool templ generate` (if there are
 `.templ` files), `anetos generate` and, in a project that uses Tailwind CSS,
-Tailwind as `css:build` does (failing if it can't run; v0.5), then `go build -trimpath
+Tailwind as `css:build` does (failing if it can't run), then `go build -trimpath
 -ldflags="-s -w" .` with `CGO_ENABLED=0`, and prints the binary, its
 system and size (`built bin/blog (linux/amd64, 18.3 MB)`). Use
 `--target` rather than `GOOS` and `GOARCH`: with those set, `go tool`
@@ -157,15 +157,15 @@ line to `views/layout.templ`; `make:admin-resource` adds a line to
 
 | Command | Writes |
 |---|---|
-| `make:handler <Name>` | `app/handlers/<name>.go`: a handler type with an `Index` method; in an API project (v0.4), a typed `Index` (for `web.H`) answering `<Name>Response` as JSON, its comment routing it in `routes/api.go` |
+| `make:handler <Name>` | `app/handlers/<name>.go`: a handler type with an `Index` method; in an API project, a typed `Index` (for `web.H`) answering `<Name>Response` as JSON, its comment routing it in `routes/api.go` |
 | `make:model <Name> [--migration]` | `app/models/<name>.go`: a model embedding `db.Model`, then its typed columns (`anetos generate`); with `--migration`, also `create_<table>_table` |
 | `make:migration <name>` | `database/migrations/<YYYY_MM_DD_HHMMSS>_<name>.go`: `create_posts_table` creates a table; `add_x_to_posts_table` (the last `to`, `from`, `in` or `on`) gets commented `Alter` code for that table; other names get empty functions. The timestamp is always after the newest migration's, so migrations made in the same second keep their order |
 | `make:middleware <Name>` | `app/middleware/<name>.go`: a `func(http.Handler) http.Handler` |
-| `make:crud <Model> <field:type[:optional\|:unique]>...` | A model with its table and the pages to list, show, create, edit and delete its rows (v0.3): `app/models/<model>.go`, a `create_<table>_table` migration, `app/handlers/<table>.go` (`handlers.<Models>`: `Index` with 20 rows a page, `Show`, `New`, `Create`, `Edit`, `Update`, `Delete`; the form `<Model>Input` with its validate tags), `views/<table>.templ` (the list, the page, the form, calling the components of `views/ui`; v0.5), `routes/<table>.go` (`routes.<Models>(r)`: `/<path>`, the table with `-` for `_`, named `<path>.index`, `.new`, `.create`, `.show`, `.edit`, `.update`, `.delete`, as the handlers), `locales/en/<table>.yaml` (the pages' text) and `<table>_test.go` (its comment shows how to log a user in for pages in `make:auth`'s `loggedIn` group); then `anetos generate`, `templ generate` and `go build ./...`. Types: `string` (255), `text`, `email`, `int` (`int64`), `float` (`float64`), `bool`, `date` (`anetos.Date`). Strings, emails, texts and dates are required unless `:optional`; `:unique` (required strings and emails, dates) adds a unique index and the `unique` rule. Refused: a plural that is the name (`News`), the tables of the framework and `make:auth` (`users`, `api_tokens`…), the field `model`, and two fields with one Go name (`a_1` and `a1`). Adds `<Models>(pages)` at the end of `Register` in `routes/web.go` and a `navLink` to the list at the end of the header's nav in `views/layout.templ`: the `@ui.Nav` block (v0.5), or before the `</nav>` of a layout made earlier (else it prints what to add). In a web project without `views/ui` (made before v0.5), it first writes the components of the CSS framework closest to `public/static/app.css` (`anetos` if it has the starter theme's `.card` rule, else `none`), and says so; the stylesheet and the layout are left as they are. Writes nothing if a file or the migration exists or a name is taken. See [Add pages for a model](../getting-started/crud.md). In an API project (v0.4): JSON endpoints instead, with the model and migration, `app/handlers/<table>.go` (`<Model>Response`, the output struct; `<Model>Input`; `<Model>List`, the query: `page`, `per_page` ≤ 100, `sort` from a list of columns, exact filters on string, email, int, bool and date fields, so no field may be named `page`, `per_page` or `sort`; `Index` answering `db.Page[<Model>Response]`, `Show`, `Create` with `Location`, `Update` (PUT), `Delete`), `routes/<table>.go` (`/api/v1/<path>`, named `api.<path>.index`…; the create route `.Status(201)`) and `<table>_test.go`; `<Models>(api)` added to `Register` in `routes/api.go` (else it prints the call); no views or catalog; then `go run . openapi`, updating `openapi.json` (a failure is reported, not fatal). See [Add pages for a model](../getting-started/crud.md#in-an-api-project) |
-| `make:agent <Name>` | `app/agents/<name>.go`: an `ai.Agent` with a typed tool; prints how to set up `ai.New` if `main.go` doesn't call it (v0.3) |
-| `make:auth` | Accounts, with Google and GitHub login: `app/models/user.go` (`User` with `disabled_at` and `session_key` since v0.3, `models.Users`), `app/handlers/auth.go` (`handlers.Accounts`, `handlers.SocialUser`, `handlers.SendVerification` and `SendPasswordReset` since v0.3), `app/mailers/auth.go` and `views/auth_mail.templ` (verification and reset emails), `views/auth.templ` (pages, and `AccountMenu`, the header's account links, since v0.3), `routes/auth.go` (`routes.Auth`), `auth.go` (`setupAuth`: `auth.WithDefaultHomeURL("/dashboard")` and `sessions.Use(a.Middleware)` since v0.3), `auth_test.go`, `locales/en/auth.yaml`, `database/factories/users.go` (v0.3: `factories.Users`, verified users whose password is `factories.UserPassword`, for tests with `anetostest.ActingAs`), and a `create_users_table` migration; the empty `SOCIAL_GOOGLE_*` and `SOCIAL_GITHUB_*` settings appended to `.env`, `.env.example` and `deploy/production.env.example` (unless there); then `go mod tidy`, `anetos generate`, `templ generate` and `go build ./...`, and a `setupAuth` call in `setup` after its `routes.Register(srv.Router(), sessions)` statement (else it prints the call to add), and `@AccountMenu()` after the layout header's nav: the `@ui.Nav` block (v0.5), or the `</nav>` line of a layout made earlier (v0.3; else it prints the line to add). In a web project without `views/ui` (made before v0.5), it first writes the components, as `make:crud` does. Writes nothing if one of the files or a `create_users_table` migration exists, or a name the files declare is taken in its package; removes what it wrote if a write fails. See [Add accounts with make:auth](../guides/accounts.md). In an API project (v0.4), JSON endpoints under `/api/v1` logging in with API tokens instead: `app/models/user.go` (without `remember_token`, `pending_email` and the preferences), `app/handlers/auth.go` (`handlers.Accounts`, typed handlers answering `UserResponse`, `LoginResponse`, `TokenResponse`…), `app/mailers/auth.go` and `app/mailers/auth.html` (the emails, an `html/template` file), `routes/auth.go` (`routes.Auth(r, a)`, with `TokenMiddleware`; the account's routes need a token with every ability, `auth.RequireAbilities("*")`), `auth.go` (`setupAuth(app, r)`; refuses to boot without `AUTH_CLIENT_URL` in production and staging), `auth_test.go`, `locales/en/auth.yaml`, `database/factories/users.go` and the migration; `AUTH_CLIENT_URL` appended to the settings files; the call after `routes.Register(srv.Router())`; no templ; then `go run . openapi`, updating `openapi.json`. See [Add accounts to an API](../guides/api-accounts.md) |
-| `make:admin` | The admin interface (v0.3), after `make:auth`; refused in an API project (v0.4): adds the module `anetos.dev/anetos/admin` (`go get`; in a project whose core module is replaced by a checkout, from the checkout), writes `admin.go` (`setupAdmin`: roles and permissions with `rbac.New` and an `admin` role, unless a Go file of the project already calls `rbac.New`; then `admin.New`, the users, `admin.Roles`, the dashboard (`admin.SignUps` of the users, `admin.QueueHealth`, `admin.AIUsage` if the project tracks AI usage, `admin.RecentActivity` if it keeps an audit log), `admin.Jobs` and `admin.Schedule` (for the app's queue and scheduler), `admin.Activity` (with an audit log), the resources of `app/admin`, and `Mount` with the pages' middleware), `app/admin/admin.go` (`Resources`, empty), `app/admin/users.go` (`Users`: `admin.Users` for `models.User`, with the columns and `handlers.SendVerification` and `SendPasswordReset` the model and handlers have) and `admin_test.go` (with `rbac.New` and `make:auth`'s tests); adds `@admin.Banner()` after `<body>` in `views/layout.templ` (else it prints the line to add); appends the empty `ADMIN_PATH` and `ADMIN_HOST` to `.env` and `.env.example`; replaces `make:auth`'s `setupAuth` call in `setup` with one that keeps its `*auth.Auth` and calls `setupAdmin` (else it prints the calls to add); then `go mod tidy`, `templ generate` and `go build ./...`. Restores `go.mod` and `go.sum` if it fails before writing. See [Add an admin panel](../guides/admin.md) |
-| `make:admin-resource <Model>` | `app/admin/<models>.go` (v0.3): the admin's resource for a model of `app/models`, named after the type (`Post`: `posts` at `/admin/posts`, function `Posts`): columns (the ID and the first four fields the form edits, or the first five without `db.Model`; `created_at`), search over its first three string fields, and a form struct `<Model>Form` with the fields of types a form can edit (strings, numbers, bools, `time.Time` as `admin.DateTime`, `anetos.Date`, and pointers to them), leaving out the key, the timestamps, JSON and read-only columns and names like password, token or secret; adds the function to `Resources` in `app/admin/admin.go` |
+| `make:crud <Model> <field:type[:optional\|:unique]>...` | A model with its table and the pages to list, show, create, edit and delete its rows: `app/models/<model>.go`, a `create_<table>_table` migration, `app/handlers/<table>.go` (`handlers.<Models>`: `Index` with 20 rows a page, `Show`, `New`, `Create`, `Edit`, `Update`, `Delete`; the form `<Model>Input` with its validate tags), `views/<table>.templ` (the list, the page, the form, calling the components of `views/ui`), `routes/<table>.go` (`routes.<Models>(r)`: `/<path>`, the table with `-` for `_`, named `<path>.index`, `.new`, `.create`, `.show`, `.edit`, `.update`, `.delete`, as the handlers), `locales/en/<table>.yaml` (the pages' text) and `<table>_test.go` (its comment shows how to log a user in for pages in `make:auth`'s `loggedIn` group); then `anetos generate`, `templ generate` and `go build ./...`. Types: `string` (255), `text`, `email`, `int` (`int64`), `float` (`float64`), `bool`, `date` (`anetos.Date`). Strings, emails, texts and dates are required unless `:optional`; `:unique` (required strings and emails, dates) adds a unique index and the `unique` rule. Refused: a plural that is the name (`News`), the tables of the framework and `make:auth` (`users`, `api_tokens`…), the field `model`, and two fields with one Go name (`a_1` and `a1`). Adds `<Models>(pages)` at the end of `Register` in `routes/web.go` and a `navLink` to the list at the end of the header's nav in `views/layout.templ`: the `@ui.Nav` block, or before the `</nav>` of a layout made earlier (else it prints what to add). In a web project without `views/ui` (made before v0.5), it first writes the components of the CSS framework closest to `public/static/app.css` (`anetos` if it has the starter theme's `.card` rule, else `none`), and says so; the stylesheet and the layout are left as they are. Writes nothing if a file or the migration exists or a name is taken. See [Add pages for a model](../getting-started/crud.md). In an API project: JSON endpoints instead, with the model and migration, `app/handlers/<table>.go` (`<Model>Response`, the output struct; `<Model>Input`; `<Model>List`, the query: `page`, `per_page` ≤ 100, `sort` from a list of columns, exact filters on string, email, int, bool and date fields, so no field may be named `page`, `per_page` or `sort`; `Index` answering `db.Page[<Model>Response]`, `Show`, `Create` with `Location`, `Update` (PUT), `Delete`), `routes/<table>.go` (`/api/v1/<path>`, named `api.<path>.index`…; the create route `.Status(201)`) and `<table>_test.go`; `<Models>(api)` added to `Register` in `routes/api.go` (else it prints the call); no views or catalog; then `go run . openapi`, updating `openapi.json` (a failure is reported, not fatal). See [Add pages for a model](../getting-started/crud.md#in-an-api-project) |
+| `make:agent <Name>` | `app/agents/<name>.go`: an `ai.Agent` with a typed tool; prints how to set up `ai.New` if `main.go` doesn't call it |
+| `make:auth` | Accounts, with Google and GitHub login: `app/models/user.go` (`User` with `disabled_at` and `session_key`, `models.Users`), `app/handlers/auth.go` (`handlers.Accounts`, `handlers.SocialUser`, `handlers.SendVerification` and `SendPasswordReset`), `app/mailers/auth.go` and `views/auth_mail.templ` (verification and reset emails), `views/auth.templ` (pages, and `AccountMenu`, the header's account links), `routes/auth.go` (`routes.Auth`), `auth.go` (`setupAuth`: `auth.WithDefaultHomeURL("/dashboard")` and `sessions.Use(a.Middleware)`), `auth_test.go`, `locales/en/auth.yaml`, `database/factories/users.go` (`factories.Users`, verified users whose password is `factories.UserPassword`, for tests with `anetostest.ActingAs`), and a `create_users_table` migration; the empty `SOCIAL_GOOGLE_*` and `SOCIAL_GITHUB_*` settings appended to `.env`, `.env.example` and `deploy/production.env.example` (unless there); then `go mod tidy`, `anetos generate`, `templ generate` and `go build ./...`, and a `setupAuth` call in `setup` after its `routes.Register(srv.Router(), sessions)` statement (else it prints the call to add), and `@AccountMenu()` after the layout header's nav: the `@ui.Nav` block, or the `</nav>` line of a layout made earlier (else it prints the line to add). In a web project without `views/ui` (made before v0.5), it first writes the components, as `make:crud` does. Writes nothing if one of the files or a `create_users_table` migration exists, or a name the files declare is taken in its package; removes what it wrote if a write fails. See [Add accounts with make:auth](../guides/accounts.md). In an API project, JSON endpoints under `/api/v1` logging in with API tokens instead: `app/models/user.go` (without `remember_token`, `pending_email` and the preferences), `app/handlers/auth.go` (`handlers.Accounts`, typed handlers answering `UserResponse`, `LoginResponse`, `TokenResponse`…), `app/mailers/auth.go` and `app/mailers/auth.html` (the emails, an `html/template` file), `routes/auth.go` (`routes.Auth(r, a)`, with `TokenMiddleware`; the account's routes need a token with every ability, `auth.RequireAbilities("*")`), `auth.go` (`setupAuth(app, r)`; refuses to boot without `AUTH_CLIENT_URL` in production and staging), `auth_test.go`, `locales/en/auth.yaml`, `database/factories/users.go` and the migration; `AUTH_CLIENT_URL` appended to the settings files; the call after `routes.Register(srv.Router())`; no templ; then `go run . openapi`, updating `openapi.json`. See [Add accounts to an API](../guides/api-accounts.md) |
+| `make:admin` | The admin interface, after `make:auth`; refused in an API project: adds the module `anetos.dev/anetos/admin` (`go get`; in a project whose core module is replaced by a checkout, from the checkout), writes `admin.go` (`setupAdmin`: roles and permissions with `rbac.New` and an `admin` role, unless a Go file of the project already calls `rbac.New`; then `admin.New`, the users, `admin.Roles`, the dashboard (`admin.SignUps` of the users, `admin.QueueHealth`, `admin.AIUsage` if the project tracks AI usage, `admin.RecentActivity` if it keeps an audit log), `admin.Jobs` and `admin.Schedule` (for the app's queue and scheduler), `admin.Activity` (with an audit log), the resources of `app/admin`, and `Mount` with the pages' middleware), `app/admin/admin.go` (`Resources`, empty), `app/admin/users.go` (`Users`: `admin.Users` for `models.User`, with the columns and `handlers.SendVerification` and `SendPasswordReset` the model and handlers have) and `admin_test.go` (with `rbac.New` and `make:auth`'s tests); adds `@admin.Banner()` after `<body>` in `views/layout.templ` (else it prints the line to add); appends the empty `ADMIN_PATH` and `ADMIN_HOST` to `.env` and `.env.example`; replaces `make:auth`'s `setupAuth` call in `setup` with one that keeps its `*auth.Auth` and calls `setupAdmin` (else it prints the calls to add); then `go mod tidy`, `templ generate` and `go build ./...`. Restores `go.mod` and `go.sum` if it fails before writing. See [Add an admin panel](../guides/admin.md) |
+| `make:admin-resource <Model>` | `app/admin/<models>.go`: the admin's resource for a model of `app/models`, named after the type (`Post`: `posts` at `/admin/posts`, function `Posts`): columns (the ID and the first four fields the form edits, or the first five without `db.Model`; `created_at`), search over its first three string fields, and a form struct `<Model>Form` with the fields of types a form can edit (strings, numbers, bools, `time.Time` as `admin.DateTime`, `anetos.Date`, and pointers to them), leaving out the key, the timestamps, JSON and read-only columns and names like password, token or secret; adds the function to `Resources` in `app/admin/admin.go` |
 
 Names may be `BlogPost`, `blog_post` or `blog-post`; files use snake case.
 
@@ -184,7 +184,7 @@ which `setup` passes to `ext.Load`.
 3. Runs `go build`, so a module without a `Plugin() ext.Plugin`
    function, or one that doesn't compile against this version of
    Anetos, is refused.
-4. In a terminal, asks before going on (v0.3; `--yes`, or a stdin that
+4. In a terminal, asks before going on (`--yes`, or a stdin that
    isn't a terminal, doesn't ask): the next step runs the plugin's
    code on your machine, with your environment and `.env`.
    Then runs the built app's `plugin:env` (stopped after 2 minutes), which loads the
@@ -217,7 +217,7 @@ Copies the translations of the framework's messages for each locale
 from the module `anetos.dev/locales`
 ([anetos-dev/locales](https://github.com/anetos-dev/locales)) into the
 project's `locales/<locale>/`, from the project's directory or below
-(v0.3; `lang:add` before v0.5).
+(`lang:add` before v0.5).
 
 1. Downloads the module (`go mod download`, version `--version`, default
    `latest`), or uses the checkout `--from` names. The project's `go.mod`
@@ -240,7 +240,7 @@ folder or for a locale the module doesn't have. The download runs with
 ## `anetos doctor [--strict] [--vuln]`
 
 Checks the project, then builds the app and runs its
-[`doctor` command](#the-doctor-command) (v0.3). Run it in the project.
+[`doctor` command](#the-doctor-command). Run it in the project.
 The project's checks:
 
 | Check | Finds |
@@ -252,9 +252,8 @@ The project's checks:
 golang.org/x/vuln/cmd/govulncheck@latest`); its findings fail the
 command. `--strict` makes warnings fail it too, and is passed to the
 app's `doctor`. Exit 1 when a check finds a problem, the app doesn't
-build, or the app's `doctor` fails. A project that doesn't use Anetos,
-or uses a version without `doctor` (before v0.3), gets the project's
-checks only, with a note. The app's checks use the settings
+build, or the app's `doctor` fails. A project that doesn't use Anetos
+gets the project's checks only, with a note. The app's checks use the settings
 of this machine (`.env` and the environment): run `./<app> doctor` with
 the production settings too, on the server.
 
@@ -263,13 +262,13 @@ the production settings too, on the server.
 | Command | Does |
 |---|---|
 | `anetos generate [--check] [packages]` | Typed model columns ([reference](anetos-generate.md)) |
-| `anetos css:build [--check]` | In a project that uses Tailwind CSS (v0.5): compiles `views/ui/tailwind.css` into `public/static/app.css` with Tailwind CSS's standalone CLI (`--input views/ui/tailwind.css --minify`), writing it only when it changes. The first run downloads Tailwind CSS 4.3.3 for the platform from its GitHub releases into the user cache directory (`<cache>/anetos/tailwindcss/v4.3.3/`), checking the SHA-256 written in `anetos` then and before each run (a download that sends nothing for 30 s stops); `ANETOS_TAILWIND=<path>` runs that binary instead (its version is checked, and a different one warned about). `--check` writes nothing and exits 1 when `app.css` is out of date. Exits 1 in a project without `views/ui/tailwind.css` ([Tailwind CSS](../guides/tailwind.md)) |
-| `anetos css:use [<framework>] [--force]` | Switches a web project's CSS framework (v0.5): writes its files in `views/ui` and `public/static/`, removes the old one's files the new one lacks (and their `_templ.go`), records the framework in `views/ui/css.json` (its name and version, the SHA-256 of each file), adds `nav.menu` to `locales/en/app.yaml` if missing (or says what to add, when it can't edit the file safely; and names the other locales without it), runs `templ generate`, and for `tailwind` `css:build` (going on without Tailwind: the `app.css` anetos ships is compiled for the components). Exits 1, writing nothing, when a recorded file changed since (line endings aside) or is a symbolic link, when a file in the new framework's way isn't the old one's (it lists them), or when the project has no usable `css.json` (missing, not JSON, or naming a file outside `views/ui` and `public/static`): `--force` replaces them (without a record, it lists `public/static`'s files that aren't the new framework's instead of removing them). Each file is written through a temporary file, the record last. Then runs `go build ./...`, exiting 1 when the project doesn't build with the new framework. With the project's own, updates its files to this version's. Lists your own files in `views/ui`, which keep their classes, and the `Dockerfile` cache line to add or remove when moving to or from Tailwind. Without `<framework>`, prints the project's. Refused in a project without `views/ui` (an API project, or one made before v0.5) ([Style your app](../guides/styling.md#8-switch-css-frameworks)) |
-| `anetos key:generate [--show] [--force]` | Sets `APP_KEY` in `.env` to a new key when it is missing or empty (v0.5; it used to print it); refuses when it is set, unless `--force`, which moves the old key to the front of `APP_PREVIOUS_KEYS`. `--show` prints `APP_KEY=base64:…` on stdout instead, for a server's environment; the other messages go to stderr |
+| `anetos css:build [--check]` | In a project that uses Tailwind CSS: compiles `views/ui/tailwind.css` into `public/static/app.css` with Tailwind CSS's standalone CLI (`--input views/ui/tailwind.css --minify`), writing it only when it changes. The first run downloads Tailwind CSS 4.3.3 for the platform from its GitHub releases into the user cache directory (`<cache>/anetos/tailwindcss/v4.3.3/`), checking the SHA-256 written in `anetos` then and before each run (a download that sends nothing for 30 s stops); `ANETOS_TAILWIND=<path>` runs that binary instead (its version is checked, and a different one warned about). `--check` writes nothing and exits 1 when `app.css` is out of date. Exits 1 in a project without `views/ui/tailwind.css` ([Tailwind CSS](../guides/tailwind.md)) |
+| `anetos css:use [<framework>] [--force]` | Switches a web project's CSS framework: writes its files in `views/ui` and `public/static/`, removes the old one's files the new one lacks (and their `_templ.go`), records the framework in `views/ui/css.json` (its name and version, the SHA-256 of each file), adds `nav.menu` to `locales/en/app.yaml` if missing (or says what to add, when it can't edit the file safely; and names the other locales without it), runs `templ generate`, and for `tailwind` `css:build` (going on without Tailwind: the `app.css` anetos ships is compiled for the components). Exits 1, writing nothing, when a recorded file changed since (line endings aside) or is a symbolic link, when a file in the new framework's way isn't the old one's (it lists them), or when the project has no usable `css.json` (missing, not JSON, or naming a file outside `views/ui` and `public/static`): `--force` replaces them (without a record, it lists `public/static`'s files that aren't the new framework's instead of removing them). Each file is written through a temporary file, the record last. Then runs `go build ./...`, exiting 1 when the project doesn't build with the new framework. With the project's own, updates its files to this version's. Lists your own files in `views/ui`, which keep their classes, and the `Dockerfile` cache line to add or remove when moving to or from Tailwind. Without `<framework>`, prints the project's. Refused in a project without `views/ui` (an API project, or one made before v0.5) ([Style your app](../guides/styling.md#8-switch-css-frameworks)) |
+| `anetos key:generate [--show] [--force]` | Sets `APP_KEY` in `.env` to a new key when it is missing or empty (it used to print it); refuses when it is set, unless `--force`, which moves the old key to the front of `APP_PREVIOUS_KEYS`. `--show` prints `APP_KEY=base64:…` on stdout instead, for a server's environment; the other messages go to stderr |
 | `anetos version` | Prints the tool's version |
 
 A command's name may be shortened, each part between colons, while it
-stays unique, among the commands with as many parts (v0.5): `anetos
+stays unique, among the commands with as many parts: `anetos
 g` is `generate`, `anetos k:g` `key:generate`, `anetos m:admin`
 `make:admin` (the part written whole wins over `make:admin-resource`);
 an ambiguous one (`anetos d`: `dev` or `doctor`) lists the candidates
@@ -282,7 +281,7 @@ which is one of its short forms.
 
 `app.Execute()` runs the command named by the first argument, which may
 be shortened, each part between colons, while it stays unique among
-the commands with as many parts (v0.5): `./app r:l` is `route:list`,
+the commands with as many parts: `./app r:l` is `route:list`,
 `./app mi` `migrate`. (`version` is handled before the app is set up
 only when written whole.) Before
 v0.5, `route:list` was `routes:list`, `plugin:list` and `plugin:env`
@@ -292,37 +291,37 @@ were `plugins:list` and `plugins:env`, and `locale:check` was
 
 | Command | Added by | Does |
 |---|---|---|
-| (none), `run [--only=type,…]` | every app | Runs the components (all, or those of the process types `web`, `worker`, `scheduler`, `listener`, plus those without one) until SIGINT/SIGTERM (exit 0) |
+| (none), `run [--only=type,…]` | every app | Runs the background components (all, or those of the process types `web`, `worker`, `scheduler`, `listener`, plus those without one) until SIGINT/SIGTERM (exit 0) |
 | `serve` | `web.NewServer` | `run --only=web` |
 | `route:list` | `web.NewServer` | Method, path and name of every route |
-| `openapi [--check] [--out=FILE]` | `openapi.Register` | Writes the API's OpenAPI 3.1 description to `openapi.json` (`Config.File`; `--out=-`: the standard output), warning about routes it leaves out; `--check` exits 1 if the file differs. Doesn't boot the app (v0.4). See [Describe an API with OpenAPI](../guides/openapi.md) |
-| `health:check [--live] [--timeout=5s]` | `web.NewServer` | Asks the server running on `HTTP_ADDR` (on `127.0.0.1` when its host is empty, `0.0.0.0` or `[::]`) for `/health/ready` (`--live`: `/health/live`), for container health checks: prints `ok`, or exits 1. An error with `HTTP_HEALTH_ROUTES=false` (v0.3) |
+| `openapi [--check] [--out=FILE]` | `openapi.Register` | Writes the API's OpenAPI 3.1 description to `openapi.json` (`Config.File`; `--out=-`: the standard output), warning about routes it leaves out; `--check` exits 1 if the file differs. Doesn't boot the app. See [Describe an API with OpenAPI](../guides/openapi.md) |
+| `health:check [--live] [--timeout=5s]` | `web.NewServer` | Asks the server running on `HTTP_ADDR` (on `127.0.0.1` when its host is empty, `0.0.0.0` or `[::]`) for `/health/ready` (`--live`: `/health/live`), for container health checks: prints `ok`, or exits 1. An error with `HTTP_HEALTH_ROUTES=false` |
 | `migrate`, `migrate:rollback`, `migrate:reset`, `migrate:fresh`, `migrate:status`, `db:seed` | `migrate.New` | See the [migrations reference](migrations.md#commands) |
 | `search:reindex [table…]` | `migrate.New` | Rebuilds the search indexes (all, or the tables') for `DB_SEARCH_LANGUAGE` and `DB_SEARCH_RANKING`. See [Search](../guides/search.md) |
 | `ai:embed [table…]` | `ai.EmbeddingsFor` | Embeds the records whose text or embedding model changed (all tables', or the named ones), a hundred at a time; unchanged chunks aren't embedded again. See [Search by meaning](../guides/semantic-search.md) |
 | `cache:clear` | `cache.New` | Removes the app's cache items (keys with `CACHE_PREFIX`), locks included |
-| `queue:work` | `queue.New` | Runs only the workers, as `run --only=worker`; the queues and concurrency are those the app's `Work` call sets (v0.5) |
+| `queue:work` | `queue.New` | Runs only the workers, as `run --only=worker`; the queues and concurrency are those the app's `Work` call sets |
 | `queue:failed [--limit=N]`, `queue:retry <id>…\|all`, `queue:forget <id>…`, `queue:flush [--force]`, `queue:clear [--force] [queue]` | `queue.New` | List, retry and delete failed jobs; delete the jobs waiting on a queue. `flush` and `clear` need `--force` in production. See [Queues](../guides/queues.md#4-handle-failed-jobs) |
 | `pubsub:publish <topic> <message>` | `pubsub.New` | Publishes a message (its body as given) to a topic. See [Pub/sub listeners](../guides/pubsub.md#4-publish) |
 | `locale:check [dir]` | `i18n.New` | Reports keys a supported locale lacks (against `APP_FALLBACK_LOCALE`'s), placeholders that differ, plural forms a language needs, and keys the `.go` and `.templ` files under `dir` (default `.`) use that no catalog has (a literal followed by `+` is a prefix some key must start with); notes the framework's messages a locale leaves in English. Exits 1 on a problem; doesn't boot the app. See [Translations](../guides/translations.md#7-check-the-catalogs) |
 | `schedule:list` | `schedule.New` | Each task, its schedule, its next run and options. See [Scheduling](../guides/scheduling.md#4-check-and-run-tasks) |
-| `schedule:run` | `schedule.New` | Runs the tasks due this minute, once, with their locks, and exits: for cron or a Kubernetes CronJob every minute (v0.5; with a task's name it runs that task, as `schedule:test`, with a warning, until v0.6) |
-| `schedule:test <task>` | `schedule.New` | Runs a task now, whatever its schedule (`WithoutOverlapping` applies, across processes only with a shared cache store; `OnOneServer` doesn't) (v0.5) |
-| `schedule:work` | `schedule.New` | Runs only the scheduler, as `run --only=scheduler` (v0.5) |
+| `schedule:run` | `schedule.New` | Runs the tasks due this minute, once, with their locks, and exits: for cron or a Kubernetes CronJob every minute (with a task's name it runs that task, as `schedule:test`, with a warning, until v0.6) |
+| `schedule:test <task>` | `schedule.New` | Runs a task now, whatever its schedule (`WithoutOverlapping` applies, across processes only with a shared cache store; `OnOneServer` doesn't) |
+| `schedule:work` | `schedule.New` | Runs only the scheduler, as `run --only=scheduler` |
 | `rbac:roles`, `rbac:user <user-id>`, `rbac:assign [--scope=kind:id] <user-id> <role>`, `rbac:unassign …` | `rbac.New` | List the roles and their users; show a user's grants; give or take a role. See [Roles and permissions](../guides/roles-and-permissions.md) |
 | `db:prune-trashed [--dry-run]` | `db.Prunable` | Deletes for good the rows of the registered models soft-deleted longer ago than their duration; `--dry-run` counts them. See [Keep an audit log](../guides/audit-log.md#soft-deletes-that-play-well-with-the-log) |
 | `audit:prune` | `audit.New` | Deletes the audit entries older than `AUDIT_RETENTION_DAYS`, and records that it did |
 | `audit:anonymize <actor-type> <actor-id>` | `audit.New` | Replaces an actor (`user 42`) with `erased` in the audit log, as the actor and as the user someone impersonated, and drops the IP addresses of their entries, for erasure requests. See [Keep an audit log](../guides/audit-log.md#8-keep-entries-for-as-long-as-you-must-and-no-longer) |
 | `plugin:list` | `ext.Load` | Each plugin, its version constraint, its route prefix and what it adds (or that its settings are missing); doesn't boot the app. See [Use plugins](../guides/plugins.md) |
 | `plugin:env [plugin]` | `ext.Load` | The plugins' settings as `.env` lines with their defaults (double-quoted when they need it; `# required` after required ones); doesn't boot the app, so it works before they are set |
-| `doctor [--strict]` | every app | Runs the app's checks of its settings and prints what they find (v0.3; see [below](#the-doctor-command)). Exit 1 on a problem (`--strict`: on a warning too) |
-| `version` | every app | The app's version (`--version` of `anetos build`, else the git tag Go recorded), commit, commit time and `modified` if the files differed from it; the Anetos version; the Go version and system. Doesn't boot the app; the `main.go` of `anetos new` prints it before `setup`, so it needs no settings (`anetos.VersionText`) (v0.3) |
+| `doctor [--strict]` | every app | Runs the app's checks of its settings and prints what they find (see [below](#the-doctor-command)). Exit 1 on a problem (`--strict`: on a warning too) |
+| `version` | every app | The app's version (`--version` of `anetos build`, else the git tag Go recorded), commit, commit time and `modified` if the files differed from it; the Anetos version; the Go version and system. Doesn't boot the app; the `main.go` of `anetos new` prints it before `setup`, so it needs no settings (`anetos.VersionText`) |
 | `help [command]`, `-h`, `--help` | every app | The command list, or a command's usage (`<command> -h` too, as the first argument); doesn't boot the app |
 
 | API | Does |
 |---|---|
 | `app.Command(name, description, run)` | Adds a command; panics if the name is invalid (lowercase words joined by `:` or `-`) or taken |
-| `app.AddCommand(cmd.Command{Name, Usage, Description, Run, ManagesApp, ChangesSchema, Former})` | The same, returning an error. `Former` (v0.5): the command's former names, still run (with a warning) but not listed. `ChangesSchema`: the command changes the database's structure, so boot checks that the schema matches the settings (search indexes) don't stop it |
+| `app.AddCommand(cmd.Command{Name, Usage, Description, Run, ManagesApp, ChangesSchema, Former})` | The same, returning an error. `Former`: the command's former names, still run (with a warning) but not listed. `ChangesSchema`: the command changes the database's structure, so boot checks that the schema matches the settings (search indexes) don't stop it |
 | `cmd.Running(ctx)` | The command the app is booting or running for, in boot code (`cmd.WithCommand` sets it) |
 | `app.Commands()` | Every command, sorted |
 | `app.Execute()` | Runs `os.Args[1:]` with a context canceled by SIGINT/SIGTERM, then exits |
@@ -332,7 +331,7 @@ were `plugins:list` and `plugins:env`, and `locale:check` was
 
 ### The doctor command
 
-`doctor` (v0.3) runs every check added with `app.AddCheck`, the ones
+`doctor` runs every check added with `app.AddCheck`, the ones
 features add as they are set up included, and prints one line per
 finding (`ok` for a check with none), then the counts. Checks that
 don't need services run first, without booting the app; then it boots
@@ -355,7 +354,7 @@ Checking blog (APP_ENV=production).
 
 | Check | Added by | Finds |
 |---|---|---|
-| `app` | every app | In production and staging: `APP_KEY` not set (warning), `APP_URL` not set (warning), `http://` for a host other than this machine (problem in production, warning in staging), or an example's domain (`example.com`, `.test`: warning, v0.3), `APP_DEBUG=true` in staging (warning; production refuses it) |
+| `app` | every app | In production and staging: `APP_KEY` not set (warning), `APP_URL` not set (warning), `http://` for a host other than this machine (problem in production, warning in staging), or an example's domain (`example.com`, `.test`: warning), `APP_DEBUG=true` in staging (warning; production refuses it) |
 | `db` | `db.Connect` | In production and staging: `DB_LOG_QUERIES=true` (warning); for PostgreSQL and MySQL, a server other than this machine reached without verifying its certificate (warning), from `DB_TLS` (`none`, `skip-verify`) or from `DB_URL`: PostgreSQL's `sslmode` must be `verify-full`, or `verify-ca` or `require` with an `sslrootcert` file (the server's own authority); MySQL's `tls` must be `true` or a registered configuration that checks certificates, without `allowFallbackToPlaintext`. With several hosts, the worst one counts. A `DB_URL` the driver can't read is a warning |
 | `migrations` | `migrate.New` | After booting: migrations that haven't run (warning), applied ones the app no longer has (note); on MySQL and MariaDB, tables (not views) with text columns in a character set other than utf8mb4 or ascii (warning, with the `ALTER TABLE … CONVERT TO CHARACTER SET utf8mb4` that fixes them) |
 | `session` | `session.New` | `SESSION_SECURE=false` in production or staging (problem); `SESSION_SAME_SITE=none` (warning); `SESSION_DOMAIN` set (note) |

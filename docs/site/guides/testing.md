@@ -115,8 +115,8 @@ and return the response, so they chain. `Follow` loads the redirect's
 target (on the test site only). `AssertSee` finds text as it is or
 HTML-escaped, as templates write it.
 
-Log a user in with `anetostest.ActingAs`, for the requests that follow
-(v0.3): it writes the session a password login would, so the test
+Log a user in with `anetostest.ActingAs`, for the requests that follow:
+it writes the session a password login would, so the test
 needn't post the login form. Call it again to switch users:
 
 ```go

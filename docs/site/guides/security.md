@@ -16,7 +16,7 @@ connection. This guide is the checklist before you go live, with
 
 ## Before you start
 
-An app made with `anetos new` (v0.3 or later), ready to deploy: see
+An app made with `anetos new`, ready to deploy: see
 [Deploy](deployment.md) first.
 
 ## Steps
@@ -30,7 +30,7 @@ go tool anetos doctor
 ```
 
 ```text
-Checking the project (Anetos v0.3.0, go1.26.8).
+Checking the project (Anetos v0.5.0, go1.26.9).
   ok  .env
   ok  git
 
@@ -154,7 +154,7 @@ With [`make:auth`](accounts.md):
   `go-version-file` does) reports standard library advisories fixed
   since; ask for the release's latest patch (`1.26.x`) instead.
 - Update Anetos when a release fixes a vulnerability; read the
-  [upgrade guide](../upgrade/v0.3.md) of each release. Security fixes go
+  [upgrade guide](../upgrade/README.md) of each release. Security fixes go
   into the latest minor release ([SECURITY.md](../../../SECURITY.md)).
 - Rebuild the binary or image for each Go security release, which fixes
   the standard library you compiled in.

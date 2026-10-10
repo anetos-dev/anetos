@@ -1,11 +1,11 @@
 ---
-title: Formats in catalogs
+title: Translation file formats
 since: v0.3.0
 group: "Web"
 weight: 203
 ---
 
-# Formats in catalogs
+# Translation file formats
 
 The `format` and `relative` sections of a catalog, which `i18n.Date`,
 `Time`, `DateTime`, `Format`, `Currency`, `Ago`, `Duration` and

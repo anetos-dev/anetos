@@ -298,7 +298,7 @@ On a user's page, as the `Accounts` allow:
 - **Impersonate,** below.
 
 Disabling and logging out everywhere need two columns of the users table,
-which `make:auth` makes since v0.3, and the `auth.Users` that read them:
+which `make:auth` makes, and the `auth.Users` that read them:
 
 ```go
 // users tells package auth how to find users, which are disabled, and

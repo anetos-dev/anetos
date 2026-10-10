@@ -1,29 +1,69 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Package anetos is a batteries-included web framework for Go.
+// Package anetos is a batteries-included web framework for Go: routing,
+// data, accounts, queues, mail, storage, search, AI and translations, built
+// on net/http, in one binary.
 //
-// Anetos is pre-alpha: APIs will change before v1.0. See
-// docs/planning/roadmap.md for the plan and docs/design/design.md for the
-// architecture.
+// Anetos is pre-release; APIs may change until 1.0. The documentation is
+// at https://docs.anetos.dev, and [Getting started] builds a small app in
+// about fifteen minutes. The [glossary] lists the words these packages use.
 //
-// An [App] ties together configuration ([AppConfig], package config), a
-// structured logger, a small typed service container ([Provide],
-// [Resolve]), [Provider]s that wire in functionality, and a supervised
-// runtime (package supervisor) that runs long-lived components as
-// goroutines and shuts them down gracefully.
+// # An app
 //
-//	app, err := anetos.New()
-//	if err != nil {
-//		log.Fatal(err)
-//	}
-//	app.Use(&database.Provider{}) // illustrative
-//	_ = app.Go("cache-warmer", warmCache)
+// "anetos new" writes a project whose main.go has three steps.
+// [New] reads the settings from .env and the environment. A setup
+// function builds the services the app uses, in order: db.Connect for the
+// database, then cache.New, queue.New, mailer.New, storage.New… and
+// web.NewServer with the routes. [App.Execute] runs the command line it
+// was given: "run" (the default) serves HTTP and runs the queue workers,
+// the scheduler and the pub/sub listeners until the process is stopped, while
+// "migrate", "route:list", "doctor" and the others do one thing and exit.
+// The example shows the shape.
 //
-//	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-//	defer stop()
-//	if err := app.Run(ctx); err != nil {
-//		log.Fatal(err)
-//	}
+// # What the App holds
 //
-// Concept guide: docs/site/concepts/application-lifecycle.md.
+//   - Settings: [AppConfig] (APP_*), and [App.Source] for a package's own
+//     (package config binds them to a struct).
+//   - A small service container ([Provide], [Resolve]), to hand services
+//     from one [Provider] to another at boot.
+//   - The logger ([App.Logger], [Logger]) and the clock ([Now]), which
+//     tests can freeze.
+//   - Operations: each request, job, async listener call, pub/sub message,
+//     scheduled task or AI tool call runs as an [Operation];
+//     [App.AroundOperations] wraps them.
+//   - Background components: long-running work that the supervisor
+//     starts, restarts and stops in stages ([App.Go], [App.Component]).
+//     [ProcessTypes] declares which process types (web, worker,
+//     scheduler, listener) a component belongs to, so "run
+//     --only=worker" can pick them.
+//   - Carriers: context values that move with queued work ([Carrier]).
+//   - Commands ([App.Command], [App.AddCommand]) and doctor checks
+//     ([App.AddCheck]).
+//
+// # The packages
+//
+//   - Web: web (router, typed handlers, middleware, responses), view and
+//     view/htmx (templ pages), session, web/ratelimit, web/openapi, validate.
+//   - Data: db (models, query builder, relations, transactions, search),
+//     db/migrate, db/factory.
+//   - The app itself: config (settings into structs), cmd (commands),
+//     supervisor.
+//   - Background work: queue, events, pubsub, schedule.
+//   - Accounts and security: auth, auth/social, auth/rbac, auth/password,
+//     audit, encryption, qr (QR codes for two-factor setup).
+//   - Mail, files and cache: mailer, storage, cache.
+//   - Languages and time: i18n, and here [Date] and the app's time zone
+//     ([Location]).
+//   - AI: ai.
+//   - Testing: anetostest, and the helpers in aitest, cachetest, dbtest,
+//     pubsubtest, queuetest and storagetest.
+//   - Plugins: ext.
+//
+// The admin panel (anetos.dev/anetos/admin) and the drivers
+// (anetos.dev/anetos/drivers/...: SQLite, PostgreSQL, MySQL, Redis, S3,
+// Google Cloud, Anthropic, OpenAI, Gemini) are modules of their own, as
+// is the Postmark plugin (anetos.dev/anetos/plugins/postmark).
+//
+// [Getting started]: https://docs.anetos.dev/getting-started/
+// [glossary]: https://docs.anetos.dev/concepts/glossary/
 package anetos

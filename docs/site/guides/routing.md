@@ -128,7 +128,7 @@ fixed links at startup.
 
 In views, `web.URL(ctx, name, args...)` builds the same paths from the
 request's context, in the request's locale, and `web.MustURL(ctx, name,
-args...)` (v0.5) returns the path alone for a component's argument,
+args...)` returns the path alone for a component's argument,
 panicking on a mistake as `r.MustURL` does: the router answers it with a
 500 ([Render HTML with templ](views.md#2-write-a-layout)).
 

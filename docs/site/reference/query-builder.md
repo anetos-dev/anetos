@@ -41,7 +41,7 @@ Each method returns a new query; the original is unchanged.
 | `col.In(vs...)`, `col.NotIn(vs...)` | `IN (…)`; an empty `In` matches nothing, an empty `NotIn` everything |
 | `col.Between(lo, hi)` | `BETWEEN lo AND hi` |
 | `col.Like(p)`, `col.NotLike(p)` | `LIKE` (case sensitivity depends on the database); `p` is a pattern: `%` and `_` in text from users widen it |
-| `col.Contains(s)`, `col.StartsWith(s)` | `LIKE` with `s` taken literally (`%`, `_` and `!` escaped, `ESCAPE '!'`): for search boxes (v0.3). `db.EscapeLike(s)` escapes for a raw `LIKE ? ESCAPE '!'` |
+| `col.Contains(s)`, `col.StartsWith(s)` | `LIKE` with `s` taken literally (`%`, `_` and `!` escaped, `ESCAPE '!'`): for search boxes. `db.EscapeLike(s)` escapes for a raw `LIKE ? ESCAPE '!'` |
 | `col.IsNull()`, `col.NotNull()` | `IS NULL`, `IS NOT NULL` |
 | `db.And(...)`, `db.Or(...)`, `db.Not(c)` | Grouped with parentheses; `And()` is true, `Or()` is false |
 | `db.SQL(sql, args...)` | Any SQL, with `?` or `:name` placeholders |
@@ -60,7 +60,7 @@ hand:
 | `col.Of("posts")` | The same column qualified with a table (`posts.name`); `Of("")` removes the qualifier |
 | `col.Name()` | The column name |
 | `db.Columns[T]()` | Model `T`'s column names in field order, or an error if `T` isn't a model struct |
-| `db.SoftDeleting[T]()` | Whether model `T` embeds `db.SoftDeletes` (a `deleted_at` column alone isn't enough) (v0.3) |
+| `db.SoftDeleting[T]()` | Whether model `T` embeds `db.SoftDeletes` (a `deleted_at` column alone isn't enough) |
 
 ## Reading
 
@@ -72,7 +72,7 @@ hand:
 | `All()` | `iter.Seq2[T, error]`, streaming rows |
 | `Count()` | `int64` |
 | `Exists()` | `bool` |
-| `Paginate(page, perPage)` | `db.Page[T]`: `Data`, `CurrentPage`, `PerPage`, `Total`, `LastPage` (JSON: `data`, `current_page`, …); `HasPrev()`, `HasNext()`. A page below 1 is page 1; past the end, empty. `db.MapPage(page, fn)` turns its rows into an API's responses, keeping the counts (v0.4) |
+| `Paginate(page, perPage)` | `db.Page[T]`: `Data`, `CurrentPage`, `PerPage`, `Total`, `LastPage` (JSON: `data`, `current_page`, …); `HasPrev()`, `HasNext()`. A page below 1 is page 1; past the end, empty. `db.MapPage(page, fn)` turns its rows into an API's responses, keeping the counts |
 | `CursorPaginate(cursor, perPage)` | `db.CursorPage[T]`: `data`, `per_page`, `next_cursor`, `prev_cursor`; `db.ErrInvalidCursor` (400) for malformed cursors |
 | `db.Pluck(q, col)` | `[]V`, one column (decoded from JSON for a `db.JSONCol`) |
 | `db.Sum(q, col)`, `db.Min`, `db.Max` | `V`; zero if no rows match. `Limit` and `Offset` are respected, `Distinct` is ignored (write `SUM(DISTINCT x)` with `db.Select`); with `GroupBy`, use `db.Select` |

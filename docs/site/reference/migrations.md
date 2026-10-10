@@ -44,7 +44,7 @@ and [Seed the database](../guides/seeders.md) for walkthroughs.
 | `.DefaultRaw(sql)` | Default written in SQL, e.g. `"gen_random_uuid()"` |
 | `.UseCurrent()` | Defaults a timestamp to the current time |
 | `.Unique()`, `.Index()` | Index on this column (see names below) |
-| `.UniqueWithoutTrashed()` | Unique index over the rows that aren't soft-deleted (`WHERE deleted_at IS NULL`); PostgreSQL and SQLite, an error on MySQL and MariaDB (v0.3) |
+| `.UniqueWithoutTrashed()` | Unique index over the rows that aren't soft-deleted (`WHERE deleted_at IS NULL`); PostgreSQL and SQLite, an error on MySQL and MariaDB |
 | `.Primary()` | This column is the primary key |
 | `.References(table, col...)` | Foreign key to *table* (`id` if no column given) |
 | `.Constrained()` | Foreign key to the table named after the column: `author_id` → `authors(id)` |
@@ -65,7 +65,7 @@ must be `Nullable()` or have a default: the builder reports both.
 | Method | In | Effect |
 |---|---|---|
 | `t.Index(cols...)`, `t.Unique(cols...)` | Create, Alter | Index or unique index |
-| `t.UniqueWithoutTrashed(cols...)` | Create, Alter | Unique index over live rows, named like `Unique` (so `DropUnique` removes it); PostgreSQL and SQLite (v0.3) |
+| `t.UniqueWithoutTrashed(cols...)` | Create, Alter | Unique index over live rows, named like `Unique` (so `DropUnique` removes it); PostgreSQL and SQLite |
 | `t.Primary(cols...)` | Create | Composite primary key (not with `ID()`) |
 | `t.Foreign(cols...).References(...)` | Create, Alter (not SQLite) | Foreign key on existing columns |
 | `t.DropColumn(names...)` | Alter | Removes columns |

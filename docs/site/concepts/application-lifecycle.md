@@ -143,6 +143,21 @@ Plain `slog.Info` writes through Go's default logger instead, which the
 app leaves alone. In handlers, `c.Logger()` adds the request ID and
 route.
 
+## Operations
+
+An **operation** is one piece of work the app runs, start to end: an HTTP request, a queue job, an async or queued event listener, a
+pub/sub message, a scheduled task, or an AI tool call. Each one gets its
+own context from `app.StartOperation`, described by an `anetos.Operation`
+(`Kind` such as `"request"` or `"job"`, and a `Name` such as
+`"GET /posts/7"`). That context is how per-operation things stay apart:
+repeated-query detection counts the queries of one operation, and the
+roles and permissions are cached for one operation. The repeated-query
+warning names it (`operation="request GET /posts"`).
+
+`app.AroundOperations(fn)` wraps every operation from then on;
+`db.Connect` uses it for [repeated queries](../guides/n-plus-one.md).
+Laravel says "per request or per job" for the same idea.
+
 ## Failures during startup
 
 - `anetos.New` returns an error that lists **every** invalid or missing setting.

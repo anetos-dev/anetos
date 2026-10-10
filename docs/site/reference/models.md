@@ -99,7 +99,7 @@ watched by the audit log, hooks run inside the write's transaction.
 
 ## Relations
 
-Since v0.1.1. A relation field has a `rel` tag, `rel:"kind"` or
+A relation field has a `rel` tag, `rel:"kind"` or
 `rel:"kind,option=value,…"`, and no `db` tag. See
 [Relations and eager loading](../guides/relations.md).
 
@@ -142,5 +142,5 @@ change another). Passing one relation twice to `With` is an error.
 | `db.Restore(ctx, &row)` | Clears `deleted_at` | Model without `SoftDeletes` |
 | `db.Upsert(ctx, rows, conflict, update...)` | INSERT … ON CONFLICT / ON DUPLICATE KEY UPDATE; no update columns means "keep the existing row" | Unknown column names |
 | `db.Find[T](ctx, id)` | SELECT by key | `db.ErrNotFound` (a 404 in handlers) |
-| `db.KeyOf(row)` | The row's table and primary key (v0.3) | No primary key |
-| `db.Prunable[T](app, after)` | Registers a `SoftDeletes` model whose rows deleted longer than *after* ago `db:prune-trashed` and `db.PruneAllTrashed(ctx)` delete for good, 1,000 per transaction (v0.3) | No `SoftDeletes`, no key, registered twice |
+| `db.KeyOf(row)` | The row's table and primary key | No primary key |
+| `db.Prunable[T](app, after)` | Registers a `SoftDeletes` model whose rows deleted longer than *after* ago `db:prune-trashed` and `db.PruneAllTrashed(ctx)` delete for good, 1,000 per transaction | No `SoftDeletes`, no key, registered twice |

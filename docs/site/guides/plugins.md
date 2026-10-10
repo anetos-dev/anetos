@@ -19,11 +19,10 @@ the Postmark plugin to stop emailing addresses that bounced.
 
 ## Before you start
 
-You have a project made with `anetos new` (v0.2 or later), with the
+You have a project made with `anetos new`, with the
 `anetos` tool installed in it (`go get -tool
 anetos.dev/anetos/cli/cmd/anetos`). Its `main.go` loads the
-plugins listed in `plugins.go` at the end of `setup`. A project made
-before v0.2 needs both: see [step 1](#1-load-plugins-in-setup).
+plugins listed in `plugins.go` at the end of `setup` ([step 1](#1-load-plugins-in-setup)).
 
 ## Steps
 
@@ -245,7 +244,7 @@ Nothing else is wired in, and nothing runs until the app does.
 
 | Problem | Cause | Fix |
 |---|---|---|
-| `plugins.go is missing` | A project made before v0.2 | Create it and call `ext.Load`: [step 1](#1-load-plugins-in-setup) |
+| `plugins.go is missing` | The file was deleted, or the project wasn't made with `anetos new` | Create it and call `ext.Load`: [step 1](#1-load-plugins-in-setup) |
 | `the app doesn't build with …` | The module has no `Plugin() ext.Plugin` function, or doesn't compile with your version of Anetos | Check the module's docs and the version you asked for |
 | `requires Anetos >= v0.3.0, but this is v0.2.1` | The plugin supports other versions of Anetos (`anetos add` refuses it; an update of Anetos can bring this up later) | Add a version of the plugin that supports yours, or update Anetos |
 | `call queue.New before ext.Load` | The plugin adds to a service your app doesn't set up, or sets up after `ext.Load` | Set it up in `setup`, before `ext.Load` |

@@ -85,7 +85,7 @@ query.
 
 ## Complete example
 
-`authorStats` in [`examples/database`](../../../examples/database/main.go), which the `GET /stats` handler caches ([Cache values](cache.md)).
+`authorStats` in [`examples/database`](../../../examples/database/main.go), which the `GET /stats` handler caches ([Cache](cache.md)).
 
 ## How it works
 

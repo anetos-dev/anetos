@@ -1,11 +1,11 @@
 ---
-title: One binary
+title: Commands and the app binary
 since: v0.1.0
 group: "The app"
 weight: 102
 ---
 
-# One binary
+# Commands and the app binary
 
 Your app builds to one binary that is both the server and its
 maintenance tool. `app.Execute()` reads the first argument and runs that
@@ -36,7 +36,7 @@ code that wires the part they belong to:
 | `serve`, `route:list` | `web.NewServer` |
 | `openapi` | `openapi.Register` ([Describe an API with OpenAPI](../guides/openapi.md)) |
 | `migrate`, `migrate:rollback`, `migrate:reset`, `migrate:fresh`, `migrate:status`, `db:seed`, `search:reindex` | `migrate.New` ([Migrations](../guides/migrations.md), [Search](../guides/search.md)) |
-| `cache:clear` | `cache.New` ([Cache values](../guides/cache.md)) |
+| `cache:clear` | `cache.New` ([Cache](../guides/cache.md)) |
 | `queue:work`, `queue:failed`, `queue:retry`, `queue:forget`, `queue:flush`, `queue:clear` | `queue.New` ([Queues](../guides/queues.md)) |
 | `pubsub:publish` | `pubsub.New` ([Pub/sub listeners](../guides/pubsub.md)) |
 | `schedule:list`, `schedule:run`, `schedule:test`, `schedule:work` | `schedule.New` ([Scheduling](../guides/scheduling.md)) |

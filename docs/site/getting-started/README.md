@@ -27,12 +27,12 @@ app in an hour.
 **[Tutorial: build an issue tracker](tutorial/README.md)**: accounts,
 pages by hand, htmx, search, events, a queue and email, step by step.
 
-**An API instead** (v0.4): a JSON API for a mobile app or a front end
+**An API instead**: a JSON API for a mobile app or a front end
 built separately.
 
 1. [Create a project](create-a-project.md#an-api-instead) with
    `--stack=api`.
-2. [Add accounts to an API](../guides/api-accounts.md): login with
+2. [Add accounts to an API](../guides/api-accounts.md): log in with
    tokens.
 3. [Add endpoints for a model](crud.md#in-an-api-project) with
    `make:crud`.

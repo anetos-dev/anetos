@@ -13,9 +13,9 @@ settings, running its migrations, and keeping it running. This guide
 does that on a server with systemd, in a container, and on two hosting
 platforms (Fly.io, Render). The examples use an app called `blog`.
 
-Projects made by `anetos new` (v0.3) have the files this guide uses: a
+Projects made by `anetos new` have the files this guide uses: a
 `Dockerfile`, `deploy/blog.service` and `deploy/production.env.example`.
-For an older project, run `anetos new` in an empty directory and copy
+For a project without them, run `anetos new` in an empty directory and copy
 them over.
 
 ## Before you start
@@ -51,8 +51,8 @@ Where there is no repository (in a container), pass the version:
 $ go tool anetos build --version=v1.2.0
 $ ./bin/blog version
 blog v1.2.0 (commit 1a2b3c4d5e6f, 2026-10-06T10:00:00Z)
-Anetos v0.3.0
-go1.26.8 linux/amd64
+Anetos v0.5.0
+go1.26.9 linux/amd64
 ```
 
 ### 2. Prepare the settings
@@ -77,7 +77,7 @@ Render, Railway, Fly, Cloud Run), the app listens on that port when
 when nothing else says where the database is (no `DB_URL`, `DB_HOST` or
 `DB_NAME`, and `DB_DRIVER` unset or `postgres`); it logs that it does.
 
-An API project (`anetos new --stack=api`, v0.4) has no sessions, so
+An API project (`anetos new --stack=api`) has no sessions, so
 `SESSION_*` don't apply; it adds:
 
 | Setting | Why |
@@ -93,7 +93,7 @@ The app checks them when it starts, for any command: a missing or
 wrong one stops it with a message naming the setting. Only `version`
 runs without them. Settings that work but are unsafe
 (`SESSION_SECURE=false`, a database reached without verified TLS, the
-`log` mail driver) don't stop it: `blog doctor` reports them (v0.3; see
+`log` mail driver) don't stop it: `blog doctor` reports them (see
 [Secure your app](security.md)).
 
 ### 3. Run the migrations on each deploy
@@ -333,7 +333,7 @@ trusted.
 
 ### 6. Split the process types as you grow
 
-`run` starts every component: the web server, queue workers, event
+`run` starts every background component: the web server, queue workers, event
 listeners, the scheduler. With more traffic, run them in separate
 processes or machines (`run --only=web`, `run --only=worker`;
 [the runtime supervisor](../concepts/runtime-supervisor.md) explains
@@ -491,7 +491,7 @@ server, or `docker run --rm blog version`) tells which version runs.
 | Every visitor has the same IP, rate limits hit everyone | The proxy's address is the client IP | Set `HTTP_TRUSTED_PROXIES` (step 5) |
 | Jobs dispatched by the web process never run | `QUEUE_DRIVER=sync` or `memory` with workers in another process | `QUEUE_DRIVER=database` or `redis` |
 | `permission denied` writing files in the container | The volume isn't writable by user 65532 | Mount on `/data` (the image prepares it), or `chown 65532` the host directory |
-| The container stays `unhealthy` | It doesn't serve HTTP (`run --only=worker`), it isn't ready (`/health/ready` answers 503 while a component restarts or migrations haven't run: the log says which), or `HTTP_HEALTH_ROUTES=false` | Turn the check off for workers (`--no-healthcheck`, `healthcheck: disable: true`); read the logs; keep the health routes on |
+| The container stays `unhealthy` | It doesn't serve HTTP (`run --only=worker`), it isn't ready (`/health/ready` answers 503 while a background component restarts or migrations haven't run: the log says which), or `HTTP_HEALTH_ROUTES=false` | Turn the check off for workers (`--no-healthcheck`, `healthcheck: disable: true`); read the logs; keep the health routes on |
 | `unknown process type "scheduler"` (or `listener`) | The app has none: no `schedule.New` (or `pubsub.New`) | Leave it out of `--only`; the error lists the app's process types |
 | Jobs cut off at each deploy | The platform kills the process before it finishes | Raise its grace period (`docker stop -t`, `kill_timeout`, `TimeoutStopSec`) or lower `APP_SHUTDOWN_TIMEOUT` |
 | `blog version` prints `(devel)` | Built outside a git repository without `--version` | `anetos build --version=v1.2.0` (the `Dockerfile` takes `--build-arg VERSION`) |

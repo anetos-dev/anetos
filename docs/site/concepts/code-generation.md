@@ -38,7 +38,7 @@ Go can't refer to a struct field as a value, so these values have to be
 written out. `anetos generate` writes them, so you don't. Strings remain
 available (`db.C`), as do hand-declared columns (`db.Col[int]("views")`).
 
-Generated columns don't replace the `db` package's own model metadata.
+The typed columns don't replace the `db` package's own model metadata.
 That package still reads each model's fields and tags once per type,
 caches them, and uses them to scan rows. The generator and the runtime
 apply the same column rules, and a test in the framework checks that
@@ -133,4 +133,4 @@ build.
 
 - [Generate typed columns](../guides/code-generation.md)
 - [`anetos generate` reference](../reference/anetos-generate.md), [Models reference](../reference/models.md)
-- [The data layer](data-layer.md), [One binary](commands.md)
+- [The data layer](data-layer.md), [Commands and the app binary](commands.md)

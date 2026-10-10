@@ -1,11 +1,11 @@
 ---
-title: Testing model
+title: How testing works
 since: v0.1.0
 group: "The app"
 weight: 105
 ---
 
-# Testing model
+# How testing works
 
 What `anetostest` builds for a test, how it keeps tests from seeing each
 other's data, how its client imitates a browser, and where a test run

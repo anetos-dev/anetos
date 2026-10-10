@@ -81,9 +81,9 @@ The actor is found from the context, in order: one set with
 while someone impersonates a user, `auth.Impersonate`, that someone, with
 the user in `acting_as`: the person who did it is the actor); the actor
 carried from the work that dispatched a queue job or emitted an
-event for an async listener (the kernel's carriers move it with the
-job); else `system`. If the user can't be loaded, the write fails rather
-than being attributed to no one.
+event for an async listener (the app's [carriers](glossary.md) move it
+with the job); else `system`. If the user can't be loaded, the write
+fails rather than being attributed to no one.
 
 The operation (request, job, listener, task, or the command) and the
 request ID come with it, and the client's IP address if `AUDIT_IP` asks:

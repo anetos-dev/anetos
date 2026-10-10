@@ -1,11 +1,11 @@
 ---
-title: Cache values
+title: Cache
 since: v0.2.0
-group: "Production"
-weight: 801
+group: "Mail, files, search and cache"
+weight: 503
 ---
 
-# Cache values
+# Cache
 
 Keep the results of slow work for a while, count events for rate limits,
 and use locks so only one instance of the app does a job at a time.

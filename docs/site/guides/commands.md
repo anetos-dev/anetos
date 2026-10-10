@@ -52,14 +52,14 @@ func main() {
 | `serve`, `route:list` | `web.NewServer` |
 | `openapi` | `openapi.Register` ([Describe an API with OpenAPI](openapi.md)) |
 | `migrate`, `migrate:rollback`, `migrate:reset`, `migrate:fresh`, `migrate:status`, `db:seed`, `search:reindex` | `migrate.New` ([Migrations](migrations.md), [Search](search.md)) |
-| `cache:clear` | `cache.New` ([Cache values](cache.md)) |
+| `cache:clear` | `cache.New` ([Cache](cache.md)) |
 | `ai:embed` | `ai.EmbeddingsFor` ([Search by meaning](semantic-search.md)) |
 | `queue:work`, `queue:failed`, `queue:retry`, `queue:forget`, `queue:flush`, `queue:clear` | `queue.New` ([Queues](queues.md)) |
 | `pubsub:publish` | `pubsub.New` ([Pub/sub listeners](pubsub.md)) |
 | `schedule:list`, `schedule:run`, `schedule:test`, `schedule:work` | `schedule.New` ([Scheduling](scheduling.md)) |
 
 A name may be shortened, each part between colons, while it stays
-unique among the commands with as many parts (v0.5): `./app r:l` is
+unique among the commands with as many parts: `./app r:l` is
 `route:list`, `./app mi` is `migrate`, `./app m:s` is
 `migrate:status`. An ambiguous one lists what it could be and exits
 with status 2. In scripts and deploy files, write the whole name: a
@@ -147,7 +147,7 @@ app runs one command: create a new one per call.
 | `unknown command "migrate"` | `migrate.New` wasn't called before `Execute` | Call it while setting up the app |
 | `"m:r" could be migrate:reset, migrate:rollback` | A short name that fits several commands | Write more of it, or the whole name |
 | `command "x" registered twice` | Two commands with one name (`app.Command` panics, `app.AddCommand`, `migrate.New` and `web.NewServer` return the error) | Register each once |
-| `unknown process type "…"` | `--only` names a process type no component has and no package declared (the error lists the known ones) | Check `help run` and the process types of your components (`web`, `worker`, `scheduler`, `listener`; before v0.5, `http`, `workers`, `listeners`) |
+| `unknown process type "…"` | `--only` names a process type no background component has and no package declared (the error lists the known ones) | Check `help run` and the process types of your background components (`web`, `worker`, `scheduler`, `listener`; before v0.5, `http`, `workers`, `listeners`) |
 
 ## Next steps
 

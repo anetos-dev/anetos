@@ -20,8 +20,8 @@ of a project's `views/ui` are in the [UI components reference](ui.md).
 | `c.Render(status, component)` | Renders a component (templ or `view.Component`) into a buffer and writes it as `text/html; charset=utf-8`; a render error becomes an error response |
 | `web.Render(component)` | Responder rendering the component with 200 |
 | `web.URL(ctx, name, args...)` | `(string, error)`: path of a named route, from any request context (use in components); a trailing `url.Values` argument becomes the query string |
-| `web.MustURL(ctx, name, args...)` | The path of `web.URL` alone, for a component's string argument (`@ui.LinkButton(web.MustURL(ctx, "posts.edit", post.ID), ui.Secondary)`); panics on an unknown route name or arguments the route doesn't take, which the router answers with a 500 (v0.5) |
-| `web.RouteIs(ctx, names...)` | Whether the request's route has one of the names; `"issues.*"` matches the names starting with `issues.`. False outside a request or for an unnamed route (v0.3). The layout of `anetos new` marks the current page's link with it |
+| `web.MustURL(ctx, name, args...)` | The path of `web.URL` alone, for a component's string argument (`@ui.LinkButton(web.MustURL(ctx, "posts.edit", post.ID), ui.Secondary)`); panics on an unknown route name or arguments the route doesn't take, which the router answers with a 500 |
+| `web.RouteIs(ctx, names...)` | Whether the request's route has one of the names; `"issues.*"` matches the names starting with `issues.`. False outside a request or for an unnamed route. The layout of `anetos new` marks the current page's link with it |
 | `web.PageURL(ctx, page)` | A relative link (`?…&page=N`) to page N of the current list, keeping the request's other query parameters as written; `?page=N` outside a request |
 | `c.IsHTMX()` | Whether `HX-Request: true`; adds `Vary: HX-Request` |
 | `c.HTMX()` | `web.HTMX`: `Request`, `Boosted`, `HistoryRestore`, `Target`, `Trigger`, `TriggerName`, `CurrentURL`; adds `Vary: HX-Request` |
@@ -65,7 +65,7 @@ Form posts key errors by `form` name where it differs from the `json` name.
 | `view.NewAssets(prefix, fsys...)` | Hashes every file (first file system wins; dot files skipped) |
 | `a.URL(name)` | `prefix/name?v=<hash>`; no hash for a missing file |
 | `a.Has(name)` | Whether the file exists |
-| `a` as `http.Handler` | GET/HEAD; `Cache-Control: public, max-age=31536000, immutable` with the current hash, else `no-cache`; `ETag`. A text file of 1 KiB or more (`text/*` such as CSS, JavaScript, JSON, SVG, XML, wasm) is gzipped once, the first time it's requested, and served gzipped to a client that accepts it (`Content-Encoding: gzip`, `Vary: Accept-Encoding`, its own `ETag`), unless gzip saves less than a tenth (v0.5) |
+| `a` as `http.Handler` | GET/HEAD; `Cache-Control: public, max-age=31536000, immutable` with the current hash, else `no-cache`; `ETag`. A text file of 1 KiB or more (`text/*` such as CSS, JavaScript, JSON, SVG, XML, wasm) is gzipped once, the first time it's requested, and served gzipped to a client that accepts it (`Content-Encoding: gzip`, `Vary: Accept-Encoding`, its own `ETag`), unless gzip saves less than a tenth |
 | `htmx.FS`, `htmx.Version` | The bundled `htmx.min.js` (package `view/htmx`) |
 
 ## Sessions (`session`)
@@ -76,7 +76,7 @@ Form posts key errors by `form` name where it differs from the `json` name.
 | `session.Migrations(table)` | The database driver's table, for `migrate.New` |
 | `session.NewManager(cfg, enc, opts...)` | Manager from a `session.Config` and an `*encryption.Encrypter`; `session.WithLogger`, `session.WithStore(store, prefix)` (any `cache.Store`) |
 | `m.Middleware` | Loads the session into the request context and saves it when the response starts; adds `Cache-Control: private` (if unset) and `Vary: Cookie` for requests with a session. Does nothing if the same manager already runs for the request |
-| `m.Use(mw...)` | Middleware that run inside `m.Middleware`, wherever it runs (every group with sessions), after the session is loaded and before the group's other middleware, in order; for routes registered before and after. Call it at setup. `make:auth`'s `setupAuth` calls `sessions.Use(a.Middleware)`, so every page knows the logged-in user (v0.3) |
+| `m.Use(mw...)` | Middleware that run inside `m.Middleware`, wherever it runs (every group with sessions), after the session is loaded and before the group's other middleware, in order; for routes registered before and after. Call it at setup. `make:auth`'s `setupAuth` calls `sessions.Use(a.Middleware)`, so every page knows the logged-in user |
 | `m.CookieName()` | `SESSION_COOKIE`, with the `__Host-` prefix when Secure, without Domain, with Path `/` |
 | `session.From(ctx)` | The session, or nil |
 | `session.NewSession()`, `session.WithSession(ctx, s)` | A session for tests |

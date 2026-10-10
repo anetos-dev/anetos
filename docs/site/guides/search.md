@@ -1,7 +1,7 @@
 ---
 title: Add full-text search
 since: v0.3.0
-group: "Features"
+group: "Mail, files, search and cache"
 weight: 502
 ---
 
@@ -74,7 +74,7 @@ func (Notes) Index(c *web.Ctx, in ListNotes) (web.Responder, error) {
 Each word of three letters or more matches as a prefix ("tea" finds
 "teas", "gree tea" finds "green tea"), in any of the indexed columns;
 shorter words match whole words only ("go" finds "go", not "golang"),
-and only the first ten words count (v0.3: so that a search box can't be
+and only the first ten words count (so that a search box can't be
 made to scan most of the index). Punctuation is ignored, and
 text without words (an empty search box) leaves the query as it was.
 `Search` combines with `Where`, soft deletes, `Paginate`, `Count`,

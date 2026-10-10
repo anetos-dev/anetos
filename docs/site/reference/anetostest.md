@@ -1,7 +1,7 @@
 ---
 title: Testing reference
 since: v0.1.0
-group: "Features"
+group: "Packages"
 weight: 402
 ---
 
@@ -78,7 +78,7 @@ an URL on another site fails the test. Requests go to the router as
 | `res.Follow()` | GET to the redirect's `Location`; fails the test for another site | the request's |
 | `app.WithHeader(name, value)` | Sets a header on every later request; returns app | |
 | `app.WithSession(func(*session.Session))` | Changes the session later requests carry; returns app. Needs `session.New` in setup | |
-| `anetostest.ActingAs(app, u)` | Logs u in for later requests, as a password login without remember-me would, without asking for a two-factor code (`auth.Auth.LoginSession`), replacing whoever was logged in (and dropping a remember-me cookie); returns app. U is the type given to `auth.New` (`*models.User`); needs `session.New` and `auth.New` in setup; a disabled user fails the test (v0.3) | |
+| `anetostest.ActingAs(app, u)` | Logs u in for later requests, as a password login without remember-me would, without asking for a two-factor code (`auth.Auth.LoginSession`), replacing whoever was logged in (and dropping a remember-me cookie); returns app. U is the type given to `auth.New` (`*models.User`); needs `session.New` and `auth.New` in setup; a disabled user fails the test | |
 | `app.Session()` | The `*session.Session` the next request will carry (flash values and errors from the last response included), to read | |
 | `app.SocialLogin(redirect, anetostest.SocialAccount{ID, Email, EmailVerified, Name, AvatarURL})` | GET redirect (the app's route to the provider, such as `/auth/google/redirect`), the stand-in provider's login as the account, then GET the app's callback; returns the callback's response. Needs `FakeSocial`; `ID` is required | `text/html` |
 

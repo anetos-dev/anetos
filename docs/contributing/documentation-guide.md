@@ -183,11 +183,11 @@ to guides and reference.
 
 ### 5.3 Reference page
 
-Tables, not prose. Every row: name, type, default, description, `since`
-version. **Generate reference pages from source where possible** (config
-structs, CLI command definitions) so they can't drift. A `docs:gen` task is
-planned for v0.3; until then, keep them in sync by hand as part of the
-Definition of Done.
+Tables, not prose. Every row: name, type, default, description; a row
+added after v0.5 says "Since v0.N" in its description. **Generate
+reference pages from source where possible** (config structs, CLI command
+definitions) so they can't drift. Until a `docs:gen` task does, keep them
+in sync by hand as part of the Definition of Done.
 
 ### 5.4 "Coming from Laravel?" boxes
 
@@ -305,10 +305,12 @@ Broken examples are the fastest way to lose trust.
   change with migration steps. Upgrade guides come newest first: the
   site orders them by the version in their file name, and
   `upgrade/README.md` lists them in the same order.
-- User docs mark new features with `since: v0.N.0` in front matter or an
-  inline "Since v0.N" note.
-- **Versioned docs:** the docs site (v0.3+) publishes docs per minor
-  version; `main` is labeled "unreleased".
+- v0.5 is the first public release and the docs' baseline: they say
+  nothing about v0.1–v0.4 except where a former name is still read. What
+  later versions add is marked with `since: v0.N.0` in front matter (the
+  site shows it after v0.5.0) or an inline "Since v0.N" note.
+- **Versioned docs:** planned: the docs site publishing docs per minor
+  version, with `main` labeled "unreleased". Today it follows `main`.
 - Driver and plugin modules keep their own `CHANGELOG.md`.
 
 ---
@@ -339,27 +341,18 @@ approach, serialization format).
 
 ## 11. Glossary
 
-Use these terms consistently in code, docs and discussion.
+The words of the docs, the code and discussion are those of the user
+glossary, [`docs/site/concepts/glossary.md`](../site/concepts/glossary.md):
+use them, and add a word there (with Laravel's or Rails' word for it)
+before using it anywhere else. The rule behind them is the API
+guidelines' first: use the word developers already know, and a new word
+only for a new idea.
+
+One word is for contributors only:
 
 | Term | Meaning |
 |---|---|
-| **App** | The application instance (`*anetos.App`) that owns config, services and the runtime |
-| **Component** | A long-running unit supervised by the runtime (HTTP server, worker pool, listener, scheduler, `app.Go` task) |
-| **Process type** | A named group of components a process runs (`web`, `worker`, `listener`, `scheduler`; Heroku's word) |
-| **Supervisor** | The runtime part that starts, restarts and stops components |
-| **Contract** | A service interface (e.g. `cache.Store`) |
-| **Driver** | An implementation of a contract (e.g. the Redis cache driver) |
-| **Plugin** | A package that extends an app through the `ext.Plugin` interface |
-| **Provider** | The internal equivalent of a plugin, used by the framework's own features |
-| **Job** | A typed unit of background work sent to a queue |
-| **Worker** | A component that processes jobs from a queue |
-| **Event** | A typed in-process message emitted with `events.Emit` |
-| **Listener** | A handler for an event, *or* a component consuming an external pub/sub topic. Say "event listener" or "pub/sub listener" when it's ambiguous |
-| **Handler** | An HTTP handler in one of the three forms (plain, context, typed) |
-| **Model** | A struct mapped to a database table |
-| **Scope** | A reusable query modifier function |
-| **Dialect** | The SQL flavor of a database (placeholders, quoting, upserts); paired with a `database/sql` driver in a db driver module |
-| **Rule** | A named validation check in a `validate` tag, e.g. `required` or `max:200`. Custom rules are registered with `validate.Register` |
+| **Contract** | A service's interface that drivers implement (`cache.Store`, `storage.Backend`, `mailer.Transport`) |
 
 ---
 
@@ -399,3 +392,4 @@ sketches as illustrative; never invent APIs in docs that don't exist in code.
 | 2026-10-07 | §9: upgrade guides newest first |
 | 2026-10-10 | §2, §6: the API guidelines, `api/*.txt` and deprecations in the Definition of Done; the `Deprecated:` form (M8a) |
 | 2026-10-10 | §5.1, §12: images in `docs/site/images`, WebP screenshots made by a script, alt text; `make docs-check` checks them (K5, D307) |
+| 2026-10-11 | §5.3, §9: v0.5 is the docs' baseline, later additions say "Since v0.N"; §11: the user glossary page is the glossary (M8b-6, D317) |

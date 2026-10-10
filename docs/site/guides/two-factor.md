@@ -228,7 +228,7 @@ remember)` does the same: it answers `auth.ErrTwoFactorRequired` for a
 user who has turned it on. A remember-me cookie, given after the code,
 keeps the user logged in without it.
 
-An API without sessions (since v0.4) gets the code in a second request:
+An API without sessions gets the code in a second request:
 `a.AttemptCredentials` answers a `*auth.TwoFactorChallenge`, whose
 `Token` the client sends back with the code to
 `a.AttemptTwoFactorChallenge`, under the same limits

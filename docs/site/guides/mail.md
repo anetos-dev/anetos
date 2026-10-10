@@ -1,7 +1,7 @@
 ---
 title: Send email
 since: v0.2.0
-group: "Features"
+group: "Mail, files, search and cache"
 weight: 500
 ---
 

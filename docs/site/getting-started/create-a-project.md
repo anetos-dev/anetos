@@ -59,7 +59,7 @@ In production, the built binary takes the same commands
 
 ## An API instead
 
-Since v0.4, `--stack=api` writes an app that serves JSON only, for a
+`--stack=api` writes an app that serves JSON only, for a
 mobile app or a front end built separately:
 
 ```sh

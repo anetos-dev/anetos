@@ -1,16 +1,17 @@
 ---
 title: Store files
 since: v0.2.0
-group: "Features"
+group: "Mail, files, search and cache"
 weight: 501
 ---
 
 # Store files
 
 Store files your app receives or makes: uploads, avatars, exports,
-invoices. Files go on **disks**: a local directory by default, or an
-S3-compatible bucket (Amazon S3, Cloudflare R2, MinIO, …) or a Google
-Cloud Storage bucket, with the same code. Private files are read through temporary signed URLs. The complete
+invoices. Files go on **disks**: a disk is a named place files are kept,
+which is a local directory by default, or an S3-compatible bucket
+(Amazon S3, Cloudflare R2, MinIO, …) or a Google Cloud Storage bucket,
+with the same code. Private files are read through temporary signed URLs. The complete
 app is [`examples/files`](../../../examples/files).
 
 ## Before you start

@@ -14,7 +14,9 @@ happens when something fails, and how everything stops.
 
 ## Components
 
-Anything long-running is a **component**:
+Anything long-running is a **background component** ("component" for
+short on this page; the pieces of a page in `views/ui` are UI
+components, another thing):
 
 ```go
 // illustrative (from supervisor/component.go)
@@ -62,7 +64,7 @@ until v0.6.
   fail loudly. `schedule.New` and `pubsub.New` declare theirs
   (`Supervisor.Declare`) before their components exist, so
   `run --only=worker,scheduler` works in an app that has no task yet
-  and keeps working once it has one (v0.3).
+  and keeps working once it has one.
 
 Split processes share work through shared stores: the database or Redis
 for the queue, the cache (database or Redis) for the scheduler's
@@ -134,9 +136,10 @@ immediately canceled.
   count and last error.
 
 > **Coming from Laravel?** This replaces running `php artisan queue:work`,
-> `schedule:run` and Supervisor (the process manager) as separate programs.
+> `schedule:work` and Supervisor (the process manager) as separate programs.
 > Everything runs in your app's own binary, and `--only` splits it apart
-> when you need to scale.
+> when you need to scale. `./app queue:work` and `./app schedule:work`
+> exist too: they are `run --only=worker` and `run --only=scheduler`.
 
 ## Related
 

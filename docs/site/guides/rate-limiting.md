@@ -13,7 +13,7 @@ attempt actions such as logging in.
 ## Before you start
 
 Rate limits count hits in the app's cache, so set it up with
-`cache.New` (see [Cache values](cache.md)). With the memory store each
+`cache.New` (see [Cache](cache.md)). With the memory store each
 instance counts on its own; with several instances, use the database or
 Redis store so a limit holds across all of them.
 
@@ -149,5 +149,5 @@ go through unlimited.
 
 ## Next steps
 
-- [Cache values](cache.md)
+- [Cache](cache.md)
 - [Handlers and middleware](handlers.md)

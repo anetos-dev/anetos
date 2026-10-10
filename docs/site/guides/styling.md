@@ -17,9 +17,9 @@ without styles.
 
 A project made with `anetos new` v0.5 or later. (A project made before
 v0.5 has no `views/ui` yet: see [below](#projects-made-before-v05).)
-There is no CDN, and no build step but Tailwind CSS's with the
-Tailwind CSS, which `anetos dev` runs for you ([Tailwind
-CSS](tailwind.md)): it reloads the page when you save a file.
+There is no CDN and no build step, except with Tailwind CSS, whose build
+`anetos dev` runs for you ([Tailwind CSS](tailwind.md)). `anetos dev`
+reloads the page when you save a file.
 
 ## Steps
 
@@ -33,7 +33,7 @@ The look of your app is two parts, which a *CSS framework* writes together:
 | `views/ui/page.templ` | A page's structure: `PageHeader`, `Card`, `Narrow`, `Stack`, `Cluster`, `Empty`… |
 | `views/ui/form.templ` | Forms: `Form`, `Field`, `Input`, `Textarea`, `Select`, `Checkbox`, `Button`, `LinkButton`, `PostButton`… |
 | `views/ui/data.templ` | Lists and values: `Table`, `Details`, `Badge`, `Pagination`… |
-| `views/ui/ui.go` | The types the components take: `Variant`, `Size`, `Tone`, `Option`, `Pages` |
+| `views/ui/ui.go` | The types the components take: `Variant` (a button's kind: primary, secondary, danger, ghost), `Size` (small, full width), `Tone` (the meaning a badge's or a message's color gives: success, warning, error…), `Option`, `Pages` |
 | `views/ui/classes.go` | The framework's classes for each variant, size and tone (not with `none`) |
 | `public/static/app.css` | The starter theme: light and dark, about 270 lines of plain CSS |
 
@@ -42,6 +42,11 @@ home page and the pages of `make:crud` and `make:auth` call the
 components, and use plain HTML elements, without classes, for the rest:
 headings, paragraphs, links, table rows. The
 [UI components reference](../reference/ui.md) lists every component.
+
+> **Coming from Laravel?** `--css` is Rails' flag (`rails new
+> --css=bootstrap`), and picks only the look. It isn't one of Laravel's
+> starter kits, which scaffold accounts: here that's `make:auth`, which
+> writes its pages with the same components.
 
 ### 2. Build pages with the components
 

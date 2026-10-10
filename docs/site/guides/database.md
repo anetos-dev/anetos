@@ -191,7 +191,7 @@ loop) blocks. A file in `t.TempDir()` behaves like production instead.
 | `db: DB_DRIVER is "postgres", but the drivers passed to Connect are [sqlite]` | The driver isn't passed to `Connect` | Import the driver module and pass its `Driver()` |
 | `db: no database in context` | The context didn't come from the app | Use the request's `c`, a context from `app.Context`, or `db.WithDB` |
 | `connect to postgres: … connection refused` at startup | Wrong host or port, or the server isn't running | Check `DB_HOST`/`DB_PORT`; the error comes from the ping in `Connect` |
-| `… certificate signed by unknown authority`, `server does not support SSL`, `TLS requested but server does not support TLS` (v0.3) | A remote `DB_HOST` gets verified TLS by default | Set `DB_TLS_CA` to your provider's CA file, or `DB_TLS=none` on a private network (a Compose service, say) |
+| `… certificate signed by unknown authority`, `server does not support SSL`, `TLS requested but server does not support TLS` | A remote `DB_HOST` gets verified TLS by default | Set `DB_TLS_CA` to your provider's CA file, or `DB_TLS=none` on a private network (a Compose service, say) |
 | `database is locked` on SQLite | A write took longer than the 5s busy timeout | Keep transactions short; SQLite allows one writer at a time |
 
 ## Next steps

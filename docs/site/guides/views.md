@@ -69,7 +69,7 @@ route's path; templ accepts its `(string, error)` result in attributes
 and text, and a wrong route name fails the render with an error page.
 
 A component's argument can't take a `(string, error)` pair. There,
-`web.MustURL(ctx, name, args...)` (v0.5) returns the path alone, and
+`web.MustURL(ctx, name, args...)` returns the path alone, and
 panics on a route name that doesn't exist or arguments the route
 doesn't take. The router answers the panic with a 500 page, and since
 rendering is buffered, the visitor never gets half a page:
@@ -178,7 +178,7 @@ with `c.EventStream()`.
 
 Files that need a fixed URL, such as `robots.txt` or
 `.well-known/security.txt`, go in `public/` itself, the web root, which
-the project's `routes/web.go` serves at `/` (v0.5):
+the project's `routes/web.go` serves at `/`:
 
 ```go
 // illustrative

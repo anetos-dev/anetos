@@ -1,32 +1,41 @@
 ---
 title: Configuration reference
 since: v0.1.0
-group: "Tools"
+group: "Commands and settings"
 weight: 102
 ---
 
 # Configuration reference
 
+Every key starts with its area's prefix (`DB_`, `CACHE_`, `QUEUE_`…). The
+key that picks a backend is `<AREA>_DRIVER` in every area (`DB_DRIVER`,
+`CACHE_DRIVER`, `MAIL_DRIVER`, `STORAGE_DRIVER`), except `AI_PROVIDER`.
+
+> **Coming from Laravel?** Laravel's keys for the backend vary by area
+> (`DB_CONNECTION`, `CACHE_STORE`, `QUEUE_CONNECTION`, `MAIL_MAILER`,
+> `FILESYSTEM_DISK`); here they all end in `_DRIVER`. `doctor` warns
+> about Laravel's names in your `.env`, and names the key to use.
+
 ## Framework settings
 
 Read by `anetos.New` into `anetos.AppConfig`.
 
-| Key | Type | Default | Description | Since |
-|---|---|---|---|---|
-| `APP_NAME` | string | `anetos` | Application name, added to every log line as `app` | v0.1 |
-| `APP_ENV` | `development` \| `testing` \| `staging` \| `production` | `production` | Deployment environment; also selects `.env.<APP_ENV>` | v0.1 |
-| `APP_URL` | URL | empty | The app's public URL (`https://example.com`, no path), for links that leave the app: OAuth callbacks (social login), links in emails (`mailer.URL`) | v0.2 |
-| `APP_DEBUG` | bool | `false` | Enables debugging aids. **Rejected when `APP_ENV=production`** | v0.1 |
-| `APP_SHUTDOWN_TIMEOUT` | duration | `30s` | Total graceful-shutdown budget: components first, then shutdown hooks. Hooks always keep the smaller of 5s and a fifth of it. Keep it at or below your platform's grace period (Kubernetes default: 30s) | v0.1 |
-| `APP_KEY` | `base64:…` (32 bytes) | empty | Encrypts and authenticates session cookies. Required by sessions, which fail at startup without it. Generate one with `go tool anetos key:generate`. Keep it secret | v0.1 |
-| `APP_PREVIOUS_KEYS` | list of keys | empty | Old keys that still decrypt, so `APP_KEY` can be rotated without logging everyone out | v0.1 |
-| `APP_TIMEZONE` | IANA time zone (`Asia/Dhaka`) | `UTC` | The app's zone: the process's local zone (so `time.Now`, logs and formatting agree on every machine), the zone of `anetos.Now` and the default of `SCHEDULE_TIMEZONE`. Times are stored in UTC whatever it is. `Local` isn't allowed. See [Times and dates](../guides/times-and-dates.md) | v0.3 |
-| `APP_LOCALE` | locale (`en`, `bn`, `pt-BR`) | `en` | The default locale: of requests that ask for no supported one, and of code outside requests. Read by `i18n.New` | v0.3 |
-| `APP_FALLBACK_LOCALE` | locale | `en` | Where a locale's missing messages come from, after its parents (`bn-BD`, then `bn`); the framework's English messages come last | v0.3 |
-| `APP_LOCALES` | list of locales | `APP_LOCALE` and every locale with a catalog | The locales requests can ask for. `APP_LOCALE` must be one of them | v0.3 |
-| `APP_LOCALE_STRATEGY` | `none` \| `prefix` \| `subdomain` | `none` | Where a request's locale is in its URL: nowhere (the `locale` cookie, the session, the logged-in user's preference, `Accept-Language`), a path prefix (`/bn/about`; the default locale has none), or a subdomain (`bn.example.com`; needs `APP_URL`). See [Translations](../guides/translations.md#4-choose-how-visitors-get-their-language) | v0.3 |
-| `LOG_LEVEL` | `debug` \| `info` \| `warn` \| `error` | `info` | Minimum log level | v0.1 |
-| `LOG_FORMAT` | `text` \| `json` \| empty | empty | Log format; empty means JSON in production, text elsewhere | v0.1 |
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `APP_NAME` | string | `anetos` | Application name, added to every log line as `app` |
+| `APP_ENV` | `development` \| `testing` \| `staging` \| `production` | `production` | Deployment environment; also selects `.env.<APP_ENV>` |
+| `APP_URL` | URL | empty | The app's public URL (`https://example.com`, no path), for links that leave the app: OAuth callbacks (social login), links in emails (`mailer.URL`) |
+| `APP_DEBUG` | bool | `false` | Enables debugging aids. **Rejected when `APP_ENV=production`** |
+| `APP_SHUTDOWN_TIMEOUT` | duration | `30s` | Total graceful-shutdown budget: components first, then shutdown hooks. Hooks always keep the smaller of 5s and a fifth of it. Keep it at or below your platform's grace period (Kubernetes default: 30s) |
+| `APP_KEY` | `base64:…` (32 bytes) | empty | Encrypts and authenticates session cookies. Required by sessions, which fail at startup without it. Generate one with `go tool anetos key:generate`. Keep it secret |
+| `APP_PREVIOUS_KEYS` | list of keys | empty | Old keys that still decrypt, so `APP_KEY` can be rotated without logging everyone out |
+| `APP_TIMEZONE` | IANA time zone (`Asia/Dhaka`) | `UTC` | The app's zone: the process's local zone (so `time.Now`, logs and formatting agree on every machine), the zone of `anetos.Now` and the default of `SCHEDULE_TIMEZONE`. Times are stored in UTC whatever it is. `Local` isn't allowed. See [Times and dates](../guides/times-and-dates.md) |
+| `APP_LOCALE` | locale (`en`, `bn`, `pt-BR`) | `en` | The default locale: of requests that ask for no supported one, and of code outside requests. Read by `i18n.New` |
+| `APP_FALLBACK_LOCALE` | locale | `en` | Where a locale's missing messages come from, after its parents (`bn-BD`, then `bn`); the framework's English messages come last |
+| `APP_LOCALES` | list of locales | `APP_LOCALE` and every locale with a catalog | The locales requests can ask for. `APP_LOCALE` must be one of them |
+| `APP_LOCALE_STRATEGY` | `none` \| `prefix` \| `subdomain` | `none` | Where a request's locale is in its URL: nowhere (the `locale` cookie, the session, the logged-in user's preference, `Accept-Language`), a path prefix (`/bn/about`; the default locale has none), or a subdomain (`bn.example.com`; needs `APP_URL`). See [Translations](../guides/translations.md#4-choose-how-visitors-get-their-language) |
+| `LOG_LEVEL` | `debug` \| `info` \| `warn` \| `error` | `info` | Minimum log level |
+| `LOG_FORMAT` | `text` \| `json` \| empty | empty | Log format; empty means JSON in production, text elsewhere |
 
 `APP_ENV` defaults to `production` so that a missing setting fails safe
 (debug off, JSON logs). The keys have type `anetos.Secret`, which prints,
@@ -107,11 +116,12 @@ name a whole ecosystem uses: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`,
 framework's name for a setting (`QUEUE_CONNECTION`), a former name left
 beside its new one, or a typo of a setting.
 
-### Renamed in v0.5
+### Former names
 
-The former names are still read, with a warning, until v0.6.
+Projects made before v0.5 used other names for these settings. The former
+names are still read, with a warning, until v0.6.
 
-| Before v0.5 | Since |
+| Former name | Name |
 |---|---|
 | `DB_CONNECTION` | `DB_DRIVER` |
 | `DB_DATABASE` | `DB_NAME` |
@@ -131,25 +141,25 @@ The former names are still read, with a warning, until v0.6.
 
 Read by `web.NewServer` (or `web.LoadConfig`) into `web.Config`.
 
-| Key | Type | Default | Description | Since |
-|---|---|---|---|---|
-| `HTTP_ADDR` | string | `:8080`, or `:$PORT` when the platform sets `PORT` | Listen address. `127.0.0.1:0` picks a free port (tests) | v0.1 |
-| `HTTP_READ_HEADER_TIMEOUT` | duration | `10s` | Time to read request headers (slowloris protection) | v0.1 |
-| `HTTP_READ_TIMEOUT` | duration | `30s` | Time to read the whole request | v0.1 |
-| `HTTP_WRITE_TIMEOUT` | duration | `30s` | Time to write the response | v0.1 |
-| `HTTP_IDLE_TIMEOUT` | duration | `2m` | Keep-alive idle time | v0.1 |
-| `HTTP_SHUTDOWN_GRACE` | duration | `15s` | On shutdown, how long in-flight requests may finish before their contexts are canceled and connections closed. Capped at half of `APP_SHUTDOWN_TIMEOUT`, so later stages keep time to drain | v0.1 |
-| `HTTP_REQUEST_TIMEOUT` | duration | `30s` | Deadline on each request's context; expiry gives 503. `0` disables | v0.1 |
-| `HTTP_MAX_BODY` | size | `10MB` | Maximum request body (`512KB`, `10MB`, `1GB`; units are powers of 1024); larger gives 413. `0` disables | v0.1 |
-| `HTTP_TRUSTED_PROXIES` | list of IPs/CIDRs | empty | Peers whose `X-Forwarded-For` is trusted for the client IP (`X-Real-IP` isn't read since v0.3) | v0.1 |
-| `HTTP_ACCESS_LOG` | bool | `true` | One log line per request | v0.1 |
-| `HTTP_HEALTH_ROUTES` | bool | `true` | Serve `GET /health/live` and `GET /health/ready` | v0.1 |
-| `HTTP_CORS_ORIGINS` | list | empty (CORS off) | Allowed origins; `*` for any; `https://*.example.com` for subdomains | v0.1 |
-| `HTTP_CORS_METHODS` | list | `GET,HEAD,POST,PUT,PATCH,DELETE` | Allowed methods for preflights | v0.1 |
-| `HTTP_CORS_HEADERS` | list | `Accept,Authorization,Content-Type,X-Requested-With,X-Request-ID` | Allowed request headers | v0.1 |
-| `HTTP_CORS_EXPOSE` | list | `X-Request-ID,Location,Retry-After,X-RateLimit-Limit,X-RateLimit-Remaining` | Response headers readable by browsers (`Location` and the rate limit's since v0.4) | v0.1 |
-| `HTTP_CORS_CREDENTIALS` | bool | `false` | Allow cookies; can't be combined with `*` | v0.1 |
-| `HTTP_CORS_MAX_AGE` | duration | `10m` | How long browsers cache preflights | v0.1 |
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `HTTP_ADDR` | string | `:8080`, or `:$PORT` when the platform sets `PORT` | Listen address. `127.0.0.1:0` picks a free port (tests) |
+| `HTTP_READ_HEADER_TIMEOUT` | duration | `10s` | Time to read request headers (slowloris protection) |
+| `HTTP_READ_TIMEOUT` | duration | `30s` | Time to read the whole request |
+| `HTTP_WRITE_TIMEOUT` | duration | `30s` | Time to write the response |
+| `HTTP_IDLE_TIMEOUT` | duration | `2m` | Keep-alive idle time |
+| `HTTP_SHUTDOWN_GRACE` | duration | `15s` | On shutdown, how long in-flight requests may finish before their contexts are canceled and connections closed. Capped at half of `APP_SHUTDOWN_TIMEOUT`, so later stages keep time to drain |
+| `HTTP_REQUEST_TIMEOUT` | duration | `30s` | Deadline on each request's context; expiry gives 503. `0` disables |
+| `HTTP_MAX_BODY` | size | `10MB` | Maximum request body (`512KB`, `10MB`, `1GB`; units are powers of 1024); larger gives 413. `0` disables |
+| `HTTP_TRUSTED_PROXIES` | list of IPs/CIDRs | empty | Peers whose `X-Forwarded-For` is trusted for the client IP (`X-Real-IP` isn't read) |
+| `HTTP_ACCESS_LOG` | bool | `true` | One log line per request |
+| `HTTP_HEALTH_ROUTES` | bool | `true` | Serve `GET /health/live` and `GET /health/ready` |
+| `HTTP_CORS_ORIGINS` | list | empty (CORS off) | Allowed origins; `*` for any; `https://*.example.com` for subdomains |
+| `HTTP_CORS_METHODS` | list | `GET,HEAD,POST,PUT,PATCH,DELETE` | Allowed methods for preflights |
+| `HTTP_CORS_HEADERS` | list | `Accept,Authorization,Content-Type,X-Requested-With,X-Request-ID` | Allowed request headers |
+| `HTTP_CORS_EXPOSE` | list | `X-Request-ID,Location,Retry-After,X-RateLimit-Limit,X-RateLimit-Remaining` | Response headers readable by browsers (`Location` and the rate limit's) |
+| `HTTP_CORS_CREDENTIALS` | bool | `false` | Allow cookies; can't be combined with `*` |
+| `HTTP_CORS_MAX_AGE` | duration | `10m` | How long browsers cache preflights |
 
 Streaming responses lift `HTTP_REQUEST_TIMEOUT` and `HTTP_WRITE_TIMEOUT`
 for themselves: `c.EventStream()` (server-sent events, and `ai.SSE`) does both;
@@ -166,19 +176,19 @@ load balancer).
 
 Read by `session.New` (or `session.LoadConfig`) into `session.Config`.
 
-| Key | Type | Default | Description | Since |
-|---|---|---|---|---|
-| `SESSION_COOKIE` | string | `anetos_session` | Cookie name. A Secure cookie without `SESSION_DOMAIN` and with path `/` gets the `__Host-` prefix. A name you give with `__Host-` or `__Secure-` must meet the browser's rules for it | v0.1 |
-| `SESSION_TTL` | duration | `2h` | The session ends after this long without a request (at least `1m`) | v0.1 |
-| `SESSION_MAX_TTL` | duration | `168h` | The session ends this long after it started or was regenerated (login), however active. `0` disables | v0.1 |
-| `SESSION_EXPIRE_ON_CLOSE` | bool | `false` | Browser-session cookie: dropped when the browser closes | v0.1 |
-| `SESSION_DOMAIN` | string | empty (this host only) | Cookie domain; set it to share the session with subdomains | v0.1 |
-| `SESSION_PATH` | string | `/` | Cookie path | v0.1 |
-| `SESSION_SECURE` | bool | `true`, except `development` and `testing` | Send the cookie over HTTPS only | v0.1 |
-| `SESSION_SAME_SITE` | `lax` \| `strict` \| `none` | `lax` | Cookie SameSite mode; `none` requires `SESSION_SECURE=true` | v0.1 |
-| `SESSION_DRIVER` | `cookie` \| `database` \| a driver's name (`redis`) | `cookie` | Where sessions are kept: the encrypted cookie, or a server-side store (the cookie then holds the encrypted session ID); `redis` needs `redis.SessionDriver()` passed to `session.New` | v0.2 |
-| `SESSION_TABLE` | string | `sessions` | The database driver's table; pass the same name to `session.Migrations` | v0.2 |
-| `SESSION_PREFIX` | string | `APP_NAME` + `:session:` | Starts the store keys of server-side sessions. `anetostest` sets one per test app | v0.2 |
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `SESSION_COOKIE` | string | `anetos_session` | Cookie name. A Secure cookie without `SESSION_DOMAIN` and with path `/` gets the `__Host-` prefix. A name you give with `__Host-` or `__Secure-` must meet the browser's rules for it |
+| `SESSION_TTL` | duration | `2h` | The session ends after this long without a request (at least `1m`) |
+| `SESSION_MAX_TTL` | duration | `168h` | The session ends this long after it started or was regenerated (login), however active. `0` disables |
+| `SESSION_EXPIRE_ON_CLOSE` | bool | `false` | Browser-session cookie: dropped when the browser closes |
+| `SESSION_DOMAIN` | string | empty (this host only) | Cookie domain; set it to share the session with subdomains |
+| `SESSION_PATH` | string | `/` | Cookie path |
+| `SESSION_SECURE` | bool | `true`, except `development` and `testing` | Send the cookie over HTTPS only |
+| `SESSION_SAME_SITE` | `lax` \| `strict` \| `none` | `lax` | Cookie SameSite mode; `none` requires `SESSION_SECURE=true` |
+| `SESSION_DRIVER` | `cookie` \| `database` \| a driver's name (`redis`) | `cookie` | Where sessions are kept: the encrypted cookie, or a server-side store (the cookie then holds the encrypted session ID); `redis` needs `redis.SessionDriver()` passed to `session.New` |
+| `SESSION_TABLE` | string | `sessions` | The database driver's table; pass the same name to `session.Migrations` |
+| `SESSION_PREFIX` | string | `APP_NAME` + `:session:` | Starts the store keys of server-side sessions. `anetostest` sets one per test app |
 
 The cookie is always `HttpOnly`. Its content is encrypted with `APP_KEY`;
 with the cookie driver it holds the whole session, limited to about 4 KB.
@@ -189,34 +199,34 @@ Server-side sessions are stored, encrypted, under keys starting with `SESSION_PR
 Read by `db.Connect` (or `db.LoadConfig(src, prefix)`, which reads the same
 keys with a prefix, e.g. `ANALYTICS_DB_HOST`) into `db.Config`.
 
-| Key | Type | Default | Description | Since |
-|---|---|---|---|---|
-| `DB_DRIVER` | `sqlite` \| `postgres` \| `mysql` | `sqlite` | Selects one of the drivers passed to `db.Connect` | v0.1 |
-| `DB_URL` | string | empty | Complete connection string in the driver's format; when set, the five keys below are ignored. Use it for TLS and driver options. Without it, `DB_HOST` and `DB_NAME`, and with `DB_DRIVER` unset or `postgres`, a `postgres://` `DATABASE_URL` (a hosting platform's) is used, with the postgres driver | v0.1 |
-| `DB_HOST` | string | `127.0.0.1` | Server host (PostgreSQL, MySQL) | v0.1 |
-| `DB_PORT` | int | driver default (5432, 3306) | Server port | v0.1 |
-| `DB_NAME` | string | empty; SQLite: `database/app.db` | Database name, or the SQLite file (`:memory:` for an in-memory database) | v0.1 |
-| `DB_USER` | string | empty | User | v0.1 |
-| `DB_PASSWORD` | string | empty | Password | v0.1 |
-| `DB_TLS` | `verify` \| `skip-verify` \| `none` | `verify` with `DB_TLS_CA` set or a remote host; `none` for a local host (localhost, loopback, Unix socket) | TLS of the connection built from `DB_HOST` (PostgreSQL `sslmode=verify-full`/`require`/`disable`, MySQL `tls=true`/`skip-verify`/`false`). With `DB_URL`, set it in the URL instead (setting both is refused) | v0.3 |
-| `DB_TLS_CA` | path | empty | PEM file of the CAs that sign the server's certificate, for `verify` when they aren't the system's; setting it means `verify` (also through a tunnel on localhost), and it is refused with `skip-verify` or `none` | v0.3 |
-| `DB_MAX_OPEN_CONNS` | int | `25` | Maximum open connections (in-memory SQLite always uses 1) | v0.1 |
-| `DB_MAX_IDLE_CONNS` | int | `25` | Maximum idle connections kept for reuse | v0.1 |
-| `DB_CONN_MAX_LIFETIME` | duration | `30m` | Connections are replaced after this long | v0.1 |
-| `DB_CONN_MAX_IDLE_TIME` | duration | `5m` | Idle connections are closed after this long | v0.1 |
-| `DB_LOG_QUERIES` | bool | on when `APP_ENV=development` | Log every query, with its arguments and duration, at debug level | v0.1 |
-| `DB_SLOW_QUERY` | duration | `500ms` | Log queries taking at least this long as warnings (without arguments). `0` disables | v0.1 |
-| `DB_REPEATED_QUERIES` | int | `5` when `APP_ENV` is `development` or `testing`, off elsewhere | Warn when an operation (a request, a job, a listener, a task) runs the same query this many times or more: an N+1. `0` disables; otherwise at least 2. See [Find N+1 queries](../guides/n-plus-one.md) | v0.2 |
-| `DB_MIGRATE_ON_START` | bool | `false` | With `migrate.New`: run the pending migrations when the app starts with `run` (the default command) or `serve`, before its components. For one instance on SQLite in a container; the `Dockerfile` of a SQLite project sets it | v0.3 |
-| `DB_MIGRATE_READINESS` | bool | `true` | With `migrate.New`: the server isn't ready (`/health/ready` answers 503, `health:check` exits 1) while the database has migrations the app hasn't run, rechecked every 5 seconds. Turn it off where the migrations run after the new version starts and the platform waits for it to be ready | v0.3 |
-| `DB_ALLOW_LOCAL_TIMEZONE` | bool | `false` | Accept a database session time zone other than UTC (set in `DB_URL`), which the app otherwise refuses at boot so the database never writes local times next to the app's UTC ones. For a legacy database whose times are local; the app still writes UTC | v0.3 |
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `DB_DRIVER` | `sqlite` \| `postgres` \| `mysql` | `sqlite` | Selects one of the drivers passed to `db.Connect` |
+| `DB_URL` | string | empty | Complete connection string in the driver's format; when set, the five keys below are ignored. Use it for TLS and driver options. Without it, `DB_HOST` and `DB_NAME`, and with `DB_DRIVER` unset or `postgres`, a `postgres://` `DATABASE_URL` (a hosting platform's) is used, with the postgres driver |
+| `DB_HOST` | string | `127.0.0.1` | Server host (PostgreSQL, MySQL) |
+| `DB_PORT` | int | driver default (5432, 3306) | Server port |
+| `DB_NAME` | string | empty; SQLite: `database/app.db` | Database name, or the SQLite file (`:memory:` for an in-memory database) |
+| `DB_USER` | string | empty | User |
+| `DB_PASSWORD` | string | empty | Password |
+| `DB_TLS` | `verify` \| `skip-verify` \| `none` | `verify` with `DB_TLS_CA` set or a remote host; `none` for a local host (localhost, loopback, Unix socket) | TLS of the connection built from `DB_HOST` (PostgreSQL `sslmode=verify-full`/`require`/`disable`, MySQL `tls=true`/`skip-verify`/`false`). With `DB_URL`, set it in the URL instead (setting both is refused) |
+| `DB_TLS_CA` | path | empty | PEM file of the CAs that sign the server's certificate, for `verify` when they aren't the system's; setting it means `verify` (also through a tunnel on localhost), and it is refused with `skip-verify` or `none` |
+| `DB_MAX_OPEN_CONNS` | int | `25` | Maximum open connections (in-memory SQLite always uses 1) |
+| `DB_MAX_IDLE_CONNS` | int | `25` | Maximum idle connections kept for reuse |
+| `DB_CONN_MAX_LIFETIME` | duration | `30m` | Connections are replaced after this long |
+| `DB_CONN_MAX_IDLE_TIME` | duration | `5m` | Idle connections are closed after this long |
+| `DB_LOG_QUERIES` | bool | on when `APP_ENV=development` | Log every query, with its arguments and duration, at debug level |
+| `DB_SLOW_QUERY` | duration | `500ms` | Log queries taking at least this long as warnings (without arguments). `0` disables |
+| `DB_REPEATED_QUERIES` | int | `5` when `APP_ENV` is `development` or `testing`, off elsewhere | Warn when an operation (a request, a job, a listener, a task) runs the same query this many times or more: an N+1. `0` disables; otherwise at least 2. See [Find N+1 queries](../guides/n-plus-one.md) |
+| `DB_MIGRATE_ON_START` | bool | `false` | With `migrate.New`: run the pending migrations when the app starts with `run` (the default command) or `serve`, before its components. For one instance on SQLite in a container; the `Dockerfile` of a SQLite project sets it |
+| `DB_MIGRATE_READINESS` | bool | `true` | With `migrate.New`: the server isn't ready (`/health/ready` answers 503, `health:check` exits 1) while the database has migrations the app hasn't run, rechecked every 5 seconds. Turn it off where the migrations run after the new version starts and the platform waits for it to be ready |
+| `DB_ALLOW_LOCAL_TIMEZONE` | bool | `false` | Accept a database session time zone other than UTC (set in `DB_URL`), which the app otherwise refuses at boot so the database never writes local times next to the app's UTC ones. For a legacy database whose times are local; the app still writes UTC |
 
 ### Search
 
-| Key | Type | Default | Description | Since |
-|---|---|---|---|---|
-| `DB_SEARCH_LANGUAGE` | `simple` \| a language | `simple` | How search matches words: `simple` as written, in any language; `english` (PostgreSQL, SQLite) also matches their other forms; on PostgreSQL any text search configuration (`german`, `french`…). MySQL has `simple` only. Search indexes are built for it: change it, then run `search:reindex` | v0.3 |
-| `DB_SEARCH_RANKING` | `default` \| `bm25` | `default` | Order of search results: the database's own ranking, or BM25 (SQLite; PostgreSQL 17+ with the pg_textsearch extension; not MySQL). PostgreSQL needs `search:reindex` after a change | v0.3 |
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `DB_SEARCH_LANGUAGE` | `simple` \| a language | `simple` | How search matches words: `simple` as written, in any language; `english` (PostgreSQL, SQLite) also matches their other forms; on PostgreSQL any text search configuration (`german`, `french`…). MySQL has `simple` only. Search indexes are built for it: change it, then run `search:reindex` |
+| `DB_SEARCH_RANKING` | `default` \| `bm25` | `default` | Order of search results: the database's own ranking, or BM25 (SQLite; PostgreSQL 17+ with the pg_textsearch extension; not MySQL). PostgreSQL needs `search:reindex` after a change |
 
 The app refuses to start when the database can't serve these settings,
 or when a search index was built for other ones (except for `migrate…`
@@ -243,87 +253,87 @@ Driver specifics:
 
 Read by `cache.New` (or `cache.LoadConfig`) into `cache.Config`.
 
-| Key | Type | Default | Description | Since |
-|---|---|---|---|---|
-| `CACHE_DRIVER` | `memory` \| `database` \| a driver's name (`redis`) | `memory` | Selects the store; `redis` needs `redis.CacheDriver()` passed to `cache.New` | v0.2 |
-| `CACHE_PREFIX` | string | `APP_NAME` + `:cache:` | Starts every key, so apps (and other features in Redis) can share a store; `cache:clear` removes only these keys. `anetostest` sets one per test app | v0.2 |
-| `CACHE_TABLE` | string | `cache` | The database store's table; pass the same name to `cache.Migrations` | v0.2 |
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `CACHE_DRIVER` | `memory` \| `database` \| a driver's name (`redis`) | `memory` | Selects the store; `redis` needs `redis.CacheDriver()` passed to `cache.New` |
+| `CACHE_PREFIX` | string | `APP_NAME` + `:cache:` | Starts every key, so apps (and other features in Redis) can share a store; `cache:clear` removes only these keys. `anetostest` sets one per test app |
+| `CACHE_TABLE` | string | `cache` | The database store's table; pass the same name to `cache.Migrations` |
 
 ## Queue
 
 Read by `queue.New` (or `queue.LoadConfig`) into `queue.Config`. See
 [Queues](../guides/queues.md).
 
-| Key | Type | Default | Description | Since |
-|---|---|---|---|---|
-| `QUEUE_DRIVER` | `sync` \| `memory` \| `database` \| a driver's name (`redis`) | `sync` | Where jobs are kept; `sync` runs each job when it is dispatched. `redis` needs `redis.QueueDriver()` passed to `queue.New` | v0.2 |
-| `QUEUE_DEFAULT` | queue name | `default` | The queue of jobs dispatched without `queue.OnQueue`, and of workers without `queue.Queues`. Lower-case letters, digits and `. _ : -`, up to 100 | v0.2 |
-| `QUEUE_TRIES` | int ≥ 1 | `3` | Attempts per job, unless its type sets `queue.Tries` | v0.2 |
-| `QUEUE_TIMEOUT` | duration | `1m` | How long an attempt may run, unless its type sets `queue.Timeout` | v0.2 |
-| `QUEUE_BACKOFF` | duration | `10s` | The wait before the first retry, doubling for each later one, unless the type sets `queue.Backoff` | v0.2 |
-| `QUEUE_BACKOFF_MAX` | duration | `10m` | Caps the doubling | v0.2 |
-| `QUEUE_POLL_INTERVAL` | duration | `1s` | How long an idle worker waits before looking for jobs again | v0.2 |
-| `QUEUE_TABLE`, `QUEUE_FAILED_TABLE` | string | `jobs`, `failed_jobs` | The database driver's tables; pass the same names to `queue.Migrations` | v0.2 |
-| `QUEUE_PREFIX` | string | `APP_NAME` + `:queue:` | Starts the Redis driver's keys (Redis 5 or later). In a Redis Cluster, put a hash tag in it (`{blog}:queue:`). `anetostest` sets one per test app | v0.2 |
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `QUEUE_DRIVER` | `sync` \| `memory` \| `database` \| a driver's name (`redis`) | `sync` | Where jobs are kept; `sync` runs each job when it is dispatched. `redis` needs `redis.QueueDriver()` passed to `queue.New` |
+| `QUEUE_DEFAULT` | queue name | `default` | The queue of jobs dispatched without `queue.OnQueue`, and of workers without `queue.Queues`. Lower-case letters, digits and `. _ : -`, up to 100 |
+| `QUEUE_TRIES` | int ≥ 1 | `3` | Attempts per job, unless its type sets `queue.Tries` |
+| `QUEUE_TIMEOUT` | duration | `1m` | How long an attempt may run, unless its type sets `queue.Timeout` |
+| `QUEUE_BACKOFF` | duration | `10s` | The wait before the first retry, doubling for each later one, unless the type sets `queue.Backoff` |
+| `QUEUE_BACKOFF_MAX` | duration | `10m` | Caps the doubling |
+| `QUEUE_POLL_INTERVAL` | duration | `1s` | How long an idle worker waits before looking for jobs again |
+| `QUEUE_TABLE`, `QUEUE_FAILED_TABLE` | string | `jobs`, `failed_jobs` | The database driver's tables; pass the same names to `queue.Migrations` |
+| `QUEUE_PREFIX` | string | `APP_NAME` + `:queue:` | Starts the Redis driver's keys (Redis 5 or later). In a Redis Cluster, put a hash tag in it (`{blog}:queue:`). `anetostest` sets one per test app |
 
 ## Pub/sub
 
 Read by `pubsub.New` (or `pubsub.LoadConfig`) into `pubsub.Config`,
 and by the drivers. See [Pub/sub listeners](../guides/pubsub.md).
 
-| Key | Type | Default | Description | Since |
-|---|---|---|---|---|
-| `PUBSUB_DRIVER` | `memory` \| a driver's name (`redis`, `gcp`) | `memory` | The broker; `redis` needs `redis.PubSubDriver()` and `gcp` needs `gcppubsub.Driver()` passed to `pubsub.New` | v0.2 |
-| `PUBSUB_PREFIX` | string | none | Starts topic names in the broker (Redis keys, Google IDs). Topics are shared with the other services using the broker, so leave it empty unless you need to separate them (or, in a Redis Cluster, need a hash tag: `{events}:`). `anetostest` sets one per test app | v0.2 |
-| `PUBSUB_REDIS_MAXLEN` | int ≥ 0 | `1000000` | About how many messages each Redis stream keeps; 0 for no limit | v0.2 |
-| `PUBSUB_GCP_PROJECT` | string | none (required with `gcp`) | The Google Cloud project's ID | v0.2 |
-| `PUBSUB_GCP_CREATE` | bool | `false` | Create missing Google topics and subscriptions (development, the emulator) | v0.2 |
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `PUBSUB_DRIVER` | `memory` \| a driver's name (`redis`, `gcp`) | `memory` | The broker; `redis` needs `redis.PubSubDriver()` and `gcp` needs `gcppubsub.Driver()` passed to `pubsub.New` |
+| `PUBSUB_PREFIX` | string | none | Starts topic names in the broker (Redis keys, Google IDs). Topics are shared with the other services using the broker, so leave it empty unless you need to separate them (or, in a Redis Cluster, need a hash tag: `{events}:`). `anetostest` sets one per test app |
+| `PUBSUB_REDIS_MAXLEN` | int ≥ 0 | `1000000` | About how many messages each Redis stream keeps; 0 for no limit |
+| `PUBSUB_GCP_PROJECT` | string | none (required with `gcp`) | The Google Cloud project's ID |
+| `PUBSUB_GCP_CREATE` | bool | `false` | Create missing Google topics and subscriptions (development, the emulator) |
 
 ## Scheduler
 
 Read by `schedule.New` (or `schedule.LoadConfig`) into
 `schedule.Config`. See [Scheduling](../guides/scheduling.md).
 
-| Key | Type | Default | Description | Since |
-|---|---|---|---|---|
-| `SCHEDULE_TIMEZONE` | IANA time zone (`Asia/Dhaka`) | `APP_TIMEZONE` | The time zone of schedules without `.In(tz)`. Times that clock changes skip don't run that day; times they repeat run twice (see [Scheduling](../guides/scheduling.md#2-add-it-to-the-scheduler)) | v0.2 |
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `SCHEDULE_TIMEZONE` | IANA time zone (`Asia/Dhaka`) | `APP_TIMEZONE` | The time zone of schedules without `.In(tz)`. Times that clock changes skip don't run that day; times they repeat run twice (see [Scheduling](../guides/scheduling.md#2-add-it-to-the-scheduler)) |
 
 ## Mail
 
 Read by `mailer.New` (or `mailer.LoadConfig`) into `mailer.Config`,
 and by the drivers. See [Send email](../guides/mail.md).
 
-| Key | Type | Default | Description | Since |
-|---|---|---|---|---|
-| `MAIL_DRIVER` | `log` \| `smtp` \| `memory` \| a driver's name (`postmark`) | `log` | How emails are sent: `log` writes them to the app's log (a warning in production), `memory` keeps them (tests; `anetostest` sets it); `postmark` needs `postmark.Driver()` passed to `mailer.New` | v0.2 |
-| `MAIL_FROM_ADDRESS` | email address | none | The sender of messages without one; sending fails without either | v0.2 |
-| `MAIL_FROM_NAME` | string | `APP_NAME` | The sender's name | v0.2 |
-| `MAIL_SMTP_URL` | URL | `smtp://127.0.0.1:1025` | The SMTP server: `smtp://user:pass@host:587` (STARTTLS, required unless the host is local) or `smtps://…:465` (TLS); parameters `tls=none`, `timeout` (default `30s`), `local_name`. See [SMTP settings](../guides/mail.md#smtp-settings) | v0.2 |
-| `MAIL_POSTMARK_TOKEN` | string | none (required with `postmark`) | The Postmark server's API token (`POSTMARK_API_TEST` checks requests without sending) | v0.2 |
-| `MAIL_POSTMARK_STREAM` | string | `outbound` | The Postmark message stream | v0.2 |
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `MAIL_DRIVER` | `log` \| `smtp` \| `memory` \| a driver's name (`postmark`) | `log` | How emails are sent: `log` writes them to the app's log (a warning in production), `memory` keeps them (tests; `anetostest` sets it); `postmark` needs `postmark.Driver()` passed to `mailer.New` |
+| `MAIL_FROM_ADDRESS` | email address | none | The sender of messages without one; sending fails without either |
+| `MAIL_FROM_NAME` | string | `APP_NAME` | The sender's name |
+| `MAIL_SMTP_URL` | URL | `smtp://127.0.0.1:1025` | The SMTP server: `smtp://user:pass@host:587` (STARTTLS, required unless the host is local) or `smtps://…:465` (TLS); parameters `tls=none`, `timeout` (default `30s`), `local_name`. See [SMTP settings](../guides/mail.md#smtp-settings) |
+| `MAIL_POSTMARK_TOKEN` | string | none (required with `postmark`) | The Postmark server's API token (`POSTMARK_API_TEST` checks requests without sending) |
+| `MAIL_POSTMARK_STREAM` | string | `outbound` | The Postmark message stream |
 
 ## AI
 
 Read by `ai.New` (or `ai.LoadConfig`) into `ai.Config`, and by the
 drivers. See [Add AI to your app](../guides/ai.md).
 
-| Key | Type | Default | Description | Since |
-|---|---|---|---|---|
-| `AI_PROVIDER` | `anthropic` \| `openai` \| `openai-compatible` \| `gemini` \| `fake` \| another driver's name | none (required) | The provider that runs the models; its driver must be passed to `ai.New` (`fake` is built in: it answers with scripted replies and never calls a model, a warning in production; `anetostest` sets it) | v0.3 |
-| `AI_MODEL` | string | none (required by the drivers) | The model calls use unless they set `ai.Model`, by the provider's name for it | v0.3 |
-| `AI_MAX_TOKENS` | int ≥ 1 | `4096` | The longest answer, in tokens, unless a call sets `ai.MaxTokens`; a longer one is cut off | v0.3 |
-| `AI_TIMEOUT` | duration > 0 | `10m` | How long each request to the model may take, unless a call sets `ai.Timeout`; for a stream, including the time the reader's loop takes | v0.3 |
-| `AI_EMBEDDING_PROVIDER` | a driver's name | `AI_PROVIDER` | The provider of embeddings (`ai.Embed`, `ai.Embeddings`), when `AI_PROVIDER`'s has none (`anthropic`): `openai`, `gemini`, `openai-compatible` or `fake`; its driver is passed to `ai.New`, and reads its own settings. `anetostest` clears it | v0.3 |
-| `AI_EMBEDDING_MODEL` | string | none; `fake-embedding` with the fake | The embedding model, by the provider's name for it (`text-embedding-3-small`, `gemini-embedding-001`); stored with each chunk, and searches use only its chunks. Required for embeddings, and with `AI_EMBEDDING_PROVIDER` | v0.3 |
-| `AI_QUEUE_TIMEOUT` | duration > 0 | `15m` | How long a queued reply (`conv.QueueReply`) may take, all its requests and tool calls. Also how long the queue's workers wait before taking back a job of any type whose worker died (the queue's lease is its longest job timeout) | v0.3 |
-| `ANTHROPIC_API_KEY` | secret | none (required with `anthropic`) | The Anthropic API key | v0.3 |
-| `ANTHROPIC_BASE_URL` | URL | Anthropic's | Another URL for the API (a proxy, a gateway) | v0.3 |
-| `OPENAI_API_KEY` | secret | none (required with `openai`) | The OpenAI API key | v0.3 |
-| `OPENAI_BASE_URL` | URL | OpenAI's | Another URL for OpenAI's API (a proxy, a gateway) | v0.3 |
-| `OPENAI_COMPATIBLE_URL` | URL | none (required with `openai-compatible`) | The API URL of an OpenAI-compatible server, up to `/v1`: `http://localhost:11434/v1` for Ollama | v0.3 |
-| `OPENAI_COMPATIBLE_KEY` | secret | none | Its API key, if it needs one (then the URL must be https, or on this machine) | v0.3 |
-| `GEMINI_API_KEY` | secret | none (required with `gemini`) | The Gemini API key, from Google AI Studio | v0.3 |
-| `GEMINI_BASE_URL` | URL | Google's | Another URL for the Gemini API | v0.3 |
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `AI_PROVIDER` | `anthropic` \| `openai` \| `openai-compatible` \| `gemini` \| `fake` \| another driver's name | none (required) | The provider that runs the models; its driver must be passed to `ai.New` (`fake` is built in: it answers with scripted replies and never calls a model, a warning in production; `anetostest` sets it) |
+| `AI_MODEL` | string | none (required by the drivers) | The model calls use unless they set `ai.Model`, by the provider's name for it |
+| `AI_MAX_TOKENS` | int ≥ 1 | `4096` | The longest answer, in tokens, unless a call sets `ai.MaxTokens`; a longer one is cut off |
+| `AI_TIMEOUT` | duration > 0 | `10m` | How long each request to the model may take, unless a call sets `ai.Timeout`; for a stream, including the time the reader's loop takes |
+| `AI_EMBEDDING_PROVIDER` | a driver's name | `AI_PROVIDER` | The provider of embeddings (`ai.Embed`, `ai.Embeddings`), when `AI_PROVIDER`'s has none (`anthropic`): `openai`, `gemini`, `openai-compatible` or `fake`; its driver is passed to `ai.New`, and reads its own settings. `anetostest` clears it |
+| `AI_EMBEDDING_MODEL` | string | none; `fake-embedding` with the fake | The embedding model, by the provider's name for it (`text-embedding-3-small`, `gemini-embedding-001`); stored with each chunk, and searches use only its chunks. Required for embeddings, and with `AI_EMBEDDING_PROVIDER` |
+| `AI_QUEUE_TIMEOUT` | duration > 0 | `15m` | How long a queued reply (`conv.QueueReply`) may take, all its requests and tool calls. Also how long the queue's workers wait before taking back a job of any type whose worker died (the queue's lease is its longest job timeout) |
+| `ANTHROPIC_API_KEY` | secret | none (required with `anthropic`) | The Anthropic API key |
+| `ANTHROPIC_BASE_URL` | URL | Anthropic's | Another URL for the API (a proxy, a gateway) |
+| `OPENAI_API_KEY` | secret | none (required with `openai`) | The OpenAI API key |
+| `OPENAI_BASE_URL` | URL | OpenAI's | Another URL for OpenAI's API (a proxy, a gateway) |
+| `OPENAI_COMPATIBLE_URL` | URL | none (required with `openai-compatible`) | The API URL of an OpenAI-compatible server, up to `/v1`: `http://localhost:11434/v1` for Ollama |
+| `OPENAI_COMPATIBLE_KEY` | secret | none | Its API key, if it needs one (then the URL must be https, or on this machine) |
+| `GEMINI_API_KEY` | secret | none (required with `gemini`) | The Gemini API key, from Google AI Studio |
+| `GEMINI_BASE_URL` | URL | Google's | Another URL for the Gemini API |
 
 The OpenAI and Anthropic SDKs also read their own variables from the
 process environment (`OPENAI_ORG_ID`, `OPENAI_PROJECT_ID`,
@@ -338,25 +348,25 @@ disk named in `STORAGE_DISKS`, say `avatars`, reads `STORAGE_AVATARS_*`
 (`STORAGE_AVATARS_DRIVER`, `STORAGE_AVATARS_S3_BUCKET`, …). See
 [Store files](../guides/storage.md).
 
-| Key | Type | Default | Description | Since |
-|---|---|---|---|---|
-| `STORAGE_DISKS` | comma-separated names | none | More disks: lower-case letters, digits and `_`, starting with a letter | v0.2 |
-| `STORAGE_DRIVER` | `local` \| `memory` \| a driver's name (`s3`, `gcs`) | `local` | Where the disk's files are; `s3` needs `s3.Driver()` passed to `storage.New`, `gcs` `gcs.Driver()`. Named disks default to the default disk's | v0.2 |
-| `STORAGE_ROOT` | directory | `storage/app` (`storage/<name>` for a named disk) | The local driver's directory | v0.2 |
-| `STORAGE_URL` | URL | none | Where the disk's files are served: a CDN, a public bucket, or the route of the disk's handler. Needed for `URL`, and for `TemporaryURL` on local disks | v0.2 |
-| `STORAGE_PUBLIC` | bool | `false` | Anyone may read the files at `STORAGE_URL`, so `URL` works; otherwise only signed temporary URLs do | v0.2 |
-| `STORAGE_S3_BUCKET` | string | none (required with `s3`) | The bucket | v0.2 |
-| `STORAGE_S3_REGION` | string | `us-east-1` | The bucket's region (`auto` for R2). Named disks take the default disk's region, endpoint, keys and path style if they set none of them | v0.2 |
-| `STORAGE_S3_ENDPOINT` | URL | AWS | The store's URL, for S3-compatible stores (R2, MinIO, …). Named disks take the default disk's region, endpoint, keys and path style if they set none of them | v0.2 |
-| `STORAGE_S3_ACCESS_KEY`, `STORAGE_S3_SECRET_KEY` | string | none | The credentials; without them, the AWS environment variables, shared credentials file or instance role. Named disks take the default disk's region, endpoint, keys and path style if they set none of them | v0.2 |
-| `STORAGE_S3_PATH_STYLE` | bool | `false` | The bucket in the URL's path (MinIO). Named disks take the default disk's region, endpoint, keys and path style if they set none of them | v0.2 |
-| `STORAGE_S3_PREFIX` | string ending in `/` | none | A prefix for the disk's keys in the bucket (`uploads/`) | v0.2 |
-| `STORAGE_GCS_BUCKET` | string | none (required with `gcs`) | The Cloud Storage bucket | v0.3 |
-| `STORAGE_GCS_PREFIX` | string ending in `/` | none | A prefix for the disk's objects in the bucket (`uploads/`) | v0.3 |
-| `STORAGE_GCS_CREDENTIALS_FILE` | path | none | A service account key file (JSON); without it or `STORAGE_GCS_CREDENTIALS`, Application Default Credentials (the service's account on Google Cloud, `GOOGLE_APPLICATION_CREDENTIALS`, gcloud). Named disks take the default disk's credentials and signer if they set none of them | v0.3 |
-| `STORAGE_GCS_CREDENTIALS` | secret (JSON) | none | A service account key's JSON, instead of a file. Both settings take service account keys only: other credentials go through `GOOGLE_APPLICATION_CREDENTIALS` | v0.3 |
-| `STORAGE_GCS_SIGNER` | email | the credentials' account | The service account that signs temporary URLs through the IAM API when the credentials have no private key (an error with a key, which signs for its own account) | v0.3 |
-| `STORAGE_EMULATOR_HOST` | host:port | none | Read by the Cloud Storage client: talk to an emulator (fake-gcs-server) without credentials | v0.3 |
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `STORAGE_DISKS` | comma-separated names | none | More disks: lower-case letters, digits and `_`, starting with a letter |
+| `STORAGE_DRIVER` | `local` \| `memory` \| a driver's name (`s3`, `gcs`) | `local` | Where the disk's files are; `s3` needs `s3.Driver()` passed to `storage.New`, `gcs` `gcs.Driver()`. Named disks default to the default disk's |
+| `STORAGE_ROOT` | directory | `storage/app` (`storage/<name>` for a named disk) | The local driver's directory |
+| `STORAGE_URL` | URL | none | Where the disk's files are served: a CDN, a public bucket, or the route of the disk's handler. Needed for `URL`, and for `TemporaryURL` on local disks |
+| `STORAGE_PUBLIC` | bool | `false` | Anyone may read the files at `STORAGE_URL`, so `URL` works; otherwise only signed temporary URLs do |
+| `STORAGE_S3_BUCKET` | string | none (required with `s3`) | The bucket |
+| `STORAGE_S3_REGION` | string | `us-east-1` | The bucket's region (`auto` for R2). Named disks take the default disk's region, endpoint, keys and path style if they set none of them |
+| `STORAGE_S3_ENDPOINT` | URL | AWS | The store's URL, for S3-compatible stores (R2, MinIO, …). Named disks take the default disk's region, endpoint, keys and path style if they set none of them |
+| `STORAGE_S3_ACCESS_KEY`, `STORAGE_S3_SECRET_KEY` | string | none | The credentials; without them, the AWS environment variables, shared credentials file or instance role. Named disks take the default disk's region, endpoint, keys and path style if they set none of them |
+| `STORAGE_S3_PATH_STYLE` | bool | `false` | The bucket in the URL's path (MinIO). Named disks take the default disk's region, endpoint, keys and path style if they set none of them |
+| `STORAGE_S3_PREFIX` | string ending in `/` | none | A prefix for the disk's keys in the bucket (`uploads/`) |
+| `STORAGE_GCS_BUCKET` | string | none (required with `gcs`) | The Cloud Storage bucket |
+| `STORAGE_GCS_PREFIX` | string ending in `/` | none | A prefix for the disk's objects in the bucket (`uploads/`) |
+| `STORAGE_GCS_CREDENTIALS_FILE` | path | none | A service account key file (JSON); without it or `STORAGE_GCS_CREDENTIALS`, Application Default Credentials (the service's account on Google Cloud, `GOOGLE_APPLICATION_CREDENTIALS`, gcloud). Named disks take the default disk's credentials and signer if they set none of them |
+| `STORAGE_GCS_CREDENTIALS` | secret (JSON) | none | A service account key's JSON, instead of a file. Both settings take service account keys only: other credentials go through `GOOGLE_APPLICATION_CREDENTIALS` |
+| `STORAGE_GCS_SIGNER` | email | the credentials' account | The service account that signs temporary URLs through the IAM API when the credentials have no private key (an error with a key, which signs for its own account) |
+| `STORAGE_EMULATOR_HOST` | host:port | none | Read by the Cloud Storage client: talk to an emulator (fake-gcs-server) without credentials |
 
 ## Redis
 
@@ -364,9 +374,9 @@ Read by `redis.Connect` (module `drivers/redis`, also used by
 `redis.CacheDriver()`, `redis.SessionDriver()`, `redis.QueueDriver()` and
 `redis.PubSubDriver()`) into `redis.Config`.
 
-| Key | Type | Default | Description | Since |
-|---|---|---|---|---|
-| `REDIS_URL` | URL | `redis://127.0.0.1:6379/0` | The server, with its user, password and database: `redis://:secret@cache.internal:6379/2`; `rediss://` for TLS. Options go in the query string (`?dial_timeout=3s`) | v0.2 |
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `REDIS_URL` | URL | `redis://127.0.0.1:6379/0` | The server, with its user, password and database: `redis://:secret@cache.internal:6379/2`; `rediss://` for TLS. Options go in the query string (`?dial_timeout=3s`) |
 
 The server is pinged when the app boots, so the app and commands that
 boot it fail fast when Redis is unreachable.
@@ -375,22 +385,22 @@ boot it fail fast when Redis is unreachable.
 
 Read by `auth.New` (or `auth.LoadConfig`) into `auth.Config`.
 
-| Key | Type | Default | Description | Since |
-|---|---|---|---|---|
-| `AUTH_LOGIN_URL` | path | `/login` | Where `Require` sends guests asking for a page | v0.2 |
-| `AUTH_HOME_URL` | path | `/` (`auth.WithDefaultHomeURL` sets another; `make:auth`'s is `/dashboard`) | The page for logged-in users: where logging in or registering leads when there's no page they asked for, and where `Guest` sends them | v0.2 |
-| `AUTH_REMEMBER_TTL` | duration | `720h` | How long "remember me" lasts | v0.2 |
-| `AUTH_THROTTLE` | int | `5` | Login attempts allowed per minute for one login, or one account, from one IP address (cleared by a success) | v0.2 |
-| `AUTH_THROTTLE_IP` | int | `50` | Failed logins allowed per minute from one IP address (IPv6: its /64), whatever the login | v0.2 |
-| `AUTH_RESET_TTL` | duration | `60m` | How long a password-reset token works | v0.2 |
-| `AUTH_VERIFY_TTL` | duration | `24h` | How long an email-verification token works | v0.2 |
-| `AUTH_REVERT_TTL` | duration | `168h` | How long the link that undoes a change of email address works | v0.3 |
-| `AUTH_CHALLENGE_URL` | path | `/two-factor-challenge` | Where a login waiting for a two-factor code asks for it (social login sends users there) | v0.3 |
-| `AUTH_TWO_FACTOR_URL` | path | `/two-factor` | Where users turn two-factor authentication on and off (the admin links there) | v0.3 |
-| `AUTH_SETTINGS_URL` | path | `/settings` | The account settings page (`make:auth`'s); the admin links the user's name to it when the app has it | v0.3 |
-| `AUTH_CONFIRM_URL` | path | `/confirm-password` | Where `RequireConfirmed` sends users to confirm their password | v0.3 |
-| `AUTH_CONFIRM_TTL` | duration | `15m` | How long a confirmed password holds | v0.3 |
-| `AUTH_CLIENT_URL` | URL | none | The client app of an API (`https://app.example.com`: http or https, no query): where emailed links lead (`Auth.ClientLink`); `make:auth` in an API project sets it, and its `setupAuth` refuses to boot without it in production and staging | v0.4 |
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `AUTH_LOGIN_URL` | path | `/login` | Where `Require` sends guests asking for a page |
+| `AUTH_HOME_URL` | path | `/` (`auth.WithDefaultHomeURL` sets another; `make:auth`'s is `/dashboard`) | The page for logged-in users: where logging in or registering leads when there's no page they asked for, and where `Guest` sends them |
+| `AUTH_REMEMBER_TTL` | duration | `720h` | How long "remember me" lasts |
+| `AUTH_THROTTLE` | int | `5` | Login attempts allowed per minute for one login, or one account, from one IP address (cleared by a success) |
+| `AUTH_THROTTLE_IP` | int | `50` | Failed logins allowed per minute from one IP address (IPv6: its /64), whatever the login |
+| `AUTH_RESET_TTL` | duration | `60m` | How long a password-reset token works |
+| `AUTH_VERIFY_TTL` | duration | `24h` | How long an email-verification token works |
+| `AUTH_REVERT_TTL` | duration | `168h` | How long the link that undoes a change of email address works |
+| `AUTH_CHALLENGE_URL` | path | `/two-factor-challenge` | Where a login waiting for a two-factor code asks for it (social login sends users there) |
+| `AUTH_TWO_FACTOR_URL` | path | `/two-factor` | Where users turn two-factor authentication on and off (the admin links there) |
+| `AUTH_SETTINGS_URL` | path | `/settings` | The account settings page (`make:auth`'s); the admin links the user's name to it when the app has it |
+| `AUTH_CONFIRM_URL` | path | `/confirm-password` | Where `RequireConfirmed` sends users to confirm their password |
+| `AUTH_CONFIRM_TTL` | duration | `15m` | How long a confirmed password holds |
+| `AUTH_CLIENT_URL` | URL | none | The client app of an API (`https://app.example.com`: http or https, no query): where emailed links lead (`Auth.ClientLink`); `make:auth` in an API project sets it, and its `setupAuth` refuses to boot without it in production and staging |
 
 The remember-me cookie is `HttpOnly`, `SameSite=Lax` and Secure like the
 session cookie; a Secure one is named `__Host-anetos_remember`.
@@ -400,26 +410,26 @@ session cookie; a Secure one is named `__Host-anetos_remember`.
 Read by `audit.New` into `audit.Config`. See
 [Keep an audit log](../guides/audit-log.md).
 
-| Key | Type | Default | Description | Since |
-|---|---|---|---|---|
-| `AUDIT_IP` | `none`, `masked`, `full` | `none` | Whether entries keep the client's IP address: not at all, masked (IPv4 to its /24, IPv6 to its /48), or whole | v0.3 |
-| `AUDIT_BULK_MAX_VALUES` | int | `10000` | How many rows' values a bulk entry keeps (every row's key is kept), set when a model is tracked | v0.3 |
-| `AUDIT_RETENTION_DAYS` | int | `0` | How long `audit:prune` and `audit.Prune` keep entries; 0 keeps them forever | v0.3 |
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `AUDIT_IP` | `none`, `masked`, `full` | `none` | Whether entries keep the client's IP address: not at all, masked (IPv4 to its /24, IPv6 to its /48), or whole |
+| `AUDIT_BULK_MAX_VALUES` | int | `10000` | How many rows' values a bulk entry keeps (every row's key is kept), set when a model is tracked |
+| `AUDIT_RETENTION_DAYS` | int | `0` | How long `audit:prune` and `audit.Prune` keep entries; 0 keeps them forever |
 
 ## Admin
 
 Read by `admin.New` into `admin.Config` (module `anetos.dev/anetos/admin`).
 See [Add an admin panel](../guides/admin.md).
 
-| Key | Type | Default | Description | Since |
-|---|---|---|---|---|
-| `ADMIN_PATH` | string | `/admin` | Where the admin is mounted; starts with `/`. With `ADMIN_HOST`, the admin is at that host's root unless this is set; `/` needs `ADMIN_HOST` | v0.3 |
-| `ADMIN_HOST` | string | empty | A host the admin answers on alone (`admin.example.com`, on any port; a port given here goes into its URLs); empty for every host | v0.3 |
-| `ADMIN_TITLE` | string | `APP_NAME` | The admin's name in its pages (overrides `admin.WithDefaultTitle`) | v0.3 |
-| `ADMIN_PER_PAGE` | int | `25` | How many records a list shows, 1 to 500 (a resource's `PerPage` overrides it) | v0.3 |
-| `ADMIN_CONFIRM` | bool | `true` | Ask for the password again (`AUTH_CONFIRM_TTL`) before dangerous actions: deleting, disabling, roles and permissions, impersonating a user, forgetting every failed job, actions marked `Danger` | v0.3 |
-| `ADMIN_TWO_FACTOR` | `optional`, `required` | `optional` | `required` lets in only users with two-factor authentication on; the others are told to turn it on (`AUTH_TWO_FACTOR_URL`) | v0.3 |
-| `ADMIN_ALLOW_IPS` | list | empty | Addresses or networks (`10.0.0.0/8`), comma-separated, the admin answers; others get 404. The client's address is read behind trusted proxies only (`HTTP_TRUSTED_PROXIES`). Empty for every address | v0.3 |
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `ADMIN_PATH` | string | `/admin` | Where the admin is mounted; starts with `/`. With `ADMIN_HOST`, the admin is at that host's root unless this is set; `/` needs `ADMIN_HOST` |
+| `ADMIN_HOST` | string | empty | A host the admin answers on alone (`admin.example.com`, on any port; a port given here goes into its URLs); empty for every host |
+| `ADMIN_TITLE` | string | `APP_NAME` | The admin's name in its pages (overrides `admin.WithDefaultTitle`) |
+| `ADMIN_PER_PAGE` | int | `25` | How many records a list shows, 1 to 500 (a resource's `PerPage` overrides it) |
+| `ADMIN_CONFIRM` | bool | `true` | Ask for the password again (`AUTH_CONFIRM_TTL`) before dangerous actions: deleting, disabling, roles and permissions, impersonating a user, forgetting every failed job, actions marked `Danger` |
+| `ADMIN_TWO_FACTOR` | `optional`, `required` | `optional` | `required` lets in only users with two-factor authentication on; the others are told to turn it on (`AUTH_TWO_FACTOR_URL`) |
+| `ADMIN_ALLOW_IPS` | list | empty | Addresses or networks (`10.0.0.0/8`), comma-separated, the admin answers; others get 404. The client's address is read behind trusted proxies only (`HTTP_TRUSTED_PROXIES`). Empty for every address |
 
 ## Social login
 
@@ -427,10 +437,10 @@ Read by `social.New` and `social.Configured`, for each provider name
 (`GOOGLE`, `GITHUB`, or the upper-cased name given to `social.OIDC`, with
 `-` as `_`).
 
-| Key | Type | Default | Description | Since |
-|---|---|---|---|---|
-| `SOCIAL_<NAME>_CLIENT_ID` | string | empty | The client ID of the app registered with the provider | v0.2 |
-| `SOCIAL_<NAME>_CLIENT_SECRET` | string | empty | Its client secret | v0.2 |
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `SOCIAL_<NAME>_CLIENT_ID` | string | empty | The client ID of the app registered with the provider |
+| `SOCIAL_<NAME>_CLIENT_SECRET` | string | empty | Its client secret |
 
 Callback URLs are `APP_URL` followed by `/auth/<name>/callback`
 (`social.WithCallbackPath` changes the path).
@@ -449,7 +459,7 @@ booting, with an error naming them. See [Use plugins](../guides/plugins.md).
 Read by the plugin of `plugins/postmark` (its mail transport reads
 `MAIL_POSTMARK_*`: [Mail](#mail)).
 
-| Key | Type | Default | Description | Since |
-|---|---|---|---|---|
-| `POSTMARK_WEBHOOK_USER` | string | empty | The user name of the webhook's basic auth, set in the webhook's URL in Postmark (`https://USER:PASSWORD@example.com/postmark/webhook`). Without it or the password, the webhook refuses every request (401) | v0.2 |
-| `POSTMARK_WEBHOOK_PASSWORD` | secret | empty | The webhook's password | v0.2 |
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `POSTMARK_WEBHOOK_USER` | string | empty | The user name of the webhook's basic auth, set in the webhook's URL in Postmark (`https://USER:PASSWORD@example.com/postmark/webhook`). Without it or the password, the webhook refuses every request (401) |
+| `POSTMARK_WEBHOOK_PASSWORD` | secret | empty | The webhook's password |
