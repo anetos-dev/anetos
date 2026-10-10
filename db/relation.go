@@ -205,7 +205,7 @@ func (r *relMeta) doResolve(owner *meta) error {
 // ---- handles ----
 
 // Relation is a relation of model T, as [Q.With], [Load], [LoadMany] and
-// [Q.WhereHas] take it. Its only implementation is [Rel]; `anetos gen`
+// [Q.WhereHas] take it. Its only implementation is [Rel]; `anetos generate`
 // writes one per relation field (PostRels.Comments).
 type Relation[T any] interface {
 	spec() relSpec
@@ -231,7 +231,7 @@ type Rel[T, R any] struct {
 }
 
 // RelOf returns the relation of model T declared on field, a pointer to R
-// or a slice of R with a rel tag. `anetos gen` writes these; declared by
+// or a slice of R with a rel tag. `anetos generate` writes these; declared by
 // hand, a wrong field or type is reported by [Rel.Err] and by the queries
 // that use it. Nothing is checked before first use, so RelOf is safe in
 // package-level variables.

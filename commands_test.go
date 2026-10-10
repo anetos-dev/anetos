@@ -271,3 +271,36 @@ func TestVersionCommand(t *testing.T) {
 		t.Errorf("an argument: %d", code)
 	}
 }
+
+func TestFormerCommandNames(t *testing.T) {
+	app := newApp(t, config.Map{})
+	ran := 0
+	if err := app.AddCommand(cmd.Command{Name: "report:send", Former: []string{"reports:send"}, Description: "Send the report", ManagesApp: true,
+		Run: func(context.Context, *cmd.Args) error { ran++; return nil }}); err != nil {
+		t.Fatal(err)
+	}
+	if code, out, errOut := execute(t, app, "reports:send"); code != 0 || ran != 1 || out != "" || !strings.Contains(errOut, "reports:send is now report:send") {
+		t.Errorf("reports:send = %d %q %q, ran %d", code, out, errOut, ran)
+	}
+	if code, _, errOut := execute(t, app, "report:send"); code != 0 || ran != 2 || errOut != "" {
+		t.Errorf("report:send = %d %q", code, errOut)
+	}
+	if _, out, _ := execute(t, app, "help"); strings.Contains(out, "reports:send") || !strings.Contains(out, "report:send") {
+		t.Errorf("help lists a former name:\n%s", out)
+	}
+	if code, out, _ := execute(t, app, "help", "reports:send"); code != 0 || !strings.Contains(out, "Usage:") || !strings.Contains(out, "report:send") {
+		t.Errorf("help reports:send = %d %q", code, out)
+	}
+	for _, c := range []cmd.Command{
+		{Name: "other", Former: []string{"reports:send"}},  // taken as a former name
+		{Name: "reports:send"},                             // likewise
+		{Name: "another", Former: []string{"report:send"}}, // a command's name
+		{Name: "third", Former: []string{"help"}},
+		{Name: "fourth", Former: []string{"Bad Name"}},
+	} {
+		c.Run = func(context.Context, *cmd.Args) error { return nil }
+		if err := app.AddCommand(c); err == nil {
+			t.Errorf("AddCommand(%s, former %v) = nil", c.Name, c.Former)
+		}
+	}
+}

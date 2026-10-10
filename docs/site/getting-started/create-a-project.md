@@ -25,7 +25,7 @@ compiles its views. Its flags:
 |---|---|---|
 | `--db` | `sqlite` | `postgres` or `mysql` for a server database ([Choose a database](databases.md)) |
 | `--stack` | `web` | `api` for an app that serves JSON only ([below](#an-api-instead)) |
-| `--css` | `anetos` | The design kit: `anetos`, the starter theme; `none`, components without classes and an almost empty stylesheet, for your own CSS; `pico`, `bootstrap` or `bulma`, components in that framework's markup, with its files; `tailwind`, components with Tailwind CSS's classes, compiled by `anetos dev` ([Style your app](../guides/styling.md#7-or-start-with-another-kit)) |
+| `--css` | `anetos` | The CSS framework: `anetos`, the starter theme; `none`, components without classes and an almost empty stylesheet, for your own CSS; `pico`, `bootstrap` or `bulma`, components in that framework's markup, with its files; `tailwind`, components with Tailwind CSS's classes, compiled by `anetos dev` ([Style your app](../guides/styling.md#7-or-start-with-a-css-framework)) |
 | `--module` | the folder's name | The Go module path, such as `github.com/you/blog` |
 
 ## Run it
@@ -50,7 +50,7 @@ The app is one program with commands. `go run . help` lists them:
 
 ```sh
 go run . help          # every command
-go run . routes:list   # the URLs and their handlers
+go run . route:list    # the URLs and their handlers
 go run .               # run: the web server, the queue's workers and the scheduler
 ```
 

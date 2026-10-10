@@ -5,9 +5,9 @@
 // validation errors and old input after a redirect, flash messages,
 // sessions, hashed static assets and htmx, over a SQLite database.
 //
-//	go tool anetos key:generate >> .env   # APP_KEY, once
+//	go tool anetos key:generate           # APP_KEY, once
 //	export APP_ENV=development HTTP_ADDR=:8080
-//	go generate ./...   # templ generate and anetos gen, after changing a .templ file or a model
+//	go generate ./...   # templ generate and anetos generate, after changing a .templ file or a model
 //	go run . migrate    # and go run . db:seed for sample notes
 //	go run .
 //
@@ -187,7 +187,7 @@ func setup(app *anetos.App) (*web.Server, error) {
 	pages.Get("/", func(c *web.Ctx) error { return c.RedirectRoute("notes.index") })
 	pages.Get("/notes", web.H(h.Index)).Name("notes.index")
 	pages.Get("/notes/new", h.New).Name("notes.new")
-	pages.Post("/notes", web.H(h.Create)).Name("notes.store")
+	pages.Post("/notes", web.H(h.Create)).Name("notes.create")
 	pages.Get("/notes/{id}/edit", web.H(h.Edit)).Name("notes.edit")
 	pages.Put("/notes/{id}", web.H(h.Update)).Name("notes.update")
 	pages.Delete("/notes/{id}", web.H(h.Delete)).Name("notes.delete")
@@ -203,5 +203,5 @@ func main() {
 	if _, err := setup(app); err != nil {
 		log.Fatal(err)
 	}
-	app.Execute() // serves by default; also migrate, db:seed, routes:list, help
+	app.Execute() // serves by default; also migrate, db:seed, route:list, help
 }

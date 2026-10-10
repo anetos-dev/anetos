@@ -67,7 +67,7 @@ func makeAuth(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 		return 1
 	}
 	if res.Kit != "" {
-		fmt.Fprintf(stdout, "views/ui is the %s kit's components, which the new pages call: the project had none (made before v0.5).\nThe layout keeps its markup; the upgrade guide shows how to use them there too.\n", res.Kit)
+		fmt.Fprintf(stdout, "views/ui has the components for %s, which the new pages call: the project had none (made before v0.5).\nThe layout keeps its markup; the upgrade guide shows how to use them there too.\n", scaffold.CSSName(res.Kit))
 	}
 	settings := "SOCIAL_* settings"
 	if res.API {
@@ -85,9 +85,9 @@ func makeAuth(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	// The modules the new imports need, the User model's typed columns,
 	// the pages' Go code, and a check that it all builds.
 	finish := func(err error) int {
-		steps := "go mod tidy && go tool anetos gen && go tool templ generate && go build ./..."
+		steps := "go mod tidy && go tool anetos generate && go tool templ generate && go build ./..."
 		if res.API {
-			steps = "go mod tidy && go tool anetos gen && go build ./..."
+			steps = "go mod tidy && go tool anetos generate && go build ./..."
 		}
 		fmt.Fprintf(stderr, "anetos make:auth: %v\nThe files are written; once fixed, finish with:\n\t%s\n", err, steps)
 		return 1

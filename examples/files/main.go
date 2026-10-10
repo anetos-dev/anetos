@@ -5,7 +5,7 @@
 // "avatars" disk. Disks are local directories by default, or S3 buckets
 // (STORAGE_DRIVER=s3); the app serves local files itself.
 //
-//	go tool anetos key:generate >> .env   # APP_KEY, once
+//	go tool anetos key:generate           # APP_KEY, once
 //	export APP_ENV=development HTTP_ADDR=:8080 \
 //	  STORAGE_URL=http://localhost:8080/files \
 //	  STORAGE_DISKS=avatars STORAGE_AVATARS_URL=http://localhost:8080/avatars STORAGE_AVATARS_PUBLIC=true

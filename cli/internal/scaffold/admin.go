@@ -328,7 +328,7 @@ func AdminReplace(root string) (path string, replaced bool, err error) {
 	return strings.TrimSuffix(filepath.ToSlash(core), "/") + "/admin", false, nil
 }
 
-// adminField is a field of a model, as make:admin:resource uses it.
+// adminField is a field of a model, as make:admin-resource uses it.
 type adminField struct {
 	Name     string // the Go name
 	Column   string
@@ -349,7 +349,7 @@ type adminResourceData struct {
 	Date                            bool
 }
 
-// sensitive are the fields make:admin:resource leaves out of lists and
+// sensitive are the fields make:admin-resource leaves out of lists and
 // forms, by their names in snake case.
 var sensitive = regexp.MustCompile(`password|passwd|secret|token|credential|api_?key|private_?key|recovery|(^|_)otp(_|$)`)
 
@@ -388,7 +388,7 @@ func MakeAdminResource(root, name string) ([]string, error) {
 	}
 	rel := "app/admin/" + plural + ".go"
 	if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(rel))); err == nil {
-		return nil, fmt.Errorf("%s exists: make:admin:resource writes nothing over the app's files", rel)
+		return nil, fmt.Errorf("%s exists: make:admin-resource writes nothing over the app's files", rel)
 	}
 	names, err := declared(filepath.Join(root, "app", "admin"))
 	if err != nil {

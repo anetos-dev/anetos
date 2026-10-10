@@ -189,7 +189,7 @@
         "tags": [
           "API"
         ],
-        "operationId": "api.issues.store",
+        "operationId": "api.issues.create",
         "parameters": [
           {
             "name": "project",

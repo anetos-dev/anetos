@@ -53,7 +53,7 @@ func generate(t *testing.T, dir string, patterns ...string) []Change {
 
 func TestFixturesUpToDate(t *testing.T) {
 	if changes := generate(t, ".", "./internal/..."); len(changes) != 0 {
-		t.Errorf("fixtures are out of date (run go run ./cmd/anetos gen ./internal/modelgen/internal/... in cli): %v", changes[0].Path)
+		t.Errorf("fixtures are out of date (run go run ./cmd/anetos generate ./internal/modelgen/internal/... in cli): %v", changes[0].Path)
 	}
 }
 
@@ -185,9 +185,9 @@ func TestErrors(t *testing.T) {
 			"models/base_other.go": "//go:build !linux\n\n" + head + "//anetos:skip\ntype Base struct{ db.Model }\n"},
 			"declared in a file with build constraints"},
 		{"not ours, excluded from the build", map[string]string{"models/m.go": head + "type P struct{ db.Model }\n",
-			"models/models_gen.go": "//go:build ignore\n\npackage models\n"}, "was not written by anetos gen"},
+			"models/models_gen.go": "//go:build ignore\n\npackage models\n"}, "was not written by anetos generate"},
 		{"not ours", map[string]string{"models/m.go": head + "type P struct{ db.Model }\n",
-			"models/models_gen.go": "package models\n"}, "was not written by anetos gen"},
+			"models/models_gen.go": "package models\n"}, "was not written by anetos generate"},
 		{"no packages", map[string]string{"models/m.go": head}, "nope"},
 	}
 	for _, c := range cases {

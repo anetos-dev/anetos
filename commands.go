@@ -34,11 +34,42 @@ func (a *App) AddCommand(c cmd.Command) error {
 	}
 	a.cmdMu.Lock()
 	defer a.cmdMu.Unlock()
-	if _, dup := a.commands[c.Name]; dup {
-		return fmt.Errorf("anetos: command %q registered twice", c.Name)
+	for _, name := range append([]string{c.Name}, c.Former...) {
+		if name == "help" {
+			return fmt.Errorf("anetos: command %q: the name \"help\" is reserved", c.Name)
+		}
+		if a.taken(name) {
+			return fmt.Errorf("anetos: command %q registered twice", name)
+		}
 	}
 	a.commands[c.Name] = c
+	for _, f := range c.Former {
+		a.former[f] = c.Name
+	}
 	return nil
+}
+
+// taken reports whether name is a command's name or former name. The
+// caller holds cmdMu.
+func (a *App) taken(name string) bool {
+	_, isCmd := a.commands[name]
+	_, former := a.former[name]
+	return isCmd || former
+}
+
+// lookup returns the command name or a former name runs, and whether
+// name is a former one.
+func (a *App) lookup(name string) (c cmd.Command, ok, former bool) {
+	a.cmdMu.Lock()
+	defer a.cmdMu.Unlock()
+	if c, ok = a.commands[name]; ok {
+		return c, true, false
+	}
+	if n, isFormer := a.former[name]; isFormer {
+		c, ok = a.commands[n]
+		return c, ok, true
+	}
+	return cmd.Command{}, false, false
 }
 
 // Command registers a custom command, run with the app booted:
@@ -143,13 +174,14 @@ func (a *App) ExecuteArgs(ctx context.Context, args []string, stdout, stderr io.
 	if args[0] == "help" || isHelpFlag(args[0]) {
 		return a.help(bin, args[1:], stdout, stderr)
 	}
-	a.cmdMu.Lock()
-	c, ok := a.commands[args[0]]
-	a.cmdMu.Unlock()
+	c, ok, former := a.lookup(args[0])
 	if !ok {
 		fmt.Fprintf(stderr, "%s: unknown command %q\n\n", bin, args[0])
 		a.printCommands(bin, stderr)
 		return 2
+	}
+	if former {
+		fmt.Fprintf(stderr, "%s: %s is now %s; the old name will be removed\n", bin, args[0], c.Name)
 	}
 	if len(args) > 1 && isHelpFlag(args[1]) {
 		printUsage(stdout, bin, c) // without running the command
@@ -203,9 +235,7 @@ func (a *App) help(bin string, args []string, stdout, stderr io.Writer) int {
 		a.printCommands(bin, stdout)
 		return 0
 	}
-	a.cmdMu.Lock()
-	c, ok := a.commands[args[0]]
-	a.cmdMu.Unlock()
+	c, ok, _ := a.lookup(args[0])
 	if !ok {
 		fmt.Fprintf(stderr, "%s: unknown command %q\n", bin, args[0])
 		return 2

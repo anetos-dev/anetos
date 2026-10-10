@@ -77,7 +77,7 @@ Generated files in the examples (`make gen-check` checks the models' code):
   no `.env`: `APP_ENV=development APP_KEY=base64:$(head -c32 /dev/urandom | base64) go run . openapi`.
   `web/openapi`'s own golden files: `go test ./web/openapi -update`.
 - After changing the generator's fixtures, run
-  `go run ./cmd/anetos gen ./internal/modelgen/internal/...` in `cli/`.
+  `go run ./cmd/anetos generate ./internal/modelgen/internal/...` in `cli/`.
 
 `cli/` tests create and build a project with `anetos new` (and download
 templ if the module cache lacks it); `go test -short` skips them. When

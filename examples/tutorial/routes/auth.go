@@ -46,43 +46,43 @@ func Auth(r *web.Router, sessions *session.Manager, a *auth.Auth[*models.User], 
 	guests.Get("/two-factor-challenge", h.ChallengePage).Name("two-factor.challenge")
 	guests.Post("/two-factor-challenge", web.H(h.Challenge))
 
-	members := pages.Group("", a.Require) // guests go to AUTH_LOGIN_URL
-	members.Get("/dashboard", h.Dashboard).Name("dashboard")
-	members.Post("/logout", h.Logout).Name("logout")
-	members.With(ratelimit.Middleware("verification", ratelimit.PerMinute(3))).
+	loggedIn := pages.Group("", a.Require) // guests go to AUTH_LOGIN_URL
+	loggedIn.Get("/dashboard", h.Dashboard).Name("dashboard")
+	loggedIn.Post("/logout", h.Logout).Name("logout")
+	loggedIn.With(ratelimit.Middleware("verification", ratelimit.PerMinute(3))).
 		Post("/email/verification-notification", h.ResendVerification).Name("verification.send")
-	members.Post("/tokens/{id}/delete", web.H(h.RevokeToken)).Name("tokens.destroy")
+	loggedIn.Post("/tokens/{id}/delete", web.H(h.RevokeToken)).Name("tokens.delete")
 	// The account settings (AUTH_SETTINGS_URL).
-	members.Get("/settings", h.Settings).Name("settings")
-	members.Post("/settings/profile", web.H(h.UpdateProfile)).Name("settings.profile")
-	members.Post("/settings/password", web.H(h.ChangePassword)).Name("settings.password")
-	members.Post("/settings/preferences", web.H(h.UpdatePreferences)).Name("settings.preferences")
-	members.Post("/settings/email/cancel", h.CancelEmailChange).Name("settings.email.cancel")
-	members.Get("/confirm-password", h.ConfirmPage).Name("password.confirm") // AUTH_CONFIRM_URL
-	members.Post("/confirm-password", web.H(h.ConfirmPassword))
+	loggedIn.Get("/settings", h.Settings).Name("settings")
+	loggedIn.Post("/settings/profile", web.H(h.UpdateProfile)).Name("settings.profile")
+	loggedIn.Post("/settings/password", web.H(h.ChangePassword)).Name("settings.password")
+	loggedIn.Post("/settings/preferences", web.H(h.UpdatePreferences)).Name("settings.preferences")
+	loggedIn.Post("/settings/email/cancel", h.CancelEmailChange).Name("settings.email.cancel")
+	loggedIn.Get("/confirm-password", h.ConfirmPage).Name("password.confirm") // AUTH_CONFIRM_URL
+	loggedIn.Post("/confirm-password", web.H(h.ConfirmPassword))
 
 	// region: routes-issues
 	// The tracker's pages, for logged-in users.
 	var issues handlers.Issues
-	members.Get("/issues", web.H(issues.Index)).Name("issues.index")
-	members.Get("/issues/new", issues.New).Name("issues.new")
-	members.Post("/issues", web.H(issues.Create)).Name("issues.store")
-	members.Get("/issues/{id}/edit", web.H(issues.Edit)).Name("issues.edit")
-	members.Put("/issues/{id}", web.H(issues.Update)).Name("issues.update")
+	loggedIn.Get("/issues", web.H(issues.Index)).Name("issues.index")
+	loggedIn.Get("/issues/new", issues.New).Name("issues.new")
+	loggedIn.Post("/issues", web.H(issues.Create)).Name("issues.create")
+	loggedIn.Get("/issues/{id}/edit", web.H(issues.Edit)).Name("issues.edit")
+	loggedIn.Put("/issues/{id}", web.H(issues.Update)).Name("issues.update")
 	// endregion
 	// region: routes-issue-page
-	members.Get("/issues/{id}", web.H(issues.Show)).Name("issues.show")
-	members.Post("/issues/{id}/comments", web.H(issues.Comment)).Name("comments.store")
-	members.Post("/issues/{id}/status", web.H(issues.SetStatus)).Name("issues.status")
+	loggedIn.Get("/issues/{id}", web.H(issues.Show)).Name("issues.show")
+	loggedIn.Post("/issues/{id}/comments", web.H(issues.Comment)).Name("comments.create")
+	loggedIn.Post("/issues/{id}/status", web.H(issues.SetStatus)).Name("issues.status")
 	// endregion
 	// region: routes-search
-	members.Get("/search", web.H(issues.Search)).Name("search")
+	loggedIn.Get("/search", web.H(issues.Search)).Name("search")
 	// endregion
 
 	// Two-factor authentication (AUTH_TWO_FACTOR_URL), a new email address, API
 	// tokens and deleting the account, once the password is confirmed
 	// again (AUTH_CONFIRM_TTL).
-	secure := members.Group("", a.RequireConfirmed)
+	secure := loggedIn.Group("", a.RequireConfirmed)
 	if h.AllowEmailChange {
 		secure.Post("/settings/email", web.H(h.ChangeEmail)).Name("settings.email")
 	}
@@ -91,7 +91,7 @@ func Auth(r *web.Router, sessions *session.Manager, a *auth.Auth[*models.User], 
 	}
 	// A token works without the browser, so it needs the password again
 	// too.
-	secure.Post("/tokens", web.H(h.CreateToken)).Name("tokens.store")
+	secure.Post("/tokens", web.H(h.CreateToken)).Name("tokens.create")
 	secure.Get("/two-factor", h.TwoFactorPage).Name("two-factor")
 	secure.Post("/two-factor", h.StartTwoFactor).Name("two-factor.start")
 	secure.Post("/two-factor/confirm", web.H(h.ConfirmTwoFactor)).Name("two-factor.confirm")

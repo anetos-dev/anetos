@@ -1,13 +1,13 @@
 ---
 title: Style with Tailwind CSS
 since: v0.5.0
-group: "Design kits"
+group: "CSS frameworks"
 weight: 155
 ---
 
 # Style with Tailwind CSS
 
-The `tailwind` kit: components with [Tailwind CSS](https://tailwindcss.com)
+`--css=tailwind`: components with [Tailwind CSS](https://tailwindcss.com)
 4.3.3's utility classes, and a stylesheet that Tailwind compiles from
 them. `anetos dev` and `anetos build` run Tailwind's standalone CLI for
 you: no Node.js.

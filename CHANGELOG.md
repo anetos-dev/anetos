@@ -7,6 +7,16 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- `web.Router.Static(prefix, fsys)` serves a file system's files for
+  GET and HEAD requests no route matches; new web projects serve
+  `public/` at `/` with it (`public.Files`, and a `robots.txt`), so
+  `public/robots.txt` and `.well-known/` work; `public/static/` stays at
+  `/assets/` (M8b-4, D313).
+- `schedule:run` without a task runs the tasks due this minute, once
+  (`schedule.Scheduler.RunDue`), for cron or a Kubernetes CronJob;
+  `schedule:test <task>` runs one task; `queue:work` and `schedule:work`
+  run the workers or the scheduler alone; `cmd.Command.Former` keeps a
+  renamed command's old names (M8b-4, D313).
 - `config`'s `was:"OLD"` tag reads a renamed setting's former name;
   `config.RenameReporter` and `config.Lister`; `config.Key.Was`. The app
   logs each former name in use once, and `doctor` lists them and points
@@ -19,28 +29,29 @@ All notable changes to this project are documented here. The format follows
   `DB_NAME`; `DB_DRIVER` unset or `postgres`), and the app logs that it
   uses it. Tests ignore a `DATABASE_URL` in the shell (M8b-2).
 - `views/ui`, the app's interface components (K1, D292–D297): `anetos
-  new` writes a design kit's components (`ui.Header`, `ui.Nav`,
+  new` writes the components (`ui.Header`, `ui.Nav`,
   `ui.PageHeader`, `ui.Card`, `ui.Form`, `ui.Field`, `ui.Input`,
   `ui.Button`, `ui.PostButton`, `ui.Table`, `ui.Badge`,
   `ui.Pagination`… about 35, typed looks and tones) into the app, and
   the layout and the pages of `make:crud` and `make:auth` call them,
-  with no classes of their own, so a kit restyles every generated page.
+  with no classes of their own, so another CSS framework restyles every
+  generated page.
   The package is the app's: change a component's markup, or add your
   own. Guide "Style your app" rewritten; the UI components reference.
 - `web.MustURL`: `web.URL` for a component's arguments, panicking on a
   route that doesn't exist (K1, D295).
-- Design kits for CSS frameworks (K2, D298–D300): `anetos new
+- CSS frameworks (K2, D298–D300): `anetos new
   --css=pico`, `--css=bootstrap` and `--css=bulma` write `views/ui` in
   Pico 2.1.1's, Bootstrap 5.3.8's or Bulma 1.0.4's markup, with the
   framework's files as released (and its MIT license) in
   `public/static/`; no build step or CDN, light and dark from the
   system, a menu button on a small screen (Bootstrap, Bulma). The
-  pages are the same with every kit. `scripts/update-kits.sh` fetches
+  pages are the same with each. `scripts/update-kits.sh` fetches
   a framework's release.
 - `ui.NavItem`, a header entry that isn't a link (the logout button),
   which `make:auth`'s `AccountMenu` uses; and `nav.menu` in a new
   project's `locales/en/app.yaml` (K2, D299).
-- A Tailwind CSS kit (K3, D301–D303): `anetos new --css=tailwind`
+- Tailwind CSS (K3, D301–D303): `anetos new --css=tailwind`
   writes `views/ui` with Tailwind 4.3.3's utility classes, the source
   stylesheet `views/ui/tailwind.css` and the `app.css` it compiles to,
   prebuilt so a new project's pages are styled before Tailwind runs.
@@ -51,15 +62,16 @@ All notable changes to this project are documented here. The format follows
   dev` keeps the `app.css` there is. `anetos css:build [--check]`
   compiles it alone. A Tailwind project's `Dockerfile` caches the
   download.
-- `anetos css:use <kit> [--force]` switches a project's design kit (K4,
-  D304–D306): it writes the kit's components and stylesheets, removes
-  the old kit's files, and records the kit in `views/ui/kit.json` (the
-  SHA-256 of each file it wrote), so it refuses to replace a kit file
-  you changed unless `--force`. With the project's own kit, it updates
-  the kit's files to the CLI's version. `anetos new` and the generators
-  (in a project made before v0.5) write `kit.json`; `css:use` adds
+- `anetos css:use <framework> [--force]` switches a project's CSS
+  framework (K4, D304–D306, M8b-4): it writes the framework's
+  components and stylesheets, removes the old one's files, and records
+  the framework in `views/ui/css.json` (the SHA-256 of each file it
+  wrote), so it refuses to replace a file you changed unless `--force`.
+  With the project's own framework, it updates its files to the CLI's
+  version. `anetos new` and the generators (in a project made before
+  v0.5) write `css.json`; `css:use` adds
   `nav.menu` to older projects' `locales/en/app.yaml`.
-- A guide per design kit, with screenshots of its pages in light and
+- A guide per CSS framework, with screenshots of its pages in light and
   dark: the starter theme, no styles, Pico, Bootstrap, Bulma and
   Tailwind CSS (how to change its colors, its other components, common
   problems); "Style your app" shows them side by side (K5, D307).
@@ -75,6 +87,25 @@ All notable changes to this project are documented here. The format follows
   D300).
 
 ### Changed
+- Commands use singular groups and Laravel's names: `route:list`,
+  `plugin:list`, `plugin:env`, `locale:check`, and in the `anetos`
+  tool `generate` (was `gen`; generated files say `Code generated by
+  anetos generate`), `locale:add` (was `lang:add`) and
+  `make:admin-resource` (was `make:admin:resource`); the old names run,
+  with a warning, until v0.6. `schedule:run <task>` is `schedule:test
+  <task>`. Help texts write `--flag` (M8b-4, D313).
+- `anetos key:generate` writes `APP_KEY` into `.env` when it is missing
+  or empty (it printed it), refuses a set key unless `--force`, which
+  moves the old one to `APP_PREVIOUS_KEYS`, and prints a key with
+  `--show` (M8b-4).
+- Route names follow the handlers: `make:crud` names `create` and
+  `delete` what it named `store` and `destroy`, `make:auth`'s token
+  routes are `tokens.create` and `tokens.delete`, and the admin's form,
+  save and delete routes are `admin.<resource>.new`, `.create` and
+  `.delete` (were `.create`, `.store`, `.destroy`), and its password
+  confirmation posts to `admin.confirm.check` (was `.store`). `make:auth`'s group
+  of logged-in routes is `loggedIn` in both stacks (was `members` and
+  `me`) (M8b-4, D313).
 - Logging in has one vocabulary, "log in" and "log out" (M8b-3, D312):
   `auth.Auth.Login` asks for the two-factor code of a user who has it
   on (it logged them in without one; `SignIn` did), and a user without a
@@ -130,7 +161,7 @@ All notable changes to this project are documented here. The format follows
 - `anetos new --css=none` writes components of plain HTML, without the
   starter theme's class names it used to keep (K1, D293).
 - In a project made before v0.5 (without `views/ui`), `make:crud` and
-  `make:auth` write a kit's `views/ui` first: the starter theme's when
+  `make:auth` write `views/ui` first: the starter theme's when
   `public/static/app.css` has its `.card` rules, else the plain one
   (K1, D294). See the [upgrade guide](docs/site/upgrade/v0.5.md).
 - The starter theme's `.flash` is neutral; `.flash.success`,
@@ -149,6 +180,10 @@ All notable changes to this project are documented here. The format follows
   `>= v0.2.0, < v0.6.0`) (after v0.4.0).
 
 ### Deprecated
+- The commands `routes:list`, `plugins:list`, `plugins:env`,
+  `lang:check`, `schedule:run <task>`, and the `anetos` tool's `gen`,
+  `lang:add`, `add lang` and `make:admin:resource`: use the names above.
+  Removed in v0.6 (M8b-4).
 - `auth.Auth`'s `SignIn`, `SignOutOthers`, `SignOutEverywhere`,
   `CanTwoFactor`, `CanRemember`, `CanSignOutEverywhere`, `ActAs`;
   `auth.ActAs`, `auth.ActOption`, `auth.ErrNoPendingSignIn`,

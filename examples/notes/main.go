@@ -97,8 +97,8 @@ func (h *Notes) Show(c *web.Ctx, in NoteID) (Note, error) {
 	return Note{}, web.Error(http.StatusNotFound, "note not found")
 }
 
-// Store answers the new note: 201, the route's Status.
-func (h *Notes) Store(c *web.Ctx, in CreateNote) (Note, error) {
+// Create answers the new note: 201, the route's Status.
+func (h *Notes) Create(c *web.Ctx, in CreateNote) (Note, error) {
 	h.mu.Lock()
 	h.nextID++
 	n := Note{ID: h.nextID, Title: in.Title, Body: in.Body, Tags: in.Tags, CreatedAt: anetos.Now(c).UTC()}
@@ -136,7 +136,7 @@ func routes(r *web.Router, notes *Notes) {
 
 	api := r.Group("/notes").As("notes.")
 	api.Get("", web.H(notes.List)).Name("index")
-	api.Post("", web.H(notes.Store)).Name("store").Status(http.StatusCreated)
+	api.Post("", web.H(notes.Create)).Name("create").Status(http.StatusCreated)
 	api.Get("/{id}", web.H(notes.Show)).Name("show")
 	api.Delete("/{id}", web.H(notes.Delete)).Name("delete")
 }

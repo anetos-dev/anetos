@@ -148,8 +148,24 @@ The scheduler runs with the app's other components:
 
 ```bash
 go run .                         # the web server, the workers and the scheduler
-go run . run --only=scheduler    # only the scheduler
+go run . schedule:work           # only the scheduler (run --only=scheduler)
 ```
+
+Or, where a cron daemon or a Kubernetes CronJob is the scheduler, start
+`schedule:run` every minute instead of a long-running scheduler: it runs
+the tasks due in the minute it started, once, with their locks, and
+exits (status 1 if one failed):
+
+```text
+* * * * * cd /srv/app && ./app schedule:run >> /var/log/app-schedule.log 2>&1
+```
+
+Then run the app without its scheduler (`./app run --only=http,workers`,
+or `serve` and `queue:work`), or every task runs twice. Each
+`schedule:run` is a process of its own, so `WithoutOverlapping` and
+`OnOneServer` need a cache store the processes share
+(`CACHE_DRIVER=database` or `redis`); with `memory`, `schedule:run`
+warns.
 
 With several instances (several web servers, say), each one runs the
 scheduler unless you split it out with `--only`. Either run it in one
@@ -179,7 +195,7 @@ prune-audit-log  0 3 * * *  2026-10-02 03:00 +06 (in 11h)  without overlapping, 
 sales-report     0 * * * *  2026-10-01 17:00 +06 (in 1h)   on one server
 ```
 
-`schedule:run <task>` runs a task now, whatever its schedule, and fails
+`schedule:test <task>` runs a task now, whatever its schedule, and fails
 with its error. `WithoutOverlapping` applies (it fails if the task is
 running), but only sees runs in other processes with a shared cache
 store; `OnOneServer` doesn't apply.
@@ -193,10 +209,10 @@ or `redis`).
 
 ### 5. Test
 
-Test a task by running it with `RunTask`, as `schedule:run` does:
+Test a task by running it with `RunTask`, as `schedule:test` does:
 
 ```go
-// RunTask runs a task now, as `go run . schedule:run <task>` does.
+// RunTask runs a task now, as `go run . schedule:test <task>` does.
 func TestScheduledTasks(t *testing.T) {
 	fakeGateway(t, &FakeGateway{})
 	app := anetostest.New(t, setup, anetostest.Env(map[string]string{"QUEUE_DRIVER": "sync"}))
@@ -277,7 +293,8 @@ that never matches (`0 0 30 2 *`) is an error then.
 > prune)` is `Schedule::call(...)->dailyAt('02:00')` in
 > `routes/console.php`, and `WithoutOverlapping`, `OnOneServer` and
 > `schedule.Dispatch` are `withoutOverlapping()`, `onOneServer()` and
-> `Schedule::job(...)`. There is no `schedule:work` or crontab entry
-> running `schedule:run` every minute: the scheduler runs in your binary,
-> and `schedule:run <task>` runs one task now (`schedule:test`). Every
-> task needs a name.
+> `Schedule::job(...)`. `schedule:work`, `schedule:run` (for a crontab
+> entry every minute) and `schedule:list` work as in Laravel, and
+> `schedule:test <task>` is `schedule:test --name=<task>`; `go run .`
+> also runs the scheduler, in your binary.
+> Every task needs a name.

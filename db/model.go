@@ -265,7 +265,7 @@ func (m *meta) addFields(t reflect.Type, index []int, seen map[reflect.Type]bool
 
 // Columns returns the column names of model T in field order, with the
 // columns of embedded structs where they are embedded. It is the list
-// `anetos gen` writes typed columns for, and handy for raw SQL:
+// `anetos generate` writes typed columns for, and handy for raw SQL:
 //
 //	cols, err := db.Columns[Post]()
 //	sql := "SELECT " + strings.Join(cols, ", ") + " FROM posts WHERE …"
@@ -372,7 +372,7 @@ func fieldAlloc(v reflect.Value, index []int) reflect.Value {
 	return v
 }
 
-// snake and plural are shared with `anetos gen` so generated columns
+// snake and plural are shared with `anetos generate` so generated columns
 // always match the runtime's names.
 var (
 	snake  = naming.Snake

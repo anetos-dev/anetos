@@ -46,7 +46,7 @@ import (
 )
 
 //go:generate go tool templ generate
-//go:generate go tool anetos gen
+//go:generate go tool anetos generate
 
 func main() {
 	app, err := anetos.New() // reads .env and the environment
@@ -56,7 +56,7 @@ func main() {
 	if _, err := setup(app); err != nil {
 		log.Fatal(err)
 	}
-	app.Execute() // run (default), serve, migrate, routes:list, help, …
+	app.Execute() // run (default), serve, migrate, route:list, help, …
 }
 
 // setup connects the database and adds the migrations, the cache, the

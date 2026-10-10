@@ -118,18 +118,18 @@ func addPlugin(ctx context.Context, args []string, stdout, stderr io.Writer) int
 			return fail(errors.New("stopped: the plugin's code didn't run"))
 		}
 	}
-	// Load the plugin as the app does, and get its settings: plugins:env
+	// Load the plugin as the app does, and get its settings: plugin:env
 	// doesn't boot the app. ext.Load's errors (a version requirement, a
 	// name taken) refuse the plugin; others are the app's own.
 	var env, envErr bytes.Buffer
-	if err := runApp(ctx, root, bin, &env, &envErr, "plugins:env"); err != nil {
+	if err := runApp(ctx, root, bin, &env, &envErr, "plugin:env"); err != nil {
 		if strings.TrimSpace(envErr.String()) == "" {
 			envErr.WriteString(err.Error())
 		}
 		if msg := envErr.String(); strings.Contains(msg, "ext: plugin ") || strings.Contains(msg, "ext: Mount(") {
 			return fail(fmt.Errorf("ext.Load refuses the plugin:\n%s", strings.TrimSpace(msg)))
 		}
-		fmt.Fprintf(stdout, "Listed it in %s, but the app didn't start to list its settings (go run . plugins:env lists them):\n%s\n", scaffold.PluginsFile, strings.TrimSpace(envErr.String()))
+		fmt.Fprintf(stdout, "Listed it in %s, but the app didn't start to list its settings (go run . plugin:env lists them):\n%s\n", scaffold.PluginsFile, strings.TrimSpace(envErr.String()))
 	} else {
 		fmt.Fprintf(stdout, "Listed it in %s.\n", scaffold.PluginsFile)
 		if added, err := appendEnv(filepath.Join(root, ".env.example"), env.String()); err != nil {
@@ -139,8 +139,8 @@ func addPlugin(ctx context.Context, args []string, stdout, stderr io.Writer) int
 		}
 	}
 	fmt.Fprint(stdout, `Next:
-  go run . plugins:list   what it adds
-  go run . migrate        if it adds migrations
+  go run . plugin:list   what it adds
+  go run . migrate       if it adds migrations
 `)
 	return 0
 }
@@ -293,7 +293,7 @@ func runGoOut(ctx context.Context, dir string, stdout, stderr io.Writer, args ..
 	return nil
 }
 
-// appendEnv adds to the file the lines of env (plugins:env's output)
+// appendEnv adds to the file the lines of env (plugin:env's output)
 // whose keys it doesn't have yet, with their plugin's comment, and
 // returns the keys it added. A missing file is left missing.
 func appendEnv(file, env string) ([]string, error) {

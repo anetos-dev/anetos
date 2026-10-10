@@ -14,7 +14,7 @@ import "anetos.dev/anetos/examples/tracker/public"
 
 // The page's shell, which the layout (views/layout.templ) puts together.
 
-// Head links the kit's stylesheet: the layout's <head> calls it.
+// Head links the stylesheet: the layout's <head> calls it.
 func Head() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -279,7 +279,7 @@ func NavEnd() templ.Component {
 }
 
 // NavItem is an entry of a Nav or NavEnd that isn't a NavLink: a
-// button, a form (log out). This kit wraps it in nothing.
+// button, a form (log out). These components wrap it in nothing.
 func NavItem() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context

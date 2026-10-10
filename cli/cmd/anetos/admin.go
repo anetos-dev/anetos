@@ -19,13 +19,13 @@ Adds the admin interface (module anetos.dev/anetos/admin) to a project
 with make:auth's accounts: setupAdmin (admin.go), which sets up roles
 and permissions (package auth/rbac) with an admin role and mounts the
 admin at ADMIN_PATH (/admin) or ADMIN_HOST, with the users (app/admin/
-users.go) and roles; and the app/admin package, where make:admin:resource
+users.go) and roles; and the app/admin package, where make:admin-resource
 adds a resource per model. It adds the module to go.mod, the ADMIN_*
 settings to .env and .env.example, the banner shown while impersonating a
 user to views/layout.templ, and calls setupAdmin from setup in main.go.
 `
 
-const makeAdminResourceUsage = `Usage: anetos make:admin:resource <Model>
+const makeAdminResourceUsage = `Usage: anetos make:admin-resource <Model>
 
 Writes app/admin/<models>.go, the admin's resource for a model of
 app/models: its list's columns and search, and a form struct with the
@@ -137,7 +137,7 @@ yourself in setup, with the *auth.Auth that setupAuth returns:
 	}
 	next := `
 Next:
-  go tool anetos make:admin:resource Post   a resource per model (app/admin)
+  go tool anetos make:admin-resource Post   a resource per model (app/admin)
   go run . migrate                          create the roles tables
   go run . rbac:assign <user-id> admin      let a user in
   go tool anetos dev                        then open /admin
@@ -148,7 +148,7 @@ The app sets up roles already (rbac.New): give admin.access, and the
 resources' admin.<name>.view/create/update/delete, with a role of yours.
 
 Next:
-  go tool anetos make:admin:resource Post   a resource per model (app/admin)
+  go tool anetos make:admin-resource Post   a resource per model (app/admin)
   go tool anetos dev                        then open /admin
 `
 	}
@@ -165,9 +165,9 @@ func adminVersion(replaced bool) string {
 	return anetosVersion()
 }
 
-// makeAdminResource runs anetos make:admin:resource.
+// makeAdminResource runs anetos make:admin-resource.
 func makeAdminResource(args []string, stdout, stderr io.Writer) int {
-	fs := flag.NewFlagSet("anetos make:admin:resource", flag.ContinueOnError)
+	fs := flag.NewFlagSet("anetos make:admin-resource", flag.ContinueOnError)
 	pos, code := parse(fs, args, stderr, makeAdminResourceUsage)
 	if code >= 0 {
 		return code
@@ -186,7 +186,7 @@ func makeAdminResource(args []string, stdout, stderr io.Writer) int {
 		}
 	}
 	if err != nil {
-		fmt.Fprintln(stderr, "anetos make:admin:resource:", err)
+		fmt.Fprintln(stderr, "anetos make:admin-resource:", err)
 		return 1
 	}
 	return 0

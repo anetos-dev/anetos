@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package cmd defines the commands of an application binary: the
-// built-in ones (run, serve, migrate, routes:list, …) and your own.
+// built-in ones (run, serve, migrate, route:list, …) and your own.
 // Register them on the app and let it dispatch os.Args:
 //
 //	app.Command("reports:send", "Email the weekly report", func(ctx context.Context, args *cmd.Args) error {
@@ -47,6 +47,11 @@ type Command struct {
 	// search:reindex): checks that the schema matches the settings,
 	// which would stop the app at boot, don't stop it.
 	ChangesSchema bool
+	// Former are names the command had before ("routes:list" for
+	// route:list), still accepted until they are removed: they aren't
+	// listed, and running the command by one prints a warning naming
+	// the command.
+	Former []string
 }
 
 type runningKey struct{}
@@ -75,6 +80,11 @@ func (c Command) Validate() error {
 	}
 	if c.Run == nil {
 		return fmt.Errorf("cmd: command %q has no Run function", c.Name)
+	}
+	for _, f := range c.Former {
+		if !nameRe.MatchString(f) {
+			return fmt.Errorf("cmd: command %q: invalid former name %q", c.Name, f)
+		}
 	}
 	return nil
 }

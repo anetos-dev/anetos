@@ -202,7 +202,7 @@ func main() {
     s, _ := schedule.New(app)          // SCHEDULE_TIMEZONE (B8)
     s.Add(schedule.DailyAt("02:00"), "prune-sessions", tasks.PruneSessions, schedule.OnOneServer())
 
-    app.Execute() // parses os.Args: run (default) | serve | migrate | routes:list | … (F11)
+    app.Execute() // parses os.Args: run (default) | serve | migrate | route:list | … (F11)
 }
 ```
 
@@ -263,10 +263,10 @@ anetos.dev/anetos/       ← core module (github.com/anetos-dev/anetos)
 │   ├── convert/         string → typed value conversion (config and web binding)
 │   ├── dbutil/          the database server's clock and deadlock retries in SQL (cache, queue), index names (db, migrate)
 │   ├── htmltext/        HTML to plain text (emails' text bodies)
-│   ├── naming/          column and table naming rules (db and `anetos gen`)
+│   ├── naming/          column and table naming rules (db and `anetos generate`)
 │   ├── appkey/          APP_KEY parsing and generation (kernel, encryption, cli)
 │   └── cmd/docsnippets/ checks doc code blocks against example regions
-├── cli/                 ← separate module: the `anetos` developer tool (cmd/anetos: new, dev, make:*, gen, add, remove, key:generate)
+├── cli/                 ← separate module: the `anetos` developer tool (cmd/anetos: new, dev, make:*, generate, add, remove, key:generate)
 ├── drivers/             ← each a separate module
 │   ├── postgres/ mysql/ sqlite/   database/sql driver + DSN; dialects are in db/
 │   ├── redis/           shared client (redis.Connect), cache store with locks (B1), sessions (B2), queue (B5), pub/sub on Streams (B7)
@@ -420,7 +420,7 @@ routes.Register(srv.Router())
   with a thin layer: groups with prefixes and middleware, `With` for
   per-route middleware, **named routes** with name prefixes (`As`), **URL
   generation** (`r.URL("posts.show", id)`, path-escaped, rejecting dot
-  segments), and `Routes()` for `routes:list` (D3, accepted: the layer adds
+  segments), and `Routes()` for `route:list` (D3, accepted: the layer adds
   about 5 allocations and no measurable latency over raw `ServeMux` in
   benchmarks).
 - Patterns ending in `/` are **exact** (`{$}` is appended); inside a group,
@@ -678,7 +678,7 @@ type Post struct {
   plan cached per (type, result columns).
 
 Queries use **typed columns**, so conditions are checked by the compiler.
-`anetos gen` (F9) writes them: for each model `Post`, a `models_gen.go`
+`anetos generate` (F9) writes them: for each model `Post`, a `models_gen.go`
 declares `PostCols`, one `db.Column[T]` per column, with `T` the field's
 type (D58–D62). They can also be declared by hand (`db.Col[int]("views")`)
 or left untyped (`db.C("views")`). Relation handles (`PostRels`, v0.1.1)
@@ -1085,6 +1085,12 @@ Implemented in F10 (packages `view`, `session`, `encryption`; helpers in
   templates use it directly (no context lookup). Text files of 1 KiB or
   more are gzipped once, the first time they're requested, and served
   gzipped to clients that accept it (D300).
+- **The web root** (D313): a project's `public/` folder is served at
+  `/` by `web.Router.Static(prefix, fsys)`, for GET and HEAD requests no
+  route matches (a path with routes for other methods stays 405), with
+  the app's error pages for a missing file; it never serves directories,
+  `.go` files, or hidden files other than `.well-known/`. `public/static/`
+  stays the hashed `/assets/`.
 - **htmx** 2.0.11 is bundled (`view/htmx`, 0BSD) and served through
   `view.NewAssets(…, htmx.FS)`, with its server-sent events extension
   (`htmx-ext-sse.min.js` 2.2.4, 0BSD, A3). `c.IsHTMX()` (adds `Vary: HX-Request`) and
@@ -1190,7 +1196,8 @@ plain HTML elements, never `class=`:
   before each build (offline it warns once and keeps `app.css`),
   `anetos build` (fails without it), `anetos css:build [--check]`. A
   project is Tailwind's when `views/ui/tailwind.css` exists.
-- **Switching kits (K4, D304–D306):** `views/ui/kit.json` records a
+- **Switching kits (K4, D304–D306):** `views/ui/css.json` (D313; the
+  development builds' `kit.json` is still read) records a
   project's kit (name, framework version, the CLI's version, and the
   SHA-256 of every file the kit wrote), written by `anetos new` and by
   the generators' `WriteUI`. `anetos css:use <kit> [--force]`
@@ -1394,7 +1401,7 @@ endpoints, the API's accounts, then "Tutorial: build an API", one page
 that builds `examples/bookmarks`: `anetos new --stack=api`,
 `make:auth`, `make:crud Bookmark …`, then bookmarks owned by their user
 (a `user_id` column, queries scoped to it, another user's a 404), the
-routes in `make:auth`'s `me` group, abilities per route with the new
+routes in `make:auth`'s `loggedIn` group, abilities per route with the new
 `auth.RequireAbilities`, an action returning `web.Empty`, tests and
 `openapi.json`. The tutorial quotes the example's regions; cli's
 `TestAPITutorialProject` checks the example against the generators, as
@@ -1464,7 +1471,7 @@ func setupAdmin(app *anetos.App, r *web.Router, sessions *session.Manager, a *au
 }
 ```
 
-`anetos make:admin:resource Post` writes a resource for a model
+`anetos make:admin-resource Post` writes a resource for a model
 (`app/admin/posts.go`, the function `Posts`, added to `Resources`): its
 columns, search, and a form struct with the model's editable fields,
 which the app edits like any code (validation, filters, actions).
@@ -2287,10 +2294,10 @@ mailer.Send(i18n.ForUser(ctx, u), mails.Welcome{User: u}) // the user's mail lan
   (`anetos-dev/locales`): a folder per locale with `framework.yaml` (the
   core's keys, with CLDR-derived formats) and `auth.yaml` (`make:auth`'s
   keys), checked in its CI against both English catalogs. `anetos
-  lang:add fr` (or `anetos add lang fr`) copies a folder into
+  locale:add fr` copies a folder into
   `locales/fr/`, where the app owns it, leaving out the keys the app's
   catalogs for the locale define (D197); v0.3 brings `bn`, `es` and
-  `fr`. `lang:check` reports keys missing
+  `fr`. `locale:check` reports keys missing
   from a locale, placeholders that differ from the fallback's, plural
   forms the language needs (and notes forms it never uses), framework
   messages whose placeholders differ from English, month and day lists
@@ -2413,7 +2420,7 @@ if err := auth.Authorize(c, policies.Post.Update, &post); err != nil { return ni
   them (the Breeze approach), adapted from `examples/auth` to a
   `anetos new` project. It writes nothing over existing files, adds one
   `setupAuth` call after `routes.Register` in `setup` (or prints it), and
-  runs `go mod tidy`, `anetos gen` and `templ generate`. Verification and
+  runs `go mod tidy`, `anetos generate` and `templ generate`. Verification and
   reset links go out with `mailer.Queue`, absolute on `APP_URL`.
   Security-critical pieces (hashing, tokens, session handling,
   throttling) stay in the library so fixes reach everyone through
@@ -2436,7 +2443,7 @@ remove`, `plugins/postmark`; D129–D135.)*
 
 A plugin is a value with a name and any of the capability interfaces of
 what it adds. Each capability method receives the one service it adds
-to, so a plugin can't reach what it doesn't declare, and `plugins:list`
+to, so a plugin can't reach what it doesn't declare, and `plugin:list`
 can say what each plugin adds (D129):
 
 ```go
@@ -2480,8 +2487,8 @@ its migrations to the app's runner, its commands, its jobs, its routes,
 its scheduled tasks, its listeners, and its `Boot` as a provider that
 runs after the app's. A capability whose service isn't set up is an
 error naming the call (`call queue.New before ext.Load`). `Load` adds
-the commands `plugins:list` (each plugin, its constraint, its prefix,
-what it adds) and `plugins:env` (their settings as `.env` lines with
+the commands `plugin:list` (each plugin, its constraint, its prefix,
+what it adds) and `plugin:env` (their settings as `.env` lines with
 their defaults).
 
 ### 16.3 Installation
@@ -2499,12 +2506,12 @@ anetos add github.com/acme/anetos-stripe[@version]
    `pkg.Plugin()` per plugin, in the order they were added.
 3. `go build` the app, so a module that isn't a plugin, or doesn't
    support this version of Anetos at compile time, is refused.
-4. Run the built app's `plugins:env` (2 minutes at most), which runs `setup` (so `ext.Load`) without
+4. Run the built app's `plugin:env` (2 minutes at most), which runs `setup` (so `ext.Load`) without
    booting the app: a plugin `Load` refuses is refused. Its output, the
    settings, is appended to `.env.example`, keys it already has
    excepted. On any refusal `go.mod`, `go.sum` and `plugins.go` are
    put back.
-5. Print next steps (`plugins:list`, `migrate`). Migrations never run
+5. Print next steps (`plugin:list`, `migrate`). Migrations never run
    automatically.
 
 `anetos remove <module>` takes the plugin out of `plugins.go`, runs `go
@@ -2528,7 +2535,7 @@ batch, across sets).
 - Version compatibility is checked when the app is set up, through
   `Requires()`, with an error naming both versions.
 - Missing or invalid settings don't fail `Load`: the plugin isn't wired
-  in, and the app refuses to boot with the error, so `plugins:env` still
+  in, and the app refuses to boot with the error, so `plugin:env` still
   lists them (D133).
   `make:auth` also writes the account settings page (AC1, D227, D228):
   `/settings` (`AUTH_SETTINGS_URL`) with the name, the password
@@ -2563,22 +2570,23 @@ commands (`postmark:suppressions`, `postmark:unsuppress`), plus
 Installed per project as a Go tool (`go get -tool
 anetos.dev/anetos/cli/cmd/anetos`, run with `go tool anetos`), so
 a project pins its version in `go.mod`; `go install` works too (D62), and
-is how `anetos new` is run before a project exists. F9 shipped `gen`, F10
-`key:generate`, F11 `new`, `dev` and `make:handler|model|migration|middleware`
+is how `anetos new` is run before a project exists. F9 shipped `gen`
+(`generate` since v0.5, D313), F10 `key:generate`, F11 `new`, `dev` and `make:handler|model|migration|middleware`
 (D69–D72); `anetos version` prints the tool's version. The other rows are
 planned.
 
 | Command | Purpose |
 |---|---|
 | `anetos new <dir> [--module=…] [--db=…] [--css=…] [--stack=…]` | Create a project (F11); `--css=anetos\|none`, the starter theme or none (M10, D240); `--stack=web` (default) or `api`, a JSON-only app (AP1, D259–D262); v0.5 adds the design kits (`--css=pico\|bootstrap\|bulma\|tailwind`), v0.6 the front-end stacks |
-| `anetos dev` | Watch (polling) → `templ generate` → `anetos gen` → Tailwind (tailwind kit, D303) → build → restart on a free port → browser reload; stable address through a proxy that shows build errors (F11) |
+| `anetos dev` | Watch (polling) → `templ generate` → `anetos generate` → Tailwind (tailwind kit, D303) → build → restart on a free port → browser reload; stable address through a proxy that shows build errors (F11) |
 | `anetos make:<thing>` | handler, model (`--migration`), migration, middleware (F11); auth (B14, §15); crud (M10, D241: a model, its table and the pages to list, show, create, edit and delete its rows); agent (A3: an `ai.Agent` with a typed tool in `app/agents`, D179); job, event, listener, mail, policy, task, command, test, plugin (later) |
-| `anetos gen` | Run code generators: typed model columns (F9), relation handles (v0.1.1). `-check` for CI |
+| `anetos generate` | Run code generators: typed model columns (F9), relation handles (v0.1.1). `--check` for CI. `gen` before v0.5 (D313) |
 | `anetos css:build [--check]` | Compile a Tailwind project's `views/ui/tailwind.css` into `public/static/app.css` (K3, D301–D303); `--check` for CI |
-| `anetos css:use [<kit>] [--force]` | Switch (or update) the project's design kit, refusing to overwrite changed kit files without `--force` (K4, D304–D306) |
-| `anetos key:generate` | Print a new `APP_KEY` line (F10) |
+| `anetos css:use [<framework>] [--force]` | Switch (or update) the project's CSS framework, refusing to overwrite changed files without `--force` (K4, D304–D306) |
+| `anetos key:generate [--show] [--force]` | Set `APP_KEY` in `.env` when it's missing or empty (F10 printed it; D313); `--force` replaces a set key, moving it to `APP_PREVIOUS_KEYS`; `--show` prints one |
+| `anetos locale:add <locale>…` | Copy the framework's translations into `locales/` (`lang:add` before v0.5, D313) |
 | `anetos add <module>[@version]` / `anetos remove <module>` | Install or uninstall a plugin: `go get`, `plugins.go`, `go mod tidy`, a build check, `.env.example` (B11, §16.3, D151) |
-| `anetos build [-o] [--target] [--version] [--cgo]` | Production build (M5, D229): `templ generate`, `anetos gen` (for this system) and Tailwind (tailwind kit, D303), then `go build -trimpath -ldflags="-s -w"` with `CGO_ENABLED=0` (`--cgo` for 1) for `--target` (os/arch), to `bin/<module name>`; an `-ldflags` after `--` is merged; `--version` sets the version `<app> version` prints (`-X`), else Go's VCS stamp |
+| `anetos build [-o] [--target] [--version] [--cgo]` | Production build (M5, D229): `templ generate`, `anetos generate` (for this system) and Tailwind (tailwind kit, D303), then `go build -trimpath -ldflags="-s -w"` with `CGO_ENABLED=0` (`--cgo` for 1) for `--target` (os/arch), to `bin/<module name>`; an `-ldflags` after `--` is merged; `--version` sets the version `<app> version` prints (`-X`), else Go's VCS stamp |
 | `anetos doctor [--strict] [--vuln]` | Check the project (`.env`'s permissions, files of secrets in git; `govulncheck` with `--vuln`), then build the app and run its `doctor` (M7, D245) |
 | `anetos stub:publish` | Copy generator templates into the project for customization |
 
@@ -2597,11 +2605,12 @@ take them from it (D151).
 ### 17.2 App binary commands
 
 Implemented in F11 (package `cmd`, `App.Execute`; D69): `run [--only=…]`
-(the default), `serve`, `routes:list`, `migrate*`, `db:seed`, `help`,
+(the default), `serve`, `route:list`, `migrate*`, `db:seed`, `help`,
 plus **custom commands**. Features add theirs: `cache:clear` (B1),
-`queue:failed`, `queue:retry`, `queue:forget`, `queue:flush`,
+`queue:work`, `queue:failed`, `queue:retry`, `queue:forget`, `queue:flush`,
 `queue:clear` (B5), `pubsub:publish` (B7), `schedule:list`,
-`schedule:run` (B8), `plugins:list`, `plugins:env` (B11, `ext.Load`), `search:reindex` (S1), `rbac:roles`, `rbac:user`, `rbac:assign`, `rbac:unassign` (R1). `version` (every app) and `health:check` (`web.NewServer`) came with M5 (D231), `doctor` (every app, with the checks features add through `App.AddCheck`) with M7 (D245). Later: the shortcuts `work`, `listen`, `schedule`,
+`schedule:run`, `schedule:test`, `schedule:work` (B8, D313),
+`plugin:list`, `plugin:env` (B11, `ext.Load`), `search:reindex` (S1), `rbac:roles`, `rbac:user`, `rbac:assign`, `rbac:unassign` (R1). `version` (every app) and `health:check` (`web.NewServer`) came with M5 (D231), `doctor` (every app, with the checks features add through `App.AddCheck`) with M7 (D245). Later: the shortcuts `work`, `listen`, `schedule`,
 and `down` / `up` (maintenance).
 
 ```go
@@ -2610,8 +2619,17 @@ app.Command("reports:send", "Email the weekly report", func(ctx context.Context,
 ```
 
 Packages that add components add their commands where they are wired:
-`web.NewServer` adds `serve` and `routes:list`, `migrate.New` the
+`web.NewServer` adds `serve` and `route:list`, `migrate.New` the
 migration commands.
+
+Names (D313): `<group>:<action>` with a singular group, Laravel's names
+where it has the command (`route:list`, `queue:work`, `schedule:run`,
+`key:generate`). A renamed command keeps its former names
+(`cmd.Command.Former`) until the next minor: they run it, aren't listed,
+and print a warning naming the new one. `schedule:run` runs the tasks
+due in the current minute once (`Scheduler.RunDue`, for cron or a
+Kubernetes CronJob), `schedule:test <task>` one task now; `queue:work`
+and `schedule:work` are `run --only=workers` and `--only=scheduler`.
 
 ---
 
@@ -3184,6 +3202,7 @@ unless new information arrives), **Open**, **Superseded**.
 | D310 | Names are the ones developers already know: Go's for Go-shaped things, Laravel's or Rails' for framework concepts; a new word only for a new concept, with a glossary entry. Services the app builds from its settings are `pkg.New(app, …)` (they were `ForApp`, a word no library uses, never decided, copied from F10's `session.ForApp`); a client of an external server is `Connect` (`db.Connect`, `redis.Connect`); the constructors from explicit parts that were `New` take the type's name or `NewWith<Part>` (`events.NewBus`, `cache.NewWithStore`); `openapi.ForApp` is `openapi.Register` (it builds nothing). A second `New` (or `db.Connect`) for one app is an error, except `encryption.New`, which returns the same encrypter, and `redis.Connect`, which returns the same client (the cache, queue, session and pub/sub drivers all call it). `ForApp` stays deprecated with `//go:fix inline` until v0.6 (D309) | Accepted | User's direction (2026-10-10): "nobody will like to use a new keyword for something they are used to". A vocabulary review of the four repositories (`docs/planning/dx-vocabulary-findings.md`) found `ForApp` the most visible invented word (≈975 uses, nine in every new `main.go`, never explained); the other deviations it found are fixed in M8b-2 to M8b-6. Errors on a second call replace four different behaviours (an error, a second connection then a misleading failure, a silent second service, a new one each time) |
 | D311 | Settings: every key starts with its area's prefix; the key that picks a backend is `<AREA>_DRIVER` (`DB_DRIVER`, `CACHE_DRIVER`; `AI_PROVIDER` stays); a driver's keys are `<AREA>_<DRIVER>_*`, and a plugin's own start with its name (ext's rule: postmark's mail driver reads `MAIL_POSTMARK_*`, its webhook `POSTMARK_WEBHOOK_*`); how long something stays valid is `_TTL` (`SESSION_TTL`, `AUTH_REMEMBER_TTL`, as `AUTH_RESET_TTL`); the database's are `DB_NAME`, `DB_USER`, `DB_MIGRATE_*`, `DB_SEARCH_*`; `LOCALE_URL` is `APP_LOCALE_STRATEGY`. Keys an ecosystem names stay (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `REDIS_URL`, `STORAGE_EMULATOR_HOST`, `DB_CONN_MAX_LIFETIME` after `database/sql`), and the platforms' `PORT` is read when `HTTP_ADDR` isn't, their `postgres://` `DATABASE_URL` when nothing else says where the database is (no `DB_URL`, `DB_HOST`, `DB_NAME`; `DB_DRIVER` unset or postgres), logged when used and ignored by tests. A renamed key is read under its former name until v0.6 through a `was` tag, which the app's configuration source reports (a warning at startup, a doctor finding); the same source records the keys read and the former names, so doctor points at a `.env` key that is another framework's name (`QUEUE_CONNECTION`: use `QUEUE_DRIVER`), a former name left beside its new one, or a typo of a setting; a key it can't place is the app's own, or a driver's not selected, and it says nothing | Accepted | User's choices (2026-10-10): "all DB related variables should be prefixed with DB… similar rule for other env variables", `DB_USER` over `DB_USERNAME`, `DB_NAME`, `_TTL` everywhere, migrations and search under `DB_`, the platform fallbacks. Laravel's names (`DB_CONNECTION`, `CACHE_STORE`, `QUEUE_CONNECTION`, `MAIL_MAILER`) name entries of its config files, a layer Anetos doesn't have, and disagree among themselves; a wrong guess used to be ignored silently (`CACHE_DRIVER=redis` left a per-instance memory cache) |
 | D312 | Logging in has one vocabulary: "log in" and "log out" (verbs), "login" and "logout" (nouns and identifiers), in the API, the generated pages, the messages and the docs ("single sign-on" and "sign up" stay); `Auth.Login` asks for the two-factor code (it was `SignIn`'s job, and `Login` skipped it); `SignOutOthers`, `SignOutEverywhere`, `ErrNoPendingSignIn` are `LogoutOthers`, `LogoutEverywhere`, `ErrNoPendingLogin`; `ErrNoUser` is `ErrUserNotFound`; feature checks are `Supports…` (`SupportsTwoFactor`, `SupportsRemember`, `SupportsLogoutEverywhere`), as `Can` is a permission check (RBAC's `Can`); `auth.ActAs` is `auth.WithUser` (as `context.WithValue`: it returns a context) and its option `UserOption`; `social.ErrNoAccount` (a struct) is `NoAccountError`, Go's name for an error type; `anetostest.App.SocialSignIn` is `SocialLogin`; the admin's "Act as user" is "Impersonate", and "two-factor sign-in" is two-factor authentication. The old names stay deprecated until v0.6 (D309); `auth.User` and `auth.Current` both stay | Accepted | User's choice (2026-10-10): "Log in" for the code, one word in the UI. The framework said "sign in" in some places and "log in" in others (its routes, `/login`, and Laravel's said log in), and had two methods for one act whose difference (the code) was a trap: a callback that used `Login` skipped two-factor authentication. Laravel, Django and Rails' generators say log in; Filament and Nova say impersonate |
+| D313 | Commands and the project's conventions use the words developers type elsewhere: CRUD route names follow the handlers (`index`, `new`, `create`, `show`, `edit`, `update`, `delete`; were `store` and `destroy`); command groups are singular (`route:list`, `plugin:list`, `plugin:env`, `locale:check`; the anetos tool's `locale:add`, `make:admin-resource`, `generate` for `gen`), the old names kept as `cmd.Command.Former` (or the tool's own table) until v0.6, running with a warning; `schedule:run` runs the tasks due this minute once (`Scheduler.RunDue`) and `schedule:test <task>` one task, `queue:work` and `schedule:work` are the `run --only` roles; `key:generate` writes `APP_KEY` into `.env` when it is missing or empty, refuses a set key unless `--force` (which moves it to `APP_PREVIOUS_KEYS`), and `--show` prints one; help texts write `--flag`; `public/` is the web root, served at `/` by the new `web.Router.Static` after the routes (no directories, Go files or hidden files but `.well-known/`), `public/static/` staying at `/assets/` with hashed URLs, and new projects get a `robots.txt`; `make:auth`'s group behind `a.Require` is `loggedIn` in both stacks (was `members` and `me`); the `--css` choices are CSS frameworks in help, output and docs (the default is the starter theme), recorded in `views/ui/css.json` (`kit.json` still read and replaced by `css:use`), with guides named after the frameworks | Accepted | User's choices (2026-10-10): route = handler name (Q3 of the vocabulary review), `loggedIn`, `public/` at `/` with `r.Static`, `key:generate` refusing a set key without `--force`, hidden former names with a warning. The plural groups (`routes:list`, `plugins:*`) were the odd ones out among the app's singular groups and Laravel's `route:list`, and `lang:*` worked on `locales/`; `schedule:run` meant a one-task run where cron users expect the due tasks; a `public/robots.txt` silently 404'd |
 
 ---
 
@@ -3192,7 +3211,7 @@ unless new information arrives), **Open**, **Superseded**.
 | # | Question | Section | Decide by |
 |---|---|---|---|
 | O1 | ~~Does `web.Ctx` implementing `context.Context` cause confusion?~~ Resolved: yes it implements it, not pooled (D24) | §8.3 | Done |
-| O2 | ~~Model code generation: triggered by `anetos dev` automatically or only explicitly?~~ Resolved: both. `anetos gen` (or `go generate`) explicitly, `anetos dev` on every rebuild (F11), `anetos gen -check` in CI | §10.1 | Done |
+| O2 | ~~Model code generation: triggered by `anetos dev` automatically or only explicitly?~~ Resolved: both. `anetos generate` (or `go generate`) explicitly, `anetos dev` on every rebuild (F11), `anetos generate --check` in CI | §10.1 | Done |
 | O3 | ~~Job serialization: JSON only, or pluggable codecs (msgpack, protobuf)?~~ Resolved: JSON only (D104) | §13.4 | Done |
 | O4 | ~~Should async events share one global pool or have a pool per listener?~~ Resolved: a pool per listener (D110) | §13.6 | Done |
 | O5 | ~~Plugin config: generated Go struct in the app vs loaded from the plugin's own struct only?~~ Resolved: the plugin's own struct (D133) | §16.2 | Done |
@@ -3283,3 +3302,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-10 | M8b-1 (constructing services): `ForApp` → `New` throughout; D310 added |
 | 2026-10-10 | M8b-2 (settings): §7 updated; D311 added |
 | 2026-10-10 | M8b-3 (logging in): §15 updated; D312 added |
+| 2026-10-10 | M8b-4 (commands and the project): §12.2, §17 updated; D313 added |

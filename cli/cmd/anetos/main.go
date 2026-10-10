@@ -4,7 +4,7 @@
 // module and run it with go tool:
 //
 //	go get -tool anetos.dev/anetos/cli/cmd/anetos@latest
-//	go tool anetos gen
+//	go tool anetos generate
 //
 // Commands:
 //
@@ -19,15 +19,15 @@
 //	make:crud <Model> <fields>  add a model with pages to list, show, create, edit and delete it
 //	make:auth                 add accounts: registration, login, verification, reset, API tokens
 //	make:admin                add the admin interface (after make:auth)
-//	make:admin:resource <Model>  add a model to the admin
-//	gen [-check] [packages]   generate typed columns for models (default ./...)
-//	css:build [--check]       compile the tailwind kit's stylesheet
-//	css:use [<kit>] [--force]  switch the project's design kit
+//	make:admin-resource <Model>  add a model to the admin
+//	generate [--check] [packages]  generate typed columns for models (default ./...)
+//	css:build [--check]       compile the Tailwind CSS stylesheet
+//	css:use [<framework>] [--force]  switch the project's CSS framework
 //	add <module>[@version]    install a plugin
 //	remove <module>           uninstall a plugin
-//	lang:add <locale>...      add translations of the framework's messages (also: add lang)
+//	locale:add <locale>...    add translations of the framework's messages
 //	doctor                    check the project and the app's settings
-//	key:generate              print a new APP_KEY line
+//	key:generate              set APP_KEY in .env
 //	version                   print the version
 package main
 
@@ -41,11 +41,11 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime/debug"
+	"slices"
 	"strings"
 	"syscall"
 
 	"anetos.dev/anetos/cli/internal/modelgen"
-	"anetos.dev/anetos/internal/appkey"
 )
 
 func main() {
@@ -66,15 +66,15 @@ Commands:
   make:crud <Model> <field:type>...  add a model, its table, and pages to list, show, create, edit and delete it
   make:auth                 add accounts: registration, login, email verification, password reset, API tokens
   make:admin                add the admin interface at /admin (after make:auth)
-  make:admin:resource <Model>  add a model to the admin (app/admin)
-  gen [-check] [packages]   generate typed columns for models (default ./...)
-  css:build [--check]       compile views/ui/tailwind.css into public/static/app.css (the tailwind kit)
-  css:use [<kit>] [--force]  switch the project's design kit (anetos, none, pico, bootstrap, bulma, tailwind)
+  make:admin-resource <Model>  add a model to the admin (app/admin)
+  generate [--check] [packages]  generate typed columns for models (default ./...)
+  css:build [--check]       compile views/ui/tailwind.css into public/static/app.css (Tailwind CSS)
+  css:use [<framework>] [--force]  switch the project's CSS framework (anetos, none, pico, bootstrap, bulma, tailwind)
   add <module>[@version]    install a plugin (go get, plugins.go, .env.example)
   remove <module>           uninstall a plugin
-  lang:add <locale>...      add translations of the framework's messages to locales/ (also: add lang)
+  locale:add <locale>...    add translations of the framework's messages to locales/
   doctor [--strict] [--vuln]  check the project and the app's settings for unsafe values
-  key:generate              print a new APP_KEY line (append it to .env)
+  key:generate [--show] [--force]  set APP_KEY in .env (--show prints a key instead)
   version                   print the version
 
 Run "anetos help <command>" (or "anetos <command> -h") for a command's flags.
@@ -85,22 +85,28 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprint(stderr, usage)
 		return 2
 	}
+	if name, ok := formerNames[args[0]]; ok {
+		fmt.Fprintf(stderr, "anetos: %s is now %s; the old name will be removed in v0.6\n", args[0], name)
+		args = append([]string{name}, args[1:]...)
+	}
+	if len(args) > 1 && args[0] == "add" && args[1] == "lang" {
+		fmt.Fprintln(stderr, "anetos: add lang is now locale:add; the old name will be removed in v0.6")
+		args = append([]string{"locale:add"}, args[2:]...)
+	}
 	switch args[0] {
-	case "gen":
-		return gen(args[1:], stdout, stderr)
+	case "generate":
+		return generate(args[1:], stdout, stderr)
 	case "new":
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 		return newProject(ctx, args[1:], stdout, stderr)
-	case "add", "remove", "lang:add":
+	case "add", "remove", "locale:add":
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
-		switch {
-		case args[0] == "lang:add":
-			return langAdd(ctx, args[1:], stdout, stderr)
-		case args[0] == "add" && len(args) > 1 && args[1] == "lang":
-			return langAdd(ctx, args[2:], stdout, stderr)
-		case args[0] == "add":
+		switch args[0] {
+		case "locale:add":
+			return localeAdd(ctx, args[1:], stdout, stderr)
+		case "add":
 			return addPlugin(ctx, args[1:], stdout, stderr)
 		}
 		return removePlugin(ctx, args[1:], stdout, stderr)
@@ -134,27 +140,20 @@ func run(args []string, stdout, stderr io.Writer) int {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 		return cssUse(ctx, args[1:], stdout, stderr)
-	case "make:admin:resource":
+	case "make:admin-resource":
 		return makeAdminResource(args[1:], stdout, stderr)
 	case "make:handler", "make:model", "make:migration", "make:middleware", "make:agent":
 		return makeCmd(args[0], args[1:], stdout, stderr)
 	case "key:generate":
-		if len(args) > 1 {
-			fmt.Fprintln(stderr, "Usage: anetos key:generate\n\nPrints APP_KEY=… with a new random key, for example: go tool anetos key:generate >> .env")
-			if args[1] == "-h" || args[1] == "-help" || args[1] == "--help" {
-				return 0
-			}
-			return 2
-		}
-		fmt.Fprintln(stdout, "APP_KEY="+appkey.Generate())
-		return 0
+		return keyGenerate(args[1:], stdout, stderr)
 	case "version":
 		fmt.Fprintln(stdout, "anetos", version())
 		return 0
 	case "help", "-h", "-help", "--help":
 		if len(args) > 1 && args[0] == "help" && !strings.HasPrefix(args[1], "-") && args[1] != "help" {
-			// anetos help make:crud is anetos make:crud -h, on stdout.
-			return run([]string{args[1], "-h"}, stdout, stdout)
+			// anetos help make:crud is anetos make:crud -h, on stdout
+			// (help add lang: add lang -h).
+			return run(append(slices.Clone(args[1:]), "-h"), stdout, stdout)
 		}
 		fmt.Fprint(stdout, usage)
 		return 0
@@ -163,12 +162,20 @@ func run(args []string, stdout, stderr io.Writer) int {
 	return 2
 }
 
-func gen(args []string, stdout, stderr io.Writer) int {
-	fs := flag.NewFlagSet("anetos gen", flag.ContinueOnError)
+// formerNames are the commands' names before v0.5, still run (with a
+// warning) until v0.6.
+var formerNames = map[string]string{
+	"gen":                 "generate",
+	"lang:add":            "locale:add",
+	"make:admin:resource": "make:admin-resource",
+}
+
+func generate(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("anetos generate", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	check := fs.Bool("check", false, "don't write; exit with status 1 if any generated file is out of date")
 	fs.Usage = func() {
-		fmt.Fprint(stderr, `Usage: anetos gen [-check] [packages]
+		fmt.Fprint(stderr, `Usage: anetos generate [--check] [packages]
 
 Writes models_gen.go in each package with models, declaring the typed
 columns of every model (PostCols for Post) and the handles of its relation
@@ -178,7 +185,7 @@ db.Model, db.Timestamps or db.SoftDeletes, has a TableName method, or has a
 
 Flags:
 `)
-		fs.PrintDefaults()
+		printFlags(stderr, fs)
 	}
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -188,7 +195,7 @@ Flags:
 	}
 	dir, err := os.Getwd()
 	if err != nil {
-		fmt.Fprintln(stderr, "anetos gen:", err)
+		fmt.Fprintln(stderr, "anetos generate:", err)
 		return 1
 	}
 	changes, err := modelgen.Generate(dir, fs.Args()...)
@@ -198,16 +205,16 @@ Flags:
 	}
 	if *check {
 		for _, c := range changes {
-			fmt.Fprintf(stderr, "anetos gen: %s is out of date\n", rel(dir, c.Path))
+			fmt.Fprintf(stderr, "anetos generate: %s is out of date\n", rel(dir, c.Path))
 		}
 		if len(changes) > 0 {
-			fmt.Fprintln(stderr, "anetos gen: run `go tool anetos gen` and commit the result")
+			fmt.Fprintln(stderr, "anetos generate: run `go tool anetos generate` and commit the result")
 			return 1
 		}
 		return 0
 	}
 	if err := modelgen.Apply(changes); err != nil {
-		fmt.Fprintln(stderr, "anetos gen:", err)
+		fmt.Fprintln(stderr, "anetos generate:", err)
 		return 1
 	}
 	for _, c := range changes {

@@ -4,7 +4,7 @@ import "[[.Module]]/public"
 
 // The page's shell, which the layout (views/layout.templ) puts together.
 
-// Head links the kit's stylesheet: the layout's <head> calls it.
+// Head links the stylesheet: the layout's <head> calls it.
 templ Head() {
 	<link rel="stylesheet" href={ public.Assets.URL("app.css") }/>
 }
@@ -40,7 +40,7 @@ templ NavEnd() {
 }
 
 // NavItem is an entry of a Nav or NavEnd that isn't a NavLink: a
-// button, a form (log out). This kit wraps it in nothing.
+// button, a form (log out). These components wrap it in nothing.
 templ NavItem() {
 	{ children... }
 }
@@ -60,7 +60,7 @@ templ Footer() {
 }
 
 // Flash is a message about what just happened, with any buttons beside
-// it (the tone is for kits that color it).
+// it (the tone is for CSS frameworks that color it).
 templ Flash(tone Tone) {
 	<div role="status">
 		{ children... }

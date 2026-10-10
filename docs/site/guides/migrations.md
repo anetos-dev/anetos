@@ -126,7 +126,7 @@ database cache store). They run in ID order across all sets.
 ```go
 // go run .                 run the app (the default command)
 // go run . migrate         and migrate:rollback, migrate:status, migrate:fresh --seed, db:seed
-// go run . routes:list     every route
+// go run . route:list     every route
 // go run . blog:stats      a custom command (addCommands)
 // go run . cache:clear     empty the cache
 // go run . help            every command

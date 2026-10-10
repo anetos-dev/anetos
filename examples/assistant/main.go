@@ -8,7 +8,7 @@
 // question can also be answered in the background by a queue job, and
 // each user's usage counts against a daily budget.
 //
-//	anetos key:generate >> .env          # APP_KEY, once
+//	anetos key:generate                  # APP_KEY, once
 //	export APP_ENV=development HTTP_ADDR=:8080
 //	export AI_PROVIDER=anthropic AI_MODEL=claude-sonnet-4-5 ANTHROPIC_API_KEY=…
 //	export AI_EMBEDDING_PROVIDER=openai AI_EMBEDDING_MODEL=text-embedding-3-small OPENAI_API_KEY=…
@@ -125,15 +125,15 @@ func routes(r *web.Router, sessions *session.Manager, h Handlers) {
 	pages.With(a.Guest).Get("/login", h.LoginPage)
 	pages.With(a.Guest).Post("/login", web.H(h.Login))
 
-	members := pages.Group("", a.Require)
-	members.Post("/logout", h.Logout)
-	members.Get("/", h.Index)
-	members.Post("/chat", web.H(h.Start))
-	members.Get("/chat/{id}", web.H(h.Show))
-	members.Post("/chat/{id}", web.H(h.Send))         // htmx: the question, and a place for the answer
-	members.Get("/chat/{id}/reply", web.H(h.Reply))   // the answer, streamed (server-sent events)
-	members.Post("/chat/{id}/later", web.H(h.Later))  // answered by a queue job
-	members.Get("/chat/{id}/status", web.H(h.Status)) // htmx polls it while the job runs
+	loggedIn := pages.Group("", a.Require)
+	loggedIn.Post("/logout", h.Logout)
+	loggedIn.Get("/", h.Index)
+	loggedIn.Post("/chat", web.H(h.Start))
+	loggedIn.Get("/chat/{id}", web.H(h.Show))
+	loggedIn.Post("/chat/{id}", web.H(h.Send))         // htmx: the question, and a place for the answer
+	loggedIn.Get("/chat/{id}/reply", web.H(h.Reply))   // the answer, streamed (server-sent events)
+	loggedIn.Post("/chat/{id}/later", web.H(h.Later))  // answered by a queue job
+	loggedIn.Get("/chat/{id}/status", web.H(h.Status)) // htmx polls it while the job runs
 	// endregion
 }
 

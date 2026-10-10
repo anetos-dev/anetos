@@ -13,11 +13,11 @@ and `make:auth` call. The package is your app's: this page describes it
 as `anetos new` writes it. See [Style your app](../guides/styling.md)
 for changing it.
 
-Every component exists in every kit, with the same name and arguments.
-The tables show what the `anetos` kit (the starter theme) writes;
-[the `none` kit](#the-none-kit) writes the same elements without
-classes, and [the CSS frameworks' kits](#the-css-frameworks-kits)
-(and [Tailwind's](#the-tailwind-kit)) write their framework's markup.
+Every component exists for every CSS framework, with the same name and arguments.
+The tables show what the starter theme (`anetos`) writes;
+[`none`](#none-plain-html) writes the same elements without
+classes, and [Pico, Bootstrap and Bulma](#pico-bootstrap-and-bulma)
+(and [Tailwind CSS](#tailwind-css)) write their framework's markup.
 
 ```templ
 // illustrative
@@ -52,7 +52,7 @@ together.
 | `Nav(label string)` | `NavLink`s | `<nav class="nav">`, named `label` for screen readers (`aria-label`) |
 | `NavLink(href, label string, current bool)` | | A link of the header; `aria-current="page"` when `current` |
 | `NavEnd()` | `NavLink`s and `NavItem`s | `<div class="nav-end">`: the end of the header, for the account's links (`make:auth`'s `AccountMenu`) |
-| `NavItem()` | a button, a form | An entry of a `Nav` or `NavEnd` that isn't a `NavLink`, such as the logout button. The `anetos` kit writes the children alone; a framework's kit wraps them as its menus need (`<li>`, `navbar-item`) |
+| `NavItem()` | a button, a form | An entry of a `Nav` or `NavEnd` that isn't a `NavLink`, such as the logout button. The starter theme writes the children alone; a framework wraps them as its menus need (`<li>`, `navbar-item`) |
 | `Main()` | the page | `<main class="container">` |
 | `Footer()` | its content | `<footer class="site-footer">` |
 | `Flash(tone Tone)` | the message, and any buttons | `<div class="flash cluster …" role="status">` in the tone's color |
@@ -117,7 +117,7 @@ A button's look (`ui.Look`) is one kind, with sizes added with `|`:
 `ui.Secondary|ui.Small`. `Button`, `LinkButton` and `PostButton` take
 it.
 
-| Constant | For | Classes (`anetos` kit) |
+| Constant | For | Classes (starter theme) |
 |---|---|---|
 | `ui.Primary` | The page's main action; the default (zero) look | `button` on a link; none on a `<button>`, which looks primary as it is |
 | `ui.Secondary` | Another action | `secondary` |
@@ -130,7 +130,7 @@ it.
 
 What a color means (`ui.Tone`), for `Badge` and `Flash`.
 
-| Constant | Classes (`anetos` kit) |
+| Constant | Classes (starter theme) |
 |---|---|
 | `ui.Neutral` | none (gray) |
 | `ui.Success` | `success` |
@@ -140,7 +140,7 @@ What a color means (`ui.Tone`), for `Badge` and `Flash`.
 
 ## Types
 
-In `views/ui/ui.go`, shared by every kit.
+In `views/ui/ui.go`, shared by every CSS framework.
 
 | Type | Holds |
 |---|---|
@@ -184,12 +184,12 @@ These are the framework's, not `views/ui`'s; the
 | `view.Old(ctx, field, fallback...)` | A control's value: what was typed, after a failed post, else the fallback |
 | `view.OldChecked(ctx, field, fallback)` | A `Checkbox`'s `checked`, the same way |
 
-## The `none` kit
+## `none`: plain HTML
 
 `anetos new --css=none` writes the same components, with plain HTML
 and no classes. The differences:
 
-| Component | In the `none` kit |
+| Component | With `none` |
 |---|---|
 | `Header`, `Footer` | No inner `<div class="container">` |
 | `Main` | `<main>` without its class |
@@ -203,7 +203,7 @@ and no classes. The differences:
 
 Its `app.css` holds only a comment, and there is no `classes.go`.
 
-## The CSS frameworks' kits
+## Pico, Bootstrap and Bulma
 
 `anetos new --css=pico`, `--css=bootstrap` and `--css=bulma` write the
 same components in their framework's markup, its stylesheet (and
@@ -227,13 +227,13 @@ The menu button's name is `nav.menu` in `locales/<locale>/app.yaml`
 a newer release of a framework comes with a newer CLI, or replace its
 files in `public/static/` yourself.
 
-## The tailwind kit
+## Tailwind CSS
 
 `anetos new --css=tailwind` writes the components with Tailwind CSS
 4.3.3's utility classes, the source stylesheet `views/ui/tailwind.css`
 and `public/static/app.css`, which Tailwind compiles from it (`anetos
 dev`, `anetos build` and `anetos css:build` run Tailwind; [Tailwind
-CSS](../guides/kit-tailwind.md)). `classes.go` holds the classes of
+CSS](../guides/tailwind.md)). `classes.go` holds the classes of
 each look (`Look.class`) and tone (`Tone.badge`, `Tone.flash`) and of
 the form controls (`control`).
 

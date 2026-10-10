@@ -318,8 +318,8 @@ func IssuePage(issue models.Issue, comments []models.Comment) templ.Component {
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = ui.Form(web.MustURL(ctx, "comments.store", issue.ID), "POST", templ.Attributes{
-					"hx-post":              web.MustURL(ctx, "comments.store", issue.ID),
+				templ_7745c5c3_Err = ui.Form(web.MustURL(ctx, "comments.create", issue.ID), "POST", templ.Attributes{
+					"hx-post":              web.MustURL(ctx, "comments.create", issue.ID),
 					"hx-target":            "#comments",
 					"hx-swap":              "beforeend",
 					"hx-on::after-request": "if (event.detail.successful) this.reset()",

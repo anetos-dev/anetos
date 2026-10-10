@@ -30,7 +30,8 @@ blog/
 │   ├── errors.templ      error pages (404, 500…) in the layout
 │   └── ui/               the components the pages are made of: cards, forms, buttons, tables…
 ├── locales/en/app.yaml   the pages' text
-├── public/static/        CSS (app.css, the starter theme), the icon (favicon.svg) and other files
+├── public/               the web root: robots.txt, served at /robots.txt
+│   └── static/           CSS (app.css, the starter theme), the icon (favicon.svg) and other files, at /assets/
 ├── deploy/               a systemd unit and the production settings
 ├── Dockerfile            a container image
 ├── .env                  settings for your machine (not in git)
@@ -68,7 +69,7 @@ lists every key.
 
 `*_templ.go` (from the `.templ` files) and `app/models/models_gen.go`
 (the models' typed columns) are written by `templ generate` and
-`anetos gen`; `anetos dev` and `anetos build` run both. Commit them, but
+`anetos generate`; `anetos dev` and `anetos build` run both. Commit them, but
 don't edit them.
 
 The [CLI reference](../reference/cli.md#anetos-new-directory) describes

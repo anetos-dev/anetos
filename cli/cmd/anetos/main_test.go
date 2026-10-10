@@ -28,23 +28,28 @@ func TestCommands(t *testing.T) {
 		{nil, 2, "Usage: anetos"},
 		{[]string{"help"}, 0, "Commands:"},
 		{[]string{"help", "make:crud"}, 0, "Usage: anetos make:crud"},
-		{[]string{"help", "gen"}, 0, "Usage: anetos gen"},
+		{[]string{"help", "generate"}, 0, "Usage: anetos generate"},
 		{[]string{"version"}, 0, "anetos "},
-		{[]string{"key:generate"}, 0, "APP_KEY=base64:"},
+		{[]string{"key:generate", "--show"}, 0, "APP_KEY=base64:"},
 		{[]string{"key:generate", "-h"}, 0, "Usage: anetos key:generate"},
 		{[]string{"key:generate", "x"}, 2, "Usage: anetos key:generate"},
 		{[]string{"nope"}, 2, `unknown command "nope"`},
-		{[]string{"gen", "-h"}, 0, "Usage: anetos gen"},
+		{[]string{"gen", "-h"}, 0, "gen is now generate"},
+		{[]string{"generate", "-h"}, 0, "Usage: anetos generate"},
+		{[]string{"lang:add", "-h"}, 0, "lang:add is now locale:add"},
+		{[]string{"add", "lang", "-h"}, 0, "add lang is now locale:add"},
+		{[]string{"help", "add", "lang"}, 0, "Usage: anetos locale:add"},
+		{[]string{"make:admin:resource", "-h"}, 0, "make:admin:resource is now make:admin-resource"},
 		{[]string{"add", "-h"}, 0, "Usage: anetos add"},
 		{[]string{"add"}, 2, "Usage: anetos add"},
 		{[]string{"add", "not a module"}, 2, "malformed module path"},
 		{[]string{"remove", "-h"}, 0, "Usage: anetos remove"},
 		{[]string{"remove", "a", "b"}, 2, "Usage: anetos remove"},
-		{[]string{"gen", "-bogus"}, 2, "flag provided but not defined"},
-		{[]string{"gen", "-check", "../../internal/modelgen/internal/..."}, 0, ""},
+		{[]string{"generate", "-bogus"}, 2, "flag provided but not defined"},
+		{[]string{"generate", "--check", "../../internal/modelgen/internal/..."}, 0, ""},
 		{[]string{"css:build", "-h"}, 0, "Usage: anetos css:build"},
 		{[]string{"css:build", "x"}, 2, "Usage: anetos css:build"},
-		{[]string{"css:build"}, 1, "only the tailwind kit's stylesheet"},
+		{[]string{"css:build"}, 1, "only Tailwind CSS's stylesheet"},
 		{[]string{"css:use", "-h"}, 0, "Usage: anetos css:use"},
 		{[]string{"css:use", "a", "b"}, 2, "Usage: anetos css:use"},
 		{[]string{"css:use", "pico"}, 1, "no views/"},
@@ -84,21 +89,21 @@ func TestGenWritesAndChecks(t *testing.T) {
 	}
 	t.Chdir(dir)
 
-	code, _, errOut := runCmd(t, "gen", "-check")
+	code, _, errOut := runCmd(t, "generate", "--check")
 	if code != 1 || !strings.Contains(errOut, filepath.Join("models", "models_gen.go")+" is out of date") {
 		t.Errorf("check before gen: %d %q", code, errOut)
 	}
-	code, out, errOut := runCmd(t, "gen")
+	code, out, errOut := runCmd(t, "generate")
 	if code != 0 || out != "wrote "+filepath.Join("models", "models_gen.go")+" (Post)\n" {
 		t.Errorf("gen: %d %q %q", code, out, errOut)
 	}
-	if code, out, errOut := runCmd(t, "gen", "-check"); code != 0 || out+errOut != "" {
+	if code, out, errOut := runCmd(t, "generate", "--check"); code != 0 || out+errOut != "" {
 		t.Errorf("check after gen: %d %q %q", code, out, errOut)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "models/post.go"), []byte("package models\n\ntype Post struct{ X string `db:\"x,bad\"` }\n\nfunc (Post) TableName() string { return \"p\" }\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if code, _, errOut := runCmd(t, "gen"); code != 1 || !strings.Contains(errOut, `unknown db tag option "bad"`) {
+	if code, _, errOut := runCmd(t, "generate"); code != 1 || !strings.Contains(errOut, `unknown db tag option "bad"`) {
 		t.Errorf("gen with a bad model: %d %q", code, errOut)
 	}
 }

@@ -286,7 +286,7 @@
         "tags": [
           "Products"
         ],
-        "operationId": "api.products.destroy",
+        "operationId": "api.products.delete",
         "parameters": [
           {
             "name": "id",

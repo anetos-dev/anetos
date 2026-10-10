@@ -168,7 +168,7 @@ func TestCommands(t *testing.T) {
 			t.Fatalf("%v: exit %d: %s", args, code, errOut.String())
 		}
 	}
-	for _, args := range [][]string{{"migrate:fresh", "--seed"}, {"blog:stats"}, {"migrate:rollback"}, {"migrate"}, {"migrate:status"}, {"routes:list"}, {"cache:clear"}, {"help"}} {
+	for _, args := range [][]string{{"migrate:fresh", "--seed"}, {"blog:stats"}, {"migrate:rollback"}, {"migrate"}, {"migrate:status"}, {"route:list"}, {"cache:clear"}, {"help"}} {
 		execute(args...)
 	}
 	for _, want := range []string{"Seeded:      posts", "2 authors, 2 posts", "GET     /posts/{id}", "migrate:rollback", "Run pending migrations", "Cleared the memory cache"} {

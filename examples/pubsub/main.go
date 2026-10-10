@@ -6,7 +6,7 @@
 // "orders.created.dlq" topic. The broker is PUBSUB_DRIVER's: memory (in
 // the process), redis (REDIS_URL) or gcp (PUBSUB_GCP_PROJECT).
 //
-//	go tool anetos key:generate >> .env   # APP_KEY, once
+//	go tool anetos key:generate           # APP_KEY, once
 //	export APP_ENV=development HTTP_ADDR=:8080 PUBSUB_DRIVER=redis
 //	go run . migrate
 //	go run .                              # the server and the listener

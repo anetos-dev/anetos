@@ -287,7 +287,7 @@ func TestServerCommands(t *testing.T) {
 	srv.Router().Get("/posts/{id}", func(c *web.Ctx) error { return nil }).Name("posts.show")
 	srv.Router().Handle("", "/any", func(c *web.Ctx) error { return nil })
 	var out, errOut bytes.Buffer
-	if code := app.ExecuteArgs(t.Context(), []string{"routes:list"}, &out, &errOut); code != 0 {
+	if code := app.ExecuteArgs(t.Context(), []string{"route:list"}, &out, &errOut); code != 0 {
 		t.Fatalf("exit %d: %s", code, errOut.String())
 	}
 	for _, want := range []string{"METHOD", "GET     /posts/{id}", "posts.show", "ANY     /any", "health.live"} {

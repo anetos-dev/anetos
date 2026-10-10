@@ -26,7 +26,7 @@ builds a smaller version of it step by step.
 
 ```sh
 cp .env.example .env
-go tool anetos key:generate >> .env   # APP_KEY
+go tool anetos key:generate           # APP_KEY
 go run . migrate
 go run . db:seed                      # Ada and Grace, two projects
 go tool anetos dev                    # http://localhost:8080

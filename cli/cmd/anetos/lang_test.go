@@ -42,7 +42,7 @@ func TestLangAdd(t *testing.T) {
 	t.Chdir(app)
 	langAdd := func(args ...string) (int, string) {
 		var out, errOut bytes.Buffer
-		code := run(append([]string{"lang:add", "-from", src}, args...), &out, &errOut)
+		code := run(append([]string{"locale:add", "-from", src}, args...), &out, &errOut)
 		return code, out.String() + errOut.String()
 	}
 

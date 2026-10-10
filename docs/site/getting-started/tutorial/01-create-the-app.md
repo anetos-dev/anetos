@@ -51,7 +51,7 @@ running in a terminal of its own for the rest of the tutorial.
 | `main_test.go` | Tests that request the home page and a missing page |
 
 `go run . help` lists the app's commands: `run` (the default: the web
-server, the queue's workers and the scheduler), `migrate`, `routes:list`
+server, the queue's workers and the scheduler), `migrate`, `route:list`
 and more. The [CLI reference](../../reference/cli.md) has the full list
 of files and commands.
 

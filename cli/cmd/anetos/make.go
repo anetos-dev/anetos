@@ -22,7 +22,7 @@ func makeCmd(kind string, args []string, stdout, stderr io.Writer) int {
 	var withMigration *bool
 	usage := map[string]string{
 		"make:handler":    "Usage: anetos make:handler <Name>\n\nWrites app/handlers/<name>.go with a handler type.\n",
-		"make:model":      "Usage: anetos make:model <Name> [--migration]\n\nWrites app/models/<name>.go with a model embedding db.Model, and its typed\ncolumns (anetos gen).\n",
+		"make:model":      "Usage: anetos make:model <Name> [--migration]\n\nWrites app/models/<name>.go with a model embedding db.Model, and its typed\ncolumns (anetos generate).\n",
 		"make:migration":  "Usage: anetos make:migration <name>\n\nWrites database/migrations/<timestamp>_<name>.go. create_posts_table\ncreates a table; add_x_to_posts_table alters one.\n",
 		"make:middleware": "Usage: anetos make:middleware <Name>\n\nWrites app/middleware/<name>.go with a middleware function.\n",
 		"make:agent":      "Usage: anetos make:agent <Name>\n\nWrites app/agents/<name>.go with an AI agent (package ai) and a tool.\n",

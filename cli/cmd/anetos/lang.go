@@ -21,33 +21,33 @@ import (
 	"anetos.dev/anetos/cli/internal/scaffold"
 )
 
-// localesModule holds the translations lang:add copies, a folder per
+// localesModule holds the translations locale:add copies, a folder per
 // locale (github.com/anetos-dev/locales).
 const localesModule = "anetos.dev/locales"
 
-const langAddUsage = `Usage: anetos lang:add [-from dir] [-version v] [-force] <locale>...
+const localeAddUsage = `Usage: anetos locale:add [--from dir] [--version v] [--force] <locale>...
 
 Copies the translations of Anetos's own messages for each locale (bn, fr,
 es…) from ` + localesModule + ` into locales/<locale>/: framework.yaml
 (validation messages, error pages, date and number formats) and, if the
 app has make:auth's pages (locales/en/auth.yaml), auth.yaml. The files
 are then the app's. Keys the app's catalogs for the locale already
-define are left out, and files the app has are kept unless -force.
+define are left out, and files the app has are kept unless --force.
 With no locale, it lists the locales available.
 `
 
-// langAdd runs anetos lang:add.
-func langAdd(ctx context.Context, args []string, stdout, stderr io.Writer) int {
-	fs := flag.NewFlagSet("anetos lang:add", flag.ContinueOnError)
+// localeAdd runs anetos locale:add.
+func localeAdd(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("anetos locale:add", flag.ContinueOnError)
 	from := fs.String("from", "", "a checkout of "+localesModule+" to copy from, instead of downloading it")
 	version := fs.String("version", "latest", "the version of "+localesModule+" to download")
 	force := fs.Bool("force", false, "replace files the app already has")
-	wanted, code := parse(fs, args, stderr, langAddUsage)
+	wanted, code := parse(fs, args, stderr, localeAddUsage)
 	if code >= 0 {
 		return code
 	}
 	fail := func(err error) int {
-		fmt.Fprintln(stderr, "anetos lang:add:", err)
+		fmt.Fprintln(stderr, "anetos locale:add:", err)
 		return 1
 	}
 	var dest string
@@ -109,7 +109,7 @@ func langAdd(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		}
 	}
 	fmt.Fprintf(stdout, `Next:
-  go run . lang:check   what your own text still needs in %s
+  go run . locale:check   what your own text still needs in %s
 Visitors can choose these languages now (unless APP_LOCALES lists the
 supported ones): your own text shows in APP_FALLBACK_LOCALE until you
 translate it.
@@ -141,7 +141,7 @@ func addLocaleFile(stdout io.Writer, src, dest, locale, name string, force bool)
 		fmt.Fprintf(stdout, "%s is up to date.\n", rel)
 		return nil
 	case err == nil && !force:
-		fmt.Fprintf(stdout, "%s exists: kept (-force replaces it).\n", rel)
+		fmt.Fprintf(stdout, "%s exists: kept (--force replaces it).\n", rel)
 		return nil
 	case err != nil && !errors.Is(err, os.ErrNotExist):
 		return err
@@ -355,7 +355,7 @@ func downloadModule(ctx context.Context, mod, version string) (dir, v string, er
 	if err := c.Run(); err != nil {
 		var info struct{ Error string }
 		if json.Unmarshal(out.Bytes(), &info) == nil && info.Error != "" {
-			return "", "", fmt.Errorf("downloading %s@%s: %s (with no network, use -from)", mod, version, info.Error)
+			return "", "", fmt.Errorf("downloading %s@%s: %s (with no network, use --from)", mod, version, info.Error)
 		}
 		return "", "", fmt.Errorf("downloading %s@%s: %w\n%s", mod, version, err, strings.TrimSpace(errOut.String()))
 	}

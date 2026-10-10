@@ -1,15 +1,15 @@
 ---
 title: Start without styles
 since: v0.5.0
-group: "Design kits"
+group: "CSS frameworks"
 weight: 151
 ---
 
 # Start without styles
 
-The `none` kit: the same components, writing plain HTML without
+`--css=none`: the same components, writing plain HTML without
 classes, and an `app.css` that holds only a comment. For your own CSS,
-or a framework the other kits don't cover.
+or a CSS framework anetos doesn't cover.
 
 ![The products list without styles](../images/kits/none-list-light.webp)
 
@@ -30,8 +30,8 @@ The components write elements only: `<header>`, `<nav>`, `<main>`,
 
 A few things change nothing without styles: a button's look, a
 message's or a badge's tone, the table's scrolling box. The [UI
-components reference](../reference/ui.md#the-none-kit) lists how its
-components differ from the other kits'. There is no `classes.go`.
+components reference](../reference/ui.md#none-plain-html) lists how its
+components differ from the others'. There is no `classes.go`.
 
 ### 2. Style the elements
 
@@ -60,7 +60,7 @@ and arguments: the pages of `make:crud` and `make:auth` call them.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Buttons all look alike, badges have no color | The kit has no styles: looks and tones write nothing | Style them by element, or switch to a kit that has them |
+| Buttons all look alike, badges have no color | `none` has no styles: looks and tones write nothing | Style them by element, or switch to a CSS framework that has them |
 
 ## Next steps
 

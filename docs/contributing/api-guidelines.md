@@ -43,6 +43,11 @@ follow [Effective Go](https://go.dev/doc/effective_go) and
   `Open` opens a connection pool from explicit settings (`db.Open`, as
   `sql.Open`), `LoadConfig` reads a package's settings, `Register` adds
   to a registry at startup.
+- **Commands** are `<group>:<action>` with a singular group, and
+  Laravel's name where it has the command (`route:list`, `queue:work`,
+  `key:generate`); flags are written `--flag` in help (a one-letter one
+  `-o`). A renamed command keeps its old name in `cmd.Command.Former`
+  until the next minor (design D313).
 - Users **log in** and **log out** ("login", "logout" as nouns and in
   identifiers: `Login`, `LogoutEverywhere`, `LoginResponse`), never
   "sign in"; "sign up" and "single sign-on" keep their names (design
@@ -223,3 +228,4 @@ that isn't obvious.
 | 2026-10-10 | §1 the familiar word first; §2 `New(app)` and `Connect` instead of `ForApp` (M8b-1, D310) |
 | 2026-10-10 | §1 settings (M8b-2, D311) |
 | 2026-10-10 | §1 log in, `Supports`, error types (M8b-3, D312) |
+| 2026-10-10 | §1 commands (M8b-4, D313) |

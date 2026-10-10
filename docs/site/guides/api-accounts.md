@@ -126,7 +126,7 @@ gets 403, and `openapi.json` lists them), or check one in a handler with
 
 ```go
 // illustrative
-me.With(auth.RequireAbilities("orders:write")).Post("/orders", web.H(h.Create))
+loggedIn.With(auth.RequireAbilities("orders:write")).Post("/orders", web.H(h.Create))
 
 if !auth.TokenCan(c, "orders:write") {
 	return nil, web.Error(http.StatusForbidden, "")
@@ -189,7 +189,7 @@ The responses are structs of `app/handlers/auth.go`
 (`UserResponse`, `LoginResponse`, `TokenResponse`…), never the
 `User` model, so a new column never shows by accident. The emails are
 `app/mailers/auth.html`, an `html/template` file, with their text in
-`locales/en/auth.yaml`: `anetos lang:add` brings the same keys'
+`locales/en/auth.yaml`: `anetos locale:add` brings the same keys'
 translations as the pages' ([Translations](translations.md)).
 
 Throttling: registration 10 a minute per client address, reset
@@ -205,7 +205,7 @@ hour per user, logins and codes as `AUTH_THROTTLE` and
 
 `make:auth` updates `openapi.json`, the API's description
 ([Describe an API with OpenAPI](openapi.md)): the account's operations,
-their inputs and responses, and the bearer token the `me` routes need
+their inputs and responses, and the bearer token the `loggedIn` routes need
 (`auth.Require` says so, and `auth.RequireAbilities("*")` on the
 account's routes adds the `*` ability).
 

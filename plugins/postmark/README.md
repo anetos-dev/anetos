@@ -23,7 +23,7 @@ It adds:
 | Table | `postmark_suppressions` (migration set `postmark`) |
 | Commands | `postmark:suppressions` (list), `postmark:unsuppress <email>` |
 
-`go run . plugins:list` shows them.
+`go run . plugin:list` shows them.
 
 ## Send email through Postmark
 

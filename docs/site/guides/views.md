@@ -176,6 +176,24 @@ for pages that show updates as they happen: a streamed AI answer (see
 [Build an AI assistant](ai-assistant.md)), or events of your own, sent
 with `c.Events()`.
 
+Files that need a fixed URL, such as `robots.txt` or
+`.well-known/security.txt`, go in `public/` itself, the web root, which
+the project's `routes/web.go` serves at `/` (v0.5):
+
+```go
+// illustrative
+r.Static("/", public.Files) // public/robots.txt at /robots.txt
+```
+
+`r.Static(prefix, fsys)` serves a file system's files below a prefix,
+for GET and HEAD requests that no route matches: routes win. It never
+serves directories, Go files, or hidden files other than those in
+`.well-known/`; a missing file is the app's 404 page. `public.Files`
+embeds the whole folder (`//go:embed *`), `static/` too, which
+`/assets/` serves with hashed URLs: link those through `public.Assets`,
+which browsers cache. A folder of `public/` that holds only hidden files
+(`.gitkeep`) stops the build: embed needs a file in it.
+
 ### 5. Update parts of a page with htmx
 
 htmx requests carry `HX-Request`; `c.IsHTMX()` tells the handler to answer
@@ -310,7 +328,7 @@ request the page with `anetostest` and check it with `AssertSee`, as
 |---|---|---|
 | `undefined: NotesPage` | The `.templ` file wasn't generated | Run `go generate ./...` (or `go tool templ generate`) |
 | `web: unknown route name: "…"` when rendering | A typo in a route name | Use the name given with `.Name(…)` |
-| A 500 page, and a panic with `web: unknown route name` in the log | The same typo, in `web.MustURL` | Use the name given with `.Name(…)`; `go run . routes:list` lists them |
+| A 500 page, and a panic with `web: unknown route name` in the log | The same typo, in `web.MustURL` | Use the name given with `.Name(…)`; `go run . route:list` lists them |
 | `view: no session for this request` | A page uses `view.CSRFField` on a route without the session middleware | Add the middleware to the route's group |
 | Browsers keep an old CSS file | A URL written by hand, without the hash | Use `assets.URL(name)` |
 

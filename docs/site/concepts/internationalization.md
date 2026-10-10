@@ -30,7 +30,7 @@ English one, so an app whose fallback is Bangla still shows English
 visitors English validation messages.
 
 So a language can be translated a little at a time: what it lacks shows
-in the fallback language, and `lang:check` lists it. An app changes a
+in the fallback language, and `locale:check` lists it. An app changes a
 framework message by defining its key; there is no separate mechanism
 for overrides.
 
@@ -99,7 +99,7 @@ values have no zone and are shown as they are.
 
 The framework ships English only. Other languages' translations of its
 messages live apart, in `anetos.dev/locales`, where native speakers can
-improve them without waiting for a release. `anetos lang:add` copies a
+improve them without waiting for a release. `anetos locale:add` copies a
 language into the project, through the Go module proxy (versioned and
 checksummed like any dependency), and from then on the files are the
 project's: no runtime dependency, nothing replaced behind its back.
@@ -107,7 +107,7 @@ project's: no runtime dependency, nothing replaced behind its back.
 ## What it deliberately doesn't do
 
 - **No generated message functions.** Keys are strings, so a catalog is
-  the only thing to edit; `lang:check` reads the source for the keys it
+  the only thing to edit; `locale:check` reads the source for the keys it
   uses and reports undefined ones.
 - **No translated model content** (a post's title in several languages)
   yet: that is the app's data, and a search index has one language.

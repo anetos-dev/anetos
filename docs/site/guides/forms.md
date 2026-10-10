@@ -37,7 +37,7 @@ pages := r.Group("", sessions.Middleware, web.CSRF())
 pages.Get("/", func(c *web.Ctx) error { return c.RedirectRoute("notes.index") })
 pages.Get("/notes", web.H(h.Index)).Name("notes.index")
 pages.Get("/notes/new", h.New).Name("notes.new")
-pages.Post("/notes", web.H(h.Create)).Name("notes.store")
+pages.Post("/notes", web.H(h.Create)).Name("notes.create")
 pages.Get("/notes/{id}/edit", web.H(h.Edit)).Name("notes.edit")
 pages.Put("/notes/{id}", web.H(h.Update)).Name("notes.update")
 pages.Delete("/notes/{id}", web.H(h.Delete)).Name("notes.delete")
@@ -113,7 +113,7 @@ templ IssueForm(issue models.Issue) {
 			if issue.ID == 0 {
 				<h1>New issue</h1>
 				@ui.Card("") {
-					@ui.Form(web.MustURL(ctx, "issues.store"), "POST", nil) {
+					@ui.Form(web.MustURL(ctx, "issues.create"), "POST", nil) {
 						@issueFields(issue)
 					}
 				}

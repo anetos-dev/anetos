@@ -252,8 +252,8 @@ func TokenCan(ctx context.Context, ability string) bool {
 // login page: put it after [Auth.Require], which sends a page's guests
 // there):
 //
-//	me := api.Group("", a.Require)
-//	me.With(auth.RequireAbilities("bookmarks:write")).Post("/bookmarks", web.H(h.Create))
+//	loggedIn := api.Group("", a.Require)
+//	loggedIn.With(auth.RequireAbilities("bookmarks:write")).Post("/bookmarks", web.H(h.Create))
 //
 // API descriptions (package web/openapi) list the abilities as the
 // bearer token's scopes, and the 403. It panics without abilities.

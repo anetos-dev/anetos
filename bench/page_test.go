@@ -146,9 +146,9 @@ func pageApp(b testing.TB, logger *slog.Logger) (*anetos.App, *web.Router, func(
 	r.Get("/hello", hello)
 	r.Group("", sessions.Middleware).Get("/session", hello)
 	pages.Get("/csrf", hello)
-	members := pages.Group("", a.Require)
-	members.Get("/logged-in", hello)
-	members.Get("/posts", func(c *web.Ctx) error {
+	loggedIn := pages.Group("", a.Require)
+	loggedIn.Get("/logged-in", hello)
+	loggedIn.Get("/posts", func(c *web.Ctx) error {
 		posts, err := db.Query[Post](c).OrderBy(colPostID.Desc()).Limit(20).Get()
 		if err != nil {
 			return err

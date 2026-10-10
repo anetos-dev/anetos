@@ -26,8 +26,8 @@ const buildUsage = `Usage: anetos build [-o file] [--target=os/arch] [--version=
 
 Builds the app for production: one binary with everything in it (the
 migrations, the templ views, the files in public/ and locales/). It runs
-templ generate and anetos gen first (and, in a project of the tailwind
-kit, Tailwind CSS: anetos css:build), then go build with -trimpath and
+templ generate and anetos generate first (and, in a project that uses
+Tailwind CSS, anetos css:build), then go build with -trimpath and
 -ldflags=-s -w, and CGO_ENABLED=0 (a static binary; SQLite works without
 cgo) unless --cgo. --target builds for another system (linux/amd64,
 linux/arm64, windows/amd64…); GOOS and GOARCH work too when the tool
@@ -160,7 +160,7 @@ func (b *appBuild) run(ctx context.Context, stderr io.Writer) (string, error) {
 		err = modelgen.Apply(changes)
 	}
 	if err != nil {
-		return "", fmt.Errorf("anetos gen: %w", err)
+		return "", fmt.Errorf("anetos generate: %w", err)
 	}
 	if tailwind.Uses(b.root) {
 		if err := buildCSS(ctx, b.root, stderr, "anetos build"); err != nil {

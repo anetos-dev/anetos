@@ -384,6 +384,16 @@ func (q *Queue) addCommands(app *anetos.App) error {
 			_, err = fmt.Fprintf(args.Stdout, "Deleted %d job(s) from the %s queue.\n", n, name)
 			return err
 		},
+	}, {
+		Name:        "queue:work",
+		Description: "Run the queue's workers (run --only=workers)",
+		ManagesApp:  true,
+		Run: func(ctx context.Context, args *cmd.Args) error {
+			if len(args.Args) > 0 {
+				return cmd.Usagef("queue:work takes no arguments: the workers' queues are set where the app calls Work")
+			}
+			return app.Run(ctx, "workers")
+		},
 	}}
 	for _, c := range cmds {
 		if err := app.AddCommand(c); err != nil {

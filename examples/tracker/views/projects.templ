@@ -46,7 +46,7 @@ templ Projects(rows []ProjectRow) {
 templ NewProject() {
 	@Layout(i18n.T(ctx, "projects.new")) {
 		<h1>{ i18n.T(ctx, "projects.new") }</h1>
-		@ui.Form(web.MustURL(ctx, "projects.store"), "POST", nil) {
+		@ui.Form(web.MustURL(ctx, "projects.create"), "POST", nil) {
 			@ui.Field("name", i18n.T(ctx, "projects.fields.name"), "") {
 				@ui.Input("name", "", view.Old(ctx, "name"), templ.Attributes{"required": true, "maxlength": "100"})
 			}
@@ -200,7 +200,7 @@ templ ProjectSettingsPage(p ProjectSettings) {
 								}
 							</td>
 							@ui.ActionsCell() {
-								@ui.PostLink(web.MustURL(ctx, "members.destroy", p.Project.Key, m.User.ID), "DELETE", false) {
+								@ui.PostLink(web.MustURL(ctx, "members.delete", p.Project.Key, m.User.ID), "DELETE", false) {
 									if m.User.ID == p.MeID {
 										{ i18n.T(ctx, "members.leave") }
 									} else {
@@ -214,7 +214,7 @@ templ ProjectSettingsPage(p ProjectSettings) {
 			</tbody>
 		}
 		if !p.Project.Archived() {
-			@ui.Form(web.MustURL(ctx, "members.store", p.Project.Key), "POST", nil) {
+			@ui.Form(web.MustURL(ctx, "members.create", p.Project.Key), "POST", nil) {
 				@ui.Field("email", i18n.T(ctx, "members.add"), "") {
 					@ui.Row() {
 						@ui.Input("email", "email", view.Old(ctx, "email"), templ.Attributes{"required": true, "placeholder": "name@example.com"})
@@ -236,7 +236,7 @@ templ ProjectSettingsPage(p ProjectSettings) {
 				<li>
 					@ui.Label(l.Name, l.Color)
 					if !p.Project.Archived() {
-						@ui.PostLink(web.MustURL(ctx, "labels.destroy", p.Project.Key, l.ID), "DELETE", false) {
+						@ui.PostLink(web.MustURL(ctx, "labels.delete", p.Project.Key, l.ID), "DELETE", false) {
 							{ i18n.T(ctx, "labels.delete") }
 						}
 					}
@@ -244,7 +244,7 @@ templ ProjectSettingsPage(p ProjectSettings) {
 			}
 		}
 		if !p.Project.Archived() {
-			@ui.Form(web.MustURL(ctx, "labels.store", p.Project.Key), "POST", nil) {
+			@ui.Form(web.MustURL(ctx, "labels.create", p.Project.Key), "POST", nil) {
 				@ui.Field("label", i18n.T(ctx, "labels.add"), "") {
 					@ui.Row() {
 						@ui.Input("label", "", view.Old(ctx, "label"), templ.Attributes{"required": true, "maxlength": "50"})

@@ -8,7 +8,7 @@
 //
 //	go run ./examples/i18n            # http://localhost:8080
 //	APP_LOCALE_STRATEGY=prefix go run ./examples/i18n   # /bn/ for Bangla
-//	go run ./examples/i18n lang:check # what Bangla is missing
+//	go run ./examples/i18n locale:check # what Bangla is missing
 package main
 
 import (

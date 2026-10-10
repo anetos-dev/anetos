@@ -52,7 +52,7 @@ For `Post`:
 
 | File | Holds |
 |---|---|
-| `app/models/post.go` | `Post`, with a field per column; `anetos gen` adds `PostCols` to `models_gen.go` |
+| `app/models/post.go` | `Post`, with a field per column; `anetos generate` adds `PostCols` to `models_gen.go` |
 | `database/migrations/…_create_posts_table.go` | The `posts` table |
 | `app/handlers/posts.go` | `Posts`: `Index` (20 a page, newest first), `Show`, `New`, `Create`, `Edit`, `Update`, `Delete`; `PostInput`, the form, with its `validate` tags |
 | `views/posts.templ` | The list, a post's page, and the form for new and existing posts |
@@ -71,22 +71,29 @@ app](../guides/styling.md#projects-made-before-v05)).
 |---|---|---|
 | `posts.index` | `GET /posts` | The list, with pages (`?page=2`) |
 | `posts.new` | `GET /posts/new` | The empty form |
-| `posts.store` | `POST /posts` | Creates the post, then shows it |
+| `posts.create` | `POST /posts` | Creates the post, then shows it |
 | `posts.show` | `GET /posts/{id}` | The post, with Edit and Delete |
 | `posts.edit` | `GET /posts/{id}/edit` | The filled form |
 | `posts.update` | `PUT /posts/{id}` | Saves the changes |
-| `posts.destroy` | `DELETE /posts/{id}` | Deletes the post, then lists the others |
+| `posts.delete` | `DELETE /posts/{id}` | Deletes the post, then lists the others |
 
 HTML forms send `PUT` and `DELETE` with a hidden `_method` field, which
 the project's `web.MethodOverride` reads.
+
+Each route is named after its handler (`h.Create` is `posts.create`).
+
+> **Coming from Laravel?** Its resource routes call `create` the empty
+> form and `store` the post that saves it, and say `destroy` for delete.
+> Here the form is `new` and saving is `create`, as in Rails and
+> Phoenix, and deleting is `delete`, as in Phoenix.
 
 ## Make it yours
 
 The code is plain Anetos code: change it as you would your own.
 
 - **Only for logged-in users.** After [`make:auth`](add-accounts.md),
-  move the `Posts(pages)` call from `routes/web.go` to the `members`
-  group of `routes/auth.go` (`Posts(members)`): guests then go to the
+  move the `Posts(pages)` call from `routes/web.go` to the `loggedIn`
+  group of `routes/auth.go` (`Posts(loggedIn)`): guests then go to the
   login page. Log a user in at the start of `TestPosts`, as its comment
   shows (`make:auth` wrote `factories.Users`), and show the header's
   link to logged-in users only, in `views/layout.templ` (importing
@@ -123,10 +130,10 @@ migration, `app/handlers/posts.go`, `routes/posts.go` and
 | Route | URL | Answers |
 |---|---|---|
 | `api.posts.index` | `GET /api/v1/posts` | A page of posts |
-| `api.posts.store` | `POST /api/v1/posts` | `201` with the post, and its URL in `Location` |
+| `api.posts.create` | `POST /api/v1/posts` | `201` with the post, and its URL in `Location` |
 | `api.posts.show` | `GET /api/v1/posts/{id}` | The post |
 | `api.posts.update` | `PUT /api/v1/posts/{id}` | The post, every field replaced |
-| `api.posts.destroy` | `DELETE /api/v1/posts/{id}` | `204` |
+| `api.posts.delete` | `DELETE /api/v1/posts/{id}` | `204` |
 
 A post is answered as `PostResponse`, a struct of the handlers' file
 (the ID, the fields, `created_at`, `updated_at`), never as the model:
@@ -155,7 +162,7 @@ The endpoints are open to every client. After
 [`make:auth`](../guides/api-accounts.md), for clients with a token only:
 
 1. Move the `Posts(api)` call from `routes/api.go` to `routes/auth.go`,
-   in the `me` group: `Posts(me)`.
+   in the `loggedIn` group: `Posts(loggedIn)`.
 2. If tokens should need abilities, require them on the routes, in
    `routes/posts.go` (with `anetos.dev/anetos/auth` imported):
 
@@ -164,7 +171,7 @@ The endpoints are open to every client. After
    read := r.With(auth.RequireAbilities("posts:read"))
    write := r.With(auth.RequireAbilities("posts:write"))
    read.Get("/posts", web.H(h.Index)).Name("posts.index")
-   write.Post("/posts", web.H(h.Create)).Name("posts.store").Status(http.StatusCreated)
+   write.Post("/posts", web.H(h.Create)).Name("posts.create").Status(http.StatusCreated)
    ```
 
 3. `posts_test.go` now gets 401: make its test sign up first, with

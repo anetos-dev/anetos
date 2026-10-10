@@ -1,13 +1,13 @@
 ---
 title: Style with Pico
 since: v0.5.0
-group: "Design kits"
+group: "CSS frameworks"
 weight: 152
 ---
 
 # Style with Pico
 
-The `pico` kit: [Pico CSS](https://picocss.com) 2.1.1, a framework that
+`--css=pico`: [Pico CSS](https://picocss.com) 2.1.1, a framework that
 styles plain HTML, so its components write few classes. No build step
 and no JavaScript.
 
@@ -93,8 +93,8 @@ app](styling.md#5-add-your-own-component)).
 
 Dark mode is Pico's: it follows the visitor's system, or
 `data-theme="dark"` (or `"light"`) on `<html>`. `css:use pico` with the
-kit the project has brings a newer Pico when a newer `anetos` carries
-one ([Style your app](styling.md#8-switch-kits)).
+in a project that has it brings a newer Pico when a newer `anetos` carries
+one ([Style your app](styling.md#8-switch-css-frameworks)).
 
 ## Common problems
 

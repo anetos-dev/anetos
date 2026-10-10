@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"strings"
 )
 
 // parse parses flags that may come before or after positional arguments
@@ -19,7 +20,7 @@ func parse(fs *flag.FlagSet, args []string, stderr io.Writer, usage string) ([]s
 		fmt.Fprint(stderr, usage)
 		if hasFlags(fs) {
 			fmt.Fprintln(stderr, "\nFlags:")
-			fs.PrintDefaults()
+			printFlags(stderr, fs)
 		}
 	}
 	var positional []string
@@ -42,4 +43,30 @@ func hasFlags(fs *flag.FlagSet) bool {
 	n := 0
 	fs.VisitAll(func(*flag.Flag) { n++ })
 	return n > 0
+}
+
+// printFlags prints fs's flags as flag.PrintDefaults does, with two
+// dashes before names longer than a letter (--check, -o), as the help
+// texts write them; Go's flag package accepts either.
+func printFlags(w io.Writer, fs *flag.FlagSet) {
+	fs.VisitAll(func(f *flag.Flag) {
+		dash := "--"
+		if len(f.Name) == 1 {
+			dash = "-"
+		}
+		name, usage := flag.UnquoteUsage(f)
+		line := "  " + dash + f.Name
+		if name != "" {
+			line += " " + name
+		}
+		line += "\n    \t" + strings.ReplaceAll(usage, "\n", "\n    \t")
+		if f.DefValue != "" && f.DefValue != "false" && f.DefValue != "0" {
+			if name == "string" {
+				line += fmt.Sprintf(" (default %q)", f.DefValue)
+			} else {
+				line += " (default " + f.DefValue + ")"
+			}
+		}
+		fmt.Fprintln(w, line)
+	})
 }

@@ -27,12 +27,12 @@ type Validator interface {
 
 // H adapts a typed handler into a [HandlerFunc]:
 //
-//	type StorePost struct {
+//	type CreatePost struct {
 //		Title string `json:"title"`
 //		Body  string `json:"body"`
 //	}
 //
-//	func (h *Posts) Store(c *web.Ctx, in StorePost) (PostResponse, error) {
+//	func (h *Posts) Create(c *web.Ctx, in CreatePost) (PostResponse, error) {
 //		post, err := h.repo.Create(c, in.Title, in.Body)
 //		if err != nil {
 //			return PostResponse{}, err
@@ -40,7 +40,7 @@ type Validator interface {
 //		return postResponse(post), nil
 //	}
 //
-//	r.Post("/posts", web.H(h.Store)).Status(http.StatusCreated)
+//	r.Post("/posts", web.H(h.Create)).Status(http.StatusCreated)
 //
 // Before fn runs, the request is bound into a new In value:
 //
@@ -118,7 +118,7 @@ type handlerTypes struct {
 	name    string // the function's, as RouteInfo.Handler
 }
 
-// funcName is fn's name without its package path: "handlers.Posts.Store"
+// funcName is fn's name without its package path: "handlers.Posts.Create"
 // for a method value (h.Store, with a value or pointer receiver),
 // "main.main.func1" for a function literal.
 func funcName(fn any) string {

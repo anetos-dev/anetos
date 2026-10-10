@@ -123,14 +123,14 @@ templ Dashboard(u *models.User, tokens []auth.Token, newToken string) {
 			for _, t := range tokens {
 				<li>
 					{ t.Name }
-					<form method="post" action={ web.URL(ctx, "tokens.destroy", t.ID) }>
+					<form method="post" action={ web.URL(ctx, "tokens.delete", t.ID) }>
 						@view.CSRFField(ctx)
 						<button type="submit">Revoke</button>
 					</form>
 				</li>
 			}
 		</ul>
-		<form method="post" action={ web.URL(ctx, "tokens.store") }>
+		<form method="post" action={ web.URL(ctx, "tokens.create") }>
 			@view.CSRFField(ctx)
 			<label for="token-name">Name</label>
 			<input id="token-name" name="name"/>

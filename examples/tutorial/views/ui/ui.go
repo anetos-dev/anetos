@@ -1,8 +1,8 @@
 // Package ui is the app's interface components, in the markup of its
-// design kit (anetos): the layout and the pages call them, and use
-// plain HTML elements, without classes, for the rest. A kit is this
-// package with its stylesheet (public/static/app.css), so another kit's
-// restyles every page that calls the components. The package is the
+// CSS framework (anetos): the layout and the pages call them, and use
+// plain HTML elements, without classes, for the rest. Each framework has
+// this package with its stylesheet (public/static/app.css), so another
+// one's restyles every page that calls the components. The package is the
 // app's: change a component's markup freely, keeping its signature for
 // the pages that call it.
 package ui

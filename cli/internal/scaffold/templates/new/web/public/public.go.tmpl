@@ -1,4 +1,6 @@
-// Package public holds the static files served under /assets.
+// Package public is the web root: its files are served at / (robots.txt
+// at /robots.txt, .well-known/ at /.well-known/), and those of static/
+// at /assets/, with content-hashed URLs.
 package public
 
 import (
@@ -9,15 +11,18 @@ import (
 	"anetos.dev/anetos/view/htmx"
 )
 
-//go:embed static
-var files embed.FS
+// Files are the folder's files, which routes/web.go serves at / with
+// r.Static (Go files and other hidden files aren't served).
+//
+//go:embed *
+var Files embed.FS
 
 // Assets serves the files of the static directory and the bundled htmx,
 // with content-hashed URLs: Assets.URL("app.css").
 var Assets = mustAssets()
 
 func mustAssets() *view.Assets {
-	static, err := fs.Sub(files, "static")
+	static, err := fs.Sub(Files, "static")
 	if err != nil {
 		panic(err)
 	}

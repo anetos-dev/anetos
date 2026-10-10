@@ -14,7 +14,7 @@ and filter rows by what they relate to.
 ## Before you start
 
 [Define your models](models.md) and generate their typed columns with
-[`anetos gen`](code-generation.md). The foreign key columns must exist in
+[`anetos generate`](code-generation.md). The foreign key columns must exist in
 your tables ([migrations](migrations.md)).
 
 ## Steps
@@ -50,9 +50,9 @@ type Post struct {
 
 // AuthorCols and PostCols, the typed columns of the models, and
 // AuthorRels and PostRels, their relations, are in models_gen.go, written
-// by `go tool anetos gen` (or go generate).
+// by `go tool anetos generate` (or go generate).
 //
-//go:generate go tool anetos gen
+//go:generate go tool anetos generate
 ```
 
 (Copied from [`examples/database`](../../../examples/database/main.go), region `models`.)
@@ -84,7 +84,7 @@ return s.Create("post_tag", func(t *migrate.Table) {
 })
 ```
 
-Run `go tool anetos gen` (or `go generate ./...`): next to `PostCols`, it
+Run `go tool anetos generate` (or `go generate ./...`): next to `PostCols`, it
 writes `PostRels`, one handle per relation field (`PostRels.Author`,
 `AuthorRels.Posts`).
 

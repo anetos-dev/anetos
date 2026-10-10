@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package fixture holds models covering the column rules of the db
-// package. models_gen.go is written by anetos gen; the modelgen tests
+// package. models_gen.go is written by anetos generate; the modelgen tests
 // check that it is up to date and that it matches db.Columns.
 package fixture
 

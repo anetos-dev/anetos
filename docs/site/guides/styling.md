@@ -18,14 +18,14 @@ without styles.
 A project made with `anetos new` v0.5 or later. (A project made before
 v0.5 has no `views/ui` yet: see [below](#projects-made-before-v05).)
 There is no CDN, and no build step but Tailwind CSS's with the
-`tailwind` kit, which `anetos dev` runs for you ([Tailwind
-CSS](kit-tailwind.md)): it reloads the page when you save a file.
+Tailwind CSS, which `anetos dev` runs for you ([Tailwind
+CSS](tailwind.md)): it reloads the page when you save a file.
 
 ## Steps
 
 ### 1. Know what's there
 
-The look of your app is two parts, which together are a *design kit*:
+The look of your app is two parts, which a *CSS framework* writes together:
 
 | File | Holds |
 |---|---|
@@ -34,7 +34,7 @@ The look of your app is two parts, which together are a *design kit*:
 | `views/ui/form.templ` | Forms: `Form`, `Field`, `Input`, `Textarea`, `Select`, `Checkbox`, `Button`, `LinkButton`, `PostButton`… |
 | `views/ui/data.templ` | Lists and values: `Table`, `Details`, `Badge`, `Pagination`… |
 | `views/ui/ui.go` | The types the components take: `Look`, `Tone`, `Option`, `Pages` |
-| `views/ui/classes.go` | The kit's classes for each look and tone (not in the `none` kit) |
+| `views/ui/classes.go` | The framework's classes for each look and tone (not with `none`) |
 | `public/static/app.css` | The starter theme: light and dark, about 270 lines of plain CSS |
 
 Only `views/ui` has class names. The layout (`views/layout.templ`), the
@@ -193,9 +193,9 @@ templ Head() {
 `public.Assets.URL` adds a version to the URL, so browsers fetch the new
 file after a deploy; the binary embeds `public/`.
 
-### 7. Or start with another kit
+### 7. Or start with a CSS framework
 
-`anetos new` writes the starter theme's kit. `--css` picks another:
+`anetos new` writes the starter theme. `--css` picks a CSS framework instead:
 
 ```sh
 anetos new blog --css=bootstrap
@@ -203,16 +203,16 @@ anetos new blog --css=bootstrap
 
 | `--css` | The components' markup | `public/static/` | Guide |
 |---|---|---|---|
-| `anetos` (the default) | The starter theme's classes | `app.css`: the starter theme | [The starter theme](kit-anetos.md) |
-| `none` | Plain HTML without classes | `app.css`: a comment, for your styles | [Start without styles](kit-none.md) |
-| `pico` | [Pico CSS](https://picocss.com) 2.1.1: mostly plain HTML, which Pico styles | `pico.min.css`, `app.css` (what Pico has no style of) | [Pico](kit-pico.md) |
-| `bootstrap` | [Bootstrap](https://getbootstrap.com) 5.3.8's classes | `bootstrap.min.css`, `bootstrap.bundle.min.js`, `theme.js`, `app.css` | [Bootstrap](kit-bootstrap.md) |
-| `bulma` | [Bulma](https://bulma.io) 1.0.4's classes | `bulma.min.css`, `nav.js`, `app.css` | [Bulma](kit-bulma.md) |
-| `tailwind` | [Tailwind CSS](https://tailwindcss.com) 4.3.3's utility classes | `app.css`, compiled from `views/ui/tailwind.css` | [Tailwind CSS](kit-tailwind.md) |
+| `anetos` (the default) | The starter theme's classes | `app.css`: the starter theme | [The starter theme](starter-theme.md) |
+| `none` | Plain HTML without classes | `app.css`: a comment, for your styles | [Start without styles](plain-html.md) |
+| `pico` | [Pico CSS](https://picocss.com) 2.1.1: mostly plain HTML, which Pico styles | `pico.min.css`, `app.css` (what Pico has no style of) | [Pico](pico.md) |
+| `bootstrap` | [Bootstrap](https://getbootstrap.com) 5.3.8's classes | `bootstrap.min.css`, `bootstrap.bundle.min.js`, `theme.js`, `app.css` | [Bootstrap](bootstrap.md) |
+| `bulma` | [Bulma](https://bulma.io) 1.0.4's classes | `bulma.min.css`, `nav.js`, `app.css` | [Bulma](bulma.md) |
+| `tailwind` | [Tailwind CSS](https://tailwindcss.com) 4.3.3's utility classes | `app.css`, compiled from `views/ui/tailwind.css` | [Tailwind CSS](tailwind.md) |
 
-The same page, a list that `make:crud` wrote, with each kit:
+The same page, a list that `make:crud` wrote, with each:
 
-| Kit | The products list |
+| `--css` | The products list |
 |---|---|
 | `anetos` | ![The products list with the starter theme](../images/kits/anetos-list-light.webp) |
 | `none` | ![The products list without styles](../images/kits/none-list-light.webp) |
@@ -221,62 +221,62 @@ The same page, a list that `make:crud` wrote, with each kit:
 | `bulma` | ![The products list with Bulma](../images/kits/bulma-list-light.webp) |
 | `tailwind` | ![The products list with Tailwind CSS](../images/kits/tailwind-list-light.webp) |
 
-Every kit writes the same components, with the same names and
+Each writes the same components, with the same names and
 arguments, so the layout, the home page and the pages of `make:crud` and
 `make:auth` are the same with each: only `views/ui` and
 `public/static/` differ. Each but `none` follows the visitor's light or
 dark mode. A framework's files are as released, with its license beside
 them (`pico.LICENSE.txt`: MIT, as are the others); the binary embeds
-them, and serves them gzipped to browsers that accept it. Each kit's
+them, and serves them gzipped to browsers that accept it. Each one's
 guide shows its pages in light and dark, and how to change its colors
 and use more of its framework.
 
-A kit is `views/ui` with its `public/static/` files, so another kit
-restyles every page that calls the components: [step 8](#8-switch-kits)
+A CSS framework is `views/ui` with its `public/static/` files, so another
+restyles every page that calls the components: [step 8](#8-switch-css-frameworks)
 switches a project's.
 
-### 8. Switch kits
+### 8. Switch CSS frameworks
 
 ```sh
 go tool anetos css:use bulma
 ```
 
-switches the project to another kit. It writes the kit's components
-(`views/ui`) and stylesheets (`public/static/`), removes the old kit's
+switches the project to another CSS framework. It writes its components
+(`views/ui`) and stylesheets (`public/static/`), removes the old one's
 files the new one hasn't (`pico.min.css`, `theme.js`, `tailwind.css`…),
 and runs `templ generate` (and, for Tailwind, `css:build`). The layout,
 the pages and your own files in `views/ui` stay as they are: the pages
 call the components, so every one of them takes the new look.
-`go tool anetos css:use` alone prints the project's kit.
+`go tool anetos css:use` alone prints the project's.
 
-`views/ui/kit.json` records the kit: its name, its framework's version,
+`views/ui/css.json` records the CSS framework: its name, its version,
 and the SHA-256 of each file it wrote (`anetos new` writes it, and
-`css:use` updates it). With it, `css:use` knows which kit files you
+`css:use` updates it). With it, `css:use` knows which of those files you
 changed since: a component you edited, your colors in `app.css`. It
 names them and writes nothing:
 
 ```text
-anetos css:use: these files changed since the anetos kit wrote them, or aren't its:
+anetos css:use: these files changed since anetos wrote them for the starter theme, or aren't its:
   public/static/app.css
   views/ui/page.templ
 Nothing was written. Run again with --force to replace them (commit first: git then shows what changed), or undo the changes.
 ```
 
 `--force` replaces them; commit first, and `git diff` shows what to
-carry over (your colors into the new kit's stylesheet, say). A project
-without `kit.json` (or with one it can't read) needs `--force` too;
-then it can't tell the old kit's static files from yours, so it lists
-the files of `public/static/` it left for you to remove. A file of a
-kit that is a symbolic link counts as changed. Line endings don't: git
+carry over (your colors into the new stylesheet, say). A project
+without `css.json` (or with one it can't read) needs `--force` too;
+then it can't tell the old framework's static files from yours, so it lists
+the files of `public/static/` it left for you to remove. A file of
+`views/ui` or `public/static` that is a symbolic link counts as changed. Line endings don't: git
 on Windows may check files out with CRLF.
 
 After the switch, `css:use` builds the project: when your own code
-called something only the old kit had (an unexported helper of its
-`classes.go`), it says so and exits with status 1. It adds `nav.menu`
+called something only the old framework's components had (an
+unexported helper of its `classes.go`), it says so and exits with status 1. It adds `nav.menu`
 to `locales/en/app.yaml` when missing, and names the other locales to
 translate it in.
 
-`css:use` with the kit the project already has updates the kit's files
+`css:use` with the framework the project already has updates its files
 to your `anetos`'s version (after `go get -tool
 anetos.dev/anetos/cli/cmd/anetos@latest`: a newer Pico, fixed
 components), under the same rule. Moving to or from Tailwind, it says
@@ -287,7 +287,7 @@ doesn't edit it.
 
 A page can still use classes of its own (`<div class="hero">`), styled
 by your rules in `app.css`. They keep working, but they are outside the
-kit: `css:use` restyles the components, not your pages' classes, and
+components: `css:use` restyles the components, not your pages' classes, and
 says which of your own files in `views/ui` keep theirs. When the markup
 repeats, make it a component (step 5).
 
@@ -299,11 +299,11 @@ you run a generator. The first `make:crud` or `make:auth` writes
 `views/ui` before the pages that call it, and says so:
 
 ```text
-views/ui is the anetos kit's components, which the new pages call: the project had none (made before v0.5).
+views/ui has the components for the starter theme, which the new pages call: the project had none (made before v0.5).
 The layout keeps its markup; the upgrade guide shows how to use them there too.
 ```
 
-It picks the kit from your stylesheet: `anetos` when
+It picks the CSS framework from your stylesheet: `anetos` when
 `public/static/app.css` has the starter theme's `.card` rule, else
 `none` (classless markup, for a stylesheet of your own). It doesn't
 change `app.css`, the layout or your other pages. Both kinds of layout
@@ -320,17 +320,17 @@ To build the layout from the components too, compare it with the
 
 `views/ui` is an ordinary package of your app. Nothing in the framework
 imports it, and updating Anetos never changes it, or `app.css`: a newer
-version's kit comes when you ask for it, with `css:use` and your kit's
-name ([step 8](#8-switch-kits)).
+version's components come when you ask for them, with `css:use` and
+your framework's name ([step 8](#8-switch-css-frameworks)).
 
 Some components read the request's context (`ctx`): `ui.Form` adds the
 CSRF token, `ui.Field` shows its field's validation message, and
 `ui.Input`, `ui.Textarea`, `ui.Select` and `ui.Checkbox` are marked
 `aria-invalid="true"` when their field failed validation, which the
-kit shows with a red border. `ui.NavLink` marks the current page with
+stylesheet shows with a red border. `ui.NavLink` marks the current page with
 `aria-current="page"` (the layout's `navLink` asks `web.RouteIs`), which
-the kit highlights. A header entry that isn't a link (the logout button)
-is in a `ui.NavItem`, which each kit wraps as its menus need.
+the stylesheet highlights. A header entry that isn't a link (the logout button)
+is in a `ui.NavItem`, which each CSS framework wraps as its menus need.
 
 The theme is variables, then base styles for the elements, then the
 classes. Forms and tables need no class: plain HTML looks right as it
@@ -342,8 +342,8 @@ is.
 |---|---|---|
 | `undefined: ui.Stat` (or another component) | `views/ui` has no such component: it was renamed, deleted, or never there | Add it to `views/ui`, or copy it from a new project's |
 | A generated page doesn't build after you changed a component | The pages of `make:crud` and `make:auth` call the component's old arguments | Keep the signature; add a new component for the new arguments |
-| A 500 page and `web: unknown route name` in the log | `web.MustURL` was given a route name that doesn't exist | Fix the name; `go run . routes:list` lists them |
-| The new pages of a project made before v0.5 have no style | `app.css` has no `.card` rule, so the classless kit was written | Style the elements, or give the components your classes |
+| A 500 page and `web: unknown route name` in the log | `web.MustURL` was given a route name that doesn't exist | Fix the name; `go run . route:list` lists them |
+| The new pages of a project made before v0.5 have no style | `app.css` has no `.card` rule, so the classless components (`none`) were written | Style the elements, or give the components your classes |
 
 ## Next steps
 

@@ -67,6 +67,7 @@ type routerCore struct {
 	names   map[string]*Route
 	routes  []*Route
 	methods map[string]bool // methods used by registered routes, for Allow
+	statics []static        // Static's file systems, tried before a 404
 	global  []Middleware
 	built   bool
 	handler atomic.Pointer[http.Handler] // global(mux), built on first request
@@ -146,7 +147,7 @@ func (r *Router) Use(mws ...Middleware) {
 // With returns a router with the same prefix and extra middleware, for
 // applying middleware to individual routes:
 //
-//	r.With(auth.Required).Post("/posts", h.Store)
+//	r.With(auth.Required).Post("/posts", h.Create)
 func (r *Router) With(mws ...Middleware) *Router {
 	return &Router{core: r.core, parent: r, host: r.host, prefix: r.prefix, namePfx: r.namePfx, mws: append(slices.Clip(r.mws), mws...)}
 }
@@ -381,10 +382,14 @@ func (c *routerCore) build() *http.Handler {
 }
 
 // fallback handles requests no route matched: 204 for OPTIONS, 405 with an
-// Allow header if the path exists for other methods, otherwise 404.
+// Allow header if the path exists for other methods, a file of
+// [Router.Static], otherwise 404.
 func (r *Router) fallback(w http.ResponseWriter, req *http.Request) {
 	c := &Ctx{w: wrapWriter(w), r: req, router: r}
 	allowed := r.allowedMethods(req)
+	if len(allowed) == 0 && r.serveStatic(w, req) {
+		return
+	}
 	switch {
 	case len(allowed) > 0 && req.Method == http.MethodOptions:
 		if !slices.Contains(allowed, http.MethodOptions) {
@@ -451,7 +456,7 @@ type Route struct {
 // routes write their own status too, and ignore it. It panics unless code
 // is a 2xx status. Call it while registering routes:
 //
-//	api.Post("/orders", web.H(h.Create)).Name("orders.store").Status(http.StatusCreated)
+//	api.Post("/orders", web.H(h.Create)).Name("orders.create").Status(http.StatusCreated)
 func (rt *Route) Status(code int) *Route {
 	if code < 200 || code > 299 {
 		panic(fmt.Sprintf("web: route %s %s: Status(%d) isn't a success (2xx) status", rt.method, rt.pattern, code))
@@ -511,7 +516,7 @@ func (rt *Route) RouteName() string {
 	return ""
 }
 
-// RouteInfo describes a route, for listings such as `routes:list`.
+// RouteInfo describes a route, for listings such as `route:list`.
 type RouteInfo struct {
 	Method  string // GET, POST, …; "" for any method
 	Host    string // the host it matches ([Router.Host]), "" for any
@@ -525,7 +530,7 @@ type RouteInfo struct {
 	// Status is the route's [Route.Status], 0 unless set.
 	Status int
 	// Handler names a typed handler's function without its package
-	// path ("handlers.Posts.Store"); "" for other handlers.
+	// path ("handlers.Posts.Create"); "" for other handlers.
 	Handler string
 	// Middleware describes what the route's middleware asks of requests
 	// and may answer, outermost first: what each middleware's handler

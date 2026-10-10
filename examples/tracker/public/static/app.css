@@ -276,7 +276,7 @@ td.actions { text-align: end; white-space: nowrap; }
 }
 
 /*
- * The tracker's own styles, on top of the kit's theme above: those of
+ * The tracker's own styles, on top of the starter theme above: those of
  * its own components (views/ui/tracker.templ).
  */
 

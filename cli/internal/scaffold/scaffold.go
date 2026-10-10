@@ -43,7 +43,7 @@ type Project struct {
 	Module  string // Go module path; default: the directory's name
 	DB      string // sqlite, postgres or mysql
 	Replace string // local Anetos checkout to use through replace directives ("" to download)
-	// CSS is the design kit of the web stack (see [Kits]): "anetos" (the
+	// CSS is the CSS framework of the web stack (see [Kits]): "anetos" (the
 	// default, "" too), Anetos's starter theme; "none", components
 	// writing plain HTML without classes and an empty
 	// public/static/app.css; "pico", "bootstrap" or "bulma", a CSS
@@ -324,7 +324,7 @@ type KitFile struct {
 // the kit's own.
 func renderKit(kit string, data projectData) ([]KitFile, error) {
 	if !slices.Contains(Kits, kit) {
-		return nil, fmt.Errorf("scaffold: no design kit %q (kits: %s)", kit, strings.Join(Kits, ", "))
+		return nil, fmt.Errorf("scaffold: no CSS framework %q (choose from %s)", kit, strings.Join(Kits, ", "))
 	}
 	data.KitVersion = KitVersions[kit]
 	var files []KitFile
@@ -365,7 +365,7 @@ func HasUI(root string) bool {
 	return err == nil
 }
 
-// GuessKit is the project's design kit: the one views/ui/kit.json
+// GuessKit is the project's CSS framework: the one views/ui/css.json
 // records, else, for a project made before v0.5 (without views/ui), the
 // one closest to its stylesheet: "anetos" when public/static/app.css has
 // the starter theme's cards, else "none".
@@ -382,7 +382,7 @@ func GuessKit(root string) string {
 
 // WriteUI writes a design kit's views/ui package into the project in
 // root (module is its module path), for a project without one, and
-// views/ui/kit.json recording them; the stylesheet is left as it is. It
+// views/ui/css.json recording them; the stylesheet is left as it is. It
 // returns the files written.
 func WriteUI(root, module, kit string) ([]string, error) {
 	if HasUI(root) {

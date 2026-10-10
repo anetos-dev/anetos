@@ -448,18 +448,36 @@ func TestAppNew(t *testing.T) {
 		return ctx, nil
 	})
 	before := reports.Load()
-	out, err = run("schedule:run", "daily-report")
+	out, err = run("schedule:test", "daily-report")
 	if len(units) == 0 || units[0] != "task daily-report" { // then its job (sync driver)
 		t.Errorf("units %v", units)
 	}
 	if err != nil || !strings.HasPrefix(out, "Ran daily-report in") || reports.Load() != before+1 {
-		t.Errorf("schedule:run = %q, %v; %d reports", out, err, reports.Load()-before)
+		t.Errorf("schedule:test = %q, %v; %d reports", out, err, reports.Load()-before)
 	}
-	if _, err := run("schedule:run"); !errors.Is(err, cmd.ErrUsage) {
-		t.Errorf("schedule:run without a task = %v", err)
+	if _, err := run("schedule:test"); !errors.Is(err, cmd.ErrUsage) {
+		t.Errorf("schedule:test without a task = %v", err)
 	}
-	if _, err := run("schedule:run", "nope"); err == nil {
-		t.Error("schedule:run nope = nil")
+	if _, err := run("schedule:test", "nope"); err == nil {
+		t.Error("schedule:test nope = nil")
+	}
+	// v0.4's schedule:run <task> runs the task, with a warning.
+	if out, err := run("schedule:run", "daily-report"); err != nil || !strings.Contains(out, "schedule:test daily-report") || !strings.Contains(out, "Ran daily-report in") || reports.Load() != before+2 {
+		t.Errorf("schedule:run daily-report = %q, %v", out, err)
+	}
+	// Without a task, schedule:run runs those due this minute: 02:00 in
+	// Dhaka is 20:00 UTC, when the hourly task runs too.
+	clock := newClock(time.Date(2026, 1, 1, 20, 0, 40, 0, time.UTC))
+	schedule.SetClock(s, clock)
+	if out, err := run("schedule:run"); err != nil || !strings.HasPrefix(out, "Ran daily-report, hourly in") || reports.Load() != before+3 {
+		t.Errorf("schedule:run at 20:00 UTC = %q, %v; %d reports", out, err, reports.Load()-before)
+	}
+	clock.now = clock.now.Add(time.Minute)
+	if out, err := run("schedule:run"); err != nil || out != "No tasks are due.\n" {
+		t.Errorf("schedule:run at 20:01 UTC = %q, %v", out, err)
+	}
+	if _, err := run("schedule:run", "a", "b"); !errors.Is(err, cmd.ErrUsage) {
+		t.Errorf("schedule:run a b = %v", err)
 	}
 	if _, err := run("schedule:list", "x"); !errors.Is(err, cmd.ErrUsage) {
 		t.Errorf("schedule:list x = %v", err)

@@ -16,7 +16,7 @@ import (
 // Layout is the page shell: the header with the app's links, the flash
 // message, then the page, which passes its content as children. Its
 // markup is views/ui's components, styled by public/static/app.css: the
-// anetos kit's theme, with the tracker's own styles at the end.
+// starter theme, with the tracker's own styles at the end.
 templ Layout(title string) {
 	<!DOCTYPE html>
 	<html lang={ i18n.Locale(ctx) } dir={ i18n.Dir(ctx) }>

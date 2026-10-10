@@ -318,7 +318,7 @@ func (r *res[T, F]) show(c *web.Ctx) error {
 	return r.p.render(c, "show", page{Title: label, Crumbs: r.crumbs(navItem{Title: label}), Data: sp})
 }
 
-func (r *res[T, F]) destroy(c *web.Ctx) error {
+func (r *res[T, F]) delete(c *web.Ctx) error {
 	row, err := r.find(c, false)
 	if err != nil {
 		return err
@@ -326,7 +326,7 @@ func (r *res[T, F]) destroy(c *web.Ctx) error {
 	if err := r.check(c, row, "delete"); err != nil {
 		return refused(c, err, r.url("/"+r.keyText(row)))
 	}
-	if err := r.delete(c, &row, !r.in.soft); err != nil {
+	if err := r.deleteRow(c, &row, !r.in.soft); err != nil {
 		return err
 	}
 	msg := r.label(row) + " deleted."
@@ -336,9 +336,9 @@ func (r *res[T, F]) destroy(c *web.Ctx) error {
 	return done(c, msg, r.url(""))
 }
 
-// delete deletes row: soft, or for good (and then the removed hook, in
+// deleteRow deletes row: soft, or for good (and then the removed hook, in
 // the same transaction).
-func (r *res[T, F]) delete(ctx context.Context, row *T, forGood bool) error {
+func (r *res[T, F]) deleteRow(ctx context.Context, row *T, forGood bool) error {
 	if !forGood {
 		return db.Delete(ctx, row)
 	}
@@ -375,7 +375,7 @@ func (r *res[T, F]) forceDelete(c *web.Ctx) error {
 	if err := r.check(c, row, "delete"); err != nil {
 		return refused(c, err, r.url("/trash"))
 	}
-	if err := r.delete(c, &row, true); err != nil {
+	if err := r.deleteRow(c, &row, true); err != nil {
 		return err
 	}
 	return done(c, r.label(row)+" deleted forever.", r.url("/trash"))
@@ -556,7 +556,7 @@ func (r *res[T, F]) bulkEach(c *web.Ctx, q *db.Q[T], name string, selected int, 
 			return err
 		}
 		for i := range ok {
-			if err := r.delete(ctx, &ok[i], !r.in.soft); err != nil {
+			if err := r.deleteRow(ctx, &ok[i], !r.in.soft); err != nil {
 				return err
 			}
 			n++

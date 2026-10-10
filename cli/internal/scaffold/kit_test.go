@@ -63,6 +63,35 @@ func TestKitRecord(t *testing.T) {
 	}
 }
 
+// A development build's views/ui/kit.json is read, and css:use replaces
+// it with css.json.
+func TestFormerKitRecord(t *testing.T) {
+	dir := newKitProject(t, "pico")
+	b, err := os.ReadFile(filepath.Join(dir, "views", "ui", "css.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := strings.Replace(string(b), `"framework":`, `"kit":`, 1)
+	if err := os.WriteFile(filepath.Join(dir, "views", "ui", "kit.json"), []byte(old), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(dir, "views", "ui", "css.json")); err != nil {
+		t.Fatal(err)
+	}
+	if r, err := ReadKitRecord(dir); err != nil || r.Kit != "pico" || len(r.Files) == 0 {
+		t.Fatalf("kit.json: %+v, %v", r, err)
+	}
+	if _, err := UseKit(dir, "app", "bulma", false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "views", "ui", "kit.json")); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("kit.json kept: %v", err)
+	}
+	if r, err := ReadKitRecord(dir); err != nil || r.Kit != "bulma" {
+		t.Errorf("css.json: %+v, %v", r, err)
+	}
+}
+
 // css:use switches kits: the new kit's files are written, the old one's
 // it lacks removed, the layout and the app's own files kept.
 func TestUseKit(t *testing.T) {
@@ -244,7 +273,7 @@ func TestKitRecordPaths(t *testing.T) {
 	dir := newKitProject(t, "anetos")
 	recPath := filepath.Join(dir, filepath.FromSlash(KitRecordFile))
 	good := read(t, recPath)
-	for _, bad := range []string{"go.mod", "../victim.txt", "/etc/passwd", "views/ui/../../go.mod", "views/ui/kit.json", "public/static", "views/uix/a.go", `views\\ui\\a.go`} {
+	for _, bad := range []string{"go.mod", "../victim.txt", "/etc/passwd", "views/ui/../../go.mod", "views/ui/kit.json", "views/ui/css.json", "public/static", "views/uix/a.go", `views\\ui\\a.go`} {
 		write(t, recPath, strings.Replace(good, `"files": {`, `"files": {"`+bad+`": "00",`, 1))
 		if _, err := ReadKitRecord(dir); !errors.Is(err, ErrBadKitRecord) {
 			t.Errorf("%s: %v", bad, err)

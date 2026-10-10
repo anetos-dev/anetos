@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package admin has the admin interface's resources (anetos make:admin):
-// what it lists and edits of each model. `anetos make:admin:resource
+// what it lists and edits of each model. `anetos make:admin-resource
 // <Model>` writes one and adds it to Resources.
 package admin
 

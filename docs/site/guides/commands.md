@@ -49,14 +49,14 @@ func main() {
 | Command | Added by |
 |---|---|
 | `run [--only=role,…]` | Every app |
-| `serve`, `routes:list` | `web.NewServer` |
+| `serve`, `route:list` | `web.NewServer` |
 | `openapi` | `openapi.Register` ([Describe an API with OpenAPI](openapi.md)) |
 | `migrate`, `migrate:rollback`, `migrate:reset`, `migrate:fresh`, `migrate:status`, `db:seed`, `search:reindex` | `migrate.New` ([Migrations](migrations.md), [Search](search.md)) |
 | `cache:clear` | `cache.New` ([Cache values](cache.md)) |
 | `ai:embed` | `ai.EmbeddingsFor` ([Search by meaning](semantic-search.md)) |
-| `queue:failed`, `queue:retry`, `queue:forget`, `queue:flush`, `queue:clear` | `queue.New` ([Queues](queues.md)) |
+| `queue:work`, `queue:failed`, `queue:retry`, `queue:forget`, `queue:flush`, `queue:clear` | `queue.New` ([Queues](queues.md)) |
 | `pubsub:publish` | `pubsub.New` ([Pub/sub listeners](pubsub.md)) |
-| `schedule:list`, `schedule:run` | `schedule.New` ([Scheduling](scheduling.md)) |
+| `schedule:list`, `schedule:run`, `schedule:test`, `schedule:work` | `schedule.New` ([Scheduling](scheduling.md)) |
 
 ### 3. Add your own
 
@@ -118,7 +118,7 @@ program at once. Commands that manage the app themselves (`run`,
 `serve`: `ManagesApp` in `cmd.Command`) boot, run and stop it; the others
 run between `app.Boot` and `app.Close`, which also runs if the command
 panics. `help` doesn't boot the app, so it works without a database;
-commands that boot it (`routes:list` too) need the database reachable.
+commands that boot it (`route:list` too) need the database reachable.
 
 > **Coming from Laravel?** This is `artisan` built into your binary:
 > `./blog migrate` instead of `php artisan migrate`, and custom commands

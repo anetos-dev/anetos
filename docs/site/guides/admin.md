@@ -87,7 +87,7 @@ go run . rbac:assign 1 admin
 ### 2. Add a resource per model
 
 ```sh
-go tool anetos make:admin:resource Product
+go tool anetos make:admin-resource Product
 ```
 
 It writes `app/admin/products.go`, the resource for `models.Product`, from
@@ -612,4 +612,4 @@ func TestStaffAccounts(t *testing.T) {
 - [Accounts with make:auth](accounts.md)
 - [Keep an audit log](audit-log.md): who changed what in the admin
 - [CLI reference](../reference/cli.md#anetos-make): `make:admin` and
-  `make:admin:resource`
+  `make:admin-resource`

@@ -28,7 +28,7 @@ month and day names and date patterns. For another language, copy its
 translations from [anetos.dev/locales](https://github.com/anetos-dev/locales):
 
 ```sh
-go tool anetos lang:add bn fr
+go tool anetos locale:add bn fr
 ```
 
 It writes `locales/bn/framework.yaml` (and `locales/bn/auth.yaml` if
@@ -40,11 +40,11 @@ message there.
   can't define a key twice; it lists them.
 - A regional locale gets its language's translations: `bn-BD` writes
   `locales/bn/`.
-- Without a locale it lists the languages available; `-force` replaces
+- Without a locale it lists the languages available; `--force` replaces
   files you already have with the latest.
 - Visitors can choose the language at once (unless `APP_LOCALES` lists
   the supported locales), and your own text shows in
-  `APP_FALLBACK_LOCALE` until you translate it: `go run . lang:check`
+  `APP_FALLBACK_LOCALE` until you translate it: `go run . locale:check`
   lists what's missing.
 
 ### 2. Format numbers and prices
@@ -219,8 +219,8 @@ In a unit test, put a context in a locale and zone:
 
 | Problem | Cause | Fix |
 |---|---|---|
-| English month names on a Bangla page | The locale's catalog has no `format` section | `go tool anetos lang:add bn`, or add `format.months` and the rest |
-| `format.months needs 12 names` from `lang:check` | A list of the wrong length (it is ignored) | Twelve months, seven days (Sunday first), two periods |
+| English month names on a Bangla page | The locale's catalog has no `format` section | `go tool anetos locale:add bn`, or add `format.months` and the rest |
+| `format.months needs 12 names` from `locale:check` | A list of the wrong length (it is ignored) | Twelve months, seven days (Sunday first), two periods |
 | A date is a day off | A `time.Time` shown in another zone, or a date kept in a `time.Time` | Use `anetos.Date` for days; check the user's `PreferredTimeZone` |
-| `downloading anetos.dev/locales` fails | No network, or a proxy that blocks it | `lang:add -from <checkout of anetos-dev/locales>` |
+| `downloading anetos.dev/locales` fails | No network, or a proxy that blocks it | `locale:add --from <checkout of anetos-dev/locales>` |
 | Digits you didn't expect | CLDR's digits for the language | `format.numbering: "latn"` in the catalog |

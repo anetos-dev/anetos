@@ -83,12 +83,12 @@ To read its settings, the app now runs with anetos.dev/anetos/plugins/postmark's
 Listed it in plugins.go.
 Added its settings to .env.example: POSTMARK_WEBHOOK_USER, POSTMARK_WEBHOOK_PASSWORD. Set them in .env.
 Next:
-  go run . plugins:list   what it adds
+  go run . plugin:list   what it adds
   go run . migrate        if it adds migrations
 ```
 
 `anetos add` runs `go get`, lists the plugin in `plugins.go`, tidies
-`go.mod`, builds the app, loads the plugin as the app does (its `plugins:env` command, which
+`go.mod`, builds the app, loads the plugin as the app does (its `plugin:env` command, which
 doesn't boot the app), and adds the plugin's settings to `.env.example`.
 If the plugin isn't a plugin, doesn't compile, or the app refuses it
 (it requires another version of Anetos, or its name is taken), `go.mod`,
@@ -106,7 +106,7 @@ Every setting starts with the plugin's name in capitals; list them, with
 their defaults, with:
 
 ```bash
-go run . plugins:env
+go run . plugin:env
 ```
 
 A plugin whose required settings are missing stops the app from
@@ -120,7 +120,7 @@ go run . migrate
 ### 4. Check what it adds
 
 ```bash
-go run . plugins:list
+go run . plugin:list
 ```
 
 ```text
@@ -129,7 +129,7 @@ postmark  >= v0.2.0, < v0.6.0  /postmark  config, migrations, commands, jobs, ro
 ```
 
 A plugin's routes are under `/<name>` and named `<name>.…`
-(`routes:list` shows them); its commands are named `<name>:…` (`help`
+(`route:list` shows them); its commands are named `<name>:…` (`help`
 lists them); its jobs run on your app's workers. To serve its routes
 somewhere else, mount it in `setup`:
 
@@ -249,14 +249,14 @@ Nothing else is wired in, and nothing runs until the app does.
 | `the app doesn't build with …` | The module has no `Plugin() ext.Plugin` function, or doesn't compile with your version of Anetos | Check the module's docs and the version you asked for |
 | `requires Anetos >= v0.3.0, but this is v0.2.1` | The plugin supports other versions of Anetos (`anetos add` refuses it; an update of Anetos can bring this up later) | Add a version of the plugin that supports yours, or update Anetos |
 | `call queue.New before ext.Load` | The plugin adds to a service your app doesn't set up, or sets up after `ext.Load` | Set it up in `setup`, before `ext.Load` |
-| `plugin postmark: settings: …` when the app starts | A setting is missing or invalid | `go run . plugins:env postmark` lists them; set them in `.env` |
+| `plugin postmark: settings: …` when the app starts | A setting is missing or invalid | `go run . plugin:env postmark` lists them; set them in `.env` |
 | A plugin's route conflicts with yours | Both use the same path | Mount the plugin elsewhere with `ext.Mount` |
 
 ## Next steps
 
 - [Write a plugin](writing-plugins.md): build your own.
 - [CLI reference](../reference/cli.md#anetos-add-moduleversion-and-anetos-remove-module):
-  `anetos add`, `anetos remove`, `plugins:list`, `plugins:env`.
+  `anetos add`, `anetos remove`, `plugin:list`, `plugin:env`.
 - [Configuration reference](../reference/configuration.md#plugins): the
   plugins' settings.
 

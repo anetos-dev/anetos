@@ -1,13 +1,13 @@
 ---
 title: Style with Bulma
 since: v0.5.0
-group: "Design kits"
+group: "CSS frameworks"
 weight: 154
 ---
 
 # Style with Bulma
 
-The `bulma` kit: [Bulma](https://bulma.io) 1.0.4's classes and its
+`--css=bulma`: [Bulma](https://bulma.io) 1.0.4's classes and its
 stylesheet, as released, with a small script for the menu button. No
 build step.
 
@@ -79,8 +79,8 @@ app](styling.md#5-add-your-own-component)).
 ## How it works
 
 Bulma's dark mode follows the visitor's system. `css:use bulma` with
-the kit the project has brings a newer Bulma when a newer `anetos`
-carries one ([Style your app](styling.md#8-switch-kits)).
+in a project that has it brings a newer Bulma when a newer `anetos`
+carries one ([Style your app](styling.md#8-switch-css-frameworks)).
 
 ## Common problems
 

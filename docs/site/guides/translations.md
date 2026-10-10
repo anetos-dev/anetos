@@ -57,7 +57,7 @@ home:
   `bn-BD` comes from `bn`, then from `APP_FALLBACK_LOCALE`, so a regional
   file only needs what differs.
 - A plural form is also a key: `home.plants.one`. English never uses
-  `zero` (0 is `other`); `lang:check` notes forms a language doesn't use.
+  `zero` (0 is `other`); `locale:check` notes forms a language doesn't use.
 - Quote values: `count: 3` is a number, not text, and is refused.
 
 ### 2. Load them
@@ -155,7 +155,7 @@ In templ, `ctx` is there already:
 ```
 
 Arguments are pairs of names and values. A key no catalog has shows the
-key itself, so a mistake is visible on the page; `lang:check` (step 7)
+key itself, so a mistake is visible on the page; `locale:check` (step 7)
 finds them before users do.
 
 ### 4. Choose how visitors get their language
@@ -246,7 +246,7 @@ Spanish, copy the community's translations into your catalogs, with
 `make:auth`'s pages and emails if you have them:
 
 ```sh
-go tool anetos lang:add bn
+go tool anetos locale:add bn
 ```
 
 ([Numbers, dates and languages](formatting.md#1-add-a-languages-formats-and-messages).)
@@ -281,13 +281,13 @@ validation:
   are translated.
 
 `anetos make:auth` writes its pages' and emails' text to
-`locales/en/auth.yaml`: `lang:add` brings its translation, or copy it to
+`locales/en/auth.yaml`: `locale:add` brings its translation, or copy it to
 `locales/bn/auth.yaml` and translate.
 
 ### 7. Check the catalogs
 
 ```sh
-go run . lang:check
+go run . locale:check
 ```
 
 It reports, for each supported locale, the keys the fallback locale has
@@ -353,13 +353,13 @@ func TestLanguages(t *testing.T) {
 (Copied from [`examples/i18n/main_test.go`](../../../examples/i18n/main_test.go), region `test`.)
 
 `i18n.WithLocale(ctx, "bn")` puts any other code in a locale, and the
-translator's `Check` method runs `lang:check`'s checks in a test.
+translator's `Check` method runs `locale:check`'s checks in a test.
 
 ## Troubleshooting
 
 | Problem | Cause | Fix |
 |---|---|---|
-| A page shows `home.welcome` | No catalog has the key, or it's misspelled | `go run . lang:check` |
+| A page shows `home.welcome` | No catalog has the key, or it's misspelled | `go run . locale:check` |
 | A language is never chosen | It isn't supported | Add its catalog, or list it in `APP_LOCALES` |
 | `… is not a locale` at startup | A catalog file's name isn't a locale (`english.yaml`) | Name it `en.yaml`, or the folder `en/` |
 | `… is 3, not text; quote it` | A number or `true` as a message | Quote it: `"3"` |

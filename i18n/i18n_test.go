@@ -334,13 +334,13 @@ func TestCheckCommand(t *testing.T) {
 		t.Fatal(err)
 	}
 	var out, errOut bytes.Buffer
-	if code := app.ExecuteArgs(t.Context(), []string{"lang:check", dir}, &out, &errOut); code != 1 ||
+	if code := app.ExecuteArgs(t.Context(), []string{"locale:check", dir}, &out, &errOut); code != 1 ||
 		!strings.Contains(out.String(), "2 key(s) used in the source but in no catalog: gone.key, tabs.*") || strings.Contains(out.String(), "welcome") {
-		t.Errorf("lang:check = %d\n%s%s", code, out.String(), errOut.String())
+		t.Errorf("locale:check = %d\n%s%s", code, out.String(), errOut.String())
 	}
 	out.Reset()
-	if code := app.ExecuteArgs(t.Context(), []string{"lang:check", filepath.Join(dir, "none")}, &out, &errOut); code != 0 || !strings.Contains(out.String(), "en OK") {
-		t.Errorf("lang:check without source = %d\n%s%s", code, out.String(), errOut.String())
+	if code := app.ExecuteArgs(t.Context(), []string{"locale:check", filepath.Join(dir, "none")}, &out, &errOut); code != 0 || !strings.Contains(out.String(), "en OK") {
+		t.Errorf("locale:check without source = %d\n%s%s", code, out.String(), errOut.String())
 	}
 }
 

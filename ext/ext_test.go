@@ -136,17 +136,17 @@ func TestLoad(t *testing.T) {
 	if out, code := run(t, app, "greeter:greet"); code != 0 || out != "Hi" {
 		t.Errorf("greeter:greet: %d %q", code, out)
 	}
-	out, code := run(t, app, "plugins:list")
+	out, code := run(t, app, "plugin:list")
 	if code != 0 || !strings.Contains(out, "greeter") || !strings.Contains(out, "/greet") ||
 		!strings.Contains(out, "config, commands, jobs, routes, schedule, listeners, boot") {
-		t.Errorf("plugins:list: %d\n%s", code, out)
+		t.Errorf("plugin:list: %d\n%s", code, out)
 	}
-	out, code = run(t, app, "plugins:env")
+	out, code = run(t, app, "plugin:env")
 	if code != 0 || out != "# greeter\nGREETER_GREETING=Hello\nGREETER_TOKEN= # required\n" {
-		t.Errorf("plugins:env: %d %q", code, out)
+		t.Errorf("plugin:env: %d %q", code, out)
 	}
-	if _, code := run(t, app, "plugins:env", "nope"); code == 0 {
-		t.Error("plugins:env nope: exit 0")
+	if _, code := run(t, app, "plugin:env", "nope"); code == 0 {
+		t.Error("plugin:env nope: exit 0")
 	}
 	if err := ext.Load(app, []ext.Plugin{&greeter{}}); err == nil {
 		t.Error("Load after boot: no error")
@@ -167,12 +167,12 @@ type quoted struct {
 
 func (q *quoted) Config() any { return &q.cfg }
 
-// plugins:env's lines read back as the defaults.
+// plugin:env's lines read back as the defaults.
 func TestEnvQuoting(t *testing.T) {
 	app, _ := newApp(t, nil)
 	q := &quoted{named: "q"}
 	check(t, ext.Load(app, []ext.Plugin{q}))
-	out, code := run(t, app, "plugins:env")
+	out, code := run(t, app, "plugin:env")
 	if code != 0 {
 		t.Fatal(out)
 	}
@@ -180,20 +180,20 @@ func TestEnvQuoting(t *testing.T) {
 	check(t, err)
 	want := config.Map{"Q_PLAIN": q.cfg.Plain, "Q_SPACE": q.cfg.Space, "Q_REF": q.cfg.Ref, "Q_LINE": q.cfg.Line, "Q_EMPTY": ""}
 	if !maps.Equal(got, want) {
-		t.Errorf("plugins:env:\n%s\nreads back as %q, want %q", out, got, want)
+		t.Errorf("plugin:env:\n%s\nreads back as %q, want %q", out, got, want)
 	}
 	if !strings.Contains(out, "Q_PLAIN=a-b.c:d/e@f,g+h=i%j\n") {
 		t.Errorf("a safe value was quoted:\n%s", out)
 	}
 }
 
-// Missing settings stop the app from booting, but not plugins:env.
+// Missing settings stop the app from booting, but not plugin:env.
 func TestMissingSettings(t *testing.T) {
 	app, _ := newApp(t, config.Map{"GREETER_TOKEN": ""})
 	g := &greeter{}
 	check(t, ext.Load(app, []ext.Plugin{g}))
-	if out, code := run(t, app, "plugins:env", "greeter"); code != 0 || !strings.Contains(out, "GREETER_TOKEN= # required") {
-		t.Errorf("plugins:env: %d %q", code, out)
+	if out, code := run(t, app, "plugin:env", "greeter"); code != 0 || !strings.Contains(out, "GREETER_TOKEN= # required") {
+		t.Errorf("plugin:env: %d %q", code, out)
 	}
 	if err := app.Boot(context.Background()); err == nil || !strings.Contains(err.Error(), "GREETER_TOKEN") {
 		t.Errorf("Boot = %v", err)
@@ -201,11 +201,11 @@ func TestMissingSettings(t *testing.T) {
 	if g.booted.Load() != 0 {
 		t.Error("a plugin without its settings booted")
 	}
-	if out, _ := run(t, app, "plugins:list"); !strings.Contains(out, "not loaded: settings missing or invalid") {
-		t.Errorf("plugins:list:\n%s", out)
+	if out, _ := run(t, app, "plugin:list"); !strings.Contains(out, "not loaded: settings missing or invalid") {
+		t.Errorf("plugin:list:\n%s", out)
 	}
 	for _, c := range app.Commands() {
-		if strings.HasPrefix(c.Name, "plugins:") && !c.ManagesApp {
+		if strings.HasPrefix(c.Name, "plugin:") && !c.ManagesApp {
 			t.Errorf("%s boots the app", c.Name)
 		}
 	}
@@ -321,8 +321,8 @@ func TestLoadErrors(t *testing.T) {
 	// No plugins.
 	app2, _ := newApp(t, nil)
 	check(t, ext.Load(app2, nil))
-	if out, _ := run(t, app2, "plugins:list"); out != "No plugins.\n" {
-		t.Errorf("plugins:list = %q", out)
+	if out, _ := run(t, app2, "plugin:list"); out != "No plugins.\n" {
+		t.Errorf("plugin:list = %q", out)
 	}
 }
 

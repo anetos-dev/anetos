@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package naming holds the naming rules the db package uses for columns
-// and tables. `anetos gen` uses them too, so generated code always
+// and tables. `anetos generate` uses them too, so generated code always
 // matches the runtime.
 package naming
 

@@ -108,8 +108,9 @@ func NewScheduler(opts ...Option) *Scheduler {
 // New returns the app's scheduler, configured from SCHEDULE_TIMEZONE
 // (default the app's zone, APP_TIMEZONE):
 // it runs as a component with the role "scheduler" (so `run
-// --only=scheduler` runs only it), stopping first after the HTTP server,
-// and adds the schedule:list and schedule:run commands. Tasks with
+// --only=scheduler`, or schedule:work, runs only it), stopping first
+// after the HTTP server, and adds the schedule:list, schedule:run,
+// schedule:test and schedule:work commands. Tasks with
 // [WithoutOverlapping] or [OnOneServer] need cache.New, with a store
 // every instance shares (database or Redis) for OnOneServer.
 //
@@ -321,7 +322,7 @@ func (s *Scheduler) Tasks() []TaskInfo {
 var ErrOverlap = errors.New("schedule: the task is already running")
 
 // RunTask runs the task name now, whatever its schedule, and returns its
-// error: for the schedule:run command and tests. WithoutOverlapping
+// error: for the schedule:test command and tests. WithoutOverlapping
 // applies (across processes only with a shared cache store); OnOneServer
 // doesn't.
 func (s *Scheduler) RunTask(ctx context.Context, name string) error {
@@ -492,7 +493,7 @@ loop:
 		now = s.clock.Now()
 		for _, t := range tasks {
 			if at := next[t]; !at.IsZero() && !at.After(now) {
-				wg.Go(func() { s.fire(runCtx, t, at) })
+				wg.Go(func() { _, _ = s.fire(runCtx, t, at) }) // logged
 				next[t] = s.nextRun(t, now)
 			}
 		}
@@ -588,24 +589,24 @@ func (s *Scheduler) LastRun(ctx context.Context, name string) (Run, bool, error)
 
 // fire runs t for its run at, unless another instance took the run
 // (OnOneServer) or the previous run is still going (WithoutOverlapping).
-func (s *Scheduler) fire(ctx context.Context, t *task, at time.Time) {
+func (s *Scheduler) fire(ctx context.Context, t *task, at time.Time) (ran bool, err error) {
 	log := s.log.With("task", t.name)
 	if t.oneServer {
 		run := cache.NewLock(ctx, "schedule:"+t.name+":"+at.UTC().Format("200601021504"), time.Hour)
 		ok, err := run.TryAcquire(ctx)
 		if err != nil {
 			log.Error("schedule: take the run's lock", "error", err)
-			return
+			return false, fmt.Errorf("schedule: task %s: take the run's lock: %w", t.name, err)
 		}
 		if !ok {
 			log.Debug("schedule: another instance runs it")
-			return
+			return false, nil
 		}
 	}
 	start := time.Now()
 	log.Debug("schedule: task started")
 	var p *panicError
-	err := s.runTask(ctx, t)
+	err = s.runTask(ctx, t)
 	s.recordRun(ctx, t.name, start, err)
 	switch {
 	case errors.Is(err, ErrOverlap):
@@ -617,9 +618,71 @@ func (s *Scheduler) fire(ctx context.Context, t *task, at time.Time) {
 	default:
 		log.Info("schedule: task done", "duration", time.Since(start).Round(time.Millisecond))
 	}
+	if errors.Is(err, ErrOverlap) {
+		return false, nil // skipped, not failed
+	}
+	return true, err
 }
 
-// commands are schedule:list and schedule:run.
+// RunDue runs, once, the tasks due in the current minute, with their
+// locks ([WithoutOverlapping], [OnOneServer]), waits for them and
+// returns the names of those it ran and their errors joined: for the
+// schedule:run command, which cron or a Kubernetes CronJob starts every
+// minute instead of a long-running scheduler. A run another instance
+// took, or skipped because the previous one is still going, isn't run
+// and isn't an error. Each process has its own memory cache: the locks
+// hold across runs only with a shared store (CACHE_DRIVER=database or
+// redis), and RunDue warns without one.
+func (s *Scheduler) RunDue(ctx context.Context) ([]string, error) {
+	return s.runDue(ctx, s.clock.Now())
+}
+
+// runDue runs the tasks due in now's minute.
+func (s *Scheduler) runDue(ctx context.Context, now time.Time) ([]string, error) {
+	if s.app != nil {
+		ctx = s.app.Context(ctx)
+	}
+	if err := s.checkLocks(ctx); err != nil {
+		return nil, err
+	}
+	minute := now.Truncate(time.Minute)
+	s.mu.Lock()
+	tasks := slices.Clone(s.tasks)
+	s.mu.Unlock()
+	var (
+		ran  = make([]bool, len(tasks))
+		errs = make([]error, len(tasks))
+		wg   sync.WaitGroup
+	)
+	for i, t := range tasks {
+		if !t.when.next(minute.Add(-time.Nanosecond), s.loc).Equal(minute) {
+			continue
+		}
+		if t.overlap && !t.oneServer {
+			if c, err := cache.From(ctx); err == nil {
+				if _, mem := c.Store().(*cache.MemoryStore); mem {
+					s.log.WarnContext(ctx, "schedule: WithoutOverlapping with the memory cache store doesn't see runs of other schedule:run processes: use CACHE_DRIVER=database or redis", "task", t.name)
+				}
+			}
+		}
+		wg.Go(func() { ran[i], errs[i] = s.fire(ctx, t, minute) })
+	}
+	wg.Wait()
+	var names []string
+	for i, t := range tasks {
+		if ran[i] {
+			names = append(names, t.name)
+		}
+	}
+	return names, errors.Join(errs...)
+}
+
+// processStart is when the process started, nearly: schedule:run runs
+// the tasks of that minute, even when the app took long to boot.
+var processStart = time.Now()
+
+// commands are schedule:list, schedule:run, schedule:test and
+// schedule:work.
 func (s *Scheduler) commands() []cmd.Command {
 	return []cmd.Command{{
 		Name:        "schedule:list",
@@ -655,20 +718,60 @@ func (s *Scheduler) commands() []cmd.Command {
 		},
 	}, {
 		Name:        "schedule:run",
-		Usage:       "<task>",
-		Description: "Run a scheduled task now",
+		Description: "Run the tasks due this minute, once (for cron: * * * * * ./app schedule:run)",
 		Run: func(ctx context.Context, args *cmd.Args) error {
-			if len(args.Args) != 1 {
-				return cmd.Usagef("schedule:run takes a task's name")
+			switch len(args.Args) {
+			case 0:
+			case 1: // v0.4's schedule:run <task>, until v0.6
+				fmt.Fprintf(args.Stderr, "schedule:run %s runs one task as schedule:test %s; with a task, schedule:run stops working in v0.6\n", args.Args[0], args.Args[0])
+				return runOne(ctx, s, args)
+			default:
+				return cmd.Usagef("schedule:run takes no arguments (schedule:test <task> runs one task)")
 			}
-			start := time.Now()
-			if err := s.RunTask(ctx, args.Args[0]); err != nil {
-				return err
+			start, at := time.Now(), s.clock.Now()
+			if _, real := s.clock.(realClock); real {
+				at = processStart // the minute cron started us in
 			}
-			_, err := fmt.Fprintf(args.Stdout, "Ran %s in %s.\n", args.Args[0], time.Since(start).Round(time.Millisecond))
+			names, err := s.runDue(ctx, at)
+			switch {
+			case len(names) > 0:
+				fmt.Fprintf(args.Stdout, "Ran %s in %s.\n", strings.Join(names, ", "), time.Since(start).Round(time.Millisecond))
+			case err == nil:
+				_, err = fmt.Fprintln(args.Stdout, "No tasks are due.")
+			}
 			return err
 		},
+	}, {
+		Name:        "schedule:test",
+		Usage:       "<task>",
+		Description: "Run a scheduled task now, whatever its schedule",
+		Run: func(ctx context.Context, args *cmd.Args) error {
+			if len(args.Args) != 1 {
+				return cmd.Usagef("schedule:test takes a task's name")
+			}
+			return runOne(ctx, s, args)
+		},
+	}, {
+		Name:        "schedule:work",
+		Description: "Run the scheduler (run --only=scheduler)",
+		ManagesApp:  true,
+		Run: func(ctx context.Context, args *cmd.Args) error {
+			if len(args.Args) > 0 {
+				return cmd.Usagef("schedule:work takes no arguments")
+			}
+			return s.app.Run(ctx, "scheduler")
+		},
 	}}
+}
+
+// runOne runs the task args names, for schedule:test.
+func runOne(ctx context.Context, s *Scheduler, args *cmd.Args) error {
+	start := time.Now()
+	if err := s.RunTask(ctx, args.Args[0]); err != nil {
+		return err
+	}
+	_, err := fmt.Fprintf(args.Stdout, "Ran %s in %s.\n", args.Args[0], time.Since(start).Round(time.Millisecond))
+	return err
 }
 
 // until formats d to the minute: "17h1m", "1m".

@@ -31,10 +31,10 @@ var (
 // reserved are names the framework uses for its migration sets, command
 // prefixes and settings prefixes.
 var reserved = []string{
-	"app", "auth", "cache", "db", "events", "ext", "health", "help", "http", "log",
-	"mail", "mailer", "migrate", "plugins", "pubsub", "queue", "redis",
-	"routes", "run", "schedule", "anetos", "serve", "session", "social",
-	"storage", "web",
+	"app", "auth", "cache", "db", "events", "ext", "health", "help", "http", "lang",
+	"locale", "log", "mail", "mailer", "migrate", "plugin", "plugins", "pubsub",
+	"queue", "redis", "route", "routes", "run", "schedule", "anetos", "serve",
+	"session", "social", "storage", "web",
 }
 
 // Option configures [Load].
@@ -50,7 +50,7 @@ func Mount(name, prefix string) Option {
 	return func(o *options) { o.mounts[name] = prefix }
 }
 
-// Info describes a loaded plugin, for the plugins:list command.
+// Info describes a loaded plugin, for the plugin:list command.
 type Info struct {
 	// Name is the plugin's name.
 	Name string
@@ -81,8 +81,8 @@ type registry struct{ plugins []Info }
 //	}
 //
 // A plugin whose settings are missing or invalid isn't wired in, and
-// the app fails to boot with the error, so that the plugins:env and
-// plugins:list commands, which Load adds and which don't boot the app,
+// the app fails to boot with the error, so that the plugin:env and
+// plugin:list commands, which Load adds and which don't boot the app,
 // still run. Plugins are compiled into
 // the app with its privileges: install only code you trust.
 func Load(app *anetos.App, plugins []Plugin, opts ...Option) error {
@@ -190,7 +190,7 @@ func load(app *anetos.App, reg *registry, p Plugin, o options) (Info, error) {
 		info.Keys = keys
 		if err := config.Bind(app.Source(), dst); err != nil {
 			// Not an error yet: commands that don't boot the app
-			// (plugins:env, help) still work. The rest of the plugin is
+			// (plugin:env, help) still work. The rest of the plugin is
 			// skipped, and the app doesn't boot.
 			info.Adds = append(info.Adds, "(not loaded: settings missing or invalid)")
 			app.Use(failed{name: name, err: err})
@@ -289,7 +289,7 @@ type failed struct {
 func (f failed) Name() string             { return "plugin " + f.name }
 func (failed) Register(*anetos.App) error { return nil }
 func (f failed) Boot(context.Context, *anetos.App) error {
-	return fmt.Errorf("ext: plugin %s: settings: %w (go run . plugins:env %s lists them)", f.name, f.err, f.name)
+	return fmt.Errorf("ext: plugin %s: settings: %w (go run . plugin:env %s lists them)", f.name, f.err, f.name)
 }
 
 // booter runs a plugin's Boot when the app boots.
@@ -304,15 +304,16 @@ func (b booter) Boot(ctx context.Context, app *anetos.App) error {
 	return b.b.Boot(ctx, app)
 }
 
-// commands are plugins:list and plugins:env.
+// commands are plugin:list and plugin:env.
 func (reg *registry) commands() []cmd.Command {
 	return []cmd.Command{{
-		Name:        "plugins:list",
+		Name:        "plugin:list",
+		Former:      []string{"plugins:list"},
 		Description: "List the plugins and what they add",
 		ManagesApp:  true, // doesn't boot the app, so it works before the settings are set
 		Run: func(_ context.Context, args *cmd.Args) error {
 			if len(args.Args) > 0 {
-				return cmd.Usagef("plugins:list takes no arguments")
+				return cmd.Usagef("plugin:list takes no arguments")
 			}
 			if len(reg.plugins) == 0 {
 				_, err := fmt.Fprintln(args.Stdout, "No plugins.")
@@ -326,13 +327,14 @@ func (reg *registry) commands() []cmd.Command {
 			return tw.Flush()
 		},
 	}, {
-		Name:        "plugins:env",
+		Name:        "plugin:env",
+		Former:      []string{"plugins:env"},
 		Usage:       "[plugin]",
 		Description: "Print the plugins' settings, as .env lines with their defaults",
 		ManagesApp:  true, // doesn't boot the app, so it works before the settings are
 		Run: func(_ context.Context, args *cmd.Args) error {
 			if len(args.Args) > 1 {
-				return cmd.Usagef("plugins:env takes at most a plugin's name")
+				return cmd.Usagef("plugin:env takes at most a plugin's name")
 			}
 			found := false
 			for _, p := range reg.plugins {

@@ -56,7 +56,7 @@ wrote app/models/models_gen.go
 `make:auth` writes nothing if one of these files exists, or if a name
 they declare (`User`, `Accounts`, `Login`, …) is taken in its package;
 if writing fails midway, it removes what it wrote. It runs `go mod
-tidy`, `anetos gen` (the `User` model's typed columns) and `templ
+tidy`, `anetos generate` (the `User` model's typed columns) and `templ
 generate` (the pages), checks that the project builds, and adds a call
 to `setupAuth` to `setup` in `main.go`, after `routes.Register`:
 

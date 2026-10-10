@@ -70,7 +70,7 @@ does). In a container, `docker compose run --rm web doctor`. The
 
 ### 2. Keep the secrets secret
 
-- Make a new `APP_KEY` for production (`go tool anetos key:generate`):
+- Make a new `APP_KEY` for production (`go tool anetos key:generate --show`):
   it encrypts sessions, two-factor secrets and the links in emails.
   Never reuse the one in `.env`. To change it, move the old one to
   `APP_PREVIOUS_KEYS`, so sessions survive

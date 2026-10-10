@@ -402,8 +402,8 @@ func (r *res[T, F]) mount(g *web.Router) {
 		need("delete").Post("/{id}/force-delete", r.p.confirmFirst(r.forceDelete)).Name(n + "force-delete")
 	}
 	if r.in.create {
-		need("create").Get("/new", r.create).Name(n + "create")
-		need("create").Post("/", web.H(r.store)).Name(n + "store")
+		need("create").Get("/new", r.newPage).Name(n + "new")
+		need("create").Post("/", web.H(r.create)).Name(n + "create")
 	}
 	need("view").Get("/{id}", r.show).Name(n + "show")
 	if r.in.editable {
@@ -411,7 +411,7 @@ func (r *res[T, F]) mount(g *web.Router) {
 		need("update").Post("/{id}", web.H(r.update)).Name(n + "update")
 	}
 	if r.in.delete {
-		need("delete").Post("/{id}/delete", r.p.confirmFirst(r.destroy)).Name(n + "destroy")
+		need("delete").Post("/{id}/delete", r.p.confirmFirst(r.delete)).Name(n + "delete")
 	}
 	// Actions check their own permissions, and need the view one too.
 	if len(r.Actions) > 0 {

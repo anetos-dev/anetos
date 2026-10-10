@@ -48,6 +48,6 @@ func TestCatalogs(t *testing.T) {
 	app := anetostest.New(t, setup)
 	var out bytes.Buffer
 	if n := anetos.MustResolve[*i18n.Translator](app.App).Check(&out, nil); n > 0 {
-		t.Errorf("lang:check:\n%s", out.String())
+		t.Errorf("locale:check:\n%s", out.String())
 	}
 }

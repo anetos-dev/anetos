@@ -95,7 +95,7 @@ templ [[.Model]]Page(row models.[[.Model]]) {
 				@ui.LinkButton(web.MustURL(ctx, "[[.Path]].edit", row.ID), ui.Secondary) {
 					{ i18n.T(ctx, "[[.Key]].edit") }
 				}
-				@ui.PostButton(web.MustURL(ctx, "[[.Path]].destroy", row.ID), "DELETE", ui.Danger) {
+				@ui.PostButton(web.MustURL(ctx, "[[.Path]].delete", row.ID), "DELETE", ui.Danger) {
 					{ i18n.T(ctx, "[[.Key]].delete") }
 				}
 			}
@@ -137,7 +137,7 @@ templ [[.Model]]Form(row models.[[.Model]]) {
 			@ui.Narrow() {
 				<h1>{ i18n.T(ctx, "[[.Key]].new") }</h1>
 				@ui.Card("") {
-					@ui.Form(web.MustURL(ctx, "[[.Path]].store"), "POST", nil) {
+					@ui.Form(web.MustURL(ctx, "[[.Path]].create"), "POST", nil) {
 						@[[.Helper]]Fields(row)
 					}
 				}

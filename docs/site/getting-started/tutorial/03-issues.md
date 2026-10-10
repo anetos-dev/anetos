@@ -26,7 +26,7 @@ This writes `app/models/issue.go` and a migration,
 fields:
 
 ```go
-// Issue is a bug or a task. `go tool anetos gen` writes its typed columns
+// Issue is a bug or a task. `go tool anetos generate` writes its typed columns
 // (IssueCols) and relations (IssueRels) to models_gen.go.
 type Issue struct {
 	db.Model        // id, created_at, updated_at
@@ -68,10 +68,10 @@ Create the table, and the model's typed columns:
 
 ```sh
 go run . migrate
-go tool anetos gen
+go tool anetos generate
 ```
 
-`anetos gen` (which `anetos dev` also runs when you save) writes the
+`anetos generate` (which `anetos dev` also runs when you save) writes the
 model's typed columns and relations to `app/models/models_gen.go`, so
 queries say `models.IssueCols.Title` and `models.IssueRels.Author`, and
 the compiler catches a misspelled column.
@@ -307,7 +307,7 @@ templ IssueForm(issue models.Issue) {
 			if issue.ID == 0 {
 				<h1>New issue</h1>
 				@ui.Card("") {
-					@ui.Form(web.MustURL(ctx, "issues.store"), "POST", nil) {
+					@ui.Form(web.MustURL(ctx, "issues.create"), "POST", nil) {
 						@issueFields(issue)
 					}
 				}
@@ -342,7 +342,7 @@ The pages are made of the components in `views/ui`, which `anetos new`
 wrote: `ui.PageHeader`, `ui.Table`, `ui.Badge`, `ui.Card`, `ui.Field`…
 They carry the markup and the starter theme's classes (in
 `public/static/app.css`), so the pages need none, and another design
-kit restyles them ([Style your app](../../guides/styling.md)).
+CSS framework restyles them ([Style your app](../../guides/styling.md)).
 `ui.Form` adds the token that protects forms from other sites, and,
 since HTML forms can't send PUT, says the method in a field.
 `ui.Field` shows the field's message when validation fails, and
@@ -351,16 +351,16 @@ since HTML forms can't send PUT, says the method in a field.
 ## The routes
 
 The pages are for logged-in users: in `routes/auth.go`, add the routes
-at the end of the `members` group, after the `/confirm-password` ones:
+at the end of the `loggedIn` group, after the `/confirm-password` ones:
 
 ```go
 // The tracker's pages, for logged-in users.
 var issues handlers.Issues
-members.Get("/issues", web.H(issues.Index)).Name("issues.index")
-members.Get("/issues/new", issues.New).Name("issues.new")
-members.Post("/issues", web.H(issues.Create)).Name("issues.store")
-members.Get("/issues/{id}/edit", web.H(issues.Edit)).Name("issues.edit")
-members.Put("/issues/{id}", web.H(issues.Update)).Name("issues.update")
+loggedIn.Get("/issues", web.H(issues.Index)).Name("issues.index")
+loggedIn.Get("/issues/new", issues.New).Name("issues.new")
+loggedIn.Post("/issues", web.H(issues.Create)).Name("issues.create")
+loggedIn.Get("/issues/{id}/edit", web.H(issues.Edit)).Name("issues.edit")
+loggedIn.Put("/issues/{id}", web.H(issues.Update)).Name("issues.update")
 ```
 
 (Copied from [`examples/tutorial/routes/auth.go`](../../../../examples/tutorial/routes/auth.go), region `routes-issues`.)

@@ -19,7 +19,7 @@ update or delete in bulk.
 ### 1. Build a query
 
 `db.Query[T](ctx)` starts a query on `T`'s table. Conditions use the
-typed columns that [`anetos gen`](code-generation.md) writes for each
+typed columns that [`anetos generate`](code-generation.md) writes for each
 model, so `PostCols.Views.Eq("ten")` doesn't compile:
 
 ```go

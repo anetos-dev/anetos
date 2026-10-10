@@ -137,7 +137,7 @@ templ SearchPage(q string, found []models.Issue) {
 The route, in `routes/auth.go` below the others:
 
 ```go
-members.Get("/search", web.H(issues.Search)).Name("search")
+loggedIn.Get("/search", web.H(issues.Search)).Name("search")
 ```
 
 (Copied from [`examples/tutorial/routes/auth.go`](../../../../examples/tutorial/routes/auth.go), region `routes-search`.)

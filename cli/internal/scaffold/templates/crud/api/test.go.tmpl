@@ -14,7 +14,7 @@ import (
 // through the API (anetos make:crud).
 func Test[[.Plural]](t *testing.T) {
 	app := anetostest.New(t, setup)
-	// Routes in make:auth's me group need a token first: register or log
+	// Routes in make:auth's loggedIn group need a token first: register or log
 	// in (auth_test.go's authRegister does), then
 	//
 	//	app.WithHeader("Authorization", "Bearer "+token)

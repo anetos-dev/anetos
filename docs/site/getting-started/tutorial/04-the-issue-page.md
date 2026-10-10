@@ -233,8 +233,8 @@ templ IssuePage(issue models.Issue, comments []models.Comment) {
 		// With htmx, the form posts in the background and the new comment
 		// is added to the list; without JavaScript, it posts as usual.
 		@ui.Card("") {
-			@ui.Form(web.MustURL(ctx, "comments.store", issue.ID), "POST", templ.Attributes{
-				"hx-post":              web.MustURL(ctx, "comments.store", issue.ID),
+			@ui.Form(web.MustURL(ctx, "comments.create", issue.ID), "POST", templ.Attributes{
+				"hx-post":              web.MustURL(ctx, "comments.create", issue.ID),
 				"hx-target":            "#comments",
 				"hx-swap":              "beforeend",
 				"hx-on::after-request": "if (event.detail.successful) this.reset()",
@@ -280,9 +280,9 @@ browser.
 In `routes/auth.go`, below the routes of part 3:
 
 ```go
-members.Get("/issues/{id}", web.H(issues.Show)).Name("issues.show")
-members.Post("/issues/{id}/comments", web.H(issues.Comment)).Name("comments.store")
-members.Post("/issues/{id}/status", web.H(issues.SetStatus)).Name("issues.status")
+loggedIn.Get("/issues/{id}", web.H(issues.Show)).Name("issues.show")
+loggedIn.Post("/issues/{id}/comments", web.H(issues.Comment)).Name("comments.create")
+loggedIn.Post("/issues/{id}/status", web.H(issues.SetStatus)).Name("issues.status")
 ```
 
 (Copied from [`examples/tutorial/routes/auth.go`](../../../../examples/tutorial/routes/auth.go), region `routes-issue-page`.)

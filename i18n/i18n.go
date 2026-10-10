@@ -210,7 +210,7 @@ type translatorKey struct{}
 // locales (the embedded files of the app's locales folder; nil for none).
 // It adds the translator to every context the app creates, so [T] and
 // the framework's messages use it, provides it as a service (the HTTP
-// server resolves each request's locale with it), adds the lang:check
+// server resolves each request's locale with it), adds the locale:check
 // command, and logs missing keys in development.
 //
 //	tr, err := i18n.New(app, locales.FS)

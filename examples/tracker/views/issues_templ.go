@@ -115,7 +115,7 @@ func IssueFormPage(f IssueForm) templ.Component {
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = ui.Form(web.MustURL(ctx, "issues.store", f.Project.Key), "POST", nil).Render(templ.WithChildren(ctx, templ_7745c5c3_Var6), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = ui.Form(web.MustURL(ctx, "issues.create", f.Project.Key), "POST", nil).Render(templ.WithChildren(ctx, templ_7745c5c3_Var6), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -688,7 +688,7 @@ func IssuePageView(p IssuePage) templ.Component {
 							}
 							return nil
 						})
-						templ_7745c5c3_Err = ui.PostLink(web.MustURL(ctx, "issues.destroy", p.Project.Key, p.Issue.Number), "DELETE", true).Render(templ.WithChildren(ctx, templ_7745c5c3_Var36), templ_7745c5c3_Buffer)
+						templ_7745c5c3_Err = ui.PostLink(web.MustURL(ctx, "issues.delete", p.Project.Key, p.Issue.Number), "DELETE", true).Render(templ.WithChildren(ctx, templ_7745c5c3_Var36), templ_7745c5c3_Buffer)
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -867,7 +867,7 @@ func IssuePageView(p IssuePage) templ.Component {
 							}
 							return nil
 						})
-						templ_7745c5c3_Err = ui.PostLink(web.MustURL(ctx, "attachments.destroy", p.Project.Key, a.ID), "DELETE", false).Render(templ.WithChildren(ctx, templ_7745c5c3_Var47), templ_7745c5c3_Buffer)
+						templ_7745c5c3_Err = ui.PostLink(web.MustURL(ctx, "attachments.delete", p.Project.Key, a.ID), "DELETE", false).Render(templ.WithChildren(ctx, templ_7745c5c3_Var47), templ_7745c5c3_Buffer)
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -964,7 +964,7 @@ func IssuePageView(p IssuePage) templ.Component {
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = ui.Form(web.MustURL(ctx, "attachments.store", p.Project.Key, p.Issue.Number), "POST", templ.Attributes{"enctype": "multipart/form-data"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var49), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = ui.Form(web.MustURL(ctx, "attachments.create", p.Project.Key, p.Issue.Number), "POST", templ.Attributes{"enctype": "multipart/form-data"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var49), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1078,8 +1078,8 @@ func IssuePageView(p IssuePage) templ.Component {
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = ui.Form(web.MustURL(ctx, "comments.store", p.Project.Key, p.Issue.Number), "POST", templ.Attributes{
-					"hx-post":              web.MustURL(ctx, "comments.store", p.Project.Key, p.Issue.Number),
+				templ_7745c5c3_Err = ui.Form(web.MustURL(ctx, "comments.create", p.Project.Key, p.Issue.Number), "POST", templ.Attributes{
+					"hx-post":              web.MustURL(ctx, "comments.create", p.Project.Key, p.Issue.Number),
 					"hx-target":            "#comments",
 					"hx-swap":              "beforeend",
 					"hx-on::after-request": "if (event.detail.successful) this.reset()",

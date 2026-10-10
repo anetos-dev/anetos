@@ -30,10 +30,10 @@ func Auth(r *web.Router, a *auth.Auth[*models.User]) {
 	api.With(ratelimit.Middleware("verify-email", ratelimit.PerMinute(10))).
 		Post("/verify-email", web.H(h.VerifyEmail)).Name("verification.verify")
 
-	me := api.Group("", a.Require) // 401 without a valid token
-	me.Get("/me", web.H(h.Me)).Name("me")
-	me.Post("/logout", web.H(h.Logout)).Name("logout")
-	me.With(ratelimit.Middleware("verification", ratelimit.PerMinute(3))).
+	loggedIn := api.Group("", a.Require) // 401 without a valid token
+	loggedIn.Get("/me", web.H(h.Me)).Name("me")
+	loggedIn.Post("/logout", web.H(h.Logout)).Name("logout")
+	loggedIn.With(ratelimit.Middleware("verification", ratelimit.PerMinute(3))).
 		Post("/email/verification-notification", web.H(h.ResendVerification)).Name("verification.send")
 
 	// The account itself, for tokens with every ability ("*", a login's):
@@ -41,11 +41,11 @@ func Auth(r *web.Router, a *auth.Auth[*models.User]) {
 	// the password, creating a token, and starting, turning off or
 	// renewing two-factor authentication also take the current password in the
 	// request: a stolen token alone can't change how the account logs in.
-	account := me.Group("", auth.RequireAbilities("*"))
+	account := loggedIn.Group("", auth.RequireAbilities("*"))
 	account.Put("/password", web.H(h.ChangePassword)).Name("password.change")
 	account.Get("/tokens", web.H(h.Tokens)).Name("tokens.index")
-	account.Post("/tokens", web.H(h.CreateToken)).Name("tokens.store").Status(http.StatusCreated)
-	account.Delete("/tokens/{id}", web.H(h.RevokeToken)).Name("tokens.destroy")
+	account.Post("/tokens", web.H(h.CreateToken)).Name("tokens.create").Status(http.StatusCreated)
+	account.Delete("/tokens/{id}", web.H(h.RevokeToken)).Name("tokens.delete")
 	account.Get("/two-factor", web.H(h.TwoFactor)).Name("two-factor")
 	account.Post("/two-factor", web.H(h.StartTwoFactor)).Name("two-factor.start")
 	account.Post("/two-factor/confirm", web.H(h.ConfirmTwoFactor)).Name("two-factor.confirm")

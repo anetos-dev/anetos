@@ -24,6 +24,7 @@ coverage.*
 /examples/admin/admin
 /examples/tracker/tracker
 /examples/tutorial/tracker
+/cli/cmd/anetos/anetos
 
 # Local environment
 .env

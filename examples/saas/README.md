@@ -24,7 +24,7 @@ deploy it.
 
 ```sh
 cp .env.example .env
-go tool anetos key:generate >> .env   # APP_KEY
+go tool anetos key:generate           # APP_KEY
 go run . migrate
 go run .                              # everything; or go tool anetos dev
 ```

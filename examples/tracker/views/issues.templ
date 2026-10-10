@@ -17,7 +17,7 @@ templ IssueFormPage(f IssueForm) {
 		<p><a href={ web.URL(ctx, "projects.show", f.Project.Key) }>← { f.Project.Name }</a></p>
 		<h1>{ issueFormTitle(ctx, f) }</h1>
 		if f.Issue.ID == 0 {
-			@ui.Form(web.MustURL(ctx, "issues.store", f.Project.Key), "POST", nil) {
+			@ui.Form(web.MustURL(ctx, "issues.create", f.Project.Key), "POST", nil) {
 				@issueFields(f)
 			}
 		} else {
@@ -96,7 +96,7 @@ templ IssuePageView(p IssuePage) {
 				}
 				if p.CanDelete {
 					// To the trash: administrators can restore it in the admin.
-					@ui.PostLink(web.MustURL(ctx, "issues.destroy", p.Project.Key, p.Issue.Number), "DELETE", true) {
+					@ui.PostLink(web.MustURL(ctx, "issues.delete", p.Project.Key, p.Issue.Number), "DELETE", true) {
 						{ i18n.T(ctx, "issues.delete") }
 					}
 				}
@@ -120,7 +120,7 @@ templ IssuePageView(p IssuePage) {
 						{ size(a.Size) } · { a.Uploader.Name }
 					}
 					if p.CanEdit {
-						@ui.PostLink(web.MustURL(ctx, "attachments.destroy", p.Project.Key, a.ID), "DELETE", false) {
+						@ui.PostLink(web.MustURL(ctx, "attachments.delete", p.Project.Key, a.ID), "DELETE", false) {
 							{ i18n.T(ctx, "attachments.delete") }
 						}
 					}
@@ -128,7 +128,7 @@ templ IssuePageView(p IssuePage) {
 			}
 		}
 		if p.CanAttach {
-			@ui.Form(web.MustURL(ctx, "attachments.store", p.Project.Key, p.Issue.Number), "POST", templ.Attributes{"enctype": "multipart/form-data"}) {
+			@ui.Form(web.MustURL(ctx, "attachments.create", p.Project.Key, p.Issue.Number), "POST", templ.Attributes{"enctype": "multipart/form-data"}) {
 				@ui.Row() {
 					<input type="file" name="file" required aria-label={ i18n.T(ctx, "attachments.file") }/>
 					@ui.Button(ui.Primary, nil) {
@@ -148,8 +148,8 @@ templ IssuePageView(p IssuePage) {
 		if p.CanComment {
 			// With htmx, the new comment is added to the list without a page
 			// load; without, the form posts and the page reloads.
-			@ui.Form(web.MustURL(ctx, "comments.store", p.Project.Key, p.Issue.Number), "POST", templ.Attributes{
-				"hx-post":              web.MustURL(ctx, "comments.store", p.Project.Key, p.Issue.Number),
+			@ui.Form(web.MustURL(ctx, "comments.create", p.Project.Key, p.Issue.Number), "POST", templ.Attributes{
+				"hx-post":              web.MustURL(ctx, "comments.create", p.Project.Key, p.Issue.Number),
 				"hx-target":            "#comments",
 				"hx-swap":              "beforeend",
 				"hx-on::after-request": "if (event.detail.successful) this.reset()",

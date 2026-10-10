@@ -100,4 +100,4 @@ safe for concurrent use.
 | `e.Encrypt(plain, context)`, `e.Decrypt(ct, context)` | AES-256-GCM with a per-message key (HKDF-SHA256, random salt); context is authenticated. `encryption.ErrInvalid` for tampered, foreign-context or unknown-key messages |
 | `e.EncryptString`, `e.DecryptString` | Same, as URL-safe base64 |
 | `encryption.GenerateKey()`, `encryption.ParseKey(s)` | `base64:…` keys |
-| `go tool anetos key:generate` | Prints `APP_KEY=base64:…` |
+| `go tool anetos key:generate` | Sets a new `APP_KEY` in `.env` (`--show` prints one) |

@@ -20,7 +20,7 @@ import (
 
 // setupAdmin adds the admin interface (anetos make:admin) at ADMIN_PATH
 // (default /admin), or at ADMIN_HOST: the users and roles, and the
-// resources of app/admin, which anetos make:admin:resource adds to. Only
+// resources of app/admin, which anetos make:admin-resource adds to. Only
 // logged-in users with the permission admin.access get in; the admin
 // role has every permission: `go run . rbac:assign <user-id> admin`. setup calls it after setupAuth.
 func setupAdmin(app *anetos.App, r *web.Router, sessions *session.Manager, a *auth.Auth[*models.User]) error {

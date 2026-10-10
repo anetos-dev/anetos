@@ -24,7 +24,7 @@ package `audit`:
 ## Run it
 
 ```sh
-anetos key:generate >> .env   # APP_KEY, once (the anetos developer tool)
+anetos key:generate           # APP_KEY, once (the anetos developer tool)
 export APP_ENV=development HTTP_ADDR=:8080
 go run . migrate
 go run . seed                 # a user and an API token

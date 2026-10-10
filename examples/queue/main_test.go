@@ -157,7 +157,7 @@ func TestOrderEvents(t *testing.T) {
 // endregion
 
 // region: test-schedule
-// RunTask runs a task now, as `go run . schedule:run <task>` does.
+// RunTask runs a task now, as `go run . schedule:test <task>` does.
 func TestScheduledTasks(t *testing.T) {
 	fakeGateway(t, &FakeGateway{})
 	app := anetostest.New(t, setup, anetostest.Env(map[string]string{"QUEUE_DRIVER": "sync"}))

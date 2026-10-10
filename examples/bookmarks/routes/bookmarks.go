@@ -22,10 +22,10 @@ func Bookmarks(r *web.Router) {
 	read := r.With(auth.RequireAbilities("bookmarks:read"))
 	write := r.With(auth.RequireAbilities("bookmarks:write"))
 	read.Get("/bookmarks", web.H(h.Index)).Name("bookmarks.index")
-	write.Post("/bookmarks", web.H(h.Create)).Name("bookmarks.store").Status(http.StatusCreated)
+	write.Post("/bookmarks", web.H(h.Create)).Name("bookmarks.create").Status(http.StatusCreated)
 	read.Get("/bookmarks/{id}", web.H(h.Show)).Name("bookmarks.show")
 	write.Put("/bookmarks/{id}", web.H(h.Update)).Name("bookmarks.update")
-	write.Delete("/bookmarks/{id}", web.H(h.Delete)).Name("bookmarks.destroy")
+	write.Delete("/bookmarks/{id}", web.H(h.Delete)).Name("bookmarks.delete")
 	write.Post("/bookmarks/{id}/archive", web.H(h.Archive)).Name("bookmarks.archive")
 }
 

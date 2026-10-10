@@ -60,9 +60,9 @@ type Post struct {
 
 // AuthorCols and PostCols, the typed columns of the models, and
 // AuthorRels and PostRels, their relations, are in models_gen.go, written
-// by `go tool anetos gen` (or go generate).
+// by `go tool anetos generate` (or go generate).
 //
-//go:generate go tool anetos gen
+//go:generate go tool anetos generate
 
 // endregion
 
@@ -285,7 +285,7 @@ func main() {
 	// region: commands
 	// go run .                 run the app (the default command)
 	// go run . migrate         and migrate:rollback, migrate:status, migrate:fresh --seed, db:seed
-	// go run . routes:list     every route
+	// go run . route:list     every route
 	// go run . blog:stats      a custom command (addCommands)
 	// go run . cache:clear     empty the cache
 	// go run . help            every command

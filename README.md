@@ -73,7 +73,7 @@ the reference app, is a bigger one; the
 anetos new blog && cd blog # templ views in a starter theme (light/dark), sessions, CSRF, SQLite
 go tool anetos make:crud Post title:string body:text published:bool  # pages to list, show, create, edit, delete
 go tool anetos make:auth   # accounts: password, Google, GitHub, API tokens
-go tool anetos make:admin  # an admin at /admin; make:admin:resource Post adds posts
+go tool anetos make:admin  # an admin at /admin; make:admin-resource Post adds posts
 go run . migrate
 go tool anetos css:use pico # restyle the app's pages: Pico, Bootstrap, Bulma, Tailwind CSS or none
 go tool anetos dev         # rebuild and reload on every change
@@ -83,7 +83,7 @@ go tool anetos build       # bin/blog: one static binary, everything in it
 ./bin/blog run --only=http # or split by role when you scale
 ./bin/blog run --only=workers
 ./bin/blog doctor          # unsafe settings, pending migrations
-./bin/blog help            # migrate, routes:list, your own commands, …
+./bin/blog help            # migrate, route:list, your own commands, …
 docker build -t blog .     # or the image, from the generated Dockerfile
 
 anetos new shop --stack=api # or JSON only: routes under /api/v1, errors as problem details,

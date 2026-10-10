@@ -71,7 +71,7 @@ templ IssueForm(issue models.Issue) {
 			if issue.ID == 0 {
 				<h1>New issue</h1>
 				@ui.Card("") {
-					@ui.Form(web.MustURL(ctx, "issues.store"), "POST", nil) {
+					@ui.Form(web.MustURL(ctx, "issues.create"), "POST", nil) {
 						@issueFields(issue)
 					}
 				}

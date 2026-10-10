@@ -125,9 +125,9 @@ func TestWebhooks(t *testing.T) {
 	if _, err := run(t, app, "postmark:unsuppress"); err == nil {
 		t.Error("unsuppress without an address: no error")
 	}
-	out, _ = run(t, app, "plugins:list")
+	out, _ = run(t, app, "plugin:list")
 	if !strings.Contains(out, "postmark") || !strings.Contains(out, "/postmark") || !strings.Contains(out, "config, migrations, commands, jobs, routes") {
-		t.Errorf("plugins:list:\n%s", out)
+		t.Errorf("plugin:list:\n%s", out)
 	}
 }
 

@@ -228,7 +228,7 @@ directory, and `anetos add` it with any version.
 
 Tag the module (`v0.1.0`) and push it: `anetos add
 example.com/you/yourplugin` gets it through the Go module proxy. Say in
-its README what it adds (`plugins:list` shows it too), its settings,
+its README what it adds (`plugin:list` shows it too), its settings,
 and the Anetos versions it supports.
 
 ## Rules
@@ -255,7 +255,7 @@ and the Anetos versions it supports.
 
 A plugin whose settings are missing or invalid isn't wired in, and the
 app doesn't boot, with an error naming them; commands that don't boot
-the app (`plugins:env`, `help`) still work.
+the app (`plugin:env`, `help`) still work.
 
 ## Next steps
 

@@ -279,7 +279,7 @@ func (r *res[T, F]) renderForm(c *web.Ctx, title, action, cancel, submit string,
 	return r.p.render(c, "form", page{Title: title, Crumbs: crumbs, Data: formPage{Action: action, Cancel: cancel, Submit: submit, Fields: fields}})
 }
 
-func (r *res[T, F]) create(c *web.Ctx) error {
+func (r *res[T, F]) newPage(c *web.Ctx) error {
 	var zero T
 	return r.renderForm(c, "New "+strings.ToLower(r.Singular), r.url(""), r.url(""), "Create", r.Edit(zero),
 		r.crumbs(navItem{Title: "New"}))
@@ -361,7 +361,7 @@ func (r *res[T, F]) outOfScope(back string) web.Responder {
 	})
 }
 
-func (r *res[T, F]) store(c *web.Ctx, in F) (web.Responder, error) {
+func (r *res[T, F]) create(c *web.Ctx, in F) (web.Responder, error) {
 	var row T
 	if err := r.save(c, r.Edit(row), in, &row, true); errors.Is(err, errOutOfScope) {
 		return r.outOfScope(r.url("/new")), nil

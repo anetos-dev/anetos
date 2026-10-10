@@ -119,7 +119,7 @@ type Bookmark struct {
 
 (Copied from [`examples/bookmarks/app/models/bookmark.go`](../../../examples/bookmarks/app/models/bookmark.go), region `model`.)
 
-Then `go tool anetos gen` (the typed column `BookmarkCols.UserID`) and
+Then `go tool anetos generate` (the typed column `BookmarkCols.UserID`) and
 `go run . migrate` again.
 
 In `app/handlers/bookmarks.go`, two helpers (import
@@ -183,10 +183,10 @@ Last, only logged-in clients may reach the bookmarks. Remove the
 `routes/auth.go`, in the group whose routes need a token:
 
 ```go
-Bookmarks(me) // the user's bookmarks, with their token
+Bookmarks(loggedIn) // the user's bookmarks, with their token
 ```
 
-(Copied from [`examples/bookmarks/routes/auth.go`](../../../examples/bookmarks/routes/auth.go), region `me`.)
+(Copied from [`examples/bookmarks/routes/auth.go`](../../../examples/bookmarks/routes/auth.go), region `logged-in`.)
 
 A request without a token now gets 401, and Ada's bookmarks are hers
 alone: Bob gets a 404 for them, as for a bookmark that doesn't exist,
@@ -240,10 +240,10 @@ func Bookmarks(r *web.Router) {
 	read := r.With(auth.RequireAbilities("bookmarks:read"))
 	write := r.With(auth.RequireAbilities("bookmarks:write"))
 	read.Get("/bookmarks", web.H(h.Index)).Name("bookmarks.index")
-	write.Post("/bookmarks", web.H(h.Create)).Name("bookmarks.store").Status(http.StatusCreated)
+	write.Post("/bookmarks", web.H(h.Create)).Name("bookmarks.create").Status(http.StatusCreated)
 	read.Get("/bookmarks/{id}", web.H(h.Show)).Name("bookmarks.show")
 	write.Put("/bookmarks/{id}", web.H(h.Update)).Name("bookmarks.update")
-	write.Delete("/bookmarks/{id}", web.H(h.Delete)).Name("bookmarks.destroy")
+	write.Delete("/bookmarks/{id}", web.H(h.Delete)).Name("bookmarks.delete")
 	write.Post("/bookmarks/{id}/archive", web.H(h.Archive)).Name("bookmarks.archive")
 }
 ```

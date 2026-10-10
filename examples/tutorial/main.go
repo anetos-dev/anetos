@@ -33,7 +33,7 @@ import (
 )
 
 //go:generate go tool templ generate
-//go:generate go tool anetos gen
+//go:generate go tool anetos generate
 
 func main() {
 	if len(os.Args) == 2 && os.Args[1] == "version" {
@@ -47,7 +47,7 @@ func main() {
 	if _, err := setup(app); err != nil {
 		log.Fatal(err)
 	}
-	app.Execute() // run (default), serve, migrate, routes:list, help, …
+	app.Execute() // run (default), serve, migrate, route:list, help, …
 }
 
 // setup adds the translations and connects the database, then adds the

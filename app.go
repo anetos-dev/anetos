@@ -63,7 +63,8 @@ type App struct {
 
 	cmdMu    sync.Mutex
 	commands map[string]cmd.Command
-	checks   []Check // AddCheck, for doctor
+	former   map[string]string // a command's former name → its name
+	checks   []Check           // AddCheck, for doctor
 
 	clock clock // Now
 
@@ -179,6 +180,7 @@ func New(opts ...Option) (*App, error) {
 		sup:      supervisor.New(supervisor.Options{Logger: log, ShutdownTimeout: cfg.ShutdownTimeout - hookReserve(cfg.ShutdownTimeout)}),
 		services: map[reflect.Type]any{},
 		commands: map[string]cmd.Command{},
+		former:   map[string]string{},
 	}
 	a.clock.loc = loc
 	a.AddContextValue(clockKey{}, &a.clock)

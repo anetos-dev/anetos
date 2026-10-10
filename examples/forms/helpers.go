@@ -15,11 +15,11 @@ func formTitle(n Note) string {
 	return "Edit note"
 }
 
-// formAction is where the note form posts: the store route for a new note,
+// formAction is where the note form posts: the create route for a new note,
 // the update route (with _method=PUT) for an existing one.
 func formAction(ctx context.Context, n Note) (string, error) {
 	if n.ID == 0 {
-		return web.URL(ctx, "notes.store")
+		return web.URL(ctx, "notes.create")
 	}
 	return web.URL(ctx, "notes.update", n.ID)
 }

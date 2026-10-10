@@ -37,13 +37,13 @@ func Auth(r *web.Router, sessions *session.Manager, a *auth.Auth[*models.User], 
 	guests.Get("/auth/{provider}/redirect", s.Redirect).Name("social.redirect")
 	guests.Get("/auth/{provider}/callback", s.Callback).Name("social.callback")
 
-	members := pages.Group("", a.Require) // guests go to AUTH_LOGIN_URL
-	members.Get("/dashboard", h.Dashboard).Name("dashboard")
-	members.Post("/logout", h.Logout).Name("logout")
-	members.With(ratelimit.Middleware("verification", ratelimit.PerMinute(3))).
+	loggedIn := pages.Group("", a.Require) // guests go to AUTH_LOGIN_URL
+	loggedIn.Get("/dashboard", h.Dashboard).Name("dashboard")
+	loggedIn.Post("/logout", h.Logout).Name("logout")
+	loggedIn.With(ratelimit.Middleware("verification", ratelimit.PerMinute(3))).
 		Post("/email/verification-notification", h.ResendVerification).Name("verification.send")
-	members.Post("/tokens", web.H(h.CreateToken)).Name("tokens.store")
-	members.Post("/tokens/{id}/delete", web.H(h.RevokeToken)).Name("tokens.destroy")
+	loggedIn.Post("/tokens", web.H(h.CreateToken)).Name("tokens.create")
+	loggedIn.Post("/tokens/{id}/delete", web.H(h.RevokeToken)).Name("tokens.delete")
 
 	api := r.Group("/api", a.TokenMiddleware, a.Require) // Authorization: Bearer <token>
 	api.Get("/me", h.Me).Name("api.me")

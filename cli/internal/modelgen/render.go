@@ -96,11 +96,11 @@ func render(pkg *packages.Package, models []model) ([]byte, error) {
 				continue
 			}
 			if obj := scope.Lookup(v); obj != nil {
-				return nil, fmt.Errorf("%s: %s is already declared, so anetos gen can't declare it for %s; rename it, or mark %s //anetos:skip",
+				return nil, fmt.Errorf("%s: %s is already declared, so anetos generate can't declare it for %s; rename it, or mark %s //anetos:skip",
 					pkg.Fset.Position(obj.Pos()), v, m.name, m.name)
 			}
 			if pos, ok := testNames[v]; ok {
-				return nil, fmt.Errorf("%s: %s is already declared, so anetos gen can't declare it for %s; rename it, or mark %s //anetos:skip",
+				return nil, fmt.Errorf("%s: %s is already declared, so anetos generate can't declare it for %s; rename it, or mark %s //anetos:skip",
 					pos, v, m.name, m.name)
 			}
 			im.taken[v] = true
@@ -149,7 +149,7 @@ func render(pkg *packages.Package, models []model) ([]byte, error) {
 	out.Write(body.Bytes())
 	src, err := format.Source(out.Bytes())
 	if err != nil {
-		return nil, fmt.Errorf("anetos gen: %s: formatting generated code: %w", pkg.PkgPath, err)
+		return nil, fmt.Errorf("anetos generate: %s: formatting generated code: %w", pkg.PkgPath, err)
 	}
 	return src, nil
 }

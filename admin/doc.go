@@ -8,7 +8,7 @@
 // It is a library the app wires with code: `anetos make:admin` writes
 // admin.go, which creates the [Panel] for the app's users, adds a
 // [Resource] per model, and mounts it under ADMIN_PATH (/admin) or at
-// ADMIN_HOST; `anetos make:admin:resource Post` writes a resource to
+// ADMIN_HOST; `anetos make:admin-resource Post` writes a resource to
 // change as the app needs:
 //
 //	p, err := admin.New(app, a) // a: the app's *auth.Auth[*models.User]

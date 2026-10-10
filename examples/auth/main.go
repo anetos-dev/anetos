@@ -7,7 +7,7 @@
 // verification and reset links are emailed (MAIL_DRIVER=log writes them
 // to the log). anetos make:auth writes this kind of code into an app.
 //
-//	go tool anetos key:generate >> .env   # APP_KEY, once
+//	go tool anetos key:generate           # APP_KEY, once
 //	export APP_ENV=development HTTP_ADDR=:8080
 //	go run . migrate
 //	go run .
@@ -513,19 +513,19 @@ func routes(r *web.Router, sessions *session.Manager, a *auth.Auth[*User], s *so
 	guests.Get("/two-factor-challenge", h.page("challenge")) // AUTH_CHALLENGE_URL
 	guests.Post("/two-factor-challenge", web.H(h.Challenge))
 
-	members := pages.Group("", a.Require) // guests go to AUTH_LOGIN_URL
-	members.Get("/dashboard", h.Dashboard)
-	members.Post("/logout", h.Logout)
-	members.Post("/tokens/{id}/delete", web.H(h.RevokeToken))
-	members.Get("/users/{id}", web.H(h.ShowUser))
-	members.Get("/admin", h.Admin)
-	members.Post("/password", web.H(h.ChangePassword))
-	members.Get("/confirm-password", h.page("confirm")) // AUTH_CONFIRM_URL
-	members.Post("/confirm-password", web.H(h.ConfirmPassword))
+	loggedIn := pages.Group("", a.Require) // guests go to AUTH_LOGIN_URL
+	loggedIn.Get("/dashboard", h.Dashboard)
+	loggedIn.Post("/logout", h.Logout)
+	loggedIn.Post("/tokens/{id}/delete", web.H(h.RevokeToken))
+	loggedIn.Get("/users/{id}", web.H(h.ShowUser))
+	loggedIn.Get("/admin", h.Admin)
+	loggedIn.Post("/password", web.H(h.ChangePassword))
+	loggedIn.Get("/confirm-password", h.page("confirm")) // AUTH_CONFIRM_URL
+	loggedIn.Post("/confirm-password", web.H(h.ConfirmPassword))
 
 	// Two-factor authentication (AUTH_TWO_FACTOR_URL) and API tokens (they work
 	// without the browser): the password again first.
-	secure := members.Group("", a.RequireConfirmed)
+	secure := loggedIn.Group("", a.RequireConfirmed)
 	secure.Post("/tokens", web.H(h.CreateToken))
 	secure.Get("/two-factor", h.TwoFactor)
 	secure.Post("/two-factor", h.StartTwoFactor)

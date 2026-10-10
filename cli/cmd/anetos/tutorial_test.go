@@ -39,11 +39,11 @@ func TestTutorialProject(t *testing.T) {
 	// The generated files the tutorial changes, with the lines it adds
 	// code after (or replaces).
 	anchors := map[string][]string{
-		"routes/auth.go":                  {`	members.Post("/confirm-password", web.H(h.ConfirmPassword))` + "\n"},
+		"routes/auth.go":                  {`	loggedIn.Post("/confirm-password", web.H(h.ConfirmPassword))` + "\n"},
 		"views/layout.templ":              {"\t\t\t\t\t@navLink(\"home\", i18n.T(ctx, \"nav.home\"))\n", "\t\t\t\t}\n\t\t\t\t@AccountMenu()\n"},
 		"main.go":                         {"\tif _, err := events.New(app); err != nil {\n\t\treturn nil, err\n\t}\n"},
 		"database/factories/factories.go": {"package factories\n"},
-		"app/models/models_gen.go":        nil, // anetos gen's, for the new models
+		"app/models/models_gen.go":        nil, // anetos generate's, for the new models
 	}
 	compareExample(t, dir, example, anchors, nil)
 }
@@ -152,7 +152,7 @@ func TestAPITutorialProject(t *testing.T) {
 	// generated), and its changes to the others.
 	anchors := map[string][]string{
 		"routes/bookmarks.go":      {"func Bookmarks(r *web.Router) {\n", "\tvar h handlers.Bookmarks\n"},
-		"app/models/models_gen.go": nil, // anetos gen's, for the new column
+		"app/models/models_gen.go": nil, // anetos generate's, for the new column
 		"bookmarks_test.go":        nil, // the tutorial's tests replace make:crud's
 		"openapi.json":             nil, // the document of the changed routes
 	}
@@ -164,7 +164,7 @@ func TestAPITutorialProject(t *testing.T) {
 	undo := map[string][][2]string{
 		"routes/api.go": {{"\tapi.Get(\"/\", web.H(handlers.Welcome{}.Show)).Name(\"welcome\")\n}",
 			"\tapi.Get(\"/\", web.H(handlers.Welcome{}.Show)).Name(\"welcome\")\n\tBookmarks(api) // anetos make:crud\n}"}},
-		"routes/auth.go": {{"\t" + region("me", "\tBookmarks(me) // the user's bookmarks, with their token\n\t"), ""}},
+		"routes/auth.go": {{"\t" + region("logged-in", "\tBookmarks(loggedIn) // the user's bookmarks, with their token\n\t"), ""}},
 		"app/models/bookmark.go": {
 			{"// region: model\n\n", ""},
 			{"\tUserID   int64  `db:\"user_id\"` // whose bookmark\n", ""},

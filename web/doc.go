@@ -22,7 +22,7 @@
 //	r := srv.Router()
 //	r.Get("/", home).Name("home")
 //	r.Get("/posts/{id}", web.H(posts.Show)).Name("posts.show")
-//	r.Post("/posts", web.H(posts.Store)).Name("posts.store")
+//	r.Post("/posts", web.H(posts.Create)).Name("posts.create")
 //
 //	// … then app.Run(ctx)
 //

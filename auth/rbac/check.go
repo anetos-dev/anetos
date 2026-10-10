@@ -188,7 +188,7 @@ func (g *Grants) mayGive(scope Scope, r Role) error {
 // pages, which sends guests to the login page. API descriptions (package
 // web/openapi) list its 401 and 403.
 //
-//	admin := members.Group("/admin", rbac.Require(ManageUsers))
+//	admin := loggedIn.Group("/admin", rbac.Require(ManageUsers))
 func Require(perms ...Permission) web.Middleware {
 	return RequireIn(func(*http.Request) (Scope, error) { return Global, nil }, perms...)
 }

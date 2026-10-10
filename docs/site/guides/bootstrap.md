@@ -1,13 +1,13 @@
 ---
 title: Style with Bootstrap
 since: v0.5.0
-group: "Design kits"
+group: "CSS frameworks"
 weight: 153
 ---
 
 # Style with Bootstrap
 
-The `bootstrap` kit: [Bootstrap](https://getbootstrap.com) 5.3.8's
+`--css=bootstrap`: [Bootstrap](https://getbootstrap.com) 5.3.8's
 classes, its stylesheet and its JavaScript bundle, as released. No
 build step.
 
@@ -109,8 +109,8 @@ app](styling.md#5-add-your-own-component)).
 Bootstrap's dark mode is `data-bs-theme="dark"` on `<html>`, which
 `theme.js` sets from the visitor's system before the page shows. The
 menu button is Bootstrap's collapse, from its bundle. `css:use
-bootstrap` with the kit the project has brings a newer Bootstrap when a
-newer `anetos` carries one ([Style your app](styling.md#8-switch-kits)).
+bootstrap` in a project that has it brings a newer Bootstrap when a
+newer `anetos` carries one ([Style your app](styling.md#8-switch-css-frameworks)).
 
 ## Common problems
 
@@ -118,7 +118,7 @@ newer `anetos` carries one ([Style your app](styling.md#8-switch-kits)).
 |---|---|---|
 | `--bs-primary` changes nothing on buttons | Each button's color is its own variables | Set `.btn-primary`'s, as above |
 | The menu button does nothing | `bootstrap.bundle.min.js` isn't loaded (a `ui.Head` you changed), or JavaScript is off | Link the bundle from `ui.Head`; without JavaScript, the links stay hidden on small screens |
-| The browser's console reports a missing `.map` file | The released files name their source maps, which the kit doesn't carry | Harmless: only the developer tools ask for it |
+| The browser's console reports a missing `.map` file | The released files name their source maps, which anetos doesn't carry | Harmless: only the developer tools ask for it |
 
 ## Next steps
 

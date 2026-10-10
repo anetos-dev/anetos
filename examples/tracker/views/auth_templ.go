@@ -1392,7 +1392,7 @@ func Dashboard(u *models.User, tokens []auth.Token, newToken string, assigned []
 										}
 										return nil
 									})
-									templ_7745c5c3_Err = ui.PostButton(web.MustURL(ctx, "tokens.destroy", t.ID), "POST", ui.Secondary|ui.Small).Render(templ.WithChildren(ctx, templ_7745c5c3_Var77), templ_7745c5c3_Buffer)
+									templ_7745c5c3_Err = ui.PostButton(web.MustURL(ctx, "tokens.delete", t.ID), "POST", ui.Secondary|ui.Small).Render(templ.WithChildren(ctx, templ_7745c5c3_Var77), templ_7745c5c3_Buffer)
 									if templ_7745c5c3_Err != nil {
 										return templ_7745c5c3_Err
 									}
@@ -1493,7 +1493,7 @@ func Dashboard(u *models.User, tokens []auth.Token, newToken string, assigned []
 						}
 						return nil
 					})
-					templ_7745c5c3_Err = ui.Form(web.MustURL(ctx, "tokens.store"), "POST", nil).Render(templ.WithChildren(ctx, templ_7745c5c3_Var79), templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = ui.Form(web.MustURL(ctx, "tokens.create"), "POST", nil).Render(templ.WithChildren(ctx, templ_7745c5c3_Var79), templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}

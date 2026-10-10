@@ -146,8 +146,8 @@ in.
 production, you can run them apart, from the same binary:
 
 ```bash
-./app run --only=http      # web servers
-./app run --only=workers   # workers, as many as you need
+./app serve                # web servers (run --only=http)
+./app queue:work           # workers, as many as you need (run --only=workers)
 ```
 
 ### 3. Dispatch jobs
@@ -405,8 +405,9 @@ server's clock for delays and leases.
 > queue.Delay(d))` is `Job::dispatch()->onQueue('x')->delay($d)`.
 > `queue.Tries`, `queue.Backoff` and `queue.Timeout` are the `$tries`,
 > `$backoff` and `$timeout` properties, `queue.Permanent(err)` is
-> `$this->fail()`, and `Failed` is `failed()`. Instead of
-> `php artisan queue:work`, workers run inside the app, supervised, and
-> `run --only=workers` runs only them. `queue:failed`, `queue:retry`,
+> `$this->fail()`, and `Failed` is `failed()`. Workers run inside the
+> app, supervised, and `queue:work` (`run --only=workers`) runs only
+> them; the queues and concurrency are the app's `Work` call's, not
+> flags. `queue:failed`, `queue:retry`,
 > `queue:forget`, `queue:flush` and `queue:clear` work as in Laravel.
 > Dependencies come from the context, not from `handle()`'s parameters.

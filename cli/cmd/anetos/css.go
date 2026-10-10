@@ -21,7 +21,7 @@ import (
 
 const cssBuildUsage = `Usage: anetos css:build [--check]
 
-In a project of the tailwind design kit (anetos new --css=tailwind),
+In a project that uses Tailwind CSS (anetos new --css=tailwind),
 compiles views/ui/tailwind.css into public/static/app.css with Tailwind
 CSS's standalone CLI, minified, writing it only when it changes. anetos
 dev and anetos build run it too; run it yourself before a go build or a
@@ -54,7 +54,7 @@ func cssBuild(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 		return 1
 	}
 	if !tailwind.Uses(root) {
-		fmt.Fprintf(stderr, "anetos css:build: the project has no %s: only the tailwind kit's stylesheet is compiled (anetos new --css=tailwind)\n", tailwind.Input)
+		fmt.Fprintf(stderr, "anetos css:build: the project has no %s: only Tailwind CSS's stylesheet is compiled (anetos new --css=tailwind)\n", tailwind.Input)
 		return 1
 	}
 	if *check {
@@ -104,27 +104,28 @@ func logTo(w io.Writer, cmd string) func(string, ...any) {
 	}
 }
 
-const cssUseUsage = `Usage: anetos css:use [<kit>] [--force]
+const cssUseUsage = `Usage: anetos css:use [<framework>] [--force]
 
-Switches the project to another design kit: anetos, none, pico,
-bootstrap, bulma or tailwind. It writes the kit's components (views/ui)
-and stylesheets (public/static), removes the old kit's files the new one
-hasn't (pico.min.css, theme.js, tailwind.css…), records the kit in
-views/ui/kit.json, and runs templ generate (and, for tailwind,
-css:build). The layout, the pages and your own files in views/ui are
-left as they are: the pages call the components, so they take the new
-kit's look; classes written in your own pages and components stay.
+Switches the project to another CSS framework: anetos (the starter
+theme), none (plain HTML), pico, bootstrap, bulma or tailwind. It writes
+the framework's components (views/ui) and stylesheets (public/static),
+removes the old one's files the new one hasn't (pico.min.css, theme.js,
+tailwind.css…), records the framework in views/ui/css.json, and runs
+templ generate (and, for tailwind, css:build). The layout, the pages and
+your own files in views/ui are left as they are: the pages call the
+components, so they take the new look; classes written in your own pages
+and components stay.
 
-It refuses when a file the old kit wrote changed since (a component you
-edited, your colors in app.css), naming them: --force overwrites them;
-commit first, so git shows what changed. With the kit the project has,
-it updates the kit's files to this anetos's version. Without <kit>, it
-prints the project's kit.
+It refuses when a file it wrote for the old framework changed since (a
+component you edited, your colors in app.css), naming them: --force
+overwrites them; commit first, so git shows what changed. With the
+framework the project has, it updates its files to this anetos's
+version. Without <framework>, it prints the project's.
 `
 
 func cssUse(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("anetos css:use", flag.ContinueOnError)
-	force := fs.Bool("force", false, "overwrite kit files changed since the kit wrote them")
+	force := fs.Bool("force", false, "overwrite the files of views/ui and public/static changed since anetos wrote them")
 	pos, code := parse(fs, args, stderr, cssUseUsage)
 	if code >= 0 {
 		return code
@@ -149,7 +150,7 @@ func cssUse(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		if _, err := os.Stat(filepath.Join(root, "views")); err != nil {
 			return fail(errors.New("the project has no views/: an api project has no pages to style"))
 		}
-		return fail(errors.New("the project has no views/ui (made before v0.5): its pages carry the starter theme's classes, which a kit doesn't change. The upgrade guide (docs/site/upgrade/v0.5.md) shows how to move the layout to the components first"))
+		return fail(errors.New("the project has no views/ui (made before v0.5): its pages carry the starter theme's classes, which another CSS framework doesn't change. The upgrade guide (docs/site/upgrade/v0.5.md) shows how to move the layout to the components first"))
 	}
 	rec, recErr := scaffold.ReadKitRecord(root)
 	if len(pos) == 0 {
@@ -180,14 +181,14 @@ func cssUse(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	c, err := scaffold.UseKit(root, modfile.ModulePath(mod), kit, *force)
 	switch {
 	case errors.Is(err, scaffold.ErrKitChanged):
-		fmt.Fprintf(stderr, "anetos css:use: these files changed since the %s kit wrote them, or aren't its:\n", c.From)
+		fmt.Fprintf(stderr, "anetos css:use: these files changed since anetos wrote them for %s, or aren't its:\n", scaffold.CSSName(c.From))
 		for _, f := range c.Changed {
 			fmt.Fprintln(stderr, "  "+f)
 		}
 		fmt.Fprintln(stderr, "Nothing was written. Run again with --force to replace them (commit first: git then shows what changed), or undo the changes.")
 		return 1
 	case errors.Is(err, scaffold.ErrNoKitRecord):
-		return fail(fmt.Errorf("%w: run again with --force to replace views/ui's kit files and public/static/app.css (commit first: git then shows what changed)", err))
+		return fail(fmt.Errorf("%w: run again with --force to replace views/ui's components and public/static/app.css (commit first: git then shows what changed)", err))
 	case errors.Is(err, scaffold.ErrBadKitRecord):
 		return fail(fmt.Errorf("%w. Fix the file, or run again with --force, which writes a new one (commit first: git then shows what changed)", err))
 	case err != nil:
@@ -223,28 +224,28 @@ func cssUse(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	var templOut bytes.Buffer // templ reports progress on stderr: shown only if it fails
 	if err := runGoOut(ctx, root, &templOut, &templOut, "tool", "templ", "generate"); err != nil {
 		fmt.Fprint(stderr, templOut.String())
-		return fail(fmt.Errorf("the kit was switched, but %w", err))
+		return fail(fmt.Errorf("the CSS framework was switched, but %w", err))
 	}
 	if err := runGo(ctx, root, stderr, "build", "./..."); err != nil {
 		// The app's own code calls something the old kit had.
-		return fail(fmt.Errorf("the kit was switched, but the project doesn't build: %w", err))
+		return fail(fmt.Errorf("the CSS framework was switched, but the project doesn't build: %w", err))
 	}
 	if kit == "tailwind" {
 		if err := buildCSS(ctx, root, stdout, "anetos css:use"); err != nil {
-			fmt.Fprintf(stdout, "Tailwind CSS didn't run (%v):\npublic/static/app.css is the kit's, compiled for its components; run go tool anetos css:build for classes of your own.\n", err)
+			fmt.Fprintf(stdout, "Tailwind CSS didn't run (%v):\npublic/static/app.css is the one anetos ships, compiled for the components; run go tool anetos css:build for classes of your own.\n", err)
 		}
 	}
 	if len(c.Own) > 0 {
-		fmt.Fprintf(stdout, "Your own files in views/ui keep their classes, which the %s kit may not style: %s\n", kit, strings.Join(c.Own, ", "))
+		fmt.Fprintf(stdout, "Your own files in views/ui keep their classes, which %s may not style: %s\n", scaffold.CSSName(kit), strings.Join(c.Own, ", "))
 	}
 	if len(c.Others) > 0 {
-		fmt.Fprintf(stdout, "Without a record, public/static's other files stay: remove the old kit's yourself (%s).\n", strings.Join(c.Others, ", "))
+		fmt.Fprintf(stdout, "Without a record, public/static's other files stay: remove the old CSS framework's yourself (%s).\n", strings.Join(c.Others, ", "))
 	}
 	dockerHint(root, c, stdout)
 	if c.From == kit {
-		fmt.Fprintf(stdout, "The %s kit's files are this anetos's.\n", kit)
+		fmt.Fprintf(stdout, "The files for %s are this anetos's.\n", scaffold.CSSName(kit))
 	} else {
-		fmt.Fprintf(stdout, "The project uses the %s kit. Pages with classes of their own keep them.\n", kit)
+		fmt.Fprintf(stdout, "The project uses %s. Pages with classes of their own keep them.\n", scaffold.CSSName(kit))
 	}
 	return 0
 }

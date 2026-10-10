@@ -22,15 +22,16 @@ import (
 	"anetos.dev/anetos/cmd"
 )
 
-// checkCommand is lang:check.
+// checkCommand is locale:check.
 func (tr *Translator) checkCommand(fs.FS) cmd.Command {
 	return cmd.Command{
-		Name:        "lang:check",
+		Name:        "locale:check",
+		Former:      []string{"lang:check"},
 		Usage:       "[dir]",
 		Description: "Check the translations: missing keys, placeholders, plural forms, and keys the source in dir (default .) uses",
 		ManagesApp:  true, // reads files only: no database needed
 		Run: func(_ context.Context, args *cmd.Args) error {
-			fl := flag.NewFlagSet("lang:check", flag.ContinueOnError)
+			fl := flag.NewFlagSet("locale:check", flag.ContinueOnError)
 			if err := args.Parse(fl); err != nil {
 				return err
 			}
@@ -47,7 +48,7 @@ func (tr *Translator) checkCommand(fs.FS) cmd.Command {
 				return err
 			}
 			if n := tr.Check(args.Stdout, used); n > 0 {
-				return fmt.Errorf("lang:check: %d problem(s)", n)
+				return fmt.Errorf("locale:check: %d problem(s)", n)
 			}
 			return nil
 		},
@@ -171,7 +172,7 @@ func (tr *Translator) Check(w io.Writer, used []string) int {
 		report("%d key(s) used in the source but in no catalog: %s", len(undefined), listOf(undefined))
 	}
 	if problems == 0 {
-		fmt.Fprintf(w, "lang:check: %s OK\n", strings.Join(tr.Supported(), ", "))
+		fmt.Fprintf(w, "locale:check: %s OK\n", strings.Join(tr.Supported(), ", "))
 	}
 	return problems
 }

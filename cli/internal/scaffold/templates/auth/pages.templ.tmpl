@@ -178,7 +178,7 @@ templ Dashboard(u *models.User, tokens []auth.Token, newToken string) {
 								<tr>
 									<td>{ t.Name }</td>
 									@ui.ActionsCell() {
-										@ui.PostButton(web.MustURL(ctx, "tokens.destroy", t.ID), "POST", ui.Secondary|ui.Small) {
+										@ui.PostButton(web.MustURL(ctx, "tokens.delete", t.ID), "POST", ui.Secondary|ui.Small) {
 											{ i18n.T(ctx, "auth.tokens.revoke") }
 										}
 									}
@@ -187,7 +187,7 @@ templ Dashboard(u *models.User, tokens []auth.Token, newToken string) {
 						</tbody>
 					}
 				}
-				@ui.Form(web.MustURL(ctx, "tokens.store"), "POST", nil) {
+				@ui.Form(web.MustURL(ctx, "tokens.create"), "POST", nil) {
 					@ui.Field("name", i18n.T(ctx, "auth.tokens.name"), "") {
 						@ui.Input("name", "", "", nil)
 					}

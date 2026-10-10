@@ -68,7 +68,7 @@ func makeCrud(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 		return 1
 	}
 	if res.Kit != "" {
-		fmt.Fprintf(stdout, "views/ui is the %s kit's components, which the new pages call: the project had none (made before v0.5).\nThe layout keeps its markup; the upgrade guide shows how to use them there too.\n", res.Kit)
+		fmt.Fprintf(stdout, "views/ui has the components for %s, which the new pages call: the project had none (made before v0.5).\nThe layout keeps its markup; the upgrade guide shows how to use them there too.\n", scaffold.CSSName(res.Kit))
 	}
 	file, group := "routes/web.go", "pages"
 	if res.API {
@@ -81,9 +81,9 @@ func makeCrud(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 		fmt.Fprintf(stdout, "updated views/layout.templ: the nav links to %s\n", res.Path)
 	}
 	finish := func(err error) int {
-		steps := "go tool anetos gen && go tool templ generate && go build ./..."
+		steps := "go tool anetos generate && go tool templ generate && go build ./..."
 		if res.API {
-			steps = "go tool anetos gen && go build ./..."
+			steps = "go tool anetos generate && go build ./..."
 		}
 		fmt.Fprintf(stderr, "anetos make:crud: %v\nThe files are written; once fixed, finish with:\n\t%s\n", err, steps)
 		return 1
@@ -120,7 +120,7 @@ the routes to your API's group yourself:
 		} else {
 			fmt.Fprintf(stdout, `
 The endpoints are open to every client. To let only clients with a token
-in (after make:auth), move the %s(api) call to routes/auth.go's me group.
+in (after make:auth), move the %s(api) call to routes/auth.go's loggedIn group.
 `, res.Plural)
 		}
 		fmt.Fprintf(stdout, `
@@ -145,7 +145,7 @@ the routes to a group with sessions and CSRF protection yourself:
 	if res.Routed {
 		fmt.Fprintf(stdout, `
 The pages are open to everyone. To let only logged-in users in (after
-make:auth), move the %s(pages) call to routes/auth.go's members group.
+make:auth), move the %s(pages) call to routes/auth.go's loggedIn group.
 `, res.Plural)
 	}
 	fmt.Fprintf(stdout, `

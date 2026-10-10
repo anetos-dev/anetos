@@ -55,7 +55,7 @@ func TestSeedAndCatalogs(t *testing.T) {
 
 	// Every key the pages use is in the catalogs (a command: the last
 	// thing the app does).
-	if out := run("lang:check"); !strings.Contains(out, "en OK") {
-		t.Errorf("lang:check: %s", out)
+	if out := run("locale:check"); !strings.Contains(out, "en OK") {
+		t.Errorf("locale:check: %s", out)
 	}
 }

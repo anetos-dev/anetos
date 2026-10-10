@@ -118,10 +118,10 @@ func TestNewProject(t *testing.T) {
 	if err := os.WriteFile(postGo, []byte(post), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if code, out, errOut := runCmd(t, "make:admin:resource", "Post"); code != 0 || !strings.Contains(out, "created app/admin/posts.go") {
-		t.Fatalf("make:admin:resource: %d\n%s\n%s", code, out, errOut)
+	if code, out, errOut := runCmd(t, "make:admin-resource", "Post"); code != 0 || !strings.Contains(out, "created app/admin/posts.go") {
+		t.Fatalf("make:admin-resource: %d\n%s\n%s", code, out, errOut)
 	}
-	if code, out, errOut := runCmd(t, "gen"); code != 0 {
+	if code, out, errOut := runCmd(t, "generate"); code != 0 {
 		t.Fatalf("gen: %d\n%s\n%s", code, out, errOut)
 	}
 
@@ -244,10 +244,10 @@ func TestNewProject(t *testing.T) {
 	if code, out, errOut := runCmd(t, "doctor", "--strict"); code != 1 || !strings.Contains(out, "warning  .env: other users of this machine can read it") {
 		t.Errorf("anetos doctor --strict with a readable .env: %d\n%s\n%s", code, out, errOut)
 	}
-	if out := app("routes:list"); !regexp.MustCompile(`GET\s+/\s+home`).MatchString(out) ||
-		!regexp.MustCompile(`DELETE\s+/api-keys/\{id\}\s+api-keys\.destroy`).MatchString(out) ||
+	if out := app("route:list"); !regexp.MustCompile(`GET\s+/\s+home`).MatchString(out) ||
+		!regexp.MustCompile(`DELETE\s+/api-keys/\{id\}\s+api-keys\.delete`).MatchString(out) ||
 		!regexp.MustCompile(`GET\s+/admin/posts/\{id\}/edit\s+admin\.posts\.edit`).MatchString(out) {
-		t.Errorf("routes:list:\n%s", out)
+		t.Errorf("route:list:\n%s", out)
 	}
 	if out := app("version"); !strings.HasPrefix(out, "blog v9.9.9\nAnetos ") {
 		t.Errorf("version:\n%s", out)
@@ -263,16 +263,16 @@ func TestNewProject(t *testing.T) {
 	if out := app("help"); !strings.Contains(out, "migrate:status") || !strings.Contains(out, "serve") {
 		t.Errorf("help:\n%s", out)
 	}
-	// Every key the pages use is in the catalogs (lang:check reads the
+	// Every key the pages use is in the catalogs (locale:check reads the
 	// source from the project's folder).
-	if out := app("lang:check"); !strings.Contains(out, "lang:check: en OK") {
-		t.Errorf("lang:check:\n%s", out)
+	if out := app("locale:check"); !strings.Contains(out, "locale:check: en OK") {
+		t.Errorf("locale:check:\n%s", out)
 	}
 	if out := app("schedule:list"); !strings.Contains(out, "No scheduled tasks.") {
 		t.Errorf("schedule:list:\n%s", out)
 	}
-	if out := app("plugins:list"); !regexp.MustCompile(`postmark\s.*\s/postmark\s+config, migrations`).MatchString(out) {
-		t.Errorf("plugins:list:\n%s", out)
+	if out := app("plugin:list"); !regexp.MustCompile(`postmark\s.*\s/postmark\s+config, migrations`).MatchString(out) {
+		t.Errorf("plugin:list:\n%s", out)
 	}
 	if out := app("postmark:suppressions"); !strings.Contains(out, "No suppressed addresses.") {
 		t.Errorf("postmark:suppressions:\n%s", out)
@@ -381,22 +381,22 @@ func TestNewAPIProject(t *testing.T) {
 		!strings.Contains(out, "create_api_tokens_table") || strings.Contains(out, "sessions") {
 		t.Errorf("migrate:\n%s", out)
 	}
-	if out := app("routes:list"); !regexp.MustCompile(`GET\s+/api/v1\s+api\.welcome`).MatchString(out) ||
+	if out := app("route:list"); !regexp.MustCompile(`GET\s+/api/v1\s+api\.welcome`).MatchString(out) ||
 		!regexp.MustCompile(`POST\s+/api/v1/login/two-factor\s+api\.login\.two-factor`).MatchString(out) ||
-		!regexp.MustCompile(`DELETE\s+/api/v1/products/\{id\}\s+api\.products\.destroy`).MatchString(out) {
-		t.Errorf("routes:list:\n%s", out)
+		!regexp.MustCompile(`DELETE\s+/api/v1/products/\{id\}\s+api\.products\.delete`).MatchString(out) {
+		t.Errorf("route:list:\n%s", out)
 	}
 	// The API's description is up to date, and has the accounts' and the
 	// products' operations.
 	if out := app("openapi", "--check"); !strings.Contains(out, "openapi.json is up to date") {
 		t.Errorf("openapi --check:\n%s", out)
 	}
-	if spec := read(t, filepath.Join(dir, "openapi.json")); !strings.Contains(spec, `"operationId": "api.products.store"`) ||
-		!strings.Contains(spec, `"operationId": "api.tokens.store"`) || !strings.Contains(spec, `"bearer": [`) {
+	if spec := read(t, filepath.Join(dir, "openapi.json")); !strings.Contains(spec, `"operationId": "api.products.create"`) ||
+		!strings.Contains(spec, `"operationId": "api.tokens.create"`) || !strings.Contains(spec, `"bearer": [`) {
 		t.Errorf("openapi.json:\n%s", spec)
 	}
-	if out := app("lang:check"); !strings.Contains(out, "lang:check: en OK") {
-		t.Errorf("lang:check:\n%s", out)
+	if out := app("locale:check"); !strings.Contains(out, "locale:check: en OK") {
+		t.Errorf("locale:check:\n%s", out)
 	}
 	if out := app("doctor"); strings.Contains(out, "session") {
 		t.Errorf("doctor:\n%s", out)
@@ -491,7 +491,7 @@ func TestNewProjectKits(t *testing.T) {
 	if code, out, errOut := runCmd(t, "new", fresh, "--skip-install", "--replace", repo); code != 0 {
 		t.Fatalf("new: %d\n%s\n%s", code, out, errOut)
 	}
-	for _, f := range []string{"views/ui/shell.templ", "views/ui/classes.go", "public/static/app.css", "views/ui/kit.json"} {
+	for _, f := range []string{"views/ui/shell.templ", "views/ui/classes.go", "public/static/app.css", "views/ui/css.json"} {
 		if read(t, filepath.Join(dir, f)) != read(t, filepath.Join(fresh, f)) {
 			t.Errorf("after css:use anetos, %s isn't a new project's", f)
 		}

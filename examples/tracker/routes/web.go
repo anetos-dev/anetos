@@ -18,4 +18,5 @@ import (
 func Register(r *web.Router, sessions *session.Manager) {
 	r.UseGlobal(web.MethodOverride) // HTML forms can send PUT and DELETE with _method
 	r.HandleStd(http.MethodGet, "/assets/{path...}", public.Assets)
+	r.Static("/", public.Files) // robots.txt, .well-known/…: after the routes
 }

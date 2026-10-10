@@ -79,7 +79,7 @@ Values are converted to the field's type: strings, numbers, booleans,
 
 ```go
 // illustrative
-func (h *Notes) Store(c *web.Ctx, in CreateNote) (Note, error) {
+func (h *Notes) Create(c *web.Ctx, in CreateNote) (Note, error) {
 	return h.create(in.Title, in.Body), nil
 }
 
@@ -96,7 +96,7 @@ Register it with `web.H`:
 
 ```go
 // illustrative
-api.Post("", web.H(notes.Store)).Name("store").Status(http.StatusCreated)
+api.Post("", web.H(notes.Create)).Name("create").Status(http.StatusCreated)
 ```
 
 `web.H` inspects the input type **once, at startup**. It panics then if the
@@ -199,7 +199,7 @@ var api handlers.API
 v1 := r.Group("/api", web.JSONErrors, a.TokenMiddleware, a.Require) // Authorization: Bearer <token>
 v1.Get("/projects", web.H(api.Projects)).Name("api.projects")
 v1.Get("/projects/{project}/issues", web.H(api.Issues)).Name("api.issues")
-v1.Post("/projects/{project}/issues", web.H(api.CreateIssue)).Name("api.issues.store").Status(http.StatusCreated)
+v1.Post("/projects/{project}/issues", web.H(api.CreateIssue)).Name("api.issues.create").Status(http.StatusCreated)
 v1.Get("/projects/{project}/issues/{number}", web.H(api.Issue)).Name("api.issues.show")
 ```
 

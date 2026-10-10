@@ -34,7 +34,7 @@ How the db package maps a struct to a table. See
 
 Two fields mapping to the same column is an error.
 `db.Columns[T]()` lists a model's columns in this order, and
-[`anetos gen`](anetos-gen.md) declares a typed column for each.
+[`anetos generate`](anetos-generate.md) declares a typed column for each.
 
 ## Tables
 
@@ -112,7 +112,7 @@ Since v0.1.1. A relation field has a `rel` tag, `rel:"kind"` or
 
 | API | Does |
 |---|---|
-| `db.RelOf[T, R](field)` | `db.Rel[T, R]`, the handle of a relation field (`anetos gen` writes them in `TRels`). Nothing is checked until use; `Err()` reports a wrong field or type, a bad tag or missing key columns, as queries do before running |
+| `db.RelOf[T, R](field)` | `db.Rel[T, R]`, the handle of a relation field (`anetos generate` writes them in `TRels`). Nothing is checked until use; `Err()` reports a wrong field or type, a bad tag or missing key columns, as queries do before running |
 | `rel.With(nested...)` | Also load relations of the related rows |
 | `rel.Where(conds...)`, `rel.OrderBy(orders...)` | Conditions and order of the relation's query (default order: R's primary key; a `has_one` gets the first row). Many-to-many queries join the pivot: qualify columns it also has |
 | `rel.WithTrashed()` | Include soft-deleted related rows |

@@ -3,7 +3,7 @@
 // Package locales holds the app's translations, embedded in the binary:
 // a folder per locale (en/app.yaml, en/auth.yaml), or a file
 // (bn.yaml). Add a language by adding its folder; keys are looked up
-// with i18n.T(ctx, "api.welcome"), and `go run . lang:check` reports what
+// with i18n.T(ctx, "api.welcome"), and `go run . locale:check` reports what
 // a language is missing.
 package locales
 

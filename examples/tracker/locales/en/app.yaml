@@ -1,5 +1,5 @@
 # The tracker's English text. Translate it with the same keys in another
-# locale's folder (locales/bn/app.yaml); go run . lang:check finds keys
+# locale's folder (locales/bn/app.yaml); go run . locale:check finds keys
 # a locale lacks. The account pages' text is in auth.yaml.
 home:
   title: "Home"

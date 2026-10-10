@@ -455,7 +455,7 @@ func NewProject() templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = ui.Form(web.MustURL(ctx, "projects.store"), "POST", nil).Render(templ.WithChildren(ctx, templ_7745c5c3_Var19), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = ui.Form(web.MustURL(ctx, "projects.create"), "POST", nil).Render(templ.WithChildren(ctx, templ_7745c5c3_Var19), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1694,7 +1694,7 @@ func ProjectSettingsPage(p ProjectSettings) templ.Component {
 								}
 								return nil
 							})
-							templ_7745c5c3_Err = ui.PostLink(web.MustURL(ctx, "members.destroy", p.Project.Key, m.User.ID), "DELETE", false).Render(templ.WithChildren(ctx, templ_7745c5c3_Var92), templ_7745c5c3_Buffer)
+							templ_7745c5c3_Err = ui.PostLink(web.MustURL(ctx, "members.delete", p.Project.Key, m.User.ID), "DELETE", false).Render(templ.WithChildren(ctx, templ_7745c5c3_Var92), templ_7745c5c3_Buffer)
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -1865,7 +1865,7 @@ func ProjectSettingsPage(p ProjectSettings) templ.Component {
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = ui.Form(web.MustURL(ctx, "members.store", p.Project.Key), "POST", nil).Render(templ.WithChildren(ctx, templ_7745c5c3_Var95), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = ui.Form(web.MustURL(ctx, "members.create", p.Project.Key), "POST", nil).Render(templ.WithChildren(ctx, templ_7745c5c3_Var95), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1932,7 +1932,7 @@ func ProjectSettingsPage(p ProjectSettings) templ.Component {
 							}
 							return nil
 						})
-						templ_7745c5c3_Err = ui.PostLink(web.MustURL(ctx, "labels.destroy", p.Project.Key, l.ID), "DELETE", false).Render(templ.WithChildren(ctx, templ_7745c5c3_Var105), templ_7745c5c3_Buffer)
+						templ_7745c5c3_Err = ui.PostLink(web.MustURL(ctx, "labels.delete", p.Project.Key, l.ID), "DELETE", false).Render(templ.WithChildren(ctx, templ_7745c5c3_Var105), templ_7745c5c3_Buffer)
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -2064,7 +2064,7 @@ func ProjectSettingsPage(p ProjectSettings) templ.Component {
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = ui.Form(web.MustURL(ctx, "labels.store", p.Project.Key), "POST", nil).Render(templ.WithChildren(ctx, templ_7745c5c3_Var107), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = ui.Form(web.MustURL(ctx, "labels.create", p.Project.Key), "POST", nil).Render(templ.WithChildren(ctx, templ_7745c5c3_Var107), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

@@ -22,7 +22,7 @@ and `locales/`. It needs its settings, from the environment:
 production settings and a database of its own:
 
 ```sh
-export APP_ENV=production APP_DEBUG=false APP_KEY=$(go tool anetos key:generate | cut -d= -f2-)
+export APP_ENV=production APP_DEBUG=false APP_KEY=$(go tool anetos key:generate --show | cut -d= -f2-)
 export DB_NAME=/tmp/tracker.db STORAGE_ROOT=/tmp/tracker-files HTTP_ADDR=:8081
 ./bin/tracker migrate
 ./bin/tracker run

@@ -19,6 +19,7 @@ go test ./...
 [[- if .Web]]
 | `routes` | Routes |
 | `views` | templ components (`go generate ./...` after editing, or `anetos dev`) |
+| `public` | The web root: `robots.txt` and the like, served at `/` |
 | `public/static` | Static files, served under `/assets` |
 [[- else]]
 | `routes` | Routes: `api.go`, the API's under `/api/v1` |

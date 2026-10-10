@@ -159,8 +159,8 @@ folder of the sidebar (the page's URL stays `/guides/<file>/`); the
 weight orders the pages in their group, and the groups by their
 pages' weights. Give a group's pages weights next to each other (the
 groups of guides are hundreds: Basics 100–199, Data 200–299…; a small
-group may take part of one, after the pages it follows, as the design
-kits' 150–155), and put a new page where a reader would look for it in
+group may take part of one, after the pages it follows, as the CSS
+frameworks' 150–155), and put a new page where a reader would look for it in
 the order of work, not the alphabet. A group's name mustn't be a page's
 file name (the group "Installation" next to `installation.md` would
 take its URL). Pages of a subfolder (the tutorial's parts) have a
@@ -171,8 +171,9 @@ shows one with a relative path (`![…](../images/kits/pico-list-light.webp)`)
 and alt text saying what it shows. `make docs-check` checks that each
 image a page shows exists and has alt text, and that each image is shown
 by a page (remove one no page shows). Make screenshots with a script, so
-they can be made again when the pages change: the design kits' come from
-`scripts/kit-screenshots/run.sh`; run it after changing a kit.
+they can be made again when the pages change: the CSS frameworks' come
+from `scripts/kit-screenshots/run.sh`; run it after changing their
+components.
 
 ### 5.2 Concept page
 

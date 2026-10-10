@@ -11,7 +11,7 @@ import (
 
 // Note is a note. NoteCols, its typed columns, are in models_gen.go.
 //
-//go:generate go tool anetos gen
+//go:generate go tool anetos generate
 type Note struct {
 	db.Model        // id, created_at, updated_at
 	Title    string `db:"title"`

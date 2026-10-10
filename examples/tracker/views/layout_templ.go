@@ -24,7 +24,7 @@ import (
 // Layout is the page shell: the header with the app's links, the flash
 // message, then the page, which passes its content as children. Its
 // markup is views/ui's components, styled by public/static/app.css: the
-// anetos kit's theme, with the tracker's own styles at the end.
+// starter theme, with the tracker's own styles at the end.
 func Layout(title string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context

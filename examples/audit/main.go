@@ -5,7 +5,7 @@
 // restored each one, field by field, and who exported them. Users log in
 // with API tokens; seed creates one.
 //
-//	anetos key:generate >> .env   # APP_KEY, once
+//	anetos key:generate           # APP_KEY, once
 //	export APP_ENV=development HTTP_ADDR=:8080
 //	go run . migrate
 //	go run . seed

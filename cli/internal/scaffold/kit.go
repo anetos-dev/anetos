@@ -23,15 +23,40 @@ import (
 	"anetos.dev/anetos/cli/internal/tailwind"
 )
 
-// KitRecordFile is where a project records its design kit: which kit,
-// which release of its framework, and the digest of every file the kit
-// wrote, so anetos css:use can tell the files the developer changed
+// KitRecordFile is where a project records its CSS framework: which
+// one, which release of it, and the digest of every file anetos wrote
+// for it, so anetos css:use can tell the files the developer changed
 // (design D304).
-const KitRecordFile = "views/ui/kit.json"
+const KitRecordFile = "views/ui/css.json"
 
-// KitRecord is the content of views/ui/kit.json.
+// formerKitRecordFile is KitRecordFile in v0.5's development builds
+// ("kit" for the framework): read when there is no css.json, and
+// replaced by css:use.
+const formerKitRecordFile = "views/ui/kit.json"
+
+// CSSName names the CSS framework kit (one of [Kits]) for people:
+// "the starter theme", "Bootstrap".
+func CSSName(kit string) string {
+	switch kit {
+	case "anetos":
+		return "the starter theme"
+	case "none":
+		return "plain HTML"
+	case "pico":
+		return "Pico CSS"
+	case "bootstrap":
+		return "Bootstrap"
+	case "bulma":
+		return "Bulma"
+	case "tailwind":
+		return "Tailwind CSS"
+	}
+	return kit
+}
+
+// KitRecord is the content of views/ui/css.json.
 type KitRecord struct {
-	Kit     string            `json:"kit"`
+	Kit     string            `json:"framework"`
 	Version string            `json:"version,omitempty"` // the CSS framework's (KitVersions)
 	Anetos  string            `json:"anetos,omitempty"`  // the CLI that wrote it
 	Files   map[string]string `json:"files"`             // path (slashes) → SHA-256, hex
@@ -75,38 +100,50 @@ func cliVersion() string {
 	return "(devel)"
 }
 
-// ErrBadKitRecord is ReadKitRecord's error for a kit.json it can't use:
-// not JSON, no kit, or a file outside the kit's folders.
-var ErrBadKitRecord = errors.New("not a usable kit record")
+// ErrBadKitRecord is ReadKitRecord's error for a css.json it can't use:
+// not JSON, no framework, or a file outside the framework's folders.
+var ErrBadKitRecord = errors.New("not a usable record of the CSS framework")
 
-// ReadKitRecord reads the project's views/ui/kit.json; an error wrapping
-// fs.ErrNotExist when it has none (made before it existed, or by hand),
-// ErrBadKitRecord when it can't be used. Its files can only be in
-// views/ui or public/static: css:use removes those of an old kit.
+// ReadKitRecord reads the project's views/ui/css.json (or, from a
+// development build of v0.5, views/ui/kit.json); an error wrapping fs.ErrNotExist when it has
+// neither (made before they existed, or by hand), ErrBadKitRecord when
+// it can't be used. Its files can only be in views/ui or public/static:
+// css:use removes those of an old framework.
 func ReadKitRecord(root string) (KitRecord, error) {
-	var r KitRecord
-	b, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(KitRecordFile)))
+	var r struct {
+		KitRecord
+		Former string `json:"kit"` // kit.json's name for Kit
+	}
+	file := KitRecordFile
+	b, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(file)))
+	if errors.Is(err, fs.ErrNotExist) {
+		file = formerKitRecordFile
+		b, err = os.ReadFile(filepath.Join(root, filepath.FromSlash(file)))
+	}
 	if err != nil {
-		return r, err
+		return r.KitRecord, err
 	}
 	if err := json.Unmarshal(b, &r); err != nil {
-		return r, fmt.Errorf("%s: %w: %w", KitRecordFile, ErrBadKitRecord, err)
+		return r.KitRecord, fmt.Errorf("%s: %w: %w", file, ErrBadKitRecord, err)
 	}
 	if r.Kit == "" {
-		return r, fmt.Errorf("%s: %w: it names no kit", KitRecordFile, ErrBadKitRecord)
+		r.Kit = r.Former
+	}
+	if r.Kit == "" {
+		return r.KitRecord, fmt.Errorf("%s: %w: it names no CSS framework", file, ErrBadKitRecord)
 	}
 	for rel := range r.Files {
 		if !kitPath(rel) {
-			return r, fmt.Errorf("%s: %w: %q isn't a file of views/ui or public/static", KitRecordFile, ErrBadKitRecord, rel)
+			return r.KitRecord, fmt.Errorf("%s: %w: %q isn't a file of views/ui or public/static", file, ErrBadKitRecord, rel)
 		}
 	}
-	return r, nil
+	return r.KitRecord, nil
 }
 
 // kitPath reports whether rel can be a kit's file: a clean, local path
 // with slashes in views/ui or public/static, not the record itself.
 func kitPath(rel string) bool {
-	return path.Clean(rel) == rel && filepath.IsLocal(filepath.FromSlash(rel)) && rel != KitRecordFile &&
+	return path.Clean(rel) == rel && filepath.IsLocal(filepath.FromSlash(rel)) && rel != KitRecordFile && rel != formerKitRecordFile &&
 		(strings.HasPrefix(rel, "views/ui/") || strings.HasPrefix(rel, "public/static/"))
 }
 
@@ -123,16 +160,16 @@ type KitChange struct {
 // ErrKitChanged is UseKit's error when kit files were changed since the
 // kit wrote them (or a file it would write isn't the old kit's): without
 // force, it writes nothing.
-var ErrKitChanged = errors.New("files changed since the kit wrote them")
+var ErrKitChanged = errors.New("files changed since anetos wrote them")
 
-// ErrNoKitRecord is UseKit's error for a project without views/ui/kit.json
+// ErrNoKitRecord is UseKit's error for a project without views/ui/css.json
 // and without force.
 var ErrNoKitRecord = errors.New("the project has no " + KitRecordFile + ", so changed files can't be told apart")
 
 // UseKit replaces the project's design kit (in root, of module module)
 // with kit: it writes kit's views/ui files and public/static files,
 // removes those of the old kit that kit has not, and records the new kit
-// in views/ui/kit.json. The layout, the pages and the app's own files
+// in views/ui/css.json. The layout, the pages and the app's own files
 // are left alone. A file the old kit wrote that changed since, or a file
 // in the new kit's way that the old kit didn't write (or a symbolic
 // link), stops it with ErrKitChanged (listed in the change) unless
@@ -144,7 +181,7 @@ var ErrNoKitRecord = errors.New("the project has no " + KitRecordFile + ", so ch
 func UseKit(root, module, kit string, force bool) (KitChange, error) {
 	var c KitChange
 	if !slices.Contains(Kits, kit) {
-		return c, fmt.Errorf("no design kit %q (kits: %s)", kit, strings.Join(Kits, ", "))
+		return c, fmt.Errorf("no CSS framework %q (choose from %s)", kit, strings.Join(Kits, ", "))
 	}
 	c.To = kit
 	old, err := ReadKitRecord(root)
@@ -238,11 +275,12 @@ func UseKit(root, module, kit string, force bool) (KitChange, error) {
 	if err := writeReplace(filepath.Join(root, filepath.FromSlash(rec.Rel)), rec.Content); err != nil {
 		return c, err
 	}
+	_ = os.Remove(filepath.Join(root, filepath.FromSlash(formerKitRecordFile))) // replaced by css.json
 	// The app's own files in views/ui: not the kit's, not generated.
 	entries, _ := os.ReadDir(filepath.Join(root, "views", "ui"))
 	for _, e := range entries {
 		rel := "views/ui/" + e.Name()
-		if _, ok := next[rel]; ok || e.IsDir() || rel == KitRecordFile || strings.HasSuffix(rel, "_templ.go") {
+		if _, ok := next[rel]; ok || e.IsDir() || rel == KitRecordFile || rel == formerKitRecordFile || strings.HasSuffix(rel, "_templ.go") {
 			continue
 		}
 		c.Own = append(c.Own, rel)
@@ -358,7 +396,7 @@ func AddNavMenu(root string) (bool, error) {
 }
 
 // LocalesWithoutNavMenu lists the project's locales other than en whose
-// app.yaml has no nav.menu (lang:check reports them).
+// app.yaml has no nav.menu (locale:check reports them).
 func LocalesWithoutNavMenu(root string) []string {
 	dirs, _ := os.ReadDir(filepath.Join(root, "locales"))
 	var missing []string

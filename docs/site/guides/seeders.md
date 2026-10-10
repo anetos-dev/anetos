@@ -46,7 +46,7 @@ var Seeders = []migrate.Seeder{
 (Copied from [`examples/database/migrations.go`](../../../examples/database/migrations.go), region `seeders`.)
 
 `AuthorCols` holds the model's typed columns, written by
-[`anetos gen`](code-generation.md).
+[`anetos generate`](code-generation.md).
 
 For many rows, use a [factory](testing.md#4-make-rows-with-factories),
 the same one the tests use:

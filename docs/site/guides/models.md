@@ -45,9 +45,9 @@ type Post struct {
 
 // AuthorCols and PostCols, the typed columns of the models, and
 // AuthorRels and PostRels, their relations, are in models_gen.go, written
-// by `go tool anetos gen` (or go generate).
+// by `go tool anetos generate` (or go generate).
 //
-//go:generate go tool anetos gen
+//go:generate go tool anetos generate
 ```
 
 (Copied from [`examples/database`](../../../examples/database/main.go), region `models`.)
@@ -66,7 +66,7 @@ type Post struct {
   another.
 - Use pointers (or `sql.Null[T]`) for nullable columns, and
   `db:"name,json"` to store a value as JSON.
-- `go tool anetos gen` writes the typed columns (`PostCols.Title`) that
+- `go tool anetos generate` writes the typed columns (`PostCols.Title`) that
   queries use; see [Generate typed columns](code-generation.md).
 
 All the tag options and naming rules are in the

@@ -194,7 +194,7 @@ func NewServer(app *anetos.App, opts ...ServerOption) (*Server, error) {
 }
 
 // commands are the binary commands the server adds: serve, health:check
-// and routes:list.
+// and route:list.
 func (s *Server) commands(app *anetos.App) []cmd.Command {
 	return []cmd.Command{
 		{
@@ -241,10 +241,11 @@ func (s *Server) commands(app *anetos.App) []cmd.Command {
 			},
 		},
 		{
-			Name:        "routes:list",
+			Name:        "route:list",
+			Former:      []string{"routes:list"},
 			Description: "List the HTTP routes",
 			Run: func(ctx context.Context, args *cmd.Args) error {
-				fs := flag.NewFlagSet("routes:list", flag.ContinueOnError)
+				fs := flag.NewFlagSet("route:list", flag.ContinueOnError)
 				if err := args.Parse(fs); err != nil {
 					return err
 				}

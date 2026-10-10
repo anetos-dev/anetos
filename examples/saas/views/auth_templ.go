@@ -665,9 +665,9 @@ func Dashboard(u *models.User, tokens []auth.Token, newToken string) templ.Compo
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var30 templ.SafeURL
-				templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinURLErrs(web.URL(ctx, "tokens.destroy", t.ID))
+				templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinURLErrs(web.URL(ctx, "tokens.delete", t.ID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/auth.templ`, Line: 126, Col: 70}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/auth.templ`, Line: 126, Col: 69}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 				if templ_7745c5c3_Err != nil {
@@ -691,9 +691,9 @@ func Dashboard(u *models.User, tokens []auth.Token, newToken string) templ.Compo
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var31 templ.SafeURL
-			templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinURLErrs(web.URL(ctx, "tokens.store"))
+			templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinURLErrs(web.URL(ctx, "tokens.create"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/auth.templ`, Line: 133, Col: 59}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/auth.templ`, Line: 133, Col: 60}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 			if templ_7745c5c3_Err != nil {

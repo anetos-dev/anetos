@@ -12,7 +12,7 @@ The `format` and `relative` sections of a catalog, which `i18n.Date`,
 `LanguageName` use, and the date pattern fields. The framework's English
 values are in
 [`i18n/locales/en.yaml`](../../../i18n/locales/en.yaml); a language's come
-from `anetos lang:add` ([Numbers, dates and languages](../guides/formatting.md)).
+from `anetos locale:add` ([Numbers, dates and languages](../guides/formatting.md)).
 A key a locale lacks comes from its parents, then English (the app's
 `en` catalogs, then the framework's), never from a fallback locale in
 another language.

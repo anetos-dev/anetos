@@ -17,6 +17,7 @@ go test ./...
 | `database/factories` | Model factories, for tests and seeders |
 | `routes` | Routes |
 | `views` | templ components (`go generate ./...` after editing, or `anetos dev`) |
+| `public` | The web root: `robots.txt` and the like, served at `/` |
 | `public/static` | Static files, served under `/assets` |
 
 Configuration is in `.env` (keep it out of git); `.env.example` lists the

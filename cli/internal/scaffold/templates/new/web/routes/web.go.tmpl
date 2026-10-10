@@ -18,6 +18,7 @@ func Register(r *web.Router, sessions *session.Manager) {
 	r.UseGlobal(web.MethodOverride) // HTML forms can send PUT and DELETE with _method
 	r.ErrorPages(func(_ *web.Ctx, e web.ErrorPage) view.Component { return views.ErrorPage(e) })
 	r.HandleStd(http.MethodGet, "/assets/{path...}", public.Assets)
+	r.Static("/", public.Files) // robots.txt, .well-known/…: after the routes
 
 	// Pages: sessions, flash messages and CSRF protection.
 	pages := r.Group("", sessions.Middleware, web.CSRF())

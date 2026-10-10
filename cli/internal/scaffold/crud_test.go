@@ -36,7 +36,7 @@ func TestMakeCrud(t *testing.T) {
 		"app/models/blog_post.go": {"type BlogPost struct", "ImageURL string `db:\"image_url\"`", "DueOn anetos.Date `db:\"due_on\"`"},
 		"database/migrations/2030_01_02_030405_create_blog_posts_table.go": {`s.Create("blog_posts"`, `t.String("title", 255)`, `t.Date("due_on").Nullable()`, `t.String("email", 255).Unique()`},
 		"app/handlers/blog_posts.go":                                       {"type BlogPostInput struct", `validate:"required|max:255"`, `json:"image_url" validate:"max:255"`, `validate:"required|email|max:255|unique:blog_posts,email,ID"`, `"example.com/shop/views"`},
-		"routes/blog_posts.go":                                             {`r.Delete("/blog-posts/{id}", web.H(h.Delete)).Name("blog-posts.destroy")`},
+		"routes/blog_posts.go":                                             {`r.Delete("/blog-posts/{id}", web.H(h.Delete)).Name("blog-posts.delete")`},
 		"routes/web.go":                                                    {"\tBlogPosts(pages) // anetos make:crud\n}"},
 		"views/layout.templ":                                               {"\t\t\t\t\t@navLink(\"home\", i18n.T(ctx, \"nav.home\"))\n\t\t\t\t\t@navLink(\"blog-posts.index\", i18n.T(ctx, \"blog_posts.title\"))\n\t\t\t\t}\n"},
 		"locales/en/blog_posts.yaml":                                       {"blog_posts:\n title: \"Blog posts\"", `new: "New blog post"`, `"image_url": "Image URL"`},

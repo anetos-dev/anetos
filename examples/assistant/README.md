@@ -18,7 +18,7 @@ answers from its articles. It shows what package `ai` adds to an app:
 ## Run it
 
 ```sh
-anetos key:generate >> .env           # APP_KEY, once
+anetos key:generate                   # APP_KEY, once
 export APP_ENV=development HTTP_ADDR=:8080
 export AI_PROVIDER=anthropic AI_MODEL=claude-sonnet-4-5 ANTHROPIC_API_KEY=…
 export AI_EMBEDDING_PROVIDER=openai AI_EMBEDDING_MODEL=text-embedding-3-small OPENAI_API_KEY=…

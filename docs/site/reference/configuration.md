@@ -440,7 +440,7 @@ Callback URLs are `APP_URL` followed by `/auth/<name>/callback`
 
 Each plugin's settings start with its name in capitals (`STRIPE_…`),
 and are read by `ext.Load` into the plugin's own settings struct. `go
-run . plugins:env` prints them with their defaults; `anetos add` adds
+run . plugin:env` prints them with their defaults; `anetos add` adds
 them to `.env.example`. Missing or invalid ones stop the app from
 booting, with an error naming them. See [Use plugins](../guides/plugins.md).
 

@@ -9,7 +9,7 @@ weight: 102
 
 Your app builds to one binary that is both the server and its
 maintenance tool. `app.Execute()` reads the first argument and runs that
-command: `run` by default, or `serve`, `migrate`, `routes:list` and
+command: `run` by default, or `serve`, `migrate`, `route:list` and
 commands of your own. Code generation lives elsewhere, in the `anetos`
 developer tool, because it writes source code rather than running the app.
 
@@ -33,13 +33,13 @@ code that wires the part they belong to:
 | Command | Registered by |
 |---|---|
 | `run [--only=role,…]` (the default), `help` | Every app |
-| `serve`, `routes:list` | `web.NewServer` |
+| `serve`, `route:list` | `web.NewServer` |
 | `openapi` | `openapi.Register` ([Describe an API with OpenAPI](../guides/openapi.md)) |
 | `migrate`, `migrate:rollback`, `migrate:reset`, `migrate:fresh`, `migrate:status`, `db:seed`, `search:reindex` | `migrate.New` ([Migrations](../guides/migrations.md), [Search](../guides/search.md)) |
 | `cache:clear` | `cache.New` ([Cache values](../guides/cache.md)) |
-| `queue:failed`, `queue:retry`, `queue:forget`, `queue:flush`, `queue:clear` | `queue.New` ([Queues](../guides/queues.md)) |
+| `queue:work`, `queue:failed`, `queue:retry`, `queue:forget`, `queue:flush`, `queue:clear` | `queue.New` ([Queues](../guides/queues.md)) |
 | `pubsub:publish` | `pubsub.New` ([Pub/sub listeners](../guides/pubsub.md)) |
-| `schedule:list`, `schedule:run` | `schedule.New` ([Scheduling](../guides/scheduling.md)) |
+| `schedule:list`, `schedule:run`, `schedule:test`, `schedule:work` | `schedule.New` ([Scheduling](../guides/scheduling.md)) |
 | `rbac:roles`, `rbac:user`, `rbac:assign`, `rbac:unassign` | `rbac.New` ([Roles and permissions](../guides/roles-and-permissions.md)) |
 | Your own | `app.Command` or `app.AddCommand` |
 
@@ -69,7 +69,7 @@ There are two kinds of commands:
 `help`, `-h`, `<command> -h` and unknown commands are answered before
 anything boots. Because `db.Connect` pings the database at boot, not
 when it is called, `./blog help` works with no database. Every command
-that boots, `routes:list` included, needs the database reachable.
+that boots, `route:list` included, needs the database reachable.
 
 An app runs one command: afterwards it is stopped and can't boot again,
 so tests call `app.ExecuteArgs` on a new app each time.
@@ -108,8 +108,8 @@ development loop:
 | `new` | Creates a project |
 | `dev` | Regenerates, rebuilds and restarts the app on every change |
 | `make:handler`, `make:model`, `make:migration`, `make:middleware` | Write new source files; never overwrite |
-| `gen` | Writes typed model columns ([Code generation](code-generation.md)) |
-| `key:generate` | Prints a new `APP_KEY` line |
+| `generate` | Writes typed model columns ([Code generation](code-generation.md)) |
+| `key:generate` | Sets a new `APP_KEY` in `.env` when it has none (`--show` prints one; `--force` replaces a set key, keeping the old one in `APP_PREVIOUS_KEYS`) |
 
 The split follows what each needs. The app binary carries your compiled
 code, which is what migrating and listing routes need. The tool reads and

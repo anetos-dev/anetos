@@ -23,8 +23,8 @@ const devUsage = `Usage: anetos dev [--addr=:8080] [--host=name]... [-- app argu
 
 Runs the app with live reload. On every change to Go files, templ files,
 .env or public/ (or views/ui/tailwind.css), it runs templ generate,
-anetos gen and, in a project of the tailwind kit, Tailwind CSS
-(anetos css:build), rebuilds, restarts the app and reloads the open
+anetos generate and, in a project that uses Tailwind CSS, anetos
+css:build, rebuilds, restarts the app and reloads the open
 pages. Build errors show in the browser.
 Browse the address given by --addr (default: HTTP_ADDR from .env, or
 :8080, on 127.0.0.1 only); the app itself listens on a free local port.

@@ -63,7 +63,7 @@ no `.env` file. `deploy/production.env.example` lists the ones to set:
 | Setting | Why |
 |---|---|
 | `APP_ENV=production` | The default when unset; JSON logs, secure cookies, `APP_DEBUG` refused |
-| `APP_KEY` | A new key for production (`go tool anetos key:generate`), never the one in `.env`. Keep it secret: it encrypts sessions and two-factor secrets. When you change it, put the old one in `APP_PREVIOUS_KEYS` |
+| `APP_KEY` | A new key for production (`go tool anetos key:generate --show`), never the one in `.env`. Keep it secret: it encrypts sessions and two-factor secrets. When you change it, put the old one in `APP_PREVIOUS_KEYS` |
 | `APP_URL` | The public URL (`https://blog.example.com`), for links in emails and social login |
 | `DB_DRIVER`, `DB_URL` | The database, with TLS that checks the server (`sslmode=verify-full`, `tls=true`). With `DB_HOST` and the others instead of `DB_URL`, TLS is on and verified for any host but `localhost` (`DB_TLS`; `DB_TLS_CA` for a provider's own CA) |
 | `CACHE_DRIVER`, `SESSION_DRIVER`, `QUEUE_DRIVER` | `database` (or `redis`) so that every process shares them: with `memory`, a second process has its own cache and queue |
@@ -164,10 +164,10 @@ logs which ones are pending, so a forgotten step shows as `unhealthy`.
 
 The `Dockerfile` builds with `anetos build` in the Go image and copies
 the binary alone into a distroless image (about 25 MB), run as user
-65532. In a project of the `tailwind` kit, `anetos build` compiles the
+65532. In a project that uses Tailwind CSS, `anetos build` compiles the
 stylesheet first, with Tailwind CSS downloaded once into BuildKit's
 cache, so the build needs to reach GitHub's releases the first time
-([Tailwind CSS](kit-tailwind.md)). The image sets
+([Tailwind CSS](tailwind.md)). The image sets
 `APP_ENV=production` and `STORAGE_ROOT=/data/storage` (and
 `DB_NAME=/data/app.db` and `DB_MIGRATE_ON_START=true` for SQLite), and
 listens on port 8080, or a platform's `PORT`: mount a volume on `/data`. Its `HEALTHCHECK` runs
@@ -462,7 +462,7 @@ Before the first deploy, run the production build locally:
 
 ```sh
 go tool anetos build
-export APP_ENV=production APP_DEBUG=false APP_KEY=$(go tool anetos key:generate | cut -d= -f2-)
+export APP_ENV=production APP_DEBUG=false APP_KEY=$(go tool anetos key:generate --show | cut -d= -f2-)
 export DB_NAME=/tmp/blog.db STORAGE_ROOT=/tmp/blog-storage   # SQLite; DB_URL for the others
 ./bin/blog migrate
 ./bin/blog run

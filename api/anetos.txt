@@ -1067,6 +1067,7 @@ pkg anetos.dev/anetos/cmd, type Args struct, Stdout io.Writer
 pkg anetos.dev/anetos/cmd, type Command struct
 pkg anetos.dev/anetos/cmd, type Command struct, ChangesSchema bool
 pkg anetos.dev/anetos/cmd, type Command struct, Description string
+pkg anetos.dev/anetos/cmd, type Command struct, Former []string
 pkg anetos.dev/anetos/cmd, type Command struct, ManagesApp bool
 pkg anetos.dev/anetos/cmd, type Command struct, Name string
 pkg anetos.dev/anetos/cmd, type Command struct, Run func(context.Context, *Args) error
@@ -2074,6 +2075,7 @@ pkg anetos.dev/anetos/schedule, method (*Scheduler) Add(Schedule, string, func(c
 pkg anetos.dev/anetos/schedule, method (*Scheduler) LastRun(context.Context, string) (Run, bool, error)
 pkg anetos.dev/anetos/schedule, method (*Scheduler) Name() string
 pkg anetos.dev/anetos/schedule, method (*Scheduler) Run(context.Context) error
+pkg anetos.dev/anetos/schedule, method (*Scheduler) RunDue(context.Context) ([]string, error)
 pkg anetos.dev/anetos/schedule, method (*Scheduler) RunTask(context.Context, string) error
 pkg anetos.dev/anetos/schedule, method (*Scheduler) Tasks() []TaskInfo
 pkg anetos.dev/anetos/schedule, method (Schedule) Err() error
@@ -2491,6 +2493,7 @@ pkg anetos.dev/anetos/web, method (*Router) Post(string, HandlerFunc) *Route
 pkg anetos.dev/anetos/web, method (*Router) Put(string, HandlerFunc) *Route
 pkg anetos.dev/anetos/web, method (*Router) Routes() []RouteInfo
 pkg anetos.dev/anetos/web, method (*Router) ServeHTTP(http.ResponseWriter, *http.Request)
+pkg anetos.dev/anetos/web, method (*Router) Static(string, fs.FS)
 pkg anetos.dev/anetos/web, method (*Router) URL(string, ...any) (string, error)
 pkg anetos.dev/anetos/web, method (*Router) Use(...Middleware)
 pkg anetos.dev/anetos/web, method (*Router) UseGlobal(...Middleware)

@@ -48,7 +48,7 @@ Each method returns a new query; the original is unchanged.
 
 ## Columns
 
-`go tool anetos gen` declares `PostCols` with a typed column per field of
+`go tool anetos generate` declares `PostCols` with a typed column per field of
 model `Post` ([Generate typed columns](../guides/code-generation.md)). By
 hand:
 

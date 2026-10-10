@@ -90,7 +90,7 @@ type Expr interface {
 //		OrderBy(models.PostCols.Title.Asc()).
 //		Get()
 //
-// `anetos gen` declares the columns of every model (see the model code
+// `anetos generate` declares the columns of every model (see the model code
 // generation guide). Declare others with [Col] or [JSONCol], or use [C]
 // for an untyped column. T is the type of the model field, so a nullable
 // column is a Column[*time.Time] and compares with new(t).

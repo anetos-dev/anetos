@@ -68,7 +68,7 @@ api-update: ## Write the exported API of each module to api/*.txt
 	@$(GO) run ./internal/cmd/apisnap
 
 gen-check: ## Check generated model columns are up to date
-	@for m in examples/database examples/forms examples/saas examples/tracker examples/tutorial examples/bookmarks; do (cd $$m && $(GO) tool anetos gen -check) || exit 1; done
+	@for m in examples/database examples/forms examples/saas examples/tracker examples/tutorial examples/bookmarks; do (cd $$m && $(GO) tool anetos generate --check) || exit 1; done
 
 tidy: ## go mod tidy
 	@$(EACH) $(GO) mod tidy $(DONE)

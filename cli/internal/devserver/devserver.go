@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package devserver implements `anetos dev`: it watches the project,
-// regenerates code (templ, anetos gen), rebuilds and restarts the app on
+// regenerates code (templ, anetos generate), rebuilds and restarts the app on
 // every change, and serves it through a reverse proxy on a stable address
 // that reloads open pages when the new version is up, or shows the build
 // error.
@@ -178,7 +178,7 @@ func (d *dev) build() error {
 		err = modelgen.Apply(changes)
 	}
 	if err != nil {
-		return fmt.Errorf("anetos gen: %w", err)
+		return fmt.Errorf("anetos generate: %w", err)
 	}
 	if err := d.buildCSS(); err != nil {
 		return err

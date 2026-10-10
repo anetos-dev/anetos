@@ -11,7 +11,7 @@
 // dispatches an hourly sales report; its locks are in the cache
 // (CACHE_DRIVER: memory, database or redis).
 //
-//	go tool anetos key:generate >> .env   # APP_KEY, once
+//	go tool anetos key:generate           # APP_KEY, once
 //	export APP_ENV=development HTTP_ADDR=:8080 QUEUE_DRIVER=database
 //	go run . migrate
 //	go run .                              # the server, the workers and the scheduler
@@ -19,7 +19,7 @@
 //	open http://localhost:8080/dev/mail/receipt   # the receipt email (development)
 //	go run . queue:failed                 # jobs that failed for good
 //	go run . schedule:list                # the scheduled tasks
-//	go run . plugins:list                 # the plugins (postmark: a webhook for bounces)
+//	go run . plugin:list                 # the plugins (postmark: a webhook for bounces)
 package main
 
 import (

@@ -161,7 +161,7 @@
         "tags": [
           "Bookmarks"
         ],
-        "operationId": "api.bookmarks.store",
+        "operationId": "api.bookmarks.create",
         "requestBody": {
           "required": true,
           "content": {
@@ -364,7 +364,7 @@
         "tags": [
           "Bookmarks"
         ],
-        "operationId": "api.bookmarks.destroy",
+        "operationId": "api.bookmarks.delete",
         "parameters": [
           {
             "name": "id",
@@ -964,7 +964,7 @@
         "tags": [
           "Accounts"
         ],
-        "operationId": "api.tokens.store",
+        "operationId": "api.tokens.create",
         "requestBody": {
           "required": true,
           "content": {
@@ -1030,7 +1030,7 @@
         "tags": [
           "Accounts"
         ],
-        "operationId": "api.tokens.destroy",
+        "operationId": "api.tokens.delete",
         "parameters": [
           {
             "name": "id",

@@ -270,7 +270,7 @@ func (p *Panel) Mount(r *web.Router, mws ...web.Middleware) error {
 	g := loggedIn.Group("", p.requireTwoFactor)
 	g.Get("/", p.home).Name("admin.home")
 	g.Get(confirmPath, p.confirmPage).Name("admin.confirm")
-	g.Post(confirmPath, p.confirmPassword).Name("admin.confirm.store")
+	g.Post(confirmPath, p.confirmPassword).Name("admin.confirm.check")
 	for _, res := range p.res {
 		res.mount(g.Group("/" + res.info().Name))
 	}

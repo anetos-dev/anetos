@@ -6,7 +6,7 @@
 // (package audit), and the staff's accounts and roles managed there. seed
 // creates an administrator, an editor and support staff.
 //
-//	anetos key:generate >> .env   # APP_KEY, once
+//	anetos key:generate           # APP_KEY, once
 //	export APP_ENV=development HTTP_ADDR=:8080
 //	go run . migrate
 //	go run . seed

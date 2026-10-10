@@ -112,10 +112,10 @@ func shop(plain ...bool) *web.Router {
 	var h Products
 	api.Get("/products", web.H(h.Index)).Name("products.index")
 	api.Get("/products/{id}", web.H(h.Show)).Name("products.show")
-	me := api.Group("", token)
-	me.Put("/products/{id}", web.H(h.Create)).Name("products.update")
-	me.With(admin).Delete("/products/{id}", web.H(h.Delete)).Name("products.destroy")
-	me.Post("/uploads", web.H(h.Upload)).Status(http.StatusAccepted)
+	loggedIn := api.Group("", token)
+	loggedIn.Put("/products/{id}", web.H(h.Create)).Name("products.update")
+	loggedIn.With(admin).Delete("/products/{id}", web.H(h.Delete)).Name("products.delete")
+	loggedIn.Post("/uploads", web.H(h.Upload)).Status(http.StatusAccepted)
 	api.Get("/legacy", web.H(h.Legacy))
 	api.Post("/echo", web.H(h.Echo)).Status(http.StatusCreated)
 	if len(plain) > 0 && plain[0] {

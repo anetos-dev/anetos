@@ -1,13 +1,13 @@
 ---
 title: The starter theme
 since: v0.5.0
-group: "Design kits"
+group: "CSS frameworks"
 weight: 150
 ---
 
 # The starter theme
 
-The `anetos` kit, which `anetos new` writes unless you pick another:
+The starter theme (`--css=anetos`), which `anetos new` writes unless you pick a CSS framework:
 Anetos's own stylesheet, about 270 lines of plain CSS, with no
 framework and no build step.
 
@@ -18,7 +18,7 @@ framework and no build step.
 ## Before you start
 
 A project made with `anetos new` (or `--css=anetos`), or switched to it
-with `go tool anetos css:use anetos` ([Style your app](styling.md#8-switch-kits)).
+with `go tool anetos css:use anetos` ([Style your app](styling.md#8-switch-css-frameworks)).
 
 ## Steps
 
@@ -79,9 +79,9 @@ so its classes stay in one package.
 | Symptom | Cause | Fix |
 |---|---|---|
 | A color change shows in light but not in dark | The dark blocks set the variable too | Change it in the `prefers-color-scheme: dark` block and the `data-theme="dark"` one as well |
-| `css:use` refuses to switch: `public/static/app.css` changed | You edited the theme | Commit, run it with `--force`, and carry your colors over to the new kit ([Style your app](styling.md#8-switch-kits)) |
+| `css:use` refuses to switch: `public/static/app.css` changed | You edited the theme | Commit, run it with `--force`, and carry your colors over to the new stylesheet ([Style your app](styling.md#8-switch-css-frameworks)) |
 
 ## Next steps
 
-- [Style your app](styling.md): the components, and the other kits
+- [Style your app](styling.md): the components, and the CSS frameworks
 - [UI components reference](../reference/ui.md)

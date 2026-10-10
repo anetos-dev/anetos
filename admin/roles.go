@@ -49,12 +49,12 @@ func (r *rolesRes) url(suffix string) string { return r.p.base + "/roles" + suff
 func (r *rolesRes) mount(g *web.Router) {
 	need := func(kind string) *web.Router { return g.With(rbac.Require(r.in.perm(kind))) }
 	need("view").Get("/", r.index).Name("admin.roles.index")
-	need("create").Get("/new", r.p.confirmFirst(r.create)).Name("admin.roles.create")
-	need("create").Post("/", r.p.confirmFirst(r.store)).Name("admin.roles.store")
+	need("create").Get("/new", r.p.confirmFirst(r.newPage)).Name("admin.roles.new")
+	need("create").Post("/", r.p.confirmFirst(r.create)).Name("admin.roles.create")
 	need("view").Get("/{name}", r.show).Name("admin.roles.show")
 	need("update").Get("/{name}/edit", r.p.confirmFirst(r.edit)).Name("admin.roles.edit")
 	need("update").Post("/{name}", r.p.confirmFirst(r.update)).Name("admin.roles.update")
-	need("delete").Post("/{name}/delete", r.p.confirmFirst(r.destroy)).Name("admin.roles.destroy")
+	need("delete").Post("/{name}/delete", r.p.confirmFirst(r.delete)).Name("admin.roles.delete")
 }
 
 // roleRow is a role in the list.
@@ -264,7 +264,7 @@ func (r *rolesRes) form(c *web.Ctx, title string, f roleForm, have []rbac.Permis
 	return r.p.render(c, "roleform", pg)
 }
 
-func (r *rolesRes) create(c *web.Ctx) error {
+func (r *rolesRes) newPage(c *web.Ctx) error {
 	return r.form(c, "New role", roleForm{Action: r.url(""), Cancel: r.url(""), Submit: "Create", New: true}, nil,
 		r.crumbs(navItem{Title: "New"}), http.StatusOK)
 }
@@ -294,7 +294,7 @@ func (r *rolesRes) submitted(c *web.Ctx, before []rbac.Permission) (title string
 	return strings.TrimSpace(req.PostForm.Get("title")), sortedPerms(perms), nil
 }
 
-func (r *rolesRes) store(c *web.Ctx) error {
+func (r *rolesRes) create(c *web.Ctx) error {
 	title, perms, err := r.submitted(c, nil)
 	if err != nil {
 		return err
@@ -390,7 +390,7 @@ func (r *rolesRes) update(c *web.Ctx) error {
 	return done(c, "Saved.", show)
 }
 
-func (r *rolesRes) destroy(c *web.Ctx) error {
+func (r *rolesRes) delete(c *web.Ctx) error {
 	role, show, refusal, err := r.editable(c)
 	if err != nil {
 		return err
