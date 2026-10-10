@@ -45,6 +45,14 @@ func TestHTTPErrorFormatting(t *testing.T) {
 	if e.Error() != "503 try later: db down" || !errors.Is(e, cause) {
 		t.Errorf("Error() = %q", e.Error())
 	}
+	// Wrap copies: a shared error keeps no cause.
+	if w := ErrCSRF.Wrap(cause); ErrCSRF.Err != nil || w == ErrCSRF || !errors.Is(w, cause) || w.Status != http.StatusForbidden {
+		t.Errorf("ErrCSRF.Wrap changed ErrCSRF or lost it: %+v", w)
+	}
+	// The copy still matches the sentinel, wrapped again too, and only it.
+	if w := ErrCSRF.Wrap(cause).Wrap(cause); !errors.Is(w, ErrCSRF) || errors.Is(w, ErrCrossOrigin) || errors.Is(Error(403, "x"), ErrCSRF) {
+		t.Error("errors.Is with a wrapped sentinel")
+	}
 	if Errorf(404, "post %d not found", 7).Error() != "404 post 7 not found" {
 		t.Error("Errorf")
 	}

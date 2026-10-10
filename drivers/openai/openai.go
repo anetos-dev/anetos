@@ -189,7 +189,7 @@ type Options struct {
 }
 
 // toolSchema is the dialect for tool inputs: all of JSON Schema.
-var toolSchema = ai.SchemaOptions{Keywords: ai.ConstraintKeywords}
+var toolSchema = ai.SchemaOptions{Keywords: ai.ConstraintKeywords()}
 
 // strictable reports whether s fits strict mode: every value of a known
 // type, and objects with fixed properties.
@@ -244,14 +244,17 @@ func (p *Provider) params(req *ai.Request) (sdk.ChatCompletionNewParams, error) 
 			},
 		}}
 	}
-	var o *Options
-	switch v := req.Options.(type) {
-	case Options:
-		o = &v
-	case *Options:
-		o = v
-	}
-	if o != nil {
+	for _, v := range req.Options {
+		var o *Options
+		switch v := v.(type) {
+		case Options:
+			o = &v
+		case *Options:
+			o = v
+		}
+		if o == nil {
+			continue
+		}
 		if o.ReasoningEffort != "" {
 			params.ReasoningEffort = shared.ReasoningEffort(o.ReasoningEffort)
 		}

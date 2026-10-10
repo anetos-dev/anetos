@@ -123,11 +123,11 @@ func TestFakeEmbeddingsByDefault(t *testing.T) {
 		}
 		return web.NewServer(app)
 	})
-	vs, err := ai.Embed(app.Context(), 8, "cats", "dogs")
+	vs, err := ai.Embed(app.Context(), []string{"cats", "dogs"}, ai.Dimensions(8))
 	if err != nil || len(vs) != 2 || len(vs[0]) != 8 {
 		t.Fatalf("Embed = %v, %v", vs, err)
 	}
-	if got := app.AI().Embeddings(); len(got) != 1 || got[0].Model != "text-embedding-3-small" || len(got[0].Inputs) != 2 {
+	if got := app.AI().EmbedRequests(); len(got) != 1 || got[0].Model != "text-embedding-3-small" || len(got[0].Inputs) != 2 {
 		t.Errorf("embedding requests: %+v", got)
 	}
 }

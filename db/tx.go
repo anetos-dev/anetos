@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"slices"
 	"sync"
+
+	"anetos.dev/anetos/internal/dbhook"
 )
 
 // txState is a transaction in progress, shared by nested Tx calls.
@@ -18,7 +20,7 @@ type txState struct {
 	mu         sync.Mutex
 	savepoints int
 	after      []func(context.Context)
-	test       bool // from WithTestTx: work at its level counts as committed
+	test       bool // from withTestTx: work at its level counts as committed
 }
 
 // spDepth keys the number of savepoints a context is in.
@@ -151,11 +153,11 @@ func (d *DB) savepoint(ctx context.Context, st *txState, fn func(ctx context.Con
 }
 
 // AfterCommit runs fn once the transaction in ctx commits, or right away if
-// ctx has no transaction (or only a test's, from [WithTestTx]). Use it for work that must only happen if the
+// ctx has no transaction (or only a test's, from anetostest). Use it for work that must only happen if the
 // data was saved, such as sending an email or dispatching a job. If the
 // transaction (or the nested transaction fn was registered in) rolls back,
 // fn never runs. fn gets a context outside the transaction (in a test's
-// transaction from [WithTestTx], the test's context).
+// transaction (anetostest's), the test's context).
 func AfterCommit(ctx context.Context, fn func(ctx context.Context)) {
 	if d, err := From(ctx); err == nil {
 		if st := d.txIn(ctx); st != nil && (!st.test || d.depth(ctx) != 0) {
@@ -185,13 +187,15 @@ func WithTx(ctx context.Context, tx *sql.Tx) (context.Context, error) {
 	return context.WithValue(ctx, txKey{d}, &txState{tx: tx}), nil
 }
 
-// WithTestTx is [WithTx] for test helpers, whose transaction is rolled
-// back at the end of the test instead of committed: work done at its
-// level counts as committed. [AfterCommit] callbacks registered directly
-// in it run at once, and those of a [Tx] directly inside it run when that
-// Tx commits (as they would in the app, without the test's transaction).
-// anetostest uses it.
-func WithTestTx(ctx context.Context, tx *sql.Tx) (context.Context, error) {
+func init() { dbhook.WithTestTx = withTestTx }
+
+// withTestTx is [WithTx] for test helpers (dbhook.WithTestTx), whose
+// transaction is rolled back at the end of the test instead of
+// committed: work done at its level counts as committed. [AfterCommit]
+// callbacks registered directly in it run at once, and those of a [Tx]
+// directly inside it run when that Tx commits (as they would in the app,
+// without the test's transaction). anetostest uses it.
+func withTestTx(ctx context.Context, tx *sql.Tx) (context.Context, error) {
 	d, err := From(ctx)
 	if err != nil {
 		return nil, err

@@ -276,7 +276,7 @@ func New(app *anetos.App, drivers ...Driver) (*Manager, error) {
 	if err != nil {
 		return nil, fmt.Errorf("session: %w", err)
 	}
-	opts := []Option{WithLogger(app.Logger())}
+	opts := []Option{WithLogger(app.Logger().With("component", "session"))}
 	if cfg.Driver != "cookie" {
 		all := append([]Driver{DatabaseDriver()}, drivers...)
 		i := slices.IndexFunc(all, func(d Driver) bool { return d.Name == cfg.Driver })

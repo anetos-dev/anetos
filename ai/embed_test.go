@@ -23,7 +23,7 @@ import (
 func TestFakeEmbed(t *testing.T) {
 	f := ai.NewFake()
 	ctx := ai.WithClient(context.Background(), ai.NewWithProvider(f))
-	vs, err := ai.Embed(ctx, 0, "Cats sleep all day", "cats SLEEP", "rockets go to orbit", "")
+	vs, err := ai.Embed(ctx, []string{"Cats sleep all day", "cats SLEEP", "rockets go to orbit", ""})
 	check(t, err)
 	if len(vs) != 4 || len(vs[0]) != 64 {
 		t.Fatalf("vectors: %d of %d", len(vs), len(vs[0]))
@@ -33,12 +33,12 @@ func TestFakeEmbed(t *testing.T) {
 	if near >= far {
 		t.Errorf("texts sharing words aren't nearer: %v >= %v", near, far)
 	}
-	again, err := ai.EmbedQuery(ctx, 0, "Cats sleep all day")
+	again, err := ai.EmbedQuery(ctx, "Cats sleep all day")
 	check(t, err)
 	if !slices.Equal(again, vs[0]) {
 		t.Error("the fake isn't deterministic")
 	}
-	reqs := f.Embeddings()
+	reqs := f.EmbedRequests()
 	if len(reqs) != 2 || reqs[0].Purpose != ai.EmbedForDocument || reqs[1].Purpose != ai.EmbedForQuery || reqs[0].Model != "fake-embedding" {
 		t.Errorf("requests: %+v", reqs)
 	}
@@ -57,13 +57,13 @@ func TestEmbedBatches(t *testing.T) {
 	for i := range texts {
 		texts[i] = strings.Repeat("word ", i%7+1)
 	}
-	vs, err := ai.Embed(ctx, 8, texts...)
+	vs, err := ai.Embed(ctx, texts, ai.Dimensions(8))
 	check(t, err)
 	if len(vs) != 200 || len(vs[199]) != 8 {
 		t.Fatalf("%d vectors", len(vs))
 	}
 	var sizes []int
-	for _, r := range f.Embeddings() {
+	for _, r := range f.EmbedRequests() {
 		sizes = append(sizes, len(r.Inputs))
 		if r.Dimensions != 8 {
 			t.Errorf("dimensions %d", r.Dimensions)
@@ -95,37 +95,58 @@ func (textOnly) Stream(context.Context, *ai.Request) iter.Seq2[ai.Event, error] 
 	return func(func(ai.Event, error) bool) {}
 }
 
+// hangingEmbedder answers when the context ends.
+type hangingEmbedder struct{}
+
+func (hangingEmbedder) Embed(ctx context.Context, _ *ai.EmbedRequest) (*ai.EmbedResponse, error) {
+	<-ctx.Done()
+	return nil, ctx.Err()
+}
+
+// Embed takes Generate's Using, ForUser and Timeout.
+func TestEmbedOptions(t *testing.T) {
+	f := ai.NewFake()
+	if vs, err := ai.Embed(context.Background(), []string{"x"}, ai.Using(ai.NewWithProvider(f))); err != nil || len(vs) != 1 || len(f.EmbedRequests()) != 1 {
+		t.Errorf("Using: %v, %d vectors", err, len(vs))
+	}
+	c := ai.NewWithProvider(textOnly{})
+	c.SetEmbedder(hangingEmbedder{}, "m")
+	if _, err := ai.EmbedQuery(context.Background(), "x", ai.Using(c), ai.Timeout(time.Millisecond)); !errors.Is(err, context.DeadlineExceeded) {
+		t.Errorf("Timeout: %v", err)
+	}
+}
+
 func TestEmbedErrors(t *testing.T) {
 	ctx := context.Background()
-	if _, err := ai.Embed(ctx, 0, "x"); !errors.Is(err, ai.ErrNoClient) {
+	if _, err := ai.Embed(ctx, []string{"x"}); !errors.Is(err, ai.ErrNoClient) {
 		t.Errorf("no client: %v", err)
 	}
 	c := ai.NewWithProvider(textOnly{})
-	if _, err := ai.Embed(ai.WithClient(ctx, c), 0, "x"); !errors.Is(err, ai.ErrNoEmbedder) {
+	if _, err := ai.Embed(ai.WithClient(ctx, c), []string{"x"}); !errors.Is(err, ai.ErrNoEmbedder) {
 		t.Errorf("no embedder: %v", err)
 	}
 	if c.EmbeddingModel() != "" {
 		t.Error("a model without embeddings")
 	}
 	c.SetEmbedder(wrongEmbedder{}, "")
-	if _, err := ai.Embed(ai.WithClient(ctx, c), 0, "x"); err == nil || !strings.Contains(err.Error(), "AI_EMBEDDING_MODEL isn't set") {
+	if _, err := ai.Embed(ai.WithClient(ctx, c), []string{"x"}); err == nil || !strings.Contains(err.Error(), "AI_EMBEDDING_MODEL isn't set") {
 		t.Errorf("no model: %v", err)
 	}
 	c.SetEmbedder(wrongEmbedder{}, "m")
-	if _, err := ai.Embed(ai.WithClient(ctx, c), 3, "x"); err == nil || !strings.Contains(err.Error(), "vectors of 2 dimensions, not the 3") {
+	if _, err := ai.Embed(ai.WithClient(ctx, c), []string{"x"}, ai.Dimensions(3)); err == nil || !strings.Contains(err.Error(), "vectors of 2 dimensions, not the 3") {
 		t.Errorf("wrong size: %v", err)
 	}
-	if _, err := ai.Embed(ai.WithClient(ctx, c), -1, "x"); err == nil {
+	if _, err := ai.Embed(ai.WithClient(ctx, c), []string{"x"}, ai.Dimensions(-1)); err == nil {
 		t.Error("negative dimensions")
 	}
 	c.SetEmbedder(wrongEmbedder{few: true}, "m")
-	if _, err := ai.Embed(ai.WithClient(ctx, c), 0, "x"); err == nil || !strings.Contains(err.Error(), "0 vectors for 1 texts") {
+	if _, err := ai.Embed(ai.WithClient(ctx, c), []string{"x"}); err == nil || !strings.Contains(err.Error(), "0 vectors for 1 texts") {
 		t.Errorf("too few: %v", err)
 	}
 	// Fake replaces a separate embedder too.
 	f := c.Fake()
-	if _, err := ai.Embed(ai.WithClient(ctx, c), 0, "x"); err != nil || len(f.Embeddings()) != 1 {
-		t.Errorf("after Fake: %v, %d", err, len(f.Embeddings()))
+	if _, err := ai.Embed(ai.WithClient(ctx, c), []string{"x"}); err != nil || len(f.EmbedRequests()) != 1 {
+		t.Errorf("after Fake: %v, %d", err, len(f.EmbedRequests()))
 	}
 }
 
@@ -193,7 +214,7 @@ func TestEmbedHTTPStatus(t *testing.T) {
 	// The fake's embeddings fail as the context does.
 	ctx, cancel := context.WithCancel(ai.WithClient(context.Background(), ai.NewWithProvider(ai.NewFake())))
 	cancel()
-	if _, err := ai.Embed(ctx, 0, "x"); !errors.Is(err, context.Canceled) || web.StatusOf(err) == http.StatusOK {
+	if _, err := ai.Embed(ctx, []string{"x"}); !errors.Is(err, context.Canceled) || web.StatusOf(err) == http.StatusOK {
 		t.Errorf("canceled: %v", err)
 	}
 }

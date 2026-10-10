@@ -120,6 +120,18 @@ type watch struct {
 	bulkValues int
 }
 
+// WatchOption configures a watcher ([DB.Watch]).
+type WatchOption func(*watchOptions)
+
+type watchOptions struct{ bulkValues int }
+
+// WatchBulkValues has a bulk write (a query's Update, Delete…, an
+// upsert, CreateMany) give the watcher the values of up to n of the rows
+// it writes ([Bulk].Before and After); default 0, the keys only.
+func WatchBulkValues(n int) WatchOption {
+	return func(o *watchOptions) { o.bulkValues = max(n, 0) }
+}
+
 // Watch makes w watch the writes the db package makes to table: Create,
 // CreateMany, Upsert, Update, Save, Delete, ForceDelete, Restore, and a
 // query's Update, Delete, ForceDelete and Restore. For a watched table,
@@ -131,7 +143,7 @@ type watch struct {
 //   - a force delete (or a delete without SoftDeletes) reads the values
 //     the row had;
 //   - a bulk write first selects the matching rows' keys (and the values
-//     of up to bulkValues rows) FOR UPDATE, then writes in chunks of
+//     of up to [WatchBulkValues] rows) FOR UPDATE, then writes in chunks of
 //     1,000 keys, with the condition and the keys, and fails if a chunk
 //     changes fewer rows than it selected, so what the watcher is told is
 //     exactly what was written;
@@ -141,16 +153,20 @@ type watch struct {
 // A watched table's model needs a primary key. Raw SQL ([Exec]), pivot
 // writes ([Attach], [Sync]…) and the database's own cascades aren't seen.
 // Call Watch before the app writes, typically at setup.
-func (d *DB) Watch(table string, w Watcher, bulkValues int) error {
+func (d *DB) Watch(table string, w Watcher, opts ...WatchOption) error {
 	if table == "" || w == nil {
 		return errors.New("db: Watch needs a table and a watcher")
+	}
+	var o watchOptions
+	for _, opt := range opts {
+		opt(&o)
 	}
 	d.watchMu.Lock()
 	defer d.watchMu.Unlock()
 	if d.watches == nil {
 		d.watches = map[string][]watch{}
 	}
-	d.watches[table] = append(d.watches[table], watch{w, max(bulkValues, 0)})
+	d.watches[table] = append(d.watches[table], watch{w, o.bulkValues})
 	d.watching.Store(true)
 	return nil
 }

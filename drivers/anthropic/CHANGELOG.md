@@ -7,6 +7,10 @@ tagged `drivers/anthropic/vX.Y.Z`. The framework's own changes are in the
 
 ## [Unreleased]
 
+### Changed
+- The driver reads every `Options` value of `ai.Request.Options`, now a
+  list, and ignores other drivers' (M8b-5).
+
 ## [0.4.0] - 2026-10-08
 
 Released with the framework's v0.4.0; no changes.

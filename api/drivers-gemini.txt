@@ -12,5 +12,6 @@ pkg anetos.dev/anetos/drivers/gemini, type Config struct, APIKey anetos.Secret
 pkg anetos.dev/anetos/drivers/gemini, type Config struct, BaseURL string
 pkg anetos.dev/anetos/drivers/gemini, type Options struct
 pkg anetos.dev/anetos/drivers/gemini, type Options struct, Config func(*genai.GenerateContentConfig)
+pkg anetos.dev/anetos/drivers/gemini, type Options struct, Params func(*genai.GenerateContentConfig)
 pkg anetos.dev/anetos/drivers/gemini, type Options struct, ThinkingBudget *int32
 pkg anetos.dev/anetos/drivers/gemini, type Provider struct

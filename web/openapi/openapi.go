@@ -773,6 +773,9 @@ func firstDiff(a, b []byte) int {
 // after adding the routes. The command builds no app: it needs no
 // database.
 func Register(app *anetos.App, srv *web.Server, cfg Config) error {
+	if slices.ContainsFunc(app.Commands(), func(c cmd.Command) bool { return c.Name == "openapi" }) {
+		return errors.New("openapi: Register called twice for one app")
+	}
 	if cfg.Title == "" {
 		return errors.New("openapi: Config.Title is empty")
 	}

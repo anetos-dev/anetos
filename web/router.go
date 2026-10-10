@@ -189,10 +189,12 @@ func hostName(host string) string {
 	return host
 }
 
-// As sets a prefix added to the names of routes registered on this router.
+// As returns a router whose routes' names start with namePrefix (after
+// r's own), with r's prefix and middleware; r is unchanged:
+//
+//	api := r.Group("/api/v1").As("api.")
 func (r *Router) As(namePrefix string) *Router {
-	r.namePfx += namePrefix
-	return r
+	return &Router{core: r.core, parent: r, host: r.host, prefix: r.prefix, namePfx: r.namePfx + namePrefix, mws: slices.Clip(r.mws)}
 }
 
 // Get registers h for GET (and HEAD) requests to pattern.

@@ -5,7 +5,7 @@
     <form method="post" action="{{.Flush}}" class="inline" data-confirm="Forget every failed job? They can't be retried after."><input type="hidden" name="_token" value="{{$csrf}}"><button type="submit" class="danger">Forget all</button></form>
   </div>{{end}}
 </div>
-{{if .Sync}}<p class="empty">Jobs run at once, as they are dispatched (QUEUE_DRIVER=sync): none wait, and none are kept when they fail.</p>{{else}}
+{{if .Sync}}<p class="empty">Jobs run at once, as they are dispatched (QUEUE_DRIVER=sync, or a driver without a store): none wait, and none are kept when they fail.</p>{{else}}
 <div class="stats">{{range .Queues}}<div class="stat"><span class="value">{{.Value}}</span><span class="label">{{.Label}}</span><span class="hint">{{.Hint}}</span></div>{{end}}</div>
 <section class="part"><h2>Failed jobs</h2>
 {{if .Failed}}<div class="table"><table>

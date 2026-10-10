@@ -114,7 +114,7 @@ const redacted = "redacted:"
 var outputSchema = ai.SchemaOptions{Keywords: []string{"format"}, NullableAnyOf: true}
 
 // toolSchema is the dialect for tool inputs: all of JSON Schema.
-var toolSchema = ai.SchemaOptions{Keywords: ai.ConstraintKeywords}
+var toolSchema = ai.SchemaOptions{Keywords: ai.ConstraintKeywords()}
 
 func (p *Provider) params(req *ai.Request) (sdk.MessageNewParams, error) {
 	if req.Model == "" {
@@ -146,14 +146,17 @@ func (p *Provider) params(req *ai.Request) (sdk.MessageNewParams, error) {
 		}
 		params.OutputConfig = sdk.OutputConfigParam{Format: sdk.JSONOutputFormatParam{Schema: req.Output.Schema.Map(outputSchema)}}
 	}
-	var o *Options
-	switch v := req.Options.(type) {
-	case Options:
-		o = &v
-	case *Options:
-		o = v
-	}
-	if o != nil {
+	for _, v := range req.Options {
+		var o *Options
+		switch v := v.(type) {
+		case Options:
+			o = &v
+		case *Options:
+			o = v
+		}
+		if o == nil {
+			continue
+		}
 		if o.ThinkingBudget > 0 {
 			params.Thinking = sdk.ThinkingConfigParamOfEnabled(o.ThinkingBudget)
 		}

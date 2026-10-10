@@ -971,3 +971,17 @@ func TestJobsKeepCarriedValues(t *testing.T) {
 		t.Errorf("jobs saw %q", seen)
 	}
 }
+
+// A queue that runs jobs at once has no store, and so no failed jobs.
+func TestFailedWithoutStore(t *testing.T) {
+	q := queue.NewWithStore(nil, queue.Config{})
+	if q.Store() != nil {
+		t.Fatal("a store")
+	}
+	if n, err := queue.CountFailed(context.Background(), q.Store()); n != 0 || err != nil {
+		t.Errorf("CountFailed = %d, %v", n, err)
+	}
+	if _, ok, err := queue.FindFailed(context.Background(), q.Store(), "x"); ok || err != nil {
+		t.Errorf("FindFailed = %v, %v", ok, err)
+	}
+}

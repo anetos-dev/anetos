@@ -47,7 +47,7 @@ Applied in order: the client's defaults, an agent's, the call's.
 | `ai.Messages(msgs...)` | Adds the conversation before the prompt (a `Result`'s `Messages`) | none |
 | `ai.Tools(tools...)` | Adds tools | none |
 | `ai.MaxSteps(n)` | The most requests in a call with tools; then `ai.ErrMaxSteps`. `GenerateObject`'s retry is a second call, with its own limit | `ai.DefaultMaxSteps` (10) |
-| `ai.ProviderOptions(v)` | The driver's own request options (a type it defines) | none |
+| `ai.ProviderOptions(v...)` | Drivers' own request options (types they define), added to the call's; each provider uses its own and ignores the others, so one call can carry options for each provider `AI_PROVIDER` may name (`Request.Options`, a `[]any`) | none |
 | `ai.ForUser(userID)` | The user the call is for: its usage records and budget (`TrackUsage`) | the logged-in user, if any; a conversation's user |
 | `ai.Using(c)` | Use client c, not the context's | the context's |
 | an `ai.Agent` | Its settings | |
@@ -190,8 +190,8 @@ See [Search by meaning](../guides/semantic-search.md).
 
 | API | Does | Since |
 |---|---|---|
-| `ai.Embed(ctx, dims, texts...)` | `[]ai.Vector`: the texts' embeddings as documents, with the client's embedding model (`AI_EMBEDDING_MODEL`), in requests of at most 96 texts; `dims` asks for vectors of that size (0: the model's), and vectors of another size are an error. Each request's usage is recorded (agent `embed`) and counts against budgets | v0.3 |
-| `ai.EmbedQuery(ctx, dims, text)` | The embedding of a query (what to find documents with) | v0.3 |
+| `ai.Embed(ctx, texts, opts...)` | `[]ai.Vector`: the texts' embeddings as documents, with the client's embedding model (`AI_EMBEDDING_MODEL`), in requests of at most 96 texts. `ai.Dimensions(n)` asks for vectors of that size (the model's by default), and vectors of another size are an error; `ai.Using`, `ai.ForUser` and `ai.Timeout` apply as to `Generate`. Each request's usage is recorded (agent `embed`) and counts against budgets | v0.3 (options v0.5) |
+| `ai.EmbedQuery(ctx, text, opts...)` | The embedding of a query (what to find documents with), with `Embed`'s options | v0.3 (options v0.5) |
 | `ai.Vector` | `db.Vector`, a `[]float32` | v0.3 |
 | `ai.Embedder` | `Embed(ctx, *ai.EmbedRequest) (*ai.EmbedResponse, error)`: the OpenAI (and compatible), Gemini and fake providers have it; Anthropic's doesn't. `EmbedRequest{Model, Inputs, Dimensions, Purpose}` (`ai.EmbedForDocument`, `ai.EmbedForQuery`); `EmbedResponse{Vectors, Usage, Model, Estimated}` | v0.3 |
 | `ai.ErrNoEmbedder` | The client has no embeddings provider | v0.3 |
@@ -201,7 +201,7 @@ See [Search by meaning](../guides/semantic-search.md).
 | `e.SyncNow(ctx, rows...)` | Updates them now: splits the text into chunks (paragraphs, sentences, words), embeds those whose text or model changed, and replaces the record's chunks. Not inside a transaction | v0.3 |
 | `e.SyncAll(ctx)` | Deletes the chunks of deleted records (`db.PruneChunks`), then syncs every record, a hundred at a time (what `ai:embed` runs) | v0.3 |
 | `e.Search(ctx, query, limit, scopes...)` | `[]ai.Passage[T]{Record, Text, Position, Distance}`: the records nearest the query, best first (at most `limit`; 10 for 0), with their nearest chunk; hybrid (`db.Q.Hybrid`) when the table has a search index, else `db.Q.Similar`; a blank query finds nothing. A record found only by its words has `Position` -1, the start of its text, and `Distance` 1 | v0.3 |
-| `e.Tool(name, description, limit)` | An `ai.Tool` that searches: the model sends `{"query": …}` and gets `[]ai.SearchResult{ID, Title, Text}` | v0.3 |
+| `e.Tool(name, description, limit)` | An `ai.Tool` that searches: the model sends `{"query": …}` and gets a JSON array of `{"id", "title", "text"}` | v0.3 |
 
 ## Providers
 
@@ -210,7 +210,7 @@ See [Search by meaning](../guides/semantic-search.md).
 | `drivers/anthropic` | `anthropic` | `anthropic.Driver()`, `anthropic.New(key, opts...)` | `ThinkingBudget` (extended thinking), `Params func(*anthropic.MessageNewParams)` | `*anthropic.Message` |
 | `drivers/openai` | `openai` | `openai.Driver()`, `openai.New(key, opts...)` | `ReasoningEffort`, `Params func(*openai.ChatCompletionNewParams)` | `*openai.ChatCompletion` (streams: `[]openai.ChatCompletionChunk`) |
 | `drivers/openai` | `openai-compatible` | `openai.CompatibleDriver()`, `openai.NewCompatible(url, key, opts...)` | the same | the same |
-| `drivers/gemini` | `gemini` | `gemini.Driver()`, `gemini.New(ctx, genai.ClientConfig{APIKey: key, …})` | `ThinkingBudget *int32`, `Config func(*genai.GenerateContentConfig)` | `*genai.GenerateContentResponse` (streams: a slice of them) |
+| `drivers/gemini` | `gemini` | `gemini.Driver()`, `gemini.New(ctx, genai.ClientConfig{APIKey: key, …})` | `ThinkingBudget *int32`, `Params func(*genai.GenerateContentConfig)` (was `Config`, deprecated until v0.6) | `*genai.GenerateContentResponse` (streams: a slice of them) |
 
 Each provider's `Client()` returns its SDK client. All use their API's
 chat endpoint (OpenAI's: Chat Completions, which compatible servers
@@ -242,8 +242,8 @@ embeddings API: set `AI_EMBEDDING_PROVIDER`.
 | API | Does |
 |---|---|
 | `ai.Provider` | `Name()`, `Generate(ctx, *ai.Request) (*ai.Response, error)`, `Stream(ctx, *ai.Request) iter.Seq2[ai.Event, error]` (`EventText`s and `EventToolCall`s, then one `EventResponse` with the whole response) |
-| `schema.Map(ai.SchemaOptions{Keywords, Formats, AllRequired, NullableAnyOf})` | The schema as a `map[string]any` in the provider's dialect: the constraint keywords it takes (of `ai.ConstraintKeywords`) and the string formats (all, if `Formats` is empty), the others in words in the description; every property required (optional ones nullable); nullable as `anyOf`. Properties keep their order when marshaled (a provider may still reorder them: Anthropic puts required ones first) |
+| `schema.Map(ai.SchemaOptions{Keywords, Formats, AllRequired, NullableAnyOf})` | The schema as a `map[string]any` in the provider's dialect: the constraint keywords it takes (of `ai.ConstraintKeywords()`) and the string formats (all, if `Formats` is empty), the others in words in the description; every property required (optional ones nullable); nullable as `anyOf`. Properties keep their order when marshaled (a provider may still reorder them: Anthropic puts required ones first) |
 | `aitest.Run(t, aitest.Config{Name, Model, KeyEnv, New, Dir, Skip, EmbeddingModel})` | The conformance suite (package `ai/aitest`): text, streams, a conversation, tool calls and their results (streamed too), structured output, the token limit, errors, and, with `EmbeddingModel`, embeddings (`Embed`). It replays recorded HTTP exchanges (`testdata/aitest/<Test>.json`) and checks the requests match; `ANETOS_AI_RECORD=1` records them from the provider (its key in `KeyEnv`; headers are never saved), `ANETOS_AI_LIVE=1` calls it without recording, `ANETOS_AI_UPDATE_REQUESTS=1` rewrites the recorded requests. `ANETOS_TEST_<NAME>_MODEL` (and `_EMBEDDING_MODEL`) picks the model to record with |
-| `ai.Request` | `Model` (the drivers refuse an empty one), `System`, `Messages`, `Tools` (`[]ai.ToolSpec`), `Output` (`*ai.OutputSpec{Name, Schema}`: structured output), `MaxTokens`, `Temperature` (`*float64`), `Options` (the driver's own type, or ignore); `Prompt()` |
-| `ai.Fake`, `ai.NewFake(replies...)` | The scripted provider, safe for concurrent use: `Add`, `Requests`, `Remaining`, `Embeddings` (its embedding requests: it embeds texts by their words, without replies); replies `ai.FakeText`, `FakeObject`, `FakeToolCall`, `FakeError`, or an `ai.FakeReply` function |
+| `ai.Request` | `Model` (the drivers refuse an empty one), `System`, `Messages`, `Tools` (`[]ai.ToolSpec`), `Output` (`*ai.OutputSpec{Name, Schema}`: structured output), `MaxTokens`, `Temperature` (`*float64`), `Options` (`[]any`: drivers' own option values; a driver uses those of its types and ignores the others); `Prompt()` |
+| `ai.Fake`, `ai.NewFake(replies...)` | The scripted provider, safe for concurrent use: `Add`, `Requests`, `Remaining`, `EmbedRequests` (its embedding requests: it embeds texts by their words, without replies); replies `ai.FakeText`, `FakeObject`, `FakeToolCall`, `FakeError`, or an `ai.FakeReply` function |
 | `ai.FakeDriver()` | `AI_PROVIDER=fake` |

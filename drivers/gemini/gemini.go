@@ -142,8 +142,13 @@ type Options struct {
 	// ThinkingBudget, if set, bounds the tokens the model thinks with
 	// (0 turns thinking off where the model allows it).
 	ThinkingBudget *int32
-	// Config, if set, changes the request's configuration last, for
-	// what the common request doesn't have.
+	// Params, if set, changes the request's configuration last, for
+	// what the common request doesn't have (as the anthropic and openai
+	// drivers' Params).
+	Params func(*genai.GenerateContentConfig)
+	// Config is Params.
+	//
+	// Deprecated: Use Params; Config is removed in v0.6.
 	Config func(*genai.GenerateContentConfig)
 }
 
@@ -189,19 +194,25 @@ func (p *Provider) request(req *ai.Request) ([]*genai.Content, *genai.GenerateCo
 		cfg.ResponseMIMEType = "application/json"
 		cfg.ResponseJsonSchema = req.Output.Schema.Map(schemaOptions)
 	}
-	var o *Options
-	switch v := req.Options.(type) {
-	case Options:
-		o = &v
-	case *Options:
-		o = v
-	}
-	if o != nil {
+	for _, v := range req.Options {
+		var o *Options
+		switch v := v.(type) {
+		case Options:
+			o = &v
+		case *Options:
+			o = v
+		}
+		if o == nil {
+			continue
+		}
 		if o.ThinkingBudget != nil {
 			cfg.ThinkingConfig = &genai.ThinkingConfig{ThinkingBudget: o.ThinkingBudget}
 		}
 		if o.Config != nil {
 			o.Config(cfg)
+		}
+		if o.Params != nil {
+			o.Params(cfg)
 		}
 	}
 	contents, err := contentsOf(req.Messages)

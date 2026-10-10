@@ -540,7 +540,7 @@ func (d *DB) Close() error { return d.sql.Close() }
 // (right away if it already has), so the app and every command that boots
 // it fail fast when the database is unreachable, while `help` doesn't need
 // one; then it runs [DB.Check], so the app doesn't start with settings
-// or features the database can't serve (SEARCH_*, [DB.Require]).
+// or features the database can't serve (DB_SEARCH_*, [DB.Require]).
 //
 // Queries are logged at debug level in development unless DB_LOG_QUERIES
 // says otherwise.

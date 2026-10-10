@@ -72,7 +72,11 @@ func TestRequests(t *testing.T) {
 	}
 	budget := int32(0)
 	req := &ai.Request{Model: "gemini-x", Messages: []ai.Message{ai.UserMessage("Look up a and b.")},
-		Options: gemini.Options{ThinkingBudget: &budget, Config: func(c *genai.GenerateContentConfig) { c.CandidateCount = 1 }}}
+		// Another driver's options are ignored; each of the driver's own
+		// applies, the deprecated Config too.
+		Options: []any{struct{ Other bool }{true}, gemini.Options{ThinkingBudget: &budget},
+			&gemini.Options{Config: func(c *genai.GenerateContentConfig) { c.CandidateCount = 1 }}, //nolint:staticcheck // the deprecated field still applies
+			gemini.Options{Params: func(c *genai.GenerateContentConfig) { c.MaxOutputTokens = 99 }}}}
 	resp, err := p.Generate(context.Background(), req)
 	if err != nil {
 		t.Fatal(err)
@@ -86,7 +90,7 @@ func TestRequests(t *testing.T) {
 		t.Errorf("reasoning %+v", resp.Message.Parts[0])
 	}
 	gc, _ := bodies[0]["generationConfig"].(map[string]any)
-	if tc, _ := gc["thinkingConfig"].(map[string]any); tc["thinkingBudget"] != float64(0) || gc["candidateCount"] != float64(1) {
+	if tc, _ := gc["thinkingConfig"].(map[string]any); tc["thinkingBudget"] != float64(0) || gc["candidateCount"] != float64(1) || gc["maxOutputTokens"] != float64(99) {
 		t.Errorf("config: %v", gc)
 	}
 

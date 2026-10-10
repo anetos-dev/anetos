@@ -34,6 +34,8 @@ type HTTPError struct {
 	// Args fill Key's placeholders: pairs of names and values, as for
 	// i18n.T.
 	Args []any
+
+	orig *HTTPError // what Wrap copied, which the copy matches (errors.Is)
 }
 
 // Error returns an [HTTPError] with the given status and client-safe
@@ -47,10 +49,26 @@ func Errorf(status int, format string, args ...any) *HTTPError {
 	return &HTTPError{Status: status, Message: fmt.Sprintf(format, args...)}
 }
 
-// Wrap sets the internal cause and returns e, for chaining.
+// Wrap returns a copy of e with the internal cause err, so a shared
+// error ([ErrCSRF], [ErrCrossOrigin]…) is never changed:
+//
+//	return web.ErrCSRF.Wrap(err)
+//
+// The copy matches e: errors.Is(web.ErrCSRF.Wrap(err), web.ErrCSRF).
 func (e *HTTPError) Wrap(err error) *HTTPError {
-	e.Err = err
-	return e
+	c := *e
+	c.Err = err
+	if c.orig == nil {
+		c.orig = e
+	}
+	return &c
+}
+
+// Is reports whether target is the error e was copied from by
+// [HTTPError.Wrap], for errors.Is.
+func (e *HTTPError) Is(target error) bool {
+	t, ok := target.(*HTTPError)
+	return ok && e.orig != nil && t == e.orig
 }
 
 // Error implements the error interface.

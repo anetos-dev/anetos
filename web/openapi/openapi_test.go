@@ -212,8 +212,15 @@ func TestAppNew(t *testing.T) {
 	if err := openapi.Register(app, srv, cfg); err != nil {
 		t.Fatal(err)
 	}
-	if err := openapi.Register(app, srv, openapi.Config{}); err == nil {
-		t.Error("no title accepted")
+	if err := openapi.Register(app, srv, cfg); err == nil || !strings.Contains(err.Error(), "twice") {
+		t.Errorf("Register twice = %v", err)
+	}
+	if app2, err := anetos.New(anetos.WithSource(config.Map{}), anetos.WithLogger(slog.New(slog.DiscardHandler))); err != nil {
+		t.Fatal(err)
+	} else if srv2, err := web.NewServer(app2); err != nil {
+		t.Fatal(err)
+	} else if err := openapi.Register(app2, srv2, openapi.Config{}); err == nil || !strings.Contains(err.Error(), "Title") {
+		t.Errorf("Register without a title = %v", err)
 	}
 
 	rec := httptest.NewRecorder()

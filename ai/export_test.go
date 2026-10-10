@@ -22,5 +22,8 @@ func SplitChunksLimit(text string, size, limit int) []string { return splitChunk
 
 // EmbedFixed embeds as for a FixedSize model of size want, for a test.
 func EmbedFixed(ctx context.Context, want int, texts ...string) ([]Vector, error) {
-	return embed(ctx, EmbedForDocument, 0, want, texts)
+	return embed(ctx, EmbedForDocument, texts, []Option{Dimensions(want)}, true)
 }
+
+// ClientMessage is clientMessage, for a test.
+func ClientMessage(ctx context.Context, err error) string { return clientMessage(ctx, err) }

@@ -271,9 +271,9 @@ type SearchIndex struct {
 	Language, Ranking string
 }
 
-// SearchIndexesTable is the table where migrations record the search
+// searchIndexesTable is the table where migrations record the search
 // indexes they make.
-const SearchIndexesTable = "search_indexes"
+const searchIndexesTable = dbutil.SearchIndexesTable
 
 // SearchIndexes returns the search indexes of the database in ctx, by
 // table name.
@@ -291,7 +291,7 @@ func SearchIndexes(ctx context.Context) ([]SearchIndex, error) {
 	default:
 		exists = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?"
 	}
-	n, err := scalar[int64](ctx, d, c, rawBuilder(d.dialect, exists, SearchIndexesTable))
+	n, err := scalar[int64](ctx, d, c, rawBuilder(d.dialect, exists, searchIndexesTable))
 	if err != nil || n == 0 {
 		return nil, err
 	}
@@ -301,7 +301,7 @@ func SearchIndexes(ctx context.Context) ([]SearchIndex, error) {
 		Language string `db:"language"`
 		Ranking  string `db:"ranking"`
 	}
-	rows, err := Raw[row](ctx, "SELECT table_name, columns, language, ranking FROM "+quoteName(d.dialect, SearchIndexesTable)+" ORDER BY table_name")
+	rows, err := Raw[row](ctx, "SELECT table_name, columns, language, ranking FROM "+quoteName(d.dialect, searchIndexesTable)+" ORDER BY table_name")
 	if err != nil {
 		return nil, err
 	}

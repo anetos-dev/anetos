@@ -12,6 +12,7 @@ import (
 
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/db/migrate"
+	"anetos.dev/anetos/internal/dbutil"
 )
 
 func init() {
@@ -52,7 +53,7 @@ func testVectors(t *testing.T, ctx context.Context) {
 	t.Cleanup(func() {
 		_ = s.DropEmbeddings("st_v_docs")
 		_ = s.DropIfExists("st_v_docs")
-		_, _ = db.Exec(context.WithoutCancel(ctx), "DELETE FROM "+db.SearchIndexesTable+" WHERE table_name = 'st_v_docs'")
+		_, _ = db.Exec(context.WithoutCancel(ctx), "DELETE FROM "+dbutil.SearchIndexesTable+" WHERE table_name = 'st_v_docs'")
 	})
 	check(t, s.Create("st_v_docs", func(t *migrate.Table) {
 		t.ID()

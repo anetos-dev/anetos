@@ -37,8 +37,8 @@ type Config struct {
 	Public bool `env:"STORAGE_PUBLIC" default:"false"`
 }
 
-// AppConfig is the app's storage settings.
-type AppConfig struct {
+// appConfig is the app's storage settings.
+type appConfig struct {
 	// Disks names the disks besides the default one: lower-case letters,
 	// digits and _. STORAGE_DISKS ("avatars,exports").
 	Disks []string `env:"STORAGE_DISKS"`
@@ -49,7 +49,7 @@ var diskName = regexp.MustCompile(`^[a-z][a-z0-9_]{0,31}$`)
 // LoadConfig reads the settings of the disk name ("" for the default
 // disk) from src.
 func LoadConfig(src config.Source, name string) (Config, error) {
-	cfg, err := config.Get[Config](DiskSource(src, name, nil))
+	cfg, err := config.Get[Config](diskSourceOf(src, name, nil))
 	if err != nil {
 		return cfg, err
 	}
@@ -77,14 +77,14 @@ func key(name, suffix string) string {
 	return "STORAGE_" + strings.ToUpper(name) + "_" + suffix
 }
 
-// DiskSource returns the settings of the disk name ("" for the default
+// diskSourceOf returns the settings of the disk name ("" for the default
 // disk): for a named disk, src's STORAGE_<NAME>_* settings read as
 // STORAGE_*. STORAGE_DRIVER falls back to the default disk's, and so do
 // the settings in inherit (suffixes such as "S3_REGION"), as a group:
 // only if the named disk sets none of them, so a disk with an endpoint
 // of its own doesn't get another's keys. Drivers read their settings
 // from it.
-func DiskSource(src config.Source, name string, inherit []string) config.Source {
+func diskSourceOf(src config.Source, name string, inherit []string) config.Source {
 	if name == "" {
 		return src
 	}
@@ -193,7 +193,7 @@ func New(app *anetos.App, drivers ...Driver) (*Storage, error) {
 	if _, err := anetos.Resolve[*Storage](app); err == nil {
 		return nil, errors.New("storage: New called twice for one app")
 	}
-	ac, err := config.Get[AppConfig](app.Source())
+	ac, err := config.Get[appConfig](app.Source())
 	if err != nil {
 		return nil, err
 	}
@@ -229,7 +229,7 @@ func New(app *anetos.App, drivers ...Driver) (*Storage, error) {
 			return nil, fmt.Errorf("storage: %s is %q, but the drivers are [%s]; pass %s to storage.New",
 				key(name, "DRIVER"), cfg.Driver, strings.Join(names, ", "), hint)
 		}
-		b, err := all[i].Open(app, name, DiskSource(app.Source(), name, all[i].Inherit), cfg)
+		b, err := all[i].Open(app, name, diskSourceOf(app.Source(), name, all[i].Inherit), cfg)
 		if err != nil {
 			if name != "" {
 				return nil, fmt.Errorf("storage: open the disk %s (%s; its settings are %s): %w", name, cfg.Driver, key(name, "*"), err)

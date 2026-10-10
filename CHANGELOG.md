@@ -7,6 +7,9 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- `ai.Dimensions(n)`; `db.WatchBulkValues(n)`; `HTTPError.Is`, so a
+  wrapped sentinel still matches (`errors.Is(web.ErrCSRF.Wrap(err),
+  web.ErrCSRF)`) (M8b-5, D316).
 - `web.WrapHandler(h)` makes an `http.Handler` a route's handler
   (Echo's name): `r.Get("/metrics", web.WrapHandler(h))`; the router
   serves it as it is, as `HandleStd` did. `storage.DiskFrom(ctx, name)`
@@ -99,6 +102,35 @@ All notable changes to this project are documented here. The format follows
   D300).
 
 ### Changed
+- The API's shapes that couldn't change after v0.5 (M8b-5, D316; see
+  the [upgrade guide](docs/site/upgrade/v0.5.md)):
+  - `ai.Request.Options` is a `[]any`, and `ai.ProviderOptions(v...)`
+    adds to it: each provider uses its own options and ignores the
+    others, so a call can carry every provider's; `gemini.Options.Params`
+    (was `Config`), as anthropic's and openai's; `ai.Fake.EmbedRequests`
+    (was `Embeddings`);
+  - `ai.Embed(ctx, texts, opts...)` and `ai.EmbedQuery(ctx, text,
+    opts...)` take options (`ai.Dimensions`, and `Using`, `ForUser` and
+    `Timeout`, which they ignored) where they took a size;
+    `ai.ConstraintKeywords()` is a function;
+  - `db.DB.Watch(table, w, opts...)` takes options (`db.WatchBulkValues`);
+    `db.Dialect` is sealed (only `Postgres`, `MySQL` and `SQLite`
+    implement it);
+  - `web.Router.As` returns a router of its own, as `Group` and `With`
+    (it renamed the routes of the router it was called on);
+    `HTTPError.Wrap` returns a copy (it changed the error, a shared
+    one such as `web.ErrCSRF` too); `web.CSRFOption` takes an internal
+    type;
+  - `ext.HasListeners`'s method is `Listeners` (a plugin's `Listen` is
+    still called, with a warning, until v0.6);
+  - `storage.TemporaryURLBackend`'s URLs must serve HTML, SVG and
+    JavaScript as attachments, which `storagetest` checks;
+  - removed, as no app used them: `db.WithTestTx`,
+    `db.SQLiteTimeFormat`, `db.SearchIndexesTable`, `db.Plural`,
+    `migrate.Runner.Command` and `migrate.Commands` (the app binary
+    runs the commands), the drivers' `DSN`, `storage.DiskSource`,
+    `storage.AppConfig`, `ai.SearchResult`, `ext.Info`,
+    `postmark.Event`.
 - The rest of the API uses the words developers already know (M8b-5,
   D315); most old names stay, deprecated, until v0.6, and `go fix ./...`
   rewrites most calls; struct fields, `web.ClientIP(r)`, `storage.From`
@@ -266,6 +298,9 @@ All notable changes to this project are documented here. The format follows
   `storagetest.Features.SignedURLs`, the s3 and gcs backends'
   `SignedURL`) and the process types `http`, `workers`, `listeners`.
   Removed in v0.6 (M8b-5).
+- `ai.Fake.Embeddings`, `gemini.Options.Config`, and a plugin's
+  `Listen` (`ext.HasListeners` is `Listeners`): use the names in the
+  entry above. Removed in v0.6 (M8b-5).
 - The commands `routes:list`, `plugins:list`, `plugins:env`,
   `lang:check`, `schedule:run <task>`, and the `anetos` tool's
   `lang:add`, `add lang` and `make:admin:resource`: use the names above
@@ -284,6 +319,20 @@ All notable changes to this project are documented here. The format follows
   `auth.ForApp` and `social.ForApp`. Removed in v0.6 (M8b-1).
 
 ### Fixed
+- From the API review (M8b-5): `queue.CountFailed` and `FindFailed`
+  panicked on a queue without a store, and the admin's Jobs page read
+  the store of a run-at-once queue whose driver isn't called `sync`;
+  `schedule.WithShutdownGrace` took a negative value; the AI
+  embeddings tool took a negative limit (every call then failed: it
+  now panics at startup); a spent AI budget's message was English in
+  `ai.SSE` and a queued reply's `Conversation.Error`; a second
+  `openapi.Register` panicked; `cache.Remember` returned a value with
+  an encode error; `auth.Config.Validate` listed bad paths in random
+  order; `audit.History` gave a cursor to an empty page after a full
+  last page; `anetostest.App.Disk` ignored names after the first (now
+  a test failure); `session.New`'s logger lacked the `component`
+  attribute; the generated settings page checked for a translator
+  that is always there.
 - `storage.From` panicked on a context holding a nil `*storage.Storage`
   (M8b-5).
 - `social.New` without a configured provider returned a service without a

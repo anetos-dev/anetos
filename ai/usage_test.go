@@ -12,10 +12,12 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"anetos.dev/anetos/ai"
 	"anetos.dev/anetos/cache"
+	"anetos.dev/anetos/i18n"
 	"anetos.dev/anetos/web"
 )
 
@@ -62,6 +64,13 @@ func TestBudget(t *testing.T) {
 	}
 	if f.Remaining() != 1 {
 		t.Error("the model was asked")
+	}
+	// Embeddings count for the user ForUser names too.
+	if _, err := ai.Embed(ctx, []string{"x"}, ai.ForUser("ada")); !errors.As(err, new(*ai.BudgetError)) {
+		t.Errorf("Embed for a user over budget: %v", err)
+	}
+	if _, err := ai.EmbedQuery(ctx, "x", ai.ForUser("broken")); err == nil || !strings.Contains(err.Error(), "plans unavailable") {
+		t.Errorf("EmbedQuery for a user whose budget fails: %v", err)
 	}
 	// Another user has their own budget; no user, none.
 	if _, err := ai.Generate(ctx, "hi", ai.ForUser("bob")); err != nil {
@@ -197,5 +206,23 @@ func TestInterruptedRequestCounts(t *testing.T) {
 	}
 	if _, err := ai.Generate(ctx, "again", ai.ForUser("ada")); !errors.As(err, new(*ai.BudgetError)) {
 		t.Errorf("after an interrupted request: %v", err)
+	}
+}
+
+// A spent budget's message is in the request's language (SSE, a queued
+// reply's Conversation.Error), not only the problem response's.
+func TestBudgetMessageTranslated(t *testing.T) {
+	tr, err := i18n.NewTranslator(i18n.Config{Locale: "en", Fallback: "en", Strategy: i18n.StrategyNone, Locales: []string{"en", "bn"}},
+		i18n.WithLocales(fstest.MapFS{"bn.yaml": {Data: []byte("ai:\n  usage_limit: \"সীমা শেষ, {wait} পরে\"\n")}}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := i18n.WithLocale(i18n.WithTranslator(context.Background(), tr), "bn")
+	err = &web.HTTPError{Status: http.StatusTooManyRequests, Message: "English", Key: "ai.usage_limit", Args: []any{"wait", "1m"}}
+	if got := ai.ClientMessage(ctx, err); got != "সীমা শেষ, 1m পরে" {
+		t.Errorf("message = %q", got)
+	}
+	if got := ai.ClientMessage(context.Background(), web.Error(http.StatusConflict, "Taken.")); got != "Taken." {
+		t.Errorf("without a key = %q", got)
 	}
 }

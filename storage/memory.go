@@ -17,7 +17,8 @@ import (
 )
 
 // MemoryBackend keeps files in memory: for tests and development. Files
-// are lost when the process stops.
+// are lost when the process stops. Make one with [NewMemoryBackend]: its
+// zero value isn't usable.
 type MemoryBackend struct {
 	mu    sync.RWMutex
 	files map[string]memFile

@@ -20,6 +20,7 @@ import (
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/db/migrate"
 	"anetos.dev/anetos/encryption"
+	"anetos.dev/anetos/internal/dbutil"
 	"anetos.dev/anetos/queue"
 )
 
@@ -61,7 +62,7 @@ func testEmbeddings(t *testing.T, ctx context.Context) {
 		ctx := context.WithoutCancel(ctx)
 		_ = s.DropEmbeddings("st_e_notes")
 		_ = s.DropIfExists("st_e_notes")
-		_, _ = db.Exec(ctx, "DELETE FROM "+db.SearchIndexesTable+" WHERE table_name = 'st_e_notes'")
+		_, _ = db.Exec(ctx, "DELETE FROM "+dbutil.SearchIndexesTable+" WHERE table_name = 'st_e_notes'")
 	}
 	drop()
 	t.Cleanup(drop)
@@ -126,17 +127,17 @@ func testEmbeddings(t *testing.T, ctx context.Context) {
 		if len(chunks) != 5 || chunks[0].EmbeddingModel != "fake-embedding" || len(chunks[0].Embedding) != 32 || len(chunks[0].ContentHash) != 64 {
 			t.Fatalf("queued %v: chunks %+v", queued, chunks)
 		}
-		embedded := len(fake.Embeddings())
+		embedded := len(fake.EmbedRequests())
 
 		// Unchanged records aren't embedded again; changed chunks only are.
 		check(t, notes.SyncNow(ctx, all...))
-		if len(fake.Embeddings()) != embedded {
+		if len(fake.EmbedRequests()) != embedded {
 			t.Error("unchanged records were embedded again")
 		}
 		all[1].Body = "Rockets go to orbit, high above the clouds. The moon goes around the earth up there."
 		check(t, db.Save(ctx, &all[1]))
 		check(t, notes.Sync(ctx, all[1]))
-		if reqs := fake.Embeddings(); len(reqs) != embedded+1 || len(reqs[embedded].Inputs) != 1 || !strings.Contains(reqs[embedded].Inputs[0], "moon") {
+		if reqs := fake.EmbedRequests(); len(reqs) != embedded+1 || len(reqs[embedded].Inputs) != 1 || !strings.Contains(reqs[embedded].Inputs[0], "moon") {
 			t.Errorf("re-embedded: %+v", reqs[embedded:])
 		}
 
@@ -164,7 +165,11 @@ func testEmbeddings(t *testing.T, ctx context.Context) {
 		tool := notes.Tool("search_notes", "Search the notes", 2)
 		out, err := tool.Call(ctx, json.RawMessage(`{"query":"tomatoes need water"}`))
 		check(t, err)
-		var results []ai.SearchResult
+		var results []struct {
+			ID    int64  `json:"id"`
+			Title string `json:"title"`
+			Text  string `json:"text"`
+		}
 		check(t, json.Unmarshal([]byte(out), &results))
 		if len(results) != 2 || results[0].Title != "Tomatoes" || results[0].ID != all[3].ID || !strings.Contains(results[0].Text, "water") {
 			t.Errorf("tool: %s", out)
@@ -172,6 +177,14 @@ func testEmbeddings(t *testing.T, ctx context.Context) {
 		if _, err := tool.Call(ctx, json.RawMessage(`{}`)); err == nil {
 			t.Error("the tool without a query")
 		}
+		func() {
+			defer func() {
+				if recover() == nil {
+					t.Error("a tool with a negative limit")
+				}
+			}()
+			notes.Tool("search_notes", "Search the notes", -1)
+		}()
 
 		// A new model: searches see only its chunks, until ai:embed.
 		client.SetEmbedder(fake, "fake-2")
@@ -224,8 +237,8 @@ func testEmbeddings(t *testing.T, ctx context.Context) {
 		}
 
 		// A blank query finds nothing, without asking the model.
-		before := len(fake.Embeddings())
-		if found, err := notes.Search(ctx, "  ", 5); err != nil || len(found) != 0 || len(fake.Embeddings()) != before {
+		before := len(fake.EmbedRequests())
+		if found, err := notes.Search(ctx, "  ", 5); err != nil || len(found) != 0 || len(fake.EmbedRequests()) != before {
 			t.Errorf("a blank Search: %s, %v", passages(found), err)
 		}
 
@@ -281,7 +294,7 @@ func testEmbeddings(t *testing.T, ctx context.Context) {
 	check(t, db.Create(ctx, &fresh))
 	// (The fake makes the size expected.)
 	check(t, fixed.SyncNow(ctx, fresh))
-	if reqs := fake.Embeddings(); len(reqs) != 1 || reqs[0].Dimensions != 0 {
+	if reqs := fake.EmbedRequests(); len(reqs) != 1 || reqs[0].Dimensions != 0 {
 		t.Errorf("a fixed-size model was asked for a size: %+v", reqs)
 	}
 	if cs, _ := db.Chunks[stENote](ctx, fresh.ID); len(cs) != 1 || len(cs[0].Embedding) != 32 {

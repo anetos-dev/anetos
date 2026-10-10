@@ -20,11 +20,14 @@ type Disk struct {
 }
 
 // Disk returns the app's default disk, or the disk name (one of
-// STORAGE_DISKS), for assertions:
+// STORAGE_DISKS; more than one name fails the test), for assertions:
 //
 //	app.Disk("avatars").AssertExists("users/1.png")
 func (a *App) Disk(name ...string) *Disk {
 	a.t.Helper()
+	if len(name) > 1 {
+		a.t.Fatalf("anetostest: Disk takes one disk name, not %d", len(name))
+	}
 	s, err := anetos.Resolve[*storage.Storage](a.App)
 	if err != nil {
 		a.t.Fatalf("anetostest: the app has no storage (storage.New in setup)")

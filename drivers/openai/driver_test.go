@@ -88,7 +88,7 @@ func TestRequests(t *testing.T) {
 			{Role: ai.RoleTool, Parts: []ai.Part{ai.ToolResult{CallID: "c1", Name: "lookup", Content: "Not Found", IsError: true}}},
 		},
 		Output:  &ai.OutputSpec{Name: "tags", Schema: s},
-		Options: openai.Options{ReasoningEffort: "low", Params: func(p *sdk.ChatCompletionNewParams) { p.Seed = sdk.Int(7) }},
+		Options: []any{openai.Options{ReasoningEffort: "low", Params: func(p *sdk.ChatCompletionNewParams) { p.Seed = sdk.Int(7) }}},
 	})
 	if err != nil {
 		t.Fatal(err)

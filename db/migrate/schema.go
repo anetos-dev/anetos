@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"anetos.dev/anetos/db"
+	"anetos.dev/anetos/internal/dbutil"
 )
 
 // Schema changes the database structure inside a migration. Its methods
@@ -239,7 +240,7 @@ func (s *Schema) dropSearchWithTable(table string) ([]string, error) {
 	if s.dialect == "sqlite" {
 		return s.dropSearchSQL(ix), nil
 	}
-	return []string{"DELETE FROM " + s.q(db.SearchIndexesTable) + " WHERE " + s.q("table_name") + " = " + sqlString(table)}, nil
+	return []string{"DELETE FROM " + s.q(dbutil.SearchIndexesTable) + " WHERE " + s.q("table_name") + " = " + sqlString(table)}, nil
 }
 
 // Rename renames a table.

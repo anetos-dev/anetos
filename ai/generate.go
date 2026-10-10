@@ -42,7 +42,8 @@ type call struct {
 	maxTokens    int
 	temperature  *float64
 	timeout      time.Duration
-	options      any
+	options      []any
+	dimensions   int    // Dimensions, for Embed
 	user         string // ForUser
 	userSet      bool
 	conversation *int64 // the stored conversation's ID
@@ -100,10 +101,15 @@ func Temperature(t float64) Option { return optionFunc(func(c *call) { c.tempera
 // context bounds the whole call.
 func Timeout(d time.Duration) Option { return optionFunc(func(c *call) { c.timeout = d }) }
 
-// ProviderOptions sets the provider's own request options (a value of a
-// type its driver defines), for features the common request doesn't
-// have. Providers ignore types that aren't theirs.
-func ProviderOptions(v any) Option { return optionFunc(func(c *call) { c.options = v }) }
+// ProviderOptions adds providers' own request options (values of types
+// their drivers define), for features the common request doesn't have.
+// Each provider uses its own types' values and ignores the others, so a
+// call can carry options for every provider AI_PROVIDER may name:
+//
+//	ai.ProviderOptions(anthropic.Options{ThinkingBudget: 2048}, openai.Options{ReasoningEffort: "high"})
+func ProviderOptions(v ...any) Option {
+	return optionFunc(func(c *call) { c.options = append(c.options, v...) })
+}
 
 // Using makes the call use client c instead of the context's.
 func Using(c *Client) Option { return optionFunc(func(cl *call) { cl.client = c }) }

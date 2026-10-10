@@ -33,8 +33,8 @@ app depends only on the SDKs it uses.
 Providers add features every month (reasoning, prompt caching,
 citations, their own hosted tools). The common contract covers what
 apps need everywhere: text, tools, structured output, streaming and
-usage. The rest stays reachable: `ai.ProviderOptions` passes a driver's
-own request options, `Response.Raw` holds the provider's own response,
+usage. The rest stays reachable: `ai.ProviderOptions` passes drivers'
+own request options (each provider takes its own), `Response.Raw` holds the provider's own response,
 and `Client.Provider()` leads to the driver's SDK client.
 
 ## Providers

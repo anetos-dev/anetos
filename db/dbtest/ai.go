@@ -186,10 +186,10 @@ func testAIConversations(t *testing.T, ctx context.Context) {
 		t.Error("the model was asked over budget")
 	}
 	// Embeddings count too: for the logged-in user, against their budget.
-	if _, err := ai.Embed(a.WithUser(ctx, "frugal"), 0, "spent"); web.StatusOf(err) != http.StatusTooManyRequests {
+	if _, err := ai.Embed(a.WithUser(ctx, "frugal"), []string{"spent"}); web.StatusOf(err) != http.StatusTooManyRequests {
 		t.Errorf("embedding over budget: %v", err)
 	}
-	if _, err := ai.Embed(a.WithUser(ctx, "embedder"), 0, "three little words", "and four more words"); err != nil {
+	if _, err := ai.Embed(a.WithUser(ctx, "embedder"), []string{"three little words", "and four more words"}); err != nil {
 		t.Error(err)
 	}
 	if recs, err := db.Query[ai.UsageRecord](ctx).Where(db.Col[string]("user_id").Eq("embedder")).Get(); err != nil || len(recs) != 1 ||

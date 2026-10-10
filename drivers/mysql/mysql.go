@@ -76,11 +76,11 @@ func inspectURL(dsn string) (host, mode string, err error) {
 }
 
 func open(cfg db.Config) (*sql.DB, error) {
-	dsn, err := DSN(cfg)
+	s, err := dsn(cfg)
 	if err != nil {
 		return nil, err
 	}
-	c, err := mysql.ParseDSN(dsn)
+	c, err := mysql.ParseDSN(s)
 	if err != nil {
 		return nil, err
 	}
@@ -128,10 +128,10 @@ func registerCA(path, host string) (string, error) {
 	return name, err
 }
 
-// DSN returns the go-sql-driver/mysql DSN for cfg. Built from DB_HOST and
+// dsn returns the go-sql-driver/mysql DSN for cfg. Built from DB_HOST and
 // the others, its tls follows cfg.TLSMode: true (or the CAs of
 // DB_TLS_CA), skip-verify, or false.
-func DSN(cfg db.Config) (string, error) {
+func dsn(cfg db.Config) (string, error) {
 	var c *mysql.Config
 	if cfg.URL != "" {
 		var err error

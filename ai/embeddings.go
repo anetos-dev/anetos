@@ -318,7 +318,7 @@ func (e *Embeddings[T]) syncNow(ctx context.Context, rows []T) error {
 		}
 	}
 	if len(texts) > 0 {
-		vs, err := embed(ctx, EmbedForDocument, e.ask(), e.cfg.Dimensions, texts)
+		vs, err := embed(ctx, EmbedForDocument, texts, []Option{Dimensions(e.cfg.Dimensions)}, e.cfg.FixedSize)
 		if err != nil {
 			return err
 		}
@@ -332,14 +332,6 @@ func (e *Embeddings[T]) syncNow(ctx context.Context, rows []T) error {
 		}
 	}
 	return nil
-}
-
-// ask is the vector size to ask the model for: 0 for a FixedSize one.
-func (e *Embeddings[T]) ask() int {
-	if e.cfg.FixedSize {
-		return 0
-	}
-	return e.cfg.Dimensions
 }
 
 // syncAll syncs every record, a hundred at a time, reporting how many,
@@ -416,7 +408,7 @@ func (e *Embeddings[T]) Search(ctx context.Context, query string, limit int, sco
 	if err != nil {
 		return nil, err
 	}
-	vs, err := embed(ctx, EmbedForQuery, e.ask(), e.cfg.Dimensions, []string{query})
+	vs, err := embed(ctx, EmbedForQuery, []string{query}, []Option{Dimensions(e.cfg.Dimensions)}, e.cfg.FixedSize)
 	if err != nil {
 		return nil, err
 	}
@@ -492,9 +484,9 @@ type searchInput struct {
 	Query string `json:"query" description:"What to look for, in words: a question or the topic" validate:"required|max:1000"`
 }
 
-// SearchResult is a result of the search tool ([Embeddings.Tool]), as
-// the model reads it.
-type SearchResult struct {
+// searchResult is a result of the search tool ([Embeddings.Tool]), as
+// the model reads it (JSON: id, title, text).
+type searchResult struct {
 	// ID is the record's primary key.
 	ID int64 `json:"id"`
 	// Title names the record (EmbeddingsConfig.Title), if set.
@@ -506,7 +498,7 @@ type SearchResult struct {
 // Tool returns a tool that searches the records ([Embeddings.Search]),
 // for an agent to answer from them (retrieval-augmented generation): the
 // model sends a query and gets the best limit records' passages
-// ([SearchResult]: ID, Title, Text). The config's Scope applies, with
+// (JSON objects with its id, title and text). The config's Scope applies, with
 // the context of the call, so the tool finds only what the user may see.
 //
 //	agent := ai.Agent{
@@ -515,20 +507,25 @@ type SearchResult struct {
 //		Tools:        []ai.Tool{articles.Tool("search_articles", "Search the help articles", 5)},
 //	}
 //
-// Tool panics if name isn't a valid tool name, as [NewTool] does.
+// A limit of 0 is [Embeddings.Search]'s 10. Tool panics if name isn't a
+// valid tool name, as [NewTool] does, or if limit is negative: tools are
+// made at startup, and these are programming errors.
 func (e *Embeddings[T]) Tool(name, description string, limit int) Tool {
-	return NewTool(name, description, func(ctx context.Context, in searchInput) ([]SearchResult, error) {
+	if limit < 0 {
+		panic(fmt.Sprintf("ai: tool %s: a limit of %d", name, limit))
+	}
+	return NewTool(name, description, func(ctx context.Context, in searchInput) ([]searchResult, error) {
 		found, err := e.Search(ctx, in.Query, limit)
 		if err != nil {
 			return nil, err
 		}
-		out := make([]SearchResult, len(found))
+		out := make([]searchResult, len(found))
 		for i, p := range found {
 			id, err := db.RecordID(p.Record)
 			if err != nil {
 				return nil, err
 			}
-			out[i] = SearchResult{ID: id, Text: p.Text}
+			out[i] = searchResult{ID: id, Text: p.Text}
 			if e.cfg.Title != nil {
 				out[i].Title = e.cfg.Title(p.Record)
 			}

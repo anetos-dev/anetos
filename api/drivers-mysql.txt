@@ -1,3 +1,2 @@
 # The exported API of anetos.dev/anetos/drivers/mysql: make api-update writes it, make api-check (CI) compares it with the source.
-pkg anetos.dev/anetos/drivers/mysql, func DSN(db.Config) (string, error)
 pkg anetos.dev/anetos/drivers/mysql, func Driver() db.Driver

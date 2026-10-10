@@ -378,9 +378,3 @@ var (
 	snake  = naming.Snake
 	plural = naming.Plural
 )
-
-// Plural returns the plural the db package uses for table names: it
-// pluralizes the last word of a snake_case name (blog_post → blog_posts,
-// category → categories, person → people). The migrate package uses it to
-// guess referenced tables.
-func Plural(name string) string { return plural(name) }

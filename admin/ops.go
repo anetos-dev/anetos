@@ -58,9 +58,10 @@ type jobsRes struct {
 
 func (r *jobsRes) info() *resInfo { return &r.in }
 
-// count is the failed jobs' count (none shown with the sync driver).
+// count is the failed jobs' count (none shown for a queue that runs
+// jobs at once: the sync driver's, or a custom one without a store).
 func (r *jobsRes) count(ctx context.Context) (int64, error) {
-	if r.q.Config().Driver == "sync" {
+	if r.q.Store() == nil {
 		return -1, nil
 	}
 	return queue.CountFailed(ctx, r.q.Store())
@@ -117,7 +118,7 @@ func (r *jobsRes) index(c *web.Ctx) error {
 		CSRF      string
 		RetryAll  string
 		Flush     string
-	}{Sync: r.q.Config().Driver == "sync", CanUpdate: rbac.Can(c, r.in.perm("update")), CSRF: csrfToken(c),
+	}{Sync: r.q.Store() == nil, CanUpdate: rbac.Can(c, r.in.perm("update")), CSRF: csrfToken(c),
 		RetryAll: r.url("/failed/retry-all"), Flush: r.url("/failed/flush")}
 	if !data.Sync {
 		for _, name := range r.queues {
@@ -160,7 +161,7 @@ func (r *jobsRes) find(c *web.Ctx) (queue.FailedJob, error) {
 }
 
 func (r *jobsRes) show(c *web.Ctx) error {
-	if r.q.Config().Driver == "sync" {
+	if r.q.Store() == nil {
 		return db.ErrNotFound
 	}
 	j, err := r.find(c)
@@ -192,6 +193,9 @@ func jobSubject(id string) audit.Subject {
 }
 
 func (r *jobsRes) retry(c *web.Ctx) error {
+	if r.q.Store() == nil { // a queue that runs jobs at once fails none
+		return db.ErrNotFound
+	}
 	id := c.Param("id")
 	ok, err := r.q.Store().Retry(c, id)
 	if err != nil {
@@ -207,6 +211,9 @@ func (r *jobsRes) retry(c *web.Ctx) error {
 }
 
 func (r *jobsRes) forget(c *web.Ctx) error {
+	if r.q.Store() == nil { // a queue that runs jobs at once fails none
+		return db.ErrNotFound
+	}
 	id := c.Param("id")
 	ok, err := r.q.Store().Forget(c, id)
 	if err != nil {
@@ -222,6 +229,9 @@ func (r *jobsRes) forget(c *web.Ctx) error {
 }
 
 func (r *jobsRes) retryAll(c *web.Ctx) error {
+	if r.q.Store() == nil { // a queue that runs jobs at once fails none
+		return db.ErrNotFound
+	}
 	// The failed jobs now: those that fail meanwhile wait for next time.
 	var ids []string
 	for offset := 0; ; offset += 500 {
@@ -253,6 +263,9 @@ func (r *jobsRes) retryAll(c *web.Ctx) error {
 }
 
 func (r *jobsRes) flush(c *web.Ctx) error {
+	if r.q.Store() == nil { // a queue that runs jobs at once fails none
+		return db.ErrNotFound
+	}
 	n, err := r.q.Store().Flush(c)
 	if err != nil {
 		return err
@@ -268,8 +281,8 @@ func (r *jobsRes) flush(c *web.Ctx) error {
 // ([Jobs]). Its permission is admin.jobs.view.
 func QueueHealth(q *queue.Queue, queues ...string) Widget {
 	return Widget{Title: "Queue", Permission: "admin.jobs.view", Load: func(ctx context.Context) (Content, error) {
-		if q.Config().Driver == "sync" {
-			return Content{Stats: []Stat{{Label: "Jobs", Value: "Run at once", Hint: "QUEUE_DRIVER=sync"}}}, nil
+		if q.Store() == nil {
+			return Content{Stats: []Stat{{Label: "Jobs", Value: "Run at once", Hint: "QUEUE_DRIVER=sync, or a driver without a store"}}}, nil
 		}
 		var c Content
 		for _, name := range queueNames(q, queues) {

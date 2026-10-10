@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"anetos.dev/anetos/db"
+	"anetos.dev/anetos/internal/dbutil"
 )
 
 // searchWeights weigh a search index's columns by position, as
@@ -101,7 +102,7 @@ func sqlString(v string) string { return "'" + strings.ReplaceAll(v, "'", "''") 
 // recordSearchSQL records a search index in the search_indexes table,
 // creating it if needed (with s.tableCharset: readCharset first).
 func (s *Schema) recordSearchSQL(table string, cols []string, cfg db.SearchConfig) []string {
-	idx := s.q(db.SearchIndexesTable)
+	idx := s.q(dbutil.SearchIndexesTable)
 	return []string{
 		"CREATE TABLE IF NOT EXISTS " + idx + " (" + s.q("table_name") + " VARCHAR(64) NOT NULL PRIMARY KEY, " + s.q("columns") + " TEXT NOT NULL, " +
 			s.q("language") + " VARCHAR(64) NOT NULL, " + s.q("ranking") + " VARCHAR(16) NOT NULL)" + s.tableCharset,
@@ -132,7 +133,7 @@ func (s *Schema) dropSearchSQL(ix db.SearchIndex) []string {
 	default:
 		stmts = s.dropSQLiteSearch(ix.Table)
 	}
-	return append(stmts, "DELETE FROM "+s.q(db.SearchIndexesTable)+" WHERE "+s.q("table_name")+" = "+sqlString(ix.Table))
+	return append(stmts, "DELETE FROM "+s.q(dbutil.SearchIndexesTable)+" WHERE "+s.q("table_name")+" = "+sqlString(ix.Table))
 }
 
 func (s *Schema) dropSQLiteSearch(table string) []string {

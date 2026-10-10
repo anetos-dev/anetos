@@ -124,7 +124,7 @@ func (p *plugin) webhook(c *web.Ctx) error {
 		c.Writer().Header().Set("WWW-Authenticate", `Basic realm="postmark"`)
 		return web.Error(http.StatusUnauthorized, "unauthorized")
 	}
-	var e Event
+	var e event
 	body := http.MaxBytesReader(c.Writer(), c.Request().Body, 1<<20) // events are a few KB
 	if err := json.NewDecoder(body).Decode(&e); err != nil {
 		if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
@@ -160,7 +160,7 @@ Each capability gets the app's service to add to:
 |---|---|---|
 | `ext.HasJobs` | `Jobs(q *queue.Queue) error`: `queue.Register`, `queue.RegisterFunc`; `q.Work` for workers of its own | `<name>:…` |
 | `ext.HasSchedule` | `Schedule(s *schedule.Scheduler) error`: `s.Add` | `<name>:…` |
-| `ext.HasListeners` | `Listen(bus *events.Bus) error`: `events.On`, `OnAsync`, `OnQueued` | |
+| `ext.HasListeners` | `Listeners(bus *events.Bus) error` (`Listen` before v0.5, still called with a warning until v0.6): `events.On`, `OnAsync`, `OnQueued` | |
 | `ext.HasCommands` | `Commands() []cmd.Command` | `<name>:…` (checked) |
 | `ext.HasBoot` | `Boot(ctx, app) error`: runs when the app boots, after the app's own providers | |
 

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/internal/dbutil"
+	"anetos.dev/anetos/internal/naming"
 )
 
 // colType is a portable column type, mapped to SQL per dialect.
@@ -135,7 +135,7 @@ func (c *Column) References(table string, column ...string) *Foreign {
 // author_id references authors(id), category_id references categories(id).
 func (c *Column) Constrained() *Foreign {
 	name := strings.TrimSuffix(c.name, "_id")
-	return c.References(db.Plural(name))
+	return c.References(naming.Plural(name))
 }
 
 // Action is what a foreign key does when the referenced row is deleted or

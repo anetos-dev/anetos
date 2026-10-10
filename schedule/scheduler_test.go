@@ -631,3 +631,10 @@ func TestLastRun(t *testing.T) {
 	// Without a cache, runs aren't kept, and nothing fails.
 	check(t, s.RunTask(context.Background(), "sync"))
 }
+
+// A negative grace is none.
+func TestNegativeShutdownGrace(t *testing.T) {
+	if g := schedule.Grace(schedule.NewScheduler(schedule.WithShutdownGrace(-time.Second))); g != 0 {
+		t.Errorf("grace = %v, want 0", g)
+	}
+}

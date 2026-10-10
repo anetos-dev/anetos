@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"slices"
 	"strings"
 	"sync"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"anetos.dev/anetos"
+	"anetos.dev/anetos/cmd"
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/db/migrate"
 )
@@ -407,13 +409,24 @@ func testMigrationFailure(t *testing.T, ctx context.Context) {
 	}
 }
 
+// runCommand runs the runner's app command args[0], as the app binary
+// does; handled is false when it has none of that name.
+func runCommand(ctx context.Context, r *migrate.Runner, args []string, out io.Writer) (handled bool, err error) {
+	for _, c := range r.AppCommands() {
+		if c.Name == args[0] {
+			return true, c.Run(ctx, &cmd.Args{Name: args[0], Args: args[1:], Stdout: out, Stderr: io.Discard})
+		}
+	}
+	return false, nil
+}
+
 func testMigrationCommands(t *testing.T, ctx context.Context) {
 	dropMigrationTables(t, ctx)
 	var out bytes.Buffer
 	run := func(env anetos.Environment, args ...string) error {
 		t.Helper()
 		out.Reset()
-		handled, err := runner(t, ctx, env, migrationSet(true)).Command(ctx, args, &out)
+		handled, err := runCommand(ctx, runner(t, ctx, env, migrationSet(true)), args, &out)
 		if !handled {
 			t.Fatalf("%v not handled", args)
 		}
@@ -449,7 +462,7 @@ func testMigrationCommands(t *testing.T, ctx context.Context) {
 	if err := run(anetos.Development, "migrate", "extra"); err == nil {
 		t.Error("stray argument accepted")
 	}
-	if handled, _ := runner(t, ctx, anetos.Testing).Command(ctx, []string{"serve"}, &out); handled {
+	if handled, _ := runCommand(ctx, runner(t, ctx, anetos.Testing), []string{"serve"}, &out); handled {
 		t.Error("serve handled")
 	}
 	check(t, run(anetos.Development, "migrate:reset"))
@@ -469,7 +482,7 @@ func testMigrationCommands(t *testing.T, ctx context.Context) {
 	failing := migrationSet(true)
 	failing.AddFunc("2026_09_09_000000_fails", func(*migrate.Schema) error { return errors.New("boom") }, nil)
 	out.Reset()
-	if _, err := runner(t, ctx, anetos.Development, failing).Command(ctx, []string{"migrate"}, &out); err == nil || strings.Contains(out.String(), "Nothing to migrate") {
+	if _, err := runCommand(ctx, runner(t, ctx, anetos.Development, failing), []string{"migrate"}, &out); err == nil || strings.Contains(out.String(), "Nothing to migrate") {
 		t.Errorf("failed migrate: %v\n%s", err, out.String())
 	}
 	recreate(t, ctx)

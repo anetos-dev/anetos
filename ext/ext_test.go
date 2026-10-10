@@ -69,7 +69,7 @@ func (g *greeter) Jobs(q *queue.Queue) error {
 func (g *greeter) Schedule(s *schedule.Scheduler) error {
 	return s.Add(schedule.Daily(), "greeter:daily", func(context.Context) error { return nil })
 }
-func (g *greeter) Listen(bus *events.Bus) error {
+func (g *greeter) Listeners(bus *events.Bus) error {
 	return events.On(bus, func(ctx context.Context, e greeted) error {
 		return queue.DispatchFunc(ctx, "greeter:count", struct{}{})
 	})
@@ -166,6 +166,33 @@ type quoted struct {
 }
 
 func (q *quoted) Config() any { return &q.cfg }
+
+// formerListener has HasListeners' method before v0.5.
+type formerListener struct{ heard atomic.Int32 }
+
+func (*formerListener) Name() string { return "former" }
+func (f *formerListener) Listen(bus *events.Bus) error {
+	return events.On(bus, func(context.Context, greeted) error { f.heard.Add(1); return nil })
+}
+
+// A plugin's Listen is still called, with a warning, until v0.6.
+func TestFormerListeners(t *testing.T) {
+	var logs bytes.Buffer
+	app, err := anetos.New(anetos.WithSource(config.Map{"APP_ENV": "testing"}), anetos.WithLogOutput(&logs))
+	check(t, err)
+	t.Cleanup(func() { _ = app.Close() })
+	_, err = events.New(app)
+	check(t, err)
+	p := &formerListener{}
+	check(t, ext.Load(app, []ext.Plugin{p}))
+	check(t, events.Emit(app.Context(context.Background()), greeted{"ada"}))
+	if p.heard.Load() != 1 {
+		t.Errorf("heard %d events, want 1", p.heard.Load())
+	}
+	if !strings.Contains(logs.String(), "plugin former has Listen, which is Listeners since v0.5") {
+		t.Errorf("no warning:\n%s", logs.String())
+	}
+}
 
 // plugin:env's lines read back as the defaults.
 func TestEnvQuoting(t *testing.T) {

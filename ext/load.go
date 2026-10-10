@@ -50,8 +50,8 @@ func Mount(name, prefix string) Option {
 	return func(o *options) { o.mounts[name] = prefix }
 }
 
-// Info describes a loaded plugin, for the plugin:list command.
-type Info struct {
+// pluginInfo describes a loaded plugin, for the plugin:list command.
+type pluginInfo struct {
 	// Name is the plugin's name.
 	Name string
 	// Requires is its version constraint, if it has one.
@@ -65,7 +65,7 @@ type Info struct {
 }
 
 // registry is the app's loaded plugins.
-type registry struct{ plugins []Info }
+type registry struct{ plugins []pluginInfo }
 
 // Load adds plugins to the app: for each one, in order, it checks its
 // name (valid, not the framework's, not taken), its version requirement
@@ -130,16 +130,16 @@ func Load(app *anetos.App, plugins []Plugin, opts ...Option) error {
 }
 
 // load wires one plugin into the app.
-func load(app *anetos.App, reg *registry, p Plugin, o options) (Info, error) {
+func load(app *anetos.App, reg *registry, p Plugin, o options) (pluginInfo, error) {
 	name := p.Name()
-	info := Info{Name: name}
+	info := pluginInfo{Name: name}
 	if !pluginName.MatchString(name) {
 		return info, errors.New("invalid name: use up to 40 lower-case letters, digits and -, starting with a letter")
 	}
 	if slices.Contains(reserved, name) {
 		return info, fmt.Errorf("the name %q is reserved for the framework", name)
 	}
-	if slices.ContainsFunc(reg.plugins, func(i Info) bool { return i.Name == name }) {
+	if slices.ContainsFunc(reg.plugins, func(i pluginInfo) bool { return i.Name == name }) {
 		return info, errors.New("loaded twice")
 	}
 	// The other way round: stripe-connect can't be loaded after a
@@ -257,13 +257,21 @@ func load(app *anetos.App, reg *registry, p Plugin, o options) (Info, error) {
 			return info, err
 		}
 	}
-	if l, ok := p.(HasListeners); ok {
+	var listen func(*events.Bus) error
+	switch l := p.(type) {
+	case HasListeners:
+		listen = l.Listeners
+	case formerListeners:
+		app.Logger().Warn(fmt.Sprintf("ext: plugin %s has Listen, which is Listeners since v0.5; the old name is removed in v0.6", name))
+		listen = l.Listen
+	}
+	if listen != nil {
 		info.Adds = append(info.Adds, "listeners")
 		bus, err := anetos.Resolve[*events.Bus](app)
 		if err != nil {
 			return info, errors.New("it has listeners: call events.New before ext.Load")
 		}
-		if err := l.Listen(bus); err != nil {
+		if err := listen(bus); err != nil {
 			return info, err
 		}
 	}

@@ -71,7 +71,9 @@ type Config struct {
 	New func(t *testing.T, hc *http.Client, key string) ai.Provider
 	// Dir holds the cassettes; default testdata/aitest.
 	Dir string
-	// Skip names the tests the provider can't pass, with why.
+	// Skip names the tests the provider can't pass, with why: Text,
+	// Stream, Conversation, Tools, ToolsStream, Output, MaxTokens, Error,
+	// and Embed (run when Config has an embedding model).
 	Skip map[string]string
 	// EmbeddingModel is the embedding model of the recordings, for
 	// providers with embeddings (ai.Embedder): the Embed test runs with

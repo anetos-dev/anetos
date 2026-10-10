@@ -27,6 +27,7 @@ import (
 
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/db/factory"
+	"anetos.dev/anetos/internal/dbhook"
 	"anetos.dev/anetos/validate"
 )
 
@@ -678,13 +679,13 @@ func testRaw(t *testing.T, ctx context.Context) {
 	}
 }
 
-// testTestTx checks db.WithTestTx: AfterCommit callbacks run as if the
-// test's transaction weren't there.
+// testTestTx checks a test's transaction (dbhook.WithTestTx):
+// AfterCommit callbacks run as if the test's transaction weren't there.
 func testTestTx(t *testing.T, ctx context.Context) {
 	tx, err := d(ctx).SQL().BeginTx(ctx, nil)
 	check(t, err)
 	defer func() { _ = tx.Rollback() }()
-	tctx, err := db.WithTestTx(ctx, tx)
+	tctx, err := dbhook.WithTestTx(ctx, tx)
 	check(t, err)
 	if !db.InTx(tctx) {
 		t.Fatal("InTx = false in the test's transaction")

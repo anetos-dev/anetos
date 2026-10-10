@@ -108,8 +108,8 @@ func (p *plugin) Migrations() *migrate.Set {
 
 // endregion
 
-// Event is the part of a Postmark webhook the plugin uses.
-type Event struct {
+// event is the part of a Postmark webhook the plugin uses.
+type event struct {
 	// RecordType is Bounce, SpamComplaint or SubscriptionChange.
 	RecordType string `json:"RecordType"`
 	// Email is a bounce's or complaint's address.
@@ -146,7 +146,7 @@ func (p *plugin) webhook(c *web.Ctx) error {
 		c.Writer().Header().Set("WWW-Authenticate", `Basic realm="postmark"`)
 		return web.Error(http.StatusUnauthorized, "unauthorized")
 	}
-	var e Event
+	var e event
 	body := http.MaxBytesReader(c.Writer(), c.Request().Body, 1<<20) // events are a few KB
 	if err := json.NewDecoder(body).Decode(&e); err != nil {
 		if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
@@ -193,7 +193,7 @@ func (p *plugin) Jobs(q *queue.Queue) error {
 // subscription change resumes sending: a bounce or complaint that
 // didn't deactivate the address (a soft bounce, possibly late) leaves
 // the list as it is.
-func record(ctx context.Context, e Event) error {
+func record(ctx context.Context, e event) error {
 	email, reason, suppress := e.address(), e.Type, e.Inactive
 	if e.RecordType == "SubscriptionChange" {
 		reason, suppress = e.SuppressionReason, e.SuppressSending
@@ -213,7 +213,7 @@ func record(ctx context.Context, e Event) error {
 }
 
 // address is the event's address, normalized.
-func (e Event) address() string {
+func (e event) address() string {
 	if e.RecordType == "SubscriptionChange" {
 		return normalize(e.Recipient)
 	}

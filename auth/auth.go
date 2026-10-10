@@ -158,11 +158,11 @@ type Config struct {
 // Validate implements config.Validator.
 func (c Config) Validate() error {
 	var errs []error
-	for name, u := range map[string]string{"AUTH_LOGIN_URL": c.LoginURL, "AUTH_HOME_URL": c.HomeURL,
-		"AUTH_CHALLENGE_URL": c.ChallengeURL, "AUTH_TWO_FACTOR_URL": c.TwoFactorURL, "AUTH_CONFIRM_URL": c.ConfirmURL,
-		"AUTH_SETTINGS_URL": c.SettingsURL} {
-		if !localPath(u) {
-			errs = append(errs, fmt.Errorf("%s %q must be a path on this site (starting with /)", name, u))
+	for _, p := range []struct{ name, url string }{{"AUTH_LOGIN_URL", c.LoginURL}, {"AUTH_HOME_URL", c.HomeURL},
+		{"AUTH_CHALLENGE_URL", c.ChallengeURL}, {"AUTH_TWO_FACTOR_URL", c.TwoFactorURL}, {"AUTH_CONFIRM_URL", c.ConfirmURL},
+		{"AUTH_SETTINGS_URL", c.SettingsURL}} { // in order: the messages read the same each time
+		if !localPath(p.url) {
+			errs = append(errs, fmt.Errorf("%s %q must be a path on this site (starting with /)", p.name, p.url))
 		}
 	}
 	if c.RememberTTL < time.Minute || c.ResetTTL < time.Minute || c.VerifyTTL < time.Minute || c.ConfirmTTL < time.Minute || c.RevertTTL < time.Minute {

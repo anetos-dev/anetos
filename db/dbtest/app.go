@@ -23,6 +23,7 @@ import (
 	"anetos.dev/anetos/db/factory"
 	"anetos.dev/anetos/db/migrate"
 	"anetos.dev/anetos/encryption"
+	"anetos.dev/anetos/internal/dbutil"
 	"anetos.dev/anetos/supervisor"
 	"anetos.dev/anetos/web"
 )
@@ -315,7 +316,7 @@ func runSearchApp(t *testing.T, drv db.Driver, env map[string]string, d *db.DB) 
 	}
 	ctx := db.WithDB(context.Background(), d)
 	t.Cleanup(func() {
-		for _, table := range []string{"st_app_notes", "st_app_notes_search", "st_app_search_migrations", db.SearchIndexesTable} {
+		for _, table := range []string{"st_app_notes", "st_app_notes_search", "st_app_search_migrations", dbutil.SearchIndexesTable} {
 			_, _ = db.Exec(ctx, "DROP TABLE IF EXISTS "+table)
 		}
 	})

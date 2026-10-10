@@ -12,7 +12,9 @@ import (
 	"anetos.dev/anetos"
 	"anetos.dev/anetos/auth"
 	"anetos.dev/anetos/db"
+	"anetos.dev/anetos/i18n"
 	"anetos.dev/anetos/queue"
+	"anetos.dev/anetos/web"
 )
 
 // queuedAgents are the agents that may answer queued replies, by name.
@@ -169,7 +171,7 @@ func (j replyJob) Handle(ctx context.Context) error {
 func (j replyJob) Failed(ctx context.Context, err error) {
 	msg := "The reply failed. Try again."
 	if s := clientStatus(err); s != 0 {
-		msg = clientMessage(err)
+		msg = clientMessage(ctx, err)
 	}
 	if _, uerr := db.Query[Conversation](ctx).Where(j.mine()).
 		Update(colStatus.Set(StatusFailed), colError.Set(truncate(msg, 255))); uerr != nil {
@@ -191,8 +193,12 @@ func clientStatus(err error) int {
 }
 
 // clientMessage returns what a user may see of a 4xx error: the message
-// of a *web.HTTPError, else the status text.
-func clientMessage(err error) string {
+// of a *web.HTTPError, in ctx's locale when it has a key (a spent budget's
+// "ai.usage_limit"), else the status text.
+func clientMessage(ctx context.Context, err error) string {
+	if he, ok := errors.AsType[*web.HTTPError](err); ok && he.Key != "" && i18n.Has(ctx, he.Key) {
+		return i18n.T(ctx, he.Key, he.Args...)
+	}
 	var sc statusCoder
 	if !errors.As(err, &sc) {
 		return http.StatusText(http.StatusInternalServerError)

@@ -15,8 +15,9 @@ import (
 // ships dialects for PostgreSQL, MySQL/MariaDB and SQLite; driver modules
 // pair one with a database/sql driver in a [Driver].
 //
-// The interface may grow before v1.0; implement it outside this package
-// only if you are prepared to follow those changes.
+// Only this package may implement it ([Postgres], [MySQL], [SQLite]): the
+// query builder and migrations write SQL by the dialect's name, so
+// another dialect would compile and write SQL for the wrong database.
 type Dialect interface {
 	// Name identifies the dialect: "postgres", "mysql" or "sqlite".
 	Name() string
@@ -37,6 +38,9 @@ type Dialect interface {
 	LockClause(share bool) string
 	// Arg converts a query argument before it is sent to the driver.
 	Arg(v any) any
+
+	// dialect seals the interface.
+	dialect()
 }
 
 // Postgres returns the PostgreSQL dialect.
@@ -47,6 +51,10 @@ func MySQL() Dialect { return mysql{} }
 
 // SQLite returns the SQLite dialect.
 func SQLite() Dialect { return sqlite{} }
+
+func (postgres) dialect() {}
+func (mysql) dialect()    {}
+func (sqlite) dialect()   {}
 
 type postgres struct{}
 
@@ -128,17 +136,17 @@ func (sqlite) Upsert(conflict, update []string) string {
 // opened by the SQLite driver take the write lock up front.
 func (sqlite) LockClause(bool) string { return "" }
 
-// SQLiteTimeFormat is how times are stored in SQLite: UTC text in the
+// sqliteTimeFormat is how times are stored in SQLite: UTC text in the
 // format of SQLite's own CURRENT_TIMESTAMP and datetime(), with fractional
 // seconds when present. Using one format makes text comparison and sorting
 // match time order, also against values written by SQL defaults.
-const SQLiteTimeFormat = "2006-01-02 15:04:05.999999999"
+const sqliteTimeFormat = "2006-01-02 15:04:05.999999999"
 
-// Arg writes times as UTC text in [SQLiteTimeFormat].
+// Arg writes times as UTC text in [sqliteTimeFormat].
 func (sqlite) Arg(v any) any {
 	if t, ok := timeArg(v); ok {
 		if tt, isTime := t.(time.Time); isTime {
-			return tt.Format(SQLiteTimeFormat)
+			return tt.Format(sqliteTimeFormat)
 		}
 		return t
 	}

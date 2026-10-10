@@ -18,7 +18,8 @@ import (
 )
 
 // Client is a provider with the app's defaults (model, length, timeout)
-// and logger. [New] makes the app's; [NewWithProvider] makes one by hand. Calls
+// and logger. [New] makes the app's; [NewWithProvider] makes one by hand
+// (its zero value has no provider: use one of them). Calls
 // find it in their context ([WithClient], [From]), or take it from
 // [Using]. A Client is safe for concurrent use.
 type Client struct {
@@ -91,7 +92,7 @@ func WithClient(ctx context.Context, c *Client) context.Context {
 // call has no [Using] option.
 var ErrNoClient = errors.New("ai: no AI client in the context: call ai.New at startup, or ai.WithClient")
 
-// From returns the client in ctx.
+// From returns the client in ctx, or [ErrNoClient].
 func From(ctx context.Context) (*Client, error) {
 	if c, ok := ctx.Value(clientKey{}).(*Client); ok {
 		return c, nil

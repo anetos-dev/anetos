@@ -906,7 +906,7 @@ has its entry and a rolled-back one never does (D202).
 
 **Watched writes, in the data layer.** `db` doesn't know about auditing;
 it lets a package watch the writes to a table (`DB.Watch(table, w,
-bulkValues)`, D203). For a watched table, every write the `db` package
+db.WatchBulkValues(n))`, D203). For a watched table, every write the `db` package
 makes runs in a transaction (a savepoint inside one already open, so
 model hooks run inside it too), and:
 
@@ -916,7 +916,7 @@ model hooks run inside it too), and:
 | `Update` | the row's values before (read `FOR UPDATE` in the transaction, just before the write) and after; the watcher decides what changed |
 | `Delete` (soft) / `Restore` | the key |
 | `Delete` without `SoftDeletes`, `ForceDelete` | the values the row had |
-| `CreateMany`, `Upsert`, and `Update`/`Delete`/`ForceDelete`/`Restore` on a query | one bulk write: the condition, the assignments, every affected row's key, and the values before (and, for upserts and creates, after) of up to `bulkValues` rows |
+| `CreateMany`, `Upsert`, and `Update`/`Delete`/`ForceDelete`/`Restore` on a query | one bulk write: the condition, the assignments, every affected row's key, and the values before (and, for upserts and creates, after) of up to `db.WatchBulkValues(n)` rows |
 
 A bulk write on a watched table first selects the matching rows' keys
 (and values) `FOR UPDATE`, then writes in chunks of 1,000 keys, each
@@ -2042,8 +2042,9 @@ for ev, err := range support.Stream(ctx, question) { … }  // the answer as it'
   `AI_MODEL`, `AI_MAX_TOKENS`, `AI_TIMEOUT` (default 10 minutes, the
   SDKs' own; in a stream, the reader's time counts) and the `Fake`; no provider
   SDK. Providers' features move monthly (reasoning, prompt caching,
-  citations, hosted tools), so `ProviderOptions` passes a driver's own
-  request type, `Response.Raw` keeps the provider's response, and
+  citations, hosted tools), so `ProviderOptions` passes drivers' own
+  request types (a list: each provider takes its own, D316),
+  `Response.Raw` keeps the provider's response, and
   `Client.Provider()` leads to the SDK client: the contract never has to
   grow to everything.
 - **Providers** (A2, D166–D168): `drivers/anthropic` (Messages API),
@@ -2146,7 +2147,8 @@ for ev, err := range support.Stream(ctx, question) { … }  // the answer as it'
   them from the live API (never the headers) and `ANETOS_AI_LIVE=1`
   runs against it.
 - **Embeddings and retrieval** (S2, §10.5, D180–D181, D184):
-  `ai.Embed` and `ai.EmbedQuery` call an optional `Embedder` contract
+  `ai.Embed` and `ai.EmbedQuery` (with the call options, `ai.Dimensions`
+  among them, D316) call an optional `Embedder` contract
   (OpenAI and compatible servers, Gemini with task types; Anthropic has
   none), possibly another provider than chat's (`AI_EMBEDDING_PROVIDER`,
   `AI_EMBEDDING_MODEL`), in batches of 96, with usage recorded and
@@ -2459,7 +2461,7 @@ type HasRoutes     interface{ Routes(r *web.Router) error }       // under /stri
 type HasCommands   interface{ Commands() []cmd.Command }          // "stripe:…"
 type HasJobs       interface{ Jobs(q *queue.Queue) error }
 type HasSchedule   interface{ Schedule(s *schedule.Scheduler) error }
-type HasListeners  interface{ Listen(bus *events.Bus) error }
+type HasListeners  interface{ Listeners(bus *events.Bus) error }
 type HasBoot       interface{ Boot(ctx context.Context, app *anetos.App) error }
 ```
 
@@ -2675,8 +2677,8 @@ func TestCreatePost(t *testing.T) {
   so a failed statement doesn't poison PostgreSQL's transaction. Whether
   the database is in memory is asked of SQLite after connecting, and an
   unset or empty `DB_NAME` never falls back to `database/app.db`.
-  The test's transaction comes from `db.WithTestTx`: work at its level
-  counts as committed, so `AfterCommit` callbacks run when a `db.Tx`
+  The test's transaction is marked as a test's (through an internal
+  hook of package db): work at its level counts as committed, so `AfterCommit` callbacks run when a `db.Tx`
   directly inside it (a request's) commits, or at once outside one (D108).
   Known differences from production (connections of their own, such as
   queue workers', statements after a PostgreSQL error, timeouts, MySQL
@@ -3214,6 +3216,7 @@ unless new information arrives), **Open**, **Superseded**.
 | D313 | Commands and the project's conventions use the words developers type elsewhere: CRUD route names follow the handlers (`index`, `new`, `create`, `show`, `edit`, `update`, `delete`; were `store` and `destroy`); command groups are singular (`route:list`, `plugin:list`, `plugin:env`, `locale:check`; the anetos tool's `locale:add`, `make:admin-resource`, `generate` for `gen`, a short form of it since D314), the old names kept as `cmd.Command.Former` (or the tool's own table) until v0.6, running with a warning; `schedule:run` runs the tasks due this minute once (`Scheduler.RunDue`) and `schedule:test <task>` one task, `queue:work` and `schedule:work` are the `run --only` roles; `key:generate` writes `APP_KEY` into `.env` when it is missing or empty, refuses a set key unless `--force` (which moves it to `APP_PREVIOUS_KEYS`), and `--show` prints one; help texts write `--flag`; `public/` is the web root, served at `/` by the new `web.Router.Static` after the routes (no directories, Go files or hidden files but `.well-known/`), `public/static/` staying at `/assets/` with hashed URLs, and new projects get a `robots.txt`; `make:auth`'s group behind `a.Require` is `loggedIn` in both stacks (was `members` and `me`); the `--css` choices are CSS frameworks in help, output and docs (the default is the starter theme), recorded in `views/ui/css.json` (`kit.json` still read and replaced by `css:use`), with guides named after the frameworks | Accepted | User's choices (2026-10-10): route = handler name (Q3 of the vocabulary review), `loggedIn`, `public/` at `/` with `r.Static`, `key:generate` refusing a set key without `--force`, hidden former names with a warning. The plural groups (`routes:list`, `plugins:*`) were the odd ones out among the app's singular groups and Laravel's `route:list`, and `lang:*` worked on `locales/`; `schedule:run` meant a one-task run where cron users expect the due tasks; a `public/robots.txt` silently 404'd |
 | D314 | Command names may be shortened in the app binary and the `anetos` tool: each part between colons may be cut to a prefix while the name fits one command (with as many parts), or of several the only one with the most parts written whole (`m:admin` is `make:admin` beside `make:admin-resource`); an exact name or a former name wins; an ambiguous one lists the candidates and exits 2 | Accepted | User's choice (2026-10-10), over Rails-style fixed aliases: Laravel developers know artisan's (Symfony console's) abbreviations, and there is no list to maintain; two differences make short names more useful: a name matches only commands with as many parts (artisan finds `mi` ambiguous with every `migrate:*`), and a part written whole breaks a tie (`m:admin`). `g` doesn't take Rails' meaning (its `g` is our `make:*`). Short names are for typing: a later command can make one ambiguous or change what it runs, so the docs ask scripts to write whole names, which always win |
 | D315 | The rest of the API takes the words and shapes developers know (the vocabulary review's medium and low items, the API review's rules): constructor options start with `With` (`WithDefaultHomeURL`, `WithTrustedOrigins`…), per-call options don't, and a package's `Option` is its constructor's (`events.Option`, with `ListenOption` for a listener's, as `pubsub`; `audit.TrackOption`); drivers' options hold no SDK types (`gcppubsub.WithClientOptions`, `s3.WithTransport`); a request's values are `Noun(ctx)` (`web.CurrentRoute`, `web.ClientIP(ctx)`, which a router seeds with the peer's address; `session.WithSession` sets one); `storage.From(ctx)` is the default disk (Laravel's `Storage::put`) and `storage.DiskFrom(ctx, name)` another; what the app runs (a request, a job, a listener, a task, a tool call) is an *operation* (`anetos.Operation`, `AroundOperations`), OpenTelemetry's word; what `run --only` selects is a *process type* (`web`, `worker`, `scheduler`, `listener`, Heroku's), with `http`, `workers`, `listeners` read with a warning until v0.6; `db.AllowRepeatedQueries`, `TxWithOptions`, `Prunable`, `Page.HasNext`, `UniqueWithoutTrashed` and `unique_without_trashed`, `Chunk.EmbeddingModel`; `pubsub.Tries`, `Ctx.EventStream`, `web.Render`, `Session.GetString`, `ai.NewTool`, `cache.Delete`, `schedule.Config.TimeZone`; `web.WrapHandler(h)` (Echo's) for a plain handler, which the router serves without a `Ctx`, in place of `HandleStd`; a user model's `PreferredMailLocale()` (`MailLocalePreference`) and a backend's `TemporaryURL` (`TemporaryURLBackend`, as `fs.StatFS` names a file system's extra), the old interfaces still used until v0.6; the admin's `Label`, `PluralLabel`, `RecordTitle` and `TextColumn(column, label)`, Filament's; `views/ui` buttons take a `Variant` and optional `Size`s. Renamed identifiers stay deprecated until v0.6 (D309) | Accepted | User's choices (2026-10-10): `storage.From` stays the default disk, `web.WrapHandler` (chi's `Mount` is a prefix's sub-router, not one route), `Variant` with sizes after it, process types now. "Unit of work" means change tracking in every ORM, "role" meant both a process kind and an RBAC role in one binary, `Untracked` reads as EF Core's no-tracking query, `Func` and `Events` were nouns no SDK uses for a tool and a stream; `CommunicationLocale` would have clashed with a `MailLocale` field, so the method takes the `Preferred…` form of its siblings. `social.WithHomeURL` is kept: it gives social logins a page of their own |
+| D316 | The API's shapes that could only change before the first public release: `ai.Request.Options` is a list each provider takes its own values from (`ProviderOptions(v...)` adds), `ai.Embed`/`EmbedQuery` take the call options (`Dimensions`, `Using`, `ForUser`, `Timeout`), `db.DB.Watch` takes `WatchOption`s, `db.Dialect` is sealed, `web.Router.As` derives a router, `HTTPError.Wrap` copies, `web.CSRFOption` hides `http.CrossOriginProtection`, `ext.HasListeners.Listeners` (the old `Listen` called with a warning until v0.6), exported constants and helpers no app used are removed (`db.WithTestTx` becomes an internal hook for anetostest), and a backend's temporary URLs must serve active content as attachments (storagetest checks); `admin.Action.Permission` stays a string (it holds a resource's kind, "update", or a permission) and `anetostest.App.Disk` stays variadic (more than one name fails the test) | Accepted | Each would break callers or third-party drivers once v0.5 is public: one provider's options lost on switching `AI_PROVIDER`, embeddings that ignored the call's client and timeout, a watcher signature with no room for a second setting, third-party dialects writing the wrong SQL, `As` renaming its own router's routes, `ErrCSRF.Wrap` racing on a shared value. Removing unused exports keeps the first public godoc to what apps use |
 
 ---
 
@@ -3316,3 +3319,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-10 | M8b-4 (commands and the project): §12.2, §17 updated; D313 added |
 | 2026-10-10 | M8b-4b (short command names): §17 updated; D314 added |
 | 2026-10-10 | M8b-5 (the rest of the API), first part: names across §3, §4, §10, §13; D315 added |
+| 2026-10-11 | M8b-5b (shapes and the API review's bugs): §10 (watched writes), §14 (ai), §16 (`HasListeners`), §18 (the test's transaction) details; D316 added |

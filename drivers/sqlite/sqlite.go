@@ -73,11 +73,11 @@ func tune(cfg *db.Config) {
 }
 
 func open(cfg db.Config) (*sql.DB, error) {
-	return sql.Open("sqlite", DSN(cfg))
+	return sql.Open("sqlite", dsn(cfg))
 }
 
-// DSN returns the modernc.org/sqlite connection string for cfg.
-func DSN(cfg db.Config) string {
+// dsn returns the modernc.org/sqlite connection string for cfg.
+func dsn(cfg db.Config) string {
 	if cfg.URL != "" {
 		return cfg.URL
 	}

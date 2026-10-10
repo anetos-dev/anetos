@@ -30,8 +30,12 @@ type SchemaOptions struct {
 	Formats []string
 }
 
-// ConstraintKeywords are the constraint keywords a [Schema] can have.
-var ConstraintKeywords = []string{"format", "minLength", "maxLength", "minimum", "maximum", "minItems", "maxItems", "minProperties", "maxProperties"}
+// constraintKeywords are the constraint keywords a [Schema] can have.
+var constraintKeywords = []string{"format", "minLength", "maxLength", "minimum", "maximum", "minItems", "maxItems", "minProperties", "maxProperties"}
+
+// ConstraintKeywords returns the constraint keywords a [Schema] can
+// have, for [SchemaOptions.Keywords] (a copy).
+func ConstraintKeywords() []string { return slices.Clone(constraintKeywords) }
 
 // Map returns the schema as a JSON Schema object adapted by o, for a
 // provider's SDK. Objects' "properties" keep their order when marshaled

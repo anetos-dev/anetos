@@ -35,7 +35,9 @@ func opsApp(t *testing.T, ran chan<- string, hold <-chan struct{}, env ...string
 		vars[env[i]] = env[i+1]
 	}
 	return anetostest.New(t, setupWith(func(p *Panel) error {
-		q, err := queue.New(p.app)
+		// QUEUE_DRIVER=storeless: a custom driver that runs jobs at once.
+		storeless := queue.Driver{Name: "storeless", Open: func(*anetos.App, queue.Config) (queue.Store, error) { return nil, nil }}
+		q, err := queue.New(p.app, storeless)
 		if err != nil {
 			return err
 		}
@@ -305,5 +307,18 @@ func TestNumbers(t *testing.T) {
 	}
 	if d := days(time.Date(2026, 10, 6, 15, 0, 0, 0, time.UTC), 3); d[0].Day() != 4 || d[2].Day() != 6 {
 		t.Errorf("days %v", d)
+	}
+}
+
+// A queue without a store (a custom run-at-once driver, not only sync)
+// has no failed jobs to show or change.
+func TestJobsWithoutStore(t *testing.T) {
+	app := opsApp(t, make(chan string, 1), nil, "QUEUE_DRIVER", "storeless")
+	login(t, app, "Ada", "admin")
+	app.Get("/admin").AssertOK().AssertSee("Run at once")
+	app.Get("/admin/jobs").AssertOK().AssertSee("Jobs run at once")
+	app.Get("/admin/jobs/failed/j1").AssertNotFound()
+	for _, path := range []string{"/admin/jobs/failed/j1/retry", "/admin/jobs/failed/j1/forget", "/admin/jobs/failed/retry-all", "/admin/jobs/failed/flush"} {
+		app.PostForm(path, nil).AssertNotFound()
 	}
 }

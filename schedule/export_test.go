@@ -19,3 +19,6 @@ func SetOverlapLease(t interface{ Cleanup(func()) }, d time.Duration) {
 	overlapLease = d
 	t.Cleanup(func() { overlapLease = old })
 }
+
+// Grace returns the scheduler's shutdown grace.
+func Grace(s *Scheduler) time.Duration { return s.grace }

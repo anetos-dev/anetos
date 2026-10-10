@@ -10,11 +10,12 @@ import (
 
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/db/migrate"
+	"anetos.dev/anetos/internal/dbutil"
 )
 
 func init() {
 	extra = append(extra, test{"Search", testSearch}, test{"SearchSettings", testSearchSettings})
-	migrationTables = append(migrationTables, "st_s_articles", "st_s_renamed", stLongTable, db.SearchIndexesTable)
+	migrationTables = append(migrationTables, "st_s_articles", "st_s_renamed", stLongTable, dbutil.SearchIndexesTable)
 }
 
 // stArticle is a searchable model.
@@ -307,12 +308,12 @@ func testSearch(t *testing.T, ctx context.Context) {
 	runner, err := migrate.NewRunner(d(ctx), nil, migrate.WithTable("st_migrations"))
 	check(t, err)
 	cols := d(ctx).Dialect().QuoteIdent("columns")
-	_, err = db.Exec(ctx, "UPDATE "+db.SearchIndexesTable+" SET "+cols+" = 'body,nonesuch'")
+	_, err = db.Exec(ctx, "UPDATE "+dbutil.SearchIndexesTable+" SET "+cols+" = 'body,nonesuch'")
 	check(t, err)
 	if _, err := runner.Reindex(ctx); err == nil || !strings.Contains(err.Error(), "nonesuch is gone") {
 		t.Errorf("Reindex with a missing column: %v", err)
 	}
-	_, err = db.Exec(ctx, "UPDATE "+db.SearchIndexesTable+" SET "+cols+" = 'body'")
+	_, err = db.Exec(ctx, "UPDATE "+dbutil.SearchIndexesTable+" SET "+cols+" = 'body'")
 	check(t, err)
 	if got := articleTitles(t, q().Search("lentils")); !slices.Equal(got, []string{"Cooking rice"}) {
 		t.Errorf("after the refused Reindex: %q", got)

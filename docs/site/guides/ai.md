@@ -340,8 +340,11 @@ Providers differ, and the drivers smooth what they can:
 - **A provider's own features** go through `ai.ProviderOptions` with the
   driver's `Options`: `anthropic.Options{ThinkingBudget: 4096}`,
   `openai.Options{ReasoningEffort: "low"}`, `gemini.Options{ThinkingBudget: &budget}`;
-  each also has a function to change the SDK's request parameters
-  directly. `Response.Raw` holds the SDK's response.
+  each also has `Params`, a function to change the SDK's request
+  parameters directly. A call can carry several drivers' options
+  (`ai.ProviderOptions(anthropic.Options{…}, openai.Options{…})`), and
+  each provider uses only its own, so switching `AI_PROVIDER` keeps
+  them. `Response.Raw` holds the SDK's response.
 
 ## Common problems
 

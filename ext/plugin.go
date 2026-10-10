@@ -85,8 +85,14 @@ type HasSchedule interface {
 // HasListeners is implemented by plugins that listen to the app's
 // events.
 type HasListeners interface {
-	// Listen adds the plugin's listeners to bus (events.On, OnAsync,
+	// Listeners adds the plugin's listeners to bus (events.On, OnAsync,
 	// OnQueued). Load needs events.New.
+	Listeners(bus *events.Bus) error
+}
+
+// formerListeners is HasListeners before v0.5, which Load still calls,
+// with a warning, until v0.6.
+type formerListeners interface {
 	Listen(bus *events.Bus) error
 }
 

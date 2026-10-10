@@ -861,3 +861,23 @@ func TestRequireAbilities(t *testing.T) {
 	}()
 	auth.RequireAbilities()
 }
+
+// Several bad paths are reported in the settings' order, every time.
+func TestConfigErrorsInOrder(t *testing.T) {
+	var first string
+	for i := range 20 {
+		_, err := auth.LoadConfig(config.Map{"AUTH_LOGIN_URL": "login", "AUTH_HOME_URL": "home", "AUTH_SETTINGS_URL": "settings"})
+		if err == nil {
+			t.Fatal("bad paths accepted")
+		}
+		if i == 0 {
+			first = err.Error()
+			login, home, settings := strings.Index(first, "AUTH_LOGIN_URL"), strings.Index(first, "AUTH_HOME_URL"), strings.Index(first, "AUTH_SETTINGS_URL")
+			if login > home || home > settings {
+				t.Errorf("order: %s", first)
+			}
+		} else if err.Error() != first {
+			t.Fatalf("the messages changed order:\n%s\n%s", first, err)
+		}
+	}
+}

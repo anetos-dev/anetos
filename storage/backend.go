@@ -45,6 +45,12 @@ type Backend interface {
 // TemporaryURLBackend is implemented by backends with URLs of their own
 // for reading a file for a while (S3's presigned URLs), for
 // [Disk.TemporaryURL]. Other disks sign URLs to their [Disk.Handler].
+//
+// Its URLs are served by the store, not the app: the store must serve a
+// file a browser would run ([IsActive]: HTML, SVG, JavaScript…) as an
+// attachment (Content-Disposition: attachment, set when Put stores it),
+// or an uploaded page could run scripts on the store's domain.
+// storagetest checks it.
 type TemporaryURLBackend interface {
 	Backend
 	// TemporaryURL returns a URL that reads the file at path until

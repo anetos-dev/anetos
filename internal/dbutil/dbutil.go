@@ -13,6 +13,10 @@ import (
 	"time"
 )
 
+// SearchIndexesTable is the table where migrations record the search
+// indexes they make (packages db and migrate).
+const SearchIndexesTable = "search_indexes"
+
 // NowMillis is the database server's time in Unix milliseconds, in SQL,
 // for the dialect named (postgres, mysql or sqlite). Stores use the
 // server's clock so instances with drifting clocks agree.

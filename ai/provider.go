@@ -43,10 +43,12 @@ type Request struct {
 	MaxTokens int
 	// Temperature, when set, is the sampling temperature.
 	Temperature *float64
-	// Options are the provider's own request options ([ProviderOptions]):
-	// a value of a type the driver defines, for features the common
-	// request doesn't have. Providers ignore other types.
-	Options any
+	// Options are providers' own request options ([ProviderOptions]):
+	// values of types the drivers define, for features the common
+	// request doesn't have, in the order given. A provider uses its own
+	// types' values and ignores the others, so one call can carry the
+	// options of every provider the app may be configured with.
+	Options []any
 }
 
 // Prompt returns the text of the request's last user message.

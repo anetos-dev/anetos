@@ -367,7 +367,8 @@ func rememberCompute[T any](ctx context.Context, c *Cache, cl *call, key string,
 	b, err := json.Marshal(v)
 	if err != nil {
 		cl.err = fmt.Errorf("cache: encode %s: %w", key, err)
-		return v, cl.err
+		var zero T
+		return zero, cl.err
 	}
 	cl.val = b
 	k, _ := c.key(key)

@@ -90,9 +90,10 @@ func WithLocation(loc *time.Location) Option {
 }
 
 // WithShutdownGrace sets how long Run lets runs still going finish once
-// its context is canceled, before canceling theirs. Default 15 seconds;
-// with [New], half of APP_SHUTDOWN_TIMEOUT.
-func WithShutdownGrace(d time.Duration) Option { return func(s *Scheduler) { s.grace = d } }
+// its context is canceled, before canceling theirs; 0 (or less) cancels
+// them at once. Default 15 seconds; with [New], half of
+// APP_SHUTDOWN_TIMEOUT.
+func WithShutdownGrace(d time.Duration) Option { return func(s *Scheduler) { s.grace = max(d, 0) } }
 
 // NewScheduler returns a scheduler without an app: run it with [Scheduler.Run].
 // Tasks with [WithoutOverlapping] or [OnOneServer] need a cache in Run's

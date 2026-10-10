@@ -659,11 +659,12 @@ func TestEdges(t *testing.T) {
 
 	// Options: their order, the provider's own, Agent.Stream.
 	type anthropicOptions struct{ Thinking bool }
+	type openaiOptions struct{ Effort string }
 	sysAgent := ai.Agent{Name: "a", Instructions: "agent"}
 	ctx, f = fake(ai.FakeText("ok"), ai.FakeText("streamed"))
-	_, err = ai.Generate(ctx, "x", ai.System("call"), sysAgent, ai.ProviderOptions(anthropicOptions{Thinking: true}))
+	_, err = ai.Generate(ctx, "x", ai.System("call"), sysAgent, ai.ProviderOptions(anthropicOptions{Thinking: true}), ai.ProviderOptions(openaiOptions{"high"}))
 	check(t, err)
-	if r := f.Requests()[0]; r.System != "call\n\nagent" || r.Options != (anthropicOptions{Thinking: true}) {
+	if r := f.Requests()[0]; r.System != "call\n\nagent" || !slices.Equal(r.Options, []any{anthropicOptions{Thinking: true}, openaiOptions{"high"}}) {
 		t.Errorf("options: %q, %+v", r.System, r.Options)
 	}
 	var text strings.Builder
@@ -779,7 +780,7 @@ func TestSchemaMap(t *testing.T) {
 		return string(data)
 	}
 	// All of JSON Schema, in field order.
-	got := js(s.Map(ai.SchemaOptions{Keywords: ai.ConstraintKeywords}))
+	got := js(s.Map(ai.SchemaOptions{Keywords: ai.ConstraintKeywords()}))
 	want := `{"additionalProperties":false,"properties":{"name":{"description":"Who","format":"email","maxLength":20,"minLength":1,"type":"string"},` +
 		`"age":{"enum":[1,2,null],"maximum":120,"minimum":1,"type":["integer","null"]},` +
 		`"tags":{"additionalProperties":{"type":"string"},"properties":{},"type":"object"},` +

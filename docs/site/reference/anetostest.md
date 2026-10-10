@@ -50,7 +50,7 @@ them: never the default `database/app.db`.
 | Database | Each test gets |
 |---|---|
 | SQLite in memory (the default; checked with SQLite after connecting) | Its own database, migrated; no transaction, so `db.AfterCommit` callbacks run at once |
-| SQLite file, PostgreSQL, MySQL | The migrated database, and a transaction rolled back when the test ends (`db.WithTestTx`: `AfterCommit` callbacks run when a `db.Tx` inside it commits, or at once outside one). Each request runs in a savepoint (`anetostest_request`), rolled back if the request left the transaction failed. With `WithoutTransaction()`, neither |
+| SQLite file, PostgreSQL, MySQL | The migrated database, and a transaction rolled back when the test ends (`AfterCommit` callbacks run when a `db.Tx` inside it commits, or at once outside one). Each request runs in a savepoint (`anetostest_request`), rolled back if the request left the transaction failed. With `WithoutTransaction()`, neither |
 
 ## Requests (`anetostest`)
 
@@ -164,7 +164,7 @@ of the size asked for (or, for a `FixedSize` model, the size expected).
 
 | API | Does |
 |---|---|
-| `app.AI()` | The `*ai.Fake`: `Requests()` (`[]ai.Request`, oldest first: `Prompt()`, `System`, `Messages`, `Tools`, `Output`, `Model`…), `Add(replies...)` for more replies, `Remaining()`, `Embeddings()` (`[]ai.EmbedRequest`: `Model`, `Inputs`, `Dimensions`, `Purpose`). Fails the test if the app has no AI client, or its provider isn't the fake |
+| `app.AI()` | The `*ai.Fake`: `Requests()` (`[]ai.Request`, oldest first: `Prompt()`, `System`, `Messages`, `Tools`, `Output`, `Model`…), `Add(replies...)` for more replies, `Remaining()`, `EmbedRequests()` (`[]ai.EmbedRequest`: `Model`, `Inputs`, `Dimensions`, `Purpose`). Fails the test if the app has no AI client, or its provider isn't the fake |
 | `app.AssertPrompted(match)` | A request matched (`func(ai.Request) bool`; nil matches any); otherwise reports the last prompt |
 | `app.AssertNotPrompted()` | No request was made |
 | `ai.FakeText(text)` | Reply: text |
@@ -185,7 +185,7 @@ Replies' usage counts words, as a stand-in for tokens.
 
 | API | Does |
 |---|---|
-| `app.Disk(name...)` | `*anetostest.Disk`: the default disk, or the named one (`STORAGE_DISKS`). Fails the test without `storage.New` or for an unknown disk |
+| `app.Disk(name...)` | `*anetostest.Disk`: the default disk, or the named one (`STORAGE_DISKS`). Fails the test without `storage.New`, for an unknown disk, or with more than one name |
 | `d.AssertExists(paths...)` | The files exist |
 | `d.AssertMissing(paths...)` | They don't |
 | `d.AssertContent(path, want)` | The file exists with that content |

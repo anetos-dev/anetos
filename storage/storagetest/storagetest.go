@@ -32,7 +32,8 @@ type Features struct {
 	// (otherwise it gives the path's extension's).
 	ContentTypes bool
 	// TemporaryURLs: the backend implements storage.TemporaryURLBackend,
-	// with URLs the test can fetch.
+	// with URLs the test can fetch, which serve HTML, SVG and JavaScript
+	// as attachments.
 	TemporaryURLs bool
 	// SignedURLs is TemporaryURLs.
 	//
@@ -468,5 +469,28 @@ func testTemporaryURLs(t *testing.T, ctx context.Context, b storage.Backend, p s
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK || string(body) != "secret" {
 		t.Errorf("GET the signed URL: %d %q", resp.StatusCode, body)
+	}
+
+	// Active content is a download, never a page of the store's domain.
+	for _, f := range []struct{ name, ct string }{{"page.html", "text/html; charset=utf-8"}, {"image.svg", "image/svg+xml"}, {"app.js", "text/javascript"}} {
+		if err := b.Put(ctx, p+f.name, strings.NewReader("<script>alert(1)</script>"), storage.PutOptions{ContentType: f.ct}); err != nil {
+			t.Fatalf("Put(%s): %v", f.name, err)
+		}
+		u, err := urlOf(p+f.name, time.Now().Add(time.Minute))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = resp.Body.Close()
+		if d := resp.Header.Get("Content-Disposition"); !strings.HasPrefix(d, "attachment") {
+			t.Errorf("%s at its temporary URL: Content-Disposition %q, want an attachment", f.name, d)
+		}
 	}
 }

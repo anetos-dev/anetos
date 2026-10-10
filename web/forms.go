@@ -182,14 +182,16 @@ var ErrCSRF = &HTTPError{Status: http.StatusForbidden, Message: "The page has ex
 var ErrCrossOrigin = &HTTPError{Status: http.StatusForbidden, Message: "Cross-origin request rejected.", Key: "http.cross_origin"}
 
 // CSRFOption configures [CSRF].
-type CSRFOption func(*http.CrossOriginProtection) error
+type CSRFOption func(*csrfOptions) error
+
+type csrfOptions struct{ cop *http.CrossOriginProtection }
 
 // WithTrustedOrigins lets pages on the given origins
 // ("https://admin.example.com") send cross-origin requests.
 func WithTrustedOrigins(origins ...string) CSRFOption {
-	return func(p *http.CrossOriginProtection) error {
-		for _, o := range origins {
-			if err := p.AddTrustedOrigin(o); err != nil {
+	return func(o *csrfOptions) error {
+		for _, origin := range origins {
+			if err := o.cop.AddTrustedOrigin(origin); err != nil {
 				return err
 			}
 		}
@@ -221,7 +223,7 @@ func TrustedOrigins(origins ...string) CSRFOption { return WithTrustedOrigins(or
 func CSRF(opts ...CSRFOption) Middleware {
 	cop := http.NewCrossOriginProtection()
 	for _, opt := range opts {
-		if err := opt(cop); err != nil {
+		if err := opt(&csrfOptions{cop: cop}); err != nil {
 			panic(fmt.Sprintf("web: CSRF: %v", err))
 		}
 	}

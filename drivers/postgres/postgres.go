@@ -82,7 +82,7 @@ func tlsMode(tc *tls.Config) string {
 }
 
 func open(cfg db.Config) (*sql.DB, error) {
-	cc, err := pgx.ParseConfig(DSN(cfg))
+	cc, err := pgx.ParseConfig(dsn(cfg))
 	if err != nil {
 		return nil, err
 	}
@@ -117,10 +117,10 @@ func withUTC(dsn string) string {
 	return strings.TrimSpace(dsn) + " timezone=UTC"
 }
 
-// DSN returns the connection URL for cfg. Built from DB_HOST and the
+// dsn returns the connection URL for cfg. Built from DB_HOST and the
 // others, its sslmode follows cfg.TLSMode: verify-full (with sslrootcert
 // from DB_TLS_CA), require, or disable.
-func DSN(cfg db.Config) string {
+func dsn(cfg db.Config) string {
 	if cfg.URL != "" {
 		return withUTC(cfg.URL)
 	}

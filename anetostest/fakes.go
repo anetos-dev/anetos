@@ -313,7 +313,8 @@ func AssertMailQueued[M mailer.Mailable](a *App, match func(M) bool) {
 }
 
 // AssertMailNotSent checks that no mailable of type M for which match
-// returns true (none at all, for a nil match) was sent or queued.
+// returns true (none at all, for a nil match) was sent or queued: unlike
+// [AssertMailSent], it counts queued mail too.
 func AssertMailNotSent[M mailer.Mailable](a *App, match func(M) bool) {
 	a.t.Helper()
 	if n := countMatch(Mailables[M](a), match); n > 0 {

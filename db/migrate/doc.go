@@ -35,6 +35,7 @@
 // they ran in so [Runner.Rollback] can undo the last deploy's changes. On
 // PostgreSQL and SQLite each migration runs in a transaction, so a failed
 // one leaves no trace; MySQL commits every schema change immediately.
-// [Runner.Command] provides the migrate, migrate:rollback, migrate:reset,
-// migrate:fresh, migrate:status and db:seed commands.
+// [New] adds the migrate, migrate:rollback, migrate:reset,
+// migrate:fresh, migrate:status, db:seed and search:reindex commands to
+// the app ([Runner.AppCommands]).
 package migrate

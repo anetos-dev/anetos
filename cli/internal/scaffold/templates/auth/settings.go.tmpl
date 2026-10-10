@@ -63,10 +63,8 @@ func (h Accounts) Settings(c *web.Ctx) error {
 	}
 	page := views.SettingsPage{User: u, EmailChange: h.AllowEmailChange, DeleteAccount: h.AllowAccountDeletion,
 		TimeZones: i18n.TimeZones(), TwoFactor: h.Auth.SupportsTwoFactor()}
-	if tr := i18n.From(c); tr != nil {
-		for _, l := range tr.Supported() {
-			page.Locales = append(page.Locales, views.Choice{Value: l, Title: i18n.LanguageName(c, l)})
-		}
+	for _, l := range i18n.From(c).Supported() {
+		page.Locales = append(page.Locales, views.Choice{Value: l, Title: i18n.LanguageName(c, l)})
 	}
 	if page.TwoFactor {
 		if page.TwoFactorStatus, err = h.Auth.TwoFactor(u); err != nil {
@@ -335,7 +333,7 @@ func (h Accounts) UpdatePreferences(c *web.Ctx, in PreferencesInput) (web.Respon
 	if err != nil {
 		return nil, err
 	}
-	if tr := i18n.From(c); in.Locale != "" && (tr == nil || !slices.Contains(tr.Supported(), in.Locale)) {
+	if in.Locale != "" && !slices.Contains(i18n.From(c).Supported(), in.Locale) {
 		return nil, validate.Fail("locale", i18n.T(c, "auth.errors.choice"))
 	}
 	if in.TimeZone != "" && !slices.Contains(i18n.TimeZones(), in.TimeZone) {

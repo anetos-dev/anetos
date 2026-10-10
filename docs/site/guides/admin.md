@@ -410,7 +410,7 @@ Links and table rows without a leading `/` lead to the admin's own pages
 |---|---|---|
 | `admin.SignUps[T](title, column)` | Model `T`'s records: in all, new in 7 and 30 days, and a bar a day for 30 days (UTC), by `column` (`"created_at"`) | `admin.access` |
 | `admin.QueueHealth(q, queues...)` | The jobs waiting on the default queue and on `queues`, and the failed ones | `admin.jobs.view` |
-| `admin.AIUsage()` | Tokens and cost of the app's AI calls in 24 hours and 30 days, and tokens a day (`ai.TrackUsage`) | `admin.access` |
+| `admin.AIUsage()` | Tokens and cost of the app's AI calls in 24 hours and 30 days, and tokens a day (recorded by the AI client's `TrackUsage`) | `admin.access` |
 | `admin.RecentActivity(n)` | The audit log's latest `n` entries | `admin.activity.view` |
 
 ### 8. See who did what

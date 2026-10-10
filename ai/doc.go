@@ -19,9 +19,9 @@
 //	for ev, err := range ai.Stream(ctx, question) { … } // the answer as it's written
 //
 // The package holds the [Provider] contract, messages, the tool loop and
-// a [Fake]; providers are driver modules that wrap the official SDKs
-// (Anthropic, OpenAI and OpenAI-compatible servers, and Gemini are
-// planned for v0.3).
+// a [Fake]; providers are driver modules that wrap the official SDKs:
+// drivers/anthropic, drivers/openai (OpenAI and OpenAI-compatible
+// servers) and drivers/gemini.
 // [Request.Options], [Response.Raw] and [Client.Provider] reach what the
 // common contract doesn't cover. Typed outputs and tool inputs are
 // structs: their JSON schema comes from their fields' json, description

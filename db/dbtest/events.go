@@ -13,6 +13,7 @@ import (
 
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/events"
+	"anetos.dev/anetos/internal/dbhook"
 	"anetos.dev/anetos/queue"
 )
 
@@ -106,7 +107,7 @@ func testBusEvents(t *testing.T, ctx context.Context) {
 		tx, err := d(ctx).SQL().BeginTx(ctx, nil)
 		check(t, err)
 		defer func() { _ = tx.Rollback() }()
-		tctx, err := db.WithTestTx(ctx, tx)
+		tctx, err := dbhook.WithTestTx(ctx, tx)
 		check(t, err)
 		check(t, events.Emit(tctx, stBusEvent{Text: "test, direct"}))
 		check(t, b.Wait(ctx))

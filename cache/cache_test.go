@@ -422,3 +422,15 @@ func TestAppNewConfig(t *testing.T) {
 		t.Errorf("database store without a database: %v", err)
 	}
 }
+
+// A value that can't be stored is an error, and no value.
+func TestRememberEncodeError(t *testing.T) {
+	ctx := newCtx(cache.NewMemoryStore())
+	type unstorable struct{ C chan int }
+	v, err := cache.Remember(ctx, "u", time.Minute, func(context.Context) (unstorable, error) {
+		return unstorable{C: make(chan int)}, nil
+	})
+	if err == nil || v.C != nil {
+		t.Errorf("Remember = %+v, %v", v, err)
+	}
+}

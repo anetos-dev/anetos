@@ -253,7 +253,7 @@ func Track[T any](t *Trail, opts ...TrackOption) error {
 			return fmt.Errorf("audit: %s is tracked already", table)
 		}
 	}
-	return t.db.Watch(table, tr, t.cfg.BulkMaxValues)
+	return t.db.Watch(table, tr, db.WatchBulkValues(t.cfg.BulkMaxValues))
 }
 
 // Written records a write of the tracked table (db.Watcher).

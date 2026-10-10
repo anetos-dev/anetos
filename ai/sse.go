@@ -73,7 +73,7 @@ func SSE(c *web.Ctx, events iter.Seq2[Event, error]) error {
 			msg := "Something went wrong. Try again."
 			switch {
 			case clientStatus(err) != 0:
-				msg = clientMessage(err)
+				msg = clientMessage(c, err)
 			case c.Err() != nil:
 				return nil // the browser went away
 			default:

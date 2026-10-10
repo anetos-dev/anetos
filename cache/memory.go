@@ -17,7 +17,8 @@ import (
 // the process stops. Each instance of an app has its own, so locks only
 // exclude code in the same process; use the database or Redis store to
 // share a cache between instances. Expired items are removed as they are
-// read, and the rest every minute or so while items are written.
+// read, and the rest every minute or so while items are written. Make
+// one with [NewMemoryStore]: its zero value isn't usable.
 type MemoryStore struct {
 	mu        sync.Mutex
 	items     map[string]memItem

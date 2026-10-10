@@ -7,6 +7,10 @@ tagged `drivers/mysql/vX.Y.Z`. The framework's own changes are in the
 
 ## [Unreleased]
 
+### Removed
+- `DSN`, which no app used (and which returned the password in plain
+  text) (M8b-5).
+
 ## [0.4.0] - 2026-10-08
 
 Released with the framework's v0.4.0; no changes.

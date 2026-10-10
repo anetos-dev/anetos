@@ -105,42 +105,72 @@ func (cl *Client) EmbeddingModel() string {
 const maxEmbedBatch = 96
 
 // Embed returns the embeddings of texts as documents (passages to find),
-// with the context's client's embedding model (AI_EMBEDDING_MODEL), in
-// requests of at most 96 texts. dims asks for vectors of that size (0 for
-// the model's); vectors of another size are an error. With
+// with the client's embedding model (AI_EMBEDDING_MODEL), in requests of
+// at most 96 texts:
+//
+//	vectors, err := ai.Embed(ctx, texts, ai.Dimensions(768))
+//
+// [Dimensions] asks for vectors of a size (the model's by default), and
+// vectors of another size are an error; [Using], [ForUser] and
+// [Timeout] apply as to [Generate] (other options are ignored). With
 // [Client.TrackUsage], each request's usage is recorded, for the
 // logged-in user if any, and a spent [Budget] refuses it. Most apps use
 // [Embeddings], which stores them.
-func Embed(ctx context.Context, dims int, texts ...string) ([]Vector, error) {
-	return embed(ctx, EmbedForDocument, dims, dims, texts)
+func Embed(ctx context.Context, texts []string, opts ...Option) ([]Vector, error) {
+	return embed(ctx, EmbedForDocument, texts, opts, false)
 }
 
 // EmbedQuery returns the embedding of a query: what to find documents
-// embedded with [Embed] by.
-func EmbedQuery(ctx context.Context, dims int, text string) (Vector, error) {
-	vs, err := embed(ctx, EmbedForQuery, dims, dims, []string{text})
+// embedded with [Embed] by. It takes Embed's options.
+func EmbedQuery(ctx context.Context, text string, opts ...Option) (Vector, error) {
+	vs, err := embed(ctx, EmbedForQuery, []string{text}, opts, false)
 	if err != nil {
 		return nil, err
 	}
 	return vs[0], nil
 }
 
-// embed embeds texts, asking for vectors of size ask (0: the model's) and
-// checking they have size want (0: any).
-func embed(ctx context.Context, purpose EmbedPurpose, ask, want int, texts []string) ([]Vector, error) {
-	cl, err := From(ctx)
-	if err != nil {
-		return nil, err
+// Dimensions asks [Embed] and [EmbedQuery] for vectors of n dimensions,
+// for models that can shorten theirs; vectors of another size are an
+// error.
+func Dimensions(n int) Option { return optionFunc(func(c *call) { c.dimensions = n }) }
+
+// embed embeds texts with opts. The call's dimensions are asked for and
+// checked; with onlyCheck, they are only checked (a model of a fixed size,
+// [EmbeddingsConfig.Dimensions] with FixedSize).
+func embed(ctx context.Context, purpose EmbedPurpose, texts []string, opts []Option, onlyCheck bool) ([]Vector, error) {
+	var c call
+	for _, o := range opts { // the client first, as run does
+		o.apply(&c)
+	}
+	cl := c.client
+	if cl == nil {
+		var err error
+		if cl, err = From(ctx); err != nil {
+			return nil, err
+		}
+	}
+	c = call{}
+	for _, o := range cl.defaults {
+		o.apply(&c)
+	}
+	for _, o := range opts {
+		o.apply(&c)
 	}
 	e, model, err := cl.embedder()
 	if err != nil {
 		return nil, err
 	}
-	if ask < 0 || want < 0 {
-		return nil, fmt.Errorf("ai: embed: %d dimensions", min(ask, want))
+	want := c.dimensions
+	if want < 0 {
+		return nil, fmt.Errorf("ai: embed: %d dimensions", want)
 	}
-	c := &call{client: cl, name: "embed", model: model}
-	track, err := cl.startTracking(ctx, c)
+	ask := want
+	if onlyCheck {
+		ask = 0
+	}
+	c.client, c.name, c.model = cl, "embed", model
+	track, err := cl.startTracking(ctx, &c)
 	if err != nil {
 		return nil, err
 	}
@@ -154,11 +184,16 @@ func embed(ctx context.Context, purpose EmbedPurpose, ask, want int, texts []str
 			return nil, err
 		}
 		batch := texts[i:min(i+maxEmbedBatch, len(texts))]
-		resp, err := e.Embed(ctx, &EmbedRequest{Model: model, Inputs: batch, Dimensions: ask, Purpose: purpose, want: want})
+		rctx, cancel := ctx, context.CancelFunc(func() {})
+		if c.timeout > 0 {
+			rctx, cancel = context.WithTimeout(ctx, c.timeout)
+		}
+		resp, err := e.Embed(rctx, &EmbedRequest{Model: model, Inputs: batch, Dimensions: ask, Purpose: purpose, want: want})
+		cancel()
 		if err != nil {
 			return nil, fmt.Errorf("ai: embed: %w", err)
 		}
-		cl.record(ctx, track, c, name, &Request{Model: model}, &Response{Model: resp.Model, Usage: resp.Usage}, resp.Estimated)
+		cl.record(ctx, track, &c, name, &Request{Model: model}, &Response{Model: resp.Model, Usage: resp.Usage}, resp.Estimated)
 		if len(resp.Vectors) != len(batch) {
 			return nil, fmt.Errorf("ai: embed: %d vectors for %d texts", len(resp.Vectors), len(batch))
 		}

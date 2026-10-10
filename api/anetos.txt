@@ -156,9 +156,11 @@ pkg anetos.dev/anetos/ai, const StopOther StopReason = "other"
 pkg anetos.dev/anetos/ai, const StopRefusal StopReason = "refusal"
 pkg anetos.dev/anetos/ai, const StopToolCalls StopReason = "tool_calls"
 pkg anetos.dev/anetos/ai, func AssistantMessage(string) Message
+pkg anetos.dev/anetos/ai, func ConstraintKeywords() []string
 pkg anetos.dev/anetos/ai, func Conversations(context.Context, string) ([]Conversation, error)
-pkg anetos.dev/anetos/ai, func Embed(context.Context, int, ...string) ([]Vector, error)
-pkg anetos.dev/anetos/ai, func EmbedQuery(context.Context, int, string) (Vector, error)
+pkg anetos.dev/anetos/ai, func Dimensions(int) Option
+pkg anetos.dev/anetos/ai, func Embed(context.Context, []string, ...Option) ([]Vector, error)
+pkg anetos.dev/anetos/ai, func EmbedQuery(context.Context, string, ...Option) (Vector, error)
 pkg anetos.dev/anetos/ai, func EmbeddingsFor[T any](*anetos.App, EmbeddingsConfig[T]) (*Embeddings[T], error)
 pkg anetos.dev/anetos/ai, func FakeDriver() Driver
 pkg anetos.dev/anetos/ai, func FakeError(error) FakeReply
@@ -182,7 +184,7 @@ pkg anetos.dev/anetos/ai, func New(*anetos.App, ...Driver) (*Client, error)
 pkg anetos.dev/anetos/ai, func NewFake(...FakeReply) *Fake
 pkg anetos.dev/anetos/ai, func NewTool[In, Out any](string, string, func(context.Context, In) (Out, error)) Tool
 pkg anetos.dev/anetos/ai, func NewWithProvider(Provider, ...Option) *Client
-pkg anetos.dev/anetos/ai, func ProviderOptions(any) Option
+pkg anetos.dev/anetos/ai, func ProviderOptions(...any) Option
 pkg anetos.dev/anetos/ai, func QueueAgents(*anetos.App, ...Agent) error
 pkg anetos.dev/anetos/ai, func SSE(*web.Ctx, iter.Seq2[Event, error]) error
 pkg anetos.dev/anetos/ai, func SchemaFor[T any]() (*Schema, error)
@@ -217,6 +219,7 @@ pkg anetos.dev/anetos/ai, method (*Embeddings[T]) SyncNow(context.Context, ...T)
 pkg anetos.dev/anetos/ai, method (*Embeddings[T]) Tool(string, string, int) Tool
 pkg anetos.dev/anetos/ai, method (*Fake) Add(...FakeReply)
 pkg anetos.dev/anetos/ai, method (*Fake) Embed(context.Context, *EmbedRequest) (*EmbedResponse, error)
+pkg anetos.dev/anetos/ai, method (*Fake) EmbedRequests() []EmbedRequest
 pkg anetos.dev/anetos/ai, method (*Fake) Embeddings() []EmbedRequest
 pkg anetos.dev/anetos/ai, method (*Fake) Generate(context.Context, *Request) (*Response, error)
 pkg anetos.dev/anetos/ai, method (*Fake) Name() string
@@ -353,7 +356,7 @@ pkg anetos.dev/anetos/ai, type Request struct
 pkg anetos.dev/anetos/ai, type Request struct, MaxTokens int
 pkg anetos.dev/anetos/ai, type Request struct, Messages []Message
 pkg anetos.dev/anetos/ai, type Request struct, Model string
-pkg anetos.dev/anetos/ai, type Request struct, Options any
+pkg anetos.dev/anetos/ai, type Request struct, Options []any
 pkg anetos.dev/anetos/ai, type Request struct, Output *OutputSpec
 pkg anetos.dev/anetos/ai, type Request struct, System string
 pkg anetos.dev/anetos/ai, type Request struct, Temperature *float64
@@ -392,10 +395,6 @@ pkg anetos.dev/anetos/ai, type SchemaOptions struct, AllRequired bool
 pkg anetos.dev/anetos/ai, type SchemaOptions struct, Formats []string
 pkg anetos.dev/anetos/ai, type SchemaOptions struct, Keywords []string
 pkg anetos.dev/anetos/ai, type SchemaOptions struct, NullableAnyOf bool
-pkg anetos.dev/anetos/ai, type SearchResult struct
-pkg anetos.dev/anetos/ai, type SearchResult struct, ID int64
-pkg anetos.dev/anetos/ai, type SearchResult struct, Text string
-pkg anetos.dev/anetos/ai, type SearchResult struct, Title string
 pkg anetos.dev/anetos/ai, type StopReason string
 pkg anetos.dev/anetos/ai, type Text string
 pkg anetos.dev/anetos/ai, type Tool interface
@@ -441,7 +440,6 @@ pkg anetos.dev/anetos/ai, type UsageTotal struct, Cost float64
 pkg anetos.dev/anetos/ai, type UsageTotal struct, Responses int64
 pkg anetos.dev/anetos/ai, type UsageTotal struct, embedded Usage
 pkg anetos.dev/anetos/ai, type Vector = db.Vector
-pkg anetos.dev/anetos/ai, var ConstraintKeywords []string
 pkg anetos.dev/anetos/ai, var ErrConversationChanged error
 pkg anetos.dev/anetos/ai, var ErrMaxSteps error
 pkg anetos.dev/anetos/ai, var ErrNoClient error
@@ -1136,8 +1134,6 @@ pkg anetos.dev/anetos/db, const OpRestore Op = "restore"
 pkg anetos.dev/anetos/db, const OpUpdate Op = "update"
 pkg anetos.dev/anetos/db, const OpUpsert Op = "upsert"
 pkg anetos.dev/anetos/db, const SQLiteCosineFunction = "anetos_vec_distance_cosine"
-pkg anetos.dev/anetos/db, const SQLiteTimeFormat = "2006-01-02 15:04:05.999999999"
-pkg anetos.dev/anetos/db, const SearchIndexesTable = "search_indexes"
 pkg anetos.dev/anetos/db, const SimilarCandidates = 200
 pkg anetos.dev/anetos/db, const TLSNone = "none"
 pkg anetos.dev/anetos/db, const TLSSkipVerify = "skip-verify"
@@ -1184,7 +1180,6 @@ pkg anetos.dev/anetos/db, func Open(Driver, Config, ...Option) (*DB, error)
 pkg anetos.dev/anetos/db, func Or(...Expr) Expr
 pkg anetos.dev/anetos/db, func OrderRaw(string, ...any) Order
 pkg anetos.dev/anetos/db, func Pluck[V, T any](*Q[T], Column[V]) ([]V, error)
-pkg anetos.dev/anetos/db, func Plural(string) string
 pkg anetos.dev/anetos/db, func Postgres() Dialect
 pkg anetos.dev/anetos/db, func Prunable[T any](*anetos.App, time.Duration) error
 pkg anetos.dev/anetos/db, func PruneAllTrashed(context.Context) ([]Pruned, error)
@@ -1212,6 +1207,7 @@ pkg anetos.dev/anetos/db, func TxWithOptions(context.Context, *sql.TxOptions, fu
 pkg anetos.dev/anetos/db, func Untracked(context.Context) context.Context
 pkg anetos.dev/anetos/db, func Update[T any](context.Context, *T) error
 pkg anetos.dev/anetos/db, func Upsert[T any](context.Context, []T, []string, ...string) error
+pkg anetos.dev/anetos/db, func WatchBulkValues(int) WatchOption
 pkg anetos.dev/anetos/db, func WithDB(context.Context, *DB) context.Context
 pkg anetos.dev/anetos/db, func WithLocalTimeZone(bool) Option
 pkg anetos.dev/anetos/db, func WithLogger(*slog.Logger) Option
@@ -1219,7 +1215,6 @@ pkg anetos.dev/anetos/db, func WithQueryLog(bool) Option
 pkg anetos.dev/anetos/db, func WithRepeatedQueries(int) Option
 pkg anetos.dev/anetos/db, func WithSearch(SearchConfig) Option
 pkg anetos.dev/anetos/db, func WithSlowQuery(time.Duration) Option
-pkg anetos.dev/anetos/db, func WithTestTx(context.Context, *sql.Tx) (context.Context, error)
 pkg anetos.dev/anetos/db, func WithTx(context.Context, *sql.Tx) (context.Context, error)
 pkg anetos.dev/anetos/db, func WithoutTx(context.Context) context.Context
 pkg anetos.dev/anetos/db, method (*DB) Check(context.Context) error
@@ -1235,7 +1230,7 @@ pkg anetos.dev/anetos/db, method (*DB) SQL() *sql.DB
 pkg anetos.dev/anetos/db, method (*DB) SearchConfig() SearchConfig
 pkg anetos.dev/anetos/db, method (*DB) Supports(context.Context, Capability) (bool, error)
 pkg anetos.dev/anetos/db, method (*DB) Track(context.Context, anetos.Operation) (context.Context, func())
-pkg anetos.dev/anetos/db, method (*DB) Watch(string, Watcher, int) error
+pkg anetos.dev/anetos/db, method (*DB) Watch(string, Watcher, ...WatchOption) error
 pkg anetos.dev/anetos/db, method (*DB) Watchers(string) []Watcher
 pkg anetos.dev/anetos/db, method (*Q[T]) All() iter.Seq2[T, error]
 pkg anetos.dev/anetos/db, method (*Q[T]) Count() (int64, error)
@@ -1382,6 +1377,7 @@ pkg anetos.dev/anetos/db, type Dialect interface, Placeholder(int) string
 pkg anetos.dev/anetos/db, type Dialect interface, QuoteIdent(string) string
 pkg anetos.dev/anetos/db, type Dialect interface, Returning() bool
 pkg anetos.dev/anetos/db, type Dialect interface, Upsert([]string, []string) string
+pkg anetos.dev/anetos/db, type Dialect interface, unexported methods
 pkg anetos.dev/anetos/db, type Driver struct
 pkg anetos.dev/anetos/db, type Driver struct, Dialect Dialect
 pkg anetos.dev/anetos/db, type Driver struct, InspectURL func(string) (string, string, error)
@@ -1438,6 +1434,7 @@ pkg anetos.dev/anetos/db, type Timestamps struct, CreatedAt time.Time
 pkg anetos.dev/anetos/db, type Timestamps struct, UpdatedAt time.Time
 pkg anetos.dev/anetos/db, type Values map[string]any
 pkg anetos.dev/anetos/db, type Vector []float32
+pkg anetos.dev/anetos/db, type WatchOption func(*watchOptions)
 pkg anetos.dev/anetos/db, type Watcher interface
 pkg anetos.dev/anetos/db, type Watcher interface, Written(context.Context, *Write) error
 pkg anetos.dev/anetos/db, type Write struct
@@ -1498,7 +1495,6 @@ pkg anetos.dev/anetos/db/migrate, method (*Foreign) OnUpdate(Action) *Foreign
 pkg anetos.dev/anetos/db/migrate, method (*Foreign) References(string, ...string) *Foreign
 pkg anetos.dev/anetos/db/migrate, method (*Runner) Add(...*Set) error
 pkg anetos.dev/anetos/db/migrate, method (*Runner) AppCommands() []cmd.Command
-pkg anetos.dev/anetos/db/migrate, method (*Runner) Command(context.Context, []string, io.Writer) (bool, error)
 pkg anetos.dev/anetos/db/migrate, method (*Runner) Fresh(context.Context) ([]Result, error)
 pkg anetos.dev/anetos/db/migrate, method (*Runner) Reindex(context.Context, ...string) ([]string, error)
 pkg anetos.dev/anetos/db/migrate, method (*Runner) Reset(context.Context) ([]Result, error)
@@ -1589,7 +1585,6 @@ pkg anetos.dev/anetos/db/migrate, type Status struct, Source string
 pkg anetos.dev/anetos/db/migrate, type Table struct
 pkg anetos.dev/anetos/db/migrate, type WithoutTransaction interface
 pkg anetos.dev/anetos/db/migrate, type WithoutTransaction interface, WithoutTransaction()
-pkg anetos.dev/anetos/db/migrate, var Commands []string
 pkg anetos.dev/anetos/db/migrate, var ErrIrreversible error
 pkg anetos.dev/anetos/db/migrate, var ErrNotAllowed error
 pkg anetos.dev/anetos/encryption, const KeySize = appkey.Size
@@ -1646,19 +1641,13 @@ pkg anetos.dev/anetos/ext, type HasConfig interface, Config() any
 pkg anetos.dev/anetos/ext, type HasJobs interface
 pkg anetos.dev/anetos/ext, type HasJobs interface, Jobs(*queue.Queue) error
 pkg anetos.dev/anetos/ext, type HasListeners interface
-pkg anetos.dev/anetos/ext, type HasListeners interface, Listen(*events.Bus) error
+pkg anetos.dev/anetos/ext, type HasListeners interface, Listeners(*events.Bus) error
 pkg anetos.dev/anetos/ext, type HasMigrations interface
 pkg anetos.dev/anetos/ext, type HasMigrations interface, Migrations() *migrate.Set
 pkg anetos.dev/anetos/ext, type HasRoutes interface
 pkg anetos.dev/anetos/ext, type HasRoutes interface, Routes(*web.Router) error
 pkg anetos.dev/anetos/ext, type HasSchedule interface
 pkg anetos.dev/anetos/ext, type HasSchedule interface, Schedule(*schedule.Scheduler) error
-pkg anetos.dev/anetos/ext, type Info struct
-pkg anetos.dev/anetos/ext, type Info struct, Adds []string
-pkg anetos.dev/anetos/ext, type Info struct, Keys []config.Key
-pkg anetos.dev/anetos/ext, type Info struct, Name string
-pkg anetos.dev/anetos/ext, type Info struct, Prefix string
-pkg anetos.dev/anetos/ext, type Info struct, Requires string
 pkg anetos.dev/anetos/ext, type Option func(*options)
 pkg anetos.dev/anetos/ext, type Plugin interface
 pkg anetos.dev/anetos/ext, type Plugin interface, Name() string
@@ -2195,7 +2184,6 @@ pkg anetos.dev/anetos/storage, func CheckPath(string) error
 pkg anetos.dev/anetos/storage, func CheckPrefix(string) error
 pkg anetos.dev/anetos/storage, func ContentType(string) PutOption
 pkg anetos.dev/anetos/storage, func DiskFrom(context.Context, string) (*Disk, error)
-pkg anetos.dev/anetos/storage, func DiskSource(config.Source, string, []string) config.Source
 pkg anetos.dev/anetos/storage, func ForApp(*anetos.App, ...Driver) (*Storage, error)
 pkg anetos.dev/anetos/storage, func From(context.Context) (*Disk, error)
 pkg anetos.dev/anetos/storage, func IsActive(string) bool
@@ -2248,8 +2236,6 @@ pkg anetos.dev/anetos/storage, method (*MemoryBackend) Put(context.Context, stri
 pkg anetos.dev/anetos/storage, method (*MemoryBackend) Stat(context.Context, string) (FileInfo, error)
 pkg anetos.dev/anetos/storage, method (*Storage) Default() *Disk
 pkg anetos.dev/anetos/storage, method (*Storage) Disk(string) (*Disk, error)
-pkg anetos.dev/anetos/storage, type AppConfig struct
-pkg anetos.dev/anetos/storage, type AppConfig struct, Disks []string
 pkg anetos.dev/anetos/storage, type Backend interface
 pkg anetos.dev/anetos/storage, type Backend interface, Copy(context.Context, string, string) error
 pkg anetos.dev/anetos/storage, type Backend interface, Delete(context.Context, string) error
@@ -2507,6 +2493,7 @@ pkg anetos.dev/anetos/web, method (*HTTPError) ClientFields() map[string]string
 pkg anetos.dev/anetos/web, method (*HTTPError) ClientMessage() string
 pkg anetos.dev/anetos/web, method (*HTTPError) Error() string
 pkg anetos.dev/anetos/web, method (*HTTPError) HTTPStatus() int
+pkg anetos.dev/anetos/web, method (*HTTPError) Is(error) bool
 pkg anetos.dev/anetos/web, method (*HTTPError) Unwrap() error
 pkg anetos.dev/anetos/web, method (*HTTPError) Wrap(error) *HTTPError
 pkg anetos.dev/anetos/web, method (*PanicError) Error() string
@@ -2556,7 +2543,7 @@ pkg anetos.dev/anetos/web, type CORSConfig struct, Headers []string
 pkg anetos.dev/anetos/web, type CORSConfig struct, MaxAge time.Duration
 pkg anetos.dev/anetos/web, type CORSConfig struct, Methods []string
 pkg anetos.dev/anetos/web, type CORSConfig struct, Origins []string
-pkg anetos.dev/anetos/web, type CSRFOption func(*http.CrossOriginProtection) error
+pkg anetos.dev/anetos/web, type CSRFOption func(*csrfOptions) error
 pkg anetos.dev/anetos/web, type Config struct
 pkg anetos.dev/anetos/web, type Config struct, AccessLog bool
 pkg anetos.dev/anetos/web, type Config struct, Addr string

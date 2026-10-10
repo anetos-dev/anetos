@@ -15,8 +15,8 @@ import (
 	"anetos.dev/anetos/cmd"
 )
 
-// Commands lists the command names [Runner.Command] handles.
-var Commands = []string{"migrate", "migrate:rollback", "migrate:reset", "migrate:fresh", "migrate:status", "db:seed", "search:reindex"}
+// commandNames are the migration commands ([Runner.AppCommands]).
+var commandNames = []string{"migrate", "migrate:rollback", "migrate:reset", "migrate:fresh", "migrate:status", "db:seed", "search:reindex"}
 
 var commandHelp = map[string][2]string{ // usage, description
 	"migrate":          {"[--seed [--force]]", "Run pending migrations (then the seeders)"},
@@ -32,15 +32,15 @@ var commandHelp = map[string][2]string{ // usage, description
 // binary. [New] registers them, so `./app migrate` works with
 // app.Execute.
 func (r *Runner) AppCommands() []cmd.Command {
-	out := make([]cmd.Command, 0, len(Commands))
-	for _, name := range Commands {
+	out := make([]cmd.Command, 0, len(commandNames))
+	for _, name := range commandNames {
 		out = append(out, cmd.Command{
 			Name:          name,
 			Usage:         commandHelp[name][0],
 			Description:   commandHelp[name][1],
 			ChangesSchema: name != "db:seed", // they run even when the search indexes are out of date
 			Run: func(ctx context.Context, args *cmd.Args) error {
-				_, err := r.Command(ctx, append([]string{name}, args.Args...), args.Stdout)
+				_, err := r.command(ctx, append([]string{name}, args.Args...), args.Stdout)
 				return err
 			},
 		})
@@ -48,17 +48,9 @@ func (r *Runner) AppCommands() []cmd.Command {
 	return out
 }
 
-// Command runs a migration command given as command-line arguments, such
-// as os.Args[1:], printing progress to out. It reports handled=false
-// (doing nothing) when args[0] isn't one of [Commands], so a main function
-// can fall through to running the app:
-//
-//	if handled, err := runner.Command(ctx, os.Args[1:], os.Stdout); handled {
-//		return err
-//	}
-//	return app.Run(ctx)
-//
-// Commands and flags:
+// command runs a migration command given as command-line arguments,
+// printing progress to out; handled is false (doing nothing) when args[0]
+// isn't one of commandNames. Flags:
 //
 //	migrate [--seed]               apply pending migrations (then seed)
 //	migrate:rollback [--step=N]    undo the last N batches (default 1)
@@ -66,16 +58,12 @@ func (r *Runner) AppCommands() []cmd.Command {
 //	migrate:fresh [--seed]         drop all tables and migrate (development and testing only)
 //	migrate:status                 list migrations and whether they ran
 //	db:seed [--seeder=NAME]        run all seeders, or one
-//	search:reindex [table…]        rebuild search indexes for the SEARCH_* settings
+//	search:reindex [table…]        rebuild search indexes for the DB_SEARCH_* settings
 //
 // In production (any APP_ENV but development, testing and staging),
 // rollback, reset, db:seed and migrate --seed also need --force. Flags a
-// command doesn't take are errors (wrapping cmd.ErrUsage); -h prints a
-// command's flags.
-//
-// Apps using app.Execute don't need this: [New] registers the commands
-// (see [Runner.AppCommands]).
-func (r *Runner) Command(ctx context.Context, args []string, out io.Writer) (handled bool, err error) {
+// command doesn't take are errors (wrapping cmd.ErrUsage).
+func (r *Runner) command(ctx context.Context, args []string, out io.Writer) (handled bool, err error) {
 	if len(args) == 0 {
 		return false, nil
 	}

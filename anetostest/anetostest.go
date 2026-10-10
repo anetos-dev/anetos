@@ -55,6 +55,7 @@ import (
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/db/migrate"
 	"anetos.dev/anetos/encryption"
+	"anetos.dev/anetos/internal/dbhook"
 	"anetos.dev/anetos/pubsub"
 	"anetos.dev/anetos/queue"
 	"anetos.dev/anetos/session"
@@ -253,7 +254,7 @@ func New(t testing.TB, setup func(app *anetos.App) (*web.Server, error), opts ..
 				t.Errorf("anetostest: roll back the test's transaction: %v", err)
 			}
 		})
-		if a.ctx, err = db.WithTestTx(a.ctx, tx); err != nil {
+		if a.ctx, err = dbhook.WithTestTx(a.ctx, tx); err != nil {
 			t.Fatalf("anetostest: %v", err)
 		}
 		a.tx = true

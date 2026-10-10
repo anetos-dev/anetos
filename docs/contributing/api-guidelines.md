@@ -123,7 +123,11 @@ follow [Effective Go](https://go.dev/doc/effective_go) and
   is the request).
 - `error` is the last result. Error strings are lower case, without a
   final period, prefixed with the package (`"queue: the worker is
-  stopped"`), and wrap their cause with `%w`.
+  stopped"`), and wrap their cause with `%w`. A sentinel or message
+  that callers always wrap in their own keeps no prefix, since theirs
+  says where it comes from: `config.ErrMissing`, `cmd.ErrUsage`, the
+  messages of a `Config.Validate` (`"AUTH_LOGIN_URL … must be a
+  path"`).
 - A condition callers test is an exported sentinel (`var ErrNotFound`)
   or an error type (`*HTTPError`, `*ai.BudgetError`), documented on the
   function that returns it; callers use `errors.Is` and `errors.As`.
@@ -142,6 +146,12 @@ follow [Effective Go](https://go.dev/doc/effective_go) and
   methods can be added to it.
 - The zero value is useful or the type says it isn't (doc comment: "use
   New").
+- A type that holds a connection while it lives (a Redis client, a
+  database pool) has `Close() error`, and its package closes it at
+  shutdown when the app made it. A contract whose drivers usually hold
+  one has `Close` in the interface (`cache.Store`, `queue.Store`,
+  `pubsub.Broker`); the others (`storage.Backend`, `ai` providers,
+  `mailer` transports) are checked for `io.Closer`.
 - Exported struct fields are for values a user sets or reads; anything
   else is unexported, with a method if it must be read.
 
@@ -242,3 +252,4 @@ that isn't obvious.
 | 2026-10-10 | §1 log in, `Supports`, error types (M8b-3, D312) |
 | 2026-10-10 | §1 commands (M8b-4, D313) |
 | 2026-10-10 | §2 options with `With`, no SDK types; request values (M8b-5, D315) |
+| 2026-10-11 | §3 unprefixed fragments callers wrap; §4 `Close` (M8b-5) |

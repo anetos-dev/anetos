@@ -244,6 +244,9 @@ func TestFakeFailures(t *testing.T) {
 	if msg := fatalOf(func() { app.Disk("nope") }); msg == "" {
 		t.Error("Disk of an unknown disk: no failure")
 	}
+	if msg := fatalOf(func() { app.Disk("a", "b") }); !strings.Contains(msg, "one disk name") {
+		t.Errorf("Disk with two names: %q", msg)
+	}
 	if msg := fatalOf(func() { anetostest.New(&fakeT{TB: t}, setup, anetostest.FakeQueue()) }); !strings.Contains(msg, "the app has no queue") {
 		t.Errorf("FakeQueue without a queue: %q", msg)
 	}

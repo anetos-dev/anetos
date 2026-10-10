@@ -169,7 +169,7 @@ func TestSearchArticles(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Each article was embedded once, as a document.
-	if reqs := app.AI().Embeddings(); len(reqs) != 1 || len(reqs[0].Inputs) != len(helpCenter) || reqs[0].Dimensions != embeddingDims {
+	if reqs := app.AI().EmbedRequests(); len(reqs) != 1 || len(reqs[0].Inputs) != len(helpCenter) || reqs[0].Dimensions != embeddingDims {
 		t.Fatalf("embedding requests: %+v", reqs)
 	}
 	found, err := embeddings.Search(app.Context(), "what does the team plan cost", 2)

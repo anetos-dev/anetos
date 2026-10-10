@@ -7,6 +7,12 @@ tagged `drivers/gemini/vX.Y.Z`. The framework's own changes are in the
 
 ## [Unreleased]
 
+### Changed
+- `Options.Params` changes the request's configuration, as the
+  anthropic and openai drivers' `Params` (`Config`, the same, is
+  deprecated until v0.6); the driver reads every `Options` value of
+  `ai.Request.Options`, now a list (M8b-5).
+
 ### Security
 - `golang.org/x/net` v0.60.0, an indirect dependency (GO-2026-6612,
   GO-2026-6617).

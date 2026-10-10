@@ -118,6 +118,15 @@ func TestGroupsWithAndMiddlewareOrder(t *testing.T) {
 	v1 := api.Group("/v1").As("v1.")
 	v1.With(mw("route")).Get("/ping", text("pong")).Name("ping")
 	api.Get("", text("api root"))
+	// As returns a router of its own: api's routes keep their names.
+	api.As("named.").Get("/named", text("named")).Name("n")
+	api.Get("/status", text("ok")).Name("status")
+	if _, err := r.URL("named.n"); err != nil {
+		t.Errorf("As's router: %v", err)
+	}
+	if _, err := r.URL("status"); err != nil {
+		t.Errorf("As renamed the routes of the router it was called on: %v", err)
+	}
 
 	got := do(t, r, "GET", "/api/v1/ping", nil)
 	if got.body != "pong" || strings.Join(order, ",") != "global,root,api,route" {

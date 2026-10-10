@@ -252,6 +252,10 @@ func testAudit(t *testing.T, ctx context.Context) {
 	if len(paged) != len(all) || len(all) != len(es)+5 {
 		t.Errorf("paging gave %d events of %d: %v", len(paged), len(all), paged)
 	}
+	// A page holding the last event exactly has no next one.
+	if page, next, err := audit.History(ctx, subject, len(all), ""); err != nil || len(page) != len(all) || next != "" {
+		t.Errorf("a full last page: %d events, next %q, %v", len(page), next, err)
+	}
 	if _, _, err := audit.History(ctx, subject, 2, "nonsense"); err == nil {
 		t.Error("an invalid cursor was accepted")
 	}
@@ -477,7 +481,7 @@ func testWatchedWrites(t *testing.T, ctx context.Context) {
 	r := watchedRecorders[d(ctx)]
 	if r == nil {
 		r = &recorder{}
-		check(t, d(ctx).Watch("st_watched", r, 1))
+		check(t, d(ctx).Watch("st_watched", r, db.WatchBulkValues(1)))
 		watchedRecorders[d(ctx)] = r
 	}
 	r.writes, r.fail = nil, nil

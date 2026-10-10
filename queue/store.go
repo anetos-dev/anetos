@@ -128,8 +128,12 @@ type FailedFinder interface {
 }
 
 // CountFailed returns the number of failed jobs of st: at once if it is
-// a [FailedCounter], else by reading them.
+// a [FailedCounter], else by reading them. A nil store (a run-at-once
+// queue's: [Queue.Store]) has none.
 func CountFailed(ctx context.Context, st Store) (int64, error) {
+	if st == nil {
+		return 0, nil
+	}
 	if c, ok := st.(FailedCounter); ok {
 		return c.CountFailed(ctx)
 	}
@@ -149,6 +153,9 @@ func CountFailed(ctx context.Context, st Store) (int64, error) {
 // FindFailed returns the failed job id of st, and whether there is one:
 // at once if st is a [FailedFinder], else by reading them.
 func FindFailed(ctx context.Context, st Store, id string) (FailedJob, bool, error) {
+	if st == nil {
+		return FailedJob{}, false, nil
+	}
 	if f, ok := st.(FailedFinder); ok {
 		return f.FindFailed(ctx, id)
 	}

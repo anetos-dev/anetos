@@ -88,12 +88,19 @@ func (f *Fake) Requests() []Request {
 	return slices.Clone(f.requests)
 }
 
-// Embeddings returns the embedding requests so far, oldest first.
-func (f *Fake) Embeddings() []EmbedRequest {
+// EmbedRequests returns the embedding requests so far, oldest first.
+func (f *Fake) EmbedRequests() []EmbedRequest {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return slices.Clone(f.embeds)
 }
+
+// Embeddings is [Fake.EmbedRequests].
+//
+// Deprecated: Use EmbedRequests; Embeddings is removed in v0.6.
+//
+//go:fix inline
+func (f *Fake) Embeddings() []EmbedRequest { return f.EmbedRequests() }
 
 // Remaining returns the number of replies not used yet.
 func (f *Fake) Remaining() int {

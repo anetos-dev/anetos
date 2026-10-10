@@ -116,7 +116,7 @@ func TestThinking(t *testing.T) {
 	final := `{"id":"m2","type":"message","role":"assistant","model":"claude-x","stop_reason":"refusal","usage":{"input_tokens":1,"output_tokens":1},"content":[]}`
 	p, bodies := server(t, answer, final)
 	req := &ai.Request{Model: "claude-x", MaxTokens: 4096, Messages: []ai.Message{ai.UserMessage("Weather in Paris?")},
-		Options: anthropic.Options{ThinkingBudget: 2048, Params: func(p *sdk.MessageNewParams) { p.TopK = sdk.Int(5) }}}
+		Options: []any{anthropic.Options{ThinkingBudget: 2048, Params: func(p *sdk.MessageNewParams) { p.TopK = sdk.Int(5) }}}}
 	resp, err := p.Generate(context.Background(), req)
 	if err != nil {
 		t.Fatal(err)

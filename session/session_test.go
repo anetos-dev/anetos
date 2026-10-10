@@ -706,3 +706,20 @@ func TestUnchangedSessionNotSaved(t *testing.T) {
 		}
 	})
 }
+
+// The manager's log lines say they are the session's.
+func TestNewLogsAsSession(t *testing.T) {
+	var logs bytes.Buffer
+	app, err := anetos.New(anetos.WithSource(config.Map{"APP_ENV": "testing", "APP_KEY": encryption.GenerateKey()}), anetos.WithLogOutput(&logs))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := New(app)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.log.Info("x")
+	if !strings.Contains(logs.String(), "component=session") {
+		t.Errorf("log: %s", logs.String())
+	}
+}

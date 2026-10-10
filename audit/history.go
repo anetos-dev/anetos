@@ -121,11 +121,12 @@ func History(ctx context.Context, subject Subject, limit int, cursor string) ([]
 			bulks = bulks.Where(db.C("occurred_at").Lte(c.at))
 		}
 	}
-	es, err := entries.OrderBy(db.C("occurred_at").Desc(), db.C("id").Desc()).Limit(limit).Get()
+	// One more than a page: whether there is a next page.
+	es, err := entries.OrderBy(db.C("occurred_at").Desc(), db.C("id").Desc()).Limit(limit + 1).Get()
 	if err != nil {
 		return nil, "", err
 	}
-	bs, err := bulks.OrderBy(db.C("occurred_at").Desc(), db.C("id").Desc()).Limit(limit).Get()
+	bs, err := bulks.OrderBy(db.C("occurred_at").Desc(), db.C("id").Desc()).Limit(limit + 1).Get()
 	if err != nil {
 		return nil, "", err
 	}
@@ -151,8 +152,6 @@ func History(ctx context.Context, subject Subject, limit int, cursor string) ([]
 	next := ""
 	if len(out) > limit {
 		out = out[:limit]
-	}
-	if len(out) == limit {
 		last := out[limit-1]
 		next = historyCursor{at: last.At(), bulk: last.Bulk != nil, id: last.id()}.String()
 	}
