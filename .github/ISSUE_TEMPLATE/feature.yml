@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Feature or change
+description: Propose something Anetos should do, or do differently.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Anetos designs first: we agree on the problem and on the API's
+        names and shape here before anyone writes the code.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What you're trying to do, and why it's hard today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you propose
+      description: How it would look in an app (a few lines of code, a command, a setting).
+    validations:
+      required: true
+  - type: textarea
+    id: elsewhere
+    attributes:
+      label: How others do it
+      description: How Laravel, Rails, Django or a Go library does it, if they do.
+    validations:
+      required: false
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Helping
+      options:
+        - label: I'd like to send the pull request once the design is agreed.
+          required: false

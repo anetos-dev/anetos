@@ -92,6 +92,16 @@ anetos new shop --stack=api # or JSON only: routes under /api/v1, errors as prob
                             # and make:crud JSON endpoints (pages, sorting, filters)
 ```
 
+## Contributing
+
+Issues, questions and pull requests are welcome. Read
+[CONTRIBUTING.md](CONTRIBUTING.md) first; questions go to
+[Discussions](https://github.com/anetos-dev/anetos/discussions), and
+vulnerabilities privately, as [SECURITY.md](SECURITY.md) says.
+[GOVERNANCE.md](GOVERNANCE.md) says how decisions are made, and everyone
+follows the
+[code of conduct](https://github.com/anetos-dev/.github/blob/main/CODE_OF_CONDUCT.md).
+
 ## License
 
 Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).

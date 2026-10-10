@@ -93,6 +93,10 @@ All notable changes to this project are documented here. The format follows
   `scripts/kit-screenshots/run.sh` makes the screenshots, and `make
   docs-check` checks a page's images: they exist, have alt text, and
   every image is shown.
+- CONTRIBUTING.md, GOVERNANCE.md and issue forms for bugs, proposals and
+  the docs (questions go to GitHub Discussions); the code of conduct,
+  Contributor Covenant 3.0, is the organization's, in anetos-dev/.github
+  (M8c, D318).
 - A glossary page in the docs (Concepts → The app → Glossary): the words
   Anetos uses, and Laravel's or Rails' for the same thing; an "Operations"
   section in the application lifecycle page; the `anetos` package's

@@ -1,3 +1,5 @@
+<!-- Thanks! CONTRIBUTING.md says what a pull request needs. -->
+
 ## What & why
 
 <!-- One or two sentences. Reference the roadmap work package, e.g. "F5: typed handlers". -->

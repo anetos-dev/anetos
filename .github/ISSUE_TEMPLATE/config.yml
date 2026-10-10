@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+blank_issues_enabled: false
+contact_links:
+  - name: Ask a question
+    url: https://github.com/anetos-dev/anetos/discussions
+    about: Questions, ideas and things you built go to Discussions.
+  - name: Report a security vulnerability
+    url: https://github.com/anetos-dev/anetos/security/advisories/new
+    about: Privately, never in a public issue.
+  - name: Read the documentation
+    url: https://docs.anetos.dev
+    about: Guides, concepts and the reference.

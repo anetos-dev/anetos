@@ -1,0 +1,71 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Bug report
+description: Something in Anetos doesn't work as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. A security vulnerability goes to the private
+        form instead (see [SECURITY.md](https://github.com/anetos-dev/anetos/blob/main/SECURITY.md)),
+        and a question to [Discussions](https://github.com/anetos-dev/anetos/discussions).
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead. Paste error messages and logs as text.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce it
+      description: The smallest app, test or list of commands that shows it. A failing test is the best report.
+    validations:
+      required: true
+  - type: input
+    id: anetos-version
+    attributes:
+      label: Anetos version
+      description: "`go list -m anetos.dev/anetos` in your app, or `./yourapp version`; for a driver or plugin, its module and version too."
+      placeholder: anetos.dev/anetos v0.5.0
+    validations:
+      required: true
+  - type: input
+    id: go-version
+    attributes:
+      label: Go version and system
+      description: "`go version`"
+      placeholder: go1.27.2 darwin/arm64
+    validations:
+      required: true
+  - type: dropdown
+    id: database
+    attributes:
+      label: Database
+      options:
+        - SQLite
+        - PostgreSQL
+        - MySQL
+        - MariaDB
+        - None, or not relevant
+    validations:
+      required: true
+  - type: dropdown
+    id: stack
+    attributes:
+      label: Project stack
+      description: How the project was made.
+      options:
+        - web (anetos new)
+        - api (anetos new --stack=api)
+        - Not made with anetos new
+    validations:
+      required: false
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else
+      description: Settings involved (without secrets), the CSS framework, what you tried.
+    validations:
+      required: false

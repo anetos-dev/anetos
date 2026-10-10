@@ -18,8 +18,9 @@ Tell us what you can of:
 - the settings involved (`APP_ENV`, `SESSION_DRIVER`…), without your
   secrets.
 
-If you can't use GitHub, say so in a public issue that asks for a
-private contact, without details, and we will reply.
+If you can't use GitHub's form, ask for a private contact in
+[Discussions](https://github.com/anetos-dev/anetos/discussions), without
+details, and we will reply.
 
 ## What happens next
 
