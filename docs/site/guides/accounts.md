@@ -150,7 +150,7 @@ matter.
 | `views/auth.templ` | The pages, inside your `Layout` |
 | `app/mailers/auth.go`, `views/auth_mail.templ` | The verification, reset and change-of-address emails |
 | `routes/auth.go` | The routes and their names (`login`, `register`, `dashboard`, `settings`, …), the rate limits of the forgotten-password and verification forms, and what the settings allow (`AllowEmailChange`, `AllowAccountDeletion`) |
-| `auth.go` | `setupAuth`: the `api_tokens` and `social_accounts` migrations, `auth.ForApp`, `social.ForApp` with the providers, and the routes |
+| `auth.go` | `setupAuth`: the `api_tokens` and `social_accounts` migrations, `auth.New`, `social.New` with the providers, and the routes |
 | `database/migrations/…_create_users_table.go` | The users table |
 
 The routes:

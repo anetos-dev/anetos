@@ -41,7 +41,7 @@ const (
 	ViewAllTeams   rbac.Permission = "teams.view-all" // support staff
 )
 
-// permissions are all of them, for rbac.ForApp.
+// permissions are all of them, for rbac.New.
 var permissions = []rbac.Permission{ViewProjects, CreateProjects, DeleteProjects, ManageMembers, DeleteTeams, ManageRoles, ViewAllTeams}
 
 // roles are the roles declared in code. Owners, members and guests are
@@ -69,16 +69,16 @@ or in one scope, such as a team, a project or an organization.
 ### 2. Set them up
 
 ```go
-if _, err := rbac.ForApp(app, permissions, roles...); err != nil {
+if _, err := rbac.New(app, permissions, roles...); err != nil {
 	return nil, err
 }
 ```
 
 (Copied from [`examples/teams`](../../../examples/teams/main.go), region `setup`.)
 
-`rbac.ForApp` checks them (a role can only hold declared permissions)
+`rbac.New` checks them (a role can only hold declared permissions)
 and adds the `rbac:*` commands. Pass `rbac.Migrations()` to
-`migrate.ForApp` with the app's own sets:
+`migrate.New` with the app's own sets:
 
 ```go
 // illustrative
@@ -89,7 +89,7 @@ Packages with permissions of their own, such as the
 [admin](admin.md), declare them at setup with `Registry.Declare`
 (idempotent, before the app serves), so roles stored in the database can
 grant them. A role declared in code can only hold permissions declared
-when `rbac.ForApp` runs, so list such permissions with the app's.
+when `rbac.New` runs, so list such permissions with the app's.
 
 ### 3. Give users roles
 
@@ -375,8 +375,8 @@ func TestTokenAbilities(t *testing.T) {
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `rbac: permission "…" isn't declared` (500) | A check of a permission not passed to `rbac.ForApp` | Add it to the permissions |
-| `rbac: no permissions in the context` | `rbac.ForApp` wasn't called, or the context isn't the app's | Call it in setup; use the request's or the job's context |
+| `rbac: permission "…" isn't declared` (500) | A check of a permission not passed to `rbac.New` | Add it to the permissions |
+| `rbac: no permissions in the context` | `rbac.New` wasn't called, or the context isn't the app's | Call it in setup; use the request's or the job's context |
 | Every check returns 401 | The route lacks the auth middleware | Put `a.Middleware` or `a.TokenMiddleware` before `rbac.Require` |
 | A user's role allows nothing | The role is no longer declared, or was deleted | `rbac:roles` lists such roles; declare it again, or `rbac:unassign` it |
 | An API client gets 403 though its user has the role | The token lacks the permission's ability | Create the token with the permission's name among its abilities, or `"*"` |

@@ -36,7 +36,7 @@ func TestDriver(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		client, err := ai.ForApp(app, gemini.Driver())
+		client, err := ai.New(app, gemini.Driver())
 		switch {
 		case c.want == "" && err != nil:
 			t.Errorf("%v: %v", c.env, err)

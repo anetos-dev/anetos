@@ -22,7 +22,7 @@ import (
 
 func TestFakeEmbed(t *testing.T) {
 	f := ai.NewFake()
-	ctx := ai.WithClient(context.Background(), ai.New(f))
+	ctx := ai.WithClient(context.Background(), ai.NewWithProvider(f))
 	vs, err := ai.Embed(ctx, 0, "Cats sleep all day", "cats SLEEP", "rockets go to orbit", "")
 	check(t, err)
 	if len(vs) != 4 || len(vs[0]) != 64 {
@@ -45,14 +45,14 @@ func TestFakeEmbed(t *testing.T) {
 	if f.Remaining() != 0 || len(f.Requests()) != 0 {
 		t.Error("embeddings used replies")
 	}
-	if got := ai.New(f).EmbeddingModel(); got != "fake-embedding" {
+	if got := ai.NewWithProvider(f).EmbeddingModel(); got != "fake-embedding" {
 		t.Errorf("EmbeddingModel = %q", got)
 	}
 }
 
 func TestEmbedBatches(t *testing.T) {
 	f := ai.NewFake()
-	ctx := ai.WithClient(context.Background(), ai.New(f))
+	ctx := ai.WithClient(context.Background(), ai.NewWithProvider(f))
 	texts := make([]string, 200)
 	for i := range texts {
 		texts[i] = strings.Repeat("word ", i%7+1)
@@ -100,7 +100,7 @@ func TestEmbedErrors(t *testing.T) {
 	if _, err := ai.Embed(ctx, 0, "x"); !errors.Is(err, ai.ErrNoClient) {
 		t.Errorf("no client: %v", err)
 	}
-	c := ai.New(textOnly{})
+	c := ai.NewWithProvider(textOnly{})
 	if _, err := ai.Embed(ai.WithClient(ctx, c), 0, "x"); !errors.Is(err, ai.ErrNoEmbedder) {
 		t.Errorf("no embedder: %v", err)
 	}
@@ -154,7 +154,7 @@ func TestSplitChunks(t *testing.T) {
 	}
 }
 
-func TestForAppEmbeddings(t *testing.T) {
+func TestAppNewEmbeddings(t *testing.T) {
 	embedder := ai.Driver{Name: "vectors", Open: func(_ *anetos.App, cfg ai.Config) (ai.Provider, error) {
 		if cfg.Model != "vec-1" {
 			t.Errorf("the embeddings driver's model: %q", cfg.Model)
@@ -177,7 +177,7 @@ func TestForAppEmbeddings(t *testing.T) {
 		{config.Map{"AI_PROVIDER": "vectors", "AI_MODEL": "vec-1", "AI_EMBEDDING_PROVIDER": "vectors", "AI_EMBEDDING_MODEL": "vec-1"}, "vec-1"},
 		{config.Map{"AI_PROVIDER": "fake", "AI_EMBEDDING_PROVIDER": "text", "AI_EMBEDDING_MODEL": "m"}, "text, which has no embeddings"},
 	} {
-		c, err := ai.ForApp(newApp(t, tc.env, nil), embedder, text)
+		c, err := ai.New(newApp(t, tc.env, nil), embedder, text)
 		switch {
 		case err != nil:
 			if !strings.Contains(err.Error(), tc.want) || tc.want == "" {
@@ -191,7 +191,7 @@ func TestForAppEmbeddings(t *testing.T) {
 
 func TestEmbedHTTPStatus(t *testing.T) {
 	// The fake's embeddings fail as the context does.
-	ctx, cancel := context.WithCancel(ai.WithClient(context.Background(), ai.New(ai.NewFake())))
+	ctx, cancel := context.WithCancel(ai.WithClient(context.Background(), ai.NewWithProvider(ai.NewFake())))
 	cancel()
 	if _, err := ai.Embed(ctx, 0, "x"); !errors.Is(err, context.Canceled) || web.StatusOf(err) == http.StatusOK {
 		t.Errorf("canceled: %v", err)
@@ -217,7 +217,7 @@ func TestSplitChunksEdges(t *testing.T) {
 
 func TestFixedSizeModelOfAnotherSize(t *testing.T) {
 	// A real model of one size, not the expected one: an error naming it.
-	c := ai.New(textOnly{})
+	c := ai.NewWithProvider(textOnly{})
 	c.SetEmbedder(wrongEmbedder{}, "m") // makes 2
 	if _, err := ai.EmbedFixed(ai.WithClient(context.Background(), c), 3, "x"); err == nil || !strings.Contains(err.Error(), "makes vectors of 2 dimensions, not 3") {
 		t.Errorf("a fixed-size model of another size: %v", err)

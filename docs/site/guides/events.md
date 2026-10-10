@@ -76,10 +76,10 @@ func emailReceipt(ctx context.Context, e OrderPlaced) error {
 ### 3. Add the listeners
 
 In `setup`, after the services listeners use (`db.Connect`,
-`queue.ForApp`, …), so the bus is closed before them at shutdown:
+`queue.New`, …), so the bus is closed before them at shutdown:
 
 ```go
-bus, err := events.ForApp(app) // after queue.ForApp: queued listeners use the app's queue
+bus, err := events.New(app) // after queue.New: queued listeners use the app's queue
 if err != nil {
 	return nil, err
 }
@@ -228,7 +228,7 @@ At shutdown, after the app's components have stopped, the bus stops
 taking events (except from its async listeners, which may emit while they
 finish) and gives the async listeners the rest of the shutdown budget;
 then the events still waiting are dropped and the listeners' contexts
-canceled. `bus.Close` does the same for a bus made with `events.New`.
+canceled. `bus.Close` does the same for a bus made with `events.NewBus`.
 
 A queued listener is a queue job registered with `queue.RegisterFunc`,
 named `event:<listener name>`, whose payload is the event as JSON. The
@@ -238,10 +238,10 @@ workers' app must add the same listeners, as with any job type.
 
 | Problem | Cause | Fix |
 |---|---|---|
-| `no bus in the context` | `events.ForApp` wasn't called, or the context isn't the app's | Call `events.ForApp` in `setup`; emit with a request's or job's context |
+| `no bus in the context` | `events.New` wasn't called, or the context isn't the app's | Call `events.New` in `setup`; emit with a request's or job's context |
 | A listener never runs | It listens to another type: `OrderPlaced` vs `*OrderPlaced`, or another package's type of the same name | Emit the type the listener takes |
 | `the queued listener … is an anonymous or generic function` | Queued listeners' job names come from their names | Pass `events.Name("…")` |
-| `queued listeners need the queue` | `events.OnQueued` before `queue.ForApp` | Set up the queue first |
+| `queued listeners need the queue` | `events.OnQueued` before `queue.New` | Set up the queue first |
 | Async work missing after a deploy or crash | Async events are lost when the process stops | Use `OnQueued` for work that must happen |
 | `has 1000 events waiting` | An async listener can't keep up | Raise `events.Concurrency` or `events.Buffer`, or make it queued |
 

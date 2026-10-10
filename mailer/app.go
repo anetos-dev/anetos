@@ -21,7 +21,7 @@ import (
 // Config selects and configures the app's mail transport.
 type Config struct {
 	// Driver is how emails are sent: log (written to the app's log),
-	// smtp, memory (kept, for tests), or one passed to ForApp
+	// smtp, memory (kept, for tests), or one passed to New
 	// (postmark). MAIL_DRIVER, default log.
 	Driver string `env:"MAIL_DRIVER" default:"log"`
 	// FromAddress is the sender of messages without one.
@@ -54,7 +54,7 @@ func LoadConfig(src config.Source) (Config, error) {
 	return cfg, errors.Join(errs...)
 }
 
-// Driver opens a transport for [ForApp]. The log, smtp and memory
+// Driver opens a transport for [New]. The log, smtp and memory
 // drivers are built in; driver modules provide others
 // (postmark.Driver()).
 type Driver struct {
@@ -96,17 +96,17 @@ func SMTPDriver() Driver {
 	}}
 }
 
-// ForApp sets up the app's mailer from the MAIL_* settings: it opens the
+// New sets up the app's mailer from the MAIL_* settings: it opens the
 // transport MAIL_DRIVER names (log, smtp and memory are built in; pass
 // others, such as postmark.Driver()) and makes the mailer available in
 // every context the app creates, for [Send] and [Queue]. If the app has
-// a queue (queue.ForApp, before or after), it registers the job that
+// a queue (queue.New, before or after), it registers the job that
 // sends queued emails.
 //
-//	m, err := mailer.ForApp(app, postmark.Driver())
-func ForApp(app *anetos.App, drivers ...Driver) (*Mailer, error) {
+//	m, err := mailer.New(app, postmark.Driver())
+func New(app *anetos.App, drivers ...Driver) (*Mailer, error) {
 	if _, err := anetos.Resolve[*Mailer](app); err == nil {
-		return nil, errors.New("mailer: ForApp called twice for one app")
+		return nil, errors.New("mailer: New called twice for one app")
 	}
 	cfg, err := LoadConfig(app.Source())
 	if err != nil {
@@ -119,9 +119,9 @@ func ForApp(app *anetos.App, drivers ...Driver) (*Mailer, error) {
 		for j, d := range all {
 			names[j] = d.Name
 		}
-		hint := "check its spelling, or pass its driver to mailer.ForApp"
+		hint := "check its spelling, or pass its driver to mailer.New"
 		if cfg.Driver == "postmark" {
-			hint = "pass postmark.Driver() (anetos.dev/anetos/plugins/postmark) to mailer.ForApp"
+			hint = "pass postmark.Driver() (anetos.dev/anetos/plugins/postmark) to mailer.New"
 		}
 		return nil, fmt.Errorf("mailer: MAIL_DRIVER is %q, but the drivers are [%s]: %s", cfg.Driver, strings.Join(names, ", "), hint)
 	}
@@ -134,14 +134,14 @@ func ForApp(app *anetos.App, drivers ...Driver) (*Mailer, error) {
 		name = app.Config().Name
 	}
 	log := app.Logger().With("component", "mailer")
-	m := New(t, DefaultFrom(Address{Name: name, Address: cfg.FromAddress}), BaseURL(app.Config().URL), WithLogger(log))
+	m := NewWithTransport(t, DefaultFrom(Address{Name: name, Address: cfg.FromAddress}), BaseURL(app.Config().URL), WithLogger(log))
 	m.now = app.Now // emails' Date on the app's clock, which tests can move
 	if q, err := anetos.Resolve[*queue.Queue](app); err == nil {
 		if err := m.register(q); err != nil {
 			return nil, err
 		}
 	} else if !app.Booted() {
-		app.Use(registrar{m}) // queue.ForApp may come later
+		app.Use(registrar{m}) // queue.New may come later
 	}
 	switch {
 	case cfg.Driver == "log" && app.Config().Env.IsProduction():
@@ -159,8 +159,17 @@ func ForApp(app *anetos.App, drivers ...Driver) (*Mailer, error) {
 	return m, nil
 }
 
+// ForApp is [New].
+//
+// Deprecated: Use New; ForApp is removed in v0.6.
+//
+//go:fix inline
+func ForApp(app *anetos.App, drivers ...Driver) (*Mailer, error) {
+	return New(app, drivers...)
+}
+
 // registrar registers the job of queued emails when the app boots, if
-// queue.ForApp came after mailer.ForApp.
+// queue.New came after mailer.New.
 type registrar struct{ m *Mailer }
 
 func (registrar) Name() string { return "mailer" }

@@ -55,15 +55,15 @@ The rules for the function:
 
 ### 2. Add it to the scheduler
 
-In `setup`, after `cache.ForApp` (and `queue.ForApp`, for jobs):
+In `setup`, after `cache.New` (and `queue.New`, for jobs):
 
 ```go
 // The scheduler's locks (WithoutOverlapping, OnOneServer) are in the
 // cache: with several instances, use a store they share.
-if _, err := cache.ForApp(app, redis.CacheDriver()); err != nil { // CACHE_STORE: memory, database or redis
+if _, err := cache.New(app, redis.CacheDriver()); err != nil { // CACHE_STORE: memory, database or redis
 	return nil, err
 }
-s, err := schedule.ForApp(app) // SCHEDULE_TIMEZONE, default APP_TIMEZONE (UTC)
+s, err := schedule.New(app) // SCHEDULE_TIMEZONE, default APP_TIMEZONE (UTC)
 if err != nil {
 	return nil, err
 }
@@ -237,7 +237,7 @@ next := schedule.WeeklyOn(time.Monday, "08:00").In("Asia/Dhaka").Next(time.Now()
 
 ## How it works
 
-`schedule.ForApp` provides the `*schedule.Scheduler` to the app and, once
+`schedule.New` provides the `*schedule.Scheduler` to the app and, once
 it has tasks, adds it as a component with the role `scheduler` and the
 stage `StageScheduler`, which stops right after the HTTP server. Its loop
 computes each task's next run, sleeps until the earliest, and starts the
@@ -259,7 +259,7 @@ that never matches (`0 0 30 2 *`) is an error then.
 
 | Problem | Cause | Fix |
 |---|---|---|
-| `uses a lock … call cache.ForApp` | A task has `WithoutOverlapping` or `OnOneServer` but the app has no cache | Call `cache.ForApp` in `setup` |
+| `uses a lock … call cache.New` | A task has `WithoutOverlapping` or `OnOneServer` but the app has no cache | Call `cache.New` in `setup` |
 | A task runs on every instance | `OnOneServer` is missing, or the cache store is `memory` | Add `OnOneServer` and use `CACHE_STORE=database` or `redis`, or run the scheduler in one process (`--only=scheduler`) |
 | A task never runs | Its process doesn't run the `scheduler` role (`--only=http`), or it's running in another time zone than you think | Check `schedule:list`, and `SCHEDULE_TIMEZONE` |
 | `skipped: the previous run is still going` | A `WithoutOverlapping` run takes longer than the time between runs | Run it less often, or make it faster |

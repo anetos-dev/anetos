@@ -85,7 +85,7 @@ type embeddingSets struct {
 //
 // Call [Embeddings.Sync] when records change, and search them with
 // [Embeddings.Search] or give agents [Embeddings.Tool]. With the app's
-// queue (queue.ForApp, called first), Sync embeds in a job
+// queue (queue.New, called first), Sync embeds in a job
 // ("ai.embed:<table>"), which a worker must have registered too: call
 // EmbeddingsFor in the setup both share. The command ai:embed syncs
 // every record, after a change of model or Text. When the app's
@@ -108,7 +108,7 @@ func EmbeddingsFor[T any](app *anetos.App, cfg EmbeddingsConfig[T]) (*Embeddings
 		cfg.ChunkSize = defaultChunkSize
 	}
 	if _, err := anetos.Resolve[*Client](app); err != nil {
-		return nil, errors.New("ai: EmbeddingsFor needs the app's AI client: call ai.ForApp first")
+		return nil, errors.New("ai: EmbeddingsFor needs the app's AI client: call ai.New first")
 	}
 	// The app's database (db.Connect) must search vectors: checked when
 	// the app boots, as search settings are.

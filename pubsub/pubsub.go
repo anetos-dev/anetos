@@ -27,7 +27,7 @@ import (
 // Config selects and configures the app's broker.
 type Config struct {
 	// Driver is the broker: memory (in the process), or one passed to
-	// ForApp (redis, gcp). PUBSUB_DRIVER, default memory.
+	// New (redis, gcp). PUBSUB_DRIVER, default memory.
 	Driver string `env:"PUBSUB_DRIVER" default:"memory"`
 	// Prefix starts the names of topics in brokers that share a namespace
 	// with other data (Redis keys). PUBSUB_PREFIX, default none: topics
@@ -40,7 +40,7 @@ func LoadConfig(src config.Source) (Config, error) {
 	return config.Get[Config](src)
 }
 
-// Driver opens a broker for [ForApp]. The memory driver is built in;
+// Driver opens a broker for [New]. The memory driver is built in;
 // driver modules provide others (redis.PubSubDriver(),
 // gcppubsub.Driver()).
 type Driver struct {
@@ -58,10 +58,10 @@ func MemoryDriver() Driver {
 }
 
 // PubSub publishes messages to a [Broker] and runs listeners of its
-// subscriptions. Create it with [ForApp] (or [New]).
+// subscriptions. Create it with [New] (or [NewWithBroker]).
 type PubSub struct {
 	broker Broker
-	driver string // PUBSUB_DRIVER, with ForApp
+	driver string // PUBSUB_DRIVER, with New
 	app    *anetos.App
 	name   string // the app's name, for default subscription names
 	log    *slog.Logger
@@ -113,7 +113,7 @@ func (p *PubSub) observe(ctx context.Context, m Published) bool {
 	return p.fake.Load()
 }
 
-// Option configures a [PubSub] made with [New].
+// Option configures a [PubSub] made with [NewWithBroker].
 type Option func(*PubSub)
 
 // WithLogger sets the logger of the listeners. Default slog.Default().
@@ -123,9 +123,9 @@ func WithLogger(l *slog.Logger) Option { return func(p *PubSub) { p.log = l } }
 // app's name. Default "anetos".
 func WithName(name string) Option { return func(p *PubSub) { p.name = name } }
 
-// New returns a PubSub on broker. Run its listeners with [PubSub.Run];
-// with [ForApp], they run as components of the app.
-func New(broker Broker, opts ...Option) *PubSub {
+// NewWithBroker returns a PubSub on broker. Run its listeners with [PubSub.Run];
+// with [New], they run as components of the app.
+func NewWithBroker(broker Broker, opts ...Option) *PubSub {
 	p := &PubSub{broker: broker, log: slog.Default(), name: "anetos"}
 	for _, opt := range opts {
 		opt(p)
@@ -136,7 +136,7 @@ func New(broker Broker, opts ...Option) *PubSub {
 // Broker returns the PubSub's broker.
 func (p *PubSub) Broker() Broker { return p.broker }
 
-// ForApp sets up the app's pub/sub from the PUBSUB_* settings: it opens
+// New sets up the app's pub/sub from the PUBSUB_* settings: it opens
 // the broker with the driver PUBSUB_DRIVER names (memory is built in;
 // pass others, such as redis.PubSubDriver() or gcppubsub.Driver()), makes
 // it available in every context the app creates (for [Publish]) and to
@@ -144,8 +144,11 @@ func (p *PubSub) Broker() Broker { return p.broker }
 // boots, closes the broker at shutdown, and adds the pubsub:publish
 // command.
 //
-//	ps, err := pubsub.ForApp(app, redis.PubSubDriver())
-func ForApp(app *anetos.App, drivers ...Driver) (*PubSub, error) {
+//	ps, err := pubsub.New(app, redis.PubSubDriver())
+func New(app *anetos.App, drivers ...Driver) (*PubSub, error) {
+	if _, ok := anetos.Lookup[*PubSub](app); ok {
+		return nil, errors.New("pubsub: New called twice for one app")
+	}
 	cfg, err := LoadConfig(app.Source())
 	if err != nil {
 		return nil, err
@@ -157,13 +160,13 @@ func ForApp(app *anetos.App, drivers ...Driver) (*PubSub, error) {
 		for j, d := range all {
 			names[j] = d.Name
 		}
-		return nil, fmt.Errorf("pubsub: PUBSUB_DRIVER is %q, but the drivers are [%s]; pass its driver to pubsub.ForApp (redis.PubSubDriver() from drivers/redis, gcppubsub.Driver() from drivers/gcppubsub)", cfg.Driver, strings.Join(names, ", "))
+		return nil, fmt.Errorf("pubsub: PUBSUB_DRIVER is %q, but the drivers are [%s]; pass its driver to pubsub.New (redis.PubSubDriver() from drivers/redis, gcppubsub.Driver() from drivers/gcppubsub)", cfg.Driver, strings.Join(names, ", "))
 	}
 	broker, err := all[i].Open(app, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("pubsub: open the %s broker: %w", cfg.Driver, err)
 	}
-	p := New(broker, WithLogger(app.Logger().With("component", "pubsub")), WithName(app.Config().Name))
+	p := NewWithBroker(broker, WithLogger(app.Logger().With("component", "pubsub")), WithName(app.Config().Name))
 	p.app = app
 	p.driver = cfg.Driver
 	app.Supervisor().Declare("listeners") // run --only=listeners before the first Listen
@@ -179,6 +182,15 @@ func ForApp(app *anetos.App, drivers ...Driver) (*PubSub, error) {
 	}
 	app.OnShutdown("pubsub", func(context.Context) error { return broker.Close() })
 	return p, nil
+}
+
+// ForApp is [New].
+//
+// Deprecated: Use New; ForApp is removed in v0.6.
+//
+//go:fix inline
+func ForApp(app *anetos.App, drivers ...Driver) (*PubSub, error) {
+	return New(app, drivers...)
 }
 
 // preparer prepares the listeners' subscriptions when the app boots.
@@ -233,7 +245,7 @@ func Attributes(attrs map[string]string) PublishOption {
 // the message is published at once and Publish returns the error.
 func AfterCommit() PublishOption { return func(o *publishOptions) { o.afterCommit = true } }
 
-// Publish publishes v to topic, with the pub/sub in ctx (from [ForApp]).
+// Publish publishes v to topic, with the pub/sub in ctx (from [New]).
 // v is encoded as JSON, except byte slices ([]byte, json.RawMessage),
 // sent as they are:
 //
@@ -421,7 +433,7 @@ func ShutdownGrace(d time.Duration) ListenOption {
 //	err := pubsub.Listen(ps, "orders.created", billing.OrderCreated, pubsub.Concurrency(20),
 //		pubsub.MaxAttempts(5), pubsub.DeadLetter("orders.created.dlq"))
 //
-// With [ForApp], the listener runs as a component with the role
+// With [New], the listener runs as a component with the role
 // "listeners" (so `run --only=listeners` runs only listeners), stopping
 // after the HTTP server and before the queue's workers. Delivery is
 // at-least-once: fn must be idempotent. [Current] returns the message.
@@ -532,7 +544,7 @@ func IsPermanent(err error) bool {
 
 type psKey struct{}
 
-// WithPubSub returns ctx with p, for [Publish]. [ForApp] makes it
+// WithPubSub returns ctx with p, for [Publish]. [New] makes it
 // available in every context the app creates.
 func WithPubSub(ctx context.Context, p *PubSub) context.Context {
 	return context.WithValue(ctx, psKey{}, p)
@@ -540,7 +552,7 @@ func WithPubSub(ctx context.Context, p *PubSub) context.Context {
 
 // ErrNoPubSub is returned by [From] (and [Publish]) when the context has
 // no pub/sub.
-var ErrNoPubSub = errors.New("pubsub: no pub/sub in the context: call pubsub.ForApp at startup, or pubsub.WithPubSub")
+var ErrNoPubSub = errors.New("pubsub: no pub/sub in the context: call pubsub.New at startup, or pubsub.WithPubSub")
 
 // From returns the pub/sub in ctx.
 func From(ctx context.Context) (*PubSub, error) {

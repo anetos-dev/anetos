@@ -16,7 +16,7 @@ func TestIntended(t *testing.T) {
 		"/\\evil.example/x":    "/home",
 		"https://evil.example": "/home",
 	} {
-		s := session.New()
+		s := session.NewSession()
 		s.Put(keyIntended, stored)
 		ctx := session.NewContext(context.Background(), s)
 		if got := Intended(ctx, "/home"); got != want {

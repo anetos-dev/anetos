@@ -11,7 +11,7 @@
 //		CreateProjects rbac.Permission = "projects.create"
 //	)
 //
-//	reg, err := rbac.ForApp(app, []rbac.Permission{ViewProjects, CreateProjects},
+//	reg, err := rbac.New(app, []rbac.Permission{ViewProjects, CreateProjects},
 //		rbac.Role{Name: "owner", Permissions: []rbac.Permission{ViewProjects, CreateProjects}},
 //		rbac.Role{Name: "viewer", Permissions: []rbac.Permission{ViewProjects}},
 //	)

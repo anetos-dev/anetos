@@ -57,7 +57,7 @@ func testRBAC(t *testing.T, ctx context.Context) {
 			_, _ = db.Exec(ctx, "DROP TABLE IF EXISTS "+table)
 		}
 	})
-	reg, err := rbac.New(stPerms, stRoles...)
+	reg, err := rbac.NewRegistry(stPerms, stRoles...)
 	check(t, err)
 	ctx = rbac.WithRegistry(ctx, reg)
 	acme, globex := rbac.ScopeOf("team", 1), rbac.ScopeOf("team", 2)
@@ -309,10 +309,10 @@ func (stGrant) TableName() string { return "rbac_grants" }
 // tokens, the middleware and the commands.
 func testRBACRequests(t *testing.T, ctx context.Context, reg *rbac.Registry, acme rbac.Scope) {
 	k, _ := encryption.ParseKey(encryption.GenerateKey())
-	enc, _ := encryption.New(k)
+	enc, _ := encryption.NewEncrypter(k)
 	cfg, err := auth.LoadConfig(nil)
 	check(t, err)
-	a, err := auth.New(cfg, auth.Users[stAuthUser]{
+	a, err := auth.NewWithConfig(cfg, auth.Users[stAuthUser]{
 		ByID:    func(_ context.Context, id string) (stAuthUser, error) { return stAuthUser{id}, nil },
 		ByLogin: func(context.Context, string) (stAuthUser, error) { return stAuthUser{}, auth.ErrNoUser },
 	}, enc)
@@ -438,7 +438,7 @@ func testRBACRequests(t *testing.T, ctx context.Context, reg *rbac.Registry, acm
 	}
 
 	// A disabled user's tokens stop working.
-	dis, err := auth.New(cfg, auth.Users[stAuthUser]{
+	dis, err := auth.NewWithConfig(cfg, auth.Users[stAuthUser]{
 		ByID:     func(_ context.Context, id string) (stAuthUser, error) { return stAuthUser{id}, nil },
 		ByLogin:  func(context.Context, string) (stAuthUser, error) { return stAuthUser{}, auth.ErrNoUser },
 		Disabled: func(u stAuthUser) bool { return u.id == "ada" },
@@ -451,7 +451,7 @@ func testRBACRequests(t *testing.T, ctx context.Context, reg *rbac.Registry, acm
 	// The commands.
 	app, err := anetos.New(anetos.WithSource(config.Map{}), anetos.WithLogOutput(io.Discard))
 	check(t, err)
-	_, err = rbac.ForApp(app, stPerms, stRoles...)
+	_, err = rbac.New(app, stPerms, stRoles...)
 	check(t, err)
 	run := func(args ...string) string {
 		t.Helper()
@@ -481,7 +481,7 @@ func testRBACRequests(t *testing.T, ctx context.Context, reg *rbac.Registry, acm
 func testRBACUnits(t *testing.T, ctx context.Context, acme rbac.Scope) {
 	app, err := anetos.New(anetos.WithSource(config.Map{}), anetos.WithLogOutput(io.Discard))
 	check(t, err)
-	_, err = rbac.ForApp(app, stPerms, stRoles...)
+	_, err = rbac.New(app, stPerms, stRoles...)
 	check(t, err)
 	unit, end := app.StartUnit(ctx, anetos.Unit{Kind: "job", Name: "test"})
 	defer end()

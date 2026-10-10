@@ -6,7 +6,7 @@
 //
 // Set it up after the database, and track models:
 //
-//	trail, err := audit.ForApp(app) // after db.Connect
+//	trail, err := audit.New(app) // after db.Connect
 //	if err != nil {
 //		return err
 //	}

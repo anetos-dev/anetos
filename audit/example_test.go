@@ -24,7 +24,7 @@ type Invoice struct {
 // restore of an invoice is logged from then on.
 func ExampleTrack() {
 	var app *anetos.App // from anetos.New, after db.Connect
-	trail, err := audit.ForApp(app)
+	trail, err := audit.New(app)
 	if err != nil {
 		log.Fatal(err)
 	}

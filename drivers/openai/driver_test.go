@@ -40,7 +40,7 @@ func TestDrivers(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		client, err := ai.ForApp(app, openai.Driver(), openai.CompatibleDriver())
+		client, err := ai.New(app, openai.Driver(), openai.CompatibleDriver())
 		switch {
 		case c.want == "" && err != nil:
 			t.Errorf("%v: %v", c.env, err)
@@ -216,8 +216,8 @@ func TestEmbeddingDriver(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = app.Close() }()
-	client, err := ai.ForApp(app, openai.Driver())
+	client, err := ai.New(app, openai.Driver())
 	if err != nil || client.EmbeddingModel() != "text-embedding-3-small" || client.Provider().Name() != "fake" {
-		t.Errorf("ForApp: %v", err)
+		t.Errorf("New: %v", err)
 	}
 }

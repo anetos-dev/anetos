@@ -56,7 +56,7 @@ func main() {
 // storage, the scheduler, the web server, the routes and the plugins.
 func setup(app *anetos.App) (*web.Server, error) {
 	// Translations: locales/<locale>/*.yaml; APP_LOCALE, LOCALE_URL.
-	if _, err := i18n.ForApp(app, locales.FS); err != nil {
+	if _, err := i18n.New(app, locales.FS); err != nil {
 		return nil, err
 	}
 	if _, err := db.Connect(context.Background(), app, sqlite.Driver()); err != nil {
@@ -65,13 +65,13 @@ func setup(app *anetos.App) (*web.Server, error) {
 	// The cache and jobs tables serve CACHE_STORE=database and
 	// QUEUE_DRIVER=database.
 	sets := []*migrate.Set{migrations.All, cache.Migrations(""), queue.Migrations("", "")}
-	if _, err := migrate.ForApp(app, sets, migrate.WithSeeders(migrations.Seeders...)); err != nil {
+	if _, err := migrate.New(app, sets, migrate.WithSeeders(migrations.Seeders...)); err != nil {
 		return nil, err
 	}
-	if _, err := cache.ForApp(app); err != nil {
+	if _, err := cache.New(app); err != nil {
 		return nil, err
 	}
-	q, err := queue.ForApp(app)
+	q, err := queue.New(app)
 	if err != nil {
 		return nil, err
 	}
@@ -81,19 +81,19 @@ func setup(app *anetos.App) (*web.Server, error) {
 		return nil, err
 	}
 	// Events: events.On(bus, listener); after the queue, for OnQueued.
-	if _, err := events.ForApp(app); err != nil {
+	if _, err := events.New(app); err != nil {
 		return nil, err
 	}
 	// MAIL_DRIVER: log (development), smtp or memory; after the queue, for
 	// mailer.Queue.
-	if _, err := mailer.ForApp(app); err != nil {
+	if _, err := mailer.New(app); err != nil {
 		return nil, err
 	}
 	// STORAGE_DRIVER: local (the storage/app directory) or memory.
-	if _, err := storage.ForApp(app); err != nil {
+	if _, err := storage.New(app); err != nil {
 		return nil, err
 	}
-	s, err := schedule.ForApp(app)
+	s, err := schedule.New(app)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +112,7 @@ func setup(app *anetos.App) (*web.Server, error) {
 		return nil, err
 	}
 	// `go run . openapi` and GET /api/v1/openapi.json (routes.OpenAPI).
-	if err := openapi.ForApp(app, srv, routes.OpenAPI); err != nil {
+	if err := openapi.Register(app, srv, routes.OpenAPI); err != nil {
 		return nil, err
 	}
 	// The plugins in plugins.go (anetos add), last: they use the services

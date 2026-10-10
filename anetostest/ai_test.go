@@ -15,7 +15,7 @@ import (
 
 // askApp answers GET /ask?q=… with the model's answer.
 func askApp(app *anetos.App) (*web.Server, error) {
-	if _, err := ai.ForApp(app); err != nil {
+	if _, err := ai.New(app); err != nil {
 		return nil, err
 	}
 	return askRoutes(app)
@@ -79,11 +79,11 @@ func TestFakeAIWithoutClient(t *testing.T) {
 	ft := &fakeT{TB: t}
 	msg := fatalOf(func() { anetostest.New(ft, nil, anetostest.FakeAI(ai.FakeText("x"))) })
 	if !strings.Contains(msg, "the app has no AI client") {
-		t.Errorf("FakeAI without ai.ForApp: %q", msg)
+		t.Errorf("FakeAI without ai.New: %q", msg)
 	}
 	msg = fatalOf(func() { anetostest.New(ft, nil).AI() })
 	if !strings.Contains(msg, "isn't the fake") {
-		t.Errorf("AI without ai.ForApp: %q", msg)
+		t.Errorf("AI without ai.New: %q", msg)
 	}
 }
 
@@ -95,7 +95,7 @@ func TestFakeAIOverEnv(t *testing.T) {
 	// replaces it with the fake.
 	live := liveProvider{ai.NewFake(ai.FakeText("live"))}
 	liveApp := func(app *anetos.App) (*web.Server, error) {
-		if _, err := ai.ForApp(app, ai.Driver{Name: "live", Open: func(*anetos.App, ai.Config) (ai.Provider, error) { return live, nil }}); err != nil {
+		if _, err := ai.New(app, ai.Driver{Name: "live", Open: func(*anetos.App, ai.Config) (ai.Provider, error) { return live, nil }}); err != nil {
 			return nil, err
 		}
 		return askRoutes(app)
@@ -118,7 +118,7 @@ func TestFakeEmbeddingsByDefault(t *testing.T) {
 	t.Setenv("AI_EMBEDDING_PROVIDER", "openai")
 	t.Setenv("AI_EMBEDDING_MODEL", "text-embedding-3-small")
 	app := anetostest.New(t, func(app *anetos.App) (*web.Server, error) {
-		if _, err := ai.ForApp(app); err != nil {
+		if _, err := ai.New(app); err != nil {
 			return nil, err
 		}
 		return web.NewServer(app)

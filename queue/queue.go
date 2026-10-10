@@ -53,7 +53,7 @@ type Failer interface {
 }
 
 // Queue dispatches jobs to a [Store] and runs them in workers. Create it
-// with [ForApp] (or [New]), and register each job type with [Register].
+// with [New] (or [NewWithStore]), and register each job type with [Register].
 type Queue struct {
 	store Store
 	sync  bool
@@ -140,18 +140,18 @@ type jobType struct {
 	decode  func(data []byte) (Job, error)
 }
 
-// Option configures a [Queue] made with [New].
+// Option configures a [Queue] made with [NewWithStore].
 type Option func(*Queue)
 
 // WithLogger sets the logger of the queue's workers. Default
 // slog.Default().
 func WithLogger(l *slog.Logger) Option { return func(q *Queue) { q.log = l } }
 
-// New returns a queue keeping its jobs in store. Zero fields of cfg take
+// NewWithStore returns a queue keeping its jobs in store. Zero fields of cfg take
 // their defaults (those of the QUEUE_* settings). A nil store runs jobs
 // at once, like the sync driver. Run its workers with [Queue.Run]; for a
-// queue made with [ForApp], [Queue.Work] adds them to the app.
-func New(store Store, cfg Config, opts ...Option) *Queue {
+// queue made with [New], [Queue.Work] adds them to the app.
+func NewWithStore(store Store, cfg Config, opts ...Option) *Queue {
 	q := &Queue{store: store, cfg: cfg.withDefaults(), log: slog.Default(),
 		byName: map[string]*jobType{}, byType: map[reflect.Type]*jobType{}}
 	if store == nil {
@@ -515,7 +515,7 @@ func (e envelope) inLocale(ctx context.Context) context.Context {
 	return ctx
 }
 
-// Dispatch dispatches job on the queue in ctx (from [ForApp]):
+// Dispatch dispatches job on the queue in ctx (from [New]):
 //
 //	err := queue.Dispatch(ctx, jobs.SendWelcome{UserID: u.ID}, queue.OnQueue("emails"))
 //
@@ -729,7 +729,7 @@ func IsPermanent(err error) bool {
 
 type queueKey struct{}
 
-// WithQueue returns ctx with q, for [Dispatch]. [ForApp] makes the queue
+// WithQueue returns ctx with q, for [Dispatch]. [New] makes the queue
 // available in every context the app creates.
 func WithQueue(ctx context.Context, q *Queue) context.Context {
 	return context.WithValue(ctx, queueKey{}, q)
@@ -737,7 +737,7 @@ func WithQueue(ctx context.Context, q *Queue) context.Context {
 
 // ErrNoQueue is returned by [From] (and [Dispatch]) when the context
 // has no queue.
-var ErrNoQueue = errors.New("queue: no queue in the context: call queue.ForApp at startup, or queue.WithQueue")
+var ErrNoQueue = errors.New("queue: no queue in the context: call queue.New at startup, or queue.WithQueue")
 
 // From returns the queue in ctx.
 func From(ctx context.Context) (*Queue, error) {

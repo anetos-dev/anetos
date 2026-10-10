@@ -3,7 +3,7 @@
 // Package ai connects language models to the app: text and typed
 // answers, streaming, and tools that run as the current user.
 //
-//	client, err := ai.ForApp(app) // AI_PROVIDER, AI_MODEL; pass providers' drivers here
+//	client, err := ai.New(app) // AI_PROVIDER, AI_MODEL; pass providers' drivers here
 //
 //	res, err := ai.Generate(ctx, "Summarize in one sentence: "+post.Body)
 //	fmt.Println(res.Text(), res.Usage.OutputTokens)

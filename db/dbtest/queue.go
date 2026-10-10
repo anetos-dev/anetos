@@ -52,7 +52,7 @@ func testQueueStore(t *testing.T, ctx context.Context) {
 		return store
 	})
 
-	q := queue.New(store, queue.Config{})
+	q := queue.NewWithStore(store, queue.Config{})
 	check(t, queue.Register[stJob](q))
 	var observed atomic.Int32 // Observe sees dispatches that commit only
 	q.Observe(func(context.Context, queue.Dispatched) { observed.Add(1) })
@@ -131,7 +131,7 @@ func (j stJob) Handle(ctx context.Context) error {
 // get the worker's context, with the database.
 func testQueueWorker(t *testing.T, ctx context.Context) {
 	store := queueTables(t, ctx)
-	q := queue.New(store, queue.Config{Poll: 10 * time.Millisecond})
+	q := queue.NewWithStore(store, queue.Config{Poll: 10 * time.Millisecond})
 	check(t, queue.Register[stJob](q))
 	for _, text := range []string{"one", "two", "three", "bad bytes"} {
 		check(t, q.Dispatch(ctx, stJob{Text: text}))

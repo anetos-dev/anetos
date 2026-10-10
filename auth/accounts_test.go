@@ -98,11 +98,11 @@ func TestSignOutEverywhere(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	enc, err := encryption.New(key)
+	enc, err := encryption.NewEncrypter(key)
 	if err != nil {
 		t.Fatal(err)
 	}
-	plain, err := auth.New(a.Config(), users, enc, auth.WithInsecureCookies())
+	plain, err := auth.NewWithConfig(a.Config(), users, enc, auth.WithInsecureCookies())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +110,7 @@ func TestSignOutEverywhere(t *testing.T) {
 		t.Error("SignOutEverywhere without session keys")
 	}
 	users.SessionKey = s.users().SessionKey
-	if _, err := auth.New(a.Config(), users, enc); err == nil {
+	if _, err := auth.NewWithConfig(a.Config(), users, enc); err == nil {
 		t.Error("SessionKey without SetSessionKey accepted")
 	}
 }

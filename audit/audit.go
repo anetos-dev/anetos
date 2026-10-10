@@ -58,7 +58,7 @@ func (c Config) Validate() error {
 }
 
 // Trail is an app's audit log: its settings and tracked models. Create it
-// with [ForApp] and track models with [Track].
+// with [New] and track models with [Track].
 type Trail struct {
 	cfg Config
 	db  *db.DB
@@ -71,15 +71,15 @@ var trackMu sync.Mutex
 
 type trailKey struct{}
 
-// ForApp creates the app's audit log, after db.Connect: it reads the
+// New creates the app's audit log, after db.Connect: it reads the
 // AUDIT_* settings, notes the unit of work each write happens in, carries
 // the actor into the queue jobs and async event listeners it starts
 // (anetos.App.AddCarrier), and adds the audit:prune and audit:anonymize
 // commands. Nothing is logged until models are tracked with [Track]; the
 // tables come from [Migrations].
-func ForApp(app *anetos.App) (*Trail, error) {
+func New(app *anetos.App) (*Trail, error) {
 	if _, ok := anetos.Lookup[*Trail](app); ok {
-		return nil, errors.New("audit: ForApp called twice for one app")
+		return nil, errors.New("audit: New called twice for one app")
 	}
 	cfg, err := config.Get[Config](app.Source())
 	if err != nil {
@@ -87,7 +87,7 @@ func ForApp(app *anetos.App) (*Trail, error) {
 	}
 	d, ok := anetos.Lookup[*db.DB](app)
 	if !ok {
-		return nil, errors.New("audit: ForApp needs the app's database: call db.Connect first")
+		return nil, errors.New("audit: New needs the app's database: call db.Connect first")
 	}
 	t := &Trail{cfg: cfg, db: d, log: app.Logger().With("component", "audit")}
 	app.AroundUnits(func(ctx context.Context, u anetos.Unit) (context.Context, func()) {
@@ -123,6 +123,15 @@ func ForApp(app *anetos.App) (*Trail, error) {
 	return t, nil
 }
 
+// ForApp is [New].
+//
+// Deprecated: Use New; ForApp is removed in v0.6.
+//
+//go:fix inline
+func ForApp(app *anetos.App) (*Trail, error) {
+	return New(app)
+}
+
 // Config returns the log's settings.
 func (t *Trail) Config() Config { return t.cfg }
 
@@ -141,7 +150,7 @@ func Tracked(ctx context.Context, table string) bool {
 	return false
 }
 
-// Enabled reports whether ctx has the app's audit log (audit.ForApp), for
+// Enabled reports whether ctx has the app's audit log (audit.New), for
 // code that records events only in apps that keep one.
 func Enabled(ctx context.Context) bool {
 	_, ok := ctx.Value(trailKey{}).(*Trail)
@@ -152,7 +161,7 @@ func trailFrom(ctx context.Context) (*Trail, error) {
 	if t, ok := ctx.Value(trailKey{}).(*Trail); ok {
 		return t, nil
 	}
-	return nil, errors.New("audit: no audit log in the context: call audit.ForApp at setup")
+	return nil, errors.New("audit: no audit log in the context: call audit.New at setup")
 }
 
 // Option changes how a model is tracked.

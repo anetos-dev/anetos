@@ -6,7 +6,7 @@
 //
 // An event is any type, usually a struct; listeners are functions of it:
 //
-//	bus, err := events.ForApp(app)
+//	bus, err := events.New(app)
 //	err = events.On(bus, recordAudit)                                  // in Emit, in its transaction
 //	err = events.OnAsync(bus, countSale, events.Concurrency(4))        // in the background, after the commit
 //	err = events.OnQueued(bus, notifyWarehouse)                        // as a queue job: durable, retried

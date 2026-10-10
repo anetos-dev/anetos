@@ -166,7 +166,7 @@ What Anetos does without settings, and where to change it:
 | Defence | Where |
 |---|---|
 | CSRF: unsafe requests need a same-origin `Origin` (or `Sec-Fetch-Site`) and a token from the session | `web.CSRF`, on the `pages` group ([Forms](forms.md)) |
-| Sessions: AES-256-GCM cookies, `HttpOnly`, `Secure` outside development, `SameSite=Lax` | `session.ForApp` ([Sessions](sessions.md)) |
+| Sessions: AES-256-GCM cookies, `HttpOnly`, `Secure` outside development, `SameSite=Lax` | `session.New` ([Sessions](sessions.md)) |
 | Signed-in pages aren't cached: `Cache-Control: no-store` | `auth.Require` |
 | Headers: `X-Content-Type-Options`, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy`, `Cross-Origin-Opener-Policy`; HSTS in production | `web.NewServer` |
 | Limits: 10 MB bodies, 30 s requests, 10 s for headers | `HTTP_MAX_BODY`, `HTTP_REQUEST_TIMEOUT`, `HTTP_READ_HEADER_TIMEOUT` |

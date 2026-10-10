@@ -98,7 +98,7 @@ up the same way.
 ```go
 // AUTH_* settings. Signing in leads to /dashboard, unless
 // AUTH_HOME_URL names another page.
-a, err := auth.ForApp(app, users, auth.DefaultHomeURL("/dashboard"))
+a, err := auth.New(app, users, auth.DefaultHomeURL("/dashboard"))
 if err != nil {
 	return nil, err
 }
@@ -524,9 +524,9 @@ the user's other sessions are signed out once.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `auth: login throttling needs the app's cache` at startup | `cache.ForApp` isn't called, or is called after `auth.ForApp` | Set up the cache first |
+| `auth: login throttling needs the app's cache` at startup | `cache.New` isn't called, or is called after `auth.New` | Set up the cache first |
 | `auth: no auth state in the context` | The route lacks `a.Middleware` | Add it after the session middleware |
-| `auth: ForApp was already called for this app` | Two `auth.ForApp` calls | An app has one Auth, for one user type |
+| `auth: New called twice for one app` | Two `auth.New` calls | An app has one Auth, for one user type |
 | `the current user was asked for while it was being loaded` | `Users.ByID` calls `auth.User` or `auth.Check` (through a query scope, say) | Don't ask for the current user while finding it |
 | Every page redirects to the login page after logging in | `a.Middleware` runs before the session middleware | Put the session middleware first |
 | Users are signed out when they change their password | By design: other sessions end | Call `a.Login` again after changing the password in the current request |

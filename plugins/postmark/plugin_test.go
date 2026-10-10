@@ -27,10 +27,10 @@ func setup(app *anetos.App) (*web.Server, error) {
 	if _, err := db.Connect(context.Background(), app, sqlite.Driver()); err != nil {
 		return nil, err
 	}
-	if _, err := migrate.ForApp(app, nil); err != nil {
+	if _, err := migrate.New(app, nil); err != nil {
 		return nil, err
 	}
-	if _, err := queue.ForApp(app); err != nil {
+	if _, err := queue.New(app); err != nil {
 		return nil, err
 	}
 	srv, err := web.NewServer(app)

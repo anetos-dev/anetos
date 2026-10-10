@@ -44,7 +44,7 @@ The built-in components with roles are the web server (`http`), the
 queue's workers (`workers`, from `q.Work`; see [Queues](../guides/queues.md))
 pub/sub listeners (`listeners`, from `pubsub.Listen`; see
 [Pub/sub listeners](../guides/pubsub.md)) and the scheduler (`scheduler`,
-from `schedule.ForApp` once it has tasks; see
+from `schedule.New` once it has tasks; see
 [Scheduling](../guides/scheduling.md)). Your own components choose
 theirs with `anetos.Roles("workers")`.
 
@@ -54,7 +54,7 @@ theirs with `anetos.Roles("workers")`.
 
 - Components **without** roles run in every process.
 - Asking for a role nothing declares is an error, so typos in `--only`
-  fail loudly. `schedule.ForApp` and `pubsub.ForApp` declare theirs
+  fail loudly. `schedule.New` and `pubsub.New` declare theirs
   (`Supervisor.Declare`) before their components exist, so
   `run --only=workers,scheduler` works in an app that has no task yet
   and keeps working once it has one (v0.3).
@@ -119,7 +119,7 @@ immediately canceled.
   and every component that implements `Ready() bool` is ready. Such a
   component that is waiting to restart or has failed counts as not ready.
   It backs the server's `GET /health/ready` and `health:check`;
-  `migrate.ForApp` adds one (`migrations`) that isn't ready while
+  `migrate.New` adds one (`migrations`) that isn't ready while
   migrations are pending.
 - `app.Supervisor().ShutdownDeadline()` is when the components' share of
   `APP_SHUTDOWN_TIMEOUT` runs out, once shutdown has begun: queue workers

@@ -106,24 +106,24 @@ func pageApp(b testing.TB, logger *slog.Logger) (*anetos.App, *web.Router, func(
 		b.Fatal(err)
 	}
 	b.Cleanup(func() { _ = app.Close() })
-	if _, err := i18n.ForApp(app, fstest.MapFS{"en/app.yaml": {Data: []byte("posts:\n  title: \"Posts\"\n")}}); err != nil {
+	if _, err := i18n.New(app, fstest.MapFS{"en/app.yaml": {Data: []byte("posts:\n  title: \"Posts\"\n")}}); err != nil {
 		b.Fatal(err)
 	}
 	if _, err := db.Connect(context.Background(), app, sqlite.Driver()); err != nil {
 		b.Fatal(err)
 	}
-	if _, err := cache.ForApp(app); err != nil { // memory: login throttling
+	if _, err := cache.New(app); err != nil { // memory: login throttling
 		b.Fatal(err)
 	}
 	srv, err := web.NewServer(app)
 	if err != nil {
 		b.Fatal(err)
 	}
-	sessions, err := session.ForApp(app)
+	sessions, err := session.New(app)
 	if err != nil {
 		b.Fatal(err)
 	}
-	a, err := auth.ForApp(app, benchUsers)
+	a, err := auth.New(app, benchUsers)
 	if err != nil {
 		b.Fatal(err)
 	}

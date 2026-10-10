@@ -16,10 +16,10 @@
 //	    one: "{count}টি পোস্ট"
 //	    other: "{count}টি পোস্ট"
 //
-// [ForApp] loads them; [T] and [Plural] translate in the locale of a
+// [New] loads them; [T] and [Plural] translate in the locale of a
 // context:
 //
-//	tr, err := i18n.ForApp(app, locales.FS)
+//	tr, err := i18n.New(app, locales.FS)
 //	i18n.T(ctx, "welcome", "name", user.Name)
 //	i18n.Plural(ctx, "posts.count", n)
 //

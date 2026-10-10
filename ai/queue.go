@@ -22,7 +22,7 @@ type queuedAgentsKey struct{}
 
 // QueueAgents lets the agents answer conversations from queue jobs
 // ([Conversation.QueueReply]): it registers the job type "ai.reply" on
-// the app's queue (queue.ForApp, called first), with AI_QUEUE_TIMEOUT
+// the app's queue (queue.New, called first), with AI_QUEUE_TIMEOUT
 // (default 15m). Agents are found by name, so each needs a unique Name;
 // a worker must run the same code. The job's timeout is also how long
 // the queue's workers wait before taking back a job of any type whose
@@ -32,7 +32,7 @@ type queuedAgentsKey struct{}
 func QueueAgents(app *anetos.App, agents ...Agent) error {
 	q, err := anetos.Resolve[*queue.Queue](app)
 	if err != nil {
-		return errors.New("ai: QueueAgents needs the app's queue: call queue.ForApp first")
+		return errors.New("ai: QueueAgents needs the app's queue: call queue.New first")
 	}
 	if _, ok := anetos.Lookup[queuedAgents](app); ok {
 		return errors.New("ai: QueueAgents called twice for one app")

@@ -95,7 +95,7 @@ type UsageConfig struct {
 // signed-in user), and enforces their [Budget]: a call whose user has
 // spent theirs fails with a [*BudgetError] (429) before its next request
 // to the model. A response can go past the budget: what it will use isn't
-// known beforehand. Budgets need the app's cache (cache.ForApp). Call it
+// known beforehand. Budgets need the app's cache (cache.New). Call it
 // at startup, before the client's first call.
 func (cl *Client) TrackUsage(cfg UsageConfig) {
 	cl.mu.Lock()

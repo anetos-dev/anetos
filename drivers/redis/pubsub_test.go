@@ -48,7 +48,7 @@ func TestPubSubDriver(t *testing.T) {
 	url := redisURL(t)
 	var got atomic.Int64
 	a := anetostest.New(t, func(app *anetos.App) (*web.Server, error) {
-		ps, err := pubsub.ForApp(app, redis.PubSubDriver())
+		ps, err := pubsub.New(app, redis.PubSubDriver())
 		if err != nil {
 			return nil, err
 		}
@@ -79,7 +79,7 @@ func TestPubSubDriver(t *testing.T) {
 		t.Errorf("broker %T", ps.Broker())
 	}
 	bad := newApp(t, config.Map{"PUBSUB_DRIVER": "redis", "REDIS_URL": url, "PUBSUB_REDIS_MAXLEN": "-1"})
-	if _, err := pubsub.ForApp(bad, redis.PubSubDriver()); err == nil {
+	if _, err := pubsub.New(bad, redis.PubSubDriver()); err == nil {
 		t.Error("PUBSUB_REDIS_MAXLEN=-1 = nil")
 	}
 }

@@ -120,11 +120,11 @@ A `*mailer.Message` is a mailable too, for one-off emails.
 
 ### 3. Set up the mailer
 
-In `setup`; with `queue.ForApp` too, before or after it, for queued email:
+In `setup`; with `queue.New` too, before or after it, for queued email:
 
 ```go
 // With the queue, mailer.Queue sends from a queue job.
-if _, err := mailer.ForApp(app, postmark.Driver()); err != nil { // MAIL_DRIVER: log, smtp, memory or postmark
+if _, err := mailer.New(app, postmark.Driver()); err != nil { // MAIL_DRIVER: log, smtp, memory or postmark
 	return nil, err
 }
 ```
@@ -132,7 +132,7 @@ if _, err := mailer.ForApp(app, postmark.Driver()); err != nil { // MAIL_DRIVER:
 (Copied from [`examples/queue`](../../../examples/queue/main.go), region `mail-setup`.)
 
 Drivers in other modules, such as `postmark.Driver()`, are passed to
-`mailer.ForApp`; `MAIL_DRIVER` picks one. Postmark's comes with the
+`mailer.New`; `MAIL_DRIVER` picks one. Postmark's comes with the
 [plugin](plugins.md) `anetos.dev/anetos/plugins/postmark`
 (`anetos add anetos.dev/anetos/plugins/postmark`), which also
 records the addresses Postmark stopped sending to, from its webhooks:
@@ -308,7 +308,7 @@ email, a `mailer.Outgoing`, goes to the transport, which checks it
 again.
 
 `Queue` does the same, then dispatches the `mail:send` queue job with the
-`Outgoing` as its JSON payload; `mailer.ForApp` registers that job when
+`Outgoing` as its JSON payload; `mailer.New` registers that job when
 the app has a queue. The job keeps its `Message-ID` across retries
 (Postmark gives each email its own).
 
@@ -327,7 +327,7 @@ queue fails the job at once.
 | Emails appear in the log instead of being sent | `MAIL_DRIVER` is `log`, the default | Set `MAIL_DRIVER=smtp` (or `postmark`) |
 | `the message has no sender` | `MAIL_FROM_ADDRESS` isn't set | Set it, or the message's `From` |
 | `URL needs the app's public URL` | `APP_URL` isn't set | Set `APP_URL=https://…` |
-| `Queue needs the app's queue` | The app has no queue, or got it after booting | Call `queue.ForApp` in `setup` |
+| `Queue needs the app's queue` | The app has no queue, or got it after booting | Call `queue.New` in `setup` |
 | `doesn't offer SMTPUTF8` | An address with non-ASCII characters, and a server that can't take them | Use the address's ASCII form, or a server with SMTPUTF8 |
 | `doesn't offer STARTTLS` | The server has no TLS on that port | Use `smtps://` (port 465), or `tls=none` for a private relay |
 | `unencrypted connection` | A password without TLS to a remote server | Use TLS; passwords aren't sent in the clear |

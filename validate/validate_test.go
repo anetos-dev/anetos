@@ -748,7 +748,7 @@ func TestRequiredStructValues(t *testing.T) {
 }
 
 func TestTranslatedMessages(t *testing.T) {
-	tr, err := i18n.New(i18n.Config{Locale: "en", Fallback: "en", URL: "none"}, i18n.WithLocales(fstest.MapFS{
+	tr, err := i18n.NewTranslator(i18n.Config{Locale: "en", Fallback: "en", URL: "none"}, i18n.WithLocales(fstest.MapFS{
 		"bn.yaml": {Data: []byte(`
 validation:
   required: "{label} দিতে হবে।"

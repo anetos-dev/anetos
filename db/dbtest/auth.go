@@ -37,10 +37,10 @@ func testAuthTokens(t *testing.T, ctx context.Context) {
 		_, _ = db.Exec(ctx, "DROP TABLE IF EXISTS st_auth_migrations")
 	})
 	k, _ := encryption.ParseKey(encryption.GenerateKey())
-	enc, _ := encryption.New(k)
+	enc, _ := encryption.NewEncrypter(k)
 	cfg, err := auth.LoadConfig(nil)
 	check(t, err)
-	a, err := auth.New(cfg, auth.Users[stAuthUser]{
+	a, err := auth.NewWithConfig(cfg, auth.Users[stAuthUser]{
 		ByID: func(_ context.Context, id string) (stAuthUser, error) {
 			if id == "gone" {
 				return stAuthUser{}, auth.ErrNoUser

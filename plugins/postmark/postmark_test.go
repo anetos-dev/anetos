@@ -65,7 +65,7 @@ func text(s string) view.Component {
 func TestSend(t *testing.T) {
 	srv, got, headers := api(t, 200, `{"To":"a@example.com","SubmittedAt":"2026-10-01T09:30:00Z","MessageID":"b7bc2f4a","ErrorCode":0,"Message":"OK"}`)
 	app := newApp(t, config.Map{"MAIL_POSTMARK_TOKEN": "server-token", "MAIL_POSTMARK_STREAM": "receipts"})
-	_, err := mailer.ForApp(app, postmark.Driver(postmark.BaseURL(srv.URL)))
+	_, err := mailer.New(app, postmark.Driver(postmark.BaseURL(srv.URL)))
 	check(t, err)
 	err = mailer.Send(app.Context(context.Background()), &mailer.Message{
 		To:          []mailer.Address{{Name: "Zoë", Address: "zoe@example.com"}, {Address: "b@example.com"}},
@@ -105,7 +105,7 @@ func TestSend(t *testing.T) {
 
 func TestErrors(t *testing.T) {
 	ctx := context.Background()
-	m := mailer.New(mailer.NewMemoryTransport(), mailer.DefaultFrom(mailer.Address{Address: "shop@example.com"}))
+	m := mailer.NewWithTransport(mailer.NewMemoryTransport(), mailer.DefaultFrom(mailer.Address{Address: "shop@example.com"}))
 	o, err := m.Render(ctx, &mailer.Message{To: []mailer.Address{{Address: "a@example.com"}}, Subject: "S", Text: "x"})
 	check(t, err)
 	for _, tt := range []struct {
@@ -144,7 +144,7 @@ func TestErrors(t *testing.T) {
 		t.Errorf("unreachable: %v", err)
 	}
 	// The token is required.
-	if _, err := mailer.ForApp(newApp(t, nil), postmark.Driver()); err == nil || !strings.Contains(err.Error(), "MAIL_POSTMARK_TOKEN") {
-		t.Errorf("ForApp without a token = %v", err)
+	if _, err := mailer.New(newApp(t, nil), postmark.Driver()); err == nil || !strings.Contains(err.Error(), "MAIL_POSTMARK_TOKEN") {
+		t.Errorf("New without a token = %v", err)
 	}
 }

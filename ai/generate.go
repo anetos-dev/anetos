@@ -205,7 +205,7 @@ var ErrMaxSteps = errors.New("ai: the model was still calling tools at the step 
 //	summary := res.Text()
 //
 // With [Tools], tool calls run until the model answers ([MaxSteps]). The
-// client is the context's ([ForApp]), or [Using]'s. Each request to the
+// client is the context's ([New]), or [Using]'s. Each request to the
 // model is logged (provider, model, tokens, time; never the content). An
 // answer cut off at [MaxTokens] isn't an error: check
 // res.Response().Stop; its tool calls, which may be cut off too, don't

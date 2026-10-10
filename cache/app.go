@@ -17,7 +17,7 @@ import (
 // Config selects and configures the app's cache.
 type Config struct {
 	// Store is the store's driver: memory, database, or one passed to
-	// ForApp (redis). CACHE_STORE, default memory.
+	// New (redis). CACHE_STORE, default memory.
 	Store string `env:"CACHE_STORE" default:"memory"`
 	// Prefix starts every key, so apps (and, in Redis, sessions and
 	// queues) can share a store: cache:clear removes only its keys.
@@ -32,7 +32,7 @@ func LoadConfig(src config.Source) (Config, error) {
 	return config.Get[Config](src)
 }
 
-// Driver opens a store for [ForApp]. The memory and database drivers are
+// Driver opens a store for [New]. The memory and database drivers are
 // built in; driver modules provide others (redis.CacheDriver()).
 type Driver struct {
 	// Name is the value of CACHE_STORE that selects the driver.
@@ -51,18 +51,21 @@ func MemoryDriver() Driver {
 	}}
 }
 
-// ForApp sets up the app's cache from the CACHE_* settings: it opens the
+// New sets up the app's cache from the CACHE_* settings: it opens the
 // store with the driver CACHE_STORE names (memory and database are
 // built in; pass others, such as redis.CacheDriver()), makes the cache
 // available in every context the app creates (for [Get], [Set],
 // [Remember], …) and to [anetos.Resolve], closes the store at shutdown,
 // and adds the cache:clear command.
 //
-//	c, err := cache.ForApp(app, redis.CacheDriver())
+//	c, err := cache.New(app, redis.CacheDriver())
 //
 // The database store needs db.Connect first, and its table from
 // [Migrations].
-func ForApp(app *anetos.App, drivers ...Driver) (*Cache, error) {
+func New(app *anetos.App, drivers ...Driver) (*Cache, error) {
+	if _, ok := anetos.Lookup[*Cache](app); ok {
+		return nil, errors.New("cache: New called twice for one app")
+	}
 	cfg, err := LoadConfig(app.Source())
 	if err != nil {
 		return nil, err
@@ -74,7 +77,7 @@ func ForApp(app *anetos.App, drivers ...Driver) (*Cache, error) {
 		for j, d := range all {
 			names[j] = d.Name
 		}
-		return nil, fmt.Errorf("cache: CACHE_STORE is %q, but the drivers are [%s]; pass its driver to cache.ForApp (redis.CacheDriver() from drivers/redis)", cfg.Store, strings.Join(names, ", "))
+		return nil, fmt.Errorf("cache: CACHE_STORE is %q, but the drivers are [%s]; pass its driver to cache.New (redis.CacheDriver() from drivers/redis)", cfg.Store, strings.Join(names, ", "))
 	}
 	store, err := all[i].Open(app, cfg)
 	if err != nil {
@@ -84,7 +87,7 @@ func ForApp(app *anetos.App, drivers ...Driver) (*Cache, error) {
 	if prefix == "" {
 		prefix = app.Config().Name + ":cache:"
 	}
-	c := New(store, prefix)
+	c := NewWithStore(store, prefix)
 	c.log = app.Logger().With("component", "cache")
 	if err := app.AddCommand(cmd.Command{
 		Name:        "cache:clear",
@@ -115,4 +118,13 @@ func ForApp(app *anetos.App, drivers ...Driver) (*Cache, error) {
 	anetos.Provide(app, c)
 	app.OnShutdown("cache", func(context.Context) error { return store.Close() })
 	return c, nil
+}
+
+// ForApp is [New].
+//
+// Deprecated: Use New; ForApp is removed in v0.6.
+//
+//go:fix inline
+func ForApp(app *anetos.App, drivers ...Driver) (*Cache, error) {
+	return New(app, drivers...)
 }

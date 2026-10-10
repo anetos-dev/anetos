@@ -83,11 +83,11 @@ func newApp(t *testing.T, env config.Map) (*anetos.App, *web.Server) {
 	app, err := anetos.New(anetos.WithSource(src), anetos.WithLogOutput(io.Discard))
 	check(t, err)
 	t.Cleanup(func() { _ = app.Close() })
-	_, err = queue.ForApp(app)
+	_, err = queue.New(app)
 	check(t, err)
-	_, err = events.ForApp(app)
+	_, err = events.New(app)
 	check(t, err)
-	_, err = schedule.ForApp(app)
+	_, err = schedule.New(app)
 	check(t, err)
 	srv, err := web.NewServer(app)
 	check(t, err)
@@ -287,7 +287,7 @@ func TestLoadErrors(t *testing.T) {
 		"setting prefix":  {[]ext.Plugin{badConfig{"bad"}}, nil, "OTHER_X doesn't start with BAD_"},
 		"command prefix":  {[]ext.Plugin{badCommand{"bad"}}, nil, "must be named bad:"},
 		"set name":        {[]ext.Plugin{badSet{"bad"}}, nil, `named "bad"`},
-		"no migrate":      {[]ext.Plugin{goodSet{"good"}}, nil, "migrate.ForApp"},
+		"no migrate":      {[]ext.Plugin{goodSet{"good"}}, nil, "migrate.New"},
 		"routes error":    {[]ext.Plugin{failingRoutes{"r"}}, nil, "no routes today"},
 		"mount of no one": {[]ext.Plugin{named("a")}, []ext.Option{ext.Mount("b", "/b")}, `Mount("b")`},
 		"mount no routes": {[]ext.Plugin{named("a")}, []ext.Option{ext.Mount("a", "/b")}, "has no routes"},
@@ -315,7 +315,7 @@ func TestLoadErrors(t *testing.T) {
 	app, err := anetos.New(anetos.WithSource(src), anetos.WithLogOutput(io.Discard))
 	check(t, err)
 	t.Cleanup(func() { _ = app.Close() })
-	if err := ext.Load(app, []ext.Plugin{&greeter{}}); err == nil || !strings.Contains(err.Error(), "queue.ForApp") {
+	if err := ext.Load(app, []ext.Plugin{&greeter{}}); err == nil || !strings.Contains(err.Error(), "queue.New") {
 		t.Errorf("without a queue: %v", err)
 	}
 	// No plugins.

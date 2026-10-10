@@ -15,8 +15,8 @@ walkthrough, [AI](../concepts/ai.md) for the design, and
 
 | API | Does | Since |
 |---|---|---|
-| `ai.ForApp(app, drivers...)` | `*ai.Client` from the `AI_*` settings, with the driver `AI_PROVIDER` names (`fake` is built in), in every context the app creates. Each tool call becomes a unit of work (`anetos.Unit{Kind: "tool"}`) | v0.3 |
-| `ai.New(provider, defaults...)` | A client by hand; `defaults` (options) apply before each call's own. Logs to `slog.Default()` | v0.3 |
+| `ai.New(app, drivers...)` | `*ai.Client` from the `AI_*` settings, with the driver `AI_PROVIDER` names (`fake` is built in), in every context the app creates. Each tool call becomes a unit of work (`anetos.Unit{Kind: "tool"}`) | v0.3 |
+| `ai.NewWithProvider(provider, defaults...)` | A client by hand; `defaults` (options) apply before each call's own. Logs to `slog.Default()` | v0.3 |
 | `ai.WithClient(ctx, c)`, `ai.From(ctx)` | Put a client in a context; get it (`ai.ErrNoClient` if absent) | v0.3 |
 | `c.Provider()` | The client's `ai.Provider` | v0.3 |
 | `c.Fake(replies...)` | Replace the provider with an `*ai.Fake` (or add replies to it); for tests | v0.3 |
@@ -149,7 +149,7 @@ Recursive types are an error.
 
 | API | Does | Since |
 |---|---|---|
-| `ai.Migrations()` | The `ai_conversations`, `ai_messages` and `ai_usage` tables, for `migrate.ForApp` | v0.3 |
+| `ai.Migrations()` | The `ai_conversations`, `ai_messages` and `ai_usage` tables, for `migrate.New` | v0.3 |
 | `ai.StartConversation(ctx, userID, title)` | Stores a new `*ai.Conversation` of the user (an `AuthID`, up to 100 bytes) | v0.3 |
 | `ai.FindConversation(ctx, userID, id)` | The user's conversation, else `db.ErrNotFound` (404) | v0.3 |
 | `ai.Conversations(ctx, userID)` | The user's conversations, the latest changed first, without messages | v0.3 |
@@ -159,7 +159,7 @@ Recursive types are an error.
 | `conv.Reply(ctx, opts...)`, `conv.StreamReply(…)` | Answer its last message (the user's); stored the same way | v0.3 |
 | `conv.QueueReply(ctx, agent)` | Answers its last message from a queue job, with the agent registered under `agent.Name`, as its user (`auth.ActAs`, with the abilities of the API token ctx was signed in with, if any); `Status` is `ai.StatusQueued`, then `""`, or `ai.StatusFailed` with `Error`. A retry runs the tools again; a job that finds the conversation changed does nothing. With the sync queue driver, it runs in the calling request, after its commit | v0.3 |
 | `conv.Delete(ctx)` | Deletes it and its messages (its usage records stay) | v0.3 |
-| `ai.QueueAgents(app, agents...)` | Registers the `ai.reply` job type on the app's queue, with the agents queued replies may use (by `Name`); needs `queue.ForApp` first. Jobs time out after `AI_QUEUE_TIMEOUT` | v0.3 |
+| `ai.QueueAgents(app, agents...)` | Registers the `ai.reply` job type on the app's queue, with the agents queued replies may use (by `Name`); needs `queue.New` first. Jobs time out after `AI_QUEUE_TIMEOUT` | v0.3 |
 
 `ai.Conversation` fields: `ID`, `UserID`, `Title` (cut at 255 bytes), `Status`, `Error`,
 `CreatedAt`, `UpdatedAt`. Calls on a conversation are for its user
@@ -195,8 +195,8 @@ See [Search by meaning](../guides/semantic-search.md).
 | `ai.Vector` | `db.Vector`, a `[]float32` | v0.3 |
 | `ai.Embedder` | `Embed(ctx, *ai.EmbedRequest) (*ai.EmbedResponse, error)`: the OpenAI (and compatible), Gemini and fake providers have it; Anthropic's doesn't. `EmbedRequest{Model, Inputs, Dimensions, Purpose}` (`ai.EmbedForDocument`, `ai.EmbedForQuery`); `EmbedResponse{Vectors, Usage, Model, Estimated}` | v0.3 |
 | `ai.ErrNoEmbedder` | The client has no embeddings provider | v0.3 |
-| `client.EmbeddingModel()`, `client.SetEmbedder(e, model)` | The embedding model's name; set the embeddings provider of a client made with `ai.New` | v0.3 |
-| `ai.EmbeddingsFor(app, ai.EmbeddingsConfig[T]{Text, Dimensions, FixedSize, ChunkSize, Title, Scope})` | `*ai.Embeddings[T]`, which keeps the embeddings of `T`'s records in `<table>_embeddings` (`migrate.Schema.CreateEmbeddings`). `Text` is a record's text, `Dimensions` the vectors' size (the table's, which the model is asked for; with `FixedSize`, for models that make one size, only checked), `ChunkSize` the most characters in a chunk (2000), `Title` names records in the tool's results, `Scope` narrows every search (with the search's context). After `ai.ForApp`; with the app's queue (`queue.ForApp` first), registers the job `ai.embed:<table>`. Adds the command `ai:embed [table…]` | v0.3 |
+| `client.EmbeddingModel()`, `client.SetEmbedder(e, model)` | The embedding model's name; set the embeddings provider of a client made with `ai.NewWithProvider` | v0.3 |
+| `ai.EmbeddingsFor(app, ai.EmbeddingsConfig[T]{Text, Dimensions, FixedSize, ChunkSize, Title, Scope})` | `*ai.Embeddings[T]`, which keeps the embeddings of `T`'s records in `<table>_embeddings` (`migrate.Schema.CreateEmbeddings`). `Text` is a record's text, `Dimensions` the vectors' size (the table's, which the model is asked for; with `FixedSize`, for models that make one size, only checked), `ChunkSize` the most characters in a chunk (2000), `Title` names records in the tool's results, `Scope` narrows every search (with the search's context). After `ai.New`; with the app's queue (`queue.New` first), registers the job `ai.embed:<table>`. Adds the command `ai:embed [table…]` | v0.3 |
 | `e.Sync(ctx, rows...)` | Updates the rows' embeddings: in queue jobs of a hundred rows dispatched after the transaction commits, or right away without a queue (after the commit, inside a transaction) | v0.3 |
 | `e.SyncNow(ctx, rows...)` | Updates them now: splits the text into chunks (paragraphs, sentences, words), embeds those whose text or model changed, and replaces the record's chunks. Not inside a transaction | v0.3 |
 | `e.SyncAll(ctx)` | Deletes the chunks of deleted records (`db.PruneChunks`), then syncs every record, a hundred at a time (what `ai:embed` runs) | v0.3 |

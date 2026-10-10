@@ -46,7 +46,7 @@ func main() {
 // each request's locale with the app's translator.
 func setup(app *anetos.App) (*web.Server, error) {
 	// locales.FS embeds locales/: en.yaml and bn/*.yaml.
-	if _, err := i18n.ForApp(app, locales.FS); err != nil {
+	if _, err := i18n.New(app, locales.FS); err != nil {
 		return nil, err
 	}
 	srv, err := web.NewServer(app)

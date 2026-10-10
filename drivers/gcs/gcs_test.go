@@ -138,7 +138,7 @@ func TestSignedURL(t *testing.T) {
 	}
 }
 
-func TestForApp(t *testing.T) {
+func TestAppNew(t *testing.T) {
 	_, opt := fake(t)
 	src := config.Map{"APP_ENV": "testing", "APP_KEY": encryption.GenerateKey(),
 		"STORAGE_DRIVER": "gcs", "STORAGE_GCS_BUCKET": "test", "STORAGE_GCS_CREDENTIALS": serviceAccount(t),
@@ -146,13 +146,13 @@ func TestForApp(t *testing.T) {
 	app, err := anetos.New(anetos.WithSource(src), anetos.WithLogOutput(io.Discard))
 	check(t, err)
 	t.Cleanup(func() { _ = app.Close() })
-	if _, err := storage.ForApp(app); err == nil || !strings.Contains(err.Error(), "gcs.Driver()") {
-		t.Errorf("ForApp without the driver = %v", err)
+	if _, err := storage.New(app); err == nil || !strings.Contains(err.Error(), "gcs.Driver()") {
+		t.Errorf("New without the driver = %v", err)
 	}
 	app2, err := anetos.New(anetos.WithSource(src), anetos.WithLogOutput(io.Discard))
 	check(t, err)
 	t.Cleanup(func() { _ = app2.Close() })
-	_, err = storage.ForApp(app2, gcs.Driver(opt))
+	_, err = storage.New(app2, gcs.Driver(opt))
 	check(t, err)
 	ctx := app2.Context(context.Background())
 	def, err := storage.From(ctx)
@@ -176,8 +176,8 @@ func TestForApp(t *testing.T) {
 	app3, err := anetos.New(anetos.WithSource(bad), anetos.WithLogOutput(io.Discard))
 	check(t, err)
 	t.Cleanup(func() { _ = app3.Close() })
-	if _, err := storage.ForApp(app3, gcs.Driver(opt)); err == nil || !strings.Contains(err.Error(), "STORAGE_GCS_BUCKET") {
-		t.Errorf("ForApp without the avatars bucket = %v", err)
+	if _, err := storage.New(app3, gcs.Driver(opt)); err == nil || !strings.Contains(err.Error(), "STORAGE_GCS_BUCKET") {
+		t.Errorf("New without the avatars bucket = %v", err)
 	}
 }
 

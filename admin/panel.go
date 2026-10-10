@@ -167,19 +167,22 @@ var nameRe = regexp.MustCompile(`^[a-z][a-z0-9-]{0,49}$`)
 var reservedNames = []string{strings.Trim(confirmPath, "/"), strings.Trim(twoFactorPath, "/"), "impersonation"}
 
 // New creates the app's admin, for the users of a (the app's auth.Auth,
-// from auth.ForApp): it reads the ADMIN_* settings and declares
-// [Access] in the app's roles and permissions (rbac.ForApp must have run).
+// from auth.New): it reads the ADMIN_* settings and declares
+// [Access] in the app's roles and permissions (rbac.New must have run).
 // Only signed-in users with that permission get in; give it with a role
 // (a super role, or one in the database), for example
 // `rbac:assign <user-id> admin`.
 func New[U auth.Authenticatable](app *anetos.App, a *auth.Auth[U], opts ...Option) (*Panel, error) {
+	if _, ok := anetos.Lookup[*Panel](app); ok {
+		return nil, errors.New("admin: New called twice for one app")
+	}
 	cfg, err := config.Get[Config](app.Source())
 	if err != nil {
 		return nil, err
 	}
 	reg, ok := anetos.Lookup[*rbac.Registry](app)
 	if !ok {
-		return nil, errors.New("admin: New needs the app's roles and permissions: call rbac.ForApp first")
+		return nil, errors.New("admin: New needs the app's roles and permissions: call rbac.New first")
 	}
 	if err := reg.Declare(Access); err != nil {
 		return nil, err
@@ -217,6 +220,7 @@ func New[U auth.Authenticatable](app *anetos.App, a *auth.Auth[U], opts ...Optio
 	if p.pages, err = parsePages(); err != nil {
 		return nil, err
 	}
+	anetos.Provide(app, p)
 	return p, nil
 }
 

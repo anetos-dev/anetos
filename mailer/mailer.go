@@ -26,8 +26,8 @@ type Transport interface {
 	Send(ctx context.Context, m *Outgoing) error
 }
 
-// Mailer sends emails with a transport. Create it with [ForApp] (or
-// [New]); send with [Send] or [Queue], which find it in the context.
+// Mailer sends emails with a transport. Create it with [New] (or
+// [NewWithTransport]); send with [Send] or [Queue], which find it in the context.
 type Mailer struct {
 	transport Transport
 	from      Address
@@ -71,7 +71,7 @@ func (m *Mailer) observe(ctx context.Context, r Record) {
 	}
 }
 
-// Option configures a [Mailer] made with [New].
+// Option configures a [Mailer] made with [NewWithTransport].
 type Option func(*Mailer)
 
 // DefaultFrom sets the sender of messages without one.
@@ -83,8 +83,8 @@ func BaseURL(url string) Option { return func(m *Mailer) { m.url = strings.TrimS
 // WithLogger sets the mailer's logger. Default slog.Default().
 func WithLogger(l *slog.Logger) Option { return func(m *Mailer) { m.log = l } }
 
-// New returns a mailer that sends with t.
-func New(t Transport, opts ...Option) *Mailer {
+// NewWithTransport returns a mailer that sends with t.
+func NewWithTransport(t Transport, opts ...Option) *Mailer {
 	m := &Mailer{transport: t, log: slog.Default(), now: time.Now}
 	for _, opt := range opts {
 		opt(m)
@@ -98,7 +98,7 @@ func (m *Mailer) Transport() Transport { return m.transport }
 
 type mailerKey struct{}
 
-// WithMailer returns ctx with m, for [Send] and [Queue]. [ForApp] makes
+// WithMailer returns ctx with m, for [Send] and [Queue]. [New] makes
 // the mailer available in every context the app creates.
 func WithMailer(ctx context.Context, m *Mailer) context.Context {
 	return context.WithValue(ctx, mailerKey{}, m)
@@ -106,7 +106,7 @@ func WithMailer(ctx context.Context, m *Mailer) context.Context {
 
 // ErrNoMailer is returned by [From] (and [Send], [Queue]) when the
 // context has no mailer.
-var ErrNoMailer = errors.New("mailer: no mailer in the context: call mailer.ForApp at startup, or mailer.WithMailer")
+var ErrNoMailer = errors.New("mailer: no mailer in the context: call mailer.New at startup, or mailer.WithMailer")
 
 // From returns the mailer in ctx.
 func From(ctx context.Context) (*Mailer, error) {
@@ -162,7 +162,7 @@ const sendJob = "mail:send"
 // Queue builds and renders mailable now, with ctx (a request's, say),
 // and dispatches a queue job that sends it, with the queue's retries:
 // opts are the dispatch's (queue.OnQueue, queue.Delay, queue.AfterCommit).
-// It needs the app's queue (queue.ForApp). The job carries the rendered
+// It needs the app's queue (queue.New). The job carries the rendered
 // email, attachments included (and a failed job keeps it): send big
 // files from a job of your own, with [Send]. The email's Date is when
 // the job sends it.
@@ -179,7 +179,7 @@ func Queue(ctx context.Context, mailable Mailable, opts ...queue.DispatchOption)
 // Queue is the function [Queue] with this mailer.
 func (m *Mailer) Queue(ctx context.Context, mailable Mailable, opts ...queue.DispatchOption) error {
 	if !m.queued.Load() {
-		return errors.New("mailer: Queue needs the app's queue, set up before the app boots (queue.ForApp)")
+		return errors.New("mailer: Queue needs the app's queue, set up before the app boots (queue.New)")
 	}
 	o, err := m.render(ctx, mailable)
 	if err != nil {

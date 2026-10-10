@@ -3,7 +3,7 @@
 // Package gcppubsub is the Google Cloud Pub/Sub broker of the pubsub
 // package:
 //
-//	ps, err := pubsub.ForApp(app, gcppubsub.Driver())
+//	ps, err := pubsub.New(app, gcppubsub.Driver())
 //
 // Settings: PUBSUB_DRIVER=gcp, PUBSUB_GCP_PROJECT (the project's ID), and
 // PUBSUB_GCP_CREATE=true to create missing topics and subscriptions (for

@@ -5,7 +5,7 @@
 // text body, attachments) from its fields. Send sends it now; Queue
 // renders it now and sends it from a queue job, with retries.
 //
-//	m, err := mailer.ForApp(app) // MAIL_DRIVER: log (default), smtp, memory, or a driver module's
+//	m, err := mailer.New(app) // MAIL_DRIVER: log (default), smtp, memory, or a driver module's
 //
 //	err = mailer.Send(ctx, mails.Welcome{User: u})
 //	err = mailer.Queue(ctx, mails.Receipt{Order: o}, queue.OnQueue("emails"))

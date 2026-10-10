@@ -23,7 +23,7 @@ import (
 // lists in [Driver].Inherit) falling back to the default disk's.
 type Config struct {
 	// Driver is where files are kept: local (a directory), memory, or
-	// one passed to ForApp (s3). STORAGE_DRIVER, default local.
+	// one passed to New (s3). STORAGE_DRIVER, default local.
 	Driver string `env:"STORAGE_DRIVER" default:"local"`
 	// Root is the local driver's directory. STORAGE_ROOT, default
 	// storage/app (storage/<name> for a named disk).
@@ -118,7 +118,7 @@ func (s diskSource) Lookup(k string) (string, bool) {
 	return "", false
 }
 
-// Driver opens a backend for [ForApp]. The local and memory drivers are
+// Driver opens a backend for [New]. The local and memory drivers are
 // built in; driver modules provide others (s3.Driver()).
 type Driver struct {
 	// Name is the value of STORAGE_DRIVER that selects the driver.
@@ -156,9 +156,9 @@ type Storage struct {
 	disks map[string]*Disk
 }
 
-// New returns storage with def as the default disk and the others as
+// NewWithDisks returns storage with def as the default disk and the others as
 // named disks (by their names).
-func New(def *Disk, others ...*Disk) *Storage {
+func NewWithDisks(def *Disk, others ...*Disk) *Storage {
 	s := &Storage{def: def, disks: map[string]*Disk{}}
 	for _, d := range others {
 		s.disks[d.name] = d
@@ -181,17 +181,17 @@ func (s *Storage) Disk(name string) (*Disk, error) {
 	return nil, fmt.Errorf("storage: no disk named %q: add it to STORAGE_DISKS", name)
 }
 
-// ForApp sets up the app's disks from the STORAGE_* settings: the
+// New sets up the app's disks from the STORAGE_* settings: the
 // default disk, and one per name in STORAGE_DISKS, each with the driver
 // its STORAGE_DRIVER (or STORAGE_<NAME>_DRIVER) names (local and memory
 // are built in; pass others, such as s3.Driver()). The disks are
 // available in every context the app creates ([From]); temporary URLs
 // of local disks are signed with APP_KEY.
 //
-//	st, err := storage.ForApp(app, s3.Driver())
-func ForApp(app *anetos.App, drivers ...Driver) (*Storage, error) {
+//	st, err := storage.New(app, s3.Driver())
+func New(app *anetos.App, drivers ...Driver) (*Storage, error) {
 	if _, err := anetos.Resolve[*Storage](app); err == nil {
-		return nil, errors.New("storage: ForApp called twice for one app")
+		return nil, errors.New("storage: New called twice for one app")
 	}
 	ac, err := config.Get[AppConfig](app.Source())
 	if err != nil {
@@ -200,7 +200,7 @@ func ForApp(app *anetos.App, drivers ...Driver) (*Storage, error) {
 	all := append([]Driver{LocalDriver(), MemoryDriver()}, drivers...)
 	var signer *encryption.Encrypter
 	if app.Config().Key != "" {
-		if signer, err = encryption.ForApp(app); err != nil {
+		if signer, err = encryption.New(app); err != nil {
 			return nil, err
 		}
 	}
@@ -226,7 +226,7 @@ func ForApp(app *anetos.App, drivers ...Driver) (*Storage, error) {
 			case "gcs":
 				hint = "gcs.Driver() from anetos.dev/anetos/drivers/gcs"
 			}
-			return nil, fmt.Errorf("storage: %s is %q, but the drivers are [%s]; pass %s to storage.ForApp",
+			return nil, fmt.Errorf("storage: %s is %q, but the drivers are [%s]; pass %s to storage.New",
 				key(name, "DRIVER"), cfg.Driver, strings.Join(names, ", "), hint)
 		}
 		b, err := all[i].Open(app, name, DiskSource(app.Source(), name, all[i].Inherit), cfg)
@@ -273,11 +273,20 @@ func ForApp(app *anetos.App, drivers ...Driver) (*Storage, error) {
 		}
 		others = append(others, d)
 	}
-	s := New(def, others...)
+	s := NewWithDisks(def, others...)
 	app.OnShutdown("storage", func(context.Context) error { return closeAll() })
 	app.AddContextValue(storageKey{}, s)
 	anetos.Provide(app, s)
 	return s, nil
+}
+
+// ForApp is [New].
+//
+// Deprecated: Use New; ForApp is removed in v0.6.
+//
+//go:fix inline
+func ForApp(app *anetos.App, drivers ...Driver) (*Storage, error) {
+	return New(app, drivers...)
 }
 
 func displayName(name string) string {
@@ -289,14 +298,14 @@ func displayName(name string) string {
 
 type storageKey struct{}
 
-// WithStorage returns ctx with s, for [From]. [ForApp] makes the app's
+// WithStorage returns ctx with s, for [From]. [New] makes the app's
 // storage available in every context the app creates.
 func WithStorage(ctx context.Context, s *Storage) context.Context {
 	return context.WithValue(ctx, storageKey{}, s)
 }
 
 // ErrNoStorage is returned by [From] when the context has no storage.
-var ErrNoStorage = errors.New("storage: no storage in the context: call storage.ForApp at startup, or storage.WithStorage")
+var ErrNoStorage = errors.New("storage: no storage in the context: call storage.New at startup, or storage.WithStorage")
 
 // From returns the disk name in ctx, or the default disk without a
 // name:

@@ -61,7 +61,7 @@ func newApp(t *testing.T, env config.Map) *anetos.App {
 func TestCacheDriver(t *testing.T) {
 	url := redisURL(t)
 	app := newApp(t, config.Map{"APP_NAME": "redistest", "CACHE_STORE": "redis", "REDIS_URL": url})
-	c, err := cache.ForApp(app, redis.CacheDriver())
+	c, err := cache.New(app, redis.CacheDriver())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,7 +132,7 @@ func TestAnetostest(t *testing.T) {
 	var prefix string
 	t.Run("app", func(t *testing.T) {
 		app := anetostest.New(t, func(app *anetos.App) (*web.Server, error) {
-			c, err := cache.ForApp(app, redis.CacheDriver())
+			c, err := cache.New(app, redis.CacheDriver())
 			if c != nil {
 				prefix = c.Prefix()
 			}
@@ -157,7 +157,7 @@ func TestSessionDriver(t *testing.T) {
 	url := redisURL(t)
 	prefix := "redistest-" + strconv.FormatInt(time.Now().UnixNano(), 36) + ":session:"
 	app := newApp(t, config.Map{"APP_KEY": encryption.GenerateKey(), "SESSION_DRIVER": "redis", "SESSION_PREFIX": prefix, "REDIS_URL": url})
-	m, err := session.ForApp(app, redis.SessionDriver())
+	m, err := session.New(app, redis.SessionDriver())
 	if err != nil {
 		t.Fatal(err)
 	}

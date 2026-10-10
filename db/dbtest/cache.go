@@ -43,7 +43,7 @@ func testCacheStore(t *testing.T, ctx context.Context) {
 	// With PostgreSQL and MySQL the store doesn't join the context's
 	// transaction: an item written in a transaction that rolls back
 	// stays. With SQLite (one writer at a time) it joins it.
-	c := cache.New(store, "tx:")
+	c := cache.NewWithStore(store, "tx:")
 	errRollback := errors.New("rollback")
 	err = db.Tx(ctx, func(ctx context.Context) error {
 		if err := cache.Set(cache.WithCache(ctx, c), "k", 1, time.Minute); err != nil {
@@ -125,7 +125,7 @@ func testSessionStore(t *testing.T, ctx context.Context) {
 	})
 	k, err := encryption.ParseKey(encryption.GenerateKey())
 	check(t, err)
-	enc, err := encryption.New(k)
+	enc, err := encryption.NewEncrypter(k)
 	check(t, err)
 	m, err := session.NewManager(session.DefaultConfig(), enc, session.WithStore(cache.NewDatabaseStore(d(ctx), "st_sessions"), "t:session:"))
 	check(t, err)

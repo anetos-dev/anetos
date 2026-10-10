@@ -441,7 +441,7 @@ func testValues(t *testing.T, ctx context.Context, s cache.Store, p string) {
 
 // testLocks runs the lock functions of the cache package on the store.
 func testLocks(t *testing.T, ctx context.Context, s cache.Store, p string) {
-	ctx = cache.WithCache(ctx, cache.New(s, p))
+	ctx = cache.WithCache(ctx, cache.NewWithStore(s, p))
 	a := cache.NewLock(ctx, "job", ttl)
 	b := cache.NewLock(ctx, "job", ttl)
 	ok, err := a.TryAcquire(ctx)
@@ -548,7 +548,7 @@ func testLocks(t *testing.T, ctx context.Context, s cache.Store, p string) {
 
 // testRemember runs Remember on the store.
 func testRemember(t *testing.T, ctx context.Context, s cache.Store, p string) {
-	ctx = cache.WithCache(ctx, cache.New(s, p))
+	ctx = cache.WithCache(ctx, cache.NewWithStore(s, p))
 	type stats struct {
 		Posts int `json:"posts"`
 	}

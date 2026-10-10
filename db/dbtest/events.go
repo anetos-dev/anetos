@@ -29,9 +29,9 @@ type stBusEvent struct {
 // rolls back; OnQueued jobs are written in it (database queue driver).
 func testBusEvents(t *testing.T, ctx context.Context) {
 	store := queueTables(t, ctx)
-	q := queue.New(store, queue.Config{})
+	q := queue.NewWithStore(store, queue.Config{})
 	logs := &syncBuffer{}
-	b := events.New(events.WithQueue(q), events.WithLogger(slog.New(slog.NewTextHandler(logs, nil))))
+	b := events.NewBus(events.WithQueue(q), events.WithLogger(slog.New(slog.NewTextHandler(logs, nil))))
 	t.Cleanup(func() { _ = b.Close(context.Background()) })
 	check(t, events.On(b, func(ctx context.Context, e stBusEvent) error {
 		return db.Create(ctx, &stNote{Text: e.Text})

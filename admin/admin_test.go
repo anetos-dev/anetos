@@ -190,13 +190,13 @@ func setupWith(opts func(p *Panel) error) func(app *anetos.App) (*web.Server, er
 		if _, err := db.Connect(context.Background(), app, sqlite.Driver()); err != nil {
 			return nil, err
 		}
-		if _, err := migrate.ForApp(app, []*migrate.Set{migrations, auth.Migrations(), rbac.Migrations(), audit.Migrations(), ai.Migrations()}); err != nil {
+		if _, err := migrate.New(app, []*migrate.Set{migrations, auth.Migrations(), rbac.Migrations(), audit.Migrations(), ai.Migrations()}); err != nil {
 			return nil, err
 		}
-		if _, err := cache.ForApp(app); err != nil {
+		if _, err := cache.New(app); err != nil {
 			return nil, err
 		}
-		trail, err := audit.ForApp(app)
+		trail, err := audit.New(app)
 		if err != nil {
 			return nil, err
 		}
@@ -206,18 +206,18 @@ func setupWith(opts func(p *Panel) error) func(app *anetos.App) (*web.Server, er
 		if err := audit.Track[Post](trail); err != nil {
 			return nil, err
 		}
-		a, err := auth.ForApp(app, users)
+		a, err := auth.New(app, users)
 		if err != nil {
 			return nil, err
 		}
-		if _, err := rbac.ForApp(app, nil, rbac.Role{Name: "admin", Super: true}); err != nil {
+		if _, err := rbac.New(app, nil, rbac.Role{Name: "admin", Super: true}); err != nil {
 			return nil, err
 		}
 		srv, err := web.NewServer(app)
 		if err != nil {
 			return nil, err
 		}
-		sessions, err := session.ForApp(app)
+		sessions, err := session.New(app)
 		if err != nil {
 			return nil, err
 		}
@@ -259,6 +259,9 @@ func setupWith(opts func(p *Panel) error) func(app *anetos.App) (*web.Server, er
 		if err != nil {
 			return nil, err
 		}
+		if _, err := New(app, a); err == nil || !strings.Contains(err.Error(), "admin: New called twice for one app") {
+			return nil, fmt.Errorf("New twice: %w", err)
+		}
 		if err := Add(p, postsResource()); err != nil {
 			return nil, err
 		}
@@ -273,7 +276,6 @@ func setupWith(opts func(p *Panel) error) func(app *anetos.App) (*web.Server, er
 				return nil, err
 			}
 		}
-		anetos.Provide(app, p)
 		return srv, p.Mount(r, mws...)
 	}
 }
@@ -566,7 +568,7 @@ func TestAddErrors(t *testing.T) {
 
 func mustRegistry(t *testing.T) *rbac.Registry {
 	t.Helper()
-	r, err := rbac.New(nil)
+	r, err := rbac.NewRegistry(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -578,14 +580,14 @@ func TestNewNeedsRBAC(t *testing.T) {
 		if _, err := db.Connect(context.Background(), app, sqlite.Driver()); err != nil {
 			return nil, err
 		}
-		if _, err := cache.ForApp(app); err != nil {
+		if _, err := cache.New(app); err != nil {
 			return nil, err
 		}
-		a, err := auth.ForApp(app, users)
+		a, err := auth.New(app, users)
 		if err != nil {
 			return nil, err
 		}
-		if _, err := New(app, a); err == nil || !strings.Contains(err.Error(), "rbac.ForApp") {
+		if _, err := New(app, a); err == nil || !strings.Contains(err.Error(), "rbac.New") {
 			t.Errorf("New without rbac: %v", err)
 		}
 		return web.NewServer(app)

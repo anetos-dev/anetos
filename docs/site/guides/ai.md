@@ -48,19 +48,19 @@ start if the provider's key or `AI_MODEL` is missing.
 
 ### 1. Set up the client
 
-In your setup function, after `anetos.New()`, call `ai.ForApp` with
+In your setup function, after `anetos.New()`, call `ai.New` with
 the drivers of the providers your app may use (`AI_PROVIDER` picks one):
 
 ```go
 // AI_PROVIDER picks one of these, AI_MODEL the model.
-if _, err := ai.ForApp(app, anthropic.Driver(), openai.Driver(), openai.CompatibleDriver(), gemini.Driver()); err != nil {
+if _, err := ai.New(app, anthropic.Driver(), openai.Driver(), openai.CompatibleDriver(), gemini.Driver()); err != nil {
 	return nil, err
 }
 ```
 
 (Copied from [`examples/ai`](../../../examples/ai), region `setup`.)
 
-`ai.ForApp` puts the client in every context the app creates: requests,
+`ai.New` puts the client in every context the app creates: requests,
 jobs, listeners, commands. Calls find it there.
 
 ### 2. Generate text
@@ -347,11 +347,11 @@ Providers differ, and the drivers smooth what they can:
 
 | Problem | Cause | Fix |
 |---|---|---|
-| `ai: AI_PROVIDER isn't set` | No provider chosen | Set `AI_PROVIDER`, and pass its driver to `ai.ForApp` |
+| `ai: AI_PROVIDER isn't set` | No provider chosen | Set `AI_PROVIDER`, and pass its driver to `ai.New` |
 | `ai: open the anthropic provider: ANTHROPIC_API_KEY isn't set` (or `AI_MODEL isn't set`) | The provider's key, or the model, is missing | Set it; the provider's names for its models are in its documentation |
 | `openai: authenticated requests require HTTPS` | `OPENAI_COMPATIBLE_KEY` is set and `OPENAI_COMPATIBLE_URL` is plain HTTP to another machine | Use https, or no key; on your own machine, HTTP works |
 | A local model's typed answers fail twice | Small models follow schemas poorly | Use a larger model, or simpler structs |
-| `ai: no AI client in the context` | `ai.ForApp` wasn't called, or the context isn't the app's | Call it in setup; use the request's or job's context |
+| `ai: no AI client in the context` | `ai.New` wasn't called, or the context isn't the app's | Call it in setup; use the request's or job's context |
 | `ai: fake: no reply scripted for request N` in a test | The app made more requests than `FakeAI` scripted | Add replies (`FakeAI`, `app.AI().Add`); `app.AI().Requests()` shows them |
 | `ai: the model's answer isn't a valid …` (502) | The answer broke the struct's shape or rules twice | Loosen the rules, describe fields better (`description` tags), or use a stronger model |
 | `… was cut off at the token limit` | The answer reached `AI_MAX_TOKENS` | Raise it, or `ai.MaxTokens` on the call |

@@ -65,21 +65,21 @@ func setup(app *anetos.App) (*web.Server, error) {
 		return nil, err
 	}
 	sets := []*migrate.Set{Migrations, ai.Migrations(), session.Migrations(""), cache.Migrations(""), queue.Migrations("jobs", "failed_jobs")}
-	if _, err := migrate.ForApp(app, sets); err != nil {
+	if _, err := migrate.New(app, sets); err != nil {
 		return nil, err
 	}
-	if _, err := cache.ForApp(app); err != nil { // budgets and login throttling count in the cache
+	if _, err := cache.New(app); err != nil { // budgets and login throttling count in the cache
 		return nil, err
 	}
-	sessions, err := session.ForApp(app)
+	sessions, err := session.New(app)
 	if err != nil {
 		return nil, err
 	}
-	a, err := auth.ForApp(app, users)
+	a, err := auth.New(app, users)
 	if err != nil {
 		return nil, err
 	}
-	if _, err := queue.ForApp(app); err != nil { // QUEUE_DRIVER: sync by default
+	if _, err := queue.New(app); err != nil { // QUEUE_DRIVER: sync by default
 		return nil, err
 	}
 	settings, err := config.Get[Settings](app.Source())
@@ -87,7 +87,7 @@ func setup(app *anetos.App) (*web.Server, error) {
 		return nil, err
 	}
 	// region: setup
-	client, err := ai.ForApp(app, anthropic.Driver(), openai.Driver(), openai.CompatibleDriver())
+	client, err := ai.New(app, anthropic.Driver(), openai.Driver(), openai.CompatibleDriver())
 	if err != nil {
 		return nil, err
 	}

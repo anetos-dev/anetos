@@ -22,7 +22,7 @@ const (
 )
 
 func TestNew(t *testing.T) {
-	reg, err := rbac.New([]rbac.Permission{view, edit, remove},
+	reg, err := rbac.NewRegistry([]rbac.Permission{view, edit, remove},
 		rbac.Role{Name: "admin", Super: true},
 		rbac.Role{Name: "editor", Title: "Editor", Permissions: []rbac.Permission{view, edit}},
 	)
@@ -62,7 +62,7 @@ func TestNew(t *testing.T) {
 		{"permission twice in a role", []rbac.Permission{view}, []rbac.Role{{Name: "a", Permissions: []rbac.Permission{view, view}}}, "twice"},
 		{"super with permissions", []rbac.Permission{view}, []rbac.Role{{Name: "a", Super: true, Permissions: []rbac.Permission{view}}}, "leave its Permissions empty"},
 	} {
-		_, err := rbac.New(c.perms, c.roles...)
+		_, err := rbac.NewRegistry(c.perms, c.roles...)
 		if err == nil || !strings.Contains(err.Error(), c.want) {
 			t.Errorf("%s: %v, want %q", c.name, err, c.want)
 		}
@@ -123,7 +123,7 @@ func TestNoRegistry(t *testing.T) {
 }
 
 func TestChecksWithoutUser(t *testing.T) {
-	reg, err := rbac.New([]rbac.Permission{view})
+	reg, err := rbac.NewRegistry([]rbac.Permission{view})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -183,7 +183,7 @@ func TestSetupPanics(t *testing.T) {
 }
 
 func TestDeclare(t *testing.T) {
-	r, err := rbac.New([]rbac.Permission{"posts.view"})
+	r, err := rbac.NewRegistry([]rbac.Permission{"posts.view"})
 	if err != nil {
 		t.Fatal(err)
 	}

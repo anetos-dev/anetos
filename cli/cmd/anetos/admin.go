@@ -144,7 +144,7 @@ Next:
 `
 	if !res.RBAC {
 		next = `
-The app sets up roles already (rbac.ForApp): give admin.access, and the
+The app sets up roles already (rbac.New): give admin.access, and the
 resources' admin.<name>.view/create/update/delete, with a role of yours.
 
 Next:

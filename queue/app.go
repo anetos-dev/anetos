@@ -20,7 +20,7 @@ import (
 // Config selects and configures the app's queue.
 type Config struct {
 	// Driver is where jobs are kept: sync (run at once), memory, database,
-	// or one passed to ForApp (redis). QUEUE_DRIVER, default sync.
+	// or one passed to New (redis). QUEUE_DRIVER, default sync.
 	Driver string `env:"QUEUE_DRIVER" default:"sync"`
 	// Default is the queue jobs go on without [OnQueue], and the one
 	// workers take jobs from without [Queues]. QUEUE_DEFAULT, default
@@ -109,7 +109,7 @@ func LoadConfig(src config.Source) (Config, error) {
 	return cfg, errors.Join(errs...)
 }
 
-// Driver opens a store for [ForApp]. The sync, memory and database
+// Driver opens a store for [New]. The sync, memory and database
 // drivers are built in; driver modules provide others
 // (redis.QueueDriver()).
 type Driver struct {
@@ -135,7 +135,7 @@ func MemoryDriver() Driver {
 	return Driver{Name: "memory", Open: func(*anetos.App, Config) (Store, error) { return NewMemoryStore(), nil }}
 }
 
-// ForApp sets up the app's queue from the QUEUE_* settings: it opens the
+// New sets up the app's queue from the QUEUE_* settings: it opens the
 // store with the driver QUEUE_DRIVER names (sync, memory and database are
 // built in; pass others, such as redis.QueueDriver()), makes the queue
 // available in every context the app creates (for [Dispatch]) and to
@@ -143,12 +143,15 @@ func MemoryDriver() Driver {
 // queue:failed, queue:retry, queue:forget, queue:flush and queue:clear
 // commands.
 //
-//	q, err := queue.ForApp(app, redis.QueueDriver())
+//	q, err := queue.New(app, redis.QueueDriver())
 //
 // The database driver needs db.Connect first, and the tables from
 // [Migrations]. Then register the job types ([Register]) and start the
 // workers ([Queue.Work]).
-func ForApp(app *anetos.App, drivers ...Driver) (*Queue, error) {
+func New(app *anetos.App, drivers ...Driver) (*Queue, error) {
+	if _, ok := anetos.Lookup[*Queue](app); ok {
+		return nil, errors.New("queue: New called twice for one app")
+	}
 	cfg, err := LoadConfig(app.Source())
 	if err != nil {
 		return nil, err
@@ -160,7 +163,7 @@ func ForApp(app *anetos.App, drivers ...Driver) (*Queue, error) {
 		for j, d := range all {
 			names[j] = d.Name
 		}
-		return nil, fmt.Errorf("queue: QUEUE_DRIVER is %q, but the drivers are [%s]; pass its driver to queue.ForApp (redis.QueueDriver() from drivers/redis)", cfg.Driver, strings.Join(names, ", "))
+		return nil, fmt.Errorf("queue: QUEUE_DRIVER is %q, but the drivers are [%s]; pass its driver to queue.New (redis.QueueDriver() from drivers/redis)", cfg.Driver, strings.Join(names, ", "))
 	}
 	if cfg.Prefix == "" {
 		cfg.Prefix = app.Config().Name + ":queue:"
@@ -169,7 +172,7 @@ func ForApp(app *anetos.App, drivers ...Driver) (*Queue, error) {
 	if err != nil {
 		return nil, fmt.Errorf("queue: open the %s store: %w", cfg.Driver, err)
 	}
-	q := New(store, cfg, WithLogger(app.Logger().With("component", "queue")))
+	q := NewWithStore(store, cfg, WithLogger(app.Logger().With("component", "queue")))
 	q.app = app
 	if err := q.addCommands(app); err != nil {
 		if store != nil {
@@ -194,6 +197,15 @@ func ForApp(app *anetos.App, drivers ...Driver) (*Queue, error) {
 		app.OnShutdown("queue", func(context.Context) error { return store.Close() })
 	}
 	return q, nil
+}
+
+// ForApp is [New].
+//
+// Deprecated: Use New; ForApp is removed in v0.6.
+//
+//go:fix inline
+func ForApp(app *anetos.App, drivers ...Driver) (*Queue, error) {
+	return New(app, drivers...)
 }
 
 // addCommands adds the queue:* commands.

@@ -28,7 +28,7 @@ type Account struct {
 func (Account) TableName() string { return "social_accounts" }
 
 // Migrations returns the migration creating the social_accounts table,
-// for migrate.ForApp.
+// for migrate.New.
 func Migrations() *migrate.Set {
 	s := migrate.NewSet("social")
 	s.AddFunc("2026_10_01_000300_create_social_accounts_table",

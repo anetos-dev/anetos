@@ -54,7 +54,7 @@ format:
 
 func formatCtx(t *testing.T) context.Context {
 	t.Helper()
-	tr, err := i18n.New(i18n.Config{Locale: "en", Fallback: "en", URL: "none"}, i18n.WithLocales(formats))
+	tr, err := i18n.NewTranslator(i18n.Config{Locale: "en", Fallback: "en", URL: "none"}, i18n.WithLocales(formats))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -209,7 +209,7 @@ func TestLanguages(t *testing.T) {
 // TestFormatsNotFromFallback: an app in Bangla (the fallback) shows a
 // German visitor English formats, not Bangla ones.
 func TestFormatsNotFromFallback(t *testing.T) {
-	tr, err := i18n.New(i18n.Config{Locale: "bn", Fallback: "bn", URL: "none", Locales: []string{"bn", "de"}}, i18n.WithLocales(formats))
+	tr, err := i18n.NewTranslator(i18n.Config{Locale: "bn", Fallback: "bn", URL: "none", Locales: []string{"bn", "de"}}, i18n.WithLocales(formats))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -105,7 +105,7 @@ func CreateInvoice(ctx context.Context, o OrderCreated) error {
 In `setup`:
 
 ```go
-ps, err := pubsub.ForApp(app, redis.PubSubDriver(), gcppubsub.Driver()) // PUBSUB_DRIVER: memory, redis or gcp
+ps, err := pubsub.New(app, redis.PubSubDriver(), gcppubsub.Driver()) // PUBSUB_DRIVER: memory, redis or gcp
 if err != nil {
 	return nil, err
 }

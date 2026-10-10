@@ -84,7 +84,7 @@ when you call its constructor:
 | `anetos.New` | (built in) | `APP_*`, `LOG_*` into `anetos.AppConfig` |
 | `web.NewServer` | `web.LoadConfig(src)` | `HTTP_*` |
 | `db.Connect` | `db.LoadConfig(src, "")` | `DB_*` |
-| `session.ForApp` | `session.LoadConfig(src)` | `SESSION_*` |
+| `session.New` | `session.LoadConfig(src)` | `SESSION_*` |
 
 So an `HTTP_*` mistake is reported by `web.NewServer`, still before
 `app.Run`. `db.LoadConfig(app.Source(), "ANALYTICS_")` reads
@@ -94,7 +94,7 @@ So an `HTTP_*` mistake is reported by `web.NewServer`, still before
 
 `APP_KEY` is 32 random bytes written as `base64:…`; it encrypts session
 cookies. A malformed key fails `anetos.New`; a missing one fails
-`session.ForApp`. `APP_PREVIOUS_KEYS` lists old keys that still decrypt,
+`session.New`. `APP_PREVIOUS_KEYS` lists old keys that still decrypt,
 so you can rotate the key without logging everyone out. Both have the type
 `anetos.Secret`, which prints, logs and encodes as `[redacted]`: logging
 `app.Config()` doesn't leak the key, and `string(cfg.Key)` gets the value.

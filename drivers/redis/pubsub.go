@@ -27,7 +27,7 @@ type streamsConfig struct {
 // PubSubDriver is the Redis Streams broker's driver (PUBSUB_DRIVER=redis),
 // on the app's client from [Connect]:
 //
-//	ps, err := pubsub.ForApp(app, redis.PubSubDriver())
+//	ps, err := pubsub.New(app, redis.PubSubDriver())
 //
 // PUBSUB_REDIS_MAXLEN (default 1000000; 0 for none) caps each stream,
 // about: older messages are trimmed, even if a subscription hasn't read

@@ -52,7 +52,7 @@ func main() {
 func setup(app *anetos.App) (*web.Server, error) {
 	// region: setup
 	// AI_PROVIDER picks one of these, AI_MODEL the model.
-	if _, err := ai.ForApp(app, anthropic.Driver(), openai.Driver(), openai.CompatibleDriver(), gemini.Driver()); err != nil {
+	if _, err := ai.New(app, anthropic.Driver(), openai.Driver(), openai.CompatibleDriver(), gemini.Driver()); err != nil {
 		return nil, err
 	}
 	// endregion

@@ -14,7 +14,7 @@ support, and for "who changed this?".
 ## Before you start
 
 - [Connect to a database](database.md) and run your
-  [migrations](migrations.md) with `migrate.ForApp`.
+  [migrations](migrations.md) with `migrate.New`.
 - To record *who*, set up [authentication](authentication.md): changes
   are attributed to the signed-in user. Without it, they are attributed
   to the system.
@@ -34,7 +34,7 @@ Add `audit.Migrations()` to your migration sets. It creates three tables:
 ```go
 // illustrative
 sets := []*migrate.Set{Migrations, auth.Migrations(), audit.Migrations()}
-if _, err := migrate.ForApp(app, sets); err != nil {
+if _, err := migrate.New(app, sets); err != nil {
 	return nil, err
 }
 ```
@@ -44,7 +44,7 @@ if _, err := migrate.ForApp(app, sets); err != nil {
 Create the app's log after `db.Connect`, and name the models it tracks:
 
 ```go
-trail, err := audit.ForApp(app) // after db.Connect
+trail, err := audit.New(app) // after db.Connect
 if err != nil {
 	return nil, err
 }
@@ -408,8 +408,8 @@ Use `app.Travel` to test retention and pruning.
 
 ## Common problems
 
-- **`audit: ForApp needs the app's database`**: call `db.Connect` before
-  `audit.ForApp`.
+- **`audit: New needs the app's database`**: call `db.Connect` before
+  `audit.New`.
 - **`audit: … is tracked already`**: a table is tracked once per
   database; call `Track` once, at setup.
 - **`audit: a key of N bytes is longer than the log keeps`**: entries

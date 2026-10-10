@@ -455,23 +455,23 @@ func setup(app *anetos.App) (*web.Server, error) {
 		return nil, err
 	}
 	sets := []*migrate.Set{Migrations, auth.Migrations(), social.Migrations(), cache.Migrations(""), session.Migrations("")}
-	if _, err := migrate.ForApp(app, sets); err != nil {
+	if _, err := migrate.New(app, sets); err != nil {
 		return nil, err
 	}
-	if _, err := cache.ForApp(app); err != nil { // login throttling counts failures in the cache
+	if _, err := cache.New(app); err != nil { // login throttling counts failures in the cache
 		return nil, err
 	}
-	sessions, err := session.ForApp(app)
+	sessions, err := session.New(app)
 	if err != nil {
 		return nil, err
 	}
-	if _, err := mailer.ForApp(app); err != nil { // MAIL_DRIVER: log in development
+	if _, err := mailer.New(app); err != nil { // MAIL_DRIVER: log in development
 		return nil, err
 	}
 	// region: setup
 	// AUTH_* settings. Signing in leads to /dashboard, unless
 	// AUTH_HOME_URL names another page.
-	a, err := auth.ForApp(app, users, auth.DefaultHomeURL("/dashboard"))
+	a, err := auth.New(app, users, auth.DefaultHomeURL("/dashboard"))
 	if err != nil {
 		return nil, err
 	}
@@ -479,7 +479,7 @@ func setup(app *anetos.App) (*web.Server, error) {
 	// region: social-setup
 	// Providers with SOCIAL_<NAME>_CLIENT_ID and _CLIENT_SECRET set; their
 	// callbacks are APP_URL/auth/<name>/callback.
-	s, err := social.ForApp(app, a, findOrCreate, social.Configured(app, social.Google(), social.GitHub()))
+	s, err := social.New(app, a, findOrCreate, social.Configured(app, social.Google(), social.GitHub()))
 	if err != nil {
 		return nil, err
 	}

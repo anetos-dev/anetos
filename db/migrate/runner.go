@@ -100,7 +100,7 @@ func NewRunner(d *db.DB, sets []*Set, opts ...Option) (*Runner, error) {
 	return r, nil
 }
 
-// ForApp returns a runner for the app's database (from db.Connect) that
+// New returns a runner for the app's database (from db.Connect) that
 // knows the app's environment and logs with its logger, and registers the
 // migration commands (migrate, migrate:rollback, …, db:seed) on the app,
 // for app.Execute, and provides the runner as a *migrate.Runner service.
@@ -109,7 +109,10 @@ func NewRunner(d *db.DB, sets []*Set, opts ...Option) (*Runner, error) {
 // (GET /health/ready, health:check) false while migrations are pending
 // (MIGRATE_READINESS, on by default), and, with MIGRATE_ON_RUN, migrating
 // when the app boots to run or serve (design D255). Call it once per app.
-func ForApp(app *anetos.App, sets []*Set, opts ...Option) (*Runner, error) {
+func New(app *anetos.App, sets []*Set, opts ...Option) (*Runner, error) {
+	if _, ok := anetos.Lookup[*Runner](app); ok {
+		return nil, errors.New("migrate: New called twice for one app")
+	}
 	d, err := anetos.Resolve[*db.DB](app)
 	if err != nil {
 		return nil, fmt.Errorf("migrate: %w (call db.Connect first)", err)
@@ -142,6 +145,15 @@ func ForApp(app *anetos.App, sets []*Set, opts ...Option) (*Runner, error) {
 	}
 	anetos.Provide(app, r) // anetostest migrates with it
 	return r, nil
+}
+
+// ForApp is [New].
+//
+// Deprecated: Use New; ForApp is removed in v0.6.
+//
+//go:fix inline
+func ForApp(app *anetos.App, sets []*Set, opts ...Option) (*Runner, error) {
+	return New(app, sets, opts...)
 }
 
 // check is the doctor's check of the migrations: pending ones, and
@@ -729,7 +741,7 @@ func (r *Runner) pending(ctx context.Context) ([]string, error) {
 	return ids, nil
 }
 
-// Config holds the migration settings [ForApp] reads.
+// Config holds the migration settings [New] reads.
 type Config struct {
 	// OnRun runs the pending migrations when the app starts with the run
 	// command (the default) or serve, before its components: for one

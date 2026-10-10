@@ -155,7 +155,7 @@ func newScheduler(t *testing.T, opts ...schedule.Option) (*schedule.Scheduler, *
 	t.Helper()
 	logs := &logBuffer{}
 	opts = append([]schedule.Option{schedule.WithLogger(slog.New(slog.NewTextHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug})))}, opts...)
-	s := schedule.New(opts...)
+	s := schedule.NewScheduler(opts...)
 	c := newClock(t0)
 	schedule.SetClock(s, c)
 	return s, c, logs
@@ -217,7 +217,7 @@ func TestRunsOnSchedule(t *testing.T) {
 
 func TestTaskOptions(t *testing.T) {
 	s, c, logs := newScheduler(t)
-	ctx := cache.WithCache(context.Background(), cache.New(cache.NewMemoryStore(), "t:"))
+	ctx := cache.WithCache(context.Background(), cache.NewWithStore(cache.NewMemoryStore(), "t:"))
 	release := make(chan struct{})
 	var started, timedOut atomic.Int32
 	check(t, s.Add(schedule.EveryMinute(), "slow", func(ctx context.Context) error {
@@ -253,7 +253,7 @@ func TestTaskOptions(t *testing.T) {
 }
 
 func TestOnOneServer(t *testing.T) {
-	shared := cache.New(cache.NewMemoryStore(), "t:")
+	shared := cache.NewWithStore(cache.NewMemoryStore(), "t:")
 	ctx := cache.WithCache(context.Background(), shared)
 	var runs atomic.Int32
 	var clocks []*fakeClock
@@ -361,41 +361,41 @@ func newApp(t *testing.T, env config.Map) *anetos.App {
 	return app
 }
 
-func TestForApp(t *testing.T) {
-	if _, err := schedule.ForApp(newApp(t, config.Map{"SCHEDULE_TIMEZONE": "Mars/Olympus"})); err == nil {
+func TestAppNew(t *testing.T) {
+	if _, err := schedule.New(newApp(t, config.Map{"SCHEDULE_TIMEZONE": "Mars/Olympus"})); err == nil {
 		t.Error("a bad SCHEDULE_TIMEZONE = nil")
 	}
 	// No tasks: no component.
 	empty := newApp(t, nil)
-	_, err := schedule.ForApp(empty)
+	_, err := schedule.New(empty)
 	check(t, err)
 	check(t, empty.Boot(context.Background()))
 	if len(empty.Supervisor().Status()) != 0 {
 		t.Error("a scheduler without tasks added a component")
 	}
-	// Locks need cache.ForApp.
+	// Locks need cache.New.
 	nocache := newApp(t, nil)
-	s, err := schedule.ForApp(nocache)
+	s, err := schedule.New(nocache)
 	check(t, err)
 	// The role is known before the first task: run --only=scheduler works.
 	if got := nocache.Supervisor().Roles(); len(got) != 1 || got[0] != "scheduler" {
 		t.Errorf("roles without tasks = %v", got)
 	}
 	check(t, s.Add(schedule.Daily(), "x", func(context.Context) error { return nil }, schedule.WithoutOverlapping()))
-	if err := nocache.Boot(context.Background()); err == nil || !strings.Contains(err.Error(), "cache.ForApp") {
+	if err := nocache.Boot(context.Background()); err == nil || !strings.Contains(err.Error(), "cache.New") {
 		t.Errorf("Boot = %v", err)
 	}
 
 	app := newApp(t, config.Map{"SCHEDULE_TIMEZONE": "Asia/Dhaka", "QUEUE_DRIVER": "sync"})
-	_, err = cache.ForApp(app)
+	_, err = cache.New(app)
 	check(t, err)
-	q, err := queue.ForApp(app)
+	q, err := queue.New(app)
 	check(t, err)
 	check(t, queue.Register[report](q))
-	s, err = schedule.ForApp(app)
+	s, err = schedule.New(app)
 	check(t, err)
-	if _, err := schedule.ForApp(app); err == nil {
-		t.Error("ForApp twice = nil")
+	if _, err := schedule.New(app); err == nil {
+		t.Error("New twice = nil")
 	}
 	check(t, s.Add(schedule.DailyAt("02:00"), "daily-report", schedule.Dispatch(report{}), schedule.OnOneServer(), schedule.Timeout(time.Minute)))
 	check(t, s.Add(schedule.Hourly().In("UTC"), "hourly", func(context.Context) error { return nil }, schedule.WithoutOverlapping()))
@@ -414,7 +414,7 @@ func TestForApp(t *testing.T) {
 
 	// Without SCHEDULE_TIMEZONE, schedules are in the app's zone.
 	zoned := newApp(t, config.Map{"APP_TIMEZONE": "Asia/Dhaka"})
-	zs, err := schedule.ForApp(zoned)
+	zs, err := schedule.New(zoned)
 	check(t, err)
 	check(t, zs.Add(schedule.DailyAt("02:00"), "nightly", func(context.Context) error { return nil }))
 	if next := zs.Tasks()[0].Next(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)); next.Format("15:04 MST") != "02:00 +06" {
@@ -468,9 +468,9 @@ func TestForApp(t *testing.T) {
 
 func TestAppRun(t *testing.T) {
 	app := newApp(t, nil)
-	_, err := cache.ForApp(app)
+	_, err := cache.New(app)
 	check(t, err)
-	s, err := schedule.ForApp(app)
+	s, err := schedule.New(app)
 	check(t, err)
 	c := newClock(t0)
 	schedule.SetClock(s, c)
@@ -508,7 +508,7 @@ func TestAppRun(t *testing.T) {
 // released.
 func TestOverlapLease(t *testing.T) {
 	schedule.SetOverlapLease(t, 60*time.Millisecond)
-	ctx := cache.WithCache(context.Background(), cache.New(cache.NewMemoryStore(), "t:"))
+	ctx := cache.WithCache(context.Background(), cache.NewWithStore(cache.NewMemoryStore(), "t:"))
 	release := make(chan struct{})
 	started := make(chan struct{}, 1)
 	slow := func(context.Context) error {
@@ -538,12 +538,12 @@ func TestOverlapLease(t *testing.T) {
 
 func TestAddAfterBoot(t *testing.T) {
 	fn := func(context.Context) error { return nil }
-	// Locks need cache.ForApp, for tasks added after boot too.
+	// Locks need cache.New, for tasks added after boot too.
 	app := newApp(t, nil)
 	check(t, app.Boot(context.Background()))
-	s, err := schedule.ForApp(app)
+	s, err := schedule.New(app)
 	check(t, err)
-	if err := s.Add(schedule.Daily(), "locked", fn, schedule.OnOneServer()); err == nil || !strings.Contains(err.Error(), "cache.ForApp") {
+	if err := s.Add(schedule.Daily(), "locked", fn, schedule.OnOneServer()); err == nil || !strings.Contains(err.Error(), "cache.New") {
 		t.Errorf("Add with a lock, without a cache, after boot = %v", err)
 	}
 	check(t, s.Add(schedule.Daily(), "free", fn))
@@ -555,7 +555,7 @@ func TestAddAfterBoot(t *testing.T) {
 	clash := newApp(t, nil)
 	check(t, clash.Go("scheduler", func(ctx context.Context) error { <-ctx.Done(); return nil }))
 	check(t, clash.Boot(context.Background()))
-	s, err = schedule.ForApp(clash)
+	s, err = schedule.New(clash)
 	check(t, err)
 	if err := s.Add(schedule.Daily(), "a", fn); err == nil {
 		t.Error("Add with the component's name taken = nil")
@@ -566,7 +566,7 @@ func TestAddAfterBoot(t *testing.T) {
 }
 
 func TestNilLocation(t *testing.T) {
-	s := schedule.New(schedule.WithLocation(nil))
+	s := schedule.NewScheduler(schedule.WithLocation(nil))
 	check(t, s.Add(schedule.Daily(), "x", func(context.Context) error { return nil }))
 	if next := (schedule.TaskInfo{Schedule: schedule.Daily()}).Next(t0); !next.Equal(time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC)) {
 		t.Errorf("Next = %s", next)
@@ -575,7 +575,7 @@ func TestNilLocation(t *testing.T) {
 
 // Each run is kept in the cache, the last one per task.
 func TestLastRun(t *testing.T) {
-	ctx := cache.WithCache(context.Background(), cache.New(cache.NewMemoryStore(), "t:"))
+	ctx := cache.WithCache(context.Background(), cache.NewWithStore(cache.NewMemoryStore(), "t:"))
 	s, _, _ := newScheduler(t)
 	fail := errors.New("upstream down")
 	var calls atomic.Int32

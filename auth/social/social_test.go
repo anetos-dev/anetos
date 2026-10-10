@@ -207,15 +207,15 @@ func setup(t *testing.T, p *provider, providers ...social.Provider) (*users, *br
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = app.Close() })
-	if _, err := cache.ForApp(app); err != nil {
+	if _, err := cache.New(app); err != nil {
 		t.Fatal(err)
 	}
-	sessions, err := session.ForApp(app)
+	sessions, err := session.New(app)
 	if err != nil {
 		t.Fatal(err)
 	}
 	store := &users{byID: map[string]*user{}}
-	a, err := auth.ForApp(app, store.auth())
+	a, err := auth.New(app, store.auth())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -226,7 +226,7 @@ func setup(t *testing.T, p *provider, providers ...social.Provider) (*users, *br
 	for _, pr := range providers {
 		creds[pr.Name] = social.Credentials{ClientID: "client-1", ClientSecret: "secret-1"}
 	}
-	s, err := social.New(a, store.resolve, "https://app.test", creds, providers, social.WithHTTPClient(p.Client()))
+	s, err := social.NewWithConfig(a, store.resolve, "https://app.test", creds, providers, social.WithHTTPClient(p.Client()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -546,48 +546,53 @@ func TestConfigErrors(t *testing.T) {
 		"APP_URL path": {"https://app.test/app", creds, []social.Provider{social.Google()}, "APP_URL"},
 	}
 	for name, c := range cases {
-		if _, err := social.New(a, resolve, c.base, c.creds, c.providers); err == nil || !strings.Contains(err.Error(), c.want) {
+		if _, err := social.NewWithConfig(a, resolve, c.base, c.creds, c.providers); err == nil || !strings.Contains(err.Error(), c.want) {
 			t.Errorf("%s: %v", name, err)
 		}
 	}
-	s, err := social.New(a, resolve, "https://app.test/", creds, []social.Provider{social.Google()})
+	s, err := social.NewWithConfig(a, resolve, "https://app.test/", creds, []social.Provider{social.Google()})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got := s.CallbackURL("google"); got != "https://app.test/auth/google/callback" {
 		t.Errorf("CallbackURL = %q", got)
 	}
-	if _, err := social.New(a, resolve, "https://app.test", creds, []social.Provider{social.Google()}, social.WithHTTPClient(nil)); err != nil {
+	if _, err := social.NewWithConfig(a, resolve, "https://app.test", creds, []social.Provider{social.Google()}, social.WithHTTPClient(nil)); err != nil {
 		t.Errorf("WithHTTPClient(nil): %v", err)
 	}
 	for _, home := range []string{"dashboard", "//evil.example", "/\\evil.example", "https://evil.example", "/\t/evil.example"} {
-		if _, err := social.New(a, resolve, "https://app.test", creds, []social.Provider{social.Google()}, social.WithHomeURL(home)); err == nil {
+		if _, err := social.NewWithConfig(a, resolve, "https://app.test", creds, []social.Provider{social.Google()}, social.WithHomeURL(home)); err == nil {
 			t.Errorf("WithHomeURL(%q): no error", home)
 		}
 	}
 }
 
-func TestForAppAndConfigured(t *testing.T) {
-	app, err := anetos.New(anetos.WithSource(config.Map{"APP_ENV": "testing", "APP_KEY": encryption.GenerateKey(),
-		"APP_URL": "https://app.test", "SOCIAL_GITHUB_CLIENT_ID": "id", "SOCIAL_GITHUB_CLIENT_SECRET": "secret",
-		"SOCIAL_MY_SSO_CLIENT_ID": "only-id"}), anetos.WithLogOutput(io.Discard))
-	if err != nil {
-		t.Fatal(err)
+func TestAppNewAndConfigured(t *testing.T) {
+	newApp := func() (*anetos.App, *users, *auth.Auth[*user]) {
+		t.Helper()
+		app, err := anetos.New(anetos.WithSource(config.Map{"APP_ENV": "testing", "APP_KEY": encryption.GenerateKey(),
+			"APP_URL": "https://app.test", "SOCIAL_GITHUB_CLIENT_ID": "id", "SOCIAL_GITHUB_CLIENT_SECRET": "secret",
+			"SOCIAL_MY_SSO_CLIENT_ID": "only-id"}), anetos.WithLogOutput(io.Discard))
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { app.Close() })
+		if _, err := cache.New(app); err != nil {
+			t.Fatal(err)
+		}
+		store := &users{byID: map[string]*user{}}
+		a, err := auth.New(app, store.auth())
+		if err != nil {
+			t.Fatal(err)
+		}
+		return app, store, a
 	}
-	defer app.Close()
-	if _, err := cache.ForApp(app); err != nil {
-		t.Fatal(err)
-	}
-	store := &users{byID: map[string]*user{}}
-	a, err := auth.ForApp(app, store.auth())
-	if err != nil {
-		t.Fatal(err)
-	}
+	app, store, a := newApp()
 	got := social.Configured(app, social.Google(), social.GitHub(), social.OIDC("my-sso", "https://sso.example"))
 	if len(got) != 1 || got[0].Name != "github" {
 		t.Fatalf("Configured = %v", got)
 	}
-	s, err := social.ForApp(app, a, store.resolve, got)
+	s, err := social.New(app, a, store.resolve, got)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -597,7 +602,11 @@ func TestForAppAndConfigured(t *testing.T) {
 	if s.Title("github") != "GitHub" || s.Title("nope") != "nope" {
 		t.Errorf("Title: %q, %q", s.Title("github"), s.Title("nope"))
 	}
-	if _, err := social.ForApp(app, a, store.resolve, []social.Provider{social.Google()}); err == nil || !strings.Contains(err.Error(), "SOCIAL_GOOGLE_CLIENT_ID") {
+	if _, err := social.New(app, a, store.resolve, got); err == nil || !strings.Contains(err.Error(), "called twice") {
+		t.Errorf("twice: %v", err)
+	}
+	app, store, a = newApp()
+	if _, err := social.New(app, a, store.resolve, []social.Provider{social.Google()}); err == nil || !strings.Contains(err.Error(), "SOCIAL_GOOGLE_CLIENT_ID") {
 		t.Errorf("unconfigured provider: %v", err)
 	}
 }
@@ -675,10 +684,10 @@ func TestStub(t *testing.T) {
 			t.Fatal(err)
 		}
 		t.Cleanup(func() { _ = app.Close() })
-		if _, err := cache.ForApp(app); err != nil {
+		if _, err := cache.New(app); err != nil {
 			t.Fatal(err)
 		}
-		a, err := auth.ForApp(app, (&users{byID: map[string]*user{}}).auth())
+		a, err := auth.New(app, (&users{byID: map[string]*user{}}).auth())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -692,7 +701,7 @@ func TestStub(t *testing.T) {
 	if len(providers) != 2 {
 		t.Fatalf("Configured = %v", providers)
 	}
-	s, err := social.ForApp(app, a, resolve, providers)
+	s, err := social.New(app, a, resolve, providers)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -704,29 +713,29 @@ func TestStub(t *testing.T) {
 	if got := social.Configured(app, social.Google(), social.GitHub()); len(got) != 0 {
 		t.Errorf("Configured in production = %v", got)
 	}
-	if _, err := social.ForApp(app, a, resolve, []social.Provider{social.Google()}); err == nil || !strings.Contains(err.Error(), "outside APP_ENV=testing") {
-		t.Errorf("ForApp in production: %v", err)
+	if _, err := social.New(app, a, resolve, []social.Provider{social.Google()}); err == nil || !strings.Contains(err.Error(), "outside APP_ENV=testing") {
+		t.Errorf("New in production: %v", err)
 	}
 }
 
 // Options are checked even when no provider is configured yet.
-func TestForAppChecksOptions(t *testing.T) {
+func TestAppNewChecksOptions(t *testing.T) {
 	app, err := anetos.New(anetos.WithSource(config.Map{"APP_ENV": "testing", "APP_KEY": encryption.GenerateKey(),
 		"APP_URL": "https://app.test"}), anetos.WithLogOutput(io.Discard))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer app.Close()
-	if _, err := cache.ForApp(app); err != nil {
+	if _, err := cache.New(app); err != nil {
 		t.Fatal(err)
 	}
-	a, err := auth.ForApp(app, (&users{byID: map[string]*user{}}).auth())
+	a, err := auth.New(app, (&users{byID: map[string]*user{}}).auth())
 	if err != nil {
 		t.Fatal(err)
 	}
 	resolve := (&users{byID: map[string]*user{}}).resolve
 	for _, opt := range []social.Option{social.WithHomeURL("dashboard"), social.WithHomeURL("/\t/evil.example"), social.WithCallbackPath("/nope")} {
-		if _, err := social.ForApp(app, a, resolve, nil, opt); err == nil {
+		if _, err := social.New(app, a, resolve, nil, opt); err == nil {
 			t.Error("a bad option was accepted")
 		}
 	}

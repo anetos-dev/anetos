@@ -49,7 +49,7 @@ func (l *logBuffer) String() string {
 func newBus(t *testing.T, opts ...events.BusOption) (*events.Bus, *logBuffer) {
 	t.Helper()
 	logs := &logBuffer{}
-	b := events.New(append([]events.BusOption{events.WithLogger(slog.New(slog.NewTextHandler(logs, nil)))}, opts...)...)
+	b := events.NewBus(append([]events.BusOption{events.WithLogger(slog.New(slog.NewTextHandler(logs, nil)))}, opts...)...)
 	t.Cleanup(func() { _ = b.Close(context.Background()) })
 	return b, logs
 }
@@ -263,7 +263,7 @@ func (*Mailer) Send(context.Context, OrderPlaced) error { return nil }
 
 func TestOnQueued(t *testing.T) {
 	store := queue.NewMemoryStore()
-	q := queue.New(store, queue.Config{Poll: 5 * time.Millisecond}, queue.WithLogger(slog.New(slog.NewTextHandler(io.Discard, nil))))
+	q := queue.NewWithStore(store, queue.Config{Poll: 5 * time.Millisecond}, queue.WithLogger(slog.New(slog.NewTextHandler(io.Discard, nil))))
 	b, _ := newBus(t, events.WithQueue(q))
 	var got atomic.Int64
 	check(t, events.OnQueued(b, func(ctx context.Context, e OrderPlaced) error {
@@ -315,7 +315,7 @@ func TestOnQueued(t *testing.T) {
 	}
 }
 
-func TestForApp(t *testing.T) {
+func TestAppNew(t *testing.T) {
 	app, err := anetos.New(anetos.WithSource(config.Map{"APP_ENV": "testing", "APP_KEY": encryption.GenerateKey(), "QUEUE_DRIVER": "sync"}),
 		anetos.WithLogOutput(io.Discard))
 	check(t, err)
@@ -328,12 +328,12 @@ func TestForApp(t *testing.T) {
 		units = append(units, u.Kind+" "+u.Name)
 		return ctx, nil
 	})
-	_, err = queue.ForApp(app)
+	_, err = queue.New(app)
 	check(t, err)
-	b, err := events.ForApp(app)
+	b, err := events.New(app)
 	check(t, err)
-	if _, err := events.ForApp(app); err == nil {
-		t.Error("ForApp twice = nil")
+	if _, err := events.New(app); err == nil {
+		t.Error("New twice = nil")
 	}
 	if anetos.MustResolve[*events.Bus](app) != b {
 		t.Error("the bus isn't provided")
@@ -418,7 +418,7 @@ type Stringer interface{ String() string }
 func notifyAny[E any](context.Context, E) error { return nil }
 
 func TestListenerTypesAndNames(t *testing.T) {
-	q := queue.New(queue.NewMemoryStore(), queue.Config{})
+	q := queue.NewWithStore(queue.NewMemoryStore(), queue.Config{})
 	b, _ := newBus(t, events.WithQueue(q))
 	if err := events.On(b, func(context.Context, Stringer) error { return nil }); err == nil || !strings.Contains(err.Error(), "interface") {
 		t.Errorf("an interface event type: %v", err)
@@ -443,7 +443,7 @@ func (failingStore) Push(context.Context, queue.Message, time.Duration) error {
 }
 
 func TestQueuedDispatchError(t *testing.T) {
-	q := queue.New(failingStore{queue.NewMemoryStore()}, queue.Config{})
+	q := queue.NewWithStore(failingStore{queue.NewMemoryStore()}, queue.Config{})
 	b, _ := newBus(t, events.WithQueue(q))
 	check(t, events.OnQueued(b, notifyWarehouse))
 	var async atomic.Int32
@@ -471,7 +471,7 @@ func TestAsyncCarriedValues(t *testing.T) {
 		Capture: func(ctx context.Context) string { s, _ := ctx.Value(who{}).(string); return s },
 		Restore: func(ctx context.Context, v string) context.Context { return context.WithValue(ctx, who{}, v) },
 	})
-	b, err := events.ForApp(app)
+	b, err := events.New(app)
 	check(t, err)
 	got := make(chan string, 2)
 	check(t, events.OnAsync(b, func(ctx context.Context, e OrderPlaced) error {

@@ -23,7 +23,7 @@ walkthrough.
 | `anetostest.FakeQueue()` | Option: dispatched jobs are recorded only (`queue.Queue.Fake`): not stored or run. Fails the test if `setup` has no queue |
 | `anetostest.FakeEvents(events...)` | Option: events of the types of the values (all, with none) are recorded only (`events.Bus.Fake`): their listeners don't run. Fails the test if `setup` has no bus |
 | `anetostest.FakePubSub()` | Option: published messages are recorded only (`pubsub.PubSub.Fake`): the broker doesn't get them. Fails the test if `setup` has no pub/sub |
-| `anetostest.FakeAI(replies...)` | Option: the model's answers, one per request to the app's AI client, in order (`ai.FakeText`, `ai.FakeObject`, `ai.FakeToolCall`, `ai.FakeError`, or an `ai.FakeReply` function). Options add up. Fails the test if `setup` has no AI client (`ai.ForApp`). See [AI](#ai-anetostest) |
+| `anetostest.FakeAI(replies...)` | Option: the model's answers, one per request to the app's AI client, in order (`ai.FakeText`, `ai.FakeObject`, `ai.FakeToolCall`, `ai.FakeError`, or an `ai.FakeReply` function). Options add up. Fails the test if `setup` has no AI client (`ai.New`). See [AI](#ai-anetostest) |
 | `anetostest.FakeSocial()` | Option: social login (`auth/social`) signs in through a stand-in OpenID Connect provider on a local TLS server, for every provider (GitHub's API and other `Provider.Profile` functions aren't called); `social.Configured` keeps every provider, with test credentials where settings are missing. Sign in with `app.SocialSignIn` |
 | `app.Context()` | The context of the test's requests: the app's services, the database and the test's transaction. Pass it to your own code. (It hides the embedded `anetos.App.Context(parent)`; call `app.App.Context` for that) |
 | `app.Router()` | The app's `*web.Router`, or nil |
@@ -77,8 +77,8 @@ an URL on another site fails the test. Requests go to the router as
 | `app.Do(req)` | req (from `httptest.NewRequest` with a path), adding the jar's cookies it doesn't have, headers it doesn't have, `Referer` and token | req's |
 | `res.Follow()` | GET to the redirect's `Location`; fails the test for another site | the request's |
 | `app.WithHeader(name, value)` | Sets a header on every later request; returns app | |
-| `app.WithSession(func(*session.Session))` | Changes the session later requests carry; returns app. Needs `session.ForApp` in setup | |
-| `anetostest.ActingAs(app, u)` | Signs u in for later requests, as a password sign-in without remember-me would (`auth.Auth.LoginSession`), replacing whoever was signed in (and dropping a remember-me cookie); returns app. U is the type given to `auth.ForApp` (`*models.User`); needs `session.ForApp` and `auth.ForApp` in setup; a disabled user fails the test (v0.3) | |
+| `app.WithSession(func(*session.Session))` | Changes the session later requests carry; returns app. Needs `session.New` in setup | |
+| `anetostest.ActingAs(app, u)` | Signs u in for later requests, as a password sign-in without remember-me would (`auth.Auth.LoginSession`), replacing whoever was signed in (and dropping a remember-me cookie); returns app. U is the type given to `auth.New` (`*models.User`); needs `session.New` and `auth.New` in setup; a disabled user fails the test (v0.3) | |
 | `app.Session()` | The `*session.Session` the next request will carry (flash values and errors from the last response included), to read | |
 | `app.SocialSignIn(redirect, anetostest.SocialAccount{ID, Email, EmailVerified, Name, AvatarURL})` | GET redirect (the app's route to the provider, such as `/auth/google/redirect`), the stand-in provider's sign-in as the account, then GET the app's callback; returns the callback's response. Needs `FakeSocial`; `ID` is required | `text/html` |
 
@@ -153,7 +153,7 @@ available from the mailer: `anetos.MustResolve[*mailer.Mailer](app.App).Transpor
 
 ## AI (`anetostest`)
 
-The app's AI client (`ai.ForApp`) uses the fake provider in tests
+The app's AI client (`ai.New`) uses the fake provider in tests
 (`*ai.Fake`): requests get the replies `FakeAI` scripted, in order, and a
 request with no reply left fails with an error saying so. A test that
 sets another `AI_PROVIDER` with `anetostest.Env` uses that provider,
@@ -185,7 +185,7 @@ Replies' usage counts words, as a stand-in for tokens.
 
 | API | Does |
 |---|---|
-| `app.Disk(name...)` | `*anetostest.Disk`: the default disk, or the named one (`STORAGE_DISKS`). Fails the test without `storage.ForApp` or for an unknown disk |
+| `app.Disk(name...)` | `*anetostest.Disk`: the default disk, or the named one (`STORAGE_DISKS`). Fails the test without `storage.New` or for an unknown disk |
 | `d.AssertExists(paths...)` | The files exist |
 | `d.AssertMissing(paths...)` | They don't |
 | `d.AssertContent(path, want)` | The file exists with that content |
@@ -232,4 +232,4 @@ log timestamps.
 |---|---|
 | `m.Load(r)` | The request's `*session.Session` as the session middleware would load it (a new one if the cookie is missing or invalid) |
 | `m.Edit(r, fn)` | `(*http.Cookie, error)`: the cookie of the request's session after fn changed it. fn sees the session as a handler would; what was flashed for the next request is kept for it (`Reflash`) |
-| `session.ForApp`, `migrate.ForApp` | Also provide the manager and the runner to the app (`anetos.Resolve`), which is how `anetostest` finds them |
+| `session.New`, `migrate.New` | Also provide the manager and the runner to the app (`anetos.Resolve`), which is how `anetostest` finds them |

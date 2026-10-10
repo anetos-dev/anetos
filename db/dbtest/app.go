@@ -83,7 +83,7 @@ func RunApp(t *testing.T, drv db.Driver, env map[string]string) {
 		if _, err := db.Connect(context.Background(), app, drv); err != nil {
 			return nil, err
 		}
-		if _, err := migrate.ForApp(app, []*migrate.Set{set}, migrate.WithTable("st_app_migrations")); err != nil {
+		if _, err := migrate.New(app, []*migrate.Set{set}, migrate.WithTable("st_app_migrations")); err != nil {
 			return nil, err
 		}
 		srv, err := web.NewServer(app)
@@ -145,7 +145,7 @@ func RunApp(t *testing.T, drv db.Driver, env map[string]string) {
 			if _, err := db.Connect(context.Background(), app, drv); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := migrate.ForApp(app, []*migrate.Set{set}, migrate.WithTable("st_app_migrations")); err != nil {
+			if _, err := migrate.New(app, []*migrate.Set{set}, migrate.WithTable("st_app_migrations")); err != nil {
 				t.Fatal(err)
 			}
 			var out bytes.Buffer
@@ -187,7 +187,7 @@ func RunApp(t *testing.T, drv db.Driver, env map[string]string) {
 		check(t, err)
 		_, err = db.Connect(context.Background(), app, drv)
 		check(t, err)
-		r, err := migrate.ForApp(app, []*migrate.Set{set}, migrate.WithTable("st_app_migrations"))
+		r, err := migrate.New(app, []*migrate.Set{set}, migrate.WithTable("st_app_migrations"))
 		check(t, err)
 		// The server's stand-in: the app runs while a component does.
 		check(t, app.Go("server", func(ctx context.Context) error { <-ctx.Done(); return nil }, anetos.Roles("http")))
@@ -233,7 +233,7 @@ func RunApp(t *testing.T, drv db.Driver, env map[string]string) {
 			defer func() { _ = app.Close() }()
 			_, err = db.Connect(context.Background(), app, drv)
 			check(t, err)
-			_, err = migrate.ForApp(app, []*migrate.Set{set}, migrate.WithTable("st_app_migrations"))
+			_, err = migrate.New(app, []*migrate.Set{set}, migrate.WithTable("st_app_migrations"))
 			check(t, err)
 			check(t, app.Boot(cmd.WithCommand(context.Background(), cmd.Command{Name: command})))
 			s, err := migrate.NewSchema(db.WithDB(context.Background(), d))
@@ -259,7 +259,7 @@ func RunApp(t *testing.T, drv db.Driver, env map[string]string) {
 		defer func() { _ = app.Close() }()
 		_, err = db.Connect(context.Background(), app, drv)
 		check(t, err)
-		_, err = ai.ForApp(app)
+		_, err = ai.New(app)
 		check(t, err)
 		_, err = ai.EmbeddingsFor(app, ai.EmbeddingsConfig[stENote]{Text: func(n stENote) string { return n.Body }, Dimensions: 32})
 		check(t, err)
@@ -301,7 +301,7 @@ func runSearchApp(t *testing.T, drv db.Driver, env map[string]string, d *db.DB) 
 		if _, err := db.Connect(context.Background(), app, drv); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := migrate.ForApp(app, []*migrate.Set{set}, migrate.WithTable("st_app_search_migrations")); err != nil {
+		if _, err := migrate.New(app, []*migrate.Set{set}, migrate.WithTable("st_app_search_migrations")); err != nil {
 			t.Fatal(err)
 		}
 		app.Command("notes:count", "Count the notes about tea", func(ctx context.Context, args *cmd.Args) error {

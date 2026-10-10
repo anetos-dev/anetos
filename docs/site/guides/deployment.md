@@ -342,7 +342,7 @@ roles):
 Make sure some process runs each role the app has: a scheduler that no
 process runs never runs its tasks. `run --only=` with a role the app
 doesn't have fails and lists those it has. `scheduler` is known as soon
-as `schedule.ForApp` is called, so `--only=workers,scheduler` works
+as `schedule.New` is called, so `--only=workers,scheduler` works
 before the app has a task; add `listeners` once it uses
 [pub/sub](pubsub.md).
 
@@ -443,7 +443,7 @@ migrates, and replaces the containers that changed.
 - `/health/live` answers 200 while the process runs; `/health/ready`
   answers 200 while it runs, isn't shutting down, and its components
   are ready, so a load balancer stops sending requests as soon as
-  shutdown starts. With `migrate.ForApp`, it also answers 503 while the
+  shutdown starts. With `migrate.New`, it also answers 503 while the
   database has migrations the app hasn't run (checked every 5 seconds;
   `MIGRATE_READINESS=false` turns that off, for a platform that waits
   for readiness before a later migration step). `health:check` asks the server on `HTTP_ADDR` (on
@@ -486,7 +486,7 @@ server, or `docker run --rm blog version`) tells which version runs.
 | Jobs dispatched by the web process never run | `QUEUE_DRIVER=sync` or `memory` with workers in another process | `QUEUE_DRIVER=database` or `redis` |
 | `permission denied` writing files in the container | The volume isn't writable by user 65532 | Mount on `/data` (the image prepares it), or `chown 65532` the host directory |
 | The container stays `unhealthy` | It doesn't serve HTTP (`run --only=workers`), it isn't ready (`/health/ready` answers 503 while a component restarts or migrations haven't run: the log says which), or `HTTP_HEALTH_ROUTES=false` | Turn the check off for workers (`--no-healthcheck`, `healthcheck: disable: true`); read the logs; keep the health routes on |
-| `unknown role "scheduler"` (or `listeners`) | The app has none: no `schedule.ForApp` (or `pubsub.ForApp`) | Leave it out of `--only`; the error lists the app's roles |
+| `unknown role "scheduler"` (or `listeners`) | The app has none: no `schedule.New` (or `pubsub.New`) | Leave it out of `--only`; the error lists the app's roles |
 | Jobs cut off at each deploy | The platform kills the process before it finishes | Raise its grace period (`docker stop -t`, `kill_timeout`, `TimeoutStopSec`) or lower `APP_SHUTDOWN_TIMEOUT` |
 | `blog version` prints `(devel)` | Built outside a git repository without `--version` | `anetos build --version=v1.2.0` (the `Dockerfile` takes `--build-arg VERSION`) |
 

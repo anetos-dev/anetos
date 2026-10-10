@@ -94,7 +94,7 @@ func (p page) token(t *testing.T) string {
 func sessions(t *testing.T) *session.Manager {
 	t.Helper()
 	k, _ := encryption.ParseKey(encryption.GenerateKey())
-	enc, _ := encryption.New(k)
+	enc, _ := encryption.NewEncrypter(k)
 	no := false
 	cfg := session.DefaultConfig()
 	cfg.Secure = &no // httptest serves plain HTTP

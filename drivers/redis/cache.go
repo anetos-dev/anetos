@@ -17,7 +17,7 @@ import (
 // CacheDriver is the Redis cache store's driver (CACHE_STORE=redis), on
 // the app's client from [Connect]:
 //
-//	c, err := cache.ForApp(app, redis.CacheDriver())
+//	c, err := cache.New(app, redis.CacheDriver())
 func CacheDriver() cache.Driver {
 	return cache.Driver{Name: "redis", Open: func(app *anetos.App, _ cache.Config) (cache.Store, error) {
 		client, err := Connect(context.Background(), app)

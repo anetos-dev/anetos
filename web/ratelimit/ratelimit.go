@@ -92,7 +92,7 @@ func (r Result) RetryAfter() time.Duration {
 }
 
 // Allow counts a hit for key against l and reports whether it is within
-// the limit. It uses the cache in ctx (cache.ForApp). Use it for actions
+// the limit. It uses the cache in ctx (cache.New). Use it for actions
 // that aren't whole requests:
 //
 //	res, err := ratelimit.Allow(c, "login:"+email, ratelimit.PerMinute(5))
@@ -212,7 +212,7 @@ func IP(r *http.Request) string {
 //
 //	r.Group("/api", ratelimit.Middleware("api", ratelimit.PerMinute(60), ratelimit.PerDay(5000)))
 //
-// It needs the app's cache (cache.ForApp); if the cache fails, the
+// It needs the app's cache (cache.New); if the cache fails, the
 // request fails with its error, rather than going through unlimited.
 // API descriptions (package web/openapi) list its 429.
 func Middleware(name string, limits ...Limit) web.Middleware {

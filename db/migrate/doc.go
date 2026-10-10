@@ -28,7 +28,7 @@
 //	var All = migrate.NewSet("app")
 //	func init() { All.Add("2026_10_01_120000_create_posts", createPosts{}) }
 //
-//	runner, err := migrate.ForApp(app, []*migrate.Set{All})
+//	runner, err := migrate.New(app, []*migrate.Set{All})
 //	results, err := runner.Up(ctx)
 //
 // Applied migrations are recorded in the migrations table, with the batch

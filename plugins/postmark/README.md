@@ -28,11 +28,11 @@ It adds:
 ## Send email through Postmark
 
 The mail transport is a mailer driver, which your `setup` passes to
-`mailer.ForApp` (installing the plugin doesn't change your mailer):
+`mailer.New` (installing the plugin doesn't change your mailer):
 
 ```go
 // illustrative
-m, err := mailer.ForApp(app, postmark.Driver())
+m, err := mailer.New(app, postmark.Driver())
 ```
 
 ```env

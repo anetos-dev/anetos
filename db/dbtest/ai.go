@@ -47,16 +47,16 @@ func testAIConversations(t *testing.T, ctx context.Context) {
 	})
 	app, err := anetos.New(anetos.WithSource(config.Map{"AI_PROVIDER": "fake", "APP_KEY": encryption.GenerateKey()}), anetos.WithLogOutput(io.Discard))
 	check(t, err)
-	_, err = cache.ForApp(app)
+	_, err = cache.New(app)
 	check(t, err)
-	a, err := auth.ForApp(app, auth.Users[stAuthUser]{
+	a, err := auth.New(app, auth.Users[stAuthUser]{
 		ByID:    func(_ context.Context, id string) (stAuthUser, error) { return stAuthUser{id}, nil },
 		ByLogin: func(context.Context, string) (stAuthUser, error) { return stAuthUser{}, auth.ErrNoUser },
 	})
 	check(t, err)
-	_, err = queue.ForApp(app) // sync: queued jobs run at once
+	_, err = queue.New(app) // sync: queued jobs run at once
 	check(t, err)
-	client, err := ai.ForApp(app)
+	client, err := ai.New(app)
 	check(t, err)
 	client.TrackUsage(ai.UsageConfig{
 		Prices: map[string]ai.Price{"fake-1": {Input: 2, Output: 10}},

@@ -48,22 +48,22 @@ func NewDatabaseStore(d *db.DB, table string) *DatabaseStore {
 
 // DatabaseDriver is the database store's driver (CACHE_STORE=database),
 // in the table CACHE_TABLE. It uses the app's database: call db.Connect
-// before cache.ForApp.
+// before cache.New.
 func DatabaseDriver() Driver {
 	return Driver{Name: "database", Open: func(app *anetos.App, cfg Config) (Store, error) {
 		d, err := anetos.Resolve[*db.DB](app)
 		if err != nil {
-			return nil, errors.New("the database store needs the app's database: call db.Connect before cache.ForApp")
+			return nil, errors.New("the database store needs the app's database: call db.Connect before cache.New")
 		}
 		return NewDatabaseStore(d, cfg.Table), nil
 	}}
 }
 
 // Migrations returns the migration creating the database store's table
-// (default "cache") with [CreateTable]. Pass it to migrate.ForApp with the
+// (default "cache") with [CreateTable]. Pass it to migrate.New with the
 // app's own:
 //
-//	migrate.ForApp(app, []*migrate.Set{migrations.All, cache.Migrations("")})
+//	migrate.New(app, []*migrate.Set{migrations.All, cache.Migrations("")})
 func Migrations(table string) *migrate.Set {
 	if table == "" {
 		table = "cache"

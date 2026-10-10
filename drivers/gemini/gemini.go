@@ -3,7 +3,7 @@
 // Package gemini is the Gemini provider of package ai (Google's Gemini
 // API), on Google's official Gen AI SDK for Go:
 //
-//	client, err := ai.ForApp(app, gemini.Driver()) // AI_PROVIDER=gemini
+//	client, err := ai.New(app, gemini.Driver()) // AI_PROVIDER=gemini
 //
 // It reads GEMINI_API_KEY (required) and GEMINI_BASE_URL, and needs
 // AI_MODEL. Structured output uses Gemini's JSON schema response format.
@@ -51,7 +51,7 @@ type Config struct {
 	BaseURL string `env:"GEMINI_BASE_URL"`
 }
 
-// Driver is the provider's driver for ai.ForApp: AI_PROVIDER=gemini.
+// Driver is the provider's driver for ai.New: AI_PROVIDER=gemini.
 func Driver() ai.Driver {
 	return ai.Driver{Name: Name, Open: func(app *anetos.App, cfg ai.Config) (ai.Provider, error) {
 		c, err := config.Get[Config](app.Source())

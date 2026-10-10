@@ -24,6 +24,13 @@ follow [Effective Go](https://go.dev/doc/effective_go) and
 
 ## 1. Names
 
+- **Use the word developers already know.** For Go-shaped things, the
+  standard library's and the Go ecosystem's (`New`, `Open`, `Close`,
+  `ctx` first); for framework concepts, Laravel's, else Rails'
+  (`Paginate`, `WithTrashed`, `migrate:rollback`). A new word is only for
+  a concept that has none, and it gets an entry in the docs' glossary.
+  An invented synonym for a known idea (`SplitRecords` for pagination)
+  is a defect, however tidy it looks (design D310).
 - A name reads well with its package: `web.Router`, `queue.Dispatch`,
   not `web.WebRouter` or `queue.QueueDispatch`. A package's main type
   may share its name when nothing better exists (`cache.Cache`).
@@ -31,20 +38,32 @@ follow [Effective Go](https://go.dev/doc/effective_go) and
   `CSRF` (`RequestID`, `apiKey`).
 - No `Get` on getters: `r.Name()`, not `r.GetName()`.
 - The same idea has the same word everywhere: if one package says
-  `Close`, another doesn't say `Shutdown` for the same thing; `New` makes
-  a value, `Open` connects to something, `Load` reads configuration,
-  `Register` adds to a registry at startup.
+  `Close`, another doesn't say `Shutdown` for the same thing. `Connect`
+  connects to an external server, `New` creates a service or a client,
+  `Open` opens a connection pool from explicit settings (`db.Open`, as
+  `sql.Open`), `LoadConfig` reads a package's settings, `Register` adds
+  to a registry at startup.
 - No package name shadows a standard library package (design §5).
 
 ## 2. Constructors and options
 
 - `New(…)` (or `NewThing` when a package makes several things) takes the
   required values as parameters and the rest as options.
-- **A service the app shares** (the cache, the queue, the mailer…) has
-  `ForApp(app, …) (*T, error)`, which builds it from the app's
-  configuration once and returns the same one after; `WithT(ctx, *T)
-  context.Context` carries it in a context and `From(ctx) (*T, error)`
-  gets it back, with the package's `ErrNoT` when the context has none.
+- **A service the app shares** (the cache, the queue, the mailer…) is
+  built from the app's settings by `pkg.New(app, …) (*T, error)`, which
+  attaches it to the app (contexts, container, shutdown, commands);
+  calling it a second time for one app is an error (`"<pkg>: New called
+  twice for one app"`); code that needs the existing one asks the app
+  (`anetos.Resolve[*cache.Cache](app)`). The exception is
+  `encryption.New(app)`, which returns the same encrypter. A client of
+  an external server says so: `db.Connect(ctx, app, …)` (an error the
+  second time too) and `redis.Connect(ctx, app)` (the same client each
+  time: every Redis driver calls it). A constructor from explicit parts, without
+  the app, names what it returns or what it takes: `events.NewBus`,
+  `cache.NewWithStore(store, prefix)`.
+- `WithT(ctx, *T) context.Context` carries a service in a context and
+  `From(ctx) (*T, error)` gets it back, with the package's `ErrNoT` when
+  the context has none.
 - **Options** are functional: `type Option func(*options)`, the function
   taking an unexported struct or the type it builds, so that adding an
   option never breaks a caller. A package with options for several
@@ -127,7 +146,8 @@ that isn't obvious.
   release, marked deprecated, and remove it in the next (design §23,
   D309). When the old name can be written in terms of the new one, add
   `//go:fix inline`, so that `go fix ./...` (Go 1.26 and later) rewrites
-  callers:
+  callers (except calls to a generic function, which Go's inliner leaves
+  alone so far: the upgrade guide names those):
 
   ```go
   // illustrative
@@ -167,8 +187,10 @@ that isn't obvious.
 
 - [ ] The name reads well with the package and matches the words used
       elsewhere (§1).
+- [ ] The word is the one developers already know (§1).
 - [ ] Required values are parameters, the rest options; shared services
-      have `ForApp`, `WithT` and `From` (§2).
+      have `New(app, …)` (or `Connect` for a server), `WithT` and `From`
+      (§2).
 - [ ] `ctx` first where it may block; errors testable with `errors.Is`
       or `errors.As` (§3).
 - [ ] Concrete types returned; interfaces small, owned by the right
@@ -184,3 +206,4 @@ that isn't obvious.
 | Date | Change |
 |---|---|
 | 2026-10-10 | Initial guidelines (M8a, D308, D309) |
+| 2026-10-10 | §1 the familiar word first; §2 `New(app)` and `Connect` instead of `ForApp` (M8b-1, D310) |

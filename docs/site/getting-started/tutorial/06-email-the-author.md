@@ -123,10 +123,10 @@ contents: it runs later, maybe after a retry. `mailer.URL` makes the
 link absolute, on `APP_URL`, since an email leaves the app.
 
 Add it in `main.go`: import `"tracker/app/listeners"`, and where
-`setup` sets up the events, replace the `events.ForApp` lines with:
+`setup` sets up the events, replace the `events.New` lines with:
 
 ```go
-bus, err := events.ForApp(app)
+bus, err := events.New(app)
 if err != nil {
 	return nil, err
 }

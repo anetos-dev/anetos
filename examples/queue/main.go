@@ -63,12 +63,12 @@ func setup(app *anetos.App) (*web.Server, error) {
 	if _, err := db.Connect(context.Background(), app, sqlite.Driver()); err != nil {
 		return nil, err
 	}
-	if _, err := migrate.ForApp(app, []*migrate.Set{Migrations, queue.Migrations("", ""), cache.Migrations("")}); err != nil {
+	if _, err := migrate.New(app, []*migrate.Set{Migrations, queue.Migrations("", ""), cache.Migrations("")}); err != nil {
 		return nil, err
 	}
 	app.AddContextValue(gatewayKey{}, newGateway()) // jobs and handlers find it in their context
 	// region: setup
-	q, err := queue.ForApp(app, redis.QueueDriver()) // QUEUE_DRIVER: sync, memory, database or redis
+	q, err := queue.New(app, redis.QueueDriver()) // QUEUE_DRIVER: sync, memory, database or redis
 	if err != nil {
 		return nil, err
 	}
@@ -82,12 +82,12 @@ func setup(app *anetos.App) (*web.Server, error) {
 	// endregion
 	// region: mail-setup
 	// With the queue, mailer.Queue sends from a queue job.
-	if _, err := mailer.ForApp(app, postmark.Driver()); err != nil { // MAIL_DRIVER: log, smtp, memory or postmark
+	if _, err := mailer.New(app, postmark.Driver()); err != nil { // MAIL_DRIVER: log, smtp, memory or postmark
 		return nil, err
 	}
 	// endregion
 	// region: events-setup
-	bus, err := events.ForApp(app) // after queue.ForApp: queued listeners use the app's queue
+	bus, err := events.New(app) // after queue.New: queued listeners use the app's queue
 	if err != nil {
 		return nil, err
 	}
@@ -104,10 +104,10 @@ func setup(app *anetos.App) (*web.Server, error) {
 	// region: schedule-setup
 	// The scheduler's locks (WithoutOverlapping, OnOneServer) are in the
 	// cache: with several instances, use a store they share.
-	if _, err := cache.ForApp(app, redis.CacheDriver()); err != nil { // CACHE_STORE: memory, database or redis
+	if _, err := cache.New(app, redis.CacheDriver()); err != nil { // CACHE_STORE: memory, database or redis
 		return nil, err
 	}
-	s, err := schedule.ForApp(app) // SCHEDULE_TIMEZONE, default APP_TIMEZONE (UTC)
+	s, err := schedule.New(app) // SCHEDULE_TIMEZONE, default APP_TIMEZONE (UTC)
 	if err != nil {
 		return nil, err
 	}

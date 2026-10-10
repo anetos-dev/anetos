@@ -73,7 +73,7 @@ conversations (`ai_conversations`, `ai_messages`) and of usage records
 (`ai_usage`). Then, after the cache, auth and the queue:
 
 ```go
-client, err := ai.ForApp(app, anthropic.Driver(), openai.Driver(), openai.CompatibleDriver())
+client, err := ai.New(app, anthropic.Driver(), openai.Driver(), openai.CompatibleDriver())
 if err != nil {
 	return nil, err
 }

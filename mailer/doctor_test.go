@@ -35,7 +35,7 @@ func TestDoctorMail(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := mailer.ForApp(app); err != nil {
+		if _, err := mailer.New(app); err != nil {
 			t.Fatal(err)
 		}
 		var out bytes.Buffer

@@ -4,7 +4,7 @@
 // official Go SDK, and the provider for servers that speak OpenAI's Chat
 // Completions API (Ollama, vLLM, OpenRouter, Groq, LM Studio…):
 //
-//	client, err := ai.ForApp(app, openai.Driver(), openai.CompatibleDriver())
+//	client, err := ai.New(app, openai.Driver(), openai.CompatibleDriver())
 //
 // AI_PROVIDER=openai reads OPENAI_API_KEY (required) and OPENAI_BASE_URL;
 // AI_PROVIDER=openai-compatible reads OPENAI_COMPATIBLE_URL (required)
@@ -66,7 +66,7 @@ type Config struct {
 	CompatibleKey anetos.Secret `env:"OPENAI_COMPATIBLE_KEY"`
 }
 
-// Driver is OpenAI's driver for ai.ForApp: AI_PROVIDER=openai.
+// Driver is OpenAI's driver for ai.New: AI_PROVIDER=openai.
 func Driver() ai.Driver {
 	return ai.Driver{Name: Name, Open: func(app *anetos.App, cfg ai.Config) (ai.Provider, error) {
 		c, err := config.Get[Config](app.Source())
@@ -88,7 +88,7 @@ func Driver() ai.Driver {
 }
 
 // CompatibleDriver is the driver of OpenAI-compatible servers for
-// ai.ForApp: AI_PROVIDER=openai-compatible.
+// ai.New: AI_PROVIDER=openai-compatible.
 func CompatibleDriver() ai.Driver {
 	return ai.Driver{Name: CompatibleName, Open: func(app *anetos.App, cfg ai.Config) (ai.Provider, error) {
 		c, err := config.Get[Config](app.Source())

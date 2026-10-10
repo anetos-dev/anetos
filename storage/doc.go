@@ -5,7 +5,7 @@
 // configured with STORAGE_* settings; STORAGE_DISKS names more disks,
 // configured with STORAGE_<NAME>_*.
 //
-//	st, err := storage.ForApp(app, s3.Driver())
+//	st, err := storage.New(app, s3.Driver())
 //
 //	disk, err := storage.From(ctx)
 //	err = disk.PutUpload(ctx, "avatars/"+id+".png", in.Avatar)

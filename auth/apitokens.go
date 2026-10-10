@@ -49,7 +49,7 @@ func (t *Token) Can(ability string) bool {
 }
 
 // Migrations returns the migration creating the api_tokens table, for
-// migrate.ForApp.
+// migrate.New.
 func Migrations() *migrate.Set {
 	s := migrate.NewSet("auth")
 	s.AddFunc("2026_10_01_000200_create_api_tokens_table",

@@ -123,12 +123,12 @@ func TestActors(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	enc, err := encryption.New(key)
+	enc, err := encryption.NewEncrypter(key)
 	if err != nil {
 		t.Fatal(err)
 	}
 	errDown := errors.New("database down")
-	a, err := auth.New(cfg, auth.Users[user]{
+	a, err := auth.NewWithConfig(cfg, auth.Users[user]{
 		ByID: func(_ context.Context, id string) (user, error) {
 			if id == "down" {
 				return "", errDown

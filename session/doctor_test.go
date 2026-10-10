@@ -33,7 +33,7 @@ func TestDoctorSession(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := ForApp(app); err != nil {
+		if _, err := New(app); err != nil {
 			t.Fatal(err)
 		}
 		var out bytes.Buffer

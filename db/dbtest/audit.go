@@ -87,7 +87,7 @@ func auditSetup(t *testing.T, ctx context.Context, env config.Map) (context.Cont
 	check(t, err)
 	t.Cleanup(func() { _ = app.Close() })
 	anetos.Provide(app, d(ctx))
-	trail, err := audit.ForApp(app)
+	trail, err := audit.New(app)
 	check(t, err)
 	if !auditTracked[d(ctx)] {
 		check(t, audit.Track[stAudited](trail, audit.Except("score"), audit.Redact("notes")))

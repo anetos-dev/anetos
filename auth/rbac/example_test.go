@@ -13,7 +13,7 @@ func ExampleNew() {
 		ViewProjects   rbac.Permission = "projects.view"
 		CreateProjects rbac.Permission = "projects.create"
 	)
-	reg, err := rbac.New([]rbac.Permission{ViewProjects, CreateProjects},
+	reg, err := rbac.NewRegistry([]rbac.Permission{ViewProjects, CreateProjects},
 		rbac.Role{Name: "owner", Permissions: []rbac.Permission{ViewProjects, CreateProjects}},
 		rbac.Role{Name: "guest", Permissions: []rbac.Permission{ViewProjects}},
 	)

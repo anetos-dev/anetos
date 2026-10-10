@@ -13,7 +13,7 @@ attempt actions such as logging in.
 ## Before you start
 
 Rate limits count hits in the app's cache, so set it up with
-`cache.ForApp` (see [Cache values](cache.md)). With the memory store each
+`cache.New` (see [Cache values](cache.md)). With the memory store each
 instance counts on its own; with several instances, use the database or
 Redis store so a limit holds across all of them.
 
@@ -142,7 +142,7 @@ go through unlimited.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Every request fails with `ratelimit: cache: no cache in context` | `cache.ForApp` wasn't called | Set up the cache in `setup` |
+| Every request fails with `ratelimit: cache: no cache in context` | `cache.New` wasn't called | Set up the cache in `setup` |
 | All clients share one limit in production | The app sees the proxy's address | Set `HTTP_TRUSTED_PROXIES` to your proxies' networks |
 | A limit allows more than expected with several instances | The memory store counts per instance | `CACHE_STORE=database` or `redis` |
 | Two routes' limits share a count | Their `Middleware` calls have the same name | Give each its own name |

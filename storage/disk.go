@@ -49,7 +49,7 @@ func Public() DiskOption { return func(d *Disk) { d.public = true } }
 
 // SignWith sets the encrypter that signs the temporary URLs the disk's
 // handler serves (for backends without signed URLs of their own).
-// [ForApp] uses the app's APP_KEY.
+// [New] uses the app's APP_KEY.
 func SignWith(e *encryption.Encrypter) DiskOption { return func(d *Disk) { d.signer = e } }
 
 // WithLogger sets the logger of the disk's handler errors. Default

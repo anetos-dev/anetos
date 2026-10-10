@@ -137,7 +137,7 @@ func (p *Ptr) Handle(ctx context.Context) error {
 
 func newQueue(t *testing.T, store queue.Store, opts ...queue.JobOption) *queue.Queue {
 	t.Helper()
-	q := queue.New(store, queue.Config{Poll: 10 * time.Millisecond, Backoff: 10 * time.Millisecond, MaxBackoff: 40 * time.Millisecond},
+	q := queue.NewWithStore(store, queue.Config{Poll: 10 * time.Millisecond, Backoff: 10 * time.Millisecond, MaxBackoff: 40 * time.Millisecond},
 		queue.WithLogger(testLogger(t)))
 	if err := queue.Register[Work](q, opts...); err != nil {
 		t.Fatal(err)
@@ -309,7 +309,7 @@ func TestJobsSeeContextValues(t *testing.T) {
 
 func TestConcurrency(t *testing.T) {
 	s := queue.NewMemoryStore()
-	q := queue.New(s, queue.Config{Poll: 5 * time.Millisecond}, queue.WithLogger(testLogger(t)))
+	q := queue.NewWithStore(s, queue.Config{Poll: 5 * time.Millisecond}, queue.WithLogger(testLogger(t)))
 	var running, peak atomic.Int32
 	release := make(chan struct{})
 	if err := queue.Register[*gate](q); err != nil {
@@ -471,7 +471,7 @@ func TestErrorTextAndDecodePanic(t *testing.T) {
 
 func TestUnknownAndUndecodable(t *testing.T) {
 	s := queue.NewMemoryStore()
-	q := queue.New(s, queue.Config{Poll: 5 * time.Millisecond, Tries: 2, Backoff: time.Millisecond}, queue.WithLogger(testLogger(t)))
+	q := queue.NewWithStore(s, queue.Config{Poll: 5 * time.Millisecond, Tries: 2, Backoff: time.Millisecond}, queue.WithLogger(testLogger(t)))
 	ctx := context.Background()
 	for _, p := range []string{`{"id":"u","job":"jobs.Gone","data":{}}`, `not json`} {
 		if err := s.Push(ctx, queue.Message{ID: "x-" + p[:3], Queue: "default", Payload: []byte(p)}, 0); err != nil {
@@ -558,7 +558,7 @@ type Other struct{}
 func (Other) Handle(context.Context) error { return nil }
 
 func TestRegisterAndDispatchErrors(t *testing.T) {
-	q := queue.New(queue.NewMemoryStore(), queue.Config{})
+	q := queue.NewWithStore(queue.NewMemoryStore(), queue.Config{})
 	ctx := queue.WithQueue(context.Background(), q)
 	if err := queue.Dispatch(ctx, Work{}); err == nil || !strings.Contains(err.Error(), "isn't registered") {
 		t.Errorf("unregistered: %v", err)
@@ -600,7 +600,7 @@ func TestRegisterAndDispatchErrors(t *testing.T) {
 		}
 	}
 	if err := q.Work(); err == nil {
-		t.Error("Work without ForApp = nil")
+		t.Error("Work without New = nil")
 	}
 	if queue.Permanent(nil) != nil || queue.IsPermanent(errors.New("x")) || !queue.IsPermanent(fmt.Errorf("w: %w", queue.Permanent(io.EOF))) {
 		t.Error("Permanent")
@@ -622,7 +622,7 @@ func newApp(t *testing.T, env config.Map) *anetos.App {
 	return app
 }
 
-func TestForAppErrors(t *testing.T) {
+func TestAppNewErrors(t *testing.T) {
 	for env, want := range map[string]config.Map{
 		`QUEUE_DRIVER is "nope"`:            {"QUEUE_DRIVER": "nope"},
 		"QUEUE_DEFAULT":                     {"QUEUE_DEFAULT": "No Good"},
@@ -630,16 +630,16 @@ func TestForAppErrors(t *testing.T) {
 		"QUEUE_POLL":                        {"QUEUE_POLL": "0s"},
 		"the database driver needs the app": {"QUEUE_DRIVER": "database"},
 	} {
-		if _, err := queue.ForApp(newApp(t, want)); err == nil || !strings.Contains(err.Error(), env) {
-			t.Errorf("%v: ForApp = %v, want %q", want, err, env)
+		if _, err := queue.New(newApp(t, want)); err == nil || !strings.Contains(err.Error(), env) {
+			t.Errorf("%v: New = %v, want %q", want, err, env)
 		}
 	}
 }
 
-func TestForAppWork(t *testing.T) {
+func TestAppNewWork(t *testing.T) {
 	app := newApp(t, config.Map{"QUEUE_DRIVER": "memory", "QUEUE_POLL": "5ms", "QUEUE_BACKOFF": "1ms"})
 	app.AddContextValue(ctxKey{}, "app")
-	q, err := queue.ForApp(app)
+	q, err := queue.New(app)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -678,7 +678,7 @@ func TestForAppWork(t *testing.T) {
 
 func TestSyncDriverWork(t *testing.T) {
 	app := newApp(t, nil)
-	q, err := queue.ForApp(app)
+	q, err := queue.New(app)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -701,7 +701,7 @@ func TestCommands(t *testing.T) {
 	for _, env := range []string{"testing", "production"} {
 		t.Run(env, func(t *testing.T) {
 			app := newApp(t, config.Map{"QUEUE_DRIVER": "memory", "APP_ENV": env})
-			q, err := queue.ForApp(app)
+			q, err := queue.New(app)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -851,7 +851,7 @@ func TestRegisterFunc(t *testing.T) {
 		t.Errorf("failed: %+v", f)
 	}
 	// With the sync driver too.
-	sq := queue.New(nil, queue.Config{})
+	sq := queue.NewWithStore(nil, queue.Config{})
 	var ran atomic.Bool
 	if err := queue.RegisterFunc(sq, "f", func(_ context.Context, r Report) error { ran.Store(r.Month == "x"); return nil }); err != nil {
 		t.Fatal(err)
@@ -881,10 +881,10 @@ func TestFuncJobDecodeFailure(t *testing.T) {
 // them.
 func TestJobsKeepLocale(t *testing.T) {
 	app := newApp(t, config.Map{"QUEUE_DRIVER": "memory", "QUEUE_POLL": "5ms"})
-	if _, err := i18n.ForApp(app, fstest.MapFS{"bn.yaml": {Data: []byte(`hi: "হ্যালো"`)}}); err != nil {
+	if _, err := i18n.New(app, fstest.MapFS{"bn.yaml": {Data: []byte(`hi: "হ্যালো"`)}}); err != nil {
 		t.Fatal(err)
 	}
-	q, err := queue.ForApp(app)
+	q, err := queue.New(app)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -933,7 +933,7 @@ func TestJobsKeepCarriedValues(t *testing.T) {
 		Capture: func(ctx context.Context) string { s, _ := ctx.Value(who{}).(string); return s },
 		Restore: func(ctx context.Context, v string) context.Context { return context.WithValue(ctx, who{}, v) },
 	})
-	q, err := queue.ForApp(app)
+	q, err := queue.New(app)
 	if err != nil {
 		t.Fatal(err)
 	}

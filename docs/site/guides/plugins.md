@@ -30,8 +30,8 @@ before v0.2 needs both: see [step 1](#1-load-plugins-in-setup).
 ### 1. Load plugins in setup
 
 Projects made with `anetos new` already do this. At the end of `setup`,
-after the services plugins add to (`web.NewServer`, `migrate.ForApp`,
-`queue.ForApp`, `schedule.ForApp`, `events.ForApp`):
+after the services plugins add to (`web.NewServer`, `migrate.New`,
+`queue.New`, `schedule.New`, `events.New`):
 
 ```go
 // The plugins in plugins.go (anetos add), last: they use the services
@@ -65,7 +65,7 @@ func plugins() []ext.Plugin {
 ```
 
 If a plugin needs a service your app doesn't set up, `ext.Load` says
-which call is missing: `plugin postmark: it has jobs: call queue.ForApp
+which call is missing: `plugin postmark: it has jobs: call queue.New
 before ext.Load`.
 
 ### 2. Add a plugin
@@ -248,7 +248,7 @@ Nothing else is wired in, and nothing runs until the app does.
 | `plugins.go is missing` | A project made before v0.2 | Create it and call `ext.Load`: [step 1](#1-load-plugins-in-setup) |
 | `the app doesn't build with …` | The module has no `Plugin() ext.Plugin` function, or doesn't compile with your version of Anetos | Check the module's docs and the version you asked for |
 | `requires Anetos >= v0.3.0, but this is v0.2.1` | The plugin supports other versions of Anetos (`anetos add` refuses it; an update of Anetos can bring this up later) | Add a version of the plugin that supports yours, or update Anetos |
-| `call queue.ForApp before ext.Load` | The plugin adds to a service your app doesn't set up, or sets up after `ext.Load` | Set it up in `setup`, before `ext.Load` |
+| `call queue.New before ext.Load` | The plugin adds to a service your app doesn't set up, or sets up after `ext.Load` | Set it up in `setup`, before `ext.Load` |
 | `plugin postmark: settings: …` when the app starts | A setting is missing or invalid | `go run . plugins:env postmark` lists them; set them in `.env` |
 | A plugin's route conflicts with yours | Both use the same path | Mount the plugin elsewhere with `ext.Mount` |
 

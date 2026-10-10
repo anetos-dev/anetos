@@ -5,7 +5,7 @@
 // such as "orders.created", where the queue package is for an app's own
 // jobs.
 //
-//	ps, err := pubsub.ForApp(app, redis.PubSubDriver(), gcppubsub.Driver()) // PUBSUB_DRIVER picks one
+//	ps, err := pubsub.New(app, redis.PubSubDriver(), gcppubsub.Driver()) // PUBSUB_DRIVER picks one
 //	err = pubsub.Listen(ps, "orders.created", billing.OrderCreated,
 //		pubsub.Concurrency(20), pubsub.MaxAttempts(5), pubsub.DeadLetter("orders.created.dlq"))
 //

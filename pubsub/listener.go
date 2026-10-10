@@ -228,7 +228,7 @@ func errorText(err error) string {
 // Run runs the listeners until ctx is canceled, then lets the messages
 // being handled finish (see [ShutdownGrace]) and returns. A listener
 // that fails (its broker returns an error) is started again after a
-// backoff. Messages get ctx's values. With [ForApp], the listeners run as
+// backoff. Messages get ctx's values. With [New], the listeners run as
 // components of the app instead: don't call Run.
 func (p *PubSub) Run(ctx context.Context) error {
 	p.mu.Lock()

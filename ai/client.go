@@ -18,7 +18,7 @@ import (
 )
 
 // Client is a provider with the app's defaults (model, length, timeout)
-// and logger. [ForApp] makes the app's; [New] makes one by hand. Calls
+// and logger. [New] makes the app's; [NewWithProvider] makes one by hand. Calls
 // find it in their context ([WithClient], [From]), or take it from
 // [Using]. A Client is safe for concurrent use.
 type Client struct {
@@ -34,10 +34,10 @@ type Client struct {
 	embedModel string
 }
 
-// New returns a client for p; defaults ([Model], [MaxTokens],
+// NewWithProvider returns a client for p; defaults ([Model], [MaxTokens],
 // [Timeout]…) apply to every call before the call's own options. It
 // logs to slog's default logger (the one current when it logs).
-func New(p Provider, defaults ...Option) *Client {
+func NewWithProvider(p Provider, defaults ...Option) *Client {
 	return &Client{provider: p, defaults: slices.Clip(defaults)}
 }
 
@@ -69,8 +69,8 @@ func (c *Client) Fake(replies ...FakeReply) *Fake {
 }
 
 // SetEmbedder sets the client's embeddings provider and model ([Embed]),
-// for a client made with [New]; by default it is the provider, if it
-// has embeddings. [ForApp] sets them from AI_EMBEDDING_PROVIDER and
+// for a client made with [NewWithProvider]; by default it is the provider, if it
+// has embeddings. [New] sets them from AI_EMBEDDING_PROVIDER and
 // AI_EMBEDDING_MODEL.
 func (c *Client) SetEmbedder(e Embedder, model string) {
 	c.mu.Lock()
@@ -81,7 +81,7 @@ func (c *Client) SetEmbedder(e Embedder, model string) {
 type clientKey struct{}
 
 // WithClient returns ctx with c, for [Generate], [Stream],
-// [GenerateObject] and agents. [ForApp] makes the app's client available
+// [GenerateObject] and agents. [New] makes the app's client available
 // in every context the app creates.
 func WithClient(ctx context.Context, c *Client) context.Context {
 	return context.WithValue(ctx, clientKey{}, c)
@@ -89,7 +89,7 @@ func WithClient(ctx context.Context, c *Client) context.Context {
 
 // ErrNoClient is returned when a call's context has no client and the
 // call has no [Using] option.
-var ErrNoClient = errors.New("ai: no AI client in the context: call ai.ForApp at startup, or ai.WithClient")
+var ErrNoClient = errors.New("ai: no AI client in the context: call ai.New at startup, or ai.WithClient")
 
 // From returns the client in ctx.
 func From(ctx context.Context) (*Client, error) {
@@ -102,7 +102,7 @@ func From(ctx context.Context) (*Client, error) {
 // Config selects and configures the app's AI provider.
 type Config struct {
 	// Provider is the driver that calls the models: fake (scripted
-	// replies, for tests), or one passed to ForApp. AI_PROVIDER,
+	// replies, for tests), or one passed to New. AI_PROVIDER,
 	// required.
 	Provider string `env:"AI_PROVIDER"`
 	// Model is the default model, by the provider's name for it; the
@@ -153,7 +153,7 @@ func LoadConfig(src config.Source) (Config, error) {
 	return cfg, errors.Join(errs...)
 }
 
-// Driver opens a provider for [ForApp]. The fake driver is built in;
+// Driver opens a provider for [New]. The fake driver is built in;
 // driver modules provide the others.
 type Driver struct {
 	// Name is the value of AI_PROVIDER that selects the driver.
@@ -171,17 +171,17 @@ func FakeDriver() Driver {
 	return Driver{Name: "fake", Open: func(*anetos.App, Config) (Provider, error) { return NewFake(), nil }}
 }
 
-// ForApp sets up the app's AI client from the AI_* settings: it opens
+// New sets up the app's AI client from the AI_* settings: it opens
 // the provider AI_PROVIDER names (fake is built in; driver modules
 // provide the others, passed here) and makes the client available in
 // every context the app creates. Each tool call is a unit of work
 // (anetos.Unit, kind "tool"), so N+1 detection and the app's other unit
 // wrappers see it.
 //
-//	client, err := ai.ForApp(app) // AI_PROVIDER; pass providers' drivers here
-func ForApp(app *anetos.App, drivers ...Driver) (*Client, error) {
+//	client, err := ai.New(app) // AI_PROVIDER; pass providers' drivers here
+func New(app *anetos.App, drivers ...Driver) (*Client, error) {
 	if _, err := anetos.Resolve[*Client](app); err == nil {
-		return nil, errors.New("ai: ForApp called twice for one app")
+		return nil, errors.New("ai: New called twice for one app")
 	}
 	cfg, err := LoadConfig(app.Source())
 	if err != nil {
@@ -198,7 +198,7 @@ func ForApp(app *anetos.App, drivers ...Driver) (*Client, error) {
 	find := func(setting, name string) (Driver, error) {
 		i := slices.IndexFunc(all, func(d Driver) bool { return d.Name == name })
 		if i < 0 {
-			return Driver{}, fmt.Errorf("ai: %s is %q, but the drivers are [%s]: check its spelling, or pass its driver to ai.ForApp", setting, name, strings.Join(names, ", "))
+			return Driver{}, fmt.Errorf("ai: %s is %q, but the drivers are [%s]: check its spelling, or pass its driver to ai.New", setting, name, strings.Join(names, ", "))
 		}
 		return all[i], nil
 	}
@@ -247,7 +247,7 @@ func ForApp(app *anetos.App, drivers ...Driver) (*Client, error) {
 	if cfg.Model != "" {
 		defaults = append(defaults, Model(cfg.Model))
 	}
-	c := New(p, defaults...)
+	c := NewWithProvider(p, defaults...)
 	c.embed, c.embedModel = e, cfg.EmbeddingModel
 	if c.embedModel == "" {
 		if _, fake := c.embed.(*Fake); fake || (c.embed == nil && cfg.Provider == "fake") {
@@ -262,4 +262,13 @@ func ForApp(app *anetos.App, drivers ...Driver) (*Client, error) {
 	app.AddContextValue(clientKey{}, c)
 	anetos.Provide(app, c)
 	return c, nil
+}
+
+// ForApp is [New].
+//
+// Deprecated: Use New; ForApp is removed in v0.6.
+//
+//go:fix inline
+func ForApp(app *anetos.App, drivers ...Driver) (*Client, error) {
+	return New(app, drivers...)
 }

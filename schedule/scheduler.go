@@ -47,7 +47,7 @@ type realClock struct{}
 func (realClock) Now() time.Time                         { return time.Now() }
 func (realClock) After(d time.Duration) <-chan time.Time { return time.After(d) }
 
-// Scheduler runs tasks on schedules. Create it with [ForApp] (or [New])
+// Scheduler runs tasks on schedules. Create it with [New] (or [NewScheduler])
 // and add tasks with [Scheduler.Add].
 type Scheduler struct {
 	app   *anetos.App
@@ -73,7 +73,7 @@ type task struct {
 	timeout   time.Duration
 }
 
-// Option configures a [Scheduler] made with [New].
+// Option configures a [Scheduler] made with [NewScheduler].
 type Option func(*Scheduler)
 
 // WithLogger sets the scheduler's logger. Default slog.Default().
@@ -91,13 +91,13 @@ func WithLocation(loc *time.Location) Option {
 
 // WithShutdownGrace sets how long Run lets runs still going finish once
 // its context is canceled, before canceling theirs. Default 15 seconds;
-// with [ForApp], half of APP_SHUTDOWN_TIMEOUT.
+// with [New], half of APP_SHUTDOWN_TIMEOUT.
 func WithShutdownGrace(d time.Duration) Option { return func(s *Scheduler) { s.grace = d } }
 
-// New returns a scheduler without an app: run it with [Scheduler.Run].
+// NewScheduler returns a scheduler without an app: run it with [Scheduler.Run].
 // Tasks with [WithoutOverlapping] or [OnOneServer] need a cache in Run's
 // context (cache.WithCache).
-func New(opts ...Option) *Scheduler {
+func NewScheduler(opts ...Option) *Scheduler {
 	s := &Scheduler{log: slog.Default(), loc: time.UTC, clock: realClock{}, grace: 15 * time.Second, wake: make(chan struct{}, 1)}
 	for _, opt := range opts {
 		opt(s)
@@ -105,17 +105,17 @@ func New(opts ...Option) *Scheduler {
 	return s
 }
 
-// ForApp returns the app's scheduler, configured from SCHEDULE_TIMEZONE
+// New returns the app's scheduler, configured from SCHEDULE_TIMEZONE
 // (default the app's zone, APP_TIMEZONE):
 // it runs as a component with the role "scheduler" (so `run
 // --only=scheduler` runs only it), stopping first after the HTTP server,
 // and adds the schedule:list and schedule:run commands. Tasks with
-// [WithoutOverlapping] or [OnOneServer] need cache.ForApp, with a store
+// [WithoutOverlapping] or [OnOneServer] need cache.New, with a store
 // every instance shares (database or Redis) for OnOneServer.
 //
-//	s, err := schedule.ForApp(app)
+//	s, err := schedule.New(app)
 //	err = s.Add(schedule.DailyAt("02:00"), "prune-sessions", tasks.PruneSessions, schedule.OnOneServer())
-func ForApp(app *anetos.App) (*Scheduler, error) {
+func New(app *anetos.App) (*Scheduler, error) {
 	cfg, err := LoadConfig(app.Source())
 	if err != nil {
 		return nil, err
@@ -127,9 +127,9 @@ func ForApp(app *anetos.App) (*Scheduler, error) {
 		}
 	}
 	if _, err := anetos.Resolve[*Scheduler](app); err == nil {
-		return nil, errors.New("schedule: ForApp called twice for one app")
+		return nil, errors.New("schedule: New called twice for one app")
 	}
-	s := New(WithLogger(app.Logger().With("component", "scheduler")), WithLocation(loc))
+	s := NewScheduler(WithLogger(app.Logger().With("component", "scheduler")), WithLocation(loc))
 	s.app = app
 	// run --only=scheduler works before the first task (the component
 	// comes with it).
@@ -145,6 +145,15 @@ func ForApp(app *anetos.App) (*Scheduler, error) {
 	}
 	app.Use(booter{s})
 	return s, nil
+}
+
+// ForApp is [New].
+//
+// Deprecated: Use New; ForApp is removed in v0.6.
+//
+//go:fix inline
+func ForApp(app *anetos.App) (*Scheduler, error) {
+	return New(app)
 }
 
 // booter checks the tasks and adds the scheduler's component when the app
@@ -166,7 +175,7 @@ func (s *Scheduler) check(app *anetos.App) error {
 	if _, err := anetos.Resolve[*cache.Cache](app); err != nil {
 		for _, t := range s.tasks {
 			if t.overlap || t.oneServer {
-				return fmt.Errorf("schedule: the task %s uses a lock (WithoutOverlapping, OnOneServer): call cache.ForApp", t.name)
+				return fmt.Errorf("schedule: the task %s uses a lock (WithoutOverlapping, OnOneServer): call cache.New", t.name)
 			}
 		}
 	}
@@ -253,7 +262,7 @@ func (s *Scheduler) Add(when Schedule, name string, fn func(ctx context.Context)
 	}
 	if s.checked && (t.overlap || t.oneServer) { // added after the boot check
 		if _, err := anetos.Resolve[*cache.Cache](s.app); err != nil {
-			return fmt.Errorf("schedule: the task %s uses a lock (WithoutOverlapping, OnOneServer): call cache.ForApp", t.name)
+			return fmt.Errorf("schedule: the task %s uses a lock (WithoutOverlapping, OnOneServer): call cache.New", t.name)
 		}
 	}
 	s.tasks = append(s.tasks, t)
@@ -434,7 +443,7 @@ const releaseMargin = 2 * time.Second
 
 // Run runs the tasks on their schedules until ctx is canceled, then gives
 // runs still going half of APP_SHUTDOWN_TIMEOUT (without an app, 15
-// seconds or [WithShutdownGrace]) and cancels them. With [ForApp], the scheduler runs as a component of the
+// seconds or [WithShutdownGrace]) and cancels them. With [New], the scheduler runs as a component of the
 // app: don't call Run.
 func (s *Scheduler) Run(ctx context.Context) error {
 	grace := s.grace

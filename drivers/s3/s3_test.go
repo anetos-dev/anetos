@@ -99,7 +99,7 @@ func TestNew(t *testing.T) {
 	}
 }
 
-func TestForApp(t *testing.T) {
+func TestAppNew(t *testing.T) {
 	endpoint, client := fake(t)
 	src := config.Map{"APP_ENV": "testing", "APP_KEY": encryption.GenerateKey(),
 		"STORAGE_DRIVER": "s3", "STORAGE_S3_BUCKET": "test", "STORAGE_S3_ENDPOINT": endpoint, "STORAGE_S3_PATH_STYLE": "true",
@@ -108,13 +108,13 @@ func TestForApp(t *testing.T) {
 	app, err := anetos.New(anetos.WithSource(src), anetos.WithLogOutput(io.Discard))
 	check(t, err)
 	t.Cleanup(func() { _ = app.Close() })
-	if _, err := storage.ForApp(app); err == nil || !strings.Contains(err.Error(), "s3.Driver()") {
-		t.Errorf("ForApp without the driver = %v", err)
+	if _, err := storage.New(app); err == nil || !strings.Contains(err.Error(), "s3.Driver()") {
+		t.Errorf("New without the driver = %v", err)
 	}
 	app2, err := anetos.New(anetos.WithSource(src), anetos.WithLogOutput(io.Discard))
 	check(t, err)
 	t.Cleanup(func() { _ = app2.Close() })
-	_, err = storage.ForApp(app2, s3.Driver(s3.Transport(client.Transport)))
+	_, err = storage.New(app2, s3.Driver(s3.Transport(client.Transport)))
 	check(t, err)
 	ctx := app2.Context(context.Background())
 	def, err := storage.From(ctx)
@@ -139,8 +139,8 @@ func TestForApp(t *testing.T) {
 	app3, err := anetos.New(anetos.WithSource(bad), anetos.WithLogOutput(io.Discard))
 	check(t, err)
 	t.Cleanup(func() { _ = app3.Close() })
-	if _, err := storage.ForApp(app3, s3.Driver(s3.Transport(client.Transport))); err == nil || !strings.Contains(err.Error(), "STORAGE_S3_BUCKET") {
-		t.Errorf("ForApp without the avatars bucket = %v", err)
+	if _, err := storage.New(app3, s3.Driver(s3.Transport(client.Transport))); err == nil || !strings.Contains(err.Error(), "STORAGE_S3_BUCKET") {
+		t.Errorf("New without the avatars bucket = %v", err)
 	}
 }
 

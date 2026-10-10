@@ -22,8 +22,8 @@ func TestActingAs(t *testing.T) {
 	anetostest.ActingAs(app, c.members["1"]).Get("/me").AssertSee("1 Ada")
 	anetostest.ActingAs(app, c.members["2"]).Get("/me").AssertSee("2 Grace") // replaces Ada
 
-	// Users of another type than auth.ForApp's fail the test.
-	if msg := fatalOf(func() { anetostest.ActingAs(app, stranger{}) }); !strings.Contains(msg, "auth.ForApp in setup, with users of type anetostest_test.stranger") {
+	// Users of another type than auth.New's fail the test.
+	if msg := fatalOf(func() { anetostest.ActingAs(app, stranger{}) }); !strings.Contains(msg, "auth.New in setup, with users of type anetostest_test.stranger") {
 		t.Errorf("another type: %q", msg)
 	}
 	if len(ft.errs) > 0 {

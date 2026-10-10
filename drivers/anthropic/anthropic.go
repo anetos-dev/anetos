@@ -3,7 +3,7 @@
 // Package anthropic is the Anthropic provider of package ai (Claude
 // models), on Anthropic's official Go SDK:
 //
-//	client, err := ai.ForApp(app, anthropic.Driver()) // AI_PROVIDER=anthropic
+//	client, err := ai.New(app, anthropic.Driver()) // AI_PROVIDER=anthropic
 //
 // It reads ANTHROPIC_API_KEY (required) and ANTHROPIC_BASE_URL, and
 // needs AI_MODEL. Structured output uses Claude's structured outputs;
@@ -45,7 +45,7 @@ type Config struct {
 	BaseURL string `env:"ANTHROPIC_BASE_URL"`
 }
 
-// Driver is the provider's driver for ai.ForApp: AI_PROVIDER=anthropic.
+// Driver is the provider's driver for ai.New: AI_PROVIDER=anthropic.
 func Driver() ai.Driver {
 	return ai.Driver{Name: Name, Open: func(app *anetos.App, cfg ai.Config) (ai.Provider, error) {
 		c, err := config.Get[Config](app.Source())

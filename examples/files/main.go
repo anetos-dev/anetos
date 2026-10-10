@@ -38,7 +38,7 @@ func main() {
 
 func setup(app *anetos.App) (*web.Server, error) {
 	// region: setup
-	st, err := storage.ForApp(app, s3.Driver()) // STORAGE_DRIVER: local, memory or s3
+	st, err := storage.New(app, s3.Driver()) // STORAGE_DRIVER: local, memory or s3
 	if err != nil {
 		return nil, err
 	}

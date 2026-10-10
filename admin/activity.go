@@ -31,10 +31,10 @@ const activityPage = 50
 // writes, newest first, filtered by who, what, which kind of record,
 // which record and when, with a page per entry. The pages of a resource
 // whose model the log tracks then show a record's history. Permission:
-// [ViewActivity]. The app must keep an audit log (audit.ForApp).
+// [ViewActivity]. The app must keep an audit log (audit.New).
 func Activity(p *Panel) error {
 	if p.reg == nil {
-		return errors.New("admin: Activity needs the app's roles and permissions (rbac.ForApp)")
+		return errors.New("admin: Activity needs the app's roles and permissions (rbac.New)")
 	}
 	p.activity = true
 	return p.add(&activityRes{p: p, in: resInfo{Name: "activity", Title: "Activity", Singular: "Entry", custom: []string{"view"}}})

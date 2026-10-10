@@ -3,7 +3,7 @@
 // Package encryption encrypts and authenticates small messages, such as
 // session cookies, with the application key (APP_KEY).
 //
-//	enc, err := encryption.ForApp(app)
+//	enc, err := encryption.New(app)
 //	token := enc.EncryptString("user:42", "password-reset")
 //	msg, err := enc.DecryptString(token, "password-reset")
 //
@@ -106,10 +106,10 @@ type key struct {
 	secret []byte
 }
 
-// New returns an Encrypter that encrypts with current and also decrypts
+// NewEncrypter returns an Encrypter that encrypts with current and also decrypts
 // messages written with the previous keys. Every key must be [KeySize]
 // bytes.
-func New(current []byte, previous ...[]byte) (*Encrypter, error) {
+func NewEncrypter(current []byte, previous ...[]byte) (*Encrypter, error) {
 	e := &Encrypter{}
 	for i, k := range append([][]byte{current}, previous...) {
 		if len(k) != KeySize {
@@ -123,10 +123,14 @@ func New(current []byte, previous ...[]byte) (*Encrypter, error) {
 	return e, nil
 }
 
-// ForApp returns an Encrypter for the application's APP_KEY and
-// APP_PREVIOUS_KEYS. It fails, suggesting a freshly generated key, if
-// APP_KEY is not set.
-func ForApp(app *anetos.App) (*Encrypter, error) {
+// New returns the Encrypter for the application's APP_KEY and
+// APP_PREVIOUS_KEYS: the same one every time for one app (auth, sessions
+// and storage each ask for it). It fails, suggesting a freshly generated
+// key, if APP_KEY is not set.
+func New(app *anetos.App) (*Encrypter, error) {
+	if e, ok := anetos.Lookup[*Encrypter](app); ok && e != nil {
+		return e, nil
+	}
 	cfg := app.Config()
 	if cfg.Key == "" {
 		return nil, fmt.Errorf("encryption: APP_KEY is not set; add a key to your environment or .env, for example:\n\n\tAPP_KEY=%s", GenerateKey())
@@ -143,7 +147,21 @@ func ForApp(app *anetos.App) (*Encrypter, error) {
 		}
 		previous = append(previous, k)
 	}
-	return New(current, previous...)
+	e, err := NewEncrypter(current, previous...)
+	if err != nil {
+		return nil, err
+	}
+	anetos.Provide(app, e)
+	return e, nil
+}
+
+// ForApp is [New].
+//
+// Deprecated: Use New; ForApp is removed in v0.6.
+//
+//go:fix inline
+func ForApp(app *anetos.App) (*Encrypter, error) {
+	return New(app)
 }
 
 // ParseKey decodes a key written as "base64:…", the form of APP_KEY.

@@ -40,7 +40,7 @@ var date = time.Date(2026, 10, 1, 9, 30, 0, 0, time.UTC)
 
 func newMailer() (*mailer.Mailer, *mailer.MemoryTransport) {
 	mem := mailer.NewMemoryTransport()
-	m := mailer.New(mem, mailer.DefaultFrom(mailer.Address{Name: "Shop", Address: "shop@example.com"}), mailer.BaseURL("https://shop.example.com/"))
+	m := mailer.NewWithTransport(mem, mailer.DefaultFrom(mailer.Address{Name: "Shop", Address: "shop@example.com"}), mailer.BaseURL("https://shop.example.com/"))
 	mailer.SetNow(m, func() time.Time { return date })
 	return m, mem
 }
@@ -141,7 +141,7 @@ func TestRenderErrors(t *testing.T) {
 	if _, err := m.Render(ctx, nil); err == nil {
 		t.Error("nil mailable: no error")
 	}
-	noFrom := mailer.New(mailer.NewMemoryTransport())
+	noFrom := mailer.NewWithTransport(mailer.NewMemoryTransport())
 	if _, err := noFrom.Render(ctx, &mailer.Message{To: to, Subject: "x", HTML: body}); err == nil || !strings.Contains(err.Error(), "MAIL_FROM_ADDRESS") {
 		t.Errorf("no sender: %v", err)
 	}

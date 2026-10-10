@@ -13,7 +13,7 @@ a language with one command.
 
 ## Before you start
 
-- Translations set up with `i18n.ForApp` ([Translations](translations.md)):
+- Translations set up with `i18n.New` ([Translations](translations.md)):
   an app made with `anetos new` has them.
 - Everything below follows the request's locale (`i18n.Locale(ctx)`) and
   time zone (`i18n.TimeZone(ctx)`: the signed-in user's, or

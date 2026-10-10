@@ -26,7 +26,7 @@ func (downStore) Get(context.Context, string) ([]byte, bool, error) {
 // through the router's error handler (JSON for API clients).
 func TestSessionStoreFailure(t *testing.T) {
 	k, _ := encryption.ParseKey(encryption.GenerateKey())
-	enc, _ := encryption.New(k)
+	enc, _ := encryption.NewEncrypter(k)
 	m, err := session.NewManager(session.DefaultConfig(), enc, session.WithStore(downStore{}, "t:"))
 	if err != nil {
 		t.Fatal(err)

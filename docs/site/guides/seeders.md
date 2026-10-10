@@ -70,7 +70,7 @@ and seeders in `database/migrations`.
 
 ```go
 // illustrative
-runner, err := migrate.ForApp(app, []*migrate.Set{Migrations}, migrate.WithSeeders(Seeders...))
+runner, err := migrate.New(app, []*migrate.Set{Migrations}, migrate.WithSeeders(Seeders...))
 ```
 
 ### 3. Run them

@@ -16,7 +16,7 @@ Package `web/openapi` (v0.4) and what it writes. How to use it:
 |---|---|
 | `openapi.Spec(r, cfg)` | The OpenAPI 3.1.0 document of `r`'s typed routes, as indented JSON (the same routes and `Config` give the same bytes), and warnings about what it left out or couldn't describe |
 | `openapi.Check(r, cfg)` | An error unless `cfg.File` holds `Spec`'s document (Windows line ends allowed); the error names the first line that differs and says to run `go run . openapi`. Also an error when a route under `cfg.Prefix` is one the document leaves out (not a typed handler, or every method) |
-| `openapi.ForApp(app, srv, cfg)` | Adds the `openapi` command, and serves the document at `cfg.Path` if set (built on the first request). Call it after adding the routes. An error without `cfg.Title` |
+| `openapi.Register(app, srv, cfg)` | Adds the `openapi` command, and serves the document at `cfg.Path` if set (built on the first request). Call it after adding the routes. An error without `cfg.Title` |
 | `web.Documented(h, web.MiddlewareDoc{…})` | The handler a middleware returns, with what the middleware asks for and may answer, which the routes it wraps report |
 | `web.RouteInfo.Input`, `.Output`, `.Status` | A typed route's input and result types and its `Status` (0 unless set) |
 | `web.RouteInfo.Handler` | A typed route's function, without its package path: `handlers.Bookmarks.Index` |
@@ -38,7 +38,7 @@ Package `web/openapi` (v0.4) and what it writes. How to use it:
 
 ## The command
 
-`openapi [--check] [--out=FILE]`, added by `openapi.ForApp`.
+`openapi [--check] [--out=FILE]`, added by `openapi.Register`.
 
 | Flag | Default | Meaning |
 |---|---|---|

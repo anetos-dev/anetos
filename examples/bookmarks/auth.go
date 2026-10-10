@@ -26,7 +26,7 @@ func setupAuth(app *anetos.App, r *web.Router) (*auth.Auth[*models.User], error)
 	if err := runner.Add(auth.Migrations()); err != nil {
 		return nil, err
 	}
-	a, err := auth.ForApp(app, models.Users)
+	a, err := auth.New(app, models.Users)
 	if err != nil {
 		return nil, err
 	}

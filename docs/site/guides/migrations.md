@@ -107,7 +107,7 @@ refuses on every database.
 ### 3. Connect the runner
 
 ```go
-if _, err := migrate.ForApp(app, []*migrate.Set{Migrations, cache.Migrations("")}, migrate.WithSeeders(Seeders...)); err != nil {
+if _, err := migrate.New(app, []*migrate.Set{Migrations, cache.Migrations("")}, migrate.WithSeeders(Seeders...)); err != nil {
 	return nil, err
 }
 ```
@@ -120,7 +120,7 @@ database cache store). They run in ID order across all sets.
 
 ### 4. Run the commands
 
-`migrate.ForApp` registers the migration commands on the app, and
+`migrate.New` registers the migration commands on the app, and
 `app.Execute()` runs the one named on the command line:
 
 ```go
@@ -211,7 +211,7 @@ to the server.
 
 ## Testing it
 
-`anetostest.New(t, setup)` runs the migrations `migrate.ForApp`
+`anetostest.New(t, setup)` runs the migrations `migrate.New`
 registered before each test (see [Test your app](testing.md)). To check
 that every `Down` works, roll back in a test, outside the test's
 transaction (MySQL commits on every schema change):

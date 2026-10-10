@@ -6,7 +6,7 @@
 //
 // Set it up at startup, register the job types, and start the workers:
 //
-//	q, err := queue.ForApp(app, redis.QueueDriver()) // QUEUE_DRIVER picks the store
+//	q, err := queue.New(app, redis.QueueDriver()) // QUEUE_DRIVER picks the store
 //	err = queue.Register[jobs.SendWelcome](q, queue.Tries(5))
 //	err = q.Work(queue.Queues("emails", "default"), queue.Concurrency(10))
 //

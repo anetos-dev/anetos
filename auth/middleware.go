@@ -390,7 +390,7 @@ func Intended(ctx context.Context, fallback string) string {
 	return web.LocalePath(ctx, fallback)
 }
 
-// actor finds users by ID for [ActAs]; ForApp puts the app's Auth in its
+// actor finds users by ID for [ActAs]; New puts the app's Auth in its
 // contexts as one.
 type actor interface {
 	ActAs(ctx context.Context, userID string, opts ...ActOption) context.Context
@@ -449,13 +449,13 @@ func (a *Auth[U]) ActAs(ctx context.Context, userID string, opts ...ActOption) c
 	return context.WithValue(ctx, stateKey{}, st)
 }
 
-// ActAs is [Auth.ActAs] with the app's Auth (auth.ForApp), from ctx: for
+// ActAs is [Auth.ActAs] with the app's Auth (auth.New), from ctx: for
 // packages that don't know the app's user type, such as package ai's
 // queued replies.
 func ActAs(ctx context.Context, userID string, opts ...ActOption) (context.Context, error) {
 	a, ok := ctx.Value(actorKey{}).(actor)
 	if !ok {
-		return nil, errors.New("auth: ActAs needs the app's Auth in the context (auth.ForApp)")
+		return nil, errors.New("auth: ActAs needs the app's Auth in the context (auth.New)")
 	}
 	return a.ActAs(ctx, userID, opts...), nil
 }

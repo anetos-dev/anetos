@@ -3,7 +3,7 @@
 // Package gcs is the storage package's backend for Google Cloud Storage,
 // on the official client (cloud.google.com/go/storage):
 //
-//	st, err := storage.ForApp(app, gcs.Driver())
+//	st, err := storage.New(app, gcs.Driver())
 //
 // Settings (STORAGE_<NAME>_GCS_* for a named disk): STORAGE_DRIVER=gcs,
 // STORAGE_GCS_BUCKET, STORAGE_GCS_PREFIX (a prefix for the disk's

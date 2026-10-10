@@ -34,7 +34,7 @@ type AdminResult struct {
 	// call it itself.
 	Wired bool
 	// RBAC says setupAdmin sets up roles and permissions; false when the
-	// app already does (rbac.ForApp).
+	// app already does (rbac.New).
 	RBAC bool
 	// Env are the settings files the ADMIN_* settings were added to.
 	Env []string
@@ -47,7 +47,7 @@ type AdminResult struct {
 	// Banner says the app's layout (views/layout.templ) now shows
 	// admin.Banner.
 	Banner bool
-	// Audit and AI say the app keeps an audit log (audit.ForApp) and
+	// Audit and AI say the app keeps an audit log (audit.New) and
 	// tracks AI usage (TrackUsage): setupAdmin adds the activity and the
 	// AI usage widget.
 	Audit, AI bool
@@ -146,7 +146,7 @@ func MakeAdmin(root string) (AdminResult, error) {
 		return res, err
 	}
 	// The activity, with an audit log; AI usage, with tracked usage.
-	if res.Audit, err = projectCalls(root, "audit.ForApp("); err != nil {
+	if res.Audit, err = projectCalls(root, "audit.New(", "audit.ForApp("); err != nil {
 		return res, err
 	}
 	if res.AI, err = projectCalls(root, "TrackUsage("); err != nil {
@@ -256,14 +256,15 @@ func addBanner(src []byte) ([]byte, bool) {
 	return []byte(s), true
 }
 
-// noRBAC reports whether no Go file of the project calls rbac.ForApp.
+// noRBAC reports whether no Go file of the project calls rbac.New.
 func noRBAC(root string) (bool, error) {
-	found, err := projectCalls(root, "rbac.ForApp(")
+	found, err := projectCalls(root, "rbac.New(", "rbac.ForApp(")
 	return !found, err
 }
 
-// projectCalls reports whether a Go file of the project contains call.
-func projectCalls(root, call string) (bool, error) {
+// projectCalls reports whether a Go file of the project contains one of
+// the calls (a name and the one it replaced, ForApp before v0.5).
+func projectCalls(root string, calls ...string) (bool, error) {
 	found := false
 	err := filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
 		if err != nil {
@@ -282,7 +283,9 @@ func projectCalls(root, call string) (bool, error) {
 		if err != nil {
 			return err
 		}
-		found = bytes.Contains(b, []byte(call))
+		for _, c := range calls {
+			found = found || bytes.Contains(b, []byte(c))
+		}
 		return nil
 	})
 	return found, err

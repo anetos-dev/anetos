@@ -208,17 +208,17 @@ func newAppWith(t *testing.T, s *store, env ...string) (*auth.Auth[*user], *brow
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = app.Close() })
-	if _, err := cache.ForApp(app); err != nil {
+	if _, err := cache.New(app); err != nil {
 		t.Fatal(err)
 	}
 	// SESSION_DRIVER=mem keeps sessions on the server, in memory.
-	sessions, err := session.ForApp(app, session.Driver{Name: "mem", Open: func(*anetos.App, session.Config) (cache.Store, error) {
+	sessions, err := session.New(app, session.Driver{Name: "mem", Open: func(*anetos.App, session.Config) (cache.Store, error) {
 		return cache.NewMemoryStore(), nil
 	}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	a, err := auth.ForApp(app, s.users())
+	a, err := auth.New(app, s.users())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -580,13 +580,13 @@ func TestConfig(t *testing.T) {
 			t.Errorf("%v accepted", env)
 		}
 	}
-	// ForApp needs the cache.
+	// New needs the cache.
 	app, _ := anetos.New(anetos.WithSource(config.Map{"APP_KEY": encryption.GenerateKey()}), anetos.WithLogOutput(io.Discard))
 	defer app.Close()
-	if _, err := auth.ForApp(app, newStore(t).users()); err == nil || !strings.Contains(err.Error(), "cache.ForApp") {
+	if _, err := auth.New(app, newStore(t).users()); err == nil || !strings.Contains(err.Error(), "cache.New") {
 		t.Errorf("without a cache: %v", err)
 	}
-	if _, err := auth.New(cfg, auth.Users[*user]{}, nil); err == nil {
+	if _, err := auth.NewWithConfig(cfg, auth.Users[*user]{}, nil); err == nil {
 		t.Error("empty Users accepted")
 	}
 }
@@ -706,7 +706,7 @@ func TestRequireAndPolicies(t *testing.T) {
 	}
 	s.reenter = false
 	// One Auth per app.
-	if _, err := auth.ForApp(app, s.users()); err == nil {
+	if _, err := auth.New(app, s.users()); err == nil {
 		t.Error("a second Auth accepted")
 	}
 }
@@ -781,14 +781,14 @@ func TestDefaultHomeURL(t *testing.T) {
 			t.Fatal(err)
 		}
 		t.Cleanup(func() { _ = app.Close() })
-		if _, err := cache.ForApp(app); err != nil {
+		if _, err := cache.New(app); err != nil {
 			t.Fatal(err)
 		}
 		var opts []auth.Option
 		if tc.opt != "" {
 			opts = append(opts, auth.DefaultHomeURL(tc.opt))
 		}
-		a, err := auth.ForApp(app, newStore(t).users(), opts...)
+		a, err := auth.New(app, newStore(t).users(), opts...)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -802,10 +802,10 @@ func TestDefaultHomeURL(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = app.Close() })
-	if _, err := cache.ForApp(app); err != nil {
+	if _, err := cache.New(app); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := auth.ForApp(app, newStore(t).users(), auth.DefaultHomeURL("https://example.com/")); err == nil || !strings.Contains(err.Error(), "AUTH_HOME_URL") {
+	if _, err := auth.New(app, newStore(t).users(), auth.DefaultHomeURL("https://example.com/")); err == nil || !strings.Contains(err.Error(), "AUTH_HOME_URL") {
 		t.Errorf("an absolute URL: %v", err)
 	}
 }

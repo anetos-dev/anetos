@@ -29,7 +29,7 @@ func setupAuth(app *anetos.App, r *web.Router, sessions *session.Manager) (*auth
 	}
 	// Signing in leads to the projects, unless AUTH_HOME_URL names
 	// another page. (make:auth's default is /dashboard.)
-	a, err := auth.ForApp(app, models.Users, auth.DefaultHomeURL("/projects"))
+	a, err := auth.New(app, models.Users, auth.DefaultHomeURL("/projects"))
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +38,7 @@ func setupAuth(app *anetos.App, r *web.Router, sessions *session.Manager) (*auth
 	sessions.Use(a.Middleware)
 	// Each provider is on once its SOCIAL_<NAME>_CLIENT_ID and
 	// _CLIENT_SECRET are set; users come back to APP_URL/auth/<name>/callback.
-	s, err := social.ForApp(app, a, handlers.SocialUser, social.Configured(app, social.Google(), social.GitHub()))
+	s, err := social.New(app, a, handlers.SocialUser, social.Configured(app, social.Google(), social.GitHub()))
 	if err != nil {
 		return nil, err
 	}

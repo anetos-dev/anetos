@@ -68,7 +68,7 @@ func TestQueueDriver(t *testing.T) {
 	prefix := randomPrefix()
 	app := newApp(t, config.Map{"APP_NAME": "redistest", "QUEUE_DRIVER": "redis", "REDIS_URL": url, "QUEUE_PREFIX": prefix,
 		"QUEUE_POLL": "10ms", "APP_SHUTDOWN_TIMEOUT": "5s"})
-	q, err := queue.ForApp(app, redis.QueueDriver())
+	q, err := queue.New(app, redis.QueueDriver())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +141,7 @@ func TestAnetostestQueuePrefix(t *testing.T) {
 		var q *queue.Queue
 		a := anetostest.New(t, func(app *anetos.App) (*web.Server, error) {
 			var err error
-			if q, err = queue.ForApp(app, redis.QueueDriver()); err != nil {
+			if q, err = queue.New(app, redis.QueueDriver()); err != nil {
 				return nil, err
 			}
 			return nil, queue.Register[countJob](q)

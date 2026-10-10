@@ -254,14 +254,14 @@ func setup(app *anetos.App) (*web.Server, error) {
 	}
 	// endregion
 	// region: runner
-	if _, err := migrate.ForApp(app, []*migrate.Set{Migrations, cache.Migrations("")}, migrate.WithSeeders(Seeders...)); err != nil {
+	if _, err := migrate.New(app, []*migrate.Set{Migrations, cache.Migrations("")}, migrate.WithSeeders(Seeders...)); err != nil {
 		return nil, err
 	}
 	// endregion
 	// region: cache
 	// CACHE_STORE (default memory) picks the store; database uses the
 	// cache table from cache.Migrations.
-	if _, err := cache.ForApp(app); err != nil {
+	if _, err := cache.New(app); err != nil {
 		return nil, err
 	}
 	// endregion

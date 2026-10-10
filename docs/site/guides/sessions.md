@@ -30,7 +30,7 @@ Create the manager from the app's configuration and add its middleware
 to the routes that serve pages:
 
 ```go
-sessions, err := session.ForApp(app) // SESSION_* settings; needs APP_KEY
+sessions, err := session.New(app) // SESSION_* settings; needs APP_KEY
 if err != nil {
 	return nil, err
 }
@@ -51,7 +51,7 @@ pages.Delete("/notes/{id}", web.H(h.Delete)).Name("notes.delete")
 
 (Copied from [`examples/forms`](../../../examples/forms/main.go), region `routes`.)
 
-`session.ForApp` reads the `SESSION_*` settings
+`session.New` reads the `SESSION_*` settings
 ([configuration reference](../reference/configuration.md#sessions)) and
 fails at startup, suggesting a key, when `APP_KEY` is missing.
 
@@ -124,7 +124,7 @@ For the database, add the sessions table to the migrations and run
 
 ```go
 // session.Migrations creates the sessions table, for SESSION_DRIVER=database.
-if _, err := migrate.ForApp(app, []*migrate.Set{Migrations, session.Migrations("")}, migrate.WithSeeders(Seeders...)); err != nil {
+if _, err := migrate.New(app, []*migrate.Set{Migrations, session.Migrations("")}, migrate.WithSeeders(Seeders...)); err != nil {
 	return nil, err
 }
 ```
@@ -140,7 +140,7 @@ For Redis, add the `drivers/redis` module and pass its driver
 
 ```go
 // illustrative
-sessions, err := session.ForApp(app, redis.SessionDriver()) // SESSION_DRIVER=redis
+sessions, err := session.New(app, redis.SessionDriver()) // SESSION_DRIVER=redis
 ```
 
 Changing the driver ends every current session: visitors sign in again.
@@ -206,7 +206,7 @@ Give a handler a session without the middleware:
 
 ```go
 // illustrative
-s := session.New()
+s := session.NewSession()
 ctx := session.NewContext(context.Background(), s)
 ```
 
@@ -225,7 +225,7 @@ and set values before a request with `app.WithSession(func(s
 | `session too large for its cookie` in the logs | More than about 4 KB stored | Store less: IDs instead of records |
 | `web: no session for this request` | `c.Session()` on a route without the middleware | Add `sessions.Middleware` to the route's group |
 | Every page answers 503, with `the session store failed` in the logs | The database or Redis server isn't reachable | Check the server; `SESSION_DRIVER=cookie` needs none |
-| `SESSION_DRIVER is "redis", but the drivers are [cookie, database]` | The Redis driver wasn't passed | `session.ForApp(app, redis.SessionDriver())` |
+| `SESSION_DRIVER is "redis", but the drivers are [cookie, database]` | The Redis driver wasn't passed | `session.New(app, redis.SessionDriver())` |
 | `no such table: sessions` | The sessions migration didn't run | Add `session.Migrations("")` to the runner and run `migrate` |
 
 ## Next steps

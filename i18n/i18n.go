@@ -83,7 +83,7 @@ func (c Config) Validate() error {
 func LoadConfig(src config.Source) (Config, error) { return config.Get[Config](src) }
 
 // Translator translates messages from catalogs: the app's, then the
-// framework's own English ones. Create one with [ForApp] (or [New]); it
+// framework's own English ones. Create one with [New] (or [NewTranslator]); it
 // is safe for concurrent use.
 type Translator struct {
 	cfg       Config
@@ -105,7 +105,7 @@ type Translator struct {
 	missing     sync.Map // locale + key → struct{}: logged once
 }
 
-// Option configures [New].
+// Option configures [NewTranslator].
 type Option func(*options)
 
 type options struct {
@@ -124,12 +124,12 @@ func WithLocales(fsys fs.FS) Option { return func(o *options) { o.files = append
 func WithLogger(l *slog.Logger) Option { return func(o *options) { o.log = l } }
 
 // WarnMissing logs keys missing from every catalog, once per locale and
-// key. ForApp turns it on in development.
+// key. New turns it on in development.
 func WarnMissing() Option { return func(o *options) { o.warn = true } }
 
-// New returns a translator for cfg with the catalogs of [WithLocales]
+// NewTranslator returns a translator for cfg with the catalogs of [WithLocales]
 // and the framework's English catalog.
-func New(cfg Config, opts ...Option) (*Translator, error) {
+func NewTranslator(cfg Config, opts ...Option) (*Translator, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("i18n: %w", err)
 	}
@@ -191,7 +191,7 @@ func (tr *Translator) addSupported(tag language.Tag) {
 
 type translatorKey struct{}
 
-// ForApp returns the app's translator, configured from APP_LOCALE,
+// New returns the app's translator, configured from APP_LOCALE,
 // APP_FALLBACK_LOCALE, APP_LOCALES and LOCALE_URL, with the catalogs in
 // locales (the embedded files of the app's locales folder; nil for none).
 // It adds the translator to every context the app creates, so [T] and
@@ -199,10 +199,10 @@ type translatorKey struct{}
 // server resolves each request's locale with it), adds the lang:check
 // command, and logs missing keys in development.
 //
-//	tr, err := i18n.ForApp(app, locales.FS)
-func ForApp(app *anetos.App, locales fs.FS) (*Translator, error) {
+//	tr, err := i18n.New(app, locales.FS)
+func New(app *anetos.App, locales fs.FS) (*Translator, error) {
 	if _, err := anetos.Resolve[*Translator](app); err == nil {
-		return nil, errors.New("i18n: ForApp called twice for one app")
+		return nil, errors.New("i18n: New called twice for one app")
 	}
 	cfg, err := LoadConfig(app.Source())
 	if err != nil {
@@ -218,7 +218,7 @@ func ForApp(app *anetos.App, locales fs.FS) (*Translator, error) {
 	if app.Config().Env.IsDevelopment() {
 		opts = append(opts, WarnMissing())
 	}
-	tr, err := New(cfg, opts...)
+	tr, err := NewTranslator(cfg, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -230,6 +230,15 @@ func ForApp(app *anetos.App, locales fs.FS) (*Translator, error) {
 	return tr, nil
 }
 
+// ForApp is [New].
+//
+// Deprecated: Use New; ForApp is removed in v0.6.
+//
+//go:fix inline
+func ForApp(app *anetos.App, locales fs.FS) (*Translator, error) {
+	return New(app, locales)
+}
+
 // WithTranslator returns ctx with tr as its translator, for code outside
 // an app (a package's tests).
 func WithTranslator(ctx context.Context, tr *Translator) context.Context {
@@ -237,7 +246,7 @@ func WithTranslator(ctx context.Context, tr *Translator) context.Context {
 }
 
 var defaultTranslator = sync.OnceValue(func() *Translator {
-	tr, err := New(Config{Locale: "en", Fallback: "en", URL: URLNone})
+	tr, err := NewTranslator(Config{Locale: "en", Fallback: "en", URL: URLNone})
 	if err != nil {
 		panic(err) // the embedded core catalog is broken
 	}

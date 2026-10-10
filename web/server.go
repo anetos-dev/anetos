@@ -113,7 +113,7 @@ func WithConfig(cfg Config) ServerOption {
 // The router comes with these global middleware, outermost first: Recover,
 // RequestIDs, RealIP, AccessLog (HTTP_ACCESS_LOG), SecureHeaders (HSTS in
 // production), CORS (when HTTP_CORS_ORIGINS is set), the request's locale
-// (with i18n.ForApp: the locale in the URL with LOCALE_URL, the redirects
+// (with i18n.New: the locale in the URL with LOCALE_URL, the redirects
 // to the visitor's locale, ?locale= switches; see [LocaleURL]), BodyLimit
 // (HTTP_MAX_BODY) and Timeout (HTTP_REQUEST_TIMEOUT). Unless
 // HTTP_HEALTH_ROUTES=false, it also serves GET /health/live and

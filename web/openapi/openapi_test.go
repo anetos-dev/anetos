@@ -195,9 +195,9 @@ func TestUnknownScheme(t *testing.T) {
 	}
 }
 
-// ForApp serves the document and adds the openapi command, which
+// Register serves the document and adds the openapi command, which
 // writes the file or checks it.
-func TestForApp(t *testing.T) {
+func TestAppNew(t *testing.T) {
 	app, err := anetos.New(anetos.WithSource(config.Map{}), anetos.WithLogger(slog.New(slog.DiscardHandler)))
 	if err != nil {
 		t.Fatal(err)
@@ -209,10 +209,10 @@ func TestForApp(t *testing.T) {
 	r := srv.Router()
 	r.Get("/api/v1/products/{id}", web.H(Products{}.Show)).Name("products.show")
 	cfg := openapi.Config{Title: "Shop", Prefix: "/api/v1", Path: "/api/v1/openapi.json", File: filepath.Join(t.TempDir(), "openapi.json")}
-	if err := openapi.ForApp(app, srv, cfg); err != nil {
+	if err := openapi.Register(app, srv, cfg); err != nil {
 		t.Fatal(err)
 	}
-	if err := openapi.ForApp(app, srv, openapi.Config{}); err == nil {
+	if err := openapi.Register(app, srv, openapi.Config{}); err == nil {
 		t.Error("no title accepted")
 	}
 

@@ -3,7 +3,7 @@
 // Package s3 is the storage package's backend for S3 and S3-compatible
 // object stores (Cloudflare R2, MinIO, Backblaze B2, …), on minio-go:
 //
-//	st, err := storage.ForApp(app, s3.Driver())
+//	st, err := storage.New(app, s3.Driver())
 //
 // Settings (STORAGE_<NAME>_S3_* for a named disk): STORAGE_DRIVER=s3,
 // STORAGE_S3_BUCKET, STORAGE_S3_REGION (default us-east-1; "auto" for

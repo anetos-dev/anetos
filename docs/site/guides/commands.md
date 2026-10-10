@@ -50,13 +50,13 @@ func main() {
 |---|---|
 | `run [--only=role,…]` | Every app |
 | `serve`, `routes:list` | `web.NewServer` |
-| `openapi` | `openapi.ForApp` ([Describe an API with OpenAPI](openapi.md)) |
-| `migrate`, `migrate:rollback`, `migrate:reset`, `migrate:fresh`, `migrate:status`, `db:seed`, `search:reindex` | `migrate.ForApp` ([Migrations](migrations.md), [Search](search.md)) |
-| `cache:clear` | `cache.ForApp` ([Cache values](cache.md)) |
+| `openapi` | `openapi.Register` ([Describe an API with OpenAPI](openapi.md)) |
+| `migrate`, `migrate:rollback`, `migrate:reset`, `migrate:fresh`, `migrate:status`, `db:seed`, `search:reindex` | `migrate.New` ([Migrations](migrations.md), [Search](search.md)) |
+| `cache:clear` | `cache.New` ([Cache values](cache.md)) |
 | `ai:embed` | `ai.EmbeddingsFor` ([Search by meaning](semantic-search.md)) |
-| `queue:failed`, `queue:retry`, `queue:forget`, `queue:flush`, `queue:clear` | `queue.ForApp` ([Queues](queues.md)) |
-| `pubsub:publish` | `pubsub.ForApp` ([Pub/sub listeners](pubsub.md)) |
-| `schedule:list`, `schedule:run` | `schedule.ForApp` ([Scheduling](scheduling.md)) |
+| `queue:failed`, `queue:retry`, `queue:forget`, `queue:flush`, `queue:clear` | `queue.New` ([Queues](queues.md)) |
+| `pubsub:publish` | `pubsub.New` ([Pub/sub listeners](pubsub.md)) |
+| `schedule:list`, `schedule:run` | `schedule.New` ([Scheduling](scheduling.md)) |
 
 ### 3. Add your own
 
@@ -136,8 +136,8 @@ app runs one command: create a new one per call.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `unknown command "migrate"` | `migrate.ForApp` wasn't called before `Execute` | Call it while setting up the app |
-| `command "x" registered twice` | Two commands with one name (`app.Command` panics, `app.AddCommand`, `migrate.ForApp` and `web.NewServer` return the error) | Register each once |
+| `unknown command "migrate"` | `migrate.New` wasn't called before `Execute` | Call it while setting up the app |
+| `command "x" registered twice` | Two commands with one name (`app.Command` panics, `app.AddCommand`, `migrate.New` and `web.NewServer` return the error) | Register each once |
 | `unknown role "…"` | `--only` names a role no component has and no package declared (the error lists the known ones) | Check `help run` and the roles of your components |
 
 ## Next steps

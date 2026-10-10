@@ -41,7 +41,7 @@ STORAGE_URL=https://example.com/files
 In `setup`:
 
 ```go
-st, err := storage.ForApp(app, s3.Driver()) // STORAGE_DRIVER: local, memory or s3
+st, err := storage.New(app, s3.Driver()) // STORAGE_DRIVER: local, memory or s3
 if err != nil {
 	return nil, err
 }
@@ -248,7 +248,7 @@ handler with `disk.Serve(c.Writer(), c.Request(), path)`.
 
 ### 5. Use S3
 
-Pass `s3.Driver()` to `storage.ForApp` (from `drivers/s3`) and set:
+Pass `s3.Driver()` to `storage.New` (from `drivers/s3`) and set:
 
 ```env
 STORAGE_DRIVER=s3
@@ -280,7 +280,7 @@ bucket is an error, not a missing file.
 
 ### 6. Use Google Cloud Storage
 
-Pass `gcs.Driver()` to `storage.ForApp` (from `drivers/gcs`) and set:
+Pass `gcs.Driver()` to `storage.New` (from `drivers/gcs`) and set:
 
 ```env
 STORAGE_DRIVER=gcs

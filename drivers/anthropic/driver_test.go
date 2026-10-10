@@ -37,7 +37,7 @@ func TestDriver(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		client, err := ai.ForApp(app, anthropic.Driver())
+		client, err := ai.New(app, anthropic.Driver())
 		switch {
 		case c.want == "" && err != nil:
 			t.Errorf("%v: %v", c.env, err)

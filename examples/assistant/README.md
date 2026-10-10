@@ -29,7 +29,7 @@ go run .
 
 Anthropic has no embeddings model, so `AI_EMBEDDING_PROVIDER` sends the
 embeddings to OpenAI. (For Gemini's `gemini-embedding-001`, add
-`gemini.Driver()` from `drivers/gemini` to `ai.ForApp` in `main.go`.)
+`gemini.Driver()` from `drivers/gemini` to `ai.New` in `main.go`.)
 The vectors have 1536 dimensions
 (`embeddingDims` in [`agent.go`](agent.go), and the migration); for a
 model that makes others, change it. After changing the model, `go run .

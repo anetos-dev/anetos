@@ -62,7 +62,7 @@ home:
 
 ### 2. Load them
 
-Embed the folder and give it to `i18n.ForApp`, before the web server:
+Embed the folder and give it to `i18n.New`, before the web server:
 
 ```go
 // illustrative (locales/locales.go)
@@ -70,7 +70,7 @@ package locales
 
 import "embed"
 
-// FS holds the catalogs, for i18n.ForApp.
+// FS holds the catalogs, for i18n.New.
 //
 //go:embed *
 var FS embed.FS
@@ -81,7 +81,7 @@ var FS embed.FS
 // each request's locale with the app's translator.
 func setup(app *anetos.App) (*web.Server, error) {
 	// locales.FS embeds locales/: en.yaml and bn/*.yaml.
-	if _, err := i18n.ForApp(app, locales.FS); err != nil {
+	if _, err := i18n.New(app, locales.FS); err != nil {
 		return nil, err
 	}
 	srv, err := web.NewServer(app)
@@ -218,7 +218,7 @@ func (u *User) CommunicationLocale() string { return u.MailLocale } // i18n.Comm
 func (u *User) PreferredTimeZone() string   { return u.TimeZone }   // i18n.TimeZonePreference
 ```
 
-With `auth.ForApp`, a signed-in user's `PreferredLocale` is the request's
+With `auth.New`, a signed-in user's `PreferredLocale` is the request's
 with `LOCALE_URL=none` (unless they chose another on this device), and
 `i18n.TimeZone(ctx)` is their zone, which `i18n.Date` and `i18n.Time`
 show times in ([Numbers, dates and languages](formatting.md)). A settings

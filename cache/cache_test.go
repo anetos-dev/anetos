@@ -27,7 +27,7 @@ func TestMemoryStore(t *testing.T) {
 }
 
 func newCtx(store cache.Store) context.Context {
-	return cache.WithCache(context.Background(), cache.New(store, "t:"))
+	return cache.WithCache(context.Background(), cache.NewWithStore(store, "t:"))
 }
 
 func TestNoCache(t *testing.T) {
@@ -295,7 +295,7 @@ func TestRemember(t *testing.T) {
 
 	// A failing store degrades to computing, with warnings.
 	var logs bytes.Buffer
-	c := cache.New(failing{}, "")
+	c := cache.NewWithStore(failing{}, "")
 	cache.SetLogger(c, slog.New(slog.NewTextHandler(&logs, nil)))
 	down := cache.WithCache(context.Background(), c)
 	v, err = cache.Remember(down, "k", time.Minute, func(context.Context) (int, error) { return 3, nil })
@@ -318,10 +318,10 @@ func newApp(t *testing.T, env config.Map) *anetos.App {
 	return app
 }
 
-func TestForApp(t *testing.T) {
+func TestAppNew(t *testing.T) {
 	t.Parallel()
 	app := newApp(t, config.Map{})
-	c, err := cache.ForApp(app)
+	c, err := cache.New(app)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -384,22 +384,22 @@ func TestForApp(t *testing.T) {
 	}
 }
 
-func TestForAppConfig(t *testing.T) {
+func TestAppNewConfig(t *testing.T) {
 	t.Parallel()
 	app := newApp(t, config.Map{"CACHE_STORE": "redis"})
-	_, err := cache.ForApp(app)
+	_, err := cache.New(app)
 	if err == nil || !strings.Contains(err.Error(), "[memory, database]") || !strings.Contains(err.Error(), "redis.CacheDriver()") {
 		t.Errorf("unknown store: %v", err)
 	}
 
-	// A driver passed to ForApp is selected by its name, with the settings.
+	// A driver passed to New is selected by its name, with the settings.
 	var got cache.Config
 	custom := cache.Driver{Name: "custom", Open: func(_ *anetos.App, cfg cache.Config) (cache.Store, error) {
 		got = cfg
 		return cache.NewMemoryStore(), nil
 	}}
 	app = newApp(t, config.Map{"CACHE_STORE": "custom", "CACHE_PREFIX": "x/"})
-	c, err := cache.ForApp(app, custom)
+	c, err := cache.New(app, custom)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -412,13 +412,13 @@ func TestForAppConfig(t *testing.T) {
 		return nil, errDown
 	}}
 	app = newApp(t, config.Map{"CACHE_STORE": "custom"})
-	if _, err := cache.ForApp(app, failingDriver); !errors.Is(err, errDown) || !strings.Contains(err.Error(), "open the custom store") {
+	if _, err := cache.New(app, failingDriver); !errors.Is(err, errDown) || !strings.Contains(err.Error(), "open the custom store") {
 		t.Errorf("driver error: %v", err)
 	}
 
 	// The database store needs the app's database.
 	app = newApp(t, config.Map{"CACHE_STORE": "database"})
-	if _, err := cache.ForApp(app); err == nil || !strings.Contains(err.Error(), "db.Connect") {
+	if _, err := cache.New(app); err == nil || !strings.Contains(err.Error(), "db.Connect") {
 		t.Errorf("database store without a database: %v", err)
 	}
 }

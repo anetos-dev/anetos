@@ -22,12 +22,12 @@ import (
 	"anetos.dev/anetos/queue"
 )
 
-// Bus delivers events to their listeners. Create it with [ForApp] (or
-// [New]), add listeners with [On], [OnAsync] and [OnQueued], and emit
+// Bus delivers events to their listeners. Create it with [New] (or
+// [NewBus]), add listeners with [On], [OnAsync] and [OnQueued], and emit
 // events with [Emit].
 type Bus struct {
 	app   *anetos.App
-	queue *queue.Queue // for New's WithQueue; ForApp resolves the app's
+	queue *queue.Queue // for NewBus's WithQueue; New resolves the app's
 	log   *slog.Logger
 
 	mu        sync.RWMutex
@@ -123,20 +123,20 @@ type listener struct {
 	dispatch []queue.DispatchOption
 }
 
-// BusOption configures a [Bus] made with [New].
+// BusOption configures a [Bus] made with [NewBus].
 type BusOption func(*Bus)
 
 // WithLogger sets the logger for async listeners' failures. Default
 // slog.Default().
 func WithLogger(l *slog.Logger) BusOption { return func(b *Bus) { b.log = l } }
 
-// WithQueue sets the queue of queued listeners. [ForApp] uses the app's
-// (from queue.ForApp).
+// WithQueue sets the queue of queued listeners. [New] uses the app's
+// (from queue.New).
 func WithQueue(q *queue.Queue) BusOption { return func(b *Bus) { b.queue = q } }
 
-// New returns a bus without an app: async listeners get a context with
+// NewBus returns a bus without an app: async listeners get a context with
 // the bus only. Call [Bus.Close] when done with it.
-func New(opts ...BusOption) *Bus {
+func NewBus(opts ...BusOption) *Bus {
 	b := &Bus{log: slog.Default(), listeners: map[reflect.Type][]*listener{}, stop: make(chan struct{})}
 	b.base, b.cancel = context.WithCancel(context.Background())
 	for _, opt := range opts {
@@ -145,22 +145,31 @@ func New(opts ...BusOption) *Bus {
 	return b
 }
 
-// ForApp returns the app's bus: it is available in every context the app
+// New returns the app's bus: it is available in every context the app
 // creates (for [Emit]) and to [anetos.Resolve], and closed at shutdown
 // (async listeners finish the events they have, within the shutdown
 // budget). Call it last in setup, after the services async listeners use
-// (db.Connect, queue.ForApp, the cache…): shutdown hooks run in reverse
+// (db.Connect, queue.New, the cache…): shutdown hooks run in reverse
 // order, so the bus is then closed before them.
-func ForApp(app *anetos.App) (*Bus, error) {
+func New(app *anetos.App) (*Bus, error) {
 	if _, err := anetos.Resolve[*Bus](app); err == nil {
-		return nil, errors.New("events: ForApp called twice for one app")
+		return nil, errors.New("events: New called twice for one app")
 	}
-	b := New(WithLogger(app.Logger().With("component", "events")))
+	b := NewBus(WithLogger(app.Logger().With("component", "events")))
 	b.app = app
 	app.AddContextValue(busKey{}, b)
 	anetos.Provide(app, b)
 	app.OnShutdown("events", b.Close)
 	return b, nil
+}
+
+// ForApp is [New].
+//
+// Deprecated: Use New; ForApp is removed in v0.6.
+//
+//go:fix inline
+func ForApp(app *anetos.App) (*Bus, error) {
+	return New(app)
 }
 
 // context returns a new context for an async listener: the app's values
@@ -330,7 +339,7 @@ func (b *Bus) queueOf() (*queue.Queue, error) {
 			return q, nil
 		}
 	}
-	return nil, errors.New("events: queued listeners need the queue: call queue.ForApp before events.OnQueued")
+	return nil, errors.New("events: queued listeners need the queue: call queue.New before events.OnQueued")
 }
 
 func add[E any](b *Bus, k kind, fn func(context.Context, E) error, opts []Option) error {
@@ -370,14 +379,14 @@ func OnAsync[E any](b *Bus, fn func(ctx context.Context, e E) error, opts ...Opt
 // durably, with the queue's retries: [Emit] dispatches a job carrying the
 // event (encoded as JSON) after the transaction it ran in commits (with
 // the queue's database driver, in the transaction). The listener's name
-// ([Name]) names the job, "event:<name>". It needs queue.ForApp first
+// ([Name]) names the job, "event:<name>". It needs queue.New first
 // (or [WithQueue]); register it in the workers' app too.
 func OnQueued[E any](b *Bus, fn func(ctx context.Context, e E) error, opts ...Option) error {
 	return add(b, queuedKind, fn, opts)
 }
 
 // Emit delivers e to the listeners of its type, through the bus in ctx
-// (from [ForApp]): first the [On] listeners, in ctx, stopping at the first
+// (from [New]): first the [On] listeners, in ctx, stopping at the first
 // error; then it dispatches the [OnQueued] ones and hands e to the
 // [OnAsync] ones, after the transaction in ctx commits. It returns the
 // first On listener's error, or the errors handing e to the others (when
@@ -579,7 +588,7 @@ func (b *Bus) Wait(ctx context.Context) error {
 // they emit themselves while finishing), and Close waits (until ctx ends)
 // for them to handle what they have. Events still waiting then are lost,
 // and the listeners' contexts are canceled. Closing a closed bus does
-// nothing. [ForApp] closes the bus at shutdown. Don't call Close from an
+// nothing. [New] closes the bus at shutdown. Don't call Close from an
 // async listener without a deadline: it waits for that listener too.
 func (b *Bus) Close(ctx context.Context) error {
 	b.mu.Lock()
@@ -670,7 +679,7 @@ func (c *counter) wait(ctx context.Context) error {
 
 type busKey struct{}
 
-// WithBus returns ctx with b, for [Emit]. [ForApp] makes the bus
+// WithBus returns ctx with b, for [Emit]. [New] makes the bus
 // available in every context the app creates.
 func WithBus(ctx context.Context, b *Bus) context.Context {
 	return context.WithValue(ctx, busKey{}, b)
@@ -678,7 +687,7 @@ func WithBus(ctx context.Context, b *Bus) context.Context {
 
 // ErrNoBus is returned by [From] (and [Emit]) when the context has no
 // bus.
-var ErrNoBus = errors.New("events: no bus in the context: call events.ForApp at startup, or events.WithBus")
+var ErrNoBus = errors.New("events: no bus in the context: call events.New at startup, or events.WithBus")
 
 // From returns the bus in ctx.
 func From(ctx context.Context) (*Bus, error) {

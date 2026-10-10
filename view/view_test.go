@@ -41,7 +41,7 @@ func TestHelpersWithoutSession(t *testing.T) {
 }
 
 func TestHelpersWithSession(t *testing.T) {
-	s := session.New()
+	s := session.NewSession()
 	ctx := session.NewContext(context.Background(), s)
 	out, err := render(t, ctx, view.CSRFField(ctx))
 	if err != nil || !strings.HasPrefix(out, `<input type="hidden" name="_token" value="`) {
@@ -101,7 +101,7 @@ func TestErrorsAndOldAfterRedirect(t *testing.T) {
 		}
 	})
 	// Without old input, the saved value.
-	if !view.OldChecked(context.Background(), "publish", true) || view.OldChecked(session.NewContext(context.Background(), session.New()), "publish", false) {
+	if !view.OldChecked(context.Background(), "publish", true) || view.OldChecked(session.NewContext(context.Background(), session.NewSession()), "publish", false) {
 		t.Error("OldChecked fallback")
 	}
 }
@@ -275,7 +275,7 @@ func TestBundledHTMX(t *testing.T) {
 func testManager(t *testing.T) *session.Manager {
 	t.Helper()
 	k, _ := encryption.ParseKey(encryption.GenerateKey())
-	enc, _ := encryption.New(k)
+	enc, _ := encryption.NewEncrypter(k)
 	m, err := session.NewManager(session.DefaultConfig(), enc)
 	if err != nil {
 		t.Fatal(err)

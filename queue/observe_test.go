@@ -35,7 +35,7 @@ func TestObserveAndFake(t *testing.T) {
 		if !isSync {
 			s = store
 		}
-		q := queue.New(s, queue.Config{})
+		q := queue.NewWithStore(s, queue.Config{})
 		if err := queue.Register[noted](q, queue.Name("noted")); err != nil {
 			t.Fatal(err)
 		}
@@ -87,7 +87,7 @@ func (failingStore) Push(context.Context, queue.Message, time.Duration) error {
 
 // A dispatch that fails isn't observed, nor passed to OnDispatched.
 func TestObserveFailedDispatch(t *testing.T) {
-	q := queue.New(failingStore{queue.NewMemoryStore()}, queue.Config{})
+	q := queue.NewWithStore(failingStore{queue.NewMemoryStore()}, queue.Config{})
 	check(t, queue.Register[noted](q))
 	q.Observe(func(context.Context, queue.Dispatched) { t.Error("a failed dispatch was observed") })
 	err := q.Dispatch(context.Background(), noted{}, queue.OnDispatched(func(context.Context, queue.Dispatched) {
@@ -97,7 +97,7 @@ func TestObserveFailedDispatch(t *testing.T) {
 		t.Error("no error")
 	}
 	// OnDispatched runs for one that works.
-	q2 := queue.New(queue.NewMemoryStore(), queue.Config{})
+	q2 := queue.NewWithStore(queue.NewMemoryStore(), queue.Config{})
 	check(t, queue.Register[noted](q2))
 	var got queue.Dispatched
 	check(t, q2.Dispatch(context.Background(), noted{N: 5}, queue.OnDispatched(func(_ context.Context, d queue.Dispatched) { got = d })))
@@ -114,7 +114,7 @@ func TestJobUnits(t *testing.T) {
 		units = append(units, u)
 		return ctx, nil
 	})
-	q, err := queue.ForApp(app)
+	q, err := queue.New(app)
 	check(t, err)
 	check(t, queue.Register[noted](q, queue.Name("noted")))
 	check(t, queue.Dispatch(app.Context(context.Background()), noted{}))

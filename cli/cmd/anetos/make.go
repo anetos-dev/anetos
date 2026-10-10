@@ -98,13 +98,13 @@ func makeCmd(kind string, args []string, stdout, stderr io.Writer) int {
 // agentHint tells how to set up AI calls when the app doesn't yet.
 func agentHint(root string, w io.Writer) {
 	b, err := os.ReadFile(filepath.Join(root, "main.go"))
-	if err == nil && strings.Contains(string(b), "ai.ForApp") {
+	if err == nil && (strings.Contains(string(b), "ai.New(") || strings.Contains(string(b), "ai.ForApp(")) { // ForApp: before v0.5
 		return
 	}
 	fmt.Fprint(w, `
 Agents call a model through the app's AI client. Set it up in setup (main.go):
 
-	if _, err := ai.ForApp(app, anthropic.Driver()); err != nil { // or openai, gemini
+	if _, err := ai.New(app, anthropic.Driver()); err != nil { // or openai, gemini
 		return nil, err
 	}
 

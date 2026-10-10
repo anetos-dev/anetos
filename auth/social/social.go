@@ -6,7 +6,7 @@
 // nonce), and hands the account's profile to an app function that finds
 // or creates the user, whom package auth then signs in.
 //
-//	s, err := social.ForApp(app, a, findOrCreate, social.Configured(app, social.Google(), social.GitHub()))
+//	s, err := social.New(app, a, findOrCreate, social.Configured(app, social.Google(), social.GitHub()))
 //	guests.Get("/auth/{provider}/redirect", s.Redirect)
 //	guests.Get("/auth/{provider}/callback", s.Callback)
 //
@@ -62,7 +62,7 @@ type Profile struct {
 
 // Provider is a service users sign in with. [Google], [GitHub] and [OIDC]
 // return the built-in ones; their fields can be changed (Scopes, say)
-// before they are passed to [ForApp].
+// before they are passed to [New].
 type Provider struct {
 	// Name is the provider's name in URLs and settings: lower-case
 	// letters, digits, "-" and "_".
@@ -170,7 +170,7 @@ type Social[U auth.Authenticatable] struct {
 	now       func() time.Time
 }
 
-// Option configures [New].
+// Option configures [NewWithConfig].
 type Option func(*options)
 
 type options struct {
@@ -230,11 +230,11 @@ type Credentials struct {
 	ClientSecret anetos.Secret
 }
 
-// New returns a Social signing users in with a, for providers with the
+// NewWithConfig returns a Social signing users in with a, for providers with the
 // credentials given by name; baseURL is the app's public URL (APP_URL),
 // to which the callback path is added for the redirect URIs registered
 // with the providers.
-func New[U auth.Authenticatable](a *auth.Auth[U], resolve Resolver[U], baseURL string, creds map[string]Credentials, providers []Provider, opts ...Option) (*Social[U], error) {
+func NewWithConfig[U auth.Authenticatable](a *auth.Auth[U], resolve Resolver[U], baseURL string, creds map[string]Credentials, providers []Provider, opts ...Option) (*Social[U], error) {
 	o, err := newOptions(opts)
 	if err != nil {
 		return nil, err
@@ -278,14 +278,17 @@ func New[U auth.Authenticatable](a *auth.Auth[U], resolve Resolver[U], baseURL s
 	return s, nil
 }
 
-// ForApp returns a Social for the app's Auth a, with the credentials of
+// New returns a Social for the app's Auth a, with the credentials of
 // each provider from SOCIAL_<NAME>_CLIENT_ID and SOCIAL_<NAME>_CLIENT_SECRET
 // ("SOCIAL_GOOGLE_CLIENT_ID") and callback URLs under APP_URL (https in
 // production). Pass the providers through [Configured] to use only those
 // with credentials; with none, the routes answer 404.
 //
-//	s, err := social.ForApp(app, a, findOrCreate, social.Configured(app, social.Google(), social.GitHub()))
-func ForApp[U auth.Authenticatable](app *anetos.App, a *auth.Auth[U], resolve Resolver[U], providers []Provider, opts ...Option) (*Social[U], error) {
+//	s, err := social.New(app, a, findOrCreate, social.Configured(app, social.Google(), social.GitHub()))
+func New[U auth.Authenticatable](app *anetos.App, a *auth.Auth[U], resolve Resolver[U], providers []Provider, opts ...Option) (*Social[U], error) {
+	if _, ok := anetos.Lookup[*Social[U]](app); ok {
+		return nil, errors.New("social: New called twice for one app")
+	}
 	creds := map[string]Credentials{}
 	for _, p := range providers {
 		creds[p.Name] = credentials(app, p.Name)
@@ -304,15 +307,27 @@ func ForApp[U auth.Authenticatable](app *anetos.App, a *auth.Auth[U], resolve Re
 		return nil, fmt.Errorf("social: APP_URL %q must be https in production", app.Config().URL)
 	}
 	if len(providers) == 0 {
-		return &Social[U]{auth: a, resolve: resolve, providers: map[string]*provider{}, now: app.Now}, nil
+		s := &Social[U]{auth: a, resolve: resolve, providers: map[string]*provider{}, now: app.Now, log: app.Logger().With("component", "social")}
+		anetos.Provide(app, s)
+		return s, nil
 	}
 	opts = append([]Option{WithLogger(app.Logger().With("component", "social"))}, opts...)
-	s, err := New(a, resolve, app.Config().URL, creds, providers, opts...)
+	s, err := NewWithConfig(a, resolve, app.Config().URL, creds, providers, opts...)
 	if err != nil {
 		return nil, err
 	}
 	s.now = app.Now // tests can freeze it
+	anetos.Provide(app, s)
 	return s, nil
+}
+
+// ForApp is [New].
+//
+// Deprecated: Use New; ForApp is removed in v0.6.
+//
+//go:fix inline
+func ForApp[U auth.Authenticatable](app *anetos.App, a *auth.Auth[U], resolve Resolver[U], providers []Provider, opts ...Option) (*Social[U], error) {
+	return New[U](app, a, resolve, providers, opts...)
 }
 
 // Configured returns the providers whose SOCIAL_<NAME>_CLIENT_ID and

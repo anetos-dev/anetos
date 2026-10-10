@@ -205,7 +205,7 @@ func TestStoreLoadAndEdit(t *testing.T) {
 	}
 }
 
-func TestForAppDrivers(t *testing.T) {
+func TestAppNewDrivers(t *testing.T) {
 	key := encryption.GenerateKey()
 	newApp := func(env config.Map) *anetos.App {
 		env["APP_KEY"] = key
@@ -217,16 +217,16 @@ func TestForAppDrivers(t *testing.T) {
 		t.Cleanup(func() { _ = app.Close() })
 		return app
 	}
-	if _, err := ForApp(newApp(config.Map{"SESSION_DRIVER": "redis"})); err == nil ||
+	if _, err := New(newApp(config.Map{"SESSION_DRIVER": "redis"})); err == nil ||
 		!strings.Contains(err.Error(), "[cookie, database]") || !strings.Contains(err.Error(), "redis.SessionDriver()") {
 		t.Errorf("unknown driver: %v", err)
 	}
-	if _, err := ForApp(newApp(config.Map{"SESSION_DRIVER": "database"})); err == nil || !strings.Contains(err.Error(), "db.Connect") {
+	if _, err := New(newApp(config.Map{"SESSION_DRIVER": "database"})); err == nil || !strings.Contains(err.Error(), "db.Connect") {
 		t.Errorf("database driver without a database: %v", err)
 	}
 	var got Config
 	store := cache.NewMemoryStore()
-	m, err := ForApp(newApp(config.Map{"SESSION_DRIVER": "mem"}), Driver{Name: "mem", Open: func(_ *anetos.App, cfg Config) (cache.Store, error) {
+	m, err := New(newApp(config.Map{"SESSION_DRIVER": "mem"}), Driver{Name: "mem", Open: func(_ *anetos.App, cfg Config) (cache.Store, error) {
 		got = cfg
 		return store, nil
 	}})
@@ -236,7 +236,7 @@ func TestForAppDrivers(t *testing.T) {
 	if m.store != store || m.prefix != "blog:session:" || got.Table != "sessions" {
 		t.Errorf("store %v, prefix %q, config %+v", m.store, m.prefix, got)
 	}
-	if m, err := ForApp(newApp(config.Map{})); err != nil || m.store != nil {
+	if m, err := New(newApp(config.Map{})); err != nil || m.store != nil {
 		t.Errorf("default driver: %v, %v", m, err)
 	}
 	cfg := DefaultConfig()

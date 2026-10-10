@@ -190,7 +190,7 @@ func New(t testing.TB, setup func(app *anetos.App) (*web.Server, error), opts ..
 	a.jar = newJar(app.Now)
 
 	if o.fakeSocial {
-		a.startIDP() // before setup, which calls social.ForApp
+		a.startIDP() // before setup, which calls social.New
 	}
 	if setup != nil {
 		srv, err := setup(app)
@@ -297,11 +297,11 @@ func (a *App) WithHeader(name, value string) *App {
 
 // WithSession changes the session later requests carry, as if earlier
 // requests had stored the values: a signed-in user, a cart. It needs the
-// session middleware's manager (session.ForApp).
+// session middleware's manager (session.New).
 func (a *App) WithSession(fn func(s *session.Session)) *App {
 	a.t.Helper()
 	if a.sessions == nil {
-		a.t.Fatalf("anetostest: WithSession needs sessions (session.ForApp in setup)")
+		a.t.Fatalf("anetostest: WithSession needs sessions (session.New in setup)")
 	}
 	a.editSession(fn)
 	return a
@@ -312,7 +312,7 @@ func (a *App) WithSession(fn func(s *session.Session)) *App {
 func (a *App) Session() *session.Session {
 	a.t.Helper()
 	if a.sessions == nil {
-		a.t.Fatalf("anetostest: Session needs sessions (session.ForApp in setup)")
+		a.t.Fatalf("anetostest: Session needs sessions (session.New in setup)")
 	}
 	return a.sessions.Load(a.cookieRequest())
 }

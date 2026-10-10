@@ -172,8 +172,9 @@ pkg anetos.dev/anetos/ai, func MaxTokens(int) Option
 pkg anetos.dev/anetos/ai, func Messages(...Message) Option
 pkg anetos.dev/anetos/ai, func Migrations() *migrate.Set
 pkg anetos.dev/anetos/ai, func Model(string) Option
-pkg anetos.dev/anetos/ai, func New(Provider, ...Option) *Client
+pkg anetos.dev/anetos/ai, func New(*anetos.App, ...Driver) (*Client, error)
 pkg anetos.dev/anetos/ai, func NewFake(...FakeReply) *Fake
+pkg anetos.dev/anetos/ai, func NewWithProvider(Provider, ...Option) *Client
 pkg anetos.dev/anetos/ai, func ProviderOptions(any) Option
 pkg anetos.dev/anetos/ai, func QueueAgents(*anetos.App, ...Agent) error
 pkg anetos.dev/anetos/ai, func SSE(*web.Ctx, iter.Seq2[Event, error]) error
@@ -575,6 +576,7 @@ pkg anetos.dev/anetos/audit, func Except(...string) Option
 pkg anetos.dev/anetos/audit, func ForApp(*anetos.App) (*Trail, error)
 pkg anetos.dev/anetos/audit, func History(context.Context, Subject, int, string) ([]Event, string, error)
 pkg anetos.dev/anetos/audit, func Migrations() *migrate.Set
+pkg anetos.dev/anetos/audit, func New(*anetos.App) (*Trail, error)
 pkg anetos.dev/anetos/audit, func Prune(context.Context) (Pruned, error)
 pkg anetos.dev/anetos/audit, func Record(context.Context, string, Subject, map[string]any) error
 pkg anetos.dev/anetos/audit, func Redact(...string) Option
@@ -679,7 +681,8 @@ pkg anetos.dev/anetos/auth, func Intended(context.Context, string) string
 pkg anetos.dev/anetos/auth, func IsDenied(error) bool
 pkg anetos.dev/anetos/auth, func LoadConfig(config.Source) (Config, error)
 pkg anetos.dev/anetos/auth, func Migrations() *migrate.Set
-pkg anetos.dev/anetos/auth, func New[U Authenticatable](Config, Users[U], *encryption.Encrypter, ...Option) (*Auth[U], error)
+pkg anetos.dev/anetos/auth, func NewWithConfig[U Authenticatable](Config, Users[U], *encryption.Encrypter, ...Option) (*Auth[U], error)
+pkg anetos.dev/anetos/auth, func New[U Authenticatable](*anetos.App, Users[U], ...Option) (*Auth[U], error)
 pkg anetos.dev/anetos/auth, func RequireAbilities(...string) web.Middleware
 pkg anetos.dev/anetos/auth, func TokenCan(context.Context, string) bool
 pkg anetos.dev/anetos/auth, func TwoFactorCode(string, time.Time) (string, error)
@@ -844,7 +847,8 @@ pkg anetos.dev/anetos/auth/rbac, func HasRole(context.Context, string) bool
 pkg anetos.dev/anetos/auth/rbac, func HasRoleIn(context.Context, Scope, string) bool
 pkg anetos.dev/anetos/auth/rbac, func Holders(context.Context, string, int) ([]Holder, error)
 pkg anetos.dev/anetos/auth/rbac, func Migrations() *migrate.Set
-pkg anetos.dev/anetos/auth/rbac, func New([]Permission, ...Role) (*Registry, error)
+pkg anetos.dev/anetos/auth/rbac, func New(*anetos.App, []Permission, ...Role) (*Registry, error)
+pkg anetos.dev/anetos/auth/rbac, func NewRegistry([]Permission, ...Role) (*Registry, error)
 pkg anetos.dev/anetos/auth/rbac, func Of(context.Context, string) (*Grants, error)
 pkg anetos.dev/anetos/auth/rbac, func PathScope(string, string) func(*http.Request) (Scope, error)
 pkg anetos.dev/anetos/auth/rbac, func RemoveScope(context.Context, Scope) error
@@ -913,7 +917,8 @@ pkg anetos.dev/anetos/auth/social, func Google() Provider
 pkg anetos.dev/anetos/auth/social, func Link(context.Context, Profile, string) error
 pkg anetos.dev/anetos/auth/social, func Links(context.Context, string) ([]Account, error)
 pkg anetos.dev/anetos/auth/social, func Migrations() *migrate.Set
-pkg anetos.dev/anetos/auth/social, func New[U auth.Authenticatable](*auth.Auth[U], Resolver[U], string, map[string]Credentials, []Provider, ...Option) (*Social[U], error)
+pkg anetos.dev/anetos/auth/social, func NewWithConfig[U auth.Authenticatable](*auth.Auth[U], Resolver[U], string, map[string]Credentials, []Provider, ...Option) (*Social[U], error)
+pkg anetos.dev/anetos/auth/social, func New[U auth.Authenticatable](*anetos.App, *auth.Auth[U], Resolver[U], []Provider, ...Option) (*Social[U], error)
 pkg anetos.dev/anetos/auth/social, func OIDC(string, string) Provider
 pkg anetos.dev/anetos/auth/social, func Unlink(context.Context, string, string) error
 pkg anetos.dev/anetos/auth/social, func WithCallbackPath(string) Option
@@ -974,10 +979,11 @@ pkg anetos.dev/anetos/cache, func Increment(context.Context, string, int64, time
 pkg anetos.dev/anetos/cache, func LoadConfig(config.Source) (Config, error)
 pkg anetos.dev/anetos/cache, func MemoryDriver() Driver
 pkg anetos.dev/anetos/cache, func Migrations(string) *migrate.Set
-pkg anetos.dev/anetos/cache, func New(Store, string) *Cache
+pkg anetos.dev/anetos/cache, func New(*anetos.App, ...Driver) (*Cache, error)
 pkg anetos.dev/anetos/cache, func NewDatabaseStore(*db.DB, string) *DatabaseStore
 pkg anetos.dev/anetos/cache, func NewLock(context.Context, string, time.Duration) *Lock
 pkg anetos.dev/anetos/cache, func NewMemoryStore() *MemoryStore
+pkg anetos.dev/anetos/cache, func NewWithStore(Store, string) *Cache
 pkg anetos.dev/anetos/cache, func Remember[T any](context.Context, string, time.Duration, func(context.Context) (T, error)) (T, error)
 pkg anetos.dev/anetos/cache, func Set(context.Context, string, any, time.Duration) error
 pkg anetos.dev/anetos/cache, func TryWithLock(context.Context, string, time.Duration, func(context.Context) error) error
@@ -1428,6 +1434,7 @@ pkg anetos.dev/anetos/db/migrate, const SetDefault Action = "SET DEFAULT"
 pkg anetos.dev/anetos/db/migrate, const SetNull Action = "SET NULL"
 pkg anetos.dev/anetos/db/migrate, func ForApp(*anetos.App, []*Set, ...Option) (*Runner, error)
 pkg anetos.dev/anetos/db/migrate, func Func(func(*Schema) error, func(*Schema) error) Migration
+pkg anetos.dev/anetos/db/migrate, func New(*anetos.App, []*Set, ...Option) (*Runner, error)
 pkg anetos.dev/anetos/db/migrate, func NewRunner(*db.DB, []*Set, ...Option) (*Runner, error)
 pkg anetos.dev/anetos/db/migrate, func NewSchema(context.Context) (*Schema, error)
 pkg anetos.dev/anetos/db/migrate, func NewSet(string) *Set
@@ -1552,7 +1559,8 @@ pkg anetos.dev/anetos/db/migrate, var ErrNotAllowed error
 pkg anetos.dev/anetos/encryption, const KeySize = appkey.Size
 pkg anetos.dev/anetos/encryption, func ForApp(*anetos.App) (*Encrypter, error)
 pkg anetos.dev/anetos/encryption, func GenerateKey() string
-pkg anetos.dev/anetos/encryption, func New([]byte, ...[]byte) (*Encrypter, error)
+pkg anetos.dev/anetos/encryption, func New(*anetos.App) (*Encrypter, error)
+pkg anetos.dev/anetos/encryption, func NewEncrypter([]byte, ...[]byte) (*Encrypter, error)
 pkg anetos.dev/anetos/encryption, func ParseKey(string) ([]byte, error)
 pkg anetos.dev/anetos/encryption, method (*Encrypter) Decrypt([]byte, string) ([]byte, error)
 pkg anetos.dev/anetos/encryption, method (*Encrypter) DecryptString(string, string) (string, error)
@@ -1568,7 +1576,8 @@ pkg anetos.dev/anetos/events, func ForApp(*anetos.App) (*Bus, error)
 pkg anetos.dev/anetos/events, func From(context.Context) (*Bus, error)
 pkg anetos.dev/anetos/events, func Job(...queue.JobOption) Option
 pkg anetos.dev/anetos/events, func Name(string) Option
-pkg anetos.dev/anetos/events, func New(...BusOption) *Bus
+pkg anetos.dev/anetos/events, func New(*anetos.App) (*Bus, error)
+pkg anetos.dev/anetos/events, func NewBus(...BusOption) *Bus
 pkg anetos.dev/anetos/events, func OnAsync[E any](*Bus, func(context.Context, E) error, ...Option) error
 pkg anetos.dev/anetos/events, func OnQueued[E any](*Bus, func(context.Context, E) error, ...Option) error
 pkg anetos.dev/anetos/events, func On[E any](*Bus, func(context.Context, E) error, ...Option) error
@@ -1642,7 +1651,8 @@ pkg anetos.dev/anetos/i18n, func LoadConfig(config.Source) (Config, error)
 pkg anetos.dev/anetos/i18n, func LocalNumber(context.Context, string) string
 pkg anetos.dev/anetos/i18n, func Locale(context.Context) string
 pkg anetos.dev/anetos/i18n, func Lookup(context.Context, string) (string, bool)
-pkg anetos.dev/anetos/i18n, func New(Config, ...Option) (*Translator, error)
+pkg anetos.dev/anetos/i18n, func New(*anetos.App, fs.FS) (*Translator, error)
+pkg anetos.dev/anetos/i18n, func NewTranslator(Config, ...Option) (*Translator, error)
 pkg anetos.dev/anetos/i18n, func Number[N Numeric](context.Context, N) string
 pkg anetos.dev/anetos/i18n, func Percent[N Numeric](context.Context, N) string
 pkg anetos.dev/anetos/i18n, func Plural(context.Context, string, int, ...any) string
@@ -1691,10 +1701,11 @@ pkg anetos.dev/anetos/mailer, func From(context.Context) (*Mailer, error)
 pkg anetos.dev/anetos/mailer, func LoadConfig(config.Source) (Config, error)
 pkg anetos.dev/anetos/mailer, func LogDriver() Driver
 pkg anetos.dev/anetos/mailer, func MemoryDriver() Driver
-pkg anetos.dev/anetos/mailer, func New(Transport, ...Option) *Mailer
+pkg anetos.dev/anetos/mailer, func New(*anetos.App, ...Driver) (*Mailer, error)
 pkg anetos.dev/anetos/mailer, func NewLogTransport(*slog.Logger) *LogTransport
 pkg anetos.dev/anetos/mailer, func NewMemoryTransport() *MemoryTransport
 pkg anetos.dev/anetos/mailer, func NewSMTPTransport(string) (*SMTPTransport, error)
+pkg anetos.dev/anetos/mailer, func NewWithTransport(Transport, ...Option) *Mailer
 pkg anetos.dev/anetos/mailer, func Preview(func(*http.Request) Mailable) http.Handler
 pkg anetos.dev/anetos/mailer, func Queue(context.Context, Mailable, ...queue.DispatchOption) error
 pkg anetos.dev/anetos/mailer, func SMTPDriver() Driver
@@ -1789,8 +1800,9 @@ pkg anetos.dev/anetos/pubsub, func Listen[T any](*PubSub, string, func(context.C
 pkg anetos.dev/anetos/pubsub, func LoadConfig(config.Source) (Config, error)
 pkg anetos.dev/anetos/pubsub, func MaxAttempts(int) ListenOption
 pkg anetos.dev/anetos/pubsub, func MemoryDriver() Driver
-pkg anetos.dev/anetos/pubsub, func New(Broker, ...Option) *PubSub
+pkg anetos.dev/anetos/pubsub, func New(*anetos.App, ...Driver) (*PubSub, error)
 pkg anetos.dev/anetos/pubsub, func NewMemoryBroker() *MemoryBroker
+pkg anetos.dev/anetos/pubsub, func NewWithBroker(Broker, ...Option) *PubSub
 pkg anetos.dev/anetos/pubsub, func Permanent(error) error
 pkg anetos.dev/anetos/pubsub, func Publish(context.Context, string, any, ...PublishOption) error
 pkg anetos.dev/anetos/pubsub, func ShutdownGrace(time.Duration) ListenOption
@@ -1887,9 +1899,10 @@ pkg anetos.dev/anetos/queue, func LoadConfig(config.Source) (Config, error)
 pkg anetos.dev/anetos/queue, func MemoryDriver() Driver
 pkg anetos.dev/anetos/queue, func Migrations(string, string) *migrate.Set
 pkg anetos.dev/anetos/queue, func Name(string) JobOption
-pkg anetos.dev/anetos/queue, func New(Store, Config, ...Option) *Queue
+pkg anetos.dev/anetos/queue, func New(*anetos.App, ...Driver) (*Queue, error)
 pkg anetos.dev/anetos/queue, func NewDatabaseStore(*db.DB, string, string) *DatabaseStore
 pkg anetos.dev/anetos/queue, func NewMemoryStore() *MemoryStore
+pkg anetos.dev/anetos/queue, func NewWithStore(Store, Config, ...Option) *Queue
 pkg anetos.dev/anetos/queue, func OnDispatched(func(context.Context, Dispatched)) DispatchOption
 pkg anetos.dev/anetos/queue, func OnQueue(string) DispatchOption
 pkg anetos.dev/anetos/queue, func Permanent(error) error
@@ -2026,7 +2039,8 @@ pkg anetos.dev/anetos/schedule, func Hourly() Schedule
 pkg anetos.dev/anetos/schedule, func HourlyAt(int) Schedule
 pkg anetos.dev/anetos/schedule, func LoadConfig(config.Source) (Config, error)
 pkg anetos.dev/anetos/schedule, func MonthlyOn(int, string) Schedule
-pkg anetos.dev/anetos/schedule, func New(...Option) *Scheduler
+pkg anetos.dev/anetos/schedule, func New(*anetos.App) (*Scheduler, error)
+pkg anetos.dev/anetos/schedule, func NewScheduler(...Option) *Scheduler
 pkg anetos.dev/anetos/schedule, func OnOneServer() TaskOption
 pkg anetos.dev/anetos/schedule, func Timeout(time.Duration) TaskOption
 pkg anetos.dev/anetos/schedule, func WeeklyOn(time.Weekday, string) Schedule
@@ -2068,9 +2082,10 @@ pkg anetos.dev/anetos/session, func ForApp(*anetos.App, ...Driver) (*Manager, er
 pkg anetos.dev/anetos/session, func From(context.Context) *Session
 pkg anetos.dev/anetos/session, func LoadConfig(config.Source) (Config, error)
 pkg anetos.dev/anetos/session, func Migrations(string) *migrate.Set
-pkg anetos.dev/anetos/session, func New() *Session
+pkg anetos.dev/anetos/session, func New(*anetos.App, ...Driver) (*Manager, error)
 pkg anetos.dev/anetos/session, func NewContext(context.Context, *Session) context.Context
 pkg anetos.dev/anetos/session, func NewManager(Config, *encryption.Encrypter, ...Option) (*Manager, error)
+pkg anetos.dev/anetos/session, func NewSession() *Session
 pkg anetos.dev/anetos/session, func Value[T any](*Session, string) (T, bool)
 pkg anetos.dev/anetos/session, func WithLogger(*slog.Logger) Option
 pkg anetos.dev/anetos/session, func WithStore(cache.Store, string) Option
@@ -2137,10 +2152,11 @@ pkg anetos.dev/anetos/storage, func IsActive(string) bool
 pkg anetos.dev/anetos/storage, func LoadConfig(config.Source, string) (Config, error)
 pkg anetos.dev/anetos/storage, func LocalDriver() Driver
 pkg anetos.dev/anetos/storage, func MemoryDriver() Driver
-pkg anetos.dev/anetos/storage, func New(*Disk, ...*Disk) *Storage
+pkg anetos.dev/anetos/storage, func New(*anetos.App, ...Driver) (*Storage, error)
 pkg anetos.dev/anetos/storage, func NewDisk(string, Backend, ...DiskOption) *Disk
 pkg anetos.dev/anetos/storage, func NewLocalBackend(string) (*LocalBackend, error)
 pkg anetos.dev/anetos/storage, func NewMemoryBackend() *MemoryBackend
+pkg anetos.dev/anetos/storage, func NewWithDisks(*Disk, ...*Disk) *Storage
 pkg anetos.dev/anetos/storage, func Public() DiskOption
 pkg anetos.dev/anetos/storage, func SignWith(*encryption.Encrypter) DiskOption
 pkg anetos.dev/anetos/storage, func WithLogger(*slog.Logger) DiskOption
@@ -2554,6 +2570,7 @@ pkg anetos.dev/anetos/web, var ErrUnknownRoute error
 pkg anetos.dev/anetos/web, var ErrUnsupportedLocale *HTTPError
 pkg anetos.dev/anetos/web/openapi, func Check(*web.Router, Config) error
 pkg anetos.dev/anetos/web/openapi, func ForApp(*anetos.App, *web.Server, Config) error
+pkg anetos.dev/anetos/web/openapi, func Register(*anetos.App, *web.Server, Config) error
 pkg anetos.dev/anetos/web/openapi, func Spec(*web.Router, Config) ([]byte, []string, error)
 pkg anetos.dev/anetos/web/openapi, type Config struct
 pkg anetos.dev/anetos/web/openapi, type Config struct, Description string

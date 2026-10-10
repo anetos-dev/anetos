@@ -10,8 +10,8 @@ import (
 )
 
 func ExampleGenerate() {
-	// In an app, ai.ForApp puts the client in every context.
-	ctx := ai.WithClient(context.Background(), ai.New(ai.NewFake(ai.FakeText("Paris."))))
+	// In an app, ai.New puts the client in every context.
+	ctx := ai.WithClient(context.Background(), ai.NewWithProvider(ai.NewFake(ai.FakeText("Paris."))))
 
 	res, err := ai.Generate(ctx, "What's the capital of France?", ai.System("Answer in one word."))
 	if err != nil {
@@ -26,7 +26,7 @@ func ExampleGenerateObject() {
 		City    string `json:"city" validate:"required"`
 		Country string `json:"country" validate:"required"`
 	}
-	ctx := ai.WithClient(context.Background(), ai.New(ai.NewFake(ai.FakeObject(Capital{City: "Paris", Country: "France"}))))
+	ctx := ai.WithClient(context.Background(), ai.NewWithProvider(ai.NewFake(ai.FakeObject(Capital{City: "Paris", Country: "France"}))))
 
 	c, _, err := ai.GenerateObject[Capital](ctx, "What's the capital of France?")
 	if err != nil {
@@ -44,7 +44,7 @@ func ExampleAgent() {
 		func(ctx context.Context, in Weather) (string, error) { return "Sunny in " + in.City, nil })
 	forecaster := ai.Agent{Instructions: "You answer questions about the weather.", Tools: []ai.Tool{weather}}
 
-	ctx := ai.WithClient(context.Background(), ai.New(ai.NewFake(
+	ctx := ai.WithClient(context.Background(), ai.NewWithProvider(ai.NewFake(
 		ai.FakeToolCall("weather", Weather{City: "Dhaka"}), // the model calls the tool,
 		ai.FakeText("It's sunny in Dhaka today."),          // then answers with its result
 	)))
@@ -72,7 +72,7 @@ func ExampleAgent() {
 }
 
 func ExampleStream() {
-	ctx := ai.WithClient(context.Background(), ai.New(ai.NewFake(ai.FakeText("One, two, three."))))
+	ctx := ai.WithClient(context.Background(), ai.NewWithProvider(ai.NewFake(ai.FakeText("One, two, three."))))
 
 	for ev, err := range ai.Stream(ctx, "Count to three.") {
 		if err != nil {

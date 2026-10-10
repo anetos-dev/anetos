@@ -238,7 +238,7 @@ type BulkItem struct {
 func (BulkItem) TableName() string { return "audit_bulk_items" }
 
 // Migrations returns the migrations creating the log's tables (audit_log,
-// audit_bulk, audit_bulk_items), for migrate.ForApp. Entries are written
+// audit_bulk, audit_bulk_items), for migrate.New. Entries are written
 // in the database of the change they describe: an app tracking models of
 // another database runs these there too.
 func Migrations() *migrate.Set {

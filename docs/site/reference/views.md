@@ -72,14 +72,14 @@ Form posts key errors by `form` name where it differs from the `json` name.
 
 | API | Does |
 |---|---|
-| `session.ForApp(app, drivers...)` | Manager from `SESSION_*` and `APP_KEY` ([settings](configuration.md#sessions)); `SESSION_DRIVER` picks cookie, database or a passed driver (`redis.SessionDriver()`) |
-| `session.Migrations(table)` | The database driver's table, for `migrate.ForApp` |
+| `session.New(app, drivers...)` | Manager from `SESSION_*` and `APP_KEY` ([settings](configuration.md#sessions)); `SESSION_DRIVER` picks cookie, database or a passed driver (`redis.SessionDriver()`) |
+| `session.Migrations(table)` | The database driver's table, for `migrate.New` |
 | `session.NewManager(cfg, enc, opts...)` | Manager from a `session.Config` and an `*encryption.Encrypter`; `session.WithLogger`, `session.WithStore(store, prefix)` (any `cache.Store`) |
 | `m.Middleware` | Loads the session into the request context and saves it when the response starts; adds `Cache-Control: private` (if unset) and `Vary: Cookie` for requests with a session. Does nothing if the same manager already runs for the request |
 | `m.Use(mw...)` | Middleware that run inside `m.Middleware`, wherever it runs (every group with sessions), after the session is loaded and before the group's other middleware, in order; for routes registered before and after. Call it at setup. `make:auth`'s `setupAuth` calls `sessions.Use(a.Middleware)`, so every page knows the signed-in user (v0.3) |
 | `m.CookieName()` | `SESSION_COOKIE`, with the `__Host-` prefix when Secure, without Domain, with Path `/` |
 | `session.From(ctx)` | The session, or nil |
-| `session.New()`, `session.NewContext(ctx, s)` | A session for tests |
+| `session.NewSession()`, `session.NewContext(ctx, s)` | A session for tests |
 | `s.Put(key, v)`, `s.Get(key, &dst)`, `session.Value[T](s, key)`, `s.String(key)` | Store (as JSON) and read values |
 | `s.Has`, `s.Delete`, `s.Pull`, `s.Clear` | Check, remove, read-and-remove, remove all |
 | `s.Flash(key, v)`, `s.Keep(keys...)`, `s.Reflash()` | Values for the next request only |
@@ -95,8 +95,8 @@ safe for concurrent use.
 
 | API | Does |
 |---|---|
-| `encryption.ForApp(app)` | Encrypter from `APP_KEY` and `APP_PREVIOUS_KEYS`; the error for a missing key suggests one |
-| `encryption.New(current, previous...)` | Encrypter from 32-byte keys |
+| `encryption.New(app)` | Encrypter from `APP_KEY` and `APP_PREVIOUS_KEYS`; the error for a missing key suggests one |
+| `encryption.NewEncrypter(current, previous...)` | Encrypter from 32-byte keys |
 | `e.Encrypt(plain, context)`, `e.Decrypt(ct, context)` | AES-256-GCM with a per-message key (HKDF-SHA256, random salt); context is authenticated. `encryption.ErrInvalid` for tampered, foreign-context or unknown-key messages |
 | `e.EncryptString`, `e.DecryptString` | Same, as URL-safe base64 |
 | `encryption.GenerateKey()`, `encryption.ParseKey(s)` | `base64:…` keys |

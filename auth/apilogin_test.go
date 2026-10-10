@@ -180,7 +180,7 @@ func TestTwoFactorChallenge(t *testing.T) {
 func TestTwoFactorChallengeDailyCap(t *testing.T) {
 	s := newStore(t)
 	a, b, app := newAppWith(t, s)
-	now := time.Now()
+	now := awayFromMidnight(time.Now())
 	clock := func() time.Time { return now }
 	auth.SetNow(a, clock)
 	app.SetClock(clock)

@@ -34,7 +34,7 @@ func setupAdmin(app *anetos.App, r *web.Router, sessions *session.Manager, a *au
 		return err
 	}
 	// The tracker's permissions and roles are in app/access.
-	if _, err := rbac.ForApp(app, access.Permissions, access.Roles...); err != nil {
+	if _, err := rbac.New(app, access.Permissions, access.Roles...); err != nil {
 		return err
 	}
 	p, err := admin.New(app, a, admin.UserName(func(u *models.User) string { return u.Name }))
@@ -63,7 +63,7 @@ func setupAdmin(app *anetos.App, r *web.Router, sessions *session.Manager, a *au
 			return err
 		}
 	}
-	// The audit log (setup's audit.ForApp): the activity pages, and each
+	// The audit log (setup's audit.New): the activity pages, and each
 	// issue's history on its page.
 	widgets = append(widgets, admin.RecentActivity(10))
 	if err := admin.Activity(p); err != nil {

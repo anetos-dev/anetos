@@ -30,7 +30,7 @@ func (a *App) recordAI(o *options) {
 	c, err := anetos.Resolve[*ai.Client](a.App)
 	if err != nil {
 		if o.fakeAI {
-			a.t.Fatalf("anetostest: FakeAI: the app has no AI client (ai.ForApp in setup)")
+			a.t.Fatalf("anetostest: FakeAI: the app has no AI client (ai.New in setup)")
 		}
 		return
 	}
@@ -49,7 +49,7 @@ func (a *App) recordAI(o *options) {
 func (a *App) AI() *ai.Fake {
 	a.t.Helper()
 	if a.ai == nil {
-		a.t.Fatalf("anetostest: the app's AI client isn't the fake: ai.ForApp in setup, and AI_PROVIDER=fake or anetostest.FakeAI")
+		a.t.Fatalf("anetostest: the app's AI client isn't the fake: ai.New in setup, and AI_PROVIDER=fake or anetostest.FakeAI")
 	}
 	return a.ai
 }

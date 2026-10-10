@@ -68,7 +68,7 @@ func TestMakeAdmin(t *testing.T) {
 	if !strings.Contains(main, adminCall) || strings.Contains(main, authCall) {
 		t.Errorf("main.go:\n%s", main)
 	}
-	if s := read(t, filepath.Join(dir, "admin.go")); !strings.Contains(s, `appadmin "example.com/shop/app/admin"`) || !strings.Contains(s, "rbac.ForApp(app, nil, roles...)") {
+	if s := read(t, filepath.Join(dir, "admin.go")); !strings.Contains(s, `appadmin "example.com/shop/app/admin"`) || !strings.Contains(s, "rbac.New(app, nil, roles...)") {
 		t.Errorf("admin.go:\n%s", s)
 	}
 	if s := read(t, filepath.Join(dir, ".env.example")); strings.Count(s, "\nADMIN_PATH=\n") != 1 {
@@ -184,7 +184,7 @@ type Post struct {
 
 	// An app with roles already: no rbac setup, no test.
 	dir = fresh(true)
-	write(dir, "roles.go", "package main\n\n// rbac.ForApp(app, perms) is called elsewhere.\n")
+	write(dir, "roles.go", "package main\n\n// rbac.New(app, perms) is called elsewhere.\n")
 	if res, err := MakeAdmin(dir); err != nil || res.RBAC || slices.Contains(res.Created, "admin_test.go") {
 		t.Errorf("with rbac: %+v, %v", res, err)
 	}
@@ -250,5 +250,20 @@ func TestAdminReplace(t *testing.T) {
 		if err != nil || got != want {
 			t.Errorf("%q: %q, %v; want %q", gomod, got, err, want)
 		}
+	}
+}
+
+// TestProjectCallsForApp: a project made before v0.5 calls rbac.ForApp,
+// which make:admin recognizes like rbac.New.
+func TestProjectCallsForApp(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "main.go"), []byte("package main\n\nfunc setup() { rbac.ForApp(app, nil) }\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if none, err := noRBAC(root); err != nil || none {
+		t.Errorf("noRBAC = %v, %v", none, err)
+	}
+	if found, err := projectCalls(root, "audit.New(", "audit.ForApp("); err != nil || found {
+		t.Errorf("audit: %v, %v", found, err)
 	}
 }

@@ -33,9 +33,53 @@ Because **every** Register runs before **any** Boot, a provider's Boot can
 use services provided by providers added after it. Order still matters for
 Boot itself and for shutdown hooks.
 
+## Setting up the services
+
+A new project's `main.go` builds its services in one function, `setup`,
+which runs after `anetos.New` and before `Register`. Each service is built from
+the app's settings by its package's `New`, and `db.Connect` connects to
+the database:
+
+```go
+// illustrative (the start of a new project's setup)
+func setup(app *anetos.App) (*web.Server, error) {
+	if _, err := db.Connect(context.Background(), app, sqlite.Driver()); err != nil {
+		return nil, err
+	}
+	if _, err := cache.New(app); err != nil { // CACHE_STORE
+		return nil, err
+	}
+	q, err := queue.New(app) // QUEUE_DRIVER
+	if err != nil {
+		return nil, err
+	}
+	// … the mailer, storage, the scheduler, sessions
+	return web.NewServer(app)
+}
+```
+
+Each `New(app, …)`:
+
+- reads its settings (`CACHE_*`, `QUEUE_*`…) and fails, naming the
+  setting, when one is wrong;
+- puts the service in the app's contexts and container, so a handler or a
+  job reaches it with `cache.From(ctx)` and other packages with
+  `anetos.Resolve[*cache.Cache](app)`;
+- adds what goes with it: its commands (`migrate`, `queue:failed`,
+  `cache:clear`…), a shutdown hook that closes its connection, doctor
+  checks.
+
+A service is built once per app: a second `New` for the same app is an
+error. Order matters only where one service uses another (the mailer
+queues mail when the queue exists; plugins come last), and the generated
+`setup` is already in that order. Outside an app (a test, a tool),
+each package has a constructor from explicit parts, such as
+`cache.NewWithStore(store, prefix)` or `events.NewBus()`.
+
 ## Providers
 
-A provider packages one piece of functionality:
+A provider packages a piece of your own functionality with the two
+phases above:
 
 ```go
 // illustrative (from app.go)
@@ -46,10 +90,12 @@ type Provider interface {
 }
 ```
 
-The framework's own features (database, sessions, queue…) will be providers,
-and the public plugin API (roadmap B11) builds on this interface. A complete
-provider is in [`examples/lifecycle`](../../../examples/lifecycle/main.go)
-(region `provider`).
+`app.Use(provider)` adds one; its `Register` and `Boot` run with the
+others'. The framework's services don't need it (they're built in
+`setup`), and plugins use their own interface ([Plugins](../guides/plugins.md)).
+A complete provider is in
+[`examples/lifecycle`](../../../examples/lifecycle/main.go) (region
+`provider`).
 
 ## The service container
 
@@ -62,8 +108,8 @@ application code, prefer ordinary constructor parameters:
 
 ```go
 // illustrative
-db := anetos.MustResolve[*sql.DB](app) // at boot
-posts := handlers.NewPosts(db)         // plain Go from here on
+d := anetos.MustResolve[*db.DB](app) // at boot
+posts := handlers.NewPosts(d)        // plain Go from here on
 ```
 
 Resolving from the container on every request works, but it hides
@@ -99,7 +145,7 @@ route.
 
 ## Failures during startup
 
-- `New` returns an error that lists **every** invalid or missing setting.
+- `anetos.New` returns an error that lists **every** invalid or missing setting.
 - If a provider's Register or Boot fails, Boot stops, **runs the shutdown
   hooks registered so far** (so connections opened by earlier providers are
   closed), and returns the error. The app can't be started again after that.
@@ -126,9 +172,12 @@ One-off programs (a migration, a report) can call `app.Boot(ctx)`, use the
 services, then `app.Close()` to run the shutdown hooks. `Close` refuses to run
 while `Run` is in progress; cancel `Run`'s context instead.
 
-> **Coming from Laravel?** Providers play the role of service providers'
-> `register()` and `boot()`, but without facades or a global container: the
-> `App` is passed explicitly.
+> **Coming from Laravel?** `setup` is where Laravel's service providers and
+> `config/*.php` meet: each `New(app)` reads its `.env` keys and registers
+> the service. There are no facades or global container: the `App` is
+> passed explicitly, and a handler gets a service from its context
+> (`cache.From(c)`). Your own providers play the role of a service
+> provider's `register()` and `boot()`.
 
 ## Related
 

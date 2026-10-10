@@ -100,10 +100,10 @@ func (q *Queue) workOptions(grace time.Duration, opts []WorkOption) (workOptions
 //	err := q.Work(queue.Queues("emails", "default"), queue.Concurrency(10))
 //
 // With the sync driver it does nothing. It needs a queue made with
-// [ForApp].
+// [New].
 func (q *Queue) Work(opts ...WorkOption) error {
 	if q.app == nil {
-		return errors.New("queue: Work needs a queue made with queue.ForApp; run Queue.Run in a component of your own")
+		return errors.New("queue: Work needs a queue made with queue.New; run Queue.Run in a component of your own")
 	}
 	o, err := q.workOptions(q.app.Config().ShutdownTimeout/2, opts)
 	if err != nil {

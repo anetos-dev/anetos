@@ -97,7 +97,7 @@ var errNothingToReply = errors.New("ai: the conversation's last message is the m
 
 // Migrations returns the migrations creating the tables of stored
 // conversations (ai_conversations, ai_messages) and of usage records
-// (ai_usage, [Client.TrackUsage]), for migrate.ForApp.
+// (ai_usage, [Client.TrackUsage]), for migrate.New.
 func Migrations() *migrate.Set {
 	s := migrate.NewSet("ai")
 	s.AddFunc("2026_10_02_000400_create_ai_tables",

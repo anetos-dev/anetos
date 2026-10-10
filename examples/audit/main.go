@@ -230,18 +230,18 @@ func setup(app *anetos.App) (*web.Server, error) {
 		return nil, err
 	}
 	sets := []*migrate.Set{Migrations, auth.Migrations(), audit.Migrations()}
-	if _, err := migrate.ForApp(app, sets); err != nil {
+	if _, err := migrate.New(app, sets); err != nil {
 		return nil, err
 	}
-	if _, err := cache.ForApp(app); err != nil { // auth's login throttling
+	if _, err := cache.New(app); err != nil { // auth's login throttling
 		return nil, err
 	}
-	a, err := auth.ForApp(app, users)
+	a, err := auth.New(app, users)
 	if err != nil {
 		return nil, err
 	}
 	// region: setup
-	trail, err := audit.ForApp(app) // after db.Connect
+	trail, err := audit.New(app) // after db.Connect
 	if err != nil {
 		return nil, err
 	}

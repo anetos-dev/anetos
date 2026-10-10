@@ -15,6 +15,7 @@ import (
 	"anetos.dev/anetos"
 	"anetos.dev/anetos/config"
 	"anetos.dev/anetos/db"
+	"anetos.dev/anetos/db/migrate"
 	"anetos.dev/anetos/drivers/sqlite"
 	"anetos.dev/anetos/web"
 )
@@ -167,5 +168,28 @@ func TestInsertDefaultValues(t *testing.T) {
 	var c Counter
 	if err := db.Create(ctx, &c); err != nil || c.ID != 1 {
 		t.Errorf("create: %+v %v", c, err)
+	}
+}
+
+// TestConnectTwice: a second Connect, or migrate.New, for one app is an
+// error, not a second pool or runner.
+func TestConnectTwice(t *testing.T) {
+	app := newApp(t, config.Map{
+		"APP_ENV":       "testing",
+		"DB_CONNECTION": "sqlite",
+		"DB_DATABASE":   filepath.Join(t.TempDir(), "app.db"),
+	}, io.Discard)
+	defer app.Close()
+	if _, err := db.Connect(t.Context(), app, sqlite.Driver()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Connect(t.Context(), app, sqlite.Driver()); err == nil || !strings.Contains(err.Error(), "called twice") {
+		t.Errorf("Connect twice: %v", err)
+	}
+	if _, err := migrate.New(app, nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := migrate.New(app, nil); err == nil || !strings.Contains(err.Error(), "called twice") {
+		t.Errorf("migrate.New twice: %v", err)
 	}
 }

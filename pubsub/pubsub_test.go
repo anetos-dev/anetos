@@ -149,7 +149,7 @@ func newPS(t *testing.T) (*pubsub.PubSub, *pubsub.MemoryBroker, *logBuffer) {
 	t.Helper()
 	b := pubsub.NewMemoryBroker()
 	logs := &logBuffer{}
-	return pubsub.New(b, pubsub.WithLogger(slog.New(slog.NewTextHandler(logs, nil))), pubsub.WithName("billing")), b, logs
+	return pubsub.NewWithBroker(b, pubsub.WithLogger(slog.New(slog.NewTextHandler(logs, nil))), pubsub.WithName("billing")), b, logs
 }
 
 // deadLetters subscribes to topic and collects its messages.
@@ -353,7 +353,7 @@ func TestListenErrors(t *testing.T) {
 		t.Error("two listeners with one subscription = nil")
 	}
 	check(t, pubsub.Listen(p, "t", fn, pubsub.Subscription("t.other")))
-	if err := pubsub.New(pubsub.NewMemoryBroker()).Run(context.Background()); err == nil {
+	if err := pubsub.NewWithBroker(pubsub.NewMemoryBroker()).Run(context.Background()); err == nil {
 		t.Error("Run without listeners = nil")
 	}
 }
@@ -368,8 +368,8 @@ func newApp(t *testing.T, env config.Map) *anetos.App {
 	return app
 }
 
-func TestForApp(t *testing.T) {
-	if _, err := pubsub.ForApp(newApp(t, config.Map{"PUBSUB_DRIVER": "kafka"})); err == nil || !strings.Contains(err.Error(), `PUBSUB_DRIVER is "kafka"`) {
+func TestAppNew(t *testing.T) {
+	if _, err := pubsub.New(newApp(t, config.Map{"PUBSUB_DRIVER": "kafka"})); err == nil || !strings.Contains(err.Error(), `PUBSUB_DRIVER is "kafka"`) {
 		t.Errorf("unknown driver: %v", err)
 	}
 	app := newApp(t, nil)
@@ -381,7 +381,7 @@ func TestForApp(t *testing.T) {
 		units = append(units, u.Kind+" "+u.Name)
 		return ctx, nil
 	})
-	p, err := pubsub.ForApp(app)
+	p, err := pubsub.New(app)
 	check(t, err)
 	if anetos.MustResolve[*pubsub.PubSub](app) != p {
 		t.Error("not provided")
@@ -416,10 +416,10 @@ func TestForApp(t *testing.T) {
 	}
 	unitMu.Unlock()
 
-	// ForApp after boot prepares each listener's subscription itself.
+	// New after boot prepares each listener's subscription itself.
 	app3 := newApp(t, nil)
 	check(t, app3.Boot(context.Background()))
-	p3, err := pubsub.ForApp(app3)
+	p3, err := pubsub.New(app3)
 	check(t, err)
 	r3 := &recorder{}
 	check(t, pubsub.Listen(p3, "after.boot", r3.handle))
@@ -432,7 +432,7 @@ func TestForApp(t *testing.T) {
 
 	// pubsub:publish refuses the memory broker, which is per process.
 	app2 := newApp(t, config.Map{"PUBSUB_DRIVER": "custom"})
-	p2, err := pubsub.ForApp(app2, pubsub.Driver{Name: "custom", Open: func(*anetos.App, pubsub.Config) (pubsub.Broker, error) {
+	p2, err := pubsub.New(app2, pubsub.Driver{Name: "custom", Open: func(*anetos.App, pubsub.Config) (pubsub.Broker, error) {
 		return pubsub.NewMemoryBroker(), nil
 	}})
 	check(t, err)
@@ -490,7 +490,7 @@ func TestRunRestartsAndDeadLetterRetries(t *testing.T) {
 	f.subscribeFails.Store(1)
 	f.publishFails.Store(2)
 	logs := &logBuffer{}
-	p := pubsub.New(f, pubsub.WithLogger(slog.New(slog.NewTextHandler(logs, nil))), pubsub.WithName("billing"))
+	p := pubsub.NewWithBroker(f, pubsub.WithLogger(slog.New(slog.NewTextHandler(logs, nil))), pubsub.WithName("billing"))
 	r := &recorder{}
 	check(t, pubsub.Listen(p, "orders.created", r.handle, pubsub.DeadLetter("orders.dlq")))
 	dlq := deadLetters(t, f.MemoryBroker, "orders.dlq")
@@ -521,7 +521,7 @@ func (n noCount) Subscribe(ctx context.Context, s pubsub.SubscriptionSpec, h fun
 
 func TestMaxAttemptsWithoutCounts(t *testing.T) {
 	logs := &logBuffer{}
-	p := pubsub.New(noCount{pubsub.NewMemoryBroker()}, pubsub.WithLogger(slog.New(slog.NewTextHandler(logs, nil))))
+	p := pubsub.NewWithBroker(noCount{pubsub.NewMemoryBroker()}, pubsub.WithLogger(slog.New(slog.NewTextHandler(logs, nil))))
 	r := &recorder{}
 	check(t, pubsub.Listen(p, "t", r.handle, pubsub.MaxAttempts(2), pubsub.Backoff(time.Millisecond)))
 	run(t, p)

@@ -4,7 +4,7 @@
 // such as Daily and Every) inside the app, as a supervised component: no
 // system cron, and a deploy of the binary deploys the schedule.
 //
-//	s, err := schedule.ForApp(app)
+//	s, err := schedule.New(app)
 //	err = s.Add(schedule.Every(5*time.Minute), "sync-inventory", inventory.Sync)
 //	err = s.Add(schedule.DailyAt("02:00").In("Asia/Dhaka"), "prune-sessions", sessions.Prune,
 //		schedule.WithoutOverlapping(), schedule.OnOneServer())

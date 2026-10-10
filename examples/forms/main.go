@@ -165,7 +165,7 @@ func setup(app *anetos.App) (*web.Server, error) {
 	}
 	// region: runner
 	// session.Migrations creates the sessions table, for SESSION_DRIVER=database.
-	if _, err := migrate.ForApp(app, []*migrate.Set{Migrations, session.Migrations("")}, migrate.WithSeeders(Seeders...)); err != nil {
+	if _, err := migrate.New(app, []*migrate.Set{Migrations, session.Migrations("")}, migrate.WithSeeders(Seeders...)); err != nil {
 		return nil, err
 	}
 	// endregion
@@ -174,7 +174,7 @@ func setup(app *anetos.App) (*web.Server, error) {
 		return nil, err
 	}
 	// region: routes
-	sessions, err := session.ForApp(app) // SESSION_* settings; needs APP_KEY
+	sessions, err := session.New(app) // SESSION_* settings; needs APP_KEY
 	if err != nil {
 		return nil, err
 	}

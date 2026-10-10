@@ -26,7 +26,7 @@ import (
 func (c *Ctx) Session() *session.Session {
 	s := session.From(c)
 	if s == nil {
-		panic("web: no session for this request; add the session middleware (session.ForApp(app) … .Middleware) to the route's group")
+		panic("web: no session for this request; add the session middleware (session.New(app) … .Middleware) to the route's group")
 	}
 	return s
 }

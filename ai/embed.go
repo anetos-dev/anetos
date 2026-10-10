@@ -70,7 +70,7 @@ type EmbedResponse struct {
 // ErrNoEmbedder is returned by [Embed] when the client has no embeddings
 // provider: AI_PROVIDER's has none (Anthropic), and
 // AI_EMBEDDING_PROVIDER isn't set.
-var ErrNoEmbedder = errors.New("ai: the AI provider has no embeddings: set AI_EMBEDDING_PROVIDER (openai, gemini, openai-compatible) and AI_EMBEDDING_MODEL, and pass its driver to ai.ForApp")
+var ErrNoEmbedder = errors.New("ai: the AI provider has no embeddings: set AI_EMBEDDING_PROVIDER (openai, gemini, openai-compatible) and AI_EMBEDDING_MODEL, and pass its driver to ai.New")
 
 // embedder returns the client's embeddings provider and model.
 func (cl *Client) embedder() (Embedder, string, error) {

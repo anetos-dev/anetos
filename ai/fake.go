@@ -63,7 +63,7 @@ func FakeError(err error) FakeReply {
 // the order requests arrive.
 //
 //	f := ai.NewFake(ai.FakeToolCall("find_order", map[string]int{"number": 1042}), ai.FakeText("It shipped."))
-//	ctx = ai.WithClient(ctx, ai.New(f))
+//	ctx = ai.WithClient(ctx, ai.NewWithProvider(f))
 type Fake struct {
 	mu       sync.Mutex
 	replies  []FakeReply

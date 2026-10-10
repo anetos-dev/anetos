@@ -7,7 +7,7 @@
 // Add the middleware to the routes that serve HTML, then use the session
 // from any request context:
 //
-//	sessions, err := session.ForApp(app) // SESSION_* settings, APP_KEY
+//	sessions, err := session.New(app) // SESSION_* settings, APP_KEY
 //	web := r.Group("", sessions.Middleware, web.CSRF())
 //
 //	s := session.From(c)
@@ -83,9 +83,9 @@ func NewContext(ctx context.Context, s *Session) context.Context {
 	return context.WithValue(ctx, ctxKey{}, s)
 }
 
-// New returns an empty session, for tests. Requests get theirs from the
+// NewSession returns an empty session, for tests. Requests get theirs from the
 // middleware.
-func New() *Session {
+func NewSession() *Session {
 	now := time.Now()
 	return &Session{id: randomString(16), created: now, last: now, data: map[string]json.RawMessage{}}
 }

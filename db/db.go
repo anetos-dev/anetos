@@ -497,6 +497,9 @@ func (d *DB) Close() error { return d.sql.Close() }
 // Queries are logged at debug level in development unless DB_LOG_QUERIES
 // says otherwise.
 func Connect(ctx context.Context, app *anetos.App, drivers ...Driver) (*DB, error) {
+	if _, ok := anetos.Lookup[*DB](app); ok {
+		return nil, errors.New("db: Connect called twice for one app")
+	}
 	cfg, err := config.Get[Config](app.Source())
 	if err != nil {
 		return nil, err

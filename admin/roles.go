@@ -26,7 +26,7 @@ import (
 // [AssignRoles], on their pages ([Users]).
 func Roles(p *Panel) error {
 	if p.reg == nil {
-		return errors.New("admin: Roles needs the app's roles and permissions (rbac.ForApp)")
+		return errors.New("admin: Roles needs the app's roles and permissions (rbac.New)")
 	}
 	return p.add(&rolesRes{p: p, in: resInfo{Name: "roles", Title: "Roles", Singular: "Role"}})
 }

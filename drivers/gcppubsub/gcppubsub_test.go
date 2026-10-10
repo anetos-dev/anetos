@@ -122,7 +122,7 @@ func TestDriver(t *testing.T) {
 	opt := fake(t)
 	var got atomic.Int64
 	a := anetostest.New(t, func(app *anetos.App) (*web.Server, error) {
-		ps, err := pubsub.ForApp(app, gcppubsub.Driver(opt))
+		ps, err := pubsub.New(app, gcppubsub.Driver(opt))
 		if err != nil {
 			return nil, err
 		}
@@ -158,8 +158,8 @@ func TestDriverConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer app.Close()
-	if _, err := pubsub.ForApp(app, gcppubsub.Driver()); err == nil || !strings.Contains(err.Error(), "PUBSUB_GCP_PROJECT") {
-		t.Errorf("ForApp without a project = %v", err)
+	if _, err := pubsub.New(app, gcppubsub.Driver()); err == nil || !strings.Contains(err.Error(), "PUBSUB_GCP_PROJECT") {
+		t.Errorf("New without a project = %v", err)
 	}
 }
 

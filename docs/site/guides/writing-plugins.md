@@ -203,10 +203,10 @@ func setup(app *anetos.App) (*web.Server, error) {
 	if _, err := db.Connect(context.Background(), app, sqlite.Driver()); err != nil {
 		return nil, err
 	}
-	if _, err := migrate.ForApp(app, nil); err != nil {
+	if _, err := migrate.New(app, nil); err != nil {
 		return nil, err
 	}
-	if _, err := queue.ForApp(app); err != nil {
+	if _, err := queue.New(app); err != nil {
 		return nil, err
 	}
 	srv, err := web.NewServer(app)
@@ -249,7 +249,7 @@ and the Anetos versions it supports.
 - The migration set is named after the plugin.
 - Commands are named `<name>:…`.
 - The services the plugin adds to are set up before `ext.Load`
-  (`call queue.ForApp before ext.Load`).
+  (`call queue.New before ext.Load`).
 - `ext.Mount` names a loaded plugin with routes, and a clean path like
   `/billing/stripe` (no trailing `/`, `.` or `..` segments, or wildcards).
 

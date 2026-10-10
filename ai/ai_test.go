@@ -33,7 +33,7 @@ func check(t *testing.T, err error) {
 // fake returns a context with a client of a fake with replies.
 func fake(replies ...ai.FakeReply) (context.Context, *ai.Fake) {
 	f := ai.NewFake(replies...)
-	c := ai.New(f, ai.Model("test-model"), ai.MaxTokens(100))
+	c := ai.NewWithProvider(f, ai.Model("test-model"), ai.MaxTokens(100))
 	return ai.WithClient(context.Background(), c), f
 }
 
@@ -240,7 +240,7 @@ func TestGenerate(t *testing.T) {
 		t.Errorf("no client: %v", err)
 	}
 	other := ai.NewFake(ai.FakeText("from the other client"))
-	if res, err := ai.Generate(context.Background(), "Hi", ai.Using(ai.New(other))); err != nil || res.Text() != "from the other client" {
+	if res, err := ai.Generate(context.Background(), "Hi", ai.Using(ai.NewWithProvider(other))); err != nil || res.Text() != "from the other client" {
 		t.Errorf("Using: %v, %v", res, err)
 	}
 	// A provider error is wrapped with the provider's name.
@@ -538,14 +538,14 @@ func newApp(t *testing.T, env config.Map, logs io.Writer) *anetos.App {
 	return app
 }
 
-func TestForApp(t *testing.T) {
-	if _, err := ai.ForApp(newApp(t, nil, nil)); err == nil || !strings.Contains(err.Error(), "AI_PROVIDER isn't set: set it to one of [fake]") {
+func TestAppNew(t *testing.T) {
+	if _, err := ai.New(newApp(t, nil, nil)); err == nil || !strings.Contains(err.Error(), "AI_PROVIDER isn't set: set it to one of [fake]") {
 		t.Errorf("unset: %v", err)
 	}
-	if _, err := ai.ForApp(newApp(t, config.Map{"AI_PROVIDER": "anthropic"}, nil)); err == nil || !strings.Contains(err.Error(), `AI_PROVIDER is "anthropic"`) {
+	if _, err := ai.New(newApp(t, config.Map{"AI_PROVIDER": "anthropic"}, nil)); err == nil || !strings.Contains(err.Error(), `AI_PROVIDER is "anthropic"`) {
 		t.Errorf("unknown: %v", err)
 	}
-	if _, err := ai.ForApp(newApp(t, config.Map{"AI_PROVIDER": "fake", "AI_MAX_TOKENS": "0"}, nil)); err == nil {
+	if _, err := ai.New(newApp(t, config.Map{"AI_PROVIDER": "fake", "AI_MAX_TOKENS": "0"}, nil)); err == nil {
 		t.Error("AI_MAX_TOKENS=0: no error")
 	}
 
@@ -556,10 +556,10 @@ func TestForApp(t *testing.T) {
 		units = append(units, u)
 		return ctx, nil
 	})
-	c, err := ai.ForApp(app)
+	c, err := ai.New(app)
 	check(t, err)
-	if _, err := ai.ForApp(app); err == nil {
-		t.Error("ForApp twice: no error")
+	if _, err := ai.New(app); err == nil {
+		t.Error("New twice: no error")
 	}
 	f := c.Fake(ai.FakeToolCall("find_order", findOrder{Number: 3}), ai.FakeText("Done."))
 	if c.Provider() != f || c.Fake() != f {
@@ -676,7 +676,7 @@ func TestEdges(t *testing.T) {
 	}
 
 	// Timeouts: each request's.
-	c := ai.New(&slowProvider{}, ai.Timeout(10*time.Millisecond))
+	c := ai.NewWithProvider(&slowProvider{}, ai.Timeout(10*time.Millisecond))
 	_, err = ai.Generate(context.Background(), "Hi", ai.Using(c))
 	if !errors.Is(err, context.DeadlineExceeded) || web.StatusOf(err) != http.StatusServiceUnavailable {
 		t.Errorf("timeout: %v", err)
@@ -743,7 +743,7 @@ func TestToolErrorsForTheModel(t *testing.T) {
 func TestLogs(t *testing.T) {
 	var logs bytes.Buffer
 	app := newApp(t, config.Map{"AI_PROVIDER": "fake"}, &logs)
-	c, err := ai.ForApp(app)
+	c, err := ai.New(app)
 	check(t, err)
 	c.Fake(ai.FakeToolCall("nope", nil), ai.FakeText("done"))
 	ctx := app.Context(context.Background())

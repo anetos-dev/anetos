@@ -8,7 +8,7 @@
 // ([web.Documented]: package auth's Require is a bearer token), and
 // errors as RFC 9457 problem details.
 //
-// [ForApp] adds the openapi command, which writes the document to a
+// [Register] adds the openapi command, which writes the document to a
 // file (openapi.json) to commit beside the code, and serves it; [Check],
 // in a test, fails when the file is out of date:
 //
@@ -16,7 +16,7 @@
 //	var OpenAPI = openapi.Config{Title: "Shop", Version: "1.0.0", Prefix: "/api/v1", Path: "/api/v1/openapi.json"}
 //
 //	// main.go's setup, after the routes
-//	if err := openapi.ForApp(app, srv, routes.OpenAPI); err != nil {
+//	if err := openapi.Register(app, srv, routes.OpenAPI); err != nil {
 //		return nil, err
 //	}
 //
@@ -67,7 +67,7 @@ type Config struct {
 	// reads it, relative to the working directory: "openapi.json" if
 	// empty.
 	File string
-	// Path, if not empty, is where [ForApp] serves the document
+	// Path, if not empty, is where [Register] serves the document
 	// ("/api/v1/openapi.json"), for clients and tools.
 	Path string
 	// Servers are the API's base URLs (servers), such as
@@ -767,12 +767,12 @@ func firstDiff(a, b []byte) int {
 	return min(len(al), len(bl)) + 1
 }
 
-// ForApp adds the openapi command to app, which writes the document of
+// Register adds the openapi command to app, which writes the document of
 // srv's routes to cfg.File (or, with --check, fails if the file is out
 // of date), and serves the document at cfg.Path if it's set. Call it
 // after adding the routes. The command builds no app: it needs no
 // database.
-func ForApp(app *anetos.App, srv *web.Server, cfg Config) error {
+func Register(app *anetos.App, srv *web.Server, cfg Config) error {
 	if cfg.Title == "" {
 		return errors.New("openapi: Config.Title is empty")
 	}
@@ -798,6 +798,15 @@ func ForApp(app *anetos.App, srv *web.Server, cfg Config) error {
 			return run(ctx, args, srv.Router(), cfg)
 		},
 	})
+}
+
+// ForApp is [Register].
+//
+// Deprecated: Use Register; ForApp is removed in v0.6.
+//
+//go:fix inline
+func ForApp(app *anetos.App, srv *web.Server, cfg Config) error {
+	return Register(app, srv, cfg)
 }
 
 func run(_ context.Context, args *cmd.Args, r *web.Router, cfg Config) error {

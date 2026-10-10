@@ -25,7 +25,7 @@ func mustKey(t *testing.T) []byte {
 }
 
 func TestRoundTrip(t *testing.T) {
-	enc, err := encryption.New(mustKey(t))
+	enc, err := encryption.NewEncrypter(mustKey(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,8 +50,8 @@ func TestRoundTrip(t *testing.T) {
 }
 
 func TestTampering(t *testing.T) {
-	enc, _ := encryption.New(mustKey(t))
-	other, _ := encryption.New(mustKey(t))
+	enc, _ := encryption.NewEncrypter(mustKey(t))
+	other, _ := encryption.NewEncrypter(mustKey(t))
 	ct := enc.Encrypt([]byte("secret"), "session")
 	cases := map[string]func() ([]byte, error){
 		"other context": func() ([]byte, error) { return enc.Decrypt(ct, "cookie") },
@@ -81,9 +81,9 @@ func TestTampering(t *testing.T) {
 
 func TestRotation(t *testing.T) {
 	oldKey, newKey := mustKey(t), mustKey(t)
-	old, _ := encryption.New(oldKey)
+	old, _ := encryption.NewEncrypter(oldKey)
 	ct := old.Encrypt([]byte("v"), "c")
-	rotated, err := encryption.New(newKey, oldKey)
+	rotated, err := encryption.NewEncrypter(newKey, oldKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,17 +93,17 @@ func TestRotation(t *testing.T) {
 	if _, err := old.Decrypt(rotated.Encrypt([]byte("v"), "c"), "c"); err == nil {
 		t.Error("new messages must use the new key")
 	}
-	if _, err := encryption.New([]byte("short")); err == nil {
+	if _, err := encryption.NewEncrypter([]byte("short")); err == nil {
 		t.Error("short key accepted")
 	}
 }
 
-func TestForApp(t *testing.T) {
+func TestAppNew(t *testing.T) {
 	app, err := anetos.New(anetos.WithSource(config.Map{}))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := encryption.ForApp(app); err == nil || !strings.Contains(err.Error(), "APP_KEY=base64:") {
+	if _, err := encryption.New(app); err == nil || !strings.Contains(err.Error(), "APP_KEY=base64:") {
 		t.Errorf("missing key: %v", err)
 	}
 	key := encryption.GenerateKey()
@@ -111,20 +111,20 @@ func TestForApp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	enc, err := encryption.ForApp(app)
+	enc, err := encryption.New(app)
 	if err != nil {
 		t.Fatal(err)
 	}
 	k, _ := encryption.ParseKey(key)
-	same, _ := encryption.New(k)
+	same, _ := encryption.NewEncrypter(k)
 	if got, err := same.DecryptString(enc.EncryptString("x", "c"), "c"); err != nil || got != "x" {
-		t.Errorf("ForApp doesn't use APP_KEY: %v", err)
+		t.Errorf("New doesn't use APP_KEY: %v", err)
 	}
 }
 
 func BenchmarkEncrypt(b *testing.B) {
 	k, _ := encryption.ParseKey(encryption.GenerateKey())
-	enc, _ := encryption.New(k)
+	enc, _ := encryption.NewEncrypter(k)
 	msg := bytes.Repeat([]byte("x"), 512)
 	for b.Loop() {
 		enc.Decrypt(enc.Encrypt(msg, "c"), "c") //nolint:errcheck // benchmark
@@ -135,7 +135,7 @@ func BenchmarkEncrypt(b *testing.B) {
 // and never for forged ones; cached or not, opening checks everything.
 func TestDerivedKeyCache(t *testing.T) {
 	k, _ := encryption.ParseKey(encryption.GenerateKey())
-	e, _ := encryption.New(k)
+	e, _ := encryption.NewEncrypter(k)
 	msg := e.EncryptString("hello", "ctx")
 	for range 3 {
 		if got, err := e.DecryptString(msg, "ctx"); err != nil || got != "hello" {

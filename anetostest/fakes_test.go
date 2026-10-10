@@ -42,14 +42,14 @@ type orderCreated struct{ ID int }
 // shop dispatches, emits, mails, publishes and stores on POST /orders.
 func shop(listened *atomic.Int32) func(app *anetos.App) (*web.Server, error) {
 	return func(app *anetos.App) (*web.Server, error) {
-		q, err := queue.ForApp(app)
+		q, err := queue.New(app)
 		if err != nil {
 			return nil, err
 		}
 		if err := queue.Register[ship](q); err != nil {
 			return nil, err
 		}
-		bus, err := events.ForApp(app)
+		bus, err := events.New(app)
 		if err != nil {
 			return nil, err
 		}
@@ -60,13 +60,13 @@ func shop(listened *atomic.Int32) func(app *anetos.App) (*web.Server, error) {
 		if err := events.On(bus, func(context.Context, canceled) error { listened.Add(10); return nil }); err != nil {
 			return nil, err
 		}
-		if _, err := mailer.ForApp(app); err != nil {
+		if _, err := mailer.New(app); err != nil {
 			return nil, err
 		}
-		if _, err := pubsub.ForApp(app); err != nil {
+		if _, err := pubsub.New(app); err != nil {
 			return nil, err
 		}
-		if _, err := storage.ForApp(app); err != nil {
+		if _, err := storage.New(app); err != nil {
 			return nil, err
 		}
 		srv, err := web.NewServer(app)

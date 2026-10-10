@@ -35,7 +35,7 @@ func setupAdmin(app *anetos.App, r *web.Router, sessions *session.Manager, a *au
 		return err
 	}
 	roles := []rbac.Role{{Name: "admin", Title: "Administrator", Super: true}}
-	if _, err := rbac.ForApp(app, nil, roles...); err != nil {
+	if _, err := rbac.New(app, nil, roles...); err != nil {
 		return err
 	}
 [[- end]]

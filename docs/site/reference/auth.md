@@ -16,9 +16,9 @@ Packages `auth`, `auth/password`, `auth/social` and `auth/rbac`. How-to: [Authen
 |---|---|
 | `auth.Authenticatable` | `AuthID() string` and `AuthPassword() string`, implemented by the app's user type |
 | `auth.Users[U]{ByID, ByLogin, RememberToken, SetRememberToken, SetPassword, Disabled, SessionKey, SetSessionKey, TwoFactor, SetTwoFactor}` | How to find users (required: `ByID`, `ByLogin`; they return `db.ErrNotFound` or `auth.ErrNoUser`), store remember-me tokens and upgraded hashes; which accounts are disabled (`Disabled`, v0.3); the session key sessions are bound to (`SessionKey` and `SetSessionKey`, both or neither, v0.3); the two-factor state, stored encrypted (`TwoFactor` and `SetTwoFactor`, both or neither, v0.3) |
-| `auth.ForApp(app, users, opts...)` | `*auth.Auth[U]` from `AUTH_*` and `APP_KEY`; needs `cache.ForApp` first; provided to the app; once per app. Options as `New`'s, after its own, and `auth.DefaultHomeURL(path)`: `AUTH_HOME_URL`'s default (v0.3) |
-| `auth.New(cfg, users, enc, opts...)` | Without an app; `auth.WithLogger`, `auth.WithInsecureCookies`, `auth.WithIssuer(name)` (two-factor setups' issuer; `ForApp` uses `APP_NAME`, v0.3) |
-| `auth.Migrations()` | The `api_tokens` table, for `migrate.ForApp` |
+| `auth.New(app, users, opts...)` | `*auth.Auth[U]` from `AUTH_*` and `APP_KEY`; needs `cache.New` first; provided to the app; once per app. Options as `NewWithConfig`'s, after its own, and `auth.DefaultHomeURL(path)`: `AUTH_HOME_URL`'s default (v0.3) |
+| `auth.NewWithConfig(cfg, users, enc, opts...)` | Without an app; `auth.WithLogger`, `auth.WithInsecureCookies`, `auth.WithIssuer(name)` (two-factor setups' issuer; `auth.New` uses `APP_NAME`, v0.3) |
+| `auth.Migrations()` | The `api_tokens` table, for `migrate.New` |
 
 ## Middleware
 
@@ -124,8 +124,8 @@ see [Two-factor sign-in](../guides/two-factor.md). Needs
 |---|---|
 | `social.Google()`, `social.GitHub()`, `social.GitHubAt(web, api)`, `social.OIDC(name, issuer)` | Providers; their `Scopes`, `Title` ("Google", for buttons; `OIDC`'s defaults to its name) and other fields can be changed |
 | `social.Configured(app, providers...)` | The providers whose `SOCIAL_<NAME>_CLIENT_ID` and `_CLIENT_SECRET` are set |
-| `social.ForApp(app, a, resolve, providers, opts...)` | `*social.Social[U]`; needs `APP_URL` (https in production); with no providers, its routes answer 404; `social.WithHTTPClient`, `social.WithLogger`, `social.WithCallbackPath`, `social.WithHomeURL(path)` (where users go without an intended page; default `AUTH_HOME_URL`) |
-| `social.New(a, resolve, baseURL, creds, providers, opts...)` | Without an app |
+| `social.New(app, a, resolve, providers, opts...)` | `*social.Social[U]`; needs `APP_URL` (https in production); with no providers, its routes answer 404; `social.WithHTTPClient`, `social.WithLogger`, `social.WithCallbackPath`, `social.WithHomeURL(path)` (where users go without an intended page; default `AUTH_HOME_URL`) |
+| `social.NewWithConfig(a, resolve, baseURL, creds, providers, opts...)` | Without an app |
 | `s.Redirect`, `s.Callback` | Handlers for `/auth/{provider}/redirect` (`?remember=1`) and `/auth/{provider}/callback` |
 | `s.Providers()`, `s.CallbackURL(name)` | Provider names, in the order given; a provider's callback URL to register |
 | `social.Resolver[U]`, `social.Profile` | `func(ctx, Profile) (U, error)`: finds or creates the user; the profile has `Provider`, `Subject`, `Email`, `EmailVerified`, `Name`, `AvatarURL`, `Token` |
@@ -144,8 +144,8 @@ Package `auth/rbac` (v0.3). Concepts: [Roles and permissions](../concepts/roles-
 |---|---|
 | `rbac.Permission` | A string type: `const EditPosts rbac.Permission = "posts.edit"`; lowercase letters, digits and `. _ : -`, up to 100 characters; also the API token ability that allows it |
 | `rbac.Role{Name, Title, Permissions, Super, Custom}` | A role; `Super` has every permission (code only); `Custom` is set for roles of the database. `r.Allows(p)`, `r.DisplayName()` (the title, or the name) |
-| `rbac.ForApp(app, permissions, roles...)` | `*rbac.Registry`, checked (unique names, roles of declared permissions); provided to the app and its contexts; caches grants per unit of work; adds the commands below; once per app |
-| `rbac.New(permissions, roles...)`, `rbac.WithRegistry(ctx, reg)`, `rbac.From(ctx)` | Without an app; `rbac.ErrNoRegistry` when the context has none |
+| `rbac.New(app, permissions, roles...)` | `*rbac.Registry`, checked (unique names, roles of declared permissions); provided to the app and its contexts; caches grants per unit of work; adds the commands below; once per app |
+| `rbac.NewRegistry(permissions, roles...)`, `rbac.WithRegistry(ctx, reg)`, `rbac.From(ctx)` | Without an app; `rbac.ErrNoRegistry` when the context has none |
 | `reg.Declare(permissions...)` | Adds permissions to the registry, for packages that bring their own (the admin); idempotent; call it at setup, before the app serves (v0.3) |
 | `rbac.AuthorizeOver(ctx, userID)` | nil if the signed-in user has every permission `userID` has in every scope (and a super role wherever they have one), else `auth.ErrForbidden`: for managing their account (v0.3) |
 | `rbac.GivenTo(ctx, userID)` | The roles and permissions given to a user, as stored (`rbac.Given{Scope, Role, Permission}`), by scope and name (v0.3) |

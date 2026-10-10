@@ -60,7 +60,7 @@ type Config struct {
 
 	// Secure sends the cookie over HTTPS only. SESSION_SECURE; the default
 	// is true, except in the development and testing environments (with
-	// ForApp).
+	// New).
 	Secure *bool `env:"SECURE"`
 
 	// SameSite is lax, strict or none. SESSION_SAME_SITE, default lax.
@@ -68,7 +68,7 @@ type Config struct {
 	SameSite string `env:"SAME_SITE" default:"lax"`
 
 	// Driver is where sessions are kept: cookie (the whole session in the
-	// encrypted cookie), database, or a driver passed to ForApp (redis).
+	// encrypted cookie), database, or a driver passed to New (redis).
 	// SESSION_DRIVER, default cookie.
 	Driver string `env:"DRIVER" default:"cookie"`
 
@@ -215,7 +215,7 @@ func NewManager(cfg Config, enc *encryption.Encrypter, opts ...Option) (*Manager
 // the Path "/".
 func (m *Manager) CookieName() string { return m.name }
 
-// Driver opens a server-side store for [ForApp]. The database driver is
+// Driver opens a server-side store for [New]. The database driver is
 // built in; driver modules provide others (redis.SessionDriver()).
 type Driver struct {
 	// Name is the value of SESSION_DRIVER that selects the driver.
@@ -226,21 +226,21 @@ type Driver struct {
 
 // DatabaseDriver keeps sessions in the app's database
 // (SESSION_DRIVER=database), in the table SESSION_TABLE created by
-// [Migrations]. Call db.Connect before session.ForApp.
+// [Migrations]. Call db.Connect before session.New.
 func DatabaseDriver() Driver {
 	return Driver{Name: "database", Open: func(app *anetos.App, cfg Config) (cache.Store, error) {
 		d, err := anetos.Resolve[*db.DB](app)
 		if err != nil {
-			return nil, errors.New("the database driver needs the app's database: call db.Connect before session.ForApp")
+			return nil, errors.New("the database driver needs the app's database: call db.Connect before session.New")
 		}
 		return cache.NewDatabaseStore(d, cfg.Table), nil
 	}}
 }
 
 // Migrations returns the migration creating the database driver's table
-// (default "sessions"), for migrate.ForApp:
+// (default "sessions"), for migrate.New:
 //
-//	migrate.ForApp(app, []*migrate.Set{migrations.All, session.Migrations("")})
+//	migrate.New(app, []*migrate.Set{migrations.All, session.Migrations("")})
 func Migrations(table string) *migrate.Set {
 	if table == "" {
 		table = "sessions"
@@ -252,14 +252,17 @@ func Migrations(table string) *migrate.Set {
 	return s
 }
 
-// ForApp returns a Manager configured from the application's SESSION_*
+// New returns a Manager configured from the application's SESSION_*
 // settings and APP_KEY, and provides it as a *session.Manager service.
 // Cookies are Secure by default, except in the development and testing
 // environments. SESSION_DRIVER picks where sessions are kept: cookie and
 // database are built in; pass others, such as redis.SessionDriver().
 // Server-side sessions use keys starting with SESSION_PREFIX (default
 // APP_NAME and ":session:").
-func ForApp(app *anetos.App, drivers ...Driver) (*Manager, error) {
+func New(app *anetos.App, drivers ...Driver) (*Manager, error) {
+	if _, ok := anetos.Lookup[*Manager](app); ok {
+		return nil, errors.New("session: New called twice for one app")
+	}
 	cfg, err := LoadConfig(app.Source())
 	if err != nil {
 		return nil, err
@@ -269,7 +272,7 @@ func ForApp(app *anetos.App, drivers ...Driver) (*Manager, error) {
 		secure := !env.IsDevelopment() && !env.IsTesting()
 		cfg.Secure = &secure
 	}
-	enc, err := encryption.ForApp(app)
+	enc, err := encryption.New(app)
 	if err != nil {
 		return nil, fmt.Errorf("session: %w", err)
 	}
@@ -282,7 +285,7 @@ func ForApp(app *anetos.App, drivers ...Driver) (*Manager, error) {
 			for _, d := range all {
 				names = append(names, d.Name)
 			}
-			return nil, fmt.Errorf("session: SESSION_DRIVER is %q, but the drivers are [%s]; pass its driver to session.ForApp (redis.SessionDriver() from drivers/redis)", cfg.Driver, strings.Join(names, ", "))
+			return nil, fmt.Errorf("session: SESSION_DRIVER is %q, but the drivers are [%s]; pass its driver to session.New (redis.SessionDriver() from drivers/redis)", cfg.Driver, strings.Join(names, ", "))
 		}
 		store, err := all[i].Open(app, cfg)
 		if err != nil {
@@ -303,6 +306,15 @@ func ForApp(app *anetos.App, drivers ...Driver) (*Manager, error) {
 	app.AddCheck(anetos.Check{Name: "session", Run: func(context.Context) []anetos.Finding { return checks(cfg, env) }})
 	anetos.Provide(app, m) // for anetostest, and code that needs it
 	return m, nil
+}
+
+// ForApp is [New].
+//
+// Deprecated: Use New; ForApp is removed in v0.6.
+//
+//go:fix inline
+func ForApp(app *anetos.App, drivers ...Driver) (*Manager, error) {
+	return New(app, drivers...)
 }
 
 // checks are the doctor's checks of the SESSION_* settings.
@@ -445,7 +457,7 @@ func (m *Manager) load(r *http.Request) (*state, error) {
 		}
 	}
 	if st.s == nil {
-		st.s = New()
+		st.s = NewSession()
 		st.s.created = now
 	}
 	st.s.last = now
@@ -804,7 +816,7 @@ func (m *Manager) Load(r *http.Request) *Session {
 	st, err := m.load(r)
 	if err != nil {
 		m.log.Error("session: the session store failed", "error", err)
-		s := New()
+		s := NewSession()
 		return s
 	}
 	return st.s

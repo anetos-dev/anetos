@@ -48,7 +48,7 @@ type HasConfig interface {
 type HasMigrations interface {
 	// Migrations returns the plugin's migrations, in a set named after
 	// the plugin (migrate.NewSet(name)). They run with the app's
-	// (`migrate`), never by themselves. Load needs migrate.ForApp.
+	// (`migrate`), never by themselves. Load needs migrate.New.
 	Migrations() *migrate.Set
 }
 
@@ -71,14 +71,14 @@ type HasCommands interface {
 type HasJobs interface {
 	// Jobs registers the plugin's job types on q (queue.Register,
 	// queue.RegisterFunc), and may start workers of its own (q.Work).
-	// Name job types "<name>:…" (queue.Name). Load needs queue.ForApp.
+	// Name job types "<name>:…" (queue.Name). Load needs queue.New.
 	Jobs(q *queue.Queue) error
 }
 
 // HasSchedule is implemented by plugins with scheduled tasks.
 type HasSchedule interface {
 	// Schedule adds the plugin's tasks to s, each named "<name>:…".
-	// Load needs schedule.ForApp.
+	// Load needs schedule.New.
 	Schedule(s *schedule.Scheduler) error
 }
 
@@ -86,7 +86,7 @@ type HasSchedule interface {
 // events.
 type HasListeners interface {
 	// Listen adds the plugin's listeners to bus (events.On, OnAsync,
-	// OnQueued). Load needs events.ForApp.
+	// OnQueued). Load needs events.New.
 	Listen(bus *events.Bus) error
 }
 

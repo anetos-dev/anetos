@@ -31,10 +31,10 @@ func TestDoctorQueueAndCache(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := cache.ForApp(app); err != nil {
+		if _, err := cache.New(app); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := queue.ForApp(app); err != nil {
+		if _, err := queue.New(app); err != nil {
 			t.Fatal(err)
 		}
 		var out bytes.Buffer

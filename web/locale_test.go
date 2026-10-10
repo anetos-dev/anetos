@@ -64,14 +64,14 @@ func localeServer(t *testing.T, env config.Map) *localeClient {
 	env["APP_KEY"] = encryption.GenerateKey()
 	env["SESSION_SECURE"] = "false"
 	app := newApp(t, env)
-	if _, err := i18n.ForApp(app, catalogs); err != nil {
+	if _, err := i18n.New(app, catalogs); err != nil {
 		t.Fatal(err)
 	}
 	srv, err := web.NewServer(app)
 	if err != nil {
 		t.Fatal(err)
 	}
-	sessions, err := session.ForApp(app)
+	sessions, err := session.New(app)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -251,7 +251,7 @@ func TestLocaleSubdomain(t *testing.T) {
 	}
 
 	app := newApp(t, config.Map{"LOCALE_URL": "subdomain"})
-	if _, err := i18n.ForApp(app, catalogs); err == nil || !strings.Contains(err.Error(), "APP_URL") {
+	if _, err := i18n.New(app, catalogs); err == nil || !strings.Contains(err.Error(), "APP_URL") {
 		t.Errorf("subdomain without APP_URL: %v", err)
 	}
 }
@@ -263,7 +263,7 @@ func (prefUser) PreferredTimeZone() string { return "Asia/Dhaka" }
 
 func TestLocaleUserPreference(t *testing.T) {
 	app := newApp(t, config.Map{})
-	if _, err := i18n.ForApp(app, catalogs); err != nil {
+	if _, err := i18n.New(app, catalogs); err != nil {
 		t.Fatal(err)
 	}
 	signedIn := false

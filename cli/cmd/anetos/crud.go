@@ -173,7 +173,8 @@ func testFile(created []string) string {
 // written.
 func updateOpenAPI(ctx context.Context, root string, stdout, stderr io.Writer) {
 	main, err := os.ReadFile(filepath.Join(root, "main.go"))
-	if err != nil || !bytes.Contains(main, []byte("openapi.ForApp(")) {
+	// openapi.ForApp: a project made before v0.5.
+	if err != nil || !bytes.Contains(main, []byte("openapi.Register(")) && !bytes.Contains(main, []byte("openapi.ForApp(")) {
 		return
 	}
 	var out bytes.Buffer

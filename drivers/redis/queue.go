@@ -19,7 +19,7 @@ import (
 // QueueDriver keeps jobs in Redis (QUEUE_DRIVER=redis), under the keys
 // starting with QUEUE_PREFIX, on the app's client from [Connect]:
 //
-//	q, err := queue.ForApp(app, redis.QueueDriver())
+//	q, err := queue.New(app, redis.QueueDriver())
 func QueueDriver() queue.Driver {
 	return queue.Driver{Name: "redis", Open: func(app *anetos.App, cfg queue.Config) (queue.Store, error) {
 		client, err := Connect(context.Background(), app)

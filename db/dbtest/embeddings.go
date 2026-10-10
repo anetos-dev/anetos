@@ -79,7 +79,7 @@ func testEmbeddings(t *testing.T, ctx context.Context) {
 		check(t, err)
 		var jobs int // ai.embed jobs dispatched
 		if queued {
-			q, err := queue.ForApp(app) // sync: jobs run when dispatched
+			q, err := queue.New(app) // sync: jobs run when dispatched
 			check(t, err)
 			q.Observe(func(_ context.Context, d queue.Dispatched) {
 				if d.Job == "ai.embed:st_e_notes" {
@@ -87,7 +87,7 @@ func testEmbeddings(t *testing.T, ctx context.Context) {
 				}
 			})
 		}
-		client, err := ai.ForApp(app)
+		client, err := ai.New(app)
 		check(t, err)
 		if _, err := ai.EmbeddingsFor(app, ai.EmbeddingsConfig[stENote]{}); err == nil {
 			t.Error("EmbeddingsFor without Text")
@@ -245,7 +245,7 @@ func testEmbeddings(t *testing.T, ctx context.Context) {
 	app, err := anetos.New(anetos.WithSource(config.Map{"AI_PROVIDER": "fake", "APP_KEY": encryption.GenerateKey()}), anetos.WithLogOutput(io.Discard))
 	check(t, err)
 	defer func() { _ = app.Close() }()
-	_, err = ai.ForApp(app)
+	_, err = ai.New(app)
 	check(t, err)
 	notes, err := ai.EmbeddingsFor(app, ai.EmbeddingsConfig[stENote]{Text: func(n stENote) string { return n.Body }, Dimensions: 32})
 	check(t, err)
@@ -271,7 +271,7 @@ func testEmbeddings(t *testing.T, ctx context.Context) {
 	app2, err := anetos.New(anetos.WithSource(config.Map{"AI_PROVIDER": "fake", "APP_KEY": encryption.GenerateKey()}), anetos.WithLogOutput(io.Discard))
 	check(t, err)
 	defer func() { _ = app2.Close() }()
-	client, err := ai.ForApp(app2)
+	client, err := ai.New(app2)
 	check(t, err)
 	fixed, err := ai.EmbeddingsFor(app2, ai.EmbeddingsConfig[stENote]{Text: func(n stENote) string { return n.Body }, Dimensions: 32, FixedSize: true})
 	check(t, err)

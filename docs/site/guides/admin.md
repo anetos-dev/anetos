@@ -17,7 +17,7 @@ the [audit log](audit-log.md) for the models it tracks.
 
 - Users who sign in with a session: [accounts with make:auth](accounts.md)
   or [authentication](authentication.md) of your own.
-- [Roles and permissions](roles-and-permissions.md) (`rbac.ForApp`):
+- [Roles and permissions](roles-and-permissions.md) (`rbac.New`):
   `make:admin` sets them up when the app doesn't.
 
 The code here comes from [`examples/admin`](../../../examples/admin), a
@@ -596,8 +596,8 @@ func TestStaffAccounts(t *testing.T) {
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `admin: New needs the app's roles and permissions` | `rbac.ForApp` wasn't called before `admin.New` | Set up roles first (`make:admin` does) |
-| `rbac: unknown permission "admin.posts.view", in role "editor"` | A role in code names an admin permission the app's list lacks | Add `admin.PermissionsOf("posts")` to the permissions passed to `rbac.ForApp` |
+| `admin: New needs the app's roles and permissions` | `rbac.New` wasn't called before `admin.New` | Set up roles first (`make:admin` does) |
+| `rbac: unknown permission "admin.posts.view", in role "editor"` | A role in code names an admin permission the app's list lacks | Add `admin.PermissionsOf("posts")` to the permissions passed to `rbac.New` |
 | 403 on every admin page | The user lacks `admin.access` | `go run . rbac:assign <user-id> admin`, or a role with `admin.Access` |
 | A resource isn't in the menu | The user lacks its `view` permission | Give `admin.<name>.view` |
 | `admin: Users: auth.Users.Disabled doesn't report users whose disabled_at is set` | `Accounts.DisabledAt` names a column `auth` doesn't read | Add `Disabled` to the app's `auth.Users` |

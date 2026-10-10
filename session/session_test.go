@@ -36,7 +36,7 @@ type client struct {
 func newClient(t *testing.T, cfg Config) *client {
 	t.Helper()
 	k, _ := encryption.ParseKey(encryption.GenerateKey())
-	enc, _ := encryption.New(k)
+	enc, _ := encryption.NewEncrypter(k)
 	logs := &bytes.Buffer{}
 	opts := []Option{WithLogger(slog.New(slog.NewTextHandler(logs, nil)))}
 	if useStore {
@@ -257,7 +257,7 @@ func TestCSRFToken(t *testing.T) {
 			t.Error("old token accepted after RegenerateToken")
 		}
 	})
-	fresh := New()
+	fresh := NewSession()
 	if fresh.VerifyToken(tok) {
 		t.Error("session without a token accepted one")
 	}
@@ -389,7 +389,7 @@ func TestConfig(t *testing.T) {
 		t.Error("nil encrypter accepted")
 	}
 	k, _ := encryption.ParseKey(encryption.GenerateKey())
-	enc, _ := encryption.New(k)
+	enc, _ := encryption.NewEncrypter(k)
 	for _, cfg := range []Config{
 		func() Config { c := DefaultConfig(); c.Cookie = "__Host-s"; c.Domain = "example.com"; return c }(),
 		func() Config { c := DefaultConfig(); c.Cookie = "__Host-s"; c.Secure = &no; return c }(),
@@ -406,7 +406,7 @@ func TestConfig(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		m, err := ForApp(app)
+		m, err := New(app)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -415,12 +415,12 @@ func TestConfig(t *testing.T) {
 		}
 	}
 	app, _ := anetos.New(anetos.WithSource(config.Map{"APP_ENV": "development", "APP_KEY": key, "SESSION_SECURE": "true", "SESSION_SAME_SITE": "strict"}))
-	m, err := ForApp(app)
+	m, err := New(app)
 	if err != nil || !m.secure || m.sameSite != http.SameSiteStrictMode {
 		t.Errorf("explicit settings: %v %v %v", m.secure, m.sameSite, err)
 	}
 	app, _ = anetos.New(anetos.WithSource(config.Map{}))
-	if _, err := ForApp(app); err == nil || !strings.Contains(err.Error(), "APP_KEY") {
+	if _, err := New(app); err == nil || !strings.Contains(err.Error(), "APP_KEY") {
 		t.Errorf("missing key: %v", err)
 	}
 }
@@ -487,7 +487,7 @@ func TestHeadersAndCookieName(t *testing.T) {
 		func() Config { c := DefaultConfig(); c.Cookie = "__Secure-s"; return c }(),
 	} {
 		k, _ := encryption.ParseKey(encryption.GenerateKey())
-		enc, _ := encryption.New(k)
+		enc, _ := encryption.NewEncrypter(k)
 		m, err := NewManager(cfg, enc)
 		if err != nil {
 			t.Fatal(err)

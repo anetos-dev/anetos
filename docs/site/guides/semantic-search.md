@@ -22,7 +22,7 @@ a help center whose assistant searches its articles.
 
 ## Before you start
 
-- [Add AI to your app](ai.md): `ai.ForApp`, and a provider with an
+- [Add AI to your app](ai.md): `ai.New`, and a provider with an
   embedding model (OpenAI, Gemini, or an OpenAI-compatible server).
   Anthropic has none: use another provider for the embeddings.
 - A database that stores vectors: SQLite, PostgreSQL with
@@ -43,7 +43,7 @@ AI_EMBEDDING_PROVIDER=openai                # when AI_PROVIDER has no embeddings
 OPENAI_API_KEY=…
 ```
 
-Pass the provider's driver to `ai.ForApp`, as for chat. Tests use the
+Pass the provider's driver to `ai.New`, as for chat. Tests use the
 fake, which embeds without a model.
 
 ### 2. Add an embeddings table
@@ -97,8 +97,8 @@ var articleEmbeddings = ai.EmbeddingsConfig[Article]{
 
 (Copied from [`examples/assistant/agent.go`](../../../examples/assistant/agent.go), region `embeddings`.)
 
-`ai.EmbeddingsFor(app, articleEmbeddings)`, at setup after `ai.ForApp`
-(and `queue.ForApp`), returns the `*ai.Embeddings[Article]` that keeps
+`ai.EmbeddingsFor(app, articleEmbeddings)`, at setup after `ai.New`
+(and `queue.New`), returns the `*ai.Embeddings[Article]` that keeps
 and searches them. `FixedSize: true` is for a model that makes one size
 of vector: the size isn't asked for, only checked. `Scope` limits every
 search to what the user may see:
@@ -294,7 +294,7 @@ size needs a new migration (`DropEmbeddings`, then `CreateEmbeddings`).
 
 | Problem | Cause | Fix |
 |---|---|---|
-| `ai: the AI provider has no embeddings` | `AI_PROVIDER` is `anthropic`, and `AI_EMBEDDING_PROVIDER` isn't set | Set `AI_EMBEDDING_PROVIDER` and `AI_EMBEDDING_MODEL`, and pass its driver to `ai.ForApp` |
+| `ai: the AI provider has no embeddings` | `AI_PROVIDER` is `anthropic`, and `AI_EMBEDDING_PROVIDER` isn't set | Set `AI_EMBEDDING_PROVIDER` and `AI_EMBEDDING_MODEL`, and pass its driver to `ai.New` |
 | `the model made vectors of 768 dimensions, not the 1536 asked for` | The model can't shorten its vectors to the table's size | Choose a model that can, or recreate the table with its size and set `FixedSize` |
 | The provider refuses `dimensions` | The model makes one size (`text-embedding-ada-002`, models of compatible servers) | `FixedSize: true`, with `Dimensions` its size |
 | `permission denied to create extension "vector"` | pgvector isn't a trusted extension | Have a superuser run `CREATE EXTENSION vector` |

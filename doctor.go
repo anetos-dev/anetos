@@ -53,8 +53,8 @@ type Finding struct {
 }
 
 // Check is a check of the app's settings that the doctor command runs
-// (v0.3). Features add theirs when they are set up (session.ForApp
-// checks SESSION_SECURE, migrate.ForApp checks for pending migrations);
+// (v0.3). Features add theirs when they are set up (session.New
+// checks SESSION_SECURE, migrate.New checks for pending migrations);
 // an app or plugin can add its own with [App.AddCheck].
 type Check struct {
 	// Name says what it checks, as doctor prints it: "app", "db",

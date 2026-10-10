@@ -123,7 +123,7 @@ with a message on the login page.
 ```go
 // Providers with SOCIAL_<NAME>_CLIENT_ID and _CLIENT_SECRET set; their
 // callbacks are APP_URL/auth/<name>/callback.
-s, err := social.ForApp(app, a, findOrCreate, social.Configured(app, social.Google(), social.GitHub()))
+s, err := social.New(app, a, findOrCreate, social.Configured(app, social.Google(), social.GitHub()))
 if err != nil {
 	return nil, err
 }
@@ -219,7 +219,7 @@ up to 10 more seconds.
 `anetostest.FakeSocial` runs a stand-in OpenID Connect provider on a
 local TLS server and hands it to the app (through an internal hook,
 honored only with `APP_ENV=testing`) before `setup` runs:
-`social.ForApp` then points every provider at it (keeping their names,
+`social.New` then points every provider at it (keeping their names,
 titles and scopes), and `social.Configured` keeps every provider. The
 flow is the real one, state, PKCE and ID token checks included, with
 one difference: every provider signs in as an OpenID Connect provider,

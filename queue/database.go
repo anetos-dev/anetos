@@ -44,12 +44,12 @@ func NewDatabaseStore(d *db.DB, table, failedTable string) *DatabaseStore {
 
 // DatabaseDriver is the database store's driver (QUEUE_DRIVER=database),
 // in the tables QUEUE_TABLE and QUEUE_FAILED_TABLE. It uses the app's
-// database: call db.Connect before queue.ForApp.
+// database: call db.Connect before queue.New.
 func DatabaseDriver() Driver {
 	return Driver{Name: "database", Open: func(app *anetos.App, cfg Config) (Store, error) {
 		d, err := anetos.Resolve[*db.DB](app)
 		if err != nil {
-			return nil, errors.New("the database driver needs the app's database: call db.Connect before queue.ForApp")
+			return nil, errors.New("the database driver needs the app's database: call db.Connect before queue.New")
 		}
 		return NewDatabaseStore(d, cfg.Table, cfg.FailedTable), nil
 	}}
@@ -58,9 +58,9 @@ func DatabaseDriver() Driver {
 // Migrations returns the migration creating the database driver's tables
 // (default "jobs" and "failed_jobs"; pass the QUEUE_TABLE and
 // QUEUE_FAILED_TABLE values if you set them) with [CreateTables]. Pass it
-// to migrate.ForApp with the app's own:
+// to migrate.New with the app's own:
 //
-//	migrate.ForApp(app, []*migrate.Set{migrations.All, queue.Migrations("", "")})
+//	migrate.New(app, []*migrate.Set{migrations.All, queue.Migrations("", "")})
 func Migrations(table, failedTable string) *migrate.Set {
 	if table == "" {
 		table = "jobs"

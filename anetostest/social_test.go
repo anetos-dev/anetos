@@ -37,14 +37,14 @@ func (c *club) setup(app *anetos.App) (*web.Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	sessions, err := session.ForApp(app)
+	sessions, err := session.New(app)
 	if err != nil {
 		return nil, err
 	}
-	if _, err := cache.ForApp(app); err != nil { // login throttling
+	if _, err := cache.New(app); err != nil { // login throttling
 		return nil, err
 	}
-	a, err := auth.ForApp(app, auth.Users[*member]{
+	a, err := auth.New(app, auth.Users[*member]{
 		ByID: func(_ context.Context, id string) (*member, error) {
 			c.mu.Lock()
 			defer c.mu.Unlock()
@@ -58,7 +58,7 @@ func (c *club) setup(app *anetos.App) (*web.Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	s, err := social.ForApp(app, a, func(_ context.Context, p social.Profile) (*member, error) {
+	s, err := social.New(app, a, func(_ context.Context, p social.Profile) (*member, error) {
 		c.mu.Lock()
 		defer c.mu.Unlock()
 		c.profiles = append(c.profiles, p)

@@ -35,11 +35,11 @@ func opsApp(t *testing.T, ran chan<- string, hold <-chan struct{}, env ...string
 		vars[env[i]] = env[i+1]
 	}
 	return anetostest.New(t, setupWith(func(p *Panel) error {
-		q, err := queue.ForApp(p.app)
+		q, err := queue.New(p.app)
 		if err != nil {
 			return err
 		}
-		s, err := schedule.ForApp(p.app)
+		s, err := schedule.New(p.app)
 		if err != nil {
 			return err
 		}

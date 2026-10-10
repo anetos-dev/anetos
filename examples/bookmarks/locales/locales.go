@@ -9,7 +9,7 @@ package locales
 
 import "embed"
 
-// FS holds the catalogs, for i18n.ForApp.
+// FS holds the catalogs, for i18n.New.
 //
 //go:embed *
 var FS embed.FS

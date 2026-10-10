@@ -64,6 +64,22 @@ All notable changes to this project are documented here. The format follows
   D300).
 
 ### Changed
+- Services are built from the app's settings by their package's `New`:
+  `cache.New(app)`, `queue.New(app)`, `session.New(app)`… (16 packages)
+  instead of `ForApp`; `openapi.ForApp` is `openapi.Register`;
+  `db.Connect` and `redis.Connect` keep their names (M8b-1, D310). The
+  constructors from explicit parts that were called `New` are renamed:
+  `cache.NewWithStore`, `queue.NewWithStore`, `pubsub.NewWithBroker`,
+  `mailer.NewWithTransport`, `storage.NewWithDisks`,
+  `ai.NewWithProvider`, `events.NewBus`, `schedule.NewScheduler`,
+  `i18n.NewTranslator`, `rbac.NewRegistry`, `encryption.NewEncrypter`,
+  `auth.NewWithConfig`, `social.NewWithConfig`, `session.NewSession`.
+  See the [upgrade guide](docs/site/upgrade/v0.5.md).
+- A second `New` (or `db.Connect`, `admin.New`) for one app returns an
+  error in every package; cache, queue, pub/sub and migrate used to open
+  a second store first, and sessions, social sign-in and the database
+  replaced the first silently. `encryption.New(app)` returns the same
+  encrypter each time (M8b-1, D310).
 - From v0.5, an identifier renamed or removed is kept one minor release,
   marked `// Deprecated:` (with `//go:fix inline` where it can be, so
   `go fix ./...` rewrites your calls), then removed; the rule used to
@@ -89,7 +105,14 @@ All notable changes to this project are documented here. The format follows
   `plugins/postmark` works with Anetos v0.5 too (`Requires`:
   `>= v0.2.0, < v0.6.0`) (after v0.4.0).
 
+### Deprecated
+- `ForApp` in every package (`cache.ForApp`… `openapi.ForApp`): use
+  `New` (`openapi.Register`); `go fix ./...` rewrites the calls, except
+  `auth.ForApp` and `social.ForApp`. Removed in v0.6 (M8b-1).
+
 ### Fixed
+- `social.New` without a configured provider returned a service without a
+  logger (M8b-1).
 - `events.Bus.Close`, when its context ends with listeners still
   running, counts those it cancels before canceling them: a listener
   that returned at once was missed, and the error (and the shutdown

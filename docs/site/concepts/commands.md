@@ -34,17 +34,17 @@ code that wires the part they belong to:
 |---|---|
 | `run [--only=role,…]` (the default), `help` | Every app |
 | `serve`, `routes:list` | `web.NewServer` |
-| `openapi` | `openapi.ForApp` ([Describe an API with OpenAPI](../guides/openapi.md)) |
-| `migrate`, `migrate:rollback`, `migrate:reset`, `migrate:fresh`, `migrate:status`, `db:seed`, `search:reindex` | `migrate.ForApp` ([Migrations](../guides/migrations.md), [Search](../guides/search.md)) |
-| `cache:clear` | `cache.ForApp` ([Cache values](../guides/cache.md)) |
-| `queue:failed`, `queue:retry`, `queue:forget`, `queue:flush`, `queue:clear` | `queue.ForApp` ([Queues](../guides/queues.md)) |
-| `pubsub:publish` | `pubsub.ForApp` ([Pub/sub listeners](../guides/pubsub.md)) |
-| `schedule:list`, `schedule:run` | `schedule.ForApp` ([Scheduling](../guides/scheduling.md)) |
-| `rbac:roles`, `rbac:user`, `rbac:assign`, `rbac:unassign` | `rbac.ForApp` ([Roles and permissions](../guides/roles-and-permissions.md)) |
+| `openapi` | `openapi.Register` ([Describe an API with OpenAPI](../guides/openapi.md)) |
+| `migrate`, `migrate:rollback`, `migrate:reset`, `migrate:fresh`, `migrate:status`, `db:seed`, `search:reindex` | `migrate.New` ([Migrations](../guides/migrations.md), [Search](../guides/search.md)) |
+| `cache:clear` | `cache.New` ([Cache values](../guides/cache.md)) |
+| `queue:failed`, `queue:retry`, `queue:forget`, `queue:flush`, `queue:clear` | `queue.New` ([Queues](../guides/queues.md)) |
+| `pubsub:publish` | `pubsub.New` ([Pub/sub listeners](../guides/pubsub.md)) |
+| `schedule:list`, `schedule:run` | `schedule.New` ([Scheduling](../guides/scheduling.md)) |
+| `rbac:roles`, `rbac:user`, `rbac:assign`, `rbac:unassign` | `rbac.New` ([Roles and permissions](../guides/roles-and-permissions.md)) |
 | Your own | `app.Command` or `app.AddCommand` |
 
 So a binary only offers commands for what it actually set up: without
-`migrate.ForApp`, `./blog migrate` is an unknown command. Registering one
+`migrate.New`, `./blog migrate` is an unknown command. Registering one
 name twice is an error.
 
 ```go

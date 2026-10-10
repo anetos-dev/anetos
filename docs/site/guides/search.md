@@ -17,7 +17,7 @@ a notes app with a search box.
 ## Before you start
 
 You have an app with a database (`db.Connect`) and migrations
-(`migrate.ForApp`), as `anetos new` makes it. The columns to search hold
+(`migrate.New`), as `anetos new` makes it. The columns to search hold
 text.
 
 ## Steps

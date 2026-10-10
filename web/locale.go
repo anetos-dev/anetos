@@ -54,7 +54,7 @@ func localeFrom(ctx context.Context) *localeState {
 }
 
 // localize resolves each request's locale, when the app has a translator
-// (i18n.ForApp). With LOCALE_URL=prefix or subdomain, it takes the locale
+// (i18n.New). With LOCALE_URL=prefix or subdomain, it takes the locale
 // out of the URL, which decides it, and sends visitors asking for a page
 // without one to the locale they chose before (the cookie) or their
 // browser prefers. With none, ?locale= on a page switches, and the
@@ -303,11 +303,11 @@ var ErrUnsupportedLocale = &HTTPError{Status: http.StatusUnprocessableEntity, Me
 // shows at once. With LOCALE_URL=prefix or subdomain, send the visitor
 // to the page in that locale afterwards ([LocaleURL]). It returns
 // [ErrUnsupportedLocale] for a locale the app doesn't support, and an
-// error without a translator (i18n.ForApp).
+// error without a translator (i18n.New).
 func (c *Ctx) SetLocale(locale string) error {
 	st := localeFrom(c.ctx())
 	if st == nil {
-		return errors.New("web: SetLocale needs the app's translator (i18n.ForApp, before the server serves)")
+		return errors.New("web: SetLocale needs the app's translator (i18n.New, before the server serves)")
 	}
 	loc, ok := st.tr.Match(locale)
 	if !ok {
@@ -347,7 +347,7 @@ func (c *Ctx) ForgetLocale() {
 // subdomain (en.example.com for the default, which redirects to
 // example.com), and /about?locale=bn with none (which redirects to
 // /about). It returns "" for a context without a translator
-// (i18n.ForApp) or outside a request.
+// (i18n.New) or outside a request.
 func LocaleURL(ctx context.Context, locale string) string {
 	st := localeFrom(ctx)
 	if st == nil {

@@ -431,11 +431,21 @@ func TestTwoFactorAndRememberMe(t *testing.T) {
 	_ = a
 }
 
+// awayFromMidnight returns t, or a minute into the next UTC day when t is
+// within an hour of its end: the daily-cap tests run about 11 minutes of
+// fake time, and the cap counts per UTC day.
+func awayFromMidnight(t time.Time) time.Time {
+	if left := t.UTC().Truncate(24 * time.Hour).Add(24 * time.Hour).Sub(t); left < time.Hour {
+		return t.Add(left + time.Minute)
+	}
+	return t
+}
+
 // Wrong codes are capped at 50 a day, beyond AUTH_THROTTLE a minute.
 func TestTwoFactorDailyCap(t *testing.T) {
 	s := newStore(t)
 	_, b, app := newAppWith(t, s)
-	now := time.Now()
+	now := awayFromMidnight(time.Now())
 	app.SetClock(func() time.Time { return now })
 	login(b, "ada@example.com", "secret", false)
 	secret, _ := setUp(t, b, now)

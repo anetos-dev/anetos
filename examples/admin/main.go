@@ -107,24 +107,24 @@ func setup(app *anetos.App) (*web.Server, error) {
 		return nil, err
 	}
 	sets := []*migrate.Set{Migrations, auth.Migrations(), rbac.Migrations(), audit.Migrations()}
-	if _, err := migrate.ForApp(app, sets); err != nil {
+	if _, err := migrate.New(app, sets); err != nil {
 		return nil, err
 	}
-	if _, err := cache.ForApp(app); err != nil { // login throttling
+	if _, err := cache.New(app); err != nil { // login throttling
 		return nil, err
 	}
-	trail, err := audit.ForApp(app)
+	trail, err := audit.New(app)
 	if err != nil {
 		return nil, err
 	}
 	if err := audit.Track[Product](trail); err != nil {
 		return nil, err
 	}
-	a, err := auth.ForApp(app, users)
+	a, err := auth.New(app, users)
 	if err != nil {
 		return nil, err
 	}
-	if _, err := rbac.ForApp(app, permissions, roles...); err != nil {
+	if _, err := rbac.New(app, permissions, roles...); err != nil {
 		return nil, err
 	}
 	app.Command("seed", "Create an administrator (admin@example.com), an editor (editor@example.com) and support staff (support@example.com), password \"secret password\"",
@@ -139,7 +139,7 @@ func setup(app *anetos.App) (*web.Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	sessions, err := session.ForApp(app)
+	sessions, err := session.New(app)
 	if err != nil {
 		return nil, err
 	}

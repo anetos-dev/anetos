@@ -12,7 +12,7 @@ what it needs.
 
 ```mermaid
 flowchart LR
-    C["code<br/>permissions (constants)<br/>roles"] --> R["Registry<br/>(rbac.ForApp)"]
+    C["code<br/>permissions (constants)<br/>roles"] --> R["Registry<br/>(rbac.New)"]
     D["database<br/>rbac_grants: user, scope, role or permission<br/>rbac_roles: roles administrators add"] -->|"one query per user<br/>per unit of work"| G["the user's grants"]
     R --> G
     T["API token's abilities"] -->|narrows| G
@@ -22,7 +22,7 @@ flowchart LR
 ## Permissions in code, grants in the database
 
 Permissions are what the code checks, so they live in the code: typed
-constants, declared once and passed to `rbac.ForApp`. A misspelled
+constants, declared once and passed to `rbac.New`. A misspelled
 constant doesn't compile, and checking a permission that isn't declared
 (a string, say) is reported as a bug (an error, a 500), never as a quiet
 "no".

@@ -13,7 +13,7 @@ import (
 // SessionDriver keeps sessions in Redis (SESSION_DRIVER=redis), on the
 // app's client from [Connect]:
 //
-//	sessions, err := session.ForApp(app, redis.SessionDriver())
+//	sessions, err := session.New(app, redis.SessionDriver())
 func SessionDriver() session.Driver {
 	return session.Driver{Name: "redis", Open: func(app *anetos.App, _ session.Config) (cache.Store, error) {
 		client, err := Connect(context.Background(), app)

@@ -21,7 +21,7 @@ Read by `anetos.New` into `anetos.AppConfig`.
 | `APP_KEY` | `base64:…` (32 bytes) | empty | Encrypts and authenticates session cookies. Required by sessions, which fail at startup without it. Generate one with `go tool anetos key:generate`. Keep it secret | v0.1 |
 | `APP_PREVIOUS_KEYS` | list of keys | empty | Old keys that still decrypt, so `APP_KEY` can be rotated without logging everyone out | v0.1 |
 | `APP_TIMEZONE` | IANA time zone (`Asia/Dhaka`) | `UTC` | The app's zone: the process's local zone (so `time.Now`, logs and formatting agree on every machine), the zone of `anetos.Now` and the default of `SCHEDULE_TIMEZONE`. Times are stored in UTC whatever it is. `Local` isn't allowed. See [Times and dates](../guides/times-and-dates.md) | v0.3 |
-| `APP_LOCALE` | locale (`en`, `bn`, `pt-BR`) | `en` | The default locale: of requests that ask for no supported one, and of code outside requests. Read by `i18n.ForApp` | v0.3 |
+| `APP_LOCALE` | locale (`en`, `bn`, `pt-BR`) | `en` | The default locale: of requests that ask for no supported one, and of code outside requests. Read by `i18n.New` | v0.3 |
 | `APP_FALLBACK_LOCALE` | locale | `en` | Where a locale's missing messages come from, after its parents (`bn-BD`, then `bn`); the framework's English messages come last | v0.3 |
 | `APP_LOCALES` | list of locales | `APP_LOCALE` and every locale with a catalog | The locales requests can ask for. `APP_LOCALE` must be one of them | v0.3 |
 | `LOCALE_URL` | `none` \| `prefix` \| `subdomain` | `none` | Where a request's locale is in its URL: nowhere (the `locale` cookie, the session, the signed-in user's preference, `Accept-Language`), a path prefix (`/bn/about`; the default locale has none), or a subdomain (`bn.example.com`; needs `APP_URL`). See [Translations](../guides/translations.md#4-choose-how-visitors-get-their-language) | v0.3 |
@@ -134,7 +134,7 @@ load balancer).
 
 ## Sessions
 
-Read by `session.ForApp` (or `session.LoadConfig`) into `session.Config`.
+Read by `session.New` (or `session.LoadConfig`) into `session.Config`.
 
 | Key | Type | Default | Description | Since |
 |---|---|---|---|---|
@@ -146,7 +146,7 @@ Read by `session.ForApp` (or `session.LoadConfig`) into `session.Config`.
 | `SESSION_PATH` | string | `/` | Cookie path | v0.1 |
 | `SESSION_SECURE` | bool | `true`, except `development` and `testing` | Send the cookie over HTTPS only | v0.1 |
 | `SESSION_SAME_SITE` | `lax` \| `strict` \| `none` | `lax` | Cookie SameSite mode; `none` requires `SESSION_SECURE=true` | v0.1 |
-| `SESSION_DRIVER` | `cookie` \| `database` \| a driver's name (`redis`) | `cookie` | Where sessions are kept: the encrypted cookie, or a server-side store (the cookie then holds the encrypted session ID); `redis` needs `redis.SessionDriver()` passed to `session.ForApp` | v0.2 |
+| `SESSION_DRIVER` | `cookie` \| `database` \| a driver's name (`redis`) | `cookie` | Where sessions are kept: the encrypted cookie, or a server-side store (the cookie then holds the encrypted session ID); `redis` needs `redis.SessionDriver()` passed to `session.New` | v0.2 |
 | `SESSION_TABLE` | string | `sessions` | The database driver's table; pass the same name to `session.Migrations` | v0.2 |
 | `SESSION_PREFIX` | string | `APP_NAME` + `:session:` | Starts the store keys of server-side sessions. `anetostest` sets one per test app | v0.2 |
 
@@ -177,8 +177,8 @@ keys with a prefix, e.g. `ANALYTICS_DB_HOST`) into `db.Config`.
 | `DB_LOG_QUERIES` | bool | on when `APP_ENV=development` | Log every query, with its arguments and duration, at debug level | v0.1 |
 | `DB_SLOW_QUERY` | duration | `500ms` | Log queries taking at least this long as warnings (without arguments). `0` disables | v0.1 |
 | `DB_REPEATED_QUERIES` | int | `5` when `APP_ENV` is `development` or `testing`, off elsewhere | Warn when a unit of work (a request, a job, a listener, a task) runs the same query this many times or more: an N+1. `0` disables; otherwise at least 2. See [Find N+1 queries](../guides/n-plus-one.md) | v0.2 |
-| `MIGRATE_ON_RUN` | bool | `false` | With `migrate.ForApp`: run the pending migrations when the app starts with `run` (the default command) or `serve`, before its components. For one instance on SQLite in a container; the `Dockerfile` of a SQLite project sets it | v0.3 |
-| `MIGRATE_READINESS` | bool | `true` | With `migrate.ForApp`: the server isn't ready (`/health/ready` answers 503, `health:check` exits 1) while the database has migrations the app hasn't run, rechecked every 5 seconds. Turn it off where the migrations run after the new version starts and the platform waits for it to be ready | v0.3 |
+| `MIGRATE_ON_RUN` | bool | `false` | With `migrate.New`: run the pending migrations when the app starts with `run` (the default command) or `serve`, before its components. For one instance on SQLite in a container; the `Dockerfile` of a SQLite project sets it | v0.3 |
+| `MIGRATE_READINESS` | bool | `true` | With `migrate.New`: the server isn't ready (`/health/ready` answers 503, `health:check` exits 1) while the database has migrations the app hasn't run, rechecked every 5 seconds. Turn it off where the migrations run after the new version starts and the platform waits for it to be ready | v0.3 |
 | `DB_ALLOW_LOCAL_TIMEZONE` | bool | `false` | Accept a database session time zone other than UTC (set in `DB_URL`), which the app otherwise refuses at boot so the database never writes local times next to the app's UTC ones. For a legacy database whose times are local; the app still writes UTC | v0.3 |
 
 ### Search
@@ -211,22 +211,22 @@ Driver specifics:
 
 ## Cache
 
-Read by `cache.ForApp` (or `cache.LoadConfig`) into `cache.Config`.
+Read by `cache.New` (or `cache.LoadConfig`) into `cache.Config`.
 
 | Key | Type | Default | Description | Since |
 |---|---|---|---|---|
-| `CACHE_STORE` | `memory` \| `database` \| a driver's name (`redis`) | `memory` | Selects the store; `redis` needs `redis.CacheDriver()` passed to `cache.ForApp` | v0.2 |
+| `CACHE_STORE` | `memory` \| `database` \| a driver's name (`redis`) | `memory` | Selects the store; `redis` needs `redis.CacheDriver()` passed to `cache.New` | v0.2 |
 | `CACHE_PREFIX` | string | `APP_NAME` + `:cache:` | Starts every key, so apps (and other features in Redis) can share a store; `cache:clear` removes only these keys. `anetostest` sets one per test app | v0.2 |
 | `CACHE_TABLE` | string | `cache` | The database store's table; pass the same name to `cache.Migrations` | v0.2 |
 
 ## Queue
 
-Read by `queue.ForApp` (or `queue.LoadConfig`) into `queue.Config`. See
+Read by `queue.New` (or `queue.LoadConfig`) into `queue.Config`. See
 [Queues](../guides/queues.md).
 
 | Key | Type | Default | Description | Since |
 |---|---|---|---|---|
-| `QUEUE_DRIVER` | `sync` \| `memory` \| `database` \| a driver's name (`redis`) | `sync` | Where jobs are kept; `sync` runs each job when it is dispatched. `redis` needs `redis.QueueDriver()` passed to `queue.ForApp` | v0.2 |
+| `QUEUE_DRIVER` | `sync` \| `memory` \| `database` \| a driver's name (`redis`) | `sync` | Where jobs are kept; `sync` runs each job when it is dispatched. `redis` needs `redis.QueueDriver()` passed to `queue.New` | v0.2 |
 | `QUEUE_DEFAULT` | queue name | `default` | The queue of jobs dispatched without `queue.OnQueue`, and of workers without `queue.Queues`. Lower-case letters, digits and `. _ : -`, up to 100 | v0.2 |
 | `QUEUE_TRIES` | int ≥ 1 | `3` | Attempts per job, unless its type sets `queue.Tries` | v0.2 |
 | `QUEUE_TIMEOUT` | duration | `1m` | How long an attempt may run, unless its type sets `queue.Timeout` | v0.2 |
@@ -238,12 +238,12 @@ Read by `queue.ForApp` (or `queue.LoadConfig`) into `queue.Config`. See
 
 ## Pub/sub
 
-Read by `pubsub.ForApp` (or `pubsub.LoadConfig`) into `pubsub.Config`,
+Read by `pubsub.New` (or `pubsub.LoadConfig`) into `pubsub.Config`,
 and by the drivers. See [Pub/sub listeners](../guides/pubsub.md).
 
 | Key | Type | Default | Description | Since |
 |---|---|---|---|---|
-| `PUBSUB_DRIVER` | `memory` \| a driver's name (`redis`, `gcp`) | `memory` | The broker; `redis` needs `redis.PubSubDriver()` and `gcp` needs `gcppubsub.Driver()` passed to `pubsub.ForApp` | v0.2 |
+| `PUBSUB_DRIVER` | `memory` \| a driver's name (`redis`, `gcp`) | `memory` | The broker; `redis` needs `redis.PubSubDriver()` and `gcp` needs `gcppubsub.Driver()` passed to `pubsub.New` | v0.2 |
 | `PUBSUB_PREFIX` | string | none | Starts topic names in the broker (Redis keys, Google IDs). Topics are shared with the other services using the broker, so leave it empty unless you need to separate them (or, in a Redis Cluster, need a hash tag: `{events}:`). `anetostest` sets one per test app | v0.2 |
 | `PUBSUB_REDIS_MAXLEN` | int ≥ 0 | `1000000` | About how many messages each Redis stream keeps; 0 for no limit | v0.2 |
 | `PUBSUB_GCP_PROJECT` | string | none (required with `gcp`) | The Google Cloud project's ID | v0.2 |
@@ -251,7 +251,7 @@ and by the drivers. See [Pub/sub listeners](../guides/pubsub.md).
 
 ## Scheduler
 
-Read by `schedule.ForApp` (or `schedule.LoadConfig`) into
+Read by `schedule.New` (or `schedule.LoadConfig`) into
 `schedule.Config`. See [Scheduling](../guides/scheduling.md).
 
 | Key | Type | Default | Description | Since |
@@ -260,12 +260,12 @@ Read by `schedule.ForApp` (or `schedule.LoadConfig`) into
 
 ## Mail
 
-Read by `mailer.ForApp` (or `mailer.LoadConfig`) into `mailer.Config`,
+Read by `mailer.New` (or `mailer.LoadConfig`) into `mailer.Config`,
 and by the drivers. See [Send email](../guides/mail.md).
 
 | Key | Type | Default | Description | Since |
 |---|---|---|---|---|
-| `MAIL_DRIVER` | `log` \| `smtp` \| `memory` \| a driver's name (`postmark`) | `log` | How emails are sent: `log` writes them to the app's log (a warning in production), `memory` keeps them (tests; `anetostest` sets it); `postmark` needs `postmark.Driver()` passed to `mailer.ForApp` | v0.2 |
+| `MAIL_DRIVER` | `log` \| `smtp` \| `memory` \| a driver's name (`postmark`) | `log` | How emails are sent: `log` writes them to the app's log (a warning in production), `memory` keeps them (tests; `anetostest` sets it); `postmark` needs `postmark.Driver()` passed to `mailer.New` | v0.2 |
 | `MAIL_FROM_ADDRESS` | email address | none | The sender of messages without one; sending fails without either | v0.2 |
 | `MAIL_FROM_NAME` | string | `APP_NAME` | The sender's name | v0.2 |
 | `MAIL_SMTP_URL` | URL | `smtp://127.0.0.1:1025` | The SMTP server: `smtp://user:pass@host:587` (STARTTLS, required unless the host is local) or `smtps://…:465` (TLS); parameters `tls=none`, `timeout` (default `30s`), `local_name`. See [SMTP settings](../guides/mail.md#smtp-settings) | v0.2 |
@@ -274,16 +274,16 @@ and by the drivers. See [Send email](../guides/mail.md).
 
 ## AI
 
-Read by `ai.ForApp` (or `ai.LoadConfig`) into `ai.Config`, and by the
+Read by `ai.New` (or `ai.LoadConfig`) into `ai.Config`, and by the
 drivers. See [Add AI to your app](../guides/ai.md).
 
 | Key | Type | Default | Description | Since |
 |---|---|---|---|---|
-| `AI_PROVIDER` | `anthropic` \| `openai` \| `openai-compatible` \| `gemini` \| `fake` \| another driver's name | none (required) | The provider that runs the models; its driver must be passed to `ai.ForApp` (`fake` is built in: it answers with scripted replies and never calls a model, a warning in production; `anetostest` sets it) | v0.3 |
+| `AI_PROVIDER` | `anthropic` \| `openai` \| `openai-compatible` \| `gemini` \| `fake` \| another driver's name | none (required) | The provider that runs the models; its driver must be passed to `ai.New` (`fake` is built in: it answers with scripted replies and never calls a model, a warning in production; `anetostest` sets it) | v0.3 |
 | `AI_MODEL` | string | none (required by the drivers) | The model calls use unless they set `ai.Model`, by the provider's name for it | v0.3 |
 | `AI_MAX_TOKENS` | int ≥ 1 | `4096` | The longest answer, in tokens, unless a call sets `ai.MaxTokens`; a longer one is cut off | v0.3 |
 | `AI_TIMEOUT` | duration > 0 | `10m` | How long each request to the model may take, unless a call sets `ai.Timeout`; for a stream, including the time the reader's loop takes | v0.3 |
-| `AI_EMBEDDING_PROVIDER` | a driver's name | `AI_PROVIDER` | The provider of embeddings (`ai.Embed`, `ai.Embeddings`), when `AI_PROVIDER`'s has none (`anthropic`): `openai`, `gemini`, `openai-compatible` or `fake`; its driver is passed to `ai.ForApp`, and reads its own settings. `anetostest` clears it | v0.3 |
+| `AI_EMBEDDING_PROVIDER` | a driver's name | `AI_PROVIDER` | The provider of embeddings (`ai.Embed`, `ai.Embeddings`), when `AI_PROVIDER`'s has none (`anthropic`): `openai`, `gemini`, `openai-compatible` or `fake`; its driver is passed to `ai.New`, and reads its own settings. `anetostest` clears it | v0.3 |
 | `AI_EMBEDDING_MODEL` | string | none; `fake-embedding` with the fake | The embedding model, by the provider's name for it (`text-embedding-3-small`, `gemini-embedding-001`); stored with each chunk, and searches use only its chunks. Required for embeddings, and with `AI_EMBEDDING_PROVIDER` | v0.3 |
 | `AI_QUEUE_TIMEOUT` | duration > 0 | `15m` | How long a queued reply (`conv.QueueReply`) may take, all its requests and tool calls. Also how long the queue's workers wait before taking back a job of any type whose worker died (the queue's lease is its longest job timeout) | v0.3 |
 | `ANTHROPIC_API_KEY` | secret | none (required with `anthropic`) | The Anthropic API key | v0.3 |
@@ -302,7 +302,7 @@ and compatible drivers don't.
 
 ## Storage
 
-Read by `storage.ForApp` (or `storage.LoadConfig`) into `storage.Config`
+Read by `storage.New` (or `storage.LoadConfig`) into `storage.Config`
 for each disk, and by the drivers. The default disk reads `STORAGE_*`; a
 disk named in `STORAGE_DISKS`, say `avatars`, reads `STORAGE_AVATARS_*`
 (`STORAGE_AVATARS_DRIVER`, `STORAGE_AVATARS_S3_BUCKET`, …). See
@@ -311,7 +311,7 @@ disk named in `STORAGE_DISKS`, say `avatars`, reads `STORAGE_AVATARS_*`
 | Key | Type | Default | Description | Since |
 |---|---|---|---|---|
 | `STORAGE_DISKS` | comma-separated names | none | More disks: lower-case letters, digits and `_`, starting with a letter | v0.2 |
-| `STORAGE_DRIVER` | `local` \| `memory` \| a driver's name (`s3`, `gcs`) | `local` | Where the disk's files are; `s3` needs `s3.Driver()` passed to `storage.ForApp`, `gcs` `gcs.Driver()`. Named disks default to the default disk's | v0.2 |
+| `STORAGE_DRIVER` | `local` \| `memory` \| a driver's name (`s3`, `gcs`) | `local` | Where the disk's files are; `s3` needs `s3.Driver()` passed to `storage.New`, `gcs` `gcs.Driver()`. Named disks default to the default disk's | v0.2 |
 | `STORAGE_ROOT` | directory | `storage/app` (`storage/<name>` for a named disk) | The local driver's directory | v0.2 |
 | `STORAGE_URL` | URL | none | Where the disk's files are served: a CDN, a public bucket, or the route of the disk's handler. Needed for `URL`, and for `TemporaryURL` on local disks | v0.2 |
 | `STORAGE_PUBLIC` | bool | `false` | Anyone may read the files at `STORAGE_URL`, so `URL` works; otherwise only signed temporary URLs do | v0.2 |
@@ -343,7 +343,7 @@ boot it fail fast when Redis is unreachable.
 
 ## Authentication
 
-Read by `auth.ForApp` (or `auth.LoadConfig`) into `auth.Config`.
+Read by `auth.New` (or `auth.LoadConfig`) into `auth.Config`.
 
 | Key | Type | Default | Description | Since |
 |---|---|---|---|---|
@@ -367,7 +367,7 @@ session cookie; a Secure one is named `__Host-anetos_remember`.
 
 ## Audit log
 
-Read by `audit.ForApp` into `audit.Config`. See
+Read by `audit.New` into `audit.Config`. See
 [Keep an audit log](../guides/audit-log.md).
 
 | Key | Type | Default | Description | Since |
@@ -393,7 +393,7 @@ See [Add an admin panel](../guides/admin.md).
 
 ## Social login
 
-Read by `social.ForApp` and `social.Configured`, for each provider name
+Read by `social.New` and `social.Configured`, for each provider name
 (`GOOGLE`, `GITHUB`, or the upper-cased name given to `social.OIDC`, with
 `-` as `_`).
 

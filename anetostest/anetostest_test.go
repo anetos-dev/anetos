@@ -36,7 +36,7 @@ func setup(app *anetos.App) (*web.Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	sessions, err := session.ForApp(app)
+	sessions, err := session.New(app)
 	if err != nil {
 		return nil, err
 	}
@@ -345,7 +345,7 @@ func TestHalfSwitchedDatabase(t *testing.T) {
 func TestCachePrefix(t *testing.T) {
 	var stores []*cache.Cache
 	withCache := func(app *anetos.App) (*web.Server, error) {
-		c, err := cache.ForApp(app)
+		c, err := cache.New(app)
 		stores = append(stores, c)
 		return nil, err
 	}

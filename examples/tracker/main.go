@@ -67,7 +67,7 @@ func main() {
 // storage, the scheduler, the web server, the routes and the plugins.
 func setup(app *anetos.App) (*web.Server, error) {
 	// Translations: locales/<locale>/*.yaml; APP_LOCALE, LOCALE_URL.
-	if _, err := i18n.ForApp(app, locales.FS); err != nil {
+	if _, err := i18n.New(app, locales.FS); err != nil {
 		return nil, err
 	}
 	// DB_CONNECTION picks one: the tracker runs on SQLite (the default),
@@ -79,22 +79,22 @@ func setup(app *anetos.App) (*web.Server, error) {
 	// SESSION_DRIVER=database and QUEUE_DRIVER=database; the audit log
 	// keeps the history of projects and issues.
 	sets := []*migrate.Set{migrations.All, cache.Migrations(""), session.Migrations(""), queue.Migrations("", ""), audit.Migrations()}
-	if _, err := migrate.ForApp(app, sets, migrate.WithSeeders(migrations.Seeders...)); err != nil {
+	if _, err := migrate.New(app, sets, migrate.WithSeeders(migrations.Seeders...)); err != nil {
 		return nil, err
 	}
-	if _, err := cache.ForApp(app); err != nil {
+	if _, err := cache.New(app); err != nil {
 		return nil, err
 	}
 	// The audit log: every change to an issue, with who made it; the
 	// issue's page shows its history, the admin all of it.
-	trail, err := audit.ForApp(app)
+	trail, err := audit.New(app)
 	if err != nil {
 		return nil, err
 	}
 	if err := audit.Track[models.Issue](trail); err != nil {
 		return nil, err
 	}
-	q, err := queue.ForApp(app)
+	q, err := queue.New(app)
 	if err != nil {
 		return nil, err
 	}
@@ -110,19 +110,19 @@ func setup(app *anetos.App) (*web.Server, error) {
 		return nil, err
 	}
 	// Events: events.On(bus, listener); after the queue, for OnQueued.
-	if _, err := events.ForApp(app); err != nil {
+	if _, err := events.New(app); err != nil {
 		return nil, err
 	}
 	// MAIL_DRIVER: log (development), smtp or memory; after the queue, for
 	// mailer.Queue.
-	if _, err := mailer.ForApp(app); err != nil {
+	if _, err := mailer.New(app); err != nil {
 		return nil, err
 	}
 	// STORAGE_DRIVER: local (the storage/app directory) or memory.
-	if _, err := storage.ForApp(app); err != nil {
+	if _, err := storage.New(app); err != nil {
 		return nil, err
 	}
-	s, err := schedule.ForApp(app)
+	s, err := schedule.New(app)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +133,7 @@ func setup(app *anetos.App) (*web.Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	sessions, err := session.ForApp(app)
+	sessions, err := session.New(app)
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +148,7 @@ func setup(app *anetos.App) (*web.Server, error) {
 	routes.Tracker(srv.Router(), sessions, a)
 	// region: openapi
 	// The API's description: `go run . openapi`, GET /api/openapi.json.
-	if err := openapi.ForApp(app, srv, routes.OpenAPI); err != nil {
+	if err := openapi.Register(app, srv, routes.OpenAPI); err != nil {
 		return nil, err
 	}
 	// endregion

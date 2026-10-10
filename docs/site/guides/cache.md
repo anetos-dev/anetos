@@ -28,12 +28,12 @@ caches its own copy, and locks only work within one process.
 
 ### 1. Set up the cache
 
-Call `cache.ForApp` while setting up the app, after `db.Connect`:
+Call `cache.New` while setting up the app, after `db.Connect`:
 
 ```go
 // CACHE_STORE (default memory) picks the store; database uses the
 // cache table from cache.Migrations.
-if _, err := cache.ForApp(app); err != nil {
+if _, err := cache.New(app); err != nil {
 	return nil, err
 }
 ```
@@ -47,7 +47,7 @@ command.
 For the database store, add the table's migration to the runner:
 
 ```go
-if _, err := migrate.ForApp(app, []*migrate.Set{Migrations, cache.Migrations("")}, migrate.WithSeeders(Seeders...)); err != nil {
+if _, err := migrate.New(app, []*migrate.Set{Migrations, cache.Migrations("")}, migrate.WithSeeders(Seeders...)); err != nil {
 	return nil, err
 }
 ```
@@ -65,7 +65,7 @@ go get anetos.dev/anetos/drivers/redis
 
 ```go
 // illustrative
-if _, err := cache.ForApp(app, redis.CacheDriver()); err != nil { // CACHE_STORE=redis, REDIS_URL
+if _, err := cache.New(app, redis.CacheDriver()); err != nil { // CACHE_STORE=redis, REDIS_URL
 	return nil, err
 }
 ```
@@ -247,18 +247,18 @@ as they are read (it logs a warning and recomputes them).
   app shares one client, made by `redis.Connect`, between the cache and
   other Redis features. See [Redis settings](../reference/configuration.md#redis).
 
-A cache made by hand with `cache.New(store, "")` has no prefix: its
+A cache made by hand with `cache.NewWithStore(store, "")` has no prefix: its
 `cache.Flush` empties the whole store, in Redis everything in the
-database, sessions and queues included. `cache.ForApp` always sets a
+database, sessions and queues included. `cache.New` always sets a
 prefix.
 
 ## Common problems
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `cache: no cache in context` | `cache.ForApp` wasn't called, or the context didn't come from the app | Call it in setup; in code outside the app, use `cache.WithCache(ctx, c)` |
-| `CACHE_STORE is "redis", but the drivers are [memory, database]` | The driver wasn't passed | `cache.ForApp(app, redis.CacheDriver())` |
-| `the database store needs the app's database` | `cache.ForApp` ran before `db.Connect` | Connect the database first |
+| `cache: no cache in context` | `cache.New` wasn't called, or the context didn't come from the app | Call it in setup; in code outside the app, use `cache.WithCache(ctx, c)` |
+| `CACHE_STORE is "redis", but the drivers are [memory, database]` | The driver wasn't passed | `cache.New(app, redis.CacheDriver())` |
+| `the database store needs the app's database` | `cache.New` ran before `db.Connect` | Connect the database first |
 | `no such table: cache` / `relation "cache" does not exist` | The migration didn't run | Add `cache.Migrations("")` to the runner and run `migrate` |
 | `holds something that isn't a …` | The cached value was stored as another type | `cache:clear`, or change the key when you change the type |
 | Instances see different values; a lock doesn't exclude other instances | The memory store is per process | Use the database or Redis store |

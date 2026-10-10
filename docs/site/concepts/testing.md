@@ -25,9 +25,9 @@ flowchart LR
 `anetostest.New(t, setup)` calls the same `setup` function `main` uses to
 connect the database and add the server and routes. It then boots the app
 (providers run; components such as the HTTP server and workers don't
-start), runs the migrations `migrate.ForApp` registered, and closes the app
-when the test ends. There is no test-only wiring: `session.ForApp` and
-`migrate.ForApp` provide their manager and runner to the app, and
+start), runs the migrations `migrate.New` registered, and closes the app
+when the test ends. There is no test-only wiring: `session.New` and
+`migrate.New` provide their manager and runner to the app, and
 `anetostest` finds them there.
 
 Settings come from these sources, highest priority first: `anetostest.Env`

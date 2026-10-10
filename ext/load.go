@@ -73,7 +73,7 @@ type registry struct{ plugins []Info }
 // fills its settings from the app's configuration, then adds its migrations, commands, jobs, routes,
 // scheduled tasks and listeners, and its Boot as a provider. Call it at
 // the end of setup, after the services the plugins use (web.NewServer,
-// migrate.ForApp, queue.ForApp, schedule.ForApp, events.ForApp), before
+// migrate.New, queue.New, schedule.New, events.New), before
 // the app boots:
 //
 //	if err := ext.Load(app, plugins()); err != nil { // plugins.go, from anetos add
@@ -205,7 +205,7 @@ func load(app *anetos.App, reg *registry, p Plugin, o options) (Info, error) {
 		}
 		r, err := anetos.Resolve[*migrate.Runner](app)
 		if err != nil {
-			return info, errors.New("it has migrations: call migrate.ForApp before ext.Load")
+			return info, errors.New("it has migrations: call migrate.New before ext.Load")
 		}
 		if err := r.Add(set); err != nil {
 			return info, err
@@ -226,7 +226,7 @@ func load(app *anetos.App, reg *registry, p Plugin, o options) (Info, error) {
 		info.Adds = append(info.Adds, "jobs")
 		q, err := anetos.Resolve[*queue.Queue](app)
 		if err != nil {
-			return info, errors.New("it has jobs: call queue.ForApp before ext.Load")
+			return info, errors.New("it has jobs: call queue.New before ext.Load")
 		}
 		if err := j.Jobs(q); err != nil {
 			return info, err
@@ -251,7 +251,7 @@ func load(app *anetos.App, reg *registry, p Plugin, o options) (Info, error) {
 		info.Adds = append(info.Adds, "schedule")
 		sched, err := anetos.Resolve[*schedule.Scheduler](app)
 		if err != nil {
-			return info, errors.New("it has scheduled tasks: call schedule.ForApp before ext.Load")
+			return info, errors.New("it has scheduled tasks: call schedule.New before ext.Load")
 		}
 		if err := s.Schedule(sched); err != nil {
 			return info, err
@@ -261,7 +261,7 @@ func load(app *anetos.App, reg *registry, p Plugin, o options) (Info, error) {
 		info.Adds = append(info.Adds, "listeners")
 		bus, err := anetos.Resolve[*events.Bus](app)
 		if err != nil {
-			return info, errors.New("it has listeners: call events.ForApp before ext.Load")
+			return info, errors.New("it has listeners: call events.New before ext.Load")
 		}
 		if err := l.Listen(bus); err != nil {
 			return info, err

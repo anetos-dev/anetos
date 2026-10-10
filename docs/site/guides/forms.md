@@ -24,7 +24,7 @@ Add `web.CSRF()` after the session middleware, and `web.MethodOverride`
 globally:
 
 ```go
-sessions, err := session.ForApp(app) // SESSION_* settings; needs APP_KEY
+sessions, err := session.New(app) // SESSION_* settings; needs APP_KEY
 if err != nil {
 	return nil, err
 }

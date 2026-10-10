@@ -29,7 +29,7 @@ var commandHelp = map[string][2]string{ // usage, description
 }
 
 // AppCommands returns the migration commands as commands of the app
-// binary. [ForApp] registers them, so `./app migrate` works with
+// binary. [New] registers them, so `./app migrate` works with
 // app.Execute.
 func (r *Runner) AppCommands() []cmd.Command {
 	out := make([]cmd.Command, 0, len(Commands))
@@ -73,7 +73,7 @@ func (r *Runner) AppCommands() []cmd.Command {
 // command doesn't take are errors (wrapping cmd.ErrUsage); -h prints a
 // command's flags.
 //
-// Apps using app.Execute don't need this: [ForApp] registers the commands
+// Apps using app.Execute don't need this: [New] registers the commands
 // (see [Runner.AppCommands]).
 func (r *Runner) Command(ctx context.Context, args []string, out io.Writer) (handled bool, err error) {
 	if len(args) == 0 {

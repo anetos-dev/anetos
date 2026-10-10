@@ -41,7 +41,7 @@ func TestTutorialProject(t *testing.T) {
 	anchors := map[string][]string{
 		"routes/auth.go":                  {`	members.Post("/confirm-password", web.H(h.ConfirmPassword))` + "\n"},
 		"views/layout.templ":              {"\t\t\t\t\t@navLink(\"home\", i18n.T(ctx, \"nav.home\"))\n", "\t\t\t\t}\n\t\t\t\t@AccountMenu()\n"},
-		"main.go":                         {"\tif _, err := events.ForApp(app); err != nil {\n\t\treturn nil, err\n\t}\n"},
+		"main.go":                         {"\tif _, err := events.New(app); err != nil {\n\t\treturn nil, err\n\t}\n"},
 		"database/factories/factories.go": {"package factories\n"},
 		"app/models/models_gen.go":        nil, // anetos gen's, for the new models
 	}

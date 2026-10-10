@@ -5,7 +5,7 @@
 // and webhooks that keep a list of the addresses Postmark stopped
 // sending to ([Plugin]).
 //
-//	m, err := mailer.ForApp(app, postmark.Driver())
+//	m, err := mailer.New(app, postmark.Driver())
 //
 // Settings: MAIL_DRIVER=postmark, MAIL_POSTMARK_TOKEN (a server API
 // token; POSTMARK_API_TEST checks requests without sending), and

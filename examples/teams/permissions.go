@@ -17,7 +17,7 @@ const (
 	ViewAllTeams   rbac.Permission = "teams.view-all" // support staff
 )
 
-// permissions are all of them, for rbac.ForApp.
+// permissions are all of them, for rbac.New.
 var permissions = []rbac.Permission{ViewProjects, CreateProjects, DeleteProjects, ManageMembers, DeleteTeams, ManageRoles, ViewAllTeams}
 
 // roles are the roles declared in code. Owners, members and guests are

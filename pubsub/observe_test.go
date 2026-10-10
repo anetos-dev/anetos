@@ -23,7 +23,7 @@ func (b *countingBroker) Publish(ctx context.Context, topic string, m pubsub.Out
 func TestObserveAndFake(t *testing.T) {
 	ctx := context.Background()
 	b := &countingBroker{MemoryBroker: pubsub.NewMemoryBroker()}
-	p := pubsub.New(b)
+	p := pubsub.NewWithBroker(b)
 	var seen []pubsub.Published
 	p.Observe(func(_ context.Context, m pubsub.Published) { seen = append(seen, m) })
 	check(t, p.Publish(ctx, "orders.created", map[string]int{"id": 1}, pubsub.Attributes(map[string]string{"v": "1"})))

@@ -137,7 +137,7 @@ are sorted as strings: start them with `YYYY_MM_DD_HHMMSS`.
 
 | API | Does |
 |---|---|
-| `migrate.ForApp(app, sets, opts...)` | Runner on the app's database, environment and logger; adds the migration commands, the `doctor` check, a readiness gate (the server's `/health/ready` answers 503 while migrations are pending, rechecked every 5 seconds; `MIGRATE_READINESS=false` turns it off) and, with `MIGRATE_ON_RUN=true`, migrating when the app starts with `run` or `serve` |
+| `migrate.New(app, sets, opts...)` | Runner on the app's database, environment and logger; adds the migration commands, the `doctor` check, a readiness gate (the server's `/health/ready` answers 503 while migrations are pending, rechecked every 5 seconds; `MIGRATE_READINESS=false` turns it off) and, with `MIGRATE_ON_RUN=true`, migrating when the app starts with `run` or `serve` |
 | `migrate.NewRunner(d, sets, opts...)` | Runner on any `*db.DB` |
 | `WithSeeders(...)`, `WithTable(name)`, `WithEnvironment(env)`, `WithLogger(l)` | Options; the default table is `migrations`, the default environment production |
 | `Up(ctx)` | Applies pending migrations as one batch; returns them |
@@ -147,11 +147,11 @@ are sorted as strings: start them with `YYYY_MM_DD_HHMMSS`.
 | `Status(ctx)` | Every migration: applied (batch, time), pending, or missing |
 | `Seed(ctx, names...)` | Runs seeders, each in a transaction |
 | `Command(ctx, args, out)` | The commands below, for programs without `app.Execute`; `handled` is false for other arguments |
-| `AppCommands()` | The commands below as app binary commands; `migrate.ForApp` registers them |
+| `AppCommands()` | The commands below as app binary commands; `migrate.New` registers them |
 
 ## Commands
 
-Registered on the app by `migrate.ForApp`, so the binary runs them
+Registered on the app by `migrate.New`, so the binary runs them
 (`./app migrate`). Bad flags exit with status 2.
 
 | Command | Flags | Production |

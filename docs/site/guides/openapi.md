@@ -19,7 +19,7 @@ date, and the app serves it for clients and tools.
   The document describes only those: a plain `func(c *web.Ctx) error`
   says nothing about what it reads or writes.
 - A project made with `anetos new --stack=api` has all of this already:
-  `routes.OpenAPI` in `routes/api.go`, `openapi.ForApp` in `main.go`,
+  `routes.OpenAPI` in `routes/api.go`, `openapi.Register` in `main.go`,
   `openapi.json` and its test. `make:auth` and `make:crud` update the
   file.
 
@@ -62,7 +62,7 @@ In `setup`, after the routes:
 
 ```go
 // The API's description: `go run . openapi`, GET /api/openapi.json.
-if err := openapi.ForApp(app, srv, routes.OpenAPI); err != nil {
+if err := openapi.Register(app, srv, routes.OpenAPI); err != nil {
 	return nil, err
 }
 ```

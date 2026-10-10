@@ -35,9 +35,9 @@ func TestPriceCost(t *testing.T) {
 func abs(f float64) float64 { return max(f, -f) }
 
 func TestBudget(t *testing.T) {
-	ctx := cache.WithCache(context.Background(), cache.New(cache.NewMemoryStore(), "t:"))
+	ctx := cache.WithCache(context.Background(), cache.NewWithStore(cache.NewMemoryStore(), "t:"))
 	f := ai.NewFake(ai.FakeText("one two three four five six seven eight"), ai.FakeText("never"))
-	c := ai.New(f)
+	c := ai.NewWithProvider(f)
 	c.TrackUsage(ai.UsageConfig{Budget: func(_ context.Context, userID string) (ai.Budget, error) {
 		if userID == "broken" {
 			return ai.Budget{}, errors.New("plans unavailable")
@@ -89,7 +89,7 @@ func TestSSE(t *testing.T) {
 	r := web.NewRouter()
 	r.UseGlobal(web.Timeout(time.Minute))
 	r.Get("/answer", func(c *web.Ctx) error {
-		return ai.SSE(c, ai.Stream(ai.WithClient(c, ai.New(f)), "hi", ai.Tools(lookupTool)))
+		return ai.SSE(c, ai.Stream(ai.WithClient(c, ai.NewWithProvider(f)), "hi", ai.Tools(lookupTool)))
 	})
 	get := func() string {
 		t.Helper()
@@ -127,9 +127,9 @@ var lookupTool = ai.Func("lookup", "Look up an order", func(_ context.Context, i
 })
 
 func TestStoppedStreamCounts(t *testing.T) {
-	ctx := cache.WithCache(context.Background(), cache.New(cache.NewMemoryStore(), "t:"))
+	ctx := cache.WithCache(context.Background(), cache.NewWithStore(cache.NewMemoryStore(), "t:"))
 	f := ai.NewFake(ai.FakeText("one two three four five six seven eight"), ai.FakeText("never"))
-	c := ai.New(f)
+	c := ai.NewWithProvider(f)
 	c.TrackUsage(ai.UsageConfig{Budget: func(context.Context, string) (ai.Budget, error) {
 		return ai.Budget{Tokens: 20, Per: time.Hour}, nil
 	}})
@@ -159,7 +159,7 @@ func TestSSEKeepAlive(t *testing.T) {
 	f := ai.NewFake(ai.FakeToolCall("slow", struct{}{}), ai.FakeText("Finished."))
 	r := web.NewRouter()
 	r.Get("/answer", func(c *web.Ctx) error {
-		return ai.SSE(c, ai.Stream(ai.WithClient(c, ai.New(f)), "go", ai.Tools(slow)))
+		return ai.SSE(c, ai.Stream(ai.WithClient(c, ai.NewWithProvider(f)), "go", ai.Tools(slow)))
 	})
 	quiet(t)
 	w := httptest.NewRecorder()
@@ -185,8 +185,8 @@ func (p hangingProvider) Stream(ctx context.Context, req *ai.Request) iter.Seq2[
 }
 
 func TestInterruptedRequestCounts(t *testing.T) {
-	ctx := cache.WithCache(context.Background(), cache.New(cache.NewMemoryStore(), "t:"))
-	c := ai.New(hangingProvider{})
+	ctx := cache.WithCache(context.Background(), cache.NewWithStore(cache.NewMemoryStore(), "t:"))
+	c := ai.NewWithProvider(hangingProvider{})
 	c.TrackUsage(ai.UsageConfig{Budget: func(context.Context, string) (ai.Budget, error) {
 		return ai.Budget{Tokens: 20, Per: time.Hour}, nil
 	}})

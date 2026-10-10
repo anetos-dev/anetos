@@ -35,28 +35,28 @@ func newApp(t *testing.T, env config.Map, logs io.Writer) *anetos.App {
 	return app
 }
 
-func TestForApp(t *testing.T) {
+func TestAppNew(t *testing.T) {
 	for name, env := range map[string]config.Map{
 		"unknown driver":   {"MAIL_DRIVER": "carrier-pigeon"},
 		"bad from address": {"MAIL_FROM_ADDRESS": "Shop <shop@example.com>"},
 		"bad SMTP URL":     {"MAIL_DRIVER": "smtp", "MAIL_SMTP_URL": "http://x"},
 	} {
-		if _, err := mailer.ForApp(newApp(t, env, nil)); err == nil {
+		if _, err := mailer.New(newApp(t, env, nil)); err == nil {
 			t.Errorf("%s: no error", name)
 		}
 	}
 	// The hint names Postmark's driver only for postmark.
 	for drv, want := range map[string]string{"postmark": "pass postmark.Driver()", "postmrk": "check its spelling"} {
-		_, err := mailer.ForApp(newApp(t, config.Map{"MAIL_DRIVER": drv}, nil))
+		_, err := mailer.New(newApp(t, config.Map{"MAIL_DRIVER": drv}, nil))
 		if err == nil || !strings.Contains(err.Error(), want) || (drv != "postmark" && strings.Contains(err.Error(), "postmark.Driver")) {
 			t.Errorf("MAIL_DRIVER=%s: %v", drv, err)
 		}
 	}
 	app := newApp(t, config.Map{"MAIL_DRIVER": "memory", "MAIL_FROM_ADDRESS": "shop@example.com"}, nil)
-	m, err := mailer.ForApp(app)
+	m, err := mailer.New(app)
 	check(t, err)
-	if _, err := mailer.ForApp(app); err == nil {
-		t.Error("ForApp twice: no error")
+	if _, err := mailer.New(app); err == nil {
+		t.Error("New twice: no error")
 	}
 	if anetos.MustResolve[*mailer.Mailer](app) != m {
 		t.Error("the app doesn't provide the mailer")
@@ -69,7 +69,7 @@ func TestForApp(t *testing.T) {
 		t.Fatalf("sent %+v", sent)
 	}
 	// Queue needs the queue.
-	if err := mailer.Queue(ctx, welcome{"Ada", "ada@example.com"}); err == nil || !strings.Contains(err.Error(), "queue.ForApp") {
+	if err := mailer.Queue(ctx, welcome{"Ada", "ada@example.com"}); err == nil || !strings.Contains(err.Error(), "queue.New") {
 		t.Errorf("Queue without a queue = %v", err)
 	}
 	if err := mailer.Send(context.Background(), welcome{}); !errors.Is(err, mailer.ErrNoMailer) {
@@ -85,9 +85,9 @@ func TestQueue(t *testing.T) {
 	for _, driver := range []string{"sync", "memory"} {
 		t.Run(driver, func(t *testing.T) {
 			app := newApp(t, config.Map{"MAIL_DRIVER": "memory", "MAIL_FROM_ADDRESS": "shop@example.com", "QUEUE_DRIVER": driver}, nil)
-			q, err := queue.ForApp(app)
+			q, err := queue.New(app)
 			check(t, err)
-			m, err := mailer.ForApp(app)
+			m, err := mailer.New(app)
 			check(t, err)
 			ctx := app.Context(context.Background())
 			sentAt := date.Add(time.Hour)
@@ -130,12 +130,12 @@ type failing struct{ err error }
 
 func (f failing) Send(context.Context, *mailer.Outgoing) error { return f.err }
 
-// queue.ForApp may come after mailer.ForApp.
+// queue.New may come after mailer.New.
 func TestQueueAfterMailer(t *testing.T) {
 	app := newApp(t, config.Map{"MAIL_DRIVER": "memory", "MAIL_FROM_ADDRESS": "shop@example.com", "QUEUE_DRIVER": "sync"}, nil)
-	m, err := mailer.ForApp(app)
+	m, err := mailer.New(app)
 	check(t, err)
-	_, err = queue.ForApp(app)
+	_, err = queue.New(app)
 	check(t, err)
 	check(t, app.Boot(context.Background()))
 	check(t, mailer.Queue(app.Context(context.Background()), &mailer.Message{To: []mailer.Address{{Address: "a@example.com"}}, Subject: "S", Text: "x"}))
@@ -145,16 +145,16 @@ func TestQueueAfterMailer(t *testing.T) {
 }
 
 func TestSendErrors(t *testing.T) {
-	m := mailer.New(failing{queue.Permanent(errors.New("550 no"))}, mailer.DefaultFrom(mailer.Address{Address: "shop@example.com"}))
+	m := mailer.NewWithTransport(failing{queue.Permanent(errors.New("550 no"))}, mailer.DefaultFrom(mailer.Address{Address: "shop@example.com"}))
 	err := m.Send(context.Background(), &mailer.Message{To: []mailer.Address{{Address: "a@example.com"}}, Subject: "S", Text: "x"})
 	if err == nil || !queue.IsPermanent(err) || !strings.Contains(err.Error(), `"S" to a@example.com`) {
 		t.Errorf("err = %v", err)
 	}
 	// A queued email that fails for good is a failed job.
 	app := newApp(t, config.Map{"MAIL_DRIVER": "bad", "MAIL_FROM_ADDRESS": "shop@example.com", "QUEUE_DRIVER": "sync"}, nil)
-	_, err = queue.ForApp(app)
+	_, err = queue.New(app)
 	check(t, err)
-	_, err = mailer.ForApp(app, mailer.Driver{Name: "bad", Open: func(*anetos.App, mailer.Config) (mailer.Transport, error) {
+	_, err = mailer.New(app, mailer.Driver{Name: "bad", Open: func(*anetos.App, mailer.Config) (mailer.Transport, error) {
 		return failing{queue.Permanent(errors.New("550 no"))}, nil
 	}})
 	check(t, err)
@@ -164,17 +164,17 @@ func TestSendErrors(t *testing.T) {
 	}
 	// A driver that fails to open.
 	app = newApp(t, config.Map{"MAIL_DRIVER": "broken"}, nil)
-	if _, err := mailer.ForApp(app, mailer.Driver{Name: "broken", Open: func(*anetos.App, mailer.Config) (mailer.Transport, error) {
+	if _, err := mailer.New(app, mailer.Driver{Name: "broken", Open: func(*anetos.App, mailer.Config) (mailer.Transport, error) {
 		return nil, errors.New("no token")
 	}}); err == nil || !strings.Contains(err.Error(), "no token") {
-		t.Errorf("ForApp = %v", err)
+		t.Errorf("New = %v", err)
 	}
 }
 
 func TestLogTransport(t *testing.T) {
 	var logs bytes.Buffer
 	app := newApp(t, config.Map{"MAIL_FROM_ADDRESS": "shop@example.com"}, &logs) // MAIL_DRIVER defaults to log
-	_, err := mailer.ForApp(app)
+	_, err := mailer.New(app)
 	check(t, err)
 	check(t, mailer.Send(app.Context(context.Background()), &mailer.Message{To: []mailer.Address{{Address: "a@example.com"}},
 		Bcc: []mailer.Address{{Address: "b@example.com"}}, Subject: "Logged", HTML: html("<p>Your code is 1234</p>"),
@@ -188,7 +188,7 @@ func TestLogTransport(t *testing.T) {
 	// the log.
 	logs.Reset()
 	app = newApp(t, config.Map{"APP_ENV": "production", "MAIL_FROM_ADDRESS": "shop@example.com"}, &logs)
-	_, err = mailer.ForApp(app)
+	_, err = mailer.New(app)
 	check(t, err)
 	check(t, mailer.Send(app.Context(context.Background()), &mailer.Message{To: []mailer.Address{{Address: "a@example.com"}},
 		Subject: "Reset", HTML: html("<p>https://example.com/reset?token=secret</p>")}))
@@ -225,7 +225,7 @@ func TestPreview(t *testing.T) {
 
 func TestLogger(t *testing.T) {
 	var logs bytes.Buffer
-	m := mailer.New(mailer.NewMemoryTransport(), mailer.DefaultFrom(mailer.Address{Address: "shop@example.com"}),
+	m := mailer.NewWithTransport(mailer.NewMemoryTransport(), mailer.DefaultFrom(mailer.Address{Address: "shop@example.com"}),
 		mailer.WithLogger(slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug}))))
 	check(t, m.Send(context.Background(), &mailer.Message{To: []mailer.Address{{Address: "a@example.com"}}, Subject: "S", Text: "x"}))
 	if !strings.Contains(logs.String(), "mail sent") {

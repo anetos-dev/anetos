@@ -45,7 +45,7 @@ func hexVal(c rune) int {
 }
 
 func TestBackoff(t *testing.T) {
-	q := New(nil, Config{Backoff: time.Second, MaxBackoff: 5 * time.Second})
+	q := NewWithStore(nil, Config{Backoff: time.Second, MaxBackoff: 5 * time.Second})
 	near := func(got, want time.Duration) bool { return got >= want*8/10 && got <= want*12/10 }
 	for attempt, want := range map[int]time.Duration{1: time.Second, 2: 2 * time.Second, 3: 4 * time.Second, 4: 5 * time.Second, 60: 5 * time.Second} {
 		if got := q.backoff(nil, attempt); !near(got, want) {
@@ -58,7 +58,7 @@ func TestBackoff(t *testing.T) {
 			t.Errorf("Backoff list: backoff(%d) = %s, want about %s", attempt, got, want)
 		}
 	}
-	if d := New(nil, Config{}).Config(); d.Tries != 3 || d.Timeout != time.Minute || d.Backoff != 10*time.Second ||
+	if d := NewWithStore(nil, Config{}).Config(); d.Tries != 3 || d.Timeout != time.Minute || d.Backoff != 10*time.Second ||
 		d.MaxBackoff != 10*time.Minute || d.Default != "default" || d.Table != "jobs" || d.FailedTable != "failed_jobs" || d.Poll != time.Second {
 		t.Errorf("defaults = %+v", d)
 	}
@@ -81,7 +81,7 @@ func TestErrorText(t *testing.T) {
 }
 
 func TestLease(t *testing.T) {
-	q := New(nil, Config{Timeout: time.Minute})
+	q := NewWithStore(nil, Config{Timeout: time.Minute})
 	if got := q.lease(); got != time.Minute+leaseMargin {
 		t.Errorf("lease = %s", got)
 	}

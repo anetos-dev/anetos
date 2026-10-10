@@ -107,14 +107,14 @@ func TestTOTPReuseRace(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer app.Close()
-	if _, err := cache.ForApp(app); err != nil {
+	if _, err := cache.New(app); err != nil {
 		t.Fatal(err)
 	}
-	sessions, err := session.ForApp(app, session.Driver{Name: "mem", Open: func(*anetos.App, session.Config) (cache.Store, error) { return cache.NewMemoryStore(), nil }})
+	sessions, err := session.New(app, session.Driver{Name: "mem", Open: func(*anetos.App, session.Config) (cache.Store, error) { return cache.NewMemoryStore(), nil }})
 	if err != nil {
 		t.Fatal(err)
 	}
-	a, err := auth.ForApp(app, s.users())
+	a, err := auth.New(app, s.users())
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -21,8 +21,8 @@ const Forever time.Duration = 0
 const MaxKeyLen = 250
 
 // ErrNoCache is returned when the context has no cache: the app didn't
-// call [ForApp], or the context didn't come from the app.
-var ErrNoCache = errors.New("cache: no cache in context (call cache.ForApp while setting up the app, or use cache.WithCache)")
+// call [New], or the context didn't come from the app.
+var ErrNoCache = errors.New("cache: no cache in context (call cache.New while setting up the app, or use cache.WithCache)")
 
 // Store is a cache backend: memory, database, Redis. Keys arrive with the
 // cache's prefix. A ttl of [Forever] (0) means no expiry; expired items
@@ -60,7 +60,7 @@ type Store interface {
 }
 
 // Cache stores values of any type, encoded as JSON, in a [Store] under a
-// key prefix. Handlers reach it through their context: [ForApp] adds it
+// key prefix. Handlers reach it through their context: [New] adds it
 // to every context the app creates, and the package functions ([Get],
 // [Set], [Remember], …) find it there. A Cache is safe for concurrent use.
 type Cache struct {
@@ -79,9 +79,9 @@ type call struct {
 	gone bool // the computing caller's context ended
 }
 
-// New returns a Cache over store, with every key prefixed by prefix
+// NewWithStore returns a Cache over store, with every key prefixed by prefix
 // ("blog:").
-func New(store Store, prefix string) *Cache {
+func NewWithStore(store Store, prefix string) *Cache {
 	return &Cache{store: store, prefix: prefix, log: slog.Default(), flight: map[string]*call{}}
 }
 

@@ -73,7 +73,7 @@ func (a *App) record(o *options) {
 			q.Fake()
 		}
 	case o.fakeQueue:
-		a.t.Fatalf("anetostest: FakeQueue: the app has no queue (queue.ForApp in setup)")
+		a.t.Fatalf("anetostest: FakeQueue: the app has no queue (queue.New in setup)")
 	}
 	bus, err := anetos.Resolve[*events.Bus](app)
 	switch {
@@ -92,7 +92,7 @@ func (a *App) record(o *options) {
 			bus.Fake(o.fakedEvents...)
 		}
 	case o.fakeEvents:
-		a.t.Fatalf("anetostest: FakeEvents: the app has no event bus (events.ForApp in setup)")
+		a.t.Fatalf("anetostest: FakeEvents: the app has no event bus (events.New in setup)")
 	}
 	if d, err := anetos.Resolve[*db.DB](app); err == nil {
 		d.OnRepeatedQuery(func(_ context.Context, q db.RepeatedQuery) {
@@ -121,7 +121,7 @@ func (a *App) record(o *options) {
 			ps.Fake()
 		}
 	case o.fakePubSub:
-		a.t.Fatalf("anetostest: FakePubSub: the app has no pub/sub (pubsub.ForApp in setup)")
+		a.t.Fatalf("anetostest: FakePubSub: the app has no pub/sub (pubsub.New in setup)")
 	}
 }
 
@@ -189,7 +189,7 @@ func jobName[J queue.Job](a *App) string {
 	a.t.Helper()
 	q, err := anetos.Resolve[*queue.Queue](a.App)
 	if err != nil {
-		a.t.Fatalf("anetostest: the app has no queue (queue.ForApp in setup)")
+		a.t.Fatalf("anetostest: the app has no queue (queue.New in setup)")
 	}
 	if reflect.TypeFor[J]().Kind() == reflect.Interface {
 		a.t.Fatalf("anetostest: %s is an interface: name a job type, such as ChargeOrder", reflect.TypeFor[J]())

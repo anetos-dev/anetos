@@ -17,7 +17,7 @@ import (
 )
 
 // Permission is something a user may do: "projects.create". Declare the
-// app's permissions as constants and pass them all to [ForApp]; checking
+// app's permissions as constants and pass them all to [New]; checking
 // one that isn't declared is a bug, reported as an error.
 //
 // A permission's name is also the API token ability that allows it (see
@@ -26,7 +26,7 @@ import (
 type Permission string
 
 // Role is a named set of permissions. The app's roles are declared in
-// code and passed to [ForApp]; administrators can add roles of their own
+// code and passed to [New]; administrators can add roles of their own
 // in the database with [CreateRole].
 type Role struct {
 	// Name identifies the role: "owner", "billing-manager". Lowercase
@@ -114,7 +114,7 @@ func (s Scope) check() error {
 }
 
 // Registry holds the app's permissions and the roles declared in code.
-// Create it with [ForApp] or [New]; it is safe for concurrent use.
+// Create it with [New] or [NewRegistry]; it is safe for concurrent use.
 type Registry struct {
 	perms  []Permission
 	known  map[Permission]bool
@@ -123,9 +123,9 @@ type Registry struct {
 	log    *slog.Logger
 }
 
-// New returns a registry of the permissions and roles. It checks them:
+// NewRegistry returns a registry of the permissions and roles. It checks them:
 // valid and unique names, roles built from the permissions.
-func New(permissions []Permission, roles ...Role) (*Registry, error) {
+func NewRegistry(permissions []Permission, roles ...Role) (*Registry, error) {
 	r := &Registry{known: map[Permission]bool{}, byName: map[string]*Role{}, log: slog.Default()}
 	for _, p := range permissions {
 		if !nameRe.MatchString(string(p)) {
@@ -177,17 +177,17 @@ func (r *Registry) checkRole(role Role) error {
 	return nil
 }
 
-// ForApp returns a registry of the permissions and roles ([New]) and
+// New returns a registry of the permissions and roles ([NewRegistry]) and
 // provides it to the app: the package's functions find it in the
 // context. It caches each user's grants for the length of a unit of work
 // (anetos.App.AroundUnits), and adds the rbac:roles, rbac:user,
 // rbac:assign and rbac:unassign commands. The tables come from
 // [Migrations].
-func ForApp(app *anetos.App, permissions []Permission, roles ...Role) (*Registry, error) {
+func New(app *anetos.App, permissions []Permission, roles ...Role) (*Registry, error) {
 	if _, ok := anetos.Lookup[*Registry](app); ok {
-		return nil, errors.New("rbac: ForApp called twice for one app")
+		return nil, errors.New("rbac: New called twice for one app")
 	}
-	r, err := New(permissions, roles...)
+	r, err := NewRegistry(permissions, roles...)
 	if err != nil {
 		return nil, err
 	}
@@ -208,15 +208,24 @@ func ForApp(app *anetos.App, permissions []Permission, roles ...Role) (*Registry
 	return r, nil
 }
 
+// ForApp is [New].
+//
+// Deprecated: Use New; ForApp is removed in v0.6.
+//
+//go:fix inline
+func ForApp(app *anetos.App, permissions []Permission, roles ...Role) (*Registry, error) {
+	return New(app, permissions, roles...)
+}
+
 type registryKey struct{}
 
 // WithRegistry returns ctx carrying r, for code that uses a registry
-// made with [New] instead of [ForApp].
+// made with [NewRegistry] instead of [New].
 func WithRegistry(ctx context.Context, r *Registry) context.Context {
 	return context.WithValue(ctx, registryKey{}, r)
 }
 
-// From returns the registry in ctx ([ForApp], [WithRegistry]), or
+// From returns the registry in ctx ([New], [WithRegistry]), or
 // [ErrNoRegistry].
 func From(ctx context.Context) (*Registry, error) {
 	if r, ok := ctx.Value(registryKey{}).(*Registry); ok {
@@ -276,14 +285,14 @@ func (r *Registry) Role(name string) (Role, bool) {
 // undeclared is the error of a check of a permission that isn't declared:
 // a bug in the app (500), not the client's.
 func undeclared(p Permission) error {
-	return fmt.Errorf("rbac: permission %q isn't declared: pass it to rbac.ForApp", p)
+	return fmt.Errorf("rbac: permission %q isn't declared: pass it to rbac.New", p)
 }
 
 // Errors. Those with a status can be returned by a handler as they are.
 var (
 	// ErrNoRegistry is returned when the context has no registry: call
-	// [ForApp] in the app's setup.
-	ErrNoRegistry = errors.New("rbac: no permissions in the context: call rbac.ForApp")
+	// [New] in the app's setup.
+	ErrNoRegistry = errors.New("rbac: no permissions in the context: call rbac.New")
 	// ErrUnknownRole is returned for a role that's neither declared nor
 	// in the database (422).
 	ErrUnknownRole error = &statusError{"rbac: unknown role", http.StatusUnprocessableEntity}

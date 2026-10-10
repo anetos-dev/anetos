@@ -26,7 +26,7 @@ flowchart LR
 
 A **set** (`migrate.NewSet("app")`) is a named list of migrations. Your
 app has one; a plugin that ships tables has its own, named after it.
-There is no global registry: `migrate.ForApp` receives the sets
+There is no global registry: `migrate.New` receives the sets
 explicitly, and two sets with the same name are an error.
 
 Each migration is added under an explicit **ID**, such as
@@ -114,9 +114,9 @@ doesn't need `--force`. `migrate:fresh` drops every table and view, so it runs
 only in development and testing, with no override. A runner built with
 `migrate.NewRunner` and no `WithEnvironment` option assumes production.
 
-## How `migrate.ForApp` wires it up
+## How `migrate.New` wires it up
 
-`migrate.ForApp(app, sets, opts...)` resolves the `*db.DB` that
+`migrate.New(app, sets, opts...)` resolves the `*db.DB` that
 `db.Connect` provided (so call `db.Connect` first), builds a runner with
 the app's environment and logger, registers the `migrate*` and `db:seed`
 [commands](commands.md) on the app, and provides the runner as a

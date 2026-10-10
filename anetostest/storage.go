@@ -27,7 +27,7 @@ func (a *App) Disk(name ...string) *Disk {
 	a.t.Helper()
 	s, err := anetos.Resolve[*storage.Storage](a.App)
 	if err != nil {
-		a.t.Fatalf("anetostest: the app has no storage (storage.ForApp in setup)")
+		a.t.Fatalf("anetostest: the app has no storage (storage.New in setup)")
 	}
 	d := s.Default()
 	if len(name) > 0 && name[0] != "" {

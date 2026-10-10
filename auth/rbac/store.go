@@ -51,7 +51,7 @@ var (
 )
 
 // Migrations returns the migrations creating the rbac_grants and
-// rbac_roles tables, for migrate.ForApp.
+// rbac_roles tables, for migrate.New.
 func Migrations() *migrate.Set {
 	s := migrate.NewSet("rbac")
 	s.AddFunc("2026_10_02_000300_create_rbac_tables",

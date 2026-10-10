@@ -105,7 +105,7 @@ In `setup`, after `db.Connect`, set up the queue, register each job
 type, and add the workers:
 
 ```go
-q, err := queue.ForApp(app, redis.QueueDriver()) // QUEUE_DRIVER: sync, memory, database or redis
+q, err := queue.New(app, redis.QueueDriver()) // QUEUE_DRIVER: sync, memory, database or redis
 if err != nil {
 	return nil, err
 }
@@ -120,7 +120,7 @@ if err := q.Work(queue.Queues("payments", "default"), queue.Concurrency(4)); err
 
 (Copied from [`examples/queue`](../../../examples/queue/main.go), region `setup`.)
 
-`queue.ForApp` reads the `QUEUE_*` settings (see the
+`queue.New` reads the `QUEUE_*` settings (see the
 [configuration reference](../reference/configuration.md#queue)). Pass
 `redis.QueueDriver()` only if you use Redis; the other drivers are built
 in.
@@ -387,7 +387,7 @@ server's clock for delays and leases.
 | Jobs are never run | No workers: they run with `run` or `run --only=workers`, not with other commands | Run the app (`go run .`) or a worker process |
 | `unknown job "…"` in failed jobs | The worker's app doesn't register that type (an older deploy, or a renamed type) | Deploy workers first; keep old names with `queue.Name` |
 | A job runs twice | At-least-once delivery: a worker stopped, or the job ran past its timeout | Make the job idempotent |
-| `no such table: jobs` | The queue's migration hasn't run | Add `queue.Migrations("", "")` to `migrate.ForApp`, then `migrate` |
+| `no such table: jobs` | The queue's migration hasn't run | Add `queue.Migrations("", "")` to `migrate.New`, then `migrate` |
 | A job finds no row it should | It ran before the transaction that wrote the row committed | Use `queue.AfterCommit()` (or the database driver) |
 
 ## Next steps

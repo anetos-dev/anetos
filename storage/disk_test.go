@@ -38,7 +38,7 @@ func newSigner(t *testing.T) *encryption.Encrypter {
 	t.Helper()
 	k, err := encryption.ParseKey(encryption.GenerateKey())
 	check(t, err)
-	e, err := encryption.New(k)
+	e, err := encryption.NewEncrypter(k)
 	check(t, err)
 	return e
 }
@@ -283,7 +283,7 @@ func newApp(t *testing.T, env config.Map) *anetos.App {
 	return app
 }
 
-func TestForApp(t *testing.T) {
+func TestAppNew(t *testing.T) {
 	dir := t.TempDir()
 	for name, env := range map[string]config.Map{
 		"unknown driver":     {"STORAGE_DRIVER": "floppy"},
@@ -293,7 +293,7 @@ func TestForApp(t *testing.T) {
 		"default disk name":  {"STORAGE_DRIVER": "memory", "STORAGE_DISKS": "default"},
 		"named disk's error": {"STORAGE_DRIVER": "memory", "STORAGE_DISKS": "a", "STORAGE_A_DRIVER": "floppy"},
 	} {
-		if _, err := storage.ForApp(newApp(t, env)); err == nil {
+		if _, err := storage.New(newApp(t, env)); err == nil {
 			t.Errorf("%s: no error", name)
 		}
 	}
@@ -303,10 +303,10 @@ func TestForApp(t *testing.T) {
 		"STORAGE_AVATARS_URL": "https://cdn.example.com/avatars", "STORAGE_AVATARS_PUBLIC": "true",
 		"STORAGE_EXPORTS_DRIVER": "memory",
 	})
-	st, err := storage.ForApp(app)
+	st, err := storage.New(app)
 	check(t, err)
-	if _, err := storage.ForApp(app); err == nil {
-		t.Error("ForApp twice: no error")
+	if _, err := storage.New(app); err == nil {
+		t.Error("New twice: no error")
 	}
 	actx := app.Context(ctx)
 	def, err := storage.From(actx)
@@ -354,7 +354,7 @@ func TestForApp(t *testing.T) {
 	}
 	// Named disks inherit the driver.
 	app = newApp(t, config.Map{"STORAGE_DRIVER": "memory", "STORAGE_DISKS": "x"})
-	st, err = storage.ForApp(app)
+	st, err = storage.New(app)
 	check(t, err)
 	x, err := st.Disk("x")
 	check(t, err)

@@ -21,7 +21,7 @@ const (
 	ManageProjects rbac.Permission = "projects.manage" // the project's settings, labels and members
 )
 
-// Permissions are all of them, for rbac.ForApp.
+// Permissions are all of them, for rbac.New.
 var Permissions = []rbac.Permission{ViewIssues, Comment, CreateIssues, EditIssues, ManageProjects}
 
 // The roles a project gives, from most to least.

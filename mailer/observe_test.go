@@ -16,9 +16,9 @@ import (
 
 func TestObserve(t *testing.T) {
 	app := newApp(t, config.Map{"MAIL_FROM_ADDRESS": "shop@example.com", "QUEUE_DRIVER": "sync"}, nil)
-	_, err := queue.ForApp(app)
+	_, err := queue.New(app)
 	check(t, err)
-	m, err := mailer.ForApp(app)
+	m, err := mailer.New(app)
 	check(t, err)
 	var seen []mailer.Record
 	m.Observe(func(_ context.Context, r mailer.Record) { seen = append(seen, r) })
@@ -33,7 +33,7 @@ func TestObserve(t *testing.T) {
 		t.Errorf("seen %+v", seen)
 	}
 	// Not sent: not recorded.
-	f := mailer.New(failing{errors.New("down")}, mailer.DefaultFrom(mailer.Address{Address: "shop@example.com"}))
+	f := mailer.NewWithTransport(failing{errors.New("down")}, mailer.DefaultFrom(mailer.Address{Address: "shop@example.com"}))
 	f.Observe(func(context.Context, mailer.Record) { t.Error("a failed send was observed") })
 	if err := f.Send(context.Background(), now); err == nil {
 		t.Error("no error")
@@ -44,10 +44,10 @@ func TestObserve(t *testing.T) {
 // failed to send isn't recorded.
 func TestObserveQueueOptions(t *testing.T) {
 	app := newApp(t, config.Map{"MAIL_DRIVER": "bad", "MAIL_FROM_ADDRESS": "shop@example.com", "QUEUE_DRIVER": "sync"}, nil)
-	_, err := queue.ForApp(app)
+	_, err := queue.New(app)
 	check(t, err)
 	var fail atomic.Bool
-	m, err := mailer.ForApp(app, mailer.Driver{Name: "bad", Open: func(*anetos.App, mailer.Config) (mailer.Transport, error) {
+	m, err := mailer.New(app, mailer.Driver{Name: "bad", Open: func(*anetos.App, mailer.Config) (mailer.Transport, error) {
 		return transportFunc(func(context.Context, *mailer.Outgoing) error {
 			if fail.Load() {
 				return errors.New("down")

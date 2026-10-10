@@ -12,7 +12,7 @@
 //		ByID:    func(ctx context.Context, id string) (*models.User, error) { … },
 //		ByLogin: func(ctx context.Context, email string) (*models.User, error) { … },
 //	}
-//	a, err := auth.ForApp(app, users)
+//	a, err := auth.New(app, users)
 //	pages := r.Group("", sessions.Middleware, web.CSRF(), a.Middleware)
 //	pages.Group("", a.Require).Get("/dashboard", …)
 //
@@ -183,8 +183,8 @@ func (c Config) Validate() error {
 // LoadConfig reads the AUTH_* settings.
 func LoadConfig(src config.Source) (Config, error) { return config.Get[Config](src) }
 
-// Auth signs users of type U in and out. Create it with [ForApp] or
-// [New]; it is safe for concurrent use.
+// Auth signs users of type U in and out. Create it with [New] or
+// [NewWithConfig]; it is safe for concurrent use.
 type Auth[U Authenticatable] struct {
 	cfg    Config
 	users  Users[U]
@@ -196,7 +196,7 @@ type Auth[U Authenticatable] struct {
 	now    func() time.Time
 }
 
-// Option configures [New].
+// Option configures [NewWithConfig].
 type Option func(*options)
 
 type options struct {
@@ -210,23 +210,23 @@ type options struct {
 func WithLogger(l *slog.Logger) Option { return func(o *options) { o.log = l } }
 
 // WithIssuer names the app in users' authenticator apps (two-factor
-// sign-in). ForApp uses APP_NAME.
+// sign-in). New uses APP_NAME.
 func WithIssuer(name string) Option { return func(o *options) { o.issuer = name } }
 
-// DefaultHomeURL sets HomeURL's default, for [ForApp]: the page users go
+// DefaultHomeURL sets HomeURL's default, for [New]: the page users go
 // to after signing in when AUTH_HOME_URL isn't set, instead of /.
 // make:auth's setupAuth gives /dashboard. AUTH_HOME_URL still wins, so
-// each deployment can choose. [New] takes its Config as it is and
+// each deployment can choose. [NewWithConfig] takes its Config as it is and
 // ignores it.
 func DefaultHomeURL(path string) Option { return func(o *options) { o.home = path } }
 
 // WithInsecureCookies lets the remember-me cookie travel over plain HTTP,
-// for development and tests. ForApp uses it outside production-like
+// for development and tests. New uses it outside production-like
 // environments, like the session cookie.
 func WithInsecureCookies() Option { return func(o *options) { o.secure = false } }
 
-// New returns an Auth for users, with keys from enc (APP_KEY).
-func New[U Authenticatable](cfg Config, users Users[U], enc *encryption.Encrypter, opts ...Option) (*Auth[U], error) {
+// NewWithConfig returns an Auth for users, with keys from enc (APP_KEY).
+func NewWithConfig[U Authenticatable](cfg Config, users Users[U], enc *encryption.Encrypter, opts ...Option) (*Auth[U], error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("auth: invalid config: %w", err)
 	}
@@ -256,16 +256,16 @@ func New[U Authenticatable](cfg Config, users Users[U], enc *encryption.Encrypte
 	return &Auth[U]{cfg: cfg, users: users, enc: enc, log: o.log, secure: o.secure, cookie: name, issuer: o.issuer, now: time.Now}, nil
 }
 
-// ForApp returns an Auth configured from the AUTH_* settings and APP_KEY,
+// New returns an Auth configured from the AUTH_* settings and APP_KEY,
 // and provides it to the app. Login throttling needs the app's cache
-// (cache.ForApp, called first). An app has one Auth: its session keys and
+// (cache.New, called first). An app has one Auth: its session keys and
 // cookie are fixed, so a second one would read the first one's users.
-// The options come after ForApp's own (the app's logger, APP_NAME as the
+// The options come after New's own (the app's logger, APP_NAME as the
 // issuer, insecure cookies outside production); [DefaultHomeURL] sets
 // where users go after signing in, unless AUTH_HOME_URL is set.
-func ForApp[U Authenticatable](app *anetos.App, users Users[U], opts ...Option) (*Auth[U], error) {
+func New[U Authenticatable](app *anetos.App, users Users[U], opts ...Option) (*Auth[U], error) {
 	if _, ok := anetos.Lookup[appAuth](app); ok {
-		return nil, errors.New("auth: ForApp was already called for this app; an app has one Auth")
+		return nil, errors.New("auth: New called twice for one app")
 	}
 	var o options
 	for _, opt := range opts {
@@ -280,9 +280,9 @@ func ForApp[U Authenticatable](app *anetos.App, users Users[U], opts ...Option) 
 		return nil, err
 	}
 	if _, err := anetos.Resolve[*cache.Cache](app); err != nil {
-		return nil, errors.New("auth: login throttling needs the app's cache: call cache.ForApp before auth.ForApp")
+		return nil, errors.New("auth: login throttling needs the app's cache: call cache.New before auth.New")
 	}
-	enc, err := encryption.ForApp(app)
+	enc, err := encryption.New(app)
 	if err != nil {
 		return nil, fmt.Errorf("auth: %w", err)
 	}
@@ -294,7 +294,7 @@ func ForApp[U Authenticatable](app *anetos.App, users Users[U], opts ...Option) 
 	} else if env := app.Config().Env; env.IsDevelopment() || env.IsTesting() {
 		base = append(base, WithInsecureCookies())
 	}
-	a, err := New(cfg, users, enc, append(base, opts...)...)
+	a, err := NewWithConfig(cfg, users, enc, append(base, opts...)...)
 	if err != nil {
 		return nil, err
 	}
@@ -313,6 +313,15 @@ func ForApp[U Authenticatable](app *anetos.App, users Users[U], opts ...Option) 
 		return u, err == nil && u != nil
 	})
 	return a, nil
+}
+
+// ForApp is [New].
+//
+// Deprecated: Use New; ForApp is removed in v0.6.
+//
+//go:fix inline
+func ForApp[U Authenticatable](app *anetos.App, users Users[U], opts ...Option) (*Auth[U], error) {
+	return New[U](app, users, opts...)
 }
 
 // appAuth marks an app whose Auth is set up.

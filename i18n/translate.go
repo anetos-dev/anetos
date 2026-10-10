@@ -345,7 +345,7 @@ func userZone(user any) *time.Location {
 type userKey struct{}
 
 // SetCurrentUser tells the app how to find the signed-in user of a
-// request's context, for [Preferences]. Package auth calls it in ForApp.
+// request's context, for [Preferences]. Package auth calls it in New.
 func SetCurrentUser(app *anetos.App, current func(ctx context.Context) (any, bool)) {
 	app.AddContextValue(userKey{}, current)
 }

@@ -24,7 +24,7 @@ func fixedClock(t *testing.T) {
 }
 
 func withCache(store cache.Store) context.Context {
-	return cache.WithCache(context.Background(), cache.New(store, "t:"))
+	return cache.WithCache(context.Background(), cache.NewWithStore(store, "t:"))
 }
 
 func TestAllow(t *testing.T) {
