@@ -98,7 +98,7 @@ up the same way.
 ```go
 // AUTH_* settings. Logging in leads to /dashboard, unless
 // AUTH_HOME_URL names another page.
-a, err := auth.New(app, users, auth.DefaultHomeURL("/dashboard"))
+a, err := auth.New(app, users, auth.WithDefaultHomeURL("/dashboard"))
 if err != nil {
 	return nil, err
 }
@@ -484,7 +484,7 @@ func TestAPIToken(t *testing.T) {
 	app.PostForm("/login", url.Values{"email": {"ada@example.com"}, "password": {"password1"}})
 	app.PostForm("/confirm-password", url.Values{"password": {"password1"}}) // tokens need it
 	app.PostForm("/tokens", url.Values{"name": {"cli"}}).AssertRedirect("/dashboard")
-	token := app.Session().String("token") // flashed to show once
+	token := app.Session().GetString("token") // flashed to show once
 
 	// The API routes don't use the session: only the token counts.
 	app.GetJSON("/api/me").AssertStatus(http.StatusUnauthorized)

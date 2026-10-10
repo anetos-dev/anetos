@@ -30,7 +30,7 @@ if err != nil {
 }
 r := srv.Router()
 r.UseGlobal(web.MethodOverride) // forms can send PUT and DELETE with _method
-r.HandleStd(http.MethodGet, "/assets/{path...}", assets)
+r.Get("/assets/{path...}", web.WrapHandler(assets))
 
 var h Notes
 pages := r.Group("", sessions.Middleware, web.CSRF())
@@ -212,7 +212,7 @@ fragments rather than following the redirect to a page. Boosted forms
 The CSRF token is random, stored in the session, and masked differently
 every time it is rendered, so compressed pages don't leak it. Checking
 `Sec-Fetch-Site` and `Origin` (Go's `http.CrossOriginProtection`) stops
-cross-site posts even before the token is compared. `web.TrustedOrigins`
+cross-site posts even before the token is compared. `web.WithTrustedOrigins`
 allows other origins of yours.
 
 > **Coming from Laravel?** `@csrf` is `@view.CSRFField(ctx)`, `@method('PUT')`
@@ -240,7 +240,7 @@ See [Test your app](testing.md#2-test-a-form).
 | Symptom | Cause | Fix |
 |---|---|---|
 | 403 "The page has expired" | No `_token` field, the session expired, or the session cookie isn't sent back | Add `@view.CSRFField(ctx)`; check `SESSION_SECURE` over plain HTTP |
-| 403 "Cross-origin request rejected" | The form is on another origin (a different port counts) | `web.CSRF(web.TrustedOrigins("https://admin.example.com"))` |
+| 403 "Cross-origin request rejected" | The form is on another origin (a different port counts) | `web.CSRF(web.WithTrustedOrigins("https://admin.example.com"))` |
 | htmx requests get 403 | The token isn't sent | Put `view.CSRFToken(ctx)` in `hx-headers`, as the layout does |
 | A 422 page instead of the form with errors | The route has no session middleware, or the client asked for JSON | Add the middleware; browsers send `Accept: text/html` |
 | The form is empty after an error | `view.Old` not used, or the input was larger than the cookie allows | Use `view.Old(ctx, field, fallback)`; long text may not be kept (logged) |

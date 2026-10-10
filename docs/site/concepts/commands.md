@@ -32,7 +32,7 @@ code that wires the part they belong to:
 
 | Command | Registered by |
 |---|---|
-| `run [--only=role,…]` (the default), `help` | Every app |
+| `run [--only=type,…]` (the default), `help` | Every app |
 | `serve`, `route:list` | `web.NewServer` |
 | `openapi` | `openapi.Register` ([Describe an API with OpenAPI](../guides/openapi.md)) |
 | `migrate`, `migrate:rollback`, `migrate:reset`, `migrate:fresh`, `migrate:status`, `db:seed`, `search:reindex` | `migrate.New` ([Migrations](../guides/migrations.md), [Search](../guides/search.md)) |
@@ -88,11 +88,12 @@ second signal ends the program at once.
 Scripts and orchestrators can rely on these codes: a failed
 `./blog migrate` in a deploy step exits 1.
 
-## Roles: one binary, several shapes
+## Process types: one binary, several shapes
 
-`run --only=http` runs the components with the `http` role plus those
-without roles; `serve` is the same as `run --only=http`. Your own
-components get roles with `anetos.Roles`. A role no component has and no
+`run --only=web` runs the components of the `web` process type plus
+those without one; `serve` is the same as `run --only=web`. Your own
+components get process types with `anetos.ProcessTypes`. A process type
+no component has and no
 package declared is an error, so a typo in `--only` fails at startup. The same binary can run
 the web tier on some machines and background work on others. See
 [the runtime supervisor](runtime-supervisor.md).

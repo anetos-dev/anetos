@@ -471,7 +471,7 @@ func setup(app *anetos.App) (*web.Server, error) {
 	// region: setup
 	// AUTH_* settings. Logging in leads to /dashboard, unless
 	// AUTH_HOME_URL names another page.
-	a, err := auth.New(app, users, auth.DefaultHomeURL("/dashboard"))
+	a, err := auth.New(app, users, auth.WithDefaultHomeURL("/dashboard"))
 	if err != nil {
 		return nil, err
 	}

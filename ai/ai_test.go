@@ -275,7 +275,7 @@ type userKey struct{}
 
 // orderTool finds orders of the user in the context: 7 is someone
 // else's, 13 breaks the database.
-var orderTool = ai.Func("find_order", "Look up one of the customer's orders",
+var orderTool = ai.NewTool("find_order", "Look up one of the customer's orders",
 	func(ctx context.Context, in findOrder) (order, error) {
 		user, _ := ctx.Value(userKey{}).(string)
 		switch {
@@ -375,10 +375,10 @@ func TestTools(t *testing.T) {
 
 func TestFuncPanics(t *testing.T) {
 	for name, f := range map[string]func(){
-		"bad name":   func() { ai.Func("find order", "", func(context.Context, findOrder) (int, error) { return 0, nil }) },
-		"not struct": func() { ai.Func("x", "", func(context.Context, int) (int, error) { return 0, nil }) },
+		"bad name":   func() { ai.NewTool("find order", "", func(context.Context, findOrder) (int, error) { return 0, nil }) },
+		"not struct": func() { ai.NewTool("x", "", func(context.Context, int) (int, error) { return 0, nil }) },
 		"bad rule": func() {
-			ai.Func("x", "", func(context.Context, struct {
+			ai.NewTool("x", "", func(context.Context, struct {
 				N int `validate:"nonesuch"`
 			}) (int, error) {
 				return 0, nil
@@ -395,7 +395,7 @@ func TestFuncPanics(t *testing.T) {
 		}()
 	}
 	// No input: an empty object, or nothing at all.
-	tool := ai.Func("now", "The time", func(context.Context, struct{}) (string, error) { return "noon", nil })
+	tool := ai.NewTool("now", "The time", func(context.Context, struct{}) (string, error) { return "noon", nil })
 	for _, in := range []string{"", "null", "{}"} {
 		if out, err := tool.Call(context.Background(), json.RawMessage(in)); err != nil || out != "noon" {
 			t.Errorf("input %q: %q, %v", in, out, err)
@@ -551,8 +551,8 @@ func TestAppNew(t *testing.T) {
 
 	var logs bytes.Buffer
 	app := newApp(t, config.Map{"AI_PROVIDER": "fake", "AI_MODEL": "m1", "AI_MAX_TOKENS": "50"}, &logs)
-	var units []anetos.Unit
-	app.AroundUnits(func(ctx context.Context, u anetos.Unit) (context.Context, func()) {
+	var units []anetos.Operation
+	app.AroundOperations(func(ctx context.Context, u anetos.Operation) (context.Context, func()) {
 		units = append(units, u)
 		return ctx, nil
 	})
@@ -574,7 +574,7 @@ func TestAppNew(t *testing.T) {
 	if r := f.Requests()[0]; r.Model != "m1" || r.MaxTokens != 50 {
 		t.Errorf("defaults: %+v", r)
 	}
-	if !slices.Equal(units, []anetos.Unit{{Kind: "tool", Name: "find_order"}}) {
+	if !slices.Equal(units, []anetos.Operation{{Kind: "tool", Name: "find_order"}}) {
 		t.Errorf("units: %+v", units)
 	}
 	out := logs.String()
@@ -722,7 +722,7 @@ func TestToolErrorsForTheModel(t *testing.T) {
 		{"HTTP error around a validation error", web.Error(http.StatusUnprocessableEntity, "").Wrap(validate.Fail("email", "The email is taken.")),
 			"Unprocessable Entity\n- email: The email is taken."},
 	} {
-		tool := ai.Func("t", "", func(context.Context, struct{}) (title, error) { return "", c.err })
+		tool := ai.NewTool("t", "", func(context.Context, struct{}) (title, error) { return "", c.err })
 		ctx, _ := fake(ai.FakeToolCall("t", struct{}{}), ai.FakeText("ok"))
 		res, err := ai.Generate(ctx, "go", ai.Tools(tool))
 		if err != nil {
@@ -734,7 +734,7 @@ func TestToolErrorsForTheModel(t *testing.T) {
 		}
 	}
 	// A string type's output is sent as it is.
-	tool := ai.Func("t", "", func(context.Context, struct{}) (title, error) { return "Dune", nil })
+	tool := ai.NewTool("t", "", func(context.Context, struct{}) (title, error) { return "Dune", nil })
 	if out, err := tool.Call(context.Background(), nil); err != nil || out != "Dune" {
 		t.Errorf("string type: %q, %v", out, err)
 	}
@@ -826,7 +826,7 @@ func TestReasoningJSON(t *testing.T) {
 
 func TestCutOffToolCalls(t *testing.T) {
 	ran := false
-	tool := ai.Func("t", "", func(context.Context, struct{}) (string, error) { ran = true; return "", nil })
+	tool := ai.NewTool("t", "", func(context.Context, struct{}) (string, error) { ran = true; return "", nil })
 	ctx, _ := fake(func(*ai.Request) (*ai.Response, error) {
 		return &ai.Response{Message: ai.Message{Role: ai.RoleAssistant, Parts: []ai.Part{ai.ToolCall{ID: "c", Name: "t", Input: json.RawMessage(`{}`)}}}, Stop: ai.StopMaxTokens}, nil
 	})

@@ -70,7 +70,7 @@ func Messages(history ...Message) Option {
 	return optionFunc(func(c *call) { c.history = append(c.history, history...) })
 }
 
-// Tools adds tools the model may call ([Func]). With tools, a call is
+// Tools adds tools the model may call ([NewTool]). With tools, a call is
 // a loop: the model calls tools, they run, the model gets their results
 // and goes on, until it answers without calling any or [MaxSteps] is
 // reached.
@@ -691,7 +691,7 @@ func (cl *Client) logger() *slog.Logger {
 	return slog.Default()
 }
 
-// runTool runs one tool call as a unit of work, and returns its result
+// runTool runs one tool call as an operation, and returns its result
 // for the model, or the error that stops the call.
 func (cl *Client) runTool(ctx context.Context, c *call, tools map[string]Tool, tc ToolCall) (ToolResult, error) {
 	r := ToolResult{CallID: tc.ID, Name: tc.Name}
@@ -707,7 +707,7 @@ func (cl *Client) runTool(ctx context.Context, c *call, tools map[string]Tool, t
 	}
 	uctx, end := ctx, func() {}
 	if cl.units != nil {
-		uctx, end = cl.units(ctx, anetos.Unit{Kind: "tool", Name: tc.Name})
+		uctx, end = cl.units(ctx, anetos.Operation{Kind: "tool", Name: tc.Name})
 	}
 	start := time.Now()
 	out, err := func() (string, error) {

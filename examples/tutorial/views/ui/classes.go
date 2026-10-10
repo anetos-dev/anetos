@@ -1,18 +1,21 @@
 package ui
 
-import "strings"
+import (
+	"slices"
+	"strings"
+)
 
-// The starter theme's classes (public/static/app.css) of the looks and
-// tones.
+// The starter theme's classes (public/static/app.css) of the variants,
+// sizes and tones.
 
 // class is a button's classes: a link needs "button", a <button> is
 // styled as the primary one without any.
-func (l Look) class(link bool) string {
+func (v Variant) class(link bool, sizes []Size) string {
 	var c []string
 	if link {
 		c = append(c, "button")
 	}
-	switch l &^ (Small | Full) {
+	switch v {
 	case Secondary:
 		c = append(c, "secondary")
 	case Danger:
@@ -20,10 +23,10 @@ func (l Look) class(link bool) string {
 	case Ghost:
 		c = append(c, "ghost")
 	}
-	if l&Small != 0 {
+	if has(sizes, Small) {
 		c = append(c, "small")
 	}
-	if l&Full != 0 {
+	if has(sizes, FullWidth) {
 		c = append(c, "full")
 	}
 	return strings.Join(c, " ")
@@ -52,3 +55,6 @@ func (t Tone) flashClass() string {
 	}
 	return t.toneClass()
 }
+
+// has reports whether sizes has s.
+func has(sizes []Size, s Size) bool { return slices.Contains(sizes, s) }

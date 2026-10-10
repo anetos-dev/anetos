@@ -147,7 +147,7 @@ type FindOrderInput struct {
 // findOrder looks up an order of the current customer. It runs with the
 // request's context: another customer's order is "not found", as it would
 // be in the customer's own browser, and the model is told so.
-var findOrder = ai.Func("find_order", "Look up one of the customer's orders by its number",
+var findOrder = ai.NewTool("find_order", "Look up one of the customer's orders by its number",
 	func(ctx context.Context, in FindOrderInput) (Order, error) {
 		i := slices.IndexFunc(orders, func(o Order) bool { return o.Number == in.Number && o.Customer == customer(ctx) })
 		if i < 0 {
@@ -317,7 +317,7 @@ makes a request fail.
 Each call builds a request (instructions, messages, tool definitions,
 the output schema) and sends it to the provider through its driver.
 Every request is logged with the provider, model, tokens and time, never
-the prompt or the answer. Each tool call is a unit of work, like a
+the prompt or the answer. Each tool call is an operation, like a
 request or a job, so [N+1 detection](n-plus-one.md) covers it. See
 [AI](../concepts/ai.md) for the design, and the
 [AI reference](../reference/ai.md) for every option.
@@ -356,7 +356,7 @@ Providers differ, and the drivers smooth what they can:
 | `ai: the model's answer isn't a valid …` (502) | The answer broke the struct's shape or rules twice | Loosen the rules, describe fields better (`description` tags), or use a stronger model |
 | `… was cut off at the token limit` | The answer reached `AI_MAX_TOKENS` | Raise it, or `ai.MaxTokens` on the call |
 | `ai.ErrMaxSteps` | The model kept calling tools | Raise `MaxSteps`, or make tools return what the model needs in fewer calls |
-| A panic: `ai: tool name …` or `isn't a struct` at startup | `ai.Func` checks its name and input type when it's made | Use letters, digits, `_` and `-`; make the input a struct (`struct{}` for none) |
+| A panic: `ai: tool name …` or `isn't a struct` at startup | `ai.NewTool` checks its name and input type when it's made | Use letters, digits, `_` and `-`; make the input a struct (`struct{}` for none) |
 
 ## Next steps
 

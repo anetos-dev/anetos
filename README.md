@@ -25,7 +25,7 @@ v0.5. APIs will change.
   listeners, the scheduler, mail, file storage, plugins (`anetos add`),
   test fakes, N+1 detection and `anetos make:auth`;
   [`examples/saas`](examples/saas) runs them as one binary or split by
-  role.
+  process type.
 - **v0.3, search, AI and the starter experience:** full-text search and
   search by meaning with hybrid ranking (PostgreSQL with pgvector,
   MariaDB 11.7+ or SQLite); AI with Anthropic, OpenAI (and compatible
@@ -80,8 +80,8 @@ go tool anetos dev         # rebuild and reload on every change
 
 go tool anetos build       # bin/blog: one static binary, everything in it
 ./bin/blog                 # everything: web, queue workers and the scheduler
-./bin/blog run --only=http # or split by role when you scale
-./bin/blog run --only=workers
+./bin/blog run --only=web # or split by process type when you scale
+./bin/blog run --only=worker
 ./bin/blog doctor          # unsafe settings, pending migrations
 ./bin/blog help            # migrate, route:list, your own commands, …
 docker build -t blog .     # or the image, from the generated Dockerfile

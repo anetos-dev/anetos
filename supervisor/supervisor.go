@@ -57,8 +57,8 @@ type Supervisor struct {
 	entries  []*entry
 	names    map[string]bool
 	state    runState
-	selected map[string]bool // roles chosen for this process; nil = all
-	declared map[string]bool // roles known without a component yet (Declare)
+	selected map[string]bool // process types chosen for this process; nil = all
+	declared map[string]bool // process types known without a component yet (Declare)
 	base     context.Context
 	stages   map[Stage]*stageCtl
 	fatal    chan error
@@ -111,7 +111,7 @@ func New(opts Options) *Supervisor {
 }
 
 // Add registers a component. Names must be unique. If the supervisor is
-// already running and the component's roles are selected, it starts
+// already running and the component's process types are selected, it starts
 // immediately. Add returns [ErrStopping] once shutdown has begun, including
 // when Run is returning because every component has finished.
 func (s *Supervisor) Add(spec Spec) error {
@@ -123,7 +123,7 @@ func (s *Supervisor) Add(spec Spec) error {
 		return errors.New("supervisor: component name must not be empty")
 	}
 	spec.Backoff = spec.Backoff.withDefaults()
-	spec.Roles = slices.Clone(spec.Roles)
+	spec.ProcessTypes = slices.Clone(spec.ProcessTypes)
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -142,75 +142,82 @@ func (s *Supervisor) Add(spec Spec) error {
 	return nil
 }
 
-// Declare makes roles known before any component has them, so Run
-// accepts them: a feature whose components come later (the scheduler
-// once it has tasks) declares its role when it is set up, and a process
-// started with that role runs whatever it has, possibly nothing.
-func (s *Supervisor) Declare(roles ...string) {
+// Declare makes process types known before any component has them, so
+// Run accepts them: a feature whose components come later (the scheduler
+// once it has tasks) declares its process type when it is set up, and a
+// process started with that type runs whatever it has, possibly nothing.
+func (s *Supervisor) Declare(types ...string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.declared == nil {
 		s.declared = map[string]bool{}
 	}
-	for _, r := range roles {
-		s.declared[r] = true
+	for _, t := range types {
+		s.declared[t] = true
 	}
 }
 
-// Roles returns the sorted set of roles of the registered components and
-// those declared with [Supervisor.Declare].
-func (s *Supervisor) Roles() []string {
+// ProcessTypes returns the sorted set of process types of the registered
+// components and those declared with [Supervisor.Declare].
+func (s *Supervisor) ProcessTypes() []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.rolesLocked()
+	return s.typesLocked()
 }
 
-func (s *Supervisor) rolesLocked() []string {
+// Roles is [Supervisor.ProcessTypes].
+//
+// Deprecated: Use ProcessTypes; Roles is removed in v0.6.
+//
+//go:fix inline
+func (s *Supervisor) Roles() []string { return s.ProcessTypes() }
+
+func (s *Supervisor) typesLocked() []string {
 	set := maps.Clone(s.declared)
 	if set == nil {
 		set = map[string]bool{}
 	}
 	for _, e := range s.entries {
-		for _, r := range e.spec.Roles {
-			set[r] = true
+		for _, t := range e.spec.ProcessTypes {
+			set[t] = true
 		}
 	}
-	roles := make([]string, 0, len(set))
-	for r := range set {
-		roles = append(roles, r)
+	types := make([]string, 0, len(set))
+	for t := range set {
+		types = append(types, t)
 	}
-	sort.Strings(roles)
-	return roles
+	sort.Strings(types)
+	return types
 }
 
-// Run starts the components selected by roles (all components if roles is
-// empty; components without roles always run) and blocks until ctx is
+// Run starts the components of the process types given (all components
+// if none is; components without process types always run) and blocks until ctx is
 // canceled, a [StopOnFailure] component fails, or every component has
 // returned. It then shuts down stage by stage within Options.ShutdownTimeout.
 //
 // Run returns nil after a clean shutdown, the failing component's error for
 // an escalated failure, and an error wrapping [ErrShutdownTimeout] if
-// components did not stop in time. Requesting a role that no component
-// has and no one declared ([Supervisor.Declare]) is an error, which
+// components did not stop in time. Requesting a process type that no
+// component has and no one declared ([Supervisor.Declare]) is an error, which
 // catches typos in --only flags.
 //
 // Context values from ctx are visible to components; its cancellation only
 // triggers shutdown, which the supervisor then performs in stage order.
-func (s *Supervisor) Run(ctx context.Context, roles ...string) error {
+func (s *Supervisor) Run(ctx context.Context, types ...string) error {
 	s.mu.Lock()
 	if s.state != stateNew {
 		s.mu.Unlock()
 		return ErrAlreadyRun
 	}
-	if len(roles) > 0 {
-		known := s.rolesLocked()
+	if len(types) > 0 {
+		known := s.typesLocked()
 		s.selected = map[string]bool{}
-		for _, r := range roles {
-			if !slices.Contains(known, r) {
+		for _, t := range types {
+			if !slices.Contains(known, t) {
 				s.mu.Unlock()
-				return fmt.Errorf("supervisor: unknown role %q (known roles: %s)", r, strings.Join(known, ", "))
+				return fmt.Errorf("supervisor: unknown process type %q (known: %s)", t, strings.Join(known, ", "))
 			}
-			s.selected[r] = true
+			s.selected[t] = true
 		}
 	}
 	s.state = stateRunning
@@ -226,7 +233,7 @@ func (s *Supervisor) Run(ctx context.Context, roles ...string) error {
 	}
 	s.mu.Unlock()
 
-	s.log.Info("supervisor started", "roles", rolesAttr(roles))
+	s.log.Info("supervisor started", "process_types", typesAttr(types))
 
 	var runErr error
 	select {
@@ -283,19 +290,19 @@ func (s *Supervisor) ShutdownDeadline() time.Time {
 	return s.stopAt.Add(s.opts.ShutdownTimeout)
 }
 
-func rolesAttr(roles []string) string {
-	if len(roles) == 0 {
+func typesAttr(types []string) string {
+	if len(types) == 0 {
 		return "all"
 	}
-	return strings.Join(roles, ",")
+	return strings.Join(types, ",")
 }
 
 func (s *Supervisor) isSelected(spec Spec) bool {
-	if s.selected == nil || len(spec.Roles) == 0 {
+	if s.selected == nil || len(spec.ProcessTypes) == 0 {
 		return true
 	}
-	for _, r := range spec.Roles {
-		if s.selected[r] {
+	for _, t := range spec.ProcessTypes {
+		if s.selected[t] {
 			return true
 		}
 	}

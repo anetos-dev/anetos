@@ -178,7 +178,7 @@ Replies' usage counts words, as a stand-in for tokens.
 
 | API | Does |
 |---|---|
-| `app.RepeatedQueries()` | `[]db.RepeatedQuery` (`Unit`, `SQL`, `Count`, `Caller`; `String()`): the queries a request, job, listener, task or AI tool call of the test ran `DB_REPEATED_QUERIES` times or more (5 by default in tests), oldest first. Also logged as warnings |
+| `app.RepeatedQueries()` | `[]db.RepeatedQuery` (`Operation`, `SQL`, `Count`, `Caller`; `String()`): the queries a request, job, listener, task or AI tool call of the test ran `DB_REPEATED_QUERIES` times or more (5 by default in tests), oldest first. Also logged as warnings |
 | `app.AssertNoRepeatedQueries()` | None: no N+1. See [Find N+1 queries](../guides/n-plus-one.md) |
 
 ## Files (`anetostest`)

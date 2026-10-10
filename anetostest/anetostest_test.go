@@ -45,13 +45,13 @@ func setup(app *anetos.App) (*web.Server, error) {
 	pages := r.Group("", sessions.Middleware, web.CSRF())
 	pages.Get("/items", func(c *web.Ctx) error {
 		var b strings.Builder
-		if msg := c.Session().String("status"); msg != "" {
+		if msg := c.Session().GetString("status"); msg != "" {
 			fmt.Fprintf(&b, "<p>%s</p>", msg)
 		}
 		for _, it := range items {
 			fmt.Fprintf(&b, "<li>%s</li>", it.Title)
 		}
-		fmt.Fprintf(&b, "<p>user %s</p>", c.Session().String("user"))
+		fmt.Fprintf(&b, "<p>user %s</p>", c.Session().GetString("user"))
 		b.WriteString(template.HTMLEscapeString("C++ ") + "a&#43;b")
 		return c.HTML(http.StatusOK, b.String())
 	}).Name("items.index")

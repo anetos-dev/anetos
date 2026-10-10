@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// Component is a long-running unit of work managed by a [Supervisor]:
+// Component is a long-running task managed by a [Supervisor]:
 // an HTTP server, a queue worker pool, a pub/sub listener, the scheduler, or
 // an ad-hoc background task.
 //
@@ -142,9 +142,9 @@ func (b Backoff) delay(n int) time.Duration {
 type Spec struct {
 	// Component is what runs.
 	Component Component
-	// Roles lists the roles this component belongs to (e.g. "http",
-	// "workers"). A component with no roles runs in every process.
-	Roles []string
+	// ProcessTypes lists the process types this component runs in (e.g.
+	// "web", "worker"). A component with none runs in every process.
+	ProcessTypes []string
 	// Stage orders shutdown: lower stages stop first.
 	Stage Stage
 	// Restart says what happens when Run fails (returns an error or

@@ -17,7 +17,7 @@ flowchart LR
     W -->|yes| T["transaction (or savepoint)"]
     T --> R["read the row FOR UPDATE"]
     R --> U["UPDATE"]
-    U --> A["audit: diff, actor, unit of work<br/>INSERT INTO audit_log"]
+    U --> A["audit: diff, actor, operation<br/>INSERT INTO audit_log"]
     A --> C["commit: change and entry together"]
 ```
 
@@ -85,7 +85,7 @@ event for an async listener (the kernel's carriers move it with the
 job); else `system`. If the user can't be loaded, the write fails rather
 than being attributed to no one.
 
-The unit of work (request, job, listener, task, or the command) and the
+The operation (request, job, listener, task, or the command) and the
 request ID come with it, and the client's IP address if `AUDIT_IP` asks:
 an IP address is personal data, so keeping it is a decision.
 

@@ -37,7 +37,7 @@ func bannerHTML(ctx context.Context) (template.HTML, error) {
 	}
 	s := session.From(ctx)
 	data := struct{ As, By, Stop, CSRF string }{
-		As: s.String(keyActingAs), By: s.String(keyActingBy), Stop: s.String(keyActingStop), CSRF: s.Token(),
+		As: s.GetString(keyActingAs), By: s.GetString(keyActingBy), Stop: s.GetString(keyActingStop), CSRF: s.Token(),
 	}
 	if data.As == "" {
 		data.As = "another user" // acting started without the admin

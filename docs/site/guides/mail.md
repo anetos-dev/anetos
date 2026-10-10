@@ -209,7 +209,7 @@ of that for emails with password reset links.
 **Language.** An email is built and rendered in the language of the
 context it is sent or queued with: a request's, at first. To write in the
 recipient's language (and show times in their zone), pass
-`i18n.ForUser(ctx, user)`: it uses the user's `CommunicationLocale`, else
+`i18n.ForUser(ctx, user)`: it uses the user's `PreferredMailLocale`, else
 their `PreferredLocale` ([Translations](translations.md#5-respect-users-preferences)). For big attachments,
 dispatch a job of your own that builds the email and calls
 `mailer.Send`.
@@ -221,7 +221,7 @@ the browser. Serve it only in development:
 
 ```go
 if app.Config().Env.IsDevelopment() {
-	r.HandleStd(http.MethodGet, "/dev/mail/receipt", mailer.Preview(previewReceipt))
+	r.Get("/dev/mail/receipt", web.WrapHandler(mailer.Preview(previewReceipt)))
 }
 ```
 

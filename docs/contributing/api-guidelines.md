@@ -85,14 +85,23 @@ follow [Effective Go](https://go.dev/doc/effective_go) and
   `cache.NewWithStore(store, prefix)`.
 - `WithT(ctx, *T) context.Context` carries a service in a context and
   `From(ctx) (*T, error)` gets it back, with the package's `ErrNoT` when
-  the context has none.
+  the context has none (`storage.From` returns the default disk, the one
+  callers want, and `storage.DiskFrom(ctx, name)` another). A value of
+  the request is a noun of the context: `web.RequestID(ctx)`,
+  `web.ClientIP(ctx)`, `web.CurrentRoute(ctx)` ("" or nil outside a
+  request), as `session.From(ctx)` (nil without a session) and
+  `i18n.From(ctx)` (the English translator without one) (design D315).
 - **Options** are functional: `type Option func(*options)`, the function
   taking an unexported struct or the type it builds, so that adding an
-  option never breaks a caller. A package with options for several
-  things names them after the thing or the verb: `DispatchOption`,
-  `ListenOption`. An option that can be invalid returns an `error`
-  (`func(*options) error`) or records it for the constructor to report,
-  never panics.
+  option never breaks a caller; never a third-party type (an SDK's
+  options go through one option of ours, `WithClientOptions(...)`). A
+  package's `Option` is its constructor's; a package with options for
+  other things names them after the thing or the verb: `DispatchOption`,
+  `ListenOption`, `TrackOption`. A constructor's options start with
+  `With` (`WithLogger`, `WithTrustedOrigins`); options of a call that
+  isn't a constructor don't (`ai.Model`, `queue.Delay`). An option that
+  can be invalid returns an `error` (`func(*options) error`) or records
+  it for the constructor to report, never panics (design D315).
 - An **options struct** (`Options`, `PutOptions`) is fine instead when
   every field is optional and its zero value is the default, as
   `slog.HandlerOptions`.
@@ -232,3 +241,4 @@ that isn't obvious.
 | 2026-10-10 | §1 settings (M8b-2, D311) |
 | 2026-10-10 | §1 log in, `Supports`, error types (M8b-3, D312) |
 | 2026-10-10 | §1 commands (M8b-4, D313) |
+| 2026-10-10 | §2 options with `With`, no SDK types; request values (M8b-5, D315) |

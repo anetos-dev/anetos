@@ -104,7 +104,7 @@ func (r *res[T, F]) listed(c *web.Ctx, q *db.Q[T], lp *listPage) (*db.Q[T], erro
 	lp.CanQuery = len(r.Search) > 0
 	for _, f := range r.Filters {
 		v := c.Query(f.Name)
-		fv := filterView{Name: f.Name, Title: f.Title}
+		fv := filterView{Name: f.Name, Title: f.Label}
 		if fv.Title == "" {
 			fv.Title = humanize(f.Name)
 		}
@@ -146,7 +146,7 @@ func (r *res[T, F]) sortable(col string) bool {
 func (r *res[T, F]) headers(c *web.Ctx, sort string) []header {
 	out := make([]header, len(r.Columns))
 	for i, col := range r.Columns {
-		h := header{Title: col.Title}
+		h := header{Title: col.Label}
 		if col.Sortable && col.Column != "" {
 			next := col.Column
 			switch sort {
@@ -226,26 +226,26 @@ func (r *res[T, F]) list(c *web.Ctx, trash bool) error {
 		}
 		lp.Rows = append(lp.Rows, lr)
 	}
-	title := r.Title
+	title := r.PluralLabel
 	crumbs := r.crumbs()
 	if trash {
-		title = r.Title + ": trash"
+		title = r.PluralLabel + ": trash"
 		crumbs = r.crumbs(navItem{Title: "Trash"})
 		lp.Empty = "The trash is empty."
 	} else {
 		crumbs = crumbs[:1]
-		lp.Empty = "No " + strings.ToLower(r.Title) + " yet."
+		lp.Empty = "No " + strings.ToLower(r.PluralLabel) + " yet."
 		if lp.Search != "" || c.Request().URL.RawQuery != "" {
 			lp.Empty = "Nothing matches."
 		}
 		lp.Action = r.url("/bulk")
 		for _, a := range r.BulkActions {
 			if r.can(c, a.Permission) {
-				lp.Bulk = append(lp.Bulk, buttonView{Name: a.Name, Title: a.Title, Confirm: a.Confirm, Danger: a.Danger})
+				lp.Bulk = append(lp.Bulk, buttonView{Name: a.Name, Title: a.Label, Confirm: a.Confirm, Danger: a.Danger})
 			}
 		}
 		if r.in.delete && r.can(c, "delete") {
-			lp.Bulk = append(lp.Bulk, buttonView{Name: "delete", Title: "Delete", Confirm: "Delete the selected " + strings.ToLower(r.Title) + "?", Danger: true})
+			lp.Bulk = append(lp.Bulk, buttonView{Name: "delete", Title: "Delete", Confirm: "Delete the selected " + strings.ToLower(r.PluralLabel) + "?", Danger: true})
 		}
 		if r.in.create && r.can(c, "create") {
 			lp.NewURL = r.url("/new")
@@ -286,7 +286,7 @@ func (r *res[T, F]) show(c *web.Ctx) error {
 	}
 	sp := showPage{}
 	for i, v := range r.cells(c, row, cols) {
-		sp.Lines = append(sp.Lines, line{cols[i].Title, v})
+		sp.Lines = append(sp.Lines, line{cols[i].Label, v})
 	}
 	k := r.keyText(row)
 	if r.in.editable && r.can(c, "update") && r.allowed(c, row, "update") {
@@ -301,7 +301,7 @@ func (r *res[T, F]) show(c *web.Ctx) error {
 	}
 	for _, a := range r.Actions {
 		if (a.When == nil || a.When(row)) && r.can(c, a.Permission) && r.allowed(c, row, "action:"+a.Name) {
-			sp.Actions = append(sp.Actions, buttonView{Name: a.Name, Title: a.Title, URL: r.url("/" + k + "/actions/" + a.Name), Confirm: a.Confirm, Danger: a.Danger})
+			sp.Actions = append(sp.Actions, buttonView{Name: a.Name, Title: a.Label, URL: r.url("/" + k + "/actions/" + a.Name), Confirm: a.Confirm, Danger: a.Danger})
 		}
 	}
 	if r.hooks.sections != nil {
@@ -397,7 +397,7 @@ func (r *res[T, F]) action(c *web.Ctx) error {
 	}
 	to := r.url("/" + r.keyText(row))
 	if a.When != nil && !a.When(row) {
-		return failed(c, a.Title+" can't be done to "+r.label(row)+".", to)
+		return failed(c, a.Label+" can't be done to "+r.label(row)+".", to)
 	}
 	if err := r.check(c, row, "action:"+a.Name); err != nil {
 		return refused(c, err, to)
@@ -413,7 +413,7 @@ func (r *res[T, F]) action(c *web.Ctx) error {
 	}
 	msg := a.Done
 	if msg == "" {
-		msg = a.Title + ": done."
+		msg = a.Label + ": done."
 	}
 	return done(c, msg, to)
 }
@@ -430,10 +430,10 @@ func (r *res[T, F]) bulk(c *web.Ctx) error {
 	}
 	raw := req.PostForm["ids"]
 	if len(raw) == 0 {
-		return failed(c, "Select some "+strings.ToLower(r.Title)+" first.", back)
+		return failed(c, "Select some "+strings.ToLower(r.PluralLabel)+" first.", back)
 	}
 	if len(raw) > maxSelected {
-		return failed(c, fmt.Sprintf("Select at most %d %s.", maxSelected, strings.ToLower(r.Title)), back)
+		return failed(c, fmt.Sprintf("Select at most %d %s.", maxSelected, strings.ToLower(r.PluralLabel)), back)
 	}
 	keys := make([]any, 0, len(raw))
 	for _, s := range raw {
@@ -490,7 +490,7 @@ func (r *res[T, F]) bulk(c *web.Ctx) error {
 		if err := r.authorize(c, a.Permission); err != nil {
 			return err
 		}
-		title = a.Title
+		title = a.Label
 		n, err = a.Run(c, q)
 	}
 	if err != nil {
@@ -523,7 +523,7 @@ func (r *res[T, F]) bulkEach(c *web.Ctx, q *db.Q[T], name string, selected int, 
 		if err := r.authorize(c, bulk.Permission); err != nil {
 			return err
 		}
-		op, title = "bulk:"+name, bulk.Title
+		op, title = "bulk:"+name, bulk.Label
 	}
 	rows, err := q.Get()
 	if err != nil {

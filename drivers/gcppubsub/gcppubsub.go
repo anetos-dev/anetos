@@ -40,9 +40,23 @@ type Config struct {
 	Create bool `env:"PUBSUB_GCP_CREATE" default:"false"`
 }
 
-// Driver is the broker's driver (PUBSUB_DRIVER=gcp). opts configure the
-// client (tests pass option.WithGRPCConn for a fake server).
-func Driver(opts ...option.ClientOption) pubsub.Driver {
+// Option configures the client of a [Driver].
+type Option func(*options)
+
+type options struct{ client []option.ClientOption }
+
+// WithClientOptions adds options to the client's (an endpoint,
+// credentials; tests pass option.WithGRPCConn for a fake server).
+func WithClientOptions(opts ...option.ClientOption) Option {
+	return func(o *options) { o.client = append(o.client, opts...) }
+}
+
+// Driver is the broker's driver (PUBSUB_DRIVER=gcp).
+func Driver(opts ...Option) pubsub.Driver {
+	var o options
+	for _, opt := range opts {
+		opt(&o)
+	}
 	return pubsub.Driver{Name: "gcp", Open: func(app *anetos.App, cfg pubsub.Config) (pubsub.Broker, error) {
 		c, err := config.Get[Config](app.Source())
 		if err != nil {
@@ -51,7 +65,7 @@ func Driver(opts ...option.ClientOption) pubsub.Driver {
 		if c.Project == "" {
 			return nil, errors.New("PUBSUB_GCP_PROJECT is required with PUBSUB_DRIVER=gcp")
 		}
-		client, err := gpubsub.NewClient(context.Background(), c.Project, opts...)
+		client, err := gpubsub.NewClient(context.Background(), c.Project, o.client...)
 		if err != nil {
 			return nil, err
 		}
@@ -67,7 +81,7 @@ func Driver(opts ...option.ClientOption) pubsub.Driver {
 // listener's ack timeout. A failed message is nacked: Pub/Sub delivers it
 // again as the subscription's retry policy says (the listener's Backoff
 // doesn't apply). Message.Attempt is set only for subscriptions with a
-// dead-letter policy; without one, the listener's MaxAttempts can't apply.
+// dead-letter policy; without one, the listener's Tries can't apply.
 type Broker struct {
 	client *gpubsub.Client
 	prefix string

@@ -223,7 +223,7 @@ func checkRoles(ctx context.Context, roles []string) error {
 	if len(stored) == 0 {
 		return nil
 	}
-	found, err := customRoles(ctx, nil, stored) // not the unit's: it may be older than a DeleteRole
+	found, err := customRoles(ctx, nil, stored) // not the operation's: it may be older than a DeleteRole
 	if err != nil {
 		return err
 	}

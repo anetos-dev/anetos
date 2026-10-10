@@ -1,24 +1,26 @@
 package ui
 
-import "strings"
+import (
+	"slices"
+	"strings"
+)
 
-// The components' Tailwind classes for the looks and tones. Tailwind finds the
+// The components' Tailwind classes for the variants, sizes and tones. Tailwind finds the
 // classes it generates in the files of views/, these strings among them:
 // keep each class whole (no "bg-" + color), or it won't be in app.css.
 
 // class is a button's classes.
-func (l Look) class() string {
+func (v Variant) class(sizes []Size) string {
 	c := []string{"inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg font-medium transition-colors hover:no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"}
-	kind := l &^ (Small | Full)
 	switch {
-	case kind == Ghost:
+	case v == Ghost:
 		c = append(c, "p-0 text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100")
-	case l&Small != 0:
+	case has(sizes, Small):
 		c = append(c, "px-2.5 py-1 text-xs")
 	default:
 		c = append(c, "px-4 py-2 text-sm")
 	}
-	switch kind {
+	switch v {
 	case Secondary:
 		c = append(c, "border border-zinc-300 bg-white text-zinc-800 shadow-xs hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800")
 	case Danger:
@@ -27,7 +29,7 @@ func (l Look) class() string {
 	default:
 		c = append(c, "bg-accent text-on-accent shadow-xs hover:bg-accent-hover")
 	}
-	if l&Full != 0 {
+	if has(sizes, FullWidth) {
 		c = append(c, "w-full")
 	}
 	return strings.Join(c, " ")
@@ -66,3 +68,6 @@ func (t Tone) flash() string {
 // control is the classes of an input, a textarea and a select; invalid
 // ones (aria-invalid) get a red border.
 const control = "block w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-xs placeholder:text-zinc-500 focus:border-accent focus:outline-2 focus:outline-accent/50 aria-invalid:border-red-500 aria-invalid:focus:outline-red-500/30 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+
+// has reports whether sizes has s.
+func has(sizes []Size, s Size) bool { return slices.Contains(sizes, s) }

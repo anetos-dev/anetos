@@ -81,7 +81,7 @@ func TestWorkersRetry(t *testing.T) {
 	}))
 	ctx, stop := context.WithCancel(context.Background())
 	done := make(chan error, 1)
-	go func() { done <- app.Run(ctx, "workers") }()
+	go func() { done <- app.Run(ctx, "worker") }()
 	t.Cleanup(func() {
 		stop()
 		if err := <-done; err != nil {

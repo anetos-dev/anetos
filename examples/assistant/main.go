@@ -119,7 +119,7 @@ func setup(app *anetos.App) (*web.Server, error) {
 
 func routes(r *web.Router, sessions *session.Manager, h Handlers) {
 	a := h.auth
-	r.HandleStd(http.MethodGet, "/assets/{path...}", assets)
+	r.Get("/assets/{path...}", web.WrapHandler(assets))
 	// region: routes
 	pages := r.Group("", sessions.Middleware, web.CSRF(), a.Middleware)
 	pages.With(a.Guest).Get("/login", h.LoginPage)

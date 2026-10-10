@@ -142,25 +142,25 @@ func (a *App) addBuiltins() {
 	}
 	a.commands["run"] = cmd.Command{
 		Name:        "run",
-		Usage:       "[--only=role,…]",
+		Usage:       "[--only=type,…]",
 		Description: "Run the application's components (the default command)",
 		ManagesApp:  true,
 		Run: func(ctx context.Context, args *cmd.Args) error {
 			fs := flag.NewFlagSet("run", flag.ContinueOnError)
-			only := fs.String("only", "", "run only the components with these comma-separated roles, e.g. http")
+			only := fs.String("only", "", "run only the components of these comma-separated process types: web, worker, scheduler, listener")
 			if err := args.Parse(fs); err != nil {
 				return err
 			}
 			if fs.NArg() > 0 {
 				return cmd.Usagef("unexpected argument %q", fs.Arg(0))
 			}
-			var roles []string
-			for r := range strings.SplitSeq(*only, ",") {
-				if r = strings.TrimSpace(r); r != "" {
-					roles = append(roles, r)
+			var types []string
+			for t := range strings.SplitSeq(*only, ",") {
+				if t = strings.TrimSpace(t); t != "" {
+					types = append(types, t)
 				}
 			}
-			return a.Run(ctx, roles...)
+			return a.Run(ctx, types...)
 		},
 	}
 }

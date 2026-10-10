@@ -29,7 +29,7 @@ func setupAuth(app *anetos.App, r *web.Router, sessions *session.Manager) (*auth
 	}
 	// Logging in leads to the dashboard, unless AUTH_HOME_URL names
 	// another page (or this default changes).
-	a, err := auth.New(app, models.Users, auth.DefaultHomeURL("/dashboard"))
+	a, err := auth.New(app, models.Users, auth.WithDefaultHomeURL("/dashboard"))
 	if err != nil {
 		return nil, err
 	}

@@ -149,13 +149,13 @@ func postsResource() Resource[Post, PostForm] {
 	return Resource[Post, PostForm]{
 		Name: "posts",
 		Columns: []Column[Post]{
-			Field[Post]("Title", "title"),
-			Field[Post]("Status", "status"),
-			{Title: "Featured", Value: func(p Post) any { return p.Featured }},
+			TextColumn[Post]("title", "Title"),
+			TextColumn[Post]("status", "Status"),
+			{Label: "Featured", Value: func(p Post) any { return p.Featured }},
 		},
-		Search:  []string{"title", "body"},
-		Filters: []Filter[Post]{Equals[Post]("status", "Status", Choices("draft", "published")...)},
-		Label:   func(p Post) string { return p.Title },
+		Search:      []string{"title", "body"},
+		Filters:     []Filter[Post]{Equals[Post]("status", "Status", Choices("draft", "published")...)},
+		RecordTitle: func(p Post) string { return p.Title },
 		Edit: func(p Post) PostForm {
 			return PostForm{Title: p.Title, Body: p.Body, Status: p.Status, Featured: p.Featured}
 		},
@@ -167,7 +167,7 @@ func postsResource() Resource[Post, PostForm] {
 			return nil
 		},
 		Actions: []Action[Post]{{
-			Name: "publish", Title: "Publish", When: func(p Post) bool { return p.Status != "published" },
+			Name: "publish", Label: "Publish", When: func(p Post) bool { return p.Status != "published" },
 			Run: func(ctx context.Context, p *Post) error {
 				if p.Title == "Unpublishable" {
 					return validate.Fail("status", "This post can't be published.")
@@ -177,7 +177,7 @@ func postsResource() Resource[Post, PostForm] {
 			},
 		}},
 		BulkActions: []BulkAction[Post]{{
-			Name: "feature", Title: "Feature",
+			Name: "feature", Label: "Feature",
 			Run: func(_ context.Context, q *db.Q[Post]) (int64, error) {
 				return q.Update(db.C("featured").Set(true))
 			},
@@ -255,7 +255,7 @@ func setupWith(opts func(p *Panel) error) func(app *anetos.App) (*web.Server, er
 			}
 			return c.NoContent()
 		})
-		p, err := New(app, a, Title("Back office"), UserName(func(u *User) string { return u.Name }))
+		p, err := New(app, a, WithDefaultTitle("Back office"), WithUserName(func(u *User) string { return u.Name }))
 		if err != nil {
 			return nil, err
 		}
@@ -267,7 +267,7 @@ func setupWith(opts func(p *Panel) error) func(app *anetos.App) (*web.Server, er
 		}
 		if err := Add(p, Resource[Tag, struct{}]{
 			Name:    "tags",
-			Columns: []Column[Tag]{Field[Tag]("Name", "name")},
+			Columns: []Column[Tag]{TextColumn[Tag]("name", "Name")},
 		}); err != nil {
 			return nil, err
 		}
@@ -476,7 +476,7 @@ func TestBulk(t *testing.T) {
 func TestScope(t *testing.T) {
 	app := anetostest.New(t, setupWith(func(p *Panel) error {
 		r := postsResource()
-		r.Name, r.Title = "drafts", "Drafts"
+		r.Name, r.PluralLabel = "drafts", "Drafts"
 		r.Query = func(q *db.Q[Post]) *db.Q[Post] { return q.Where(db.C("status").Eq("draft")) }
 		return Add(p, r)
 	}))
@@ -533,13 +533,13 @@ func TestAddErrors(t *testing.T) {
 		"mounted":  Add(p, Resource[Tag, struct{}]{Name: "more"}),
 		"no name":  Add(&Panel{}, Resource[Tag, struct{}]{}),
 		"half":     Add(&Panel{}, Resource[Tag, struct{}]{Name: "x", Edit: func(Tag) struct{} { return struct{}{} }}),
-		"column":   Add(&Panel{}, Resource[Tag, struct{}]{Name: "x", Columns: []Column[Tag]{Field[Tag]("Nope", "nope")}}),
+		"column":   Add(&Panel{}, Resource[Tag, struct{}]{Name: "x", Columns: []Column[Tag]{TextColumn[Tag]("nope", "Nope")}}),
 		"search":   Add(&Panel{}, Resource[Tag, struct{}]{Name: "x", Search: []string{"nope"}}),
 		"sort":     Add(&Panel{}, Resource[Tag, struct{}]{Name: "x", Sort: "-nope"}),
 		"filter":   Add(&Panel{}, Resource[Tag, struct{}]{Name: "x", Filters: []Filter[Tag]{{Name: "q", Apply: func(q *db.Q[Tag], _ string) *db.Q[Tag] { return q }}}}),
 		"action":   Add(&Panel{}, Resource[Tag, struct{}]{Name: "x", Actions: []Action[Tag]{{Name: "Bad Name", Run: func(context.Context, *Tag) error { return nil }}}}),
 		"bulk":     Add(&Panel{}, Resource[Tag, struct{}]{Name: "x", BulkActions: []BulkAction[Tag]{{Name: "delete", Run: func(context.Context, *db.Q[Tag]) (int64, error) { return 0, nil }}}}),
-		"no value": Add(&Panel{}, Resource[Tag, struct{}]{Name: "x", Columns: []Column[Tag]{{Title: "Empty"}}}),
+		"no value": Add(&Panel{}, Resource[Tag, struct{}]{Name: "x", Columns: []Column[Tag]{{Label: "Empty"}}}),
 		"form": Add(&Panel{}, Resource[Tag, struct{ M map[string]int }]{Name: "x",
 			Edit:  func(Tag) struct{ M map[string]int } { return struct{ M map[string]int }{} },
 			Apply: func(context.Context, struct{ M map[string]int }, *Tag) error { return nil }}),

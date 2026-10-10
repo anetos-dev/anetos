@@ -123,7 +123,7 @@ signature and the route then say what the request answers, which the
 API's description reads ([Describe an API with OpenAPI](openapi.md));
 `Status` takes 2xx statuses only, and errors are written as usual.
 `Status` sets what a `web.H` handler's result answers: a
-`web.Responder`, a plain handler and a `HandleStd` route write their
+`web.Responder`, a plain handler and a `web.WrapHandler` route write their
 own status, and ignore it. Use `web.Responder` as the output type when
 one handler returns different kinds of responses, chosen as it runs:
 pages' redirects, say.

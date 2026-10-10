@@ -182,7 +182,7 @@ The routes:
 Logging in, registering and logging in with a provider lead to the page
 the user asked for before logging in, or else to `AUTH_HOME_URL`:
 `/dashboard`, the default `setupAuth` gives in `auth.go`
-(`auth.DefaultHomeURL("/dashboard")`). To send users elsewhere, set
+(`auth.WithDefaultHomeURL("/dashboard")`). To send users elsewhere, set
 `AUTH_HOME_URL=/projects` in the environment, or change the default in
 `auth.go`; the setting wins, so each deployment can choose. Logged-in
 users who open a guest page go there too; guests who open a member page

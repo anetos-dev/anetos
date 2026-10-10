@@ -53,7 +53,7 @@ start, saying why. The tests run on any of them the same way:
 By default (`QUEUE_DRIVER=sync`), a background answer runs right after
 the request that asked for it, within its timeout. With
 `QUEUE_DRIVER=database`, it waits for a worker: `go run . run
---only=workers` in another terminal, or `go run .` runs everything.
+--only=worker` in another terminal, or `go run .` runs everything.
 
 The tests ([`main_test.go`](main_test.go)) script the model with
 `anetostest.FakeAI`; the fake makes embeddings too (from the texts'

@@ -655,8 +655,8 @@ func TestAppNewWork(t *testing.T) {
 	if err := q.Work(queue.Queues("default", "other")); err == nil {
 		t.Error("the same workers twice = nil")
 	}
-	if got := app.Supervisor().Roles(); len(got) != 1 || got[0] != "workers" {
-		t.Errorf("roles = %v", got)
+	if got := app.Supervisor().ProcessTypes(); len(got) != 1 || got[0] != "worker" {
+		t.Errorf("process types = %v", got)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
@@ -688,8 +688,8 @@ func TestSyncDriverWork(t *testing.T) {
 	if err := q.Work(); err != nil {
 		t.Fatal(err)
 	}
-	if got := app.Supervisor().Roles(); len(got) != 0 {
-		t.Errorf("roles = %v, want none", got)
+	if got := app.Supervisor().ProcessTypes(); len(got) != 0 {
+		t.Errorf("process types = %v, want none", got)
 	}
 	var out bytes.Buffer
 	if code := app.ExecuteArgs(context.Background(), []string{"queue:failed"}, &out, &out); code != 1 || !strings.Contains(out.String(), "sync driver keeps no jobs") {

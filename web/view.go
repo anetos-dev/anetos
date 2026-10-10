@@ -31,15 +31,23 @@ func (c *Ctx) Render(status int, comp view.Component) error {
 	return c.Blob(status, "text/html; charset=utf-8", buf.Bytes())
 }
 
-// View responds 200 OK with the rendered component, for typed handlers:
+// Render responds 200 OK with the rendered component, for typed handlers
+// ([Ctx.Render] with another status):
 //
 //	func (h Posts) Show(c *web.Ctx, in PostID) (web.Responder, error) {
 //		…
-//		return web.View(views.Post(post)), nil
+//		return web.Render(views.Post(post)), nil
 //	}
-func View(comp view.Component) Responder {
+func Render(comp view.Component) Responder {
 	return ResponderFunc(func(c *Ctx) error { return c.Render(http.StatusOK, comp) })
 }
+
+// View is [Render].
+//
+// Deprecated: Use Render; View is removed in v0.6.
+//
+//go:fix inline
+func View(comp view.Component) Responder { return Render(comp) }
 
 // HTMX describes an htmx request (https://htmx.org/reference/#request_headers).
 type HTMX struct {

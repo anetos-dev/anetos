@@ -7,6 +7,10 @@ tagged `drivers/gcppubsub/vX.Y.Z`. The framework's own changes are in the
 
 ## [Unreleased]
 
+### Changed
+- `Driver` takes the module's own options: `Driver(WithClientOptions(opts...))`
+  where it took the client's options (M8b-5).
+
 ### Security
 - `golang.org/x/net` v0.60.0, an indirect dependency (GO-2026-6612,
   GO-2026-6617).

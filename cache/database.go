@@ -102,7 +102,7 @@ func (s *DatabaseStore) q(name string) string { return s.d.Dialect().QuoteIdent(
 // conn returns the context the store's queries run with: its database,
 // and, except with SQLite, no transaction.
 func (s *DatabaseStore) conn(ctx context.Context) context.Context {
-	ctx = db.Untracked(db.WithDB(ctx, s.d)) // a cache read per key isn't an N+1
+	ctx = db.AllowRepeatedQueries(db.WithDB(ctx, s.d)) // a cache read per key isn't an N+1
 	if s.d.Dialect().Name() == "sqlite" {
 		// SQLite has one writer at a time: a write on another connection
 		// would wait for the transaction, which may be waiting for it.

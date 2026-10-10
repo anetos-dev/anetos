@@ -26,7 +26,7 @@ type Client struct {
 	provider Provider
 	defaults []Option
 	log      *slog.Logger
-	units    func(context.Context, anetos.Unit) (context.Context, func())
+	units    func(context.Context, anetos.Operation) (context.Context, func())
 	usage    *UsageConfig // TrackUsage
 	// embed is the embeddings provider when it isn't provider
 	// (AI_EMBEDDING_PROVIDER); embedModel is AI_EMBEDDING_MODEL.
@@ -174,9 +174,9 @@ func FakeDriver() Driver {
 // New sets up the app's AI client from the AI_* settings: it opens
 // the provider AI_PROVIDER names (fake is built in; driver modules
 // provide the others, passed here) and makes the client available in
-// every context the app creates. Each tool call is a unit of work
-// (anetos.Unit, kind "tool"), so N+1 detection and the app's other unit
-// wrappers see it.
+// every context the app creates. Each tool call is an operation
+// (anetos.Operation, kind "tool"), so N+1 detection and the app's other
+// operation wrappers see it.
 //
 //	client, err := ai.New(app) // AI_PROVIDER; pass providers' drivers here
 func New(app *anetos.App, drivers ...Driver) (*Client, error) {
@@ -255,7 +255,7 @@ func New(app *anetos.App, drivers ...Driver) (*Client, error) {
 		}
 	}
 	c.log = app.Logger().With("component", "ai")
-	c.units = app.StartUnit
+	c.units = app.StartOperation
 	if cfg.Provider == "fake" && app.Config().Env.IsProduction() {
 		c.log.Warn("ai: AI_PROVIDER is fake in production: models are never called")
 	}

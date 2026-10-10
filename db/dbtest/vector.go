@@ -190,7 +190,7 @@ func testVectors(t *testing.T, ctx context.Context) {
 		t.Errorf("Chunks = %+v", cs)
 	}
 	check(t, db.ReplaceChunks[stDoc](ctx, id("Gardens"), []db.Chunk{
-		{Content: "growing", ContentHash: "g", Model: "m1", Embedding: db.Vector{0, 0, 1}},
+		{Content: "growing", ContentHash: "g", EmbeddingModel: "m1", Embedding: db.Vector{0, 0, 1}},
 	}))
 	if cs, err := db.Chunks[stDoc](ctx, id("Gardens")); err != nil || len(cs) != 1 || cs[0].Content != "growing" || cs[0].Position != 0 {
 		t.Errorf("after ReplaceChunks: %+v, %v", cs, err)

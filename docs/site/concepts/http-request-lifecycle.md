@@ -26,7 +26,7 @@ flowchart TB
 ## 1. The server
 
 `web.NewServer(app)` creates an `http.Server` wrapped as a supervised
-component (role `http`, stage `StageIngress`, `StopOnFailure`). It listens
+component (process type `web`, stage `StageIngress`, `StopOnFailure`). It listens
 when `app.Run` starts and is **ready** once the port is bound; `/health/ready`
 reports the whole app's readiness.
 
@@ -52,7 +52,7 @@ Every request, matched or not, passes through the global middleware:
 | `SecureHeaders` | `nosniff`, frame and referrer policies; HSTS in production |
 | `CORS` | Only if `HTTP_CORS_ORIGINS` is set; answers preflights |
 | `BodyLimit` | Caps the body at `HTTP_MAX_BODY` |
-| `Timeout` | Puts a deadline of `HTTP_REQUEST_TIMEOUT` on the request context; a streaming handler lifts it with `web.WithoutTimeout` (as `c.Events()` does), keeping the cancellation when the client leaves |
+| `Timeout` | Puts a deadline of `HTTP_REQUEST_TIMEOUT` on the request context; a streaming handler lifts it with `web.WithoutTimeout` (as `c.EventStream()` does), keeping the cancellation when the client leaves |
 
 ## 3. Routing
 
@@ -88,7 +88,7 @@ response can't be changed any more.
 ## Design notes
 
 - **net/http all the way down.** The router is an `http.Handler`, routes
-  can serve any `http.Handler` (`HandleStd`), and middleware is
+  can serve any `http.Handler` (`web.WrapHandler`), and middleware is
   `func(http.Handler) http.Handler`, so you can leave the framework at any
   layer.
 - **`Ctx` is a `context.Context`.** Pass `c` straight to the database or

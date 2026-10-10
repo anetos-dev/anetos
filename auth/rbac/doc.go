@@ -32,7 +32,7 @@
 //	r.With(rbac.RequireIn(rbac.PathScope("team", "team"), ViewProjects)).Get("/teams/{team}/projects", h.Projects)
 //
 // A global grant applies in every scope. A user's grants are read in one
-// query (two with roles from the database) once per unit of work: a
+// query (two with roles from the database) once per operation: a
 // request, a job, a tool call. A request logged in with an API token may
 // use only the permissions that are also among the token's abilities.
 //

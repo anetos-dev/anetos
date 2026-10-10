@@ -36,8 +36,8 @@ ENV APP_ENV=production \
 EXPOSE 8080
 USER 65532:65532
 # The server's readiness; turn it off for containers that don't serve
-# HTTP (run --only=workers).
+# HTTP (run --only=worker).
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s CMD ["/app/tracker", "health:check"]
 ENTRYPOINT ["/app/tracker"]
-# Every component; run --only=http, workers, scheduler or listeners for one role.
+# Every component; run --only=web, worker, scheduler or listener for one process type.
 CMD ["run"]

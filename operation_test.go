@@ -21,21 +21,21 @@ func TestUnits(t *testing.T) {
 	}
 	defer app.Close()
 	ctx := context.Background()
-	got, end := app.StartUnit(ctx, anetos.Unit{Kind: "job", Name: "x"})
+	got, end := app.StartOperation(ctx, anetos.Operation{Kind: "job", Name: "x"})
 	if got != ctx {
-		t.Error("StartUnit without functions changed the context")
+		t.Error("StartOperation without functions changed the context")
 	}
 	end()
 
 	var log []string
 	for _, name := range []string{"a", "b"} {
-		app.AroundUnits(func(ctx context.Context, u anetos.Unit) (context.Context, func()) {
+		app.AroundOperations(func(ctx context.Context, u anetos.Operation) (context.Context, func()) {
 			log = append(log, "start "+name+" "+u.Kind+" "+u.Name)
 			return context.WithValue(ctx, unitKey{}, name), func() { log = append(log, "end "+name) }
 		})
 	}
-	app.AroundUnits(func(ctx context.Context, _ anetos.Unit) (context.Context, func()) { return ctx, nil }) // no end
-	got, end = app.StartUnit(ctx, anetos.Unit{Kind: "request", Name: "GET /"})
+	app.AroundOperations(func(ctx context.Context, _ anetos.Operation) (context.Context, func()) { return ctx, nil }) // no end
+	got, end = app.StartOperation(ctx, anetos.Operation{Kind: "request", Name: "GET /"})
 	if got.Value(unitKey{}) != "b" {
 		t.Errorf("context value %v", got.Value(unitKey{}))
 	}

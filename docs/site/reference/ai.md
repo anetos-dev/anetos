@@ -15,7 +15,7 @@ walkthrough, [AI](../concepts/ai.md) for the design, and
 
 | API | Does | Since |
 |---|---|---|
-| `ai.New(app, drivers...)` | `*ai.Client` from the `AI_*` settings, with the driver `AI_PROVIDER` names (`fake` is built in), in every context the app creates. Each tool call becomes a unit of work (`anetos.Unit{Kind: "tool"}`) | v0.3 |
+| `ai.New(app, drivers...)` | `*ai.Client` from the `AI_*` settings, with the driver `AI_PROVIDER` names (`fake` is built in), in every context the app creates. Each tool call becomes an operation (`anetos.Operation{Kind: "tool"}`) | v0.3 |
 | `ai.NewWithProvider(provider, defaults...)` | A client by hand; `defaults` (options) apply before each call's own. Logs to `slog.Default()` | v0.3 |
 | `ai.WithClient(ctx, c)`, `ai.From(ctx)` | Put a client in a context; get it (`ai.ErrNoClient` if absent) | v0.3 |
 | `c.Provider()` | The client's `ai.Provider` | v0.3 |
@@ -96,7 +96,7 @@ An error is yielded once, and ends the stream.
 
 | API | Does |
 |---|---|
-| `ai.Func(name, description, fn)` | A tool running `fn func(ctx, In) (Out, error)`. In is a struct: its schema is the tool's input; the model's input is decoded (`*ai.InputError` if it doesn't fit) and validated before fn runs. Out is sent as JSON (a string type as is). Panics on a bad name (1–64 letters, digits, `_`, `-`), a non-struct In or bad tags. A panic in fn isn't recovered |
+| `ai.NewTool(name, description, fn)` | A tool running `fn func(ctx, In) (Out, error)`. In is a struct: its schema is the tool's input; the model's input is decoded (`*ai.InputError` if it doesn't fit) and validated before fn runs. Out is sent as JSON (a string type as is). Panics on a bad name (1–64 letters, digits, `_`, `-`), a non-struct In or bad tags. A panic in fn isn't recovered |
 | `ai.Tool` | The interface: `Definition() ai.ToolSpec{Name, Description, Input}`, `Call(ctx, json.RawMessage) (string, error)` |
 
 | A tool's error | The model gets | The call |
@@ -170,7 +170,7 @@ ignored.
 
 | API | Does | Since |
 |---|---|---|
-| `ai.SSE(c, events)` | Writes a stream (`ai.Stream`, `conv.StreamReply`…) as server-sent events, through `c.Events()` (no request or write timeout): `text` (a piece, HTML-escaped), `tool` (a tool's name), `error` (a 4xx error's message, else a general one; others are logged), then `done`, always last; a comment every 15 seconds keeps proxies from closing a quiet stream | v0.3 |
+| `ai.SSE(c, events)` | Writes a stream (`ai.Stream`, `conv.StreamReply`…) as server-sent events, through `c.EventStream()` (no request or write timeout): `text` (a piece, HTML-escaped), `tool` (a tool's name), `error` (a 4xx error's message, else a general one; others are logged), then `done`, always last; a comment every 15 seconds keeps proxies from closing a quiet stream | v0.3 |
 
 ## Usage and budgets
 

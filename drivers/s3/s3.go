@@ -88,10 +88,19 @@ type Backend struct {
 }
 
 // Option configures a [Backend].
-type Option func(*minio.Options)
+type Option func(*options)
 
-// Transport sets the HTTP transport (proxies, custom TLS roots).
-func Transport(rt http.RoundTripper) Option { return func(o *minio.Options) { o.Transport = rt } }
+type options struct{ transport http.RoundTripper }
+
+// WithTransport sets the HTTP transport (proxies, custom TLS roots).
+func WithTransport(rt http.RoundTripper) Option { return func(o *options) { o.transport = rt } }
+
+// Transport is [WithTransport].
+//
+// Deprecated: Use WithTransport; Transport is removed in v0.6.
+//
+//go:fix inline
+func Transport(rt http.RoundTripper) Option { return WithTransport(rt) }
 
 // New returns a backend for c. It doesn't contact the server.
 func New(c Config, opts ...Option) (*Backend, error) {
@@ -122,10 +131,11 @@ func New(c Config, opts ...Option) (*Backend, error) {
 	if c.PathStyle {
 		lookup = minio.BucketLookupPath
 	}
-	mo := &minio.Options{Creds: creds, Secure: secure, Region: c.Region, BucketLookup: lookup}
+	var o options
 	for _, opt := range opts {
-		opt(mo)
+		opt(&o)
 	}
+	mo := &minio.Options{Creds: creds, Secure: secure, Region: c.Region, BucketLookup: lookup, Transport: o.transport}
 	client, err := minio.New(host, mo)
 	if err != nil {
 		return nil, fmt.Errorf("s3: %w", err)
@@ -405,9 +415,9 @@ func (b *Backend) Copy(ctx context.Context, src, dst string) error {
 	return mapErr(err)
 }
 
-// SignedURL implements storage.URLSigner: a presigned GET URL, valid
+// TemporaryURL implements storage.TemporaryURLBackend: a presigned GET URL, valid
 // for at most 7 days.
-func (b *Backend) SignedURL(ctx context.Context, p string, expires time.Time) (string, error) {
+func (b *Backend) TemporaryURL(ctx context.Context, p string, expires time.Time) (string, error) {
 	ttl := time.Until(expires).Round(time.Second)
 	if ttl < time.Second || ttl > 7*24*time.Hour {
 		return "", fmt.Errorf("s3: a signed URL lasts from a second to 7 days, not %s", ttl)
@@ -417,4 +427,13 @@ func (b *Backend) SignedURL(ctx context.Context, p string, expires time.Time) (s
 		return "", err
 	}
 	return u.String(), nil
+}
+
+// SignedURL is [Backend.TemporaryURL].
+//
+// Deprecated: Use TemporaryURL; SignedURL is removed in v0.6.
+//
+//go:fix inline
+func (b *Backend) SignedURL(ctx context.Context, p string, expires time.Time) (string, error) {
+	return b.TemporaryURL(ctx, p, expires)
 }

@@ -27,7 +27,7 @@ func SubjectOf(row any) (Subject, error) {
 
 // Record adds an entry for something the app did that isn't a write of a
 // tracked model: an export, a login, a permission check that failed.
-// The actor and the unit of work are found as for tracked writes;
+// The actor and the operation are found as for tracked writes;
 // properties are the details, stored as JSON. With a transaction in ctx,
 // the entry is part of it.
 //
@@ -52,7 +52,7 @@ func Record(ctx context.Context, action string, subject Subject, properties map[
 	if err := checkLengths(e.SubjectID, e.ActorID); err != nil {
 		return err
 	}
-	return db.Create(db.Untracked(ctx), &e)
+	return db.Create(db.AllowRepeatedQueries(ctx), &e)
 }
 
 // Event is one item of a subject's history: an entry of its own, or a

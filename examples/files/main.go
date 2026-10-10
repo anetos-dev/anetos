@@ -17,7 +17,6 @@ package main
 
 import (
 	"log"
-	"net/http"
 
 	"anetos.dev/anetos"
 	"anetos.dev/anetos/drivers/s3"
@@ -61,8 +60,8 @@ func setup(app *anetos.App) (*web.Server, error) {
 	// Local disks' files, at their STORAGE_URL. The default disk isn't
 	// public: its handler serves only temporary URLs. (Files on S3 are
 	// served by the bucket.)
-	r.HandleStd(http.MethodGet, "/files/{path...}", st.Default().Handler())
-	r.HandleStd(http.MethodGet, "/avatars/{path...}", avatars.Handler())
+	r.Get("/files/{path...}", web.WrapHandler(st.Default().Handler()))
+	r.Get("/avatars/{path...}", web.WrapHandler(avatars.Handler()))
 	// endregion
 	return srv, nil
 }

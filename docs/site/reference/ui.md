@@ -93,9 +93,9 @@ so it shows what was typed when validation failed.
 | `Checkbox(name, label string, checked bool, attrs templ.Attributes)` | | `<label class="check">` around a checkbox sending `1`, then `label`. It has its own label: wrap it in `Field(name, "", "")` for the field's message. Pass `view.OldChecked(ctx, name, current)` as `checked` |
 | `FieldError(name string)` | | `<p class="error" id="name-error">` with the field's validation message, or nothing; the control is described by it (`aria-describedby`) |
 | `Actions()` | buttons and links | `<div class="form-actions">`: a form's buttons, after its fields |
-| `Button(look Look, attrs templ.Attributes)` | its text | `<button type="submit">`, with the look's classes |
-| `LinkButton(href string, look Look)` | its text | `<a class="button …">`: a link that looks like a button |
-| `PostButton(action, method string, look Look)` | its text | A `Button` in an `InlineForm` of its own: sends `method` (`"POST"`, or `"PUT"`, `"PATCH"`, `"DELETE"`) to `action` with the CSRF token, to delete something or log out |
+| `Button(variant Variant, attrs templ.Attributes, size ...Size)` | its text | `<button type="submit">`, with the variant's and sizes' classes |
+| `LinkButton(href string, variant Variant, size ...Size)` | its text | `<a class="button …">`: a link that looks like a button |
+| `PostButton(action, method string, variant Variant, size ...Size)` | its text | A `Button` in an `InlineForm` of its own: sends `method` (`"POST"`, or `"PUT"`, `"PATCH"`, `"DELETE"`) to `action` with the CSRF token, to delete something or log out |
 
 ## Lists and values
 
@@ -111,20 +111,20 @@ so it shows what was typed when validation failed.
 | `Badge(tone Tone)` | its text | `<span class="badge …">`: a short label (a status, a count) in the tone's color |
 | `Pagination(p Pages)` | | `<nav class="pagination">` named `p.Label`: a link to `p.Prev` (`rel="prev"`) unless it is `""`, `p.Status` unless it is `""`, and a link to `p.Next` (`rel="next"`) unless it is `""` |
 
-## Looks
+## Variants and sizes
 
-A button's look (`ui.Look`) is one kind, with sizes added with `|`:
-`ui.Secondary|ui.Small`. `Button`, `LinkButton` and `PostButton` take
-it.
+`Button`, `LinkButton` and `PostButton` take a variant (`ui.Variant`),
+then any sizes (`ui.Size`), as Bootstrap and shadcn/ui name them:
+`@ui.LinkButton(url, ui.Secondary, ui.Small)`.
 
 | Constant | For | Classes (starter theme) |
 |---|---|---|
-| `ui.Primary` | The page's main action; the default (zero) look | `button` on a link; none on a `<button>`, which looks primary as it is |
+| `ui.Primary` | The page's main action; the default (zero) variant | `button` on a link; none on a `<button>`, which looks primary as it is |
 | `ui.Secondary` | Another action | `secondary` |
 | `ui.Danger` | An action that deletes, or can't be undone | `danger` |
 | `ui.Ghost` | A quiet action, as in the header | `ghost` |
-| `ui.Small` | Added: smaller, as in a table's row | `small` |
-| `ui.Full` | Added: as wide as its container | `full` |
+| `ui.Small` (a size) | Smaller, as in a table's row | `small` |
+| `ui.FullWidth` (a size) | As wide as its container | `full` |
 
 ## Tones
 
@@ -146,7 +146,7 @@ In `views/ui/ui.go`, shared by every CSS framework.
 |---|---|
 | `ui.Option` | An option of a `Select`: `Value` (sent), `Label` (shown) |
 | `ui.Pages` | What `Pagination` shows: `Label` (the links' name for screen readers), `Status` (`"Page 2 of 5"`), `Prev` and `Next` (the URLs of the pages around it, `""` at the ends), `PrevLabel` and `NextLabel` (their links' text) |
-| `ui.PagesOf(ctx, page, label, status, prev, next)` | The `Pages` of a `db.Page[T]`, with those texts: `Prev` when `page.HasPrev()` (the last page when the page is past it), `Next` when `page.HasMore()`, built with `web.PageURL`, so the links keep the query's other parameters (a search, a filter) |
+| `ui.PagesOf(ctx, page, label, status, prev, next)` | The `Pages` of a `db.Page[T]`, with those texts: `Prev` when `page.HasPrev()` (the last page when the page is past it), `Next` when `page.HasNext()`, built with `web.PageURL`, so the links keep the query's other parameters (a search, a filter) |
 
 ```templ
 // illustrative
@@ -158,7 +158,7 @@ if page.LastPage > 1 {
 ## What reads the request
 
 Some components read the request's context (`ctx`), so they need a page
-rendered for a request (`c.Render`, `web.View`):
+rendered for a request (`c.Render`, `web.Render`):
 
 | Component | Reads |
 |---|---|
@@ -197,7 +197,7 @@ and no classes. The differences:
 | `Button`, `LinkButton`, `NavLink`, `Badge` | Followed by a space, so side by side they don't touch |
 | `AuthCard` | A `<section>` with its `<h1>` |
 | `Table` | The `<table>` alone, without the scrolling box |
-| `Button`, `LinkButton`, `PostButton` | The look changes nothing |
+| `Button`, `LinkButton`, `PostButton` | The variant and sizes change nothing |
 | `Badge`, `Flash` | The tone changes nothing |
 | `SROnly`, `Multiline` | An inline `style` hides the text visually, or keeps its line breaks (a Content-Security-Policy without `'unsafe-inline'` for styles blocks it: give them classes then) |
 
@@ -234,7 +234,8 @@ files in `public/static/` yourself.
 and `public/static/app.css`, which Tailwind compiles from it (`anetos
 dev`, `anetos build` and `anetos css:build` run Tailwind; [Tailwind
 CSS](../guides/tailwind.md)). `classes.go` holds the classes of
-each look (`Look.class`) and tone (`Tone.badge`, `Tone.flash`) and of
+each variant and size (`Variant.class`) and tone (`Tone.badge`,
+`Tone.flash`) and of
 the form controls (`control`).
 
 | Component | Writes |

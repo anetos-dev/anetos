@@ -16,16 +16,16 @@ import (
 	"anetos.dev/anetos"
 )
 
-// RepeatedQuery is a query a unit of work (a request, a job…) ran many
+// RepeatedQuery is a query an operation (a request, a job…) ran many
 // times: the sign of an N+1, a query in a loop that one query (eager
 // loading with With, WhereIn, a join) could replace.
 type RepeatedQuery struct {
-	// Unit is the unit of work: "request GET /posts", "job SendDigest".
-	Unit anetos.Unit
+	// Operation is what ran it: "request GET /posts", "job SendDigest".
+	Operation anetos.Operation
 	// SQL is the query, with placeholders: every run had this text, with
 	// whatever arguments.
 	SQL string
-	// Count is how many times the unit ran it.
+	// Count is how many times the operation ran it.
 	Count int
 	// Caller is where the app ran it from ("handlers/posts.go:42"): the
 	// first frame outside the framework and the standard library when
@@ -40,14 +40,15 @@ func (r RepeatedQuery) String() string {
 	if r.Caller != "" {
 		at = " at " + r.Caller
 	}
-	return fmt.Sprintf("%s %s ran the same query %d times%s: %s", r.Unit.Kind, r.Unit.Name, r.Count, at, r.SQL)
+	return fmt.Sprintf("%s %s ran the same query %d times%s: %s", r.Operation.Kind, r.Operation.Name, r.Count, at, r.SQL)
 }
 
-// WithRepeatedQueries makes [DB.Track] report queries a unit of work
-// runs n or more times; n below 2 disables it. [Connect] sets it from
+// WithRepeatedQueries makes [DB.Track] report queries an operation runs
+// n or more times; n below 2 disables it. [Connect] sets it from
 // DB_REPEATED_QUERIES (with a default in development and testing), and
 // [Open] from Config.RepeatedQueries when set. For a database opened
-// with Open, have the app's units tracked with app.AroundUnits(d.Track).
+// with Open, have the app's operations tracked with
+// app.AroundOperations(d.Track).
 func WithRepeatedQueries(n int) Option { return func(d *DB) { d.repeated = n } }
 
 // OnRepeatedQuery calls fn, besides logging a warning, for each repeated
@@ -62,9 +63,10 @@ func (d *DB) OnRepeatedQuery(fn func(ctx context.Context, r RepeatedQuery)) {
 // trackKey holds a DB's tracker in a context.
 type trackKey struct{ d *DB }
 
-// untrackedKey marks contexts whose queries aren't counted. Track resets
-// it (a nil value), so a unit started in an untracked loop is tracked.
-type untrackedKey struct{}
+// allowedKey marks contexts whose queries aren't counted
+// ([AllowRepeatedQueries]). Track resets it (a nil value), so an
+// operation started in such a loop is tracked.
+type allowedKey struct{}
 
 // batchKey holds the batch of a chunked operation ([inBatch]).
 type batchKey struct{}
@@ -76,11 +78,11 @@ type batch struct {
 	seen map[string]bool
 }
 
-// trackingKey marks contexts of tracked units, whatever the DB.
+// trackingKey marks contexts of tracked operations, whatever the DB.
 type trackingKey struct{}
 
-// inBatch returns ctx for an operation run in chunks: ctx itself when no
-// unit tracks queries.
+// inBatch returns ctx for a statement run in chunks: ctx itself when no
+// operation tracks queries.
 func inBatch(ctx context.Context) context.Context {
 	if ctx.Value(trackingKey{}) == nil {
 		return ctx
@@ -88,7 +90,7 @@ func inBatch(ctx context.Context) context.Context {
 	return context.WithValue(ctx, batchKey{}, &batch{seen: map[string]bool{}})
 }
 
-// tracker counts a unit's queries by their SQL.
+// tracker counts an operation's queries by their SQL.
 type tracker struct {
 	mu     sync.Mutex
 	counts map[string]*seen
@@ -103,35 +105,43 @@ type seen struct {
 // the returned function is called; then it logs a warning (and calls the
 // [DB.OnRepeatedQuery] functions) for each query run at least the
 // threshold number of times ([WithRepeatedQueries]). [Connect] has every
-// unit of work of the app tracked this way (anetos.App.AroundUnits).
+// operation of the app tracked this way (anetos.App.AroundOperations).
 // Without a threshold, it returns ctx and a no-op.
-func (d *DB) Track(ctx context.Context, u anetos.Unit) (context.Context, func()) {
+func (d *DB) Track(ctx context.Context, op anetos.Operation) (context.Context, func()) {
 	if d.repeated < 2 {
 		return ctx, func() {}
 	}
 	t := &tracker{counts: map[string]*seen{}}
-	// A fresh start: neither an outer Untracked nor an outer batch applies.
-	ctx = context.WithValue(ctx, untrackedKey{}, nil)
+	// A fresh start: neither an outer AllowRepeatedQueries nor an outer
+	// batch applies.
+	ctx = context.WithValue(ctx, allowedKey{}, nil)
 	ctx = context.WithValue(ctx, batchKey{}, nil)
 	ctx = context.WithValue(ctx, trackingKey{}, true)
 	ctx = context.WithValue(ctx, trackKey{d}, t)
-	return ctx, func() { d.report(ctx, u, t) }
+	return ctx, func() { d.report(ctx, op, t) }
 }
 
-// Untracked returns ctx with its queries left out of repeated-query
-// detection ([DB.Track]), for code whose repeated queries are by design:
-// the framework's database stores use it.
-func Untracked(ctx context.Context) context.Context {
-	return context.WithValue(ctx, untrackedKey{}, true)
+// AllowRepeatedQueries returns ctx with its queries left out of
+// repeated-query detection ([DB.Track]), for code whose repeated queries
+// are by design: the framework's database stores use it.
+func AllowRepeatedQueries(ctx context.Context) context.Context {
+	return context.WithValue(ctx, allowedKey{}, true)
 }
 
-// count counts a query made with ctx, if a unit tracks them.
+// Untracked is [AllowRepeatedQueries].
+//
+// Deprecated: Use AllowRepeatedQueries; Untracked is removed in v0.6.
+//
+//go:fix inline
+func Untracked(ctx context.Context) context.Context { return AllowRepeatedQueries(ctx) }
+
+// count counts a query made with ctx, if an operation tracks them.
 func (d *DB) count(ctx context.Context, query string) {
 	if d.repeated < 2 {
 		return
 	}
 	t, ok := ctx.Value(trackKey{d}).(*tracker)
-	if !ok || ctx.Value(untrackedKey{}) != nil {
+	if !ok || ctx.Value(allowedKey{}) != nil {
 		return
 	}
 	if b, ok := ctx.Value(batchKey{}).(*batch); ok {
@@ -161,12 +171,12 @@ func (d *DB) count(ctx context.Context, query string) {
 }
 
 // report reports t's repeated queries.
-func (d *DB) report(ctx context.Context, u anetos.Unit, t *tracker) {
+func (d *DB) report(ctx context.Context, op anetos.Operation, t *tracker) {
 	t.mu.Lock()
 	var reps []RepeatedQuery
 	for q, s := range t.counts {
 		if s.n >= d.repeated {
-			reps = append(reps, RepeatedQuery{Unit: u, SQL: q, Count: s.n, Caller: s.caller})
+			reps = append(reps, RepeatedQuery{Operation: op, SQL: q, Count: s.n, Caller: s.caller})
 		}
 	}
 	t.mu.Unlock()
@@ -179,7 +189,7 @@ func (d *DB) report(ctx context.Context, u anetos.Unit, t *tracker) {
 	d.repMu.RUnlock()
 	for _, r := range reps {
 		d.log.WarnContext(ctx, "repeated query: an N+1? Load related rows with With or a single query",
-			"unit", u.Kind+" "+u.Name, "count", r.Count, "sql", r.SQL, "at", r.Caller)
+			"operation", op.Kind+" "+op.Name, "count", r.Count, "sql", r.SQL, "at", r.Caller)
 		for _, fn := range obs {
 			fn(ctx, r)
 		}

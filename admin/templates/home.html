@@ -16,7 +16,7 @@
     <tbody>{{range .Rows}}<tr>{{$url := .URL}}{{range $i, $c := .Cells}}<td>{{if and $url (eq $i 0)}}<a href="{{$url}}">{{$c}}</a>{{else}}{{$c}}{{end}}</td>{{end}}</tr>{{else}}<tr><td class="empty" colspan="{{len .Headers}}">Nothing yet.</td></tr>{{end}}</tbody>
   </table></div>{{end}}
   {{.HTML}}
-  {{with .Link}}<p class="more"><a href="{{.URL}}">{{.Title}} →</a></p>{{end}}
+  {{with .Link}}<p class="more"><a href="{{.URL}}">{{.Label}} →</a></p>{{end}}
   {{end}}
 </section>
 {{end}}

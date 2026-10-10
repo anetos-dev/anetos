@@ -115,9 +115,9 @@ type Post struct {
 	for _, want := range []string{
 		"type PostForm struct {\n\tTitle string `json:\"title\"`\n\tBody *string `json:\"body\"`\n\tViews int64 `json:\"views\"`\n\tFeatured bool `json:\"featured\"`\n\tPublishedAt admin.DateTime `json:\"published_at\"`\n\tEditedAt admin.DateTime `json:\"edited_at\"`\n\tDay anetos.Date `json:\"day\"`\n}",
 		`Name: "posts",`,
-		`admin.Field[models.Post]("ID", "id"),`,
-		`admin.Field[models.Post]("Title", "title"),`,
-		`admin.Field[models.Post]("Created", "created_at"),`,
+		`admin.TextColumn[models.Post]("id", "ID"),`,
+		`admin.TextColumn[models.Post]("title", "Title"),`,
+		`admin.TextColumn[models.Post]("created_at", "Created"),`,
 		`Search: []string{"title", "body"},`,
 		"// Left out of the form: APIToken, Meta.",
 		"EditedAt: admin.DateTime{Time: m.EditedAt},",

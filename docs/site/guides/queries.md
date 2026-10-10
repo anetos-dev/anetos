@@ -77,7 +77,7 @@ last (`PostCols.ID.Desc()` after `Latest()`), or rows created in the same
 instant can move between pages.
 
 A `db.Page[T]` has `Data`, `CurrentPage`, `PerPage`, `Total` and
-`LastPage`, with `HasPrev()` and `HasMore()`. It encodes like Laravel's
+`LastPage`, with `HasPrev()` and `HasNext()`. It encodes like Laravel's
 paginator, so an API handler returns it as it is:
 `{"data": […], "current_page": 2, "per_page": 20, "total": 57, "last_page": 3}`.
 
@@ -96,7 +96,7 @@ func (Notes) Index(c *web.Ctx, in ListNotes) (web.Responder, error) {
 	if err != nil {
 		return nil, err
 	}
-	return web.View(NotesPage(page, in.Q)), nil
+	return web.Render(NotesPage(page, in.Q)), nil
 }
 ```
 
@@ -134,7 +134,7 @@ templ NotesPage(page db.Page[Note], q string) {
 			if page.LastPage > 1 {
 				<span>Page { page.CurrentPage } of { page.LastPage }</span>
 			}
-			if page.HasMore() {
+			if page.HasNext() {
 				<a href={ web.PageURL(ctx, page.CurrentPage+1) } rel="next">Older</a>
 			}
 		</nav>

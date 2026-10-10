@@ -762,7 +762,7 @@ func TestLoginSessionDisabled(t *testing.T) {
 	}
 }
 
-// DefaultHomeURL is HomeURL's default; AUTH_HOME_URL, when set, wins.
+// WithDefaultHomeURL is HomeURL's default; AUTH_HOME_URL, when set, wins.
 func TestDefaultHomeURL(t *testing.T) {
 	for _, tc := range []struct {
 		env  config.Map
@@ -786,14 +786,14 @@ func TestDefaultHomeURL(t *testing.T) {
 		}
 		var opts []auth.Option
 		if tc.opt != "" {
-			opts = append(opts, auth.DefaultHomeURL(tc.opt))
+			opts = append(opts, auth.WithDefaultHomeURL(tc.opt))
 		}
 		a, err := auth.New(app, newStore(t).users(), opts...)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if got := a.Config().HomeURL; got != tc.want {
-			t.Errorf("%v, DefaultHomeURL(%q): HomeURL %q, want %q", tc.env, tc.opt, got, tc.want)
+			t.Errorf("%v, WithDefaultHomeURL(%q): HomeURL %q, want %q", tc.env, tc.opt, got, tc.want)
 		}
 	}
 	// A default that isn't a path of the app is refused.
@@ -805,7 +805,7 @@ func TestDefaultHomeURL(t *testing.T) {
 	if _, err := cache.New(app); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := auth.New(app, newStore(t).users(), auth.DefaultHomeURL("https://example.com/")); err == nil || !strings.Contains(err.Error(), "AUTH_HOME_URL") {
+	if _, err := auth.New(app, newStore(t).users(), auth.WithDefaultHomeURL("https://example.com/")); err == nil || !strings.Contains(err.Error(), "AUTH_HOME_URL") {
 		t.Errorf("an absolute URL: %v", err)
 	}
 }

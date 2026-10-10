@@ -107,10 +107,10 @@ func AccessLog(logger *slog.Logger) Middleware {
 				slog.Int("status", status),
 				slog.Int64("bytes", rw.written),
 				slog.Duration("duration", time.Since(start)),
-				slog.String("ip", ClientIP(r)),
+				slog.String("ip", clientIPOf(r)),
 			}
 			level := slog.LevelInfo
-			if rt := RouteFromContext(r.Context()); rt != nil {
+			if rt := CurrentRoute(r.Context()); rt != nil {
 				attrs = append(attrs, slog.String("route", rt.method+" "+rt.pattern))
 				if strings.HasPrefix(rt.RouteName(), "health.") {
 					level = slog.LevelDebug
@@ -167,29 +167,51 @@ func Recover(logger *slog.Logger) Middleware {
 
 type clientIPKey struct{}
 
-// ClientIP returns the client's IP address: the one determined by the
-// [RealIP] middleware if it ran, otherwise the host part of r.RemoteAddr.
-func ClientIP(r *http.Request) string {
-	if ip := ClientIPFrom(r.Context()); ip != "" {
-		return ip
-	}
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return host
-}
-
-// ClientIPFrom returns the client's IP address determined by the
-// [RealIP] middleware (which the server runs on every request) from a
-// request's context, or "" outside one. It is for code that has the
-// context but not the request, such as package audit.
-func ClientIPFrom(ctx context.Context) string {
-	if st := stateFrom(ctx); st != nil && st.clientIP != "" {
+// ClientIP returns the IP address of the client of the request ctx
+// belongs to: the one the [RealIP] middleware (which the server runs on
+// every request) determined, else the host part of the request's
+// RemoteAddr as a [Router] received it (a middleware of the router that
+// rewrites RemoteAddr isn't seen: set trusted proxies for RealIP
+// instead); "" outside a request.
+//
+//	ip := web.ClientIP(c)
+func ClientIP(ctx context.Context) string {
+	st := stateFrom(ctx)
+	if st != nil && st.clientIP != "" {
 		return st.clientIP
 	}
-	ip, _ := ctx.Value(clientIPKey{}).(string)
-	return ip
+	if ip, _ := ctx.Value(clientIPKey{}).(string); ip != "" {
+		return ip
+	}
+	if st != nil {
+		return hostOf(st.remoteAddr)
+	}
+	return ""
+}
+
+// ClientIPFrom is [ClientIP].
+//
+// Deprecated: Use ClientIP; ClientIPFrom is removed in v0.6.
+//
+//go:fix inline
+func ClientIPFrom(ctx context.Context) string { return ClientIP(ctx) }
+
+// clientIPOf is [ClientIP] for r, falling back to r.RemoteAddr outside
+// a router.
+func clientIPOf(r *http.Request) string {
+	if ip := ClientIP(r.Context()); ip != "" {
+		return ip
+	}
+	return hostOf(r.RemoteAddr)
+}
+
+// hostOf returns the host part of a "host:port" address, or addr.
+func hostOf(addr string) string {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return addr
+	}
+	return host
 }
 
 // RealIP determines the client IP behind reverse proxies. Forwarding
@@ -298,7 +320,7 @@ func ParsePrefixes(values []string) ([]netip.Prefix, error) {
 // Timeout gives each request a context deadline of d. Handlers that pass
 // the context to their I/O stop when it expires, and the resulting
 // context.DeadlineExceeded error becomes a 503 response. A zero d disables it.
-// Streaming handlers remove it with [WithoutTimeout] (as [Ctx.Events] does).
+// Streaming handlers remove it with [WithoutTimeout] (as [Ctx.EventStream] does).
 func Timeout(d time.Duration) Middleware {
 	return func(next http.Handler) http.Handler {
 		if d <= 0 {

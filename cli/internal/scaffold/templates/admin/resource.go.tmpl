@@ -27,7 +27,7 @@ func [[.Func]](p *admin.Panel) error {
 		Name: "[[.Name]]",
 		Columns: []admin.Column[models.[[.Type]]]{
 [[- range .Columns]]
-			admin.Field[models.[[$.Type]]]("[[.Title]]", "[[.Column]]"),
+			admin.TextColumn[models.[[$.Type]]]("[[.Column]]", "[[.Title]]"),
 [[- end]]
 		},
 [[- if .Search]]

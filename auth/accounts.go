@@ -46,7 +46,7 @@ func (a *Auth[U]) ChangePassword(ctx context.Context, u U, current, pw string) e
 	if a.users.SetPassword == nil {
 		return errNoSetPassword
 	}
-	if s := session.From(ctx); s != nil && s.String(keyImpersonator) != "" {
+	if s := session.From(ctx); s != nil && s.GetString(keyImpersonator) != "" {
 		return errConfirmActing
 	}
 	key := "auth:confirm\x00" + u.AuthID() // ConfirmPassword's: one budget of guesses
@@ -141,12 +141,12 @@ func (a *Auth[U]) Impersonate(ctx context.Context, u U) error {
 	switch {
 	case st.token != nil:
 		return errImpersonateToken
-	case s.String(keyImpersonator) != "":
+	case s.GetString(keyImpersonator) != "":
 		return errImpersonating
 	case me.AuthID() == u.AuthID():
 		return errImpersonateYourself
 	}
-	id, hash := s.String(keyID), s.String(keyHash)
+	id, hash := s.GetString(keyID), s.GetString(keyHash)
 	if err := a.startSession(ctx, u, u.AuthPassword(), false); err != nil {
 		return err
 	}
@@ -170,7 +170,7 @@ func (a *Auth[U]) StopImpersonating(ctx context.Context) (U, error) {
 	if st.acting {
 		return zero, errActing
 	}
-	id := s.String(keyImpersonator)
+	id := s.GetString(keyImpersonator)
 	if id == "" {
 		return zero, ErrNotImpersonating
 	}
@@ -178,7 +178,7 @@ func (a *Auth[U]) StopImpersonating(ctx context.Context) (U, error) {
 	switch {
 	case notFound(err):
 		err = ErrUnauthenticated
-	case err == nil && a.sessionPrint(u, u.AuthPassword()) != s.String(keyImpersonatorHash):
+	case err == nil && a.sessionPrint(u, u.AuthPassword()) != s.GetString(keyImpersonatorHash):
 		err = ErrUnauthenticated
 	}
 	if err == nil {
@@ -196,14 +196,14 @@ func (a *Auth[U]) StopImpersonating(ctx context.Context) (U, error) {
 // impersonatorValid reports whether the session's impersonator may still
 // log in.
 func (a *Auth[U]) impersonatorValid(ctx context.Context, s *session.Session) (bool, error) {
-	u, err := a.users.ByID(ctx, s.String(keyImpersonator))
+	u, err := a.users.ByID(ctx, s.GetString(keyImpersonator))
 	switch {
 	case notFound(err):
 		return false, nil
 	case err != nil:
 		return false, err
 	}
-	return a.sessionPrint(u, u.AuthPassword()) == s.String(keyImpersonatorHash) && !a.disabled(u), nil
+	return a.sessionPrint(u, u.AuthPassword()) == s.GetString(keyImpersonatorHash) && !a.disabled(u), nil
 }
 
 // Impersonator returns the ID of the user impersonating the logged-in one
@@ -213,7 +213,7 @@ func Impersonator(ctx context.Context) (string, bool) {
 	if s == nil {
 		return "", false
 	}
-	if id := s.String(keyImpersonator); id != "" && Check(ctx) {
+	if id := s.GetString(keyImpersonator); id != "" && Check(ctx) {
 		return id, true
 	}
 	return "", false

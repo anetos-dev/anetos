@@ -42,9 +42,21 @@ type Backend interface {
 	Copy(ctx context.Context, src, dst string) error
 }
 
-// URLSigner is implemented by backends with URLs of their own for
-// reading a file for a while (S3's presigned URLs). Other disks sign
-// URLs to their [Disk.Handler].
+// TemporaryURLBackend is implemented by backends with URLs of their own
+// for reading a file for a while (S3's presigned URLs), for
+// [Disk.TemporaryURL]. Other disks sign URLs to their [Disk.Handler].
+type TemporaryURLBackend interface {
+	Backend
+	// TemporaryURL returns a URL that reads the file at path until
+	// expires.
+	TemporaryURL(ctx context.Context, path string, expires time.Time) (string, error)
+}
+
+// URLSigner is the interface [TemporaryURLBackend] replaces: disks still
+// use it until v0.6.
+//
+// Deprecated: Implement TemporaryURLBackend (rename the method SignedURL
+// to TemporaryURL); URLSigner is removed in v0.6.
 type URLSigner interface {
 	// SignedURL returns a URL that reads the file at path until
 	// expires.

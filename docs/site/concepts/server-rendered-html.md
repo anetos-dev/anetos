@@ -26,7 +26,7 @@ hello := view.ComponentFunc(func(ctx context.Context, w io.Writer) error {
 return c.Render(http.StatusOK, hello)
 ```
 
-`c.Render` (and `web.View`) renders into a buffer with the `*web.Ctx` as
+`c.Render` (and `web.Render`) renders into a buffer with the `*web.Ctx` as
 `ctx`, and writes the page only when the component has finished. So a
 render error, such as an unknown route name in `web.URL`, becomes an error
 page, never half a page. And because the session is saved when the

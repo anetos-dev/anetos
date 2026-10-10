@@ -65,7 +65,7 @@ func (Notes) Index(c *web.Ctx, in ListNotes) (web.Responder, error) {
 	if err != nil {
 		return nil, err
 	}
-	return web.View(NotesPage(page, in.Q)), nil
+	return web.Render(NotesPage(page, in.Q)), nil
 }
 ```
 
@@ -116,7 +116,7 @@ templ NotesPage(page db.Page[Note], q string) {
 			if page.LastPage > 1 {
 				<span>Page { page.CurrentPage } of { page.LastPage }</span>
 			}
-			if page.HasMore() {
+			if page.HasNext() {
 				<a href={ web.PageURL(ctx, page.CurrentPage+1) } rel="next">Older</a>
 			}
 		</nav>
@@ -196,7 +196,7 @@ For `posts`, after the migration of step 1:
    if err != nil {
    	return nil, err
    }
-   return web.View(views.PostsPage(page, in.Q)), nil
+   return web.Render(views.PostsPage(page, in.Q)), nil
    ```
 
 2. The page shows the box under its header, in `views/posts.templ`

@@ -26,7 +26,7 @@ flowchart LR
 | **New** | `anetos.New()` | Loads configuration (environment, `.env.<APP_ENV>`, `.env`), binds and validates `AppConfig`, builds the logger | Options such as `WithSource`, `WithLogger` |
 | **Register** | `app.Boot` / `app.Run` | Each provider's `Register`, in `Use` order | Provide services, read config. No I/O, no goroutines |
 | **Boot** | `app.Boot` / `app.Run` | Each provider's `Boot`, in `Use` order | Open connections, add components, register shutdown hooks |
-| **Run** | `app.Run(ctx, roles...)` | The supervisor starts the selected components | Components do their work |
+| **Run** | `app.Run(ctx, types...)` | The supervisor starts the selected components | Components do their work |
 | **Shutdown** | `ctx` canceled (e.g. SIGTERM) or a fatal component failure | Components stop stage by stage, then hooks run in reverse order | Components return promptly; hooks release resources |
 
 Because **every** Register runs before **any** Boot, a provider's Boot can

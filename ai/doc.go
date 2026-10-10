@@ -12,7 +12,7 @@
 //
 //	support := ai.Agent{
 //		Instructions: "You answer the customer's questions about their orders.",
-//		Tools:        []ai.Tool{ai.Func("find_order", "Look up an order by its number", findOrder)},
+//		Tools:        []ai.Tool{ai.NewTool("find_order", "Look up an order by its number", findOrder)},
 //	}
 //	res, err = support.Prompt(ctx, "Where is order 1042?")
 //
@@ -27,8 +27,8 @@
 // structs: their JSON schema comes from their fields' json, description
 // and validate tags ([SchemaFor]), and what the model sends is checked
 // with the validate rules. Tools run with the caller's context, so the
-// current user's permissions apply to them; each tool call is a unit of
-// work, and each request to the model is logged with its token usage.
+// current user's permissions apply to them; each tool call is an
+// operation (anetos.Operation), and each request to the model is logged with its token usage.
 //
 // Tests use the [Fake] (anetostest sets AI_PROVIDER=fake, and
 // anetostest.FakeAI scripts its replies): no network, no cost, the same

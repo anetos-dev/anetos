@@ -33,7 +33,7 @@ func TestObserve(t *testing.T) {
 		t.Errorf("seen %+v", seen)
 	}
 	// Not sent: not recorded.
-	f := mailer.NewWithTransport(failing{errors.New("down")}, mailer.DefaultFrom(mailer.Address{Address: "shop@example.com"}))
+	f := mailer.NewWithTransport(failing{errors.New("down")}, mailer.WithDefaultFrom(mailer.Address{Address: "shop@example.com"}))
 	f.Observe(func(context.Context, mailer.Record) { t.Error("a failed send was observed") })
 	if err := f.Send(context.Background(), now); err == nil {
 		t.Error("no error")

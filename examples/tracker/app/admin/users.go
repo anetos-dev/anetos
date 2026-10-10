@@ -30,14 +30,14 @@ func Users(p *admin.Panel, a *auth.Auth[*models.User]) error {
 	return admin.Users(p, admin.Resource[models.User, UserForm]{
 		Name: "users",
 		Columns: []admin.Column[models.User]{
-			admin.Field[models.User]("Name", "name"),
-			admin.Field[models.User]("Email", "email"),
-			admin.Field[models.User]("Signed up", "created_at"),
+			admin.TextColumn[models.User]("name", "Name"),
+			admin.TextColumn[models.User]("email", "Email"),
+			admin.TextColumn[models.User]("created_at", "Signed up"),
 		},
-		Search:   []string{"name", "email"},
-		Label:    func(u models.User) string { return u.Name },
-		NoCreate: true,
-		Edit:     func(u models.User) UserForm { return UserForm{Name: u.Name, Email: u.Email} },
+		Search:      []string{"name", "email"},
+		RecordTitle: func(u models.User) string { return u.Name },
+		NoCreate:    true,
+		Edit:        func(u models.User) UserForm { return UserForm{Name: u.Name, Email: u.Email} },
 		Apply: func(ctx context.Context, in UserForm, u *models.User) error {
 			email := strings.ToLower(in.Email)
 			taken, err := db.Query[models.User](ctx).Where(models.UserCols.Email.Eq(email), models.UserCols.ID.Ne(u.ID)).Exists()

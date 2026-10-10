@@ -318,7 +318,7 @@ func TestGroupSlashMeansGroupRoot(t *testing.T) {
 func TestRealIPHardening(t *testing.T) {
 	trusted, _ := ParsePrefixes([]string{"10.0.0.0/8", "::ffff:192.168.0.0/112"})
 	var ip string
-	h := RealIP(trusted)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { ip = ClientIP(r) }))
+	h := RealIP(trusted)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { ip = ClientIP(r.Context()) }))
 	serve := func(remote string, headers ...string) string {
 		req := httptest.NewRequest("GET", "/", nil)
 		req.RemoteAddr = remote

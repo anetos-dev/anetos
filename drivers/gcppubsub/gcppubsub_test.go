@@ -122,7 +122,7 @@ func TestDriver(t *testing.T) {
 	opt := fake(t)
 	var got atomic.Int64
 	a := anetostest.New(t, func(app *anetos.App) (*web.Server, error) {
-		ps, err := pubsub.New(app, gcppubsub.Driver(opt))
+		ps, err := pubsub.New(app, gcppubsub.Driver(gcppubsub.WithClientOptions(opt)))
 		if err != nil {
 			return nil, err
 		}
@@ -138,7 +138,7 @@ func TestDriver(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
-	go func() { done <- a.Run(ctx, "listeners") }()
+	go func() { done <- a.Run(ctx, "listener") }()
 	deadline := time.Now().Add(10 * time.Second)
 	for got.Load() != 7 && time.Now().Before(deadline) {
 		time.Sleep(10 * time.Millisecond)

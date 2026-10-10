@@ -5,6 +5,7 @@ package db
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"reflect"
 	"strings"
 	"sync"
@@ -26,17 +27,29 @@ import (
 //	Email string `json:"email" validate:"required|email|unique:users,email,ID"`
 //
 // Both rules count soft-deleted rows, like a unique index would. A third
-// rule, unique_live, takes the same parameters as unique and ignores rows
-// whose deleted_at is set, like a migrate.Table.UniqueLive index:
+// rule, unique_without_trashed, takes the same parameters as unique and
+// ignores rows whose deleted_at is set, like a
+// migrate.Table.UniqueWithoutTrashed index:
 //
-//	Email string `json:"email" validate:"required|email|unique_live:users,email,ID"`
+//	Email string `json:"email" validate:"required|email|unique_without_trashed:users,email,ID"`
+//
+// Its name before v0.5, unique_live, works until v0.6, with a warning.
 func init() {
 	validate.Register("unique", "The {label} has already been taken.", uniqueRule)
+	validate.Register("unique_without_trashed", "The {label} has already been taken.", func(ctx context.Context, f validate.Field) (bool, error) {
+		return unique(ctx, f, "unique_without_trashed", true)
+	})
 	validate.Register("unique_live", "The {label} has already been taken.", func(ctx context.Context, f validate.Field) (bool, error) {
+		warnUniqueLive.Do(func() {
+			slog.Default().Warn("the validation rule unique_live is unique_without_trashed; the old name is removed in v0.6")
+		})
 		return unique(ctx, f, "unique_live", true)
 	})
 	validate.Register("exists", "The selected {label} is invalid.", existsRule)
 }
+
+// warnUniqueLive warns once about the rule unique_live.
+var warnUniqueLive sync.Once
 
 func uniqueRule(ctx context.Context, f validate.Field) (bool, error) {
 	return unique(ctx, f, "unique", false)
@@ -89,7 +102,7 @@ func ruleColumn(f validate.Field) string {
 func rowExists(ctx context.Context, table string, conds []Expr) (bool, error) {
 	// A rule on a slice's elements runs once per element, before the
 	// handler: not something the app can batch.
-	ctx = Untracked(ctx)
+	ctx = AllowRepeatedQueries(ctx)
 	d, c, err := handle(ctx)
 	if err != nil {
 		return false, err

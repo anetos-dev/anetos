@@ -65,7 +65,7 @@ func text(s string) view.Component {
 func TestSend(t *testing.T) {
 	srv, got, headers := api(t, 200, `{"To":"a@example.com","SubmittedAt":"2026-10-01T09:30:00Z","MessageID":"b7bc2f4a","ErrorCode":0,"Message":"OK"}`)
 	app := newApp(t, config.Map{"MAIL_POSTMARK_TOKEN": "server-token", "MAIL_POSTMARK_STREAM": "receipts"})
-	_, err := mailer.New(app, postmark.Driver(postmark.BaseURL(srv.URL)))
+	_, err := mailer.New(app, postmark.Driver(postmark.WithBaseURL(srv.URL)))
 	check(t, err)
 	err = mailer.Send(app.Context(context.Background()), &mailer.Message{
 		To:          []mailer.Address{{Name: "Zoë", Address: "zoe@example.com"}, {Address: "b@example.com"}},
@@ -105,7 +105,7 @@ func TestSend(t *testing.T) {
 
 func TestErrors(t *testing.T) {
 	ctx := context.Background()
-	m := mailer.NewWithTransport(mailer.NewMemoryTransport(), mailer.DefaultFrom(mailer.Address{Address: "shop@example.com"}))
+	m := mailer.NewWithTransport(mailer.NewMemoryTransport(), mailer.WithDefaultFrom(mailer.Address{Address: "shop@example.com"}))
 	o, err := m.Render(ctx, &mailer.Message{To: []mailer.Address{{Address: "a@example.com"}}, Subject: "S", Text: "x"})
 	check(t, err)
 	for _, tt := range []struct {
@@ -123,7 +123,7 @@ func TestErrors(t *testing.T) {
 		{200, `{"ErrorCode":402,"Message":"Invalid JSON"}`, false, 402},
 	} {
 		srv, _, _ := api(t, tt.status, tt.body)
-		err := postmark.NewTransport("t", postmark.BaseURL(srv.URL)).Send(ctx, o)
+		err := postmark.NewTransport("t", postmark.WithBaseURL(srv.URL)).Send(ctx, o)
 		var pe *postmark.Error
 		if !errors.As(err, &pe) || pe.Status != tt.status || pe.Code != tt.code || queue.IsPermanent(err) != tt.permanent {
 			t.Errorf("%d %s: err = %v (permanent %v)", tt.status, tt.body, err, queue.IsPermanent(err))
@@ -140,7 +140,7 @@ func TestErrors(t *testing.T) {
 	// Unreachable.
 	srv, _, _ := api(t, 200, "{}")
 	srv.Close()
-	if err := postmark.NewTransport("t", postmark.BaseURL(srv.URL), postmark.HTTPClient(http.DefaultClient)).Send(ctx, o); err == nil || queue.IsPermanent(err) {
+	if err := postmark.NewTransport("t", postmark.WithBaseURL(srv.URL), postmark.WithHTTPClient(http.DefaultClient)).Send(ctx, o); err == nil || queue.IsPermanent(err) {
 		t.Errorf("unreachable: %v", err)
 	}
 	// The token is required.

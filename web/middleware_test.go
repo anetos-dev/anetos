@@ -82,10 +82,7 @@ func TestRealIP(t *testing.T) {
 	}
 	var ip string
 	h := RealIP(trusted)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ip = ClientIP(r)
-		if from := ClientIPFrom(r.Context()); from != ip {
-			t.Errorf("ClientIPFrom = %q, ClientIP = %q", from, ip)
-		}
+		ip = ClientIP(r.Context())
 	}))
 	serve := func(remote string, headers ...string) string {
 		req := httptest.NewRequest("GET", "/", nil)
@@ -118,13 +115,19 @@ func TestRealIP(t *testing.T) {
 	if _, err := ParsePrefixes([]string{"not-an-ip"}); err == nil {
 		t.Error("bad prefix accepted")
 	}
-	if got := ClientIPFrom(t.Context()); got != "" {
-		t.Errorf("ClientIPFrom outside a request = %q", got)
+	if got := ClientIP(t.Context()); got != "" {
+		t.Errorf("ClientIP outside a request = %q", got)
 	}
-	req := httptest.NewRequest("GET", "/", nil)
-	req.RemoteAddr = "garbage"
-	if ClientIP(req) != "garbage" {
-		t.Error("ClientIP fallback")
+	// Without RealIP, a router's request has its peer's address.
+	r := NewRouter()
+	r.Get("/", func(c *Ctx) error { ip = ClientIP(c); return nil })
+	for remote, want := range map[string]string{"203.0.113.9:5000": "203.0.113.9", "garbage": "garbage"} {
+		req := httptest.NewRequest("GET", "/", nil)
+		req.RemoteAddr = remote
+		r.ServeHTTP(httptest.NewRecorder(), req)
+		if ip != want {
+			t.Errorf("ClientIP without RealIP from %s = %q, want %q", remote, ip, want)
+		}
 	}
 }
 
@@ -220,16 +223,16 @@ func TestRequestStateSubrequest(t *testing.T) {
 	r.UseGlobal(RequestIDs, RealIP(nil))
 	var innerID, innerIP string
 	r.Get("/inner", func(c *Ctx) error {
-		innerID, innerIP = RequestID(c), ClientIP(c.Request())
+		innerID, innerIP = RequestID(c), ClientIP(c)
 		return c.Text(http.StatusOK, "inner")
 	})
 	r.Get("/outer", func(c *Ctx) error {
-		id, ip := RequestID(c), ClientIP(c.Request())
+		id, ip := RequestID(c), ClientIP(c)
 		sub := httptest.NewRequestWithContext(c, http.MethodGet, "/inner", nil)
 		sub.RemoteAddr = "192.0.2.9:1234"
 		r.ServeHTTP(httptest.NewRecorder(), sub)
-		if RequestID(c) != id || ClientIP(c.Request()) != ip {
-			t.Errorf("after a sub-request: %q %q, want %q %q", RequestID(c), ClientIP(c.Request()), id, ip)
+		if RequestID(c) != id || ClientIP(c) != ip {
+			t.Errorf("after a sub-request: %q %q, want %q %q", RequestID(c), ClientIP(c), id, ip)
 		}
 		return c.Text(http.StatusOK, id+" "+ip)
 	})

@@ -190,7 +190,7 @@ func RunApp(t *testing.T, drv db.Driver, env map[string]string) {
 		r, err := migrate.New(app, []*migrate.Set{set}, migrate.WithTable("st_app_migrations"))
 		check(t, err)
 		// The server's stand-in: the app runs while a component does.
-		check(t, app.Go("server", func(ctx context.Context) error { <-ctx.Done(); return nil }, anetos.Roles("http")))
+		check(t, app.Go("server", func(ctx context.Context) error { <-ctx.Done(); return nil }, anetos.ProcessTypes("web")))
 		runCtx, cancel := context.WithCancel(context.Background())
 		done := make(chan error, 1)
 		go func() { done <- app.Run(runCtx, "http") }()

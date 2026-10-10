@@ -133,7 +133,7 @@ func OldChecked(ctx context.Context, field string, fallback bool) bool {
 //	}
 func Flash(ctx context.Context, key string) string {
 	if s := session.From(ctx); s != nil {
-		return s.String(key)
+		return s.GetString(key)
 	}
 	return ""
 }

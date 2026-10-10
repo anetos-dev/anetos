@@ -34,7 +34,7 @@ type Ctx struct {
 	router *Router
 	route  *Route
 	// replaced is the request with a context the handler changed
-	// ([Ctx.SetLocale], [Ctx.Events]). It is atomic: database drivers
+	// ([Ctx.SetLocale], [Ctx.EventStream]). It is atomic: database drivers
 	// watch a context's Done from goroutines of their own.
 	replaced atomic.Pointer[http.Request]
 }

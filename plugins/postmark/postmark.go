@@ -52,7 +52,7 @@ func Driver(opts ...Option) mailer.Driver {
 		if c.Token == "" {
 			return nil, errors.New("MAIL_POSTMARK_TOKEN is required with MAIL_DRIVER=postmark")
 		}
-		return NewTransport(string(c.Token), append([]Option{Stream(c.Stream)}, opts...)...), nil
+		return NewTransport(string(c.Token), append([]Option{WithStream(c.Stream)}, opts...)...), nil
 	}}
 }
 
@@ -65,14 +65,37 @@ type Transport struct {
 // Option configures a [Transport].
 type Option func(*Transport)
 
-// Stream sets the message stream. Default "outbound".
-func Stream(s string) Option { return func(t *Transport) { t.stream = s } }
+// WithStream sets the message stream. Default "outbound".
+func WithStream(s string) Option { return func(t *Transport) { t.stream = s } }
 
-// BaseURL sets the API's URL, for tests. Default https://api.postmarkapp.com.
-func BaseURL(u string) Option { return func(t *Transport) { t.baseURL = strings.TrimSuffix(u, "/") } }
+// Stream is [WithStream].
+//
+// Deprecated: Use WithStream; Stream is removed in v0.6.
+//
+//go:fix inline
+func Stream(s string) Option { return WithStream(s) }
 
-// HTTPClient sets the HTTP client. Default: one with a 30-second timeout.
-func HTTPClient(c *http.Client) Option { return func(t *Transport) { t.client = c } }
+// WithBaseURL sets the API's URL, for tests. Default https://api.postmarkapp.com.
+func WithBaseURL(u string) Option {
+	return func(t *Transport) { t.baseURL = strings.TrimSuffix(u, "/") }
+}
+
+// BaseURL is [WithBaseURL].
+//
+// Deprecated: Use WithBaseURL; BaseURL is removed in v0.6.
+//
+//go:fix inline
+func BaseURL(u string) Option { return WithBaseURL(u) }
+
+// WithHTTPClient sets the HTTP client. Default: one with a 30-second timeout.
+func WithHTTPClient(c *http.Client) Option { return func(t *Transport) { t.client = c } }
+
+// HTTPClient is [WithHTTPClient].
+//
+// Deprecated: Use WithHTTPClient; HTTPClient is removed in v0.6.
+//
+//go:fix inline
+func HTTPClient(c *http.Client) Option { return WithHTTPClient(c) }
 
 // NewTransport returns a transport sending with the server token token.
 func NewTransport(token string, opts ...Option) *Transport {

@@ -36,7 +36,7 @@ templ AccountMenu() {
 		} else {
 			@ui.NavLink(web.MustURL(ctx, "login"), i18n.T(ctx, "auth.login.title"), false)
 			@ui.NavItem() {
-				@ui.LinkButton(web.MustURL(ctx, "register"), ui.Primary|ui.Small) {
+				@ui.LinkButton(web.MustURL(ctx, "register"), ui.Primary, ui.Small) {
 					{ i18n.T(ctx, "auth.register.title") }
 				}
 			}
@@ -158,7 +158,7 @@ templ Dashboard(u *models.User, tokens []auth.Token, newToken string) {
 			if u.EmailVerifiedAt == nil {
 				@ui.Flash(ui.Warning) {
 					<span>{ i18n.T(ctx, "auth.dashboard.verify") }</span>
-					@ui.PostButton(web.MustURL(ctx, "verification.send"), "POST", ui.Secondary|ui.Small) {
+					@ui.PostButton(web.MustURL(ctx, "verification.send"), "POST", ui.Secondary, ui.Small) {
 						{ i18n.T(ctx, "auth.dashboard.resend") }
 					}
 				}
@@ -178,7 +178,7 @@ templ Dashboard(u *models.User, tokens []auth.Token, newToken string) {
 								<tr>
 									<td>{ t.Name }</td>
 									@ui.ActionsCell() {
-										@ui.PostButton(web.MustURL(ctx, "tokens.delete", t.ID), "POST", ui.Secondary|ui.Small) {
+										@ui.PostButton(web.MustURL(ctx, "tokens.delete", t.ID), "POST", ui.Secondary, ui.Small) {
 											{ i18n.T(ctx, "auth.tokens.revoke") }
 										}
 									}
@@ -315,7 +315,7 @@ templ socialButtons(buttons []SocialButton) {
 		}
 		@ui.Stack() {
 			for _, b := range buttons {
-				@ui.LinkButton(web.MustURL(ctx, "social.redirect", b.Name), ui.Secondary|ui.Full) {
+				@ui.LinkButton(web.MustURL(ctx, "social.redirect", b.Name), ui.Secondary, ui.FullWidth) {
 					{ i18n.T(ctx, "auth.social.login_with", "provider", b.Title) }
 				}
 			}

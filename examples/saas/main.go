@@ -8,9 +8,9 @@
 //
 //	go run . migrate
 //	go run .                          # everything (go tool anetos dev: with live reload)
-//	go run . run --only=http          # the web server
-//	go run . run --only=workers       # queue jobs: the welcome email
-//	go run . run --only=listeners     # pub/sub: billing.subscription_changed
+//	go run . run --only=web           # the web server
+//	go run . run --only=worker        # queue jobs: the welcome email
+//	go run . run --only=listener      # pub/sub: billing.subscription_changed
 //	go run . run --only=scheduler     # scheduled tasks: end-trials
 //	go run . pubsub:publish billing.subscription_changed '{"email":"ada@example.com","plan":"pro"}'
 //
@@ -80,7 +80,7 @@ func setup(app *anetos.App) (*web.Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	// The workers run with the app, or alone with `go run . run --only=workers`.
+	// The workers run with the app, or alone with `go run . run --only=worker`.
 	if err := queue.Register[jobs.SendWelcome](q, queue.Tries(5)); err != nil {
 		return nil, err
 	}
@@ -102,13 +102,13 @@ func setup(app *anetos.App) (*web.Server, error) {
 	}
 	// PUBSUB_DRIVER: memory (in the process) or redis (REDIS_URL), which
 	// listener processes share. The listeners run with the app, or alone
-	// with `go run . run --only=listeners`.
+	// with `go run . run --only=listener`.
 	ps, err := pubsub.New(app, redis.PubSubDriver())
 	if err != nil {
 		return nil, err
 	}
 	err = pubsub.Listen(ps, "billing.subscription_changed", listeners.ChangePlan,
-		pubsub.MaxAttempts(5), pubsub.DeadLetter("billing.subscription_changed.dlq"))
+		pubsub.Tries(5), pubsub.DeadLetter("billing.subscription_changed.dlq"))
 	if err != nil {
 		return nil, err
 	}

@@ -18,7 +18,7 @@ func TestIntended(t *testing.T) {
 	} {
 		s := session.NewSession()
 		s.Put(keyIntended, stored)
-		ctx := session.NewContext(context.Background(), s)
+		ctx := session.WithSession(context.Background(), s)
 		if got := Intended(ctx, "/home"); got != want {
 			t.Errorf("Intended with %q = %q, want %q", stored, got, want)
 		}

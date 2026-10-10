@@ -377,9 +377,9 @@ func TestAppNew(t *testing.T) {
 	nocache := newApp(t, nil)
 	s, err := schedule.New(nocache)
 	check(t, err)
-	// The role is known before the first task: run --only=scheduler works.
-	if got := nocache.Supervisor().Roles(); len(got) != 1 || got[0] != "scheduler" {
-		t.Errorf("roles without tasks = %v", got)
+	// The process type is known before the first task: run --only=scheduler works.
+	if got := nocache.Supervisor().ProcessTypes(); len(got) != 1 || got[0] != "scheduler" {
+		t.Errorf("process types without tasks = %v", got)
 	}
 	check(t, s.Add(schedule.Daily(), "x", func(context.Context) error { return nil }, schedule.WithoutOverlapping()))
 	if err := nocache.Boot(context.Background()); err == nil || !strings.Contains(err.Error(), "cache.New") {
@@ -400,8 +400,8 @@ func TestAppNew(t *testing.T) {
 	check(t, s.Add(schedule.DailyAt("02:00"), "daily-report", schedule.Dispatch(report{}), schedule.OnOneServer(), schedule.Timeout(time.Minute)))
 	check(t, s.Add(schedule.Hourly().In("UTC"), "hourly", func(context.Context) error { return nil }, schedule.WithoutOverlapping()))
 	check(t, app.Boot(context.Background()))
-	if got := app.Supervisor().Roles(); len(got) != 1 || got[0] != "scheduler" {
-		t.Errorf("roles = %v", got)
+	if got := app.Supervisor().ProcessTypes(); len(got) != 1 || got[0] != "scheduler" {
+		t.Errorf("process types = %v", got)
 	}
 	tasks := s.Tasks()
 	if len(tasks) != 2 || tasks[0].Name != "daily-report" || !tasks[0].OnOneServer || tasks[0].Timeout != time.Minute {
@@ -446,7 +446,7 @@ func TestAppNew(t *testing.T) {
 		unitsMu sync.Mutex // schedule:run runs due tasks side by side
 		units   []string
 	)
-	app.AroundUnits(func(ctx context.Context, u anetos.Unit) (context.Context, func()) {
+	app.AroundOperations(func(ctx context.Context, u anetos.Operation) (context.Context, func()) {
 		unitsMu.Lock()
 		defer unitsMu.Unlock()
 		units = append(units, u.Kind+" "+u.Name)

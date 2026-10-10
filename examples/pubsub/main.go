@@ -36,7 +36,7 @@ func main() {
 	if _, err := setup(app); err != nil {
 		log.Fatal(err)
 	}
-	app.Execute() // run: the server and the listener; run --only=listeners: the listener
+	app.Execute() // run: the server and the listener; run --only=listener: the listener
 }
 
 func setup(app *anetos.App) (*web.Server, error) {
@@ -53,7 +53,7 @@ func setup(app *anetos.App) (*web.Server, error) {
 	}
 	err = pubsub.Listen(ps, "orders.created", CreateInvoice,
 		pubsub.Concurrency(8),                   // messages at once, in each process
-		pubsub.MaxAttempts(5),                   // then...
+		pubsub.Tries(5),                         // then...
 		pubsub.DeadLetter("orders.created.dlq"), // ...to this topic
 	)
 	if err != nil {

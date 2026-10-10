@@ -40,7 +40,7 @@ var date = time.Date(2026, 10, 1, 9, 30, 0, 0, time.UTC)
 
 func newMailer() (*mailer.Mailer, *mailer.MemoryTransport) {
 	mem := mailer.NewMemoryTransport()
-	m := mailer.NewWithTransport(mem, mailer.DefaultFrom(mailer.Address{Name: "Shop", Address: "shop@example.com"}), mailer.BaseURL("https://shop.example.com/"))
+	m := mailer.NewWithTransport(mem, mailer.WithDefaultFrom(mailer.Address{Name: "Shop", Address: "shop@example.com"}), mailer.WithAppURL("https://shop.example.com/"))
 	mailer.SetNow(m, func() time.Time { return date })
 	return m, mem
 }

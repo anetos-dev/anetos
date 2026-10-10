@@ -37,7 +37,7 @@ or change the default in `auth.go`, which `make:auth` wrote:
 
 ```go
 // illustrative
-a, err := auth.New(app, models.Users, auth.DefaultHomeURL("/posts"))
+a, err := auth.New(app, models.Users, auth.WithDefaultHomeURL("/posts"))
 ```
 
 The setting wins over the default, so each deployment can choose.

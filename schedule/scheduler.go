@@ -25,10 +25,10 @@ import (
 
 // Config configures the app's scheduler.
 type Config struct {
-	// Timezone is the time zone of schedules without [Schedule.In]: an
+	// TimeZone is the time zone of schedules without [Schedule.In]: an
 	// IANA name. SCHEDULE_TIMEZONE, default the app's (APP_TIMEZONE,
 	// itself UTC by default).
-	Timezone string `env:"SCHEDULE_TIMEZONE"`
+	TimeZone string `env:"SCHEDULE_TIMEZONE"`
 }
 
 // LoadConfig reads the SCHEDULE_* settings.
@@ -107,7 +107,7 @@ func NewScheduler(opts ...Option) *Scheduler {
 
 // New returns the app's scheduler, configured from SCHEDULE_TIMEZONE
 // (default the app's zone, APP_TIMEZONE):
-// it runs as a component with the role "scheduler" (so `run
+// it runs as a component of the process type "scheduler" (so `run
 // --only=scheduler`, or schedule:work, runs only it), stopping first
 // after the HTTP server, and adds the schedule:list, schedule:run,
 // schedule:test and schedule:work commands. Tasks with
@@ -122,8 +122,8 @@ func New(app *anetos.App) (*Scheduler, error) {
 		return nil, err
 	}
 	loc := app.Location()
-	if cfg.Timezone != "" {
-		if loc, err = time.LoadLocation(cfg.Timezone); err != nil {
+	if cfg.TimeZone != "" {
+		if loc, err = time.LoadLocation(cfg.TimeZone); err != nil {
 			return nil, fmt.Errorf("schedule: SCHEDULE_TIMEZONE: %w", err)
 		}
 	}
@@ -189,7 +189,7 @@ func (s *Scheduler) addComponent() error {
 	if s.app == nil || s.component || len(s.tasks) == 0 {
 		return nil
 	}
-	if err := s.app.Component(s, anetos.Roles("scheduler"), anetos.Stage(supervisor.StageScheduler), anetos.Restart(supervisor.RestartOnFailure)); err != nil {
+	if err := s.app.Component(s, anetos.ProcessTypes("scheduler"), anetos.Stage(supervisor.StageScheduler), anetos.Restart(supervisor.RestartOnFailure)); err != nil {
 		return err
 	}
 	s.component = true
@@ -375,7 +375,7 @@ func (s *Scheduler) runTask(ctx context.Context, t *task) (err error) {
 	}
 	if s.app != nil {
 		var end func()
-		ctx, end = s.app.StartUnit(ctx, anetos.Unit{Kind: "task", Name: t.name})
+		ctx, end = s.app.StartOperation(ctx, anetos.Operation{Kind: "task", Name: t.name})
 		defer end()
 	}
 	defer func() {

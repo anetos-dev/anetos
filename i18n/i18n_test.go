@@ -199,7 +199,7 @@ func TestCatalogErrors(t *testing.T) {
 
 func TestMissingLogged(t *testing.T) {
 	var buf bytes.Buffer
-	tr := newTranslator(t, i18n.Config{}, i18n.WarnMissing(), i18n.WithLogger(slog.New(slog.NewTextHandler(&buf, nil))))
+	tr := newTranslator(t, i18n.Config{}, i18n.WithWarnMissing(), i18n.WithLogger(slog.New(slog.NewTextHandler(&buf, nil))))
 	ctx := i18n.WithTranslator(context.Background(), tr)
 	i18n.T(ctx, "nope")
 	i18n.T(ctx, "nope")
@@ -212,8 +212,13 @@ func TestMissingLogged(t *testing.T) {
 type user struct{ locale, mail, zone string }
 
 func (u user) PreferredLocale() string     { return u.locale }
-func (u user) CommunicationLocale() string { return u.mail }
+func (u user) PreferredMailLocale() string { return u.mail }
 func (u user) PreferredTimeZone() string   { return u.zone }
+
+type formerUser struct{ locale, mail string }
+
+func (u formerUser) PreferredLocale() string     { return u.locale }
+func (u formerUser) CommunicationLocale() string { return u.mail }
 
 func TestPreferences(t *testing.T) {
 	app, err := anetos.New(anetos.WithSource(config.Map{"APP_TIMEZONE": "UTC"}), anetos.WithLogOutput(io.Discard))
@@ -238,7 +243,7 @@ func TestPreferences(t *testing.T) {
 		t.Errorf("logged in: %q, %v", l, z)
 	}
 
-	// ForUser: the communication locale, else the display one; the zone.
+	// ForUser: the mail locale, else the display one; the zone.
 	u := i18n.ForUser(ctx, user{locale: "bn", mail: "en", zone: "Asia/Dhaka"})
 	if i18n.Locale(u) != "en" || i18n.TimeZone(u).String() != "Asia/Dhaka" {
 		t.Errorf("ForUser = %s, %v", i18n.Locale(u), i18n.TimeZone(u))
@@ -246,6 +251,10 @@ func TestPreferences(t *testing.T) {
 	u = i18n.ForUser(ctx, user{locale: "bn"})
 	if i18n.Locale(u) != "bn" || i18n.TimeZone(u).String() != "UTC" {
 		t.Errorf("ForUser without mail locale or zone = %s, %v", i18n.Locale(u), i18n.TimeZone(u))
+	}
+	// The interface before v0.5, until v0.6.
+	if u := i18n.ForUser(ctx, formerUser{locale: "bn", mail: "en"}); i18n.Locale(u) != "en" {
+		t.Errorf("ForUser of a CommunicationPreference = %s", i18n.Locale(u))
 	}
 	if u := i18n.ForUser(ctx, struct{}{}); i18n.Locale(u) != "en" {
 		t.Error("ForUser of a user without preferences changed the locale")

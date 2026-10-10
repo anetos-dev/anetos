@@ -5,7 +5,7 @@
 // generates, so templ components work as they are. [Template] adapts
 // html/template for those who prefer it.
 //
-// Handlers render with web.Ctx.Render or the web.View responder:
+// Handlers render with web.Ctx.Render or the web.Render responder:
 //
 //	func (h Posts) Index(c *web.Ctx) error {
 //		return c.Render(http.StatusOK, views.PostsIndex(posts))

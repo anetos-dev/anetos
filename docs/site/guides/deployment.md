@@ -182,7 +182,7 @@ To run the background work in its own container, override the command,
 and turn the health check off (it doesn't serve HTTP):
 
 ```sh
-docker run -d --name blog-worker --env-file production.env --no-healthcheck blog run --only=workers,scheduler
+docker run -d --name blog-worker --env-file production.env --no-healthcheck blog run --only=worker,scheduler
 ```
 
 The [complete example](#complete-example) runs the web server, the
@@ -209,8 +209,8 @@ kill_timeout = 35
 
 # Each value replaces the image's CMD; the binary stays the entrypoint.
 [processes]
-  web = "run --only=http"
-  worker = "run --only=workers,scheduler"
+  web = "run --only=web"
+  worker = "run --only=worker,scheduler"
 
 [env]
   APP_URL = "https://blog.fly.dev"
@@ -252,7 +252,7 @@ services:
     healthCheckPath: /health/ready
     # Render's commands replace the image's entrypoint: give the binary's path.
     preDeployCommand: /app/blog migrate
-    dockerCommand: /app/blog run --only=http
+    dockerCommand: /app/blog run --only=web
     envVars:
       - fromGroup: blog
       - key: APP_KEY
@@ -265,7 +265,7 @@ services:
     name: blog-worker
     runtime: docker
     plan: starter
-    dockerCommand: /app/blog run --only=workers,scheduler
+    dockerCommand: /app/blog run --only=worker,scheduler
     envVars:
       - fromGroup: blog
       - key: APP_KEY
@@ -331,25 +331,25 @@ trusted.
 > claim any IP, and rate limits, the audit log and `ADMIN_ALLOW_IPS`
 > believe them.
 
-### 6. Split the roles as you grow
+### 6. Split the process types as you grow
 
 `run` starts every component: the web server, queue workers, event
 listeners, the scheduler. With more traffic, run them in separate
-processes or machines (`run --only=http`, `run --only=workers`;
+processes or machines (`run --only=web`, `run --only=worker`;
 [the runtime supervisor](../concepts/runtime-supervisor.md) explains
-roles):
+process types):
 
-| Role | How many |
+| Process type | How many |
 |---|---|
-| `http` | As many as you need, behind the load balancer |
-| `workers`, `listeners` | As many as the jobs need; they share the queue (`QUEUE_DRIVER=database` or `redis`) and the broker |
+| `web` | As many as you need, behind the load balancer |
+| `worker`, `listener` | As many as the jobs need; they share the queue (`QUEUE_DRIVER=database` or `redis`) and the broker |
 | `scheduler` | One; or several, with tasks marked `schedule.OnOneServer()` and a shared cache (`CACHE_DRIVER=database` or `redis`) |
 
-Make sure some process runs each role the app has: a scheduler that no
-process runs never runs its tasks. `run --only=` with a role the app
+Make sure some process runs each process type the app has: a scheduler
+that no process runs never runs its tasks. `run --only=` with a type the app
 doesn't have fails and lists those it has. `scheduler` is known as soon
-as `schedule.New` is called, so `--only=workers,scheduler` works
-before the app has a task; add `listeners` once it uses
+as `schedule.New` is called, so `--only=worker,scheduler` works
+before the app has a task; add `listener` once it uses
 [pub/sub](pubsub.md).
 
 Every process stops gracefully on SIGTERM: the server stops accepting
@@ -407,7 +407,7 @@ services:
 
   web:
     <<: *app
-    command: run --only=http
+    command: run --only=web
     ports:
       - "127.0.0.1:8080:8080" # for the HTTPS proxy on the host
     restart: unless-stopped
@@ -417,7 +417,7 @@ services:
 
   worker:
     <<: *app
-    command: run --only=workers,scheduler
+    command: run --only=worker,scheduler
     healthcheck:
       disable: true # no HTTP server here
     restart: unless-stopped
@@ -491,8 +491,8 @@ server, or `docker run --rm blog version`) tells which version runs.
 | Every visitor has the same IP, rate limits hit everyone | The proxy's address is the client IP | Set `HTTP_TRUSTED_PROXIES` (step 5) |
 | Jobs dispatched by the web process never run | `QUEUE_DRIVER=sync` or `memory` with workers in another process | `QUEUE_DRIVER=database` or `redis` |
 | `permission denied` writing files in the container | The volume isn't writable by user 65532 | Mount on `/data` (the image prepares it), or `chown 65532` the host directory |
-| The container stays `unhealthy` | It doesn't serve HTTP (`run --only=workers`), it isn't ready (`/health/ready` answers 503 while a component restarts or migrations haven't run: the log says which), or `HTTP_HEALTH_ROUTES=false` | Turn the check off for workers (`--no-healthcheck`, `healthcheck: disable: true`); read the logs; keep the health routes on |
-| `unknown role "scheduler"` (or `listeners`) | The app has none: no `schedule.New` (or `pubsub.New`) | Leave it out of `--only`; the error lists the app's roles |
+| The container stays `unhealthy` | It doesn't serve HTTP (`run --only=worker`), it isn't ready (`/health/ready` answers 503 while a component restarts or migrations haven't run: the log says which), or `HTTP_HEALTH_ROUTES=false` | Turn the check off for workers (`--no-healthcheck`, `healthcheck: disable: true`); read the logs; keep the health routes on |
+| `unknown process type "scheduler"` (or `listener`) | The app has none: no `schedule.New` (or `pubsub.New`) | Leave it out of `--only`; the error lists the app's process types |
 | Jobs cut off at each deploy | The platform kills the process before it finishes | Raise its grace period (`docker stop -t`, `kill_timeout`, `TimeoutStopSec`) or lower `APP_SHUTDOWN_TIMEOUT` |
 | `blog version` prints `(devel)` | Built outside a git repository without `--version` | `anetos build --version=v1.2.0` (the `Dockerfile` takes `--build-arg VERSION`) |
 
@@ -501,5 +501,5 @@ server, or `docker run --rm blog version`) tells which version runs.
 - [Secure your app](security.md): the checklist before going live.
 - [Configuration](configuration.md) and the [settings reference](../reference/configuration.md).
 - [Migrations](migrations.md).
-- [The runtime supervisor](../concepts/runtime-supervisor.md): roles and graceful shutdown.
+- [The runtime supervisor](../concepts/runtime-supervisor.md): process types and graceful shutdown.
 - [`anetos build`](../reference/cli.md#anetos-build).

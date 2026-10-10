@@ -477,13 +477,13 @@ func testRBACRequests(t *testing.T, ctx context.Context, reg *rbac.Registry, acm
 	}
 }
 
-// testRBACUnits checks that grants are read once per unit of work.
+// testRBACUnits checks that grants are read once per operation.
 func testRBACUnits(t *testing.T, ctx context.Context, acme rbac.Scope) {
 	app, err := anetos.New(anetos.WithSource(config.Map{}), anetos.WithLogOutput(io.Discard))
 	check(t, err)
 	_, err = rbac.New(app, stPerms, stRoles...)
 	check(t, err)
-	unit, end := app.StartUnit(ctx, anetos.Unit{Kind: "job", Name: "test"})
+	unit, end := app.StartOperation(ctx, anetos.Operation{Kind: "job", Name: "test"})
 	defer end()
 	can := func(ctx context.Context) bool {
 		g, err := rbac.Of(ctx, "gus")
@@ -496,9 +496,9 @@ func testRBACUnits(t *testing.T, ctx context.Context, acme rbac.Scope) {
 	// A change behind the package's back isn't seen until the next unit…
 	check(t, db.Create(ctx, &stGrant{UserID: "gus", Scope: "team:1", Kind: "permission", Name: "projects.view"}))
 	if can(unit) {
-		t.Error("the unit read the grants again")
+		t.Error("the operation read the grants again")
 	}
-	next, endNext := app.StartUnit(ctx, anetos.Unit{Kind: "job", Name: "test"})
+	next, endNext := app.StartOperation(ctx, anetos.Operation{Kind: "job", Name: "test"})
 	defer endNext()
 	if !can(next) {
 		t.Error("the next unit doesn't see the grant")
@@ -506,7 +506,7 @@ func testRBACUnits(t *testing.T, ctx context.Context, acme rbac.Scope) {
 	// …but its own changes are.
 	check(t, rbac.Revoke(unit, "gus", acme, stView))
 	if can(unit) {
-		t.Error("the unit doesn't see its own change")
+		t.Error("the operation doesn't see its own change")
 	}
 
 	// What a transaction read isn't kept if it rolls back.

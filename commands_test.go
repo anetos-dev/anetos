@@ -86,9 +86,9 @@ func TestCommands(t *testing.T) {
 		{[]string{"nope"}, 2, `unknown command "nope"`},
 		{[]string{"help"}, 0, "reports:send   Email the weekly report"},
 		{[]string{"--help"}, 0, "Commands:"},
-		{[]string{"help", "run"}, 0, "[--only=role,…]"},
+		{[]string{"help", "run"}, 0, "[--only=type,…]"},
 		{[]string{"help", "nope"}, 2, "unknown command"},
-		{[]string{"run", "--only=nope"}, 1, `unknown role "nope"`},
+		{[]string{"run", "--only=nope"}, 1, `unknown process type "nope"`},
 		{[]string{"run", "extra"}, 2, `unexpected argument "extra"`},
 	} {
 		a := newApp2() // an app runs one command
@@ -106,7 +106,7 @@ func TestRunIsTheDefault(t *testing.T) {
 		close(started)
 		<-ctx.Done()
 		return nil
-	}, anetos.Roles("worker")); err != nil {
+	}, anetos.ProcessTypes("worker")); err != nil {
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(t.Context())

@@ -36,7 +36,7 @@ if err != nil {
 }
 r := srv.Router()
 r.UseGlobal(web.MethodOverride) // forms can send PUT and DELETE with _method
-r.HandleStd(http.MethodGet, "/assets/{path...}", assets)
+r.Get("/assets/{path...}", web.WrapHandler(assets))
 
 var h Notes
 pages := r.Group("", sessions.Middleware, web.CSRF())
@@ -62,7 +62,7 @@ fails at startup, suggesting a key, when `APP_KEY` is missing.
 s := c.Session() // panics if the route has no session middleware
 
 s.Put("theme", "dark")          // any value encoding/json can encode
-theme := s.String("theme")      // "dark"
+theme := s.GetString("theme")   // "dark"
 cart, ok := session.Value[[]int64](s, "cart")
 s.Delete("theme")
 ```
@@ -207,7 +207,7 @@ Give a handler a session without the middleware:
 ```go
 // illustrative
 s := session.NewSession()
-ctx := session.NewContext(context.Background(), s)
+ctx := session.WithSession(context.Background(), s)
 ```
 
 Across requests, an `anetostest` app keeps the session cookie: check the

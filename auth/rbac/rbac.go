@@ -179,8 +179,8 @@ func (r *Registry) checkRole(role Role) error {
 
 // New returns a registry of the permissions and roles ([NewRegistry]) and
 // provides it to the app: the package's functions find it in the
-// context. It caches each user's grants for the length of a unit of work
-// (anetos.App.AroundUnits), and adds the rbac:roles, rbac:user,
+// context. It caches each user's grants for the length of an operation
+// (anetos.App.AroundOperations), and adds the rbac:roles, rbac:user,
 // rbac:assign and rbac:unassign commands. The tables come from
 // [Migrations].
 func New(app *anetos.App, permissions []Permission, roles ...Role) (*Registry, error) {
@@ -195,9 +195,9 @@ func New(app *anetos.App, permissions []Permission, roles ...Role) (*Registry, e
 	if err := addCommands(app); err != nil {
 		return nil, err
 	}
-	app.AroundUnits(func(ctx context.Context, _ anetos.Unit) (context.Context, func()) {
+	app.AroundOperations(func(ctx context.Context, _ anetos.Operation) (context.Context, func()) {
 		if cacheFrom(ctx) != nil {
-			// A unit inside another (a tool call in a request, a job
+			// An operation inside another (a tool call in a request, a job
 			// run synchronously) shares its grants.
 			return ctx, nil
 		}
@@ -317,7 +317,7 @@ type statusError struct {
 func (e *statusError) Error() string   { return e.msg }
 func (e *statusError) HTTPStatus() int { return e.status }
 
-// cache holds the grants read during one unit of work.
+// cache holds the grants read during one operation.
 type cache struct {
 	mu     sync.Mutex
 	gen    uint64 // counts changes: a read started before one isn't kept

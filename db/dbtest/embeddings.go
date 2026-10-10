@@ -123,7 +123,7 @@ func testEmbeddings(t *testing.T, ctx context.Context) {
 		chunks, err := db.Chunks[stENote](ctx)
 		check(t, err)
 		// The rocket note's text is longer than a chunk.
-		if len(chunks) != 5 || chunks[0].Model != "fake-embedding" || len(chunks[0].Embedding) != 32 || len(chunks[0].ContentHash) != 64 {
+		if len(chunks) != 5 || chunks[0].EmbeddingModel != "fake-embedding" || len(chunks[0].Embedding) != 32 || len(chunks[0].ContentHash) != 64 {
 			t.Fatalf("queued %v: chunks %+v", queued, chunks)
 		}
 		embedded := len(fake.Embeddings())
@@ -198,7 +198,7 @@ func testEmbeddings(t *testing.T, ctx context.Context) {
 		if found, err := notes.Search(ctx, "cats", 5); err != nil || len(found) != 3 {
 			t.Errorf("after ai:embed: %s, %v", passages(found), err)
 		}
-		if cs, _ := db.Chunks[stENote](ctx); len(cs) != 5 || cs[0].Model != "fake-2" {
+		if cs, _ := db.Chunks[stENote](ctx); len(cs) != 5 || cs[0].EmbeddingModel != "fake-2" {
 			t.Errorf("chunks after ai:embed: %+v", cs)
 		}
 

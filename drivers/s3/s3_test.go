@@ -49,9 +49,9 @@ func fake(t *testing.T) (string, *http.Client) {
 func TestConformanceFake(t *testing.T) {
 	endpoint, client := fake(t)
 	b, err := s3.New(s3.Config{Bucket: "test", Region: "us-east-1", Endpoint: endpoint, AccessKey: "key", SecretKey: "secret",
-		PathStyle: true, Prefix: "disk/"}, s3.Transport(client.Transport))
+		PathStyle: true, Prefix: "disk/"}, s3.WithTransport(client.Transport))
 	check(t, err)
-	storagetest.Run(t, b, storagetest.Features{ContentTypes: true, SignedURLs: true, Client: client})
+	storagetest.Run(t, b, storagetest.Features{ContentTypes: true, TemporaryURLs: true, Client: client})
 }
 
 // TestConformance runs against a real S3-compatible server when
@@ -68,7 +68,7 @@ func TestConformance(t *testing.T) {
 	b, err := s3.New(s3.Config{Bucket: strings.Trim(u.Path, "/"), Region: "us-east-1", Endpoint: u.Scheme + "://" + u.Host,
 		AccessKey: u.User.Username(), SecretKey: anetos.Secret(secret), PathStyle: true, Prefix: "anetos-test/"})
 	check(t, err)
-	storagetest.Run(t, b, storagetest.Features{ContentTypes: true, SignedURLs: true})
+	storagetest.Run(t, b, storagetest.Features{ContentTypes: true, TemporaryURLs: true})
 	var paths []string
 	for info, err := range b.List(context.Background(), "storagetest-") {
 		check(t, err)
@@ -94,7 +94,7 @@ func TestNew(t *testing.T) {
 	if b.Client() == nil {
 		t.Error("no client")
 	}
-	if _, err := b.SignedURL(context.Background(), "x", time.Now().Add(8*24*time.Hour)); err == nil {
+	if _, err := b.TemporaryURL(context.Background(), "x", time.Now().Add(8*24*time.Hour)); err == nil {
 		t.Error("an 8-day signed URL: no error")
 	}
 }
@@ -114,12 +114,12 @@ func TestAppNew(t *testing.T) {
 	app2, err := anetos.New(anetos.WithSource(src), anetos.WithLogOutput(io.Discard))
 	check(t, err)
 	t.Cleanup(func() { _ = app2.Close() })
-	_, err = storage.New(app2, s3.Driver(s3.Transport(client.Transport)))
+	_, err = storage.New(app2, s3.Driver(s3.WithTransport(client.Transport)))
 	check(t, err)
 	ctx := app2.Context(context.Background())
 	def, err := storage.From(ctx)
 	check(t, err)
-	avatars, err := storage.From(ctx, "avatars")
+	avatars, err := storage.DiskFrom(ctx, "avatars")
 	check(t, err)
 	check(t, avatars.PutBytes(ctx, "1.png", []byte("png")))
 	// The avatars disk inherits the endpoint and keys, with its prefix.
@@ -139,7 +139,7 @@ func TestAppNew(t *testing.T) {
 	app3, err := anetos.New(anetos.WithSource(bad), anetos.WithLogOutput(io.Discard))
 	check(t, err)
 	t.Cleanup(func() { _ = app3.Close() })
-	if _, err := storage.New(app3, s3.Driver(s3.Transport(client.Transport))); err == nil || !strings.Contains(err.Error(), "STORAGE_S3_BUCKET") {
+	if _, err := storage.New(app3, s3.Driver(s3.WithTransport(client.Transport))); err == nil || !strings.Contains(err.Error(), "STORAGE_S3_BUCKET") {
 		t.Errorf("New without the avatars bucket = %v", err)
 	}
 }
@@ -147,7 +147,7 @@ func TestAppNew(t *testing.T) {
 // Breaking out of a List loop doesn't leave minio-go's goroutine behind.
 func TestListBreak(t *testing.T) {
 	endpoint, client := fake(t)
-	b, err := s3.New(s3.Config{Bucket: "test", Region: "us-east-1", Endpoint: endpoint, AccessKey: "key", SecretKey: "secret", PathStyle: true}, s3.Transport(client.Transport))
+	b, err := s3.New(s3.Config{Bucket: "test", Region: "us-east-1", Endpoint: endpoint, AccessKey: "key", SecretKey: "secret", PathStyle: true}, s3.WithTransport(client.Transport))
 	check(t, err)
 	ctx := context.Background()
 	for i := range 5 {
@@ -168,7 +168,7 @@ func TestListBreak(t *testing.T) {
 
 func TestMissingBucket(t *testing.T) {
 	endpoint, client := fake(t)
-	b, err := s3.New(s3.Config{Bucket: "nope", Region: "us-east-1", Endpoint: endpoint, AccessKey: "key", SecretKey: "secret", PathStyle: true}, s3.Transport(client.Transport))
+	b, err := s3.New(s3.Config{Bucket: "nope", Region: "us-east-1", Endpoint: endpoint, AccessKey: "key", SecretKey: "secret", PathStyle: true}, s3.WithTransport(client.Transport))
 	check(t, err)
 	if _, err := b.Stat(context.Background(), "x"); err == nil || errors.Is(err, storage.ErrNotFound) {
 		t.Errorf("Stat on a missing bucket = %v", err)
@@ -178,11 +178,11 @@ func TestMissingBucket(t *testing.T) {
 // Active content is stored as an attachment: the bucket serves it as is.
 func TestActiveContent(t *testing.T) {
 	endpoint, client := fake(t)
-	b, err := s3.New(s3.Config{Bucket: "test", Region: "us-east-1", Endpoint: endpoint, AccessKey: "key", SecretKey: "secret", PathStyle: true}, s3.Transport(client.Transport))
+	b, err := s3.New(s3.Config{Bucket: "test", Region: "us-east-1", Endpoint: endpoint, AccessKey: "key", SecretKey: "secret", PathStyle: true}, s3.WithTransport(client.Transport))
 	check(t, err)
 	ctx := context.Background()
 	check(t, storage.NewDisk("d", b).PutBytes(ctx, "page.html", []byte("<script>alert(1)</script>")))
-	u, err := b.SignedURL(ctx, "page.html", time.Now().Add(time.Minute))
+	u, err := b.TemporaryURL(ctx, "page.html", time.Now().Add(time.Minute))
 	check(t, err)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	check(t, err)

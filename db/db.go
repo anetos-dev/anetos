@@ -63,7 +63,7 @@ type Config struct {
 	// SlowQuery logs queries that take at least this long as warnings.
 	// Zero disables it.
 	SlowQuery time.Duration `env:"DB_SLOW_QUERY" default:"500ms"`
-	// RepeatedQueries logs a warning when a unit of work (a request, a
+	// RepeatedQueries logs a warning when an operation (a request, a
 	// job…) runs the same query this many times or more: an N+1. Unset
 	// means 5 in development and testing, off elsewhere; 0 disables it.
 	RepeatedQueries *int `env:"DB_REPEATED_QUERIES"`
@@ -596,7 +596,7 @@ func Connect(ctx context.Context, app *anetos.App, drivers ...Driver) (*DB, erro
 		app.Use(check) // checked when the app boots, so help works without a database
 	}
 	if repeated >= 2 {
-		app.AroundUnits(d.Track) // requests, jobs, listeners, tasks
+		app.AroundOperations(d.Track) // requests, jobs, listeners, tasks
 	}
 	env := app.Config().Env
 	app.AddCheck(anetos.Check{Name: "db", Run: func(context.Context) []anetos.Finding {

@@ -37,7 +37,7 @@ type Grants struct {
 }
 
 // Of returns the grants of the user with userID (an AuthID). They are
-// read from the database once per unit of work (a request, a job) and
+// read from the database once per operation (a request, a job) and
 // kept until the package's own writes change them.
 func Of(ctx context.Context, userID string) (*Grants, error) {
 	g, err := load(ctx, userID)
@@ -160,7 +160,7 @@ func scopes(s Scope) []Scope {
 	return []Scope{Global, s}
 }
 
-// load returns the user's grants, from the unit's cache or the database.
+// load returns the user's grants, from the operation's cache or the database.
 func load(ctx context.Context, userID string) (*grants, error) {
 	reg, err := From(ctx)
 	if err != nil {
@@ -250,7 +250,7 @@ func load(ctx context.Context, userID string) (*grants, error) {
 }
 
 // customRoles returns the roles of the database with the names, from the
-// unit's cache (if c isn't nil) or the database. Names not found are left
+// operation's cache (if c isn't nil) or the database. Names not found are left
 // out.
 func customRoles(ctx context.Context, c *cache, names []string) (map[string]*Role, error) {
 	out := map[string]*Role{}
@@ -302,7 +302,7 @@ func customRoles(ctx context.Context, c *cache, names []string) (map[string]*Rol
 	return out, nil
 }
 
-// forget drops users' grants from the unit's cache after a change (none:
+// forget drops users' grants from the operation's cache after a change (none:
 // every user's, and the database's roles), now and again once the change
 // is committed, so a read in between isn't kept.
 func forget(ctx context.Context, userIDs ...string) {

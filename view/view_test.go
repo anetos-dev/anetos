@@ -42,7 +42,7 @@ func TestHelpersWithoutSession(t *testing.T) {
 
 func TestHelpersWithSession(t *testing.T) {
 	s := session.NewSession()
-	ctx := session.NewContext(context.Background(), s)
+	ctx := session.WithSession(context.Background(), s)
 	out, err := render(t, ctx, view.CSRFField(ctx))
 	if err != nil || !strings.HasPrefix(out, `<input type="hidden" name="_token" value="`) {
 		t.Fatalf("CSRFField = %q, %v", out, err)
@@ -101,7 +101,7 @@ func TestErrorsAndOldAfterRedirect(t *testing.T) {
 		}
 	})
 	// Without old input, the saved value.
-	if !view.OldChecked(context.Background(), "publish", true) || view.OldChecked(session.NewContext(context.Background(), session.NewSession()), "publish", false) {
+	if !view.OldChecked(context.Background(), "publish", true) || view.OldChecked(session.WithSession(context.Background(), session.NewSession()), "publish", false) {
 		t.Error("OldChecked fallback")
 	}
 }

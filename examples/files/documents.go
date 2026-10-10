@@ -138,7 +138,7 @@ type AvatarInput struct {
 // UploadAvatar stores the image on the public avatars disk and returns
 // its permanent URL.
 func UploadAvatar(c *web.Ctx, in AvatarInput) (web.Responder, error) {
-	avatars, err := storage.From(c, "avatars")
+	avatars, err := storage.DiskFrom(c, "avatars")
 	if err != nil {
 		return nil, err
 	}

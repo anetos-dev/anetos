@@ -109,7 +109,7 @@ type Config struct {
 	// HomeURL is the app's page for logged-in users: where [Auth.Guest]
 	// sends them, and where logging in leads when there's no page they
 	// wanted ([Intended]'s usual fallback). AUTH_HOME_URL, default /
-	// ([DefaultHomeURL] sets another default).
+	// ([WithDefaultHomeURL] sets another default).
 	HomeURL string `env:"AUTH_HOME_URL" default:"/"`
 	// RememberTTL is how long "remember me" lasts.
 	// AUTH_REMEMBER_TTL, default 720h (30 days).
@@ -213,12 +213,19 @@ func WithLogger(l *slog.Logger) Option { return func(o *options) { o.log = l } }
 // authentication). New uses APP_NAME.
 func WithIssuer(name string) Option { return func(o *options) { o.issuer = name } }
 
-// DefaultHomeURL sets HomeURL's default, for [New]: the page users go
+// WithDefaultHomeURL sets HomeURL's default, for [New]: the page users go
 // to after logging in when AUTH_HOME_URL isn't set, instead of /.
 // make:auth's setupAuth gives /dashboard. AUTH_HOME_URL still wins, so
 // each deployment can choose. [NewWithConfig] takes its Config as it is and
 // ignores it.
-func DefaultHomeURL(path string) Option { return func(o *options) { o.home = path } }
+func WithDefaultHomeURL(path string) Option { return func(o *options) { o.home = path } }
+
+// DefaultHomeURL is [WithDefaultHomeURL].
+//
+// Deprecated: Use WithDefaultHomeURL; DefaultHomeURL is removed in v0.6.
+//
+//go:fix inline
+func DefaultHomeURL(path string) Option { return WithDefaultHomeURL(path) }
 
 // WithInsecureCookies lets the remember-me cookie travel over plain HTTP,
 // for development and tests. New uses it outside production-like
@@ -261,7 +268,7 @@ func NewWithConfig[U Authenticatable](cfg Config, users Users[U], enc *encryptio
 // (cache.New, called first). An app has one Auth: its session keys and
 // cookie are fixed, so a second one would read the first one's users.
 // The options come after New's own (the app's logger, APP_NAME as the
-// issuer, insecure cookies outside production); [DefaultHomeURL] sets
+// issuer, insecure cookies outside production); [WithDefaultHomeURL] sets
 // where users go after logging in, unless AUTH_HOME_URL is set.
 func New[U Authenticatable](app *anetos.App, users Users[U], opts ...Option) (*Auth[U], error) {
 	if _, ok := anetos.Lookup[appAuth](app); ok {

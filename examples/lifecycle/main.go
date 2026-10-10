@@ -101,7 +101,7 @@ func run() error {
 			}
 		}
 	},
-		anetos.Roles("workers"),
+		anetos.ProcessTypes("worker"),
 		anetos.Restart(supervisor.RestartOnFailure),
 		anetos.Backoff(supervisor.Backoff{Initial: time.Second, Max: 10 * time.Second}),
 	)

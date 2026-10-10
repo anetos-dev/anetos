@@ -134,7 +134,7 @@ type Entry struct {
 	Changes Changes `db:"changes,json" json:"changes"`
 	// Properties are the app's details of an event it recorded.
 	Properties map[string]any `db:"properties,json" json:"properties,omitempty"`
-	// ViaKind and ViaName are the work that did it: a unit of work
+	// ViaKind and ViaName are the work that did it: an operation
 	// ("request", "GET /posts/7"; "job", "send-welcome"; "listener",
 	// "task", "message", "tool") or "command" and its name; "" if none.
 	ViaKind string `db:"via_kind" json:"via_kind"`

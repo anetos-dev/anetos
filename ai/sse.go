@@ -39,7 +39,7 @@ var keepAlive = 15 * time.Second
 // stream, and stops when the browser goes away. SSE returns the error of
 // starting the stream; after that, errors are events.
 func SSE(c *web.Ctx, events iter.Seq2[Event, error]) error {
-	stream, err := c.Events()
+	stream, err := c.EventStream()
 	if err != nil {
 		return err
 	}

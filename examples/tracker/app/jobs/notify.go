@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package jobs holds the app's queue jobs, registered in setup and run by
-// the workers (run --only=workers): the emails about issues.
+// the workers (run --only=worker): the emails about issues.
 package jobs
 
 import (

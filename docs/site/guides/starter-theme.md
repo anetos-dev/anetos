@@ -27,7 +27,7 @@ with `go tool anetos css:use anetos` ([Style your app](styling.md#8-switch-css-f
 | File | Holds |
 |---|---|
 | `views/ui/*.templ` | The components, with the theme's classes (`card`, `field`, `badge success`…) |
-| `views/ui/classes.go` | The classes of each look (`button secondary small`) and tone |
+| `views/ui/classes.go` | The classes of each variant and size (`button secondary small`) and tone |
 | `public/static/app.css` | The theme: color variables, light and dark, base styles for plain HTML, then the classes |
 
 Forms and tables need no class: plain HTML looks right as it is. A form

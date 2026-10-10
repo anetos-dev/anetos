@@ -26,7 +26,7 @@ type pruner struct {
 	run func(ctx context.Context, cutoff time.Time, dryRun bool) (int64, error)
 }
 
-// pruners are the models registered with PruneTrashed in an app.
+// pruners are the models registered with Prunable in an app.
 type pruners struct {
 	mu   sync.Mutex
 	list []pruner
@@ -34,29 +34,29 @@ type pruners struct {
 
 type prunersKey struct{}
 
-// PruneTrashed registers model T, which must embed [SoftDeletes]: its rows
+// Prunable registers model T, which must embed [SoftDeletes]: its rows
 // soft-deleted more than after ago are deleted for good by the
 // db:prune-trashed command, or by [PruneAllTrashed] (in a scheduled task,
 // say). The first call adds the command to the app.
 //
-//	err := db.PruneTrashed[models.Post](app, 90*24*time.Hour)
+//	err := db.Prunable[models.Post](app, 90*24*time.Hour)
 //
 // Rows are deleted in batches of 1,000, each in its own transaction, as
 // [Q.ForceDelete] does: a table watched by the audit log gets a bulk
 // entry per batch. Related rows go only where foreign keys cascade.
-func PruneTrashed[T any](app *anetos.App, after time.Duration) error {
+func Prunable[T any](app *anetos.App, after time.Duration) error {
 	m, err := metaOf(reflect.TypeFor[T]())
 	if err != nil {
 		return err
 	}
 	if m.deletedAt < 0 {
-		return fmt.Errorf("db: PruneTrashed: %s doesn't use SoftDeletes", m.typ)
+		return fmt.Errorf("db: Prunable: %s doesn't use SoftDeletes", m.typ)
 	}
 	if m.pk < 0 {
-		return fmt.Errorf("db: PruneTrashed: %s has no primary key", m.typ)
+		return fmt.Errorf("db: Prunable: %s has no primary key", m.typ)
 	}
 	if after <= 0 {
-		return errors.New("db: PruneTrashed needs a positive duration")
+		return errors.New("db: Prunable needs a positive duration")
 	}
 	ps, ok := anetos.Lookup[*pruners](app)
 	if !ok {
@@ -71,7 +71,7 @@ func PruneTrashed[T any](app *anetos.App, after time.Duration) error {
 	defer ps.mu.Unlock()
 	for _, p := range ps.list {
 		if p.table == m.table {
-			return fmt.Errorf("db: PruneTrashed: %s is registered twice", m.table)
+			return fmt.Errorf("db: Prunable: %s is registered twice", m.table)
 		}
 	}
 	ps.list = append(ps.list, pruner{table: m.table, after: after, run: pruneModel[T]})
@@ -132,7 +132,7 @@ type Pruned struct {
 }
 
 // PruneAllTrashed deletes for good the rows of every model registered with
-// [PruneTrashed] that were soft-deleted longer ago than the model's
+// [Prunable] that were soft-deleted longer ago than the model's
 // duration, and reports how many per table. Run it from a scheduled task:
 //
 //	err := sched.Add(schedule.Daily(), "db:prune-trashed", func(ctx context.Context) error {
@@ -148,7 +148,7 @@ func PruneAllTrashed(ctx context.Context) ([]Pruned, error) {
 func pruneAll(ctx context.Context, dryRun bool) ([]Pruned, error) {
 	ps, _ := ctx.Value(prunersKey{}).(*pruners)
 	if ps == nil {
-		return nil, errors.New("db: no model is registered with PruneTrashed in this app")
+		return nil, errors.New("db: no model is registered with Prunable in this app")
 	}
 	ps.mu.Lock()
 	list := append([]pruner(nil), ps.list...)
@@ -169,7 +169,7 @@ func pruneCommand() cmd.Command {
 	return cmd.Command{
 		Name:        "db:prune-trashed",
 		Usage:       "[--dry-run]",
-		Description: "Delete for good the rows soft-deleted longer ago than db.PruneTrashed allows",
+		Description: "Delete for good the rows soft-deleted longer ago than db.Prunable allows",
 		Run: func(ctx context.Context, args *cmd.Args) error {
 			fs := flag.NewFlagSet("db:prune-trashed", flag.ContinueOnError)
 			dry := fs.Bool("dry-run", false, "count the rows, delete nothing")
@@ -191,3 +191,10 @@ func pruneCommand() cmd.Command {
 		},
 	}
 }
+
+// PruneTrashed is [Prunable].
+//
+// Deprecated: Use Prunable; PruneTrashed is removed in v0.6.
+//
+//go:fix inline
+func PruneTrashed[T any](app *anetos.App, after time.Duration) error { return Prunable[T](app, after) }

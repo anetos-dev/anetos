@@ -37,7 +37,7 @@ func setupAdmin(app *anetos.App, r *web.Router, sessions *session.Manager, a *au
 	if _, err := rbac.New(app, access.Permissions, access.Roles...); err != nil {
 		return err
 	}
-	p, err := admin.New(app, a, admin.UserName(func(u *models.User) string { return u.Name }))
+	p, err := admin.New(app, a, admin.WithUserName(func(u *models.User) string { return u.Name }))
 	if err != nil {
 		return err
 	}

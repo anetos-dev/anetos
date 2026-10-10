@@ -288,7 +288,7 @@ func QueueHealth(q *queue.Queue, queues ...string) Widget {
 			f.Value = "1,000+"
 		}
 		c.Stats = append(c.Stats, f)
-		c.Link = &Link{Title: "The failed jobs", URL: "jobs"}
+		c.Link = &Link{Label: "The failed jobs", URL: "jobs"}
 		return c, nil
 	}}
 }

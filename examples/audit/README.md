@@ -17,7 +17,7 @@ package `audit`:
   `documents.exported` with `audit.Record`.
 - **History**: `GET /api/documents/{id}/history`, newest first.
 - **Soft deletes**: a slug is unique among the documents that aren't
-  deleted (`UniqueLive` and the `unique_live` rule), and documents deleted
+  deleted (`UniqueWithoutTrashed` and the `unique_without_trashed` rule), and documents deleted
   30 days ago go for good with `go run . db:prune-trashed`, which the log
   records too.
 

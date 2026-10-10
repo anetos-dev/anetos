@@ -6,9 +6,10 @@
 //
 // A [Supervisor] provides:
 //
-//   - Roles: each component declares roles such as "http" or "workers", and
-//     [Supervisor.Run] can start only some of them, so one binary can run
-//     everything on a small server or be split across machines.
+//   - Process types: each component declares process types such as "web"
+//     or "worker" (Heroku's word, from the Procfile), and [Supervisor.Run]
+//     can start only some of them, so one binary can run everything on a
+//     small server or be split across machines.
 //   - Restart policies: a failing component can be left stopped
 //     ([RestartNever]), restarted with exponential backoff
 //     ([RestartOnFailure]), or stop the whole application ([StopOnFailure]).

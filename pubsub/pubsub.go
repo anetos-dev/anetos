@@ -169,7 +169,7 @@ func New(app *anetos.App, drivers ...Driver) (*PubSub, error) {
 	p := NewWithBroker(broker, WithLogger(app.Logger().With("component", "pubsub")), WithName(app.Config().Name))
 	p.app = app
 	p.driver = cfg.Driver
-	app.Supervisor().Declare("listeners") // run --only=listeners before the first Listen
+	app.Supervisor().Declare("listener") // run --only=listener before the first Listen
 	if err := app.AddCommand(p.publishCommand()); err != nil {
 		return nil, errors.Join(err, broker.Close())
 	}
@@ -324,7 +324,7 @@ type listenOptions struct {
 	name        string
 	concurrency int
 	timeout     time.Duration
-	maxAttempts int
+	tries       int
 	backoff     []time.Duration
 	deadLetter  string
 	grace       time.Duration
@@ -365,20 +365,27 @@ func Timeout(d time.Duration) ListenOption {
 	}
 }
 
-// MaxAttempts sets how many deliveries a message gets: after the last
+// Tries sets how many deliveries a message gets: after the last
 // failed one it goes to the [DeadLetter] topic, or is dropped (and
 // logged) without one. Default 0: no limit. It needs a broker that counts
 // deliveries (Message.Attempt); Google Pub/Sub counts them only for
 // subscriptions with a dead-letter policy.
-func MaxAttempts(n int) ListenOption {
+func Tries(n int) ListenOption {
 	return func(o *listenOptions) error {
 		if n < 0 {
-			return fmt.Errorf("pubsub: MaxAttempts(%d) can't be negative", n)
+			return fmt.Errorf("pubsub: Tries(%d) can't be negative", n)
 		}
-		o.maxAttempts = n
+		o.tries = n
 		return nil
 	}
 }
+
+// MaxAttempts is [Tries].
+//
+// Deprecated: Use Tries; MaxAttempts is removed in v0.6.
+//
+//go:fix inline
+func MaxAttempts(n int) ListenOption { return Tries(n) }
 
 // Backoff sets the waits before deliveries after failures: the first
 // before the second delivery, and so on; the last is used for the rest.
@@ -400,7 +407,7 @@ func Backoff(delays ...time.Duration) ListenOption {
 }
 
 // DeadLetter publishes the messages the listener gives up on (after
-// [MaxAttempts], or a [Permanent] error) to topic, with their attributes
+// [Tries], or a [Permanent] error) to topic, with their attributes
 // plus "anetos.topic", "anetos.subscription", "anetos.error" and
 // "anetos.attempts".
 func DeadLetter(topic string) ListenOption {
@@ -431,10 +438,10 @@ func ShutdownGrace(d time.Duration) ListenOption {
 // again after a backoff; a [Permanent] error gives up on it at once.
 //
 //	err := pubsub.Listen(ps, "orders.created", billing.OrderCreated, pubsub.Concurrency(20),
-//		pubsub.MaxAttempts(5), pubsub.DeadLetter("orders.created.dlq"))
+//		pubsub.Tries(5), pubsub.DeadLetter("orders.created.dlq"))
 //
-// With [New], the listener runs as a component with the role
-// "listeners" (so `run --only=listeners` runs only listeners), stopping
+// With [New], the listener runs as a component of the process type
+// "listener" (so `run --only=listener` runs only listeners), stopping
 // after the HTTP server and before the queue's workers. Delivery is
 // at-least-once: fn must be idempotent. [Current] returns the message.
 func Listen[T any](p *PubSub, topic string, fn func(ctx context.Context, msg T) error, opts ...ListenOption) error {
@@ -494,7 +501,7 @@ func Listen[T any](p *PubSub, topic string, fn func(ctx context.Context, msg T) 
 			}
 		}
 		if p.app != nil {
-			return p.app.Component(l, anetos.Roles("listeners"), anetos.Stage(stageListeners), anetos.Restart(restartOnFailure))
+			return p.app.Component(l, anetos.ProcessTypes("listener"), anetos.Stage(stageListeners), anetos.Restart(restartOnFailure))
 		}
 		return nil
 	}()

@@ -87,7 +87,7 @@ func (p *Panel) allowIPs(next http.Handler) http.Handler {
 		return next
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		a, err := netip.ParseAddr(web.ClientIP(r))
+		a, err := netip.ParseAddr(web.ClientIP(r.Context()))
 		if err == nil {
 			a = a.Unmap()
 			for _, pre := range p.allowed {

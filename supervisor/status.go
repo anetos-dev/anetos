@@ -12,7 +12,7 @@ type State int
 
 // Component states, as reported by [Supervisor.Status].
 const (
-	StatePending  State = iota // registered, not started (not yet running, or its roles are not selected)
+	StatePending  State = iota // registered, not started (not yet running, or its process types are not selected)
 	StateStarting              // goroutine launched
 	StateRunning               // inside Run
 	StateBackoff               // failed; waiting to restart
@@ -44,14 +44,14 @@ func (s State) String() string {
 
 // ComponentStatus is a point-in-time snapshot of one component.
 type ComponentStatus struct {
-	Name      string    // the component's name
-	Roles     []string  // its roles
-	Stage     Stage     // its shutdown stage
-	Restart   Restart   // its restart policy
-	State     State     // what it is doing
-	Restarts  int       // restarts performed so far
-	LastError error     // most recent failure, if any
-	Since     time.Time // when State was entered
+	Name         string    // the component's name
+	ProcessTypes []string  // its process types
+	Stage        Stage     // its shutdown stage
+	Restart      Restart   // its restart policy
+	State        State     // what it is doing
+	Restarts     int       // restarts performed so far
+	LastError    error     // most recent failure, if any
+	Since        time.Time // when State was entered
 }
 
 // Status returns a snapshot of every registered component, in registration
@@ -65,14 +65,14 @@ func (s *Supervisor) Status() []ComponentStatus {
 	for _, e := range entries {
 		e.mu.Lock()
 		out = append(out, ComponentStatus{
-			Name:      e.spec.Component.Name(),
-			Roles:     slices.Clone(e.spec.Roles),
-			Stage:     e.spec.Stage,
-			Restart:   e.spec.Restart,
-			State:     e.state,
-			Restarts:  e.restarts,
-			LastError: e.lastErr,
-			Since:     e.since,
+			Name:         e.spec.Component.Name(),
+			ProcessTypes: slices.Clone(e.spec.ProcessTypes),
+			Stage:        e.spec.Stage,
+			Restart:      e.spec.Restart,
+			State:        e.state,
+			Restarts:     e.restarts,
+			LastError:    e.lastErr,
+			Since:        e.since,
 		})
 		e.mu.Unlock()
 	}

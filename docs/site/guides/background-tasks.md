@@ -37,7 +37,7 @@ You have an app created with `anetos.New()`. See
 			}
 		}
 	},
-		anetos.Roles("workers"),
+		anetos.ProcessTypes("worker"),
 		anetos.Restart(supervisor.RestartOnFailure),
 		anetos.Backoff(supervisor.Backoff{Initial: time.Second, Max: 10 * time.Second}),
 	)
@@ -81,7 +81,7 @@ Ctrl+C: the task stops, then the shutdown hook reports the total.
 
 | Option | Default | Purpose |
 |---|---|---|
-| `anetos.Roles("workers")` | none (runs in every process) | Select with `app.Run(ctx, "workers")` / `--only` |
+| `anetos.ProcessTypes("worker")` | none (runs in every process) | Select with `app.Run(ctx, "worker")` / `--only` |
 | `anetos.Restart(policy)` | `RestartNever` | `RestartOnFailure`, `StopOnFailure` |
 | `anetos.Backoff(b)` | 1s initial, 30s max, unlimited | Restart delays and limit |
 | `anetos.Stage(s)` | `StageBackground` | Shutdown order |
@@ -130,6 +130,6 @@ for _, st := range app.Supervisor().Status() {
 
 - [Scheduling](scheduling.md) for work that runs at set times (every
   night, every hour) rather than all the time.
-- [Runtime supervisor](../concepts/runtime-supervisor.md): roles, policies,
+- [Runtime supervisor](../concepts/runtime-supervisor.md): process types, policies,
   staged shutdown
 - [Application lifecycle](../concepts/application-lifecycle.md)

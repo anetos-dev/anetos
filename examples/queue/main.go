@@ -53,7 +53,7 @@ func main() {
 	if _, err := setup(app); err != nil {
 		log.Fatal(err)
 	}
-	app.Execute() // run: the HTTP server, the workers and the scheduler; run --only=workers: the workers
+	app.Execute() // run: the HTTP server, the workers and the scheduler; run --only=worker: the workers
 }
 
 // newGateway returns the payment gateway; tests replace it.
@@ -133,7 +133,7 @@ func setup(app *anetos.App) (*web.Server, error) {
 	r.Post("/orders/{id}/receipt", web.H(ResendReceipt))
 	// region: preview
 	if app.Config().Env.IsDevelopment() {
-		r.HandleStd(http.MethodGet, "/dev/mail/receipt", mailer.Preview(previewReceipt))
+		r.Get("/dev/mail/receipt", web.WrapHandler(mailer.Preview(previewReceipt)))
 	}
 	// endregion
 	r.Get("/stats", func(c *web.Ctx) error {

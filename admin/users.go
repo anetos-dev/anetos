@@ -151,7 +151,7 @@ func (u *userAdmin[T, U, F]) filters() []Filter[T] {
 	var out []Filter[T]
 	if u.disabled != nil {
 		col := db.C(u.acc.DisabledAt)
-		out = append(out, Filter[T]{Name: "status", Title: "Status",
+		out = append(out, Filter[T]{Name: "status", Label: "Status",
 			Choices: []Choice{{"active", "Active"}, {"disabled", "Disabled"}},
 			Apply: func(q *db.Q[T], v string) *db.Q[T] {
 				if v == "disabled" {
@@ -162,7 +162,7 @@ func (u *userAdmin[T, U, F]) filters() []Filter[T] {
 	}
 	if u.verified != nil {
 		col := db.C(u.acc.VerifiedAt)
-		out = append(out, Filter[T]{Name: "email", Title: "Email",
+		out = append(out, Filter[T]{Name: "email", Label: "Email",
 			Choices: []Choice{{"verified", "Verified"}, {"unverified", "Not verified"}},
 			Apply: func(q *db.Q[T], v string) *db.Q[T] {
 				if v == "unverified" {
@@ -211,13 +211,13 @@ func (u *userAdmin[T, U, F]) actions(p *Panel) []Action[T] {
 	}
 	if u.disabled != nil {
 		out = append(out,
-			Action[T]{Name: "disable", Title: "Disable", Danger: true, Done: "Account disabled.",
+			Action[T]{Name: "disable", Label: "Disable", Danger: true, Done: "Account disabled.",
 				Confirm: "Disable this account? They'll be logged out, and can't log in or use their API tokens.",
 				When:    func(row T) bool { return timeOf(&row, u.disabled) == nil },
 				Run: func(ctx context.Context, row *T) error {
 					return u.setAndRecord(ctx, row, u.disabled, u.acc.DisabledAt, now(ctx), "user.disabled")
 				}},
-			Action[T]{Name: "enable", Title: "Enable", Done: "Account enabled.",
+			Action[T]{Name: "enable", Label: "Enable", Done: "Account enabled.",
 				When: func(row T) bool { return timeOf(&row, u.disabled) != nil },
 				Run: func(ctx context.Context, row *T) error {
 					return u.setAndRecord(ctx, row, u.disabled, u.acc.DisabledAt, nil, "user.enabled")
@@ -225,13 +225,13 @@ func (u *userAdmin[T, U, F]) actions(p *Panel) []Action[T] {
 	}
 	if u.verified != nil {
 		unverified := func(row T) bool { return timeOf(&row, u.verified) == nil }
-		out = append(out, Action[T]{Name: "verify", Title: "Mark email verified", Done: "Email address marked as verified.",
+		out = append(out, Action[T]{Name: "verify", Label: "Mark email verified", Done: "Email address marked as verified.",
 			When: unverified,
 			Run: func(ctx context.Context, row *T) error {
 				return u.setAndRecord(ctx, row, u.verified, u.acc.VerifiedAt, now(ctx), "user.verified")
 			}})
 		if send := u.acc.SendVerification; send != nil {
-			out = append(out, Action[T]{Name: "send-verification", Title: "Send verification email", Done: "Verification email sent.",
+			out = append(out, Action[T]{Name: "send-verification", Label: "Send verification email", Done: "Verification email sent.",
 				When: unverified,
 				Run: func(ctx context.Context, row *T) error {
 					if err := send(ctx, U(row)); err != nil {
@@ -241,7 +241,7 @@ func (u *userAdmin[T, U, F]) actions(p *Panel) []Action[T] {
 				}})
 		}
 	} else if send := u.acc.SendVerification; send != nil {
-		out = append(out, Action[T]{Name: "send-verification", Title: "Send verification email", Done: "Verification email sent.",
+		out = append(out, Action[T]{Name: "send-verification", Label: "Send verification email", Done: "Verification email sent.",
 			Run: func(ctx context.Context, row *T) error {
 				if err := send(ctx, U(row)); err != nil {
 					return err
@@ -250,7 +250,7 @@ func (u *userAdmin[T, U, F]) actions(p *Panel) []Action[T] {
 			}})
 	}
 	if send := u.acc.SendPasswordReset; send != nil {
-		out = append(out, Action[T]{Name: "send-password-reset", Title: "Send password reset", Done: "Password reset email sent.",
+		out = append(out, Action[T]{Name: "send-password-reset", Label: "Send password reset", Done: "Password reset email sent.",
 			Confirm: "Email this user a link to choose a new password?",
 			Run: func(ctx context.Context, row *T) error {
 				if err := send(ctx, U(row)); err != nil {
@@ -260,7 +260,7 @@ func (u *userAdmin[T, U, F]) actions(p *Panel) []Action[T] {
 			}})
 	}
 	if u.acc.Auth.SupportsLogoutEverywhere() {
-		out = append(out, Action[T]{Name: "logout", Title: "Log out everywhere", Done: "Logged out of every browser and device.",
+		out = append(out, Action[T]{Name: "logout", Label: "Log out everywhere", Done: "Logged out of every browser and device.",
 			Confirm: "Log this user out of every browser and device? Their API tokens keep working.",
 			Run: func(ctx context.Context, row *T) error {
 				if err := u.acc.Auth.LogoutEverywhere(ctx, U(row)); err != nil {
@@ -270,7 +270,7 @@ func (u *userAdmin[T, U, F]) actions(p *Panel) []Action[T] {
 			}})
 	}
 	if a := u.acc.Auth; a.SupportsTwoFactor() {
-		out = append(out, Action[T]{Name: "two-factor-off", Title: "Turn off two-factor authentication", Danger: true,
+		out = append(out, Action[T]{Name: "two-factor-off", Label: "Turn off two-factor authentication", Danger: true,
 			Done:    "Two-factor authentication turned off.",
 			Confirm: "Turn off this user's two-factor authentication? Their password alone will log them in, until they turn it on again.",
 			When: func(row T) bool {
@@ -289,7 +289,7 @@ func (u *userAdmin[T, U, F]) actions(p *Panel) []Action[T] {
 	// Not at a host of its own: the app's pages are on another host, whose
 	// session is another (cookies are the host's).
 	if u.impersonate != "" && p.cfg.Host == "" {
-		out = append(out, Action[T]{Name: "impersonate", Title: "Impersonate", Permission: string(u.impersonate),
+		out = append(out, Action[T]{Name: "impersonate", Label: "Impersonate", Permission: string(u.impersonate),
 			Confirm:   "Impersonate this user? You'll see the app as they do, until you stop. It is logged.",
 			When:      func(row T) bool { return u.disabled == nil || timeOf(&row, u.disabled) == nil },
 			Run:       u.startImpersonating,
@@ -768,7 +768,7 @@ const stopPath = "/impersonation/stop"
 func stopImpersonating[U auth.Authenticatable](a *auth.Auth[U], p *Panel) web.HandlerFunc {
 	return func(c *web.Ctx) error {
 		s := c.Session()
-		back, subj := s.String(keyActingBack), s.String(keyActingSubj)
+		back, subj := s.GetString(keyActingBack), s.GetString(keyActingSubj)
 		_, err := a.StopImpersonating(c)
 		for _, k := range []string{keyActingAs, keyActingBy, keyActingStop, keyActingBack, keyActingSubj} {
 			s.Delete(k)

@@ -93,8 +93,8 @@ func (q *Queue) workOptions(grace time.Duration, opts []WorkOption) (workOptions
 	return o, nil
 }
 
-// Work adds workers to the app, as a component with the role "workers"
-// (so `run --only=workers` runs only them) that stops after the HTTP
+// Work adds workers to the app, as a component of the process type
+// "worker" (so `run --only=worker` runs only them) that stops after the HTTP
 // server and listeners, so it finishes the jobs they dispatched:
 //
 //	err := q.Work(queue.Queues("emails", "default"), queue.Concurrency(10))
@@ -116,7 +116,7 @@ func (q *Queue) Work(opts ...WorkOption) error {
 	o.deadline = q.app.Supervisor().ShutdownDeadline
 	name := "queue-worker[" + strings.Join(o.queues, ",") + "]"
 	return q.app.Component(supervisor.Func(name, func(ctx context.Context) error { return q.run(ctx, o) }),
-		anetos.Roles("workers"), anetos.Stage(supervisor.StageWorkers), anetos.Restart(supervisor.RestartOnFailure))
+		anetos.ProcessTypes("worker"), anetos.Stage(supervisor.StageWorkers), anetos.Restart(supervisor.RestartOnFailure))
 }
 
 // Run runs workers until ctx is canceled, then lets running jobs finish

@@ -96,7 +96,7 @@ func TestStoreRevokes(t *testing.T) {
 	// No cookie size limit.
 	c.get(func(s *Session) { s.Put("big", strings.Repeat("x", 10000)) })
 	c.get(func(s *Session) {
-		if len(s.String("big")) != 10000 {
+		if len(s.GetString("big")) != 10000 {
 			t.Error("a large session wasn't kept")
 		}
 	})

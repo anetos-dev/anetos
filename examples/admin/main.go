@@ -72,7 +72,7 @@ var permissions = slices.Compact(slices.Sorted(slices.Values(slices.Concat(edito
 // setupAdmin adds the admin, after the routes of the app's pages, with
 // their middleware.
 func setupAdmin(app *anetos.App, r *web.Router, sessions *session.Manager, a *auth.Auth[*User]) error {
-	p, err := admin.New(app, a, admin.Title("Shop admin"))
+	p, err := admin.New(app, a, admin.WithDefaultTitle("Shop admin"))
 	if err != nil {
 		return err
 	}

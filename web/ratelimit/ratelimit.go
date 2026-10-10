@@ -20,6 +20,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"math"
+	"net"
 	"net/http"
 	"net/netip"
 	"slices"
@@ -169,7 +170,7 @@ func Clear(ctx context.Context, key string, l Limit) error {
 	if err != nil {
 		return err
 	}
-	return cache.Forget(ctx, k)
+	return cache.Delete(ctx, k)
 }
 
 // storeKey returns the cache key counting key's hits against l in the
@@ -192,7 +193,13 @@ func storeKey(key string, l Limit, now time.Time) (string, time.Time, error) {
 // whole /64 to pick addresses from. Behind a proxy, set
 // HTTP_TRUSTED_PROXIES so that web.ClientIP is the client's address.
 func IP(r *http.Request) string {
-	ip := web.ClientIP(r)
+	ip := web.ClientIP(r.Context())
+	if ip == "" { // outside a router
+		ip = r.RemoteAddr
+		if host, _, err := net.SplitHostPort(ip); err == nil {
+			ip = host
+		}
+	}
 	if a, err := netip.ParseAddr(ip); err == nil && a.Is6() && !a.Is4In6() {
 		if p, err := a.Prefix(64); err == nil {
 			return p.String()

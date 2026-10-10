@@ -24,16 +24,16 @@ func Projects(p *admin.Panel) error {
 	return admin.Add(p, admin.Resource[models.Project, ProjectForm]{
 		Name: "projects",
 		Columns: []admin.Column[models.Project]{
-			admin.Field[models.Project]("Key", "key"),
-			admin.Field[models.Project]("Name", "name"),
-			{Title: "Issues", Value: func(p models.Project) any { return p.LastNumber }},
-			admin.Field[models.Project]("Archived", "archived_at"),
-			admin.Field[models.Project]("Created", "created_at"),
+			admin.TextColumn[models.Project]("key", "Key"),
+			admin.TextColumn[models.Project]("name", "Name"),
+			{Label: "Issues", Value: func(p models.Project) any { return p.LastNumber }},
+			admin.TextColumn[models.Project]("archived_at", "Archived"),
+			admin.TextColumn[models.Project]("created_at", "Created"),
 		},
-		Search:   []string{"key", "name"},
-		Label:    func(p models.Project) string { return p.Key + " " + p.Name },
-		NoCreate: true,
-		NoDelete: true, // archive instead: deleting would delete its issues
+		Search:      []string{"key", "name"},
+		RecordTitle: func(p models.Project) string { return p.Key + " " + p.Name },
+		NoCreate:    true,
+		NoDelete:    true, // archive instead: deleting would delete its issues
 		Edit: func(m models.Project) ProjectForm {
 			f := ProjectForm{Name: m.Name, Description: m.Description}
 			if m.ArchivedAt != nil {

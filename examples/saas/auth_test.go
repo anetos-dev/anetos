@@ -136,7 +136,7 @@ func TestPasswordReset(t *testing.T) {
 func TestResetLogsOutAndRevokesTokens(t *testing.T) {
 	app := authRegister(t)
 	app.PostForm("/tokens", url.Values{"name": {"cli"}})
-	token := app.Session().String("token")
+	token := app.Session().GetString("token")
 	app.PostForm("/logout", nil)
 	app.Get("/forgot-password")
 	app.PostForm("/forgot-password", url.Values{"email": {"ada@example.com"}})
@@ -151,7 +151,7 @@ func TestResetLogsOutAndRevokesTokens(t *testing.T) {
 func TestAPIToken(t *testing.T) {
 	app := authRegister(t)
 	app.PostForm("/tokens", url.Values{"name": {"cli"}}).AssertRedirect("/dashboard")
-	token := app.Session().String("token")
+	token := app.Session().GetString("token")
 	if token == "" {
 		t.Fatal("no token flashed")
 	}

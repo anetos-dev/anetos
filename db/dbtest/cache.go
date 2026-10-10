@@ -65,7 +65,7 @@ func testCacheStore(t *testing.T, ctx context.Context) {
 	// design.
 	tracked := db.New(d(ctx).SQL(), d(ctx).Dialect(), db.WithRepeatedQueries(2))
 	tracked.OnRepeatedQuery(func(_ context.Context, r db.RepeatedQuery) { t.Errorf("reported: %s", r) })
-	tctx, end := tracked.Track(db.WithDB(ctx, tracked), anetos.Unit{Kind: "request", Name: "GET /"})
+	tctx, end := tracked.Track(db.WithDB(ctx, tracked), anetos.Operation{Kind: "request", Name: "GET /"})
 	ts := cache.NewDatabaseStore(tracked, "st_cache")
 	for i := range 3 {
 		check(t, ts.Set(tctx, fmt.Sprint("k", i), []byte("v"), time.Minute))

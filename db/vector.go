@@ -309,8 +309,9 @@ type similarSpec struct {
 // Similar keeps the rows that have embeddings (in the table
 // [EmbeddingsTable] names, made by migrate.Schema.CreateEmbeddings) and
 // orders them by how close their nearest chunk is to v, nearest first:
-// the cosine distance of vectors made by the embedding model named model
-// (other models' vectors are ignored; "" compares every one). It
+// the cosine distance of vectors made by the embedding model named
+// embeddingModel (other models' vectors are ignored; "" compares every
+// one). It
 // considers the [SimilarCandidates] nearest chunks. Most apps call it
 // through package ai, which embeds the query text:
 //
@@ -318,13 +319,13 @@ type similarSpec struct {
 //
 // The database needs the [VectorSearch] capability. Search and Hybrid
 // replace it; Update, Delete and CursorPaginate refuse it.
-func (q *Q[T]) Similar(model string, v Vector) *Q[T] {
+func (q *Q[T]) Similar(embeddingModel string, v Vector) *Q[T] {
 	c := q.clone()
 	c.dropRanking()
 	if c.err != nil {
 		return c
 	}
-	spec, err := c.newSimilar(model, v)
+	spec, err := c.newSimilar(embeddingModel, v)
 	if err != nil {
 		c.err = err
 		return c
@@ -340,7 +341,7 @@ func (q *Q[T]) Similar(model string, v Vector) *Q[T] {
 // (the best [SimilarCandidates] of each), so rows that both find come
 // first, without comparing their scores. It needs a search index and an
 // embeddings table. Text without words makes it [Q.Similar].
-func (q *Q[T]) Hybrid(text, model string, v Vector) *Q[T] {
+func (q *Q[T]) Hybrid(text, embeddingModel string, v Vector) *Q[T] {
 	c := q.clone()
 	c.dropRanking()
 	if c.err != nil {
@@ -351,7 +352,7 @@ func (q *Q[T]) Hybrid(text, model string, v Vector) *Q[T] {
 		c.err = err
 		return c
 	}
-	spec, err := c.newSimilar(model, v)
+	spec, err := c.newSimilar(embeddingModel, v)
 	if err != nil {
 		c.err = err
 		return c
@@ -505,8 +506,8 @@ type Chunk struct {
 	// ContentHash identifies the text, so unchanged text isn't embedded
 	// again.
 	ContentHash string `db:"content_hash"`
-	// Model is the embedding model's name.
-	Model string `db:"model"`
+	// EmbeddingModel is the name of the model that made Embedding.
+	EmbeddingModel string `db:"model"`
 	// Embedding is the passage's vector.
 	Embedding Vector `db:"embedding"`
 }
@@ -607,7 +608,7 @@ func replaceChunks(ctx context.Context, d *DB, m *meta, recordID int64, chunks [
 					ins.write(", ")
 				}
 				ins.write("(")
-				for k, v := range []any{recordID, i + j, c.Content, c.ContentHash, c.Model, c.Embedding, at, at} {
+				for k, v := range []any{recordID, i + j, c.Content, c.ContentHash, c.EmbeddingModel, c.Embedding, at, at} {
 					if k > 0 {
 						ins.write(", ")
 					}
@@ -644,10 +645,10 @@ func PruneChunks[T any](ctx context.Context) (int64, error) {
 }
 
 // NearestChunks returns the chunks of the records with the IDs (made by
-// the embedding model named model; "" for any) by their distance to v,
+// the embedding model named embeddingModel; "" for any) by their distance to v,
 // nearest first: the passages to show for the records [Q.Similar] or
 // [Q.Hybrid] found.
-func NearestChunks[T any](ctx context.Context, model string, v Vector, recordIDs ...int64) ([]ChunkMatch, error) {
+func NearestChunks[T any](ctx context.Context, embeddingModel string, v Vector, recordIDs ...int64) ([]ChunkMatch, error) {
 	if len(recordIDs) == 0 {
 		return []ChunkMatch{}, nil
 	}
@@ -666,8 +667,8 @@ func NearestChunks[T any](ctx context.Context, model string, v Vector, recordIDs
 	b.name(EmbeddingsTable(m.table))
 	b.write(" WHERE ")
 	conds := []Expr{Col[int64]("record_id").In(recordIDs...)}
-	if model != "" {
-		conds = append(conds, Col[string]("model").Eq(model))
+	if embeddingModel != "" {
+		conds = append(conds, Col[string]("model").Eq(embeddingModel))
 	}
 	And(conds...).build(b)
 	b.write(" ORDER BY distance, record_id, chunk")

@@ -160,7 +160,7 @@ exits (status 1 if one failed):
 * * * * * cd /srv/app && ./app schedule:run >> /var/log/app-schedule.log 2>&1
 ```
 
-Then run the app without its scheduler (`./app run --only=http,workers`,
+Then run the app without its scheduler (`./app run --only=web,worker`,
 or `serve` and `queue:work`), or every task runs twice. Each
 `schedule:run` is a process of its own, so `WithoutOverlapping` and
 `OnOneServer` need a cache store the processes share
@@ -254,7 +254,7 @@ next := schedule.WeeklyOn(time.Monday, "08:00").In("Asia/Dhaka").Next(time.Now()
 ## How it works
 
 `schedule.New` provides the `*schedule.Scheduler` to the app and, once
-it has tasks, adds it as a component with the role `scheduler` and the
+it has tasks, adds it as a component of the process type `scheduler` and the
 stage `StageScheduler`, which stops right after the HTTP server. Its loop
 computes each task's next run, sleeps until the earliest, and starts the
 runs that are due, each in its own goroutine, so a slow task doesn't
@@ -277,7 +277,7 @@ that never matches (`0 0 30 2 *`) is an error then.
 |---|---|---|
 | `uses a lock … call cache.New` | A task has `WithoutOverlapping` or `OnOneServer` but the app has no cache | Call `cache.New` in `setup` |
 | A task runs on every instance | `OnOneServer` is missing, or the cache store is `memory` | Add `OnOneServer` and use `CACHE_DRIVER=database` or `redis`, or run the scheduler in one process (`--only=scheduler`) |
-| A task never runs | Its process doesn't run the `scheduler` role (`--only=http`), or it's running in another time zone than you think | Check `schedule:list`, and `SCHEDULE_TIMEZONE` |
+| A task never runs | Its process doesn't run the `scheduler` process type (`--only=web`), or it's running in another time zone than you think | Check `schedule:list`, and `SCHEDULE_TIMEZONE` |
 | `skipped: the previous run is still going` | A `WithoutOverlapping` run takes longer than the time between runs | Run it less often, or make it faster |
 | A failed run isn't retried | The scheduler doesn't retry | Dispatch a queue job with `schedule.Dispatch` |
 | A task ran twice, or not at all, one night | A daylight saving time change | Schedule it away from the zone's clock changes, or in UTC |
@@ -286,7 +286,7 @@ that never matches (`0 0 30 2 *`) is an error then.
 
 - [Queues](queues.md): workers and retries, for the jobs tasks dispatch.
 - [Cache](cache.md): stores and locks.
-- [Runtime supervisor](../concepts/runtime-supervisor.md): roles and
+- [Runtime supervisor](../concepts/runtime-supervisor.md): process types and
   staged shutdown.
 
 > **Coming from Laravel?** `s.Add(schedule.DailyAt("02:00"), "prune",

@@ -29,7 +29,7 @@ with `go tool anetos css:use pico`.
 | `public/static/pico.min.css` | Pico as released, with `pico.LICENSE.txt` (MIT) |
 | `public/static/app.css` | What Pico has no style of: the header's layout, badges, colored messages, the danger, ghost, small and full buttons |
 | `views/ui/*.templ` | The components: `<article>` for a card, `<small>` for a field's message and hint, `<a role="button">` for a link button |
-| `views/ui/classes.go` | The classes of each look (`secondary`; `danger`, `ghost`, `small`, `full` from `app.css`) and tone |
+| `views/ui/classes.go` | The classes of each variant and size (`secondary`; `danger`, `ghost`, `small`, `full` from `app.css`) and tone |
 
 The header's links wrap on a small screen; there is no menu button. A
 form with its errors (Pico marks the control and colors its message):

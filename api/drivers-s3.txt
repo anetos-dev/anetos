@@ -2,6 +2,7 @@
 pkg anetos.dev/anetos/drivers/s3, func Driver(...Option) storage.Driver
 pkg anetos.dev/anetos/drivers/s3, func New(Config, ...Option) (*Backend, error)
 pkg anetos.dev/anetos/drivers/s3, func Transport(http.RoundTripper) Option
+pkg anetos.dev/anetos/drivers/s3, func WithTransport(http.RoundTripper) Option
 pkg anetos.dev/anetos/drivers/s3, method (*Backend) Client() *minio.Client
 pkg anetos.dev/anetos/drivers/s3, method (*Backend) Copy(context.Context, string, string) error
 pkg anetos.dev/anetos/drivers/s3, method (*Backend) Delete(context.Context, string) error
@@ -10,6 +11,7 @@ pkg anetos.dev/anetos/drivers/s3, method (*Backend) Open(context.Context, string
 pkg anetos.dev/anetos/drivers/s3, method (*Backend) Put(context.Context, string, io.Reader, storage.PutOptions) error
 pkg anetos.dev/anetos/drivers/s3, method (*Backend) SignedURL(context.Context, string, time.Time) (string, error)
 pkg anetos.dev/anetos/drivers/s3, method (*Backend) Stat(context.Context, string) (storage.FileInfo, error)
+pkg anetos.dev/anetos/drivers/s3, method (*Backend) TemporaryURL(context.Context, string, time.Time) (string, error)
 pkg anetos.dev/anetos/drivers/s3, type Backend struct
 pkg anetos.dev/anetos/drivers/s3, type Config struct
 pkg anetos.dev/anetos/drivers/s3, type Config struct, AccessKey string
@@ -19,4 +21,4 @@ pkg anetos.dev/anetos/drivers/s3, type Config struct, PathStyle bool
 pkg anetos.dev/anetos/drivers/s3, type Config struct, Prefix string
 pkg anetos.dev/anetos/drivers/s3, type Config struct, Region string
 pkg anetos.dev/anetos/drivers/s3, type Config struct, SecretKey anetos.Secret
-pkg anetos.dev/anetos/drivers/s3, type Option func(*minio.Options)
+pkg anetos.dev/anetos/drivers/s3, type Option func(*options)

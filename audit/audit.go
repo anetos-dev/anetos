@@ -72,7 +72,7 @@ var trackMu sync.Mutex
 type trailKey struct{}
 
 // New creates the app's audit log, after db.Connect: it reads the
-// AUDIT_* settings, notes the unit of work each write happens in, carries
+// AUDIT_* settings, notes the operation each write happens in, carries
 // the actor into the queue jobs and async event listeners it starts
 // (anetos.App.AddCarrier), and adds the audit:prune and audit:anonymize
 // commands. Nothing is logged until models are tracked with [Track]; the
@@ -90,8 +90,8 @@ func New(app *anetos.App) (*Trail, error) {
 		return nil, errors.New("audit: New needs the app's database: call db.Connect first")
 	}
 	t := &Trail{cfg: cfg, db: d, log: app.Logger().With("component", "audit")}
-	app.AroundUnits(func(ctx context.Context, u anetos.Unit) (context.Context, func()) {
-		return context.WithValue(ctx, unitKey{}, u), nil
+	app.AroundOperations(func(ctx context.Context, u anetos.Operation) (context.Context, func()) {
+		return context.WithValue(ctx, operationKey{}, u), nil
 	})
 	app.AddCarrier(anetos.Carrier{
 		Name: "audit.actor",
@@ -164,25 +164,32 @@ func trailFrom(ctx context.Context) (*Trail, error) {
 	return nil, errors.New("audit: no audit log in the context: call audit.New at setup")
 }
 
-// Option changes how a model is tracked.
-type Option func(*tracking)
+// TrackOption changes how a model is tracked ([Track]).
+type TrackOption func(*tracking)
+
+// Option is [TrackOption].
+//
+// Deprecated: Use TrackOption; Option is removed in v0.6.
+//
+//go:fix inline
+type Option = TrackOption
 
 // Except leaves columns out of the log entirely: their changes aren't
 // recorded, and an update changing only them isn't logged.
-func Except(columns ...string) Option {
+func Except(columns ...string) TrackOption {
 	return func(t *tracking) { t.except = append(t.except, columns...) }
 }
 
 // Redact records that columns changed, but not their values ([Redacted]).
 // Columns whose names contain "password", "secret" or "token" are
 // redacted unless [Reveal] says otherwise.
-func Redact(columns ...string) Option {
+func Redact(columns ...string) TrackOption {
 	return func(t *tracking) { t.redact = append(t.redact, columns...) }
 }
 
 // Reveal records the values of columns that would be redacted because of
 // their names ("token_count").
-func Reveal(columns ...string) Option {
+func Reveal(columns ...string) TrackOption {
 	return func(t *tracking) { t.reveal = append(t.reveal, columns...) }
 }
 
@@ -207,7 +214,7 @@ var secretName = regexp.MustCompile(`(?i)password|passwd|secret|token|credential
 // cascades in the database).
 //
 //	err := audit.Track[models.Post](trail, audit.Except("view_count"), audit.Redact("notes"))
-func Track[T any](t *Trail, opts ...Option) error {
+func Track[T any](t *Trail, opts ...TrackOption) error {
 	table, err := db.TableOf[T]()
 	if err != nil {
 		return err
@@ -275,7 +282,7 @@ func (tr *tracking) Written(ctx context.Context, w *db.Write) error {
 	if err := checkLengths(e.SubjectID, e.ActorID); err != nil {
 		return err
 	}
-	return db.Create(db.Untracked(ctx), &e) // one insert per change is expected, not an N+1
+	return db.Create(db.AllowRepeatedQueries(ctx), &e) // one insert per change is expected, not an N+1
 }
 
 func (tr *tracking) writeBulk(ctx context.Context, c who, action string, b *db.Bulk) error {
@@ -313,7 +320,7 @@ func (tr *tracking) writeBulk(ctx context.Context, c who, action string, b *db.B
 	if err := checkLengths("", op.ActorID); err != nil {
 		return err
 	}
-	ctx = db.Untracked(ctx)
+	ctx = db.AllowRepeatedQueries(ctx)
 	if err := db.Create(ctx, &op); err != nil {
 		return err
 	}
@@ -479,9 +486,9 @@ func keyText(k any) string {
 // ---- who, how, from where ----
 
 type (
-	unitKey    struct{}
-	actorKey   struct{}
-	carriedKey struct{}
+	operationKey struct{}
+	actorKey     struct{}
+	carriedKey   struct{}
 )
 
 // WithActor returns ctx in which entries are attributed to a, rather than
@@ -559,13 +566,13 @@ func (t *Trail) contextOf(ctx context.Context) (who, error) {
 		return who{}, err
 	}
 	w := who{at: anetos.Now(ctx).UTC().Truncate(time.Microsecond), actor: a, actingAs: as, requestID: limit(web.RequestID(ctx), 100)}
-	if u, ok := ctx.Value(unitKey{}).(anetos.Unit); ok {
+	if u, ok := ctx.Value(operationKey{}).(anetos.Operation); ok {
 		w.viaKind, w.viaName = u.Kind, u.Name
 	} else if c, ok := cmd.Running(ctx); ok {
 		w.viaKind, w.viaName = "command", c.Name
 	}
 	w.viaName = limit(w.viaName, 255)
-	w.ip = maskIP(web.ClientIPFrom(ctx), t.cfg.IP)
+	w.ip = maskIP(web.ClientIP(ctx), t.cfg.IP)
 	return w, nil
 }
 

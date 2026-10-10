@@ -29,7 +29,7 @@ func (Issues) Search(c *web.Ctx, in SearchInput) (web.Responder, error) {
 			return nil, err
 		}
 	}
-	return web.View(views.SearchPage(in.Q, found)), nil
+	return web.Render(views.SearchPage(in.Q, found)), nil
 }
 
 // endregion

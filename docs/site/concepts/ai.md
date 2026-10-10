@@ -112,7 +112,7 @@ invalid) is told to the model as a web client would see it, never with
 its internal cause; any other error stops the call and is returned, as
 it would end a request.
 
-Each tool call is a unit of work (`anetos.Unit`, kind `tool`): repeated
+Each tool call is an operation (`anetos.Operation`, kind `tool`): repeated
 queries in it are reported as in a request or a job.
 
 ## Logs
@@ -144,7 +144,7 @@ is kept if the answer fails, and can be answered again.
 
 `ai.SSE` writes a streamed answer as server-sent events (`text`,
 `tool`, `error`, `done`), HTML-escaped for htmx's SSE extension, which
-`view/htmx` bundles. The stream goes through `c.Events()`, which lifts
+`view/htmx` bundles. The stream goes through `c.EventStream()`, which lifts
 the request's timeout and the server's write timeout for that response:
 an answer can take minutes, and still stops when the browser leaves,
 which stops the model. A comment every 15 seconds keeps proxies from

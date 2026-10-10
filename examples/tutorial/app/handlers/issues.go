@@ -33,7 +33,7 @@ func (Issues) Index(c *web.Ctx, in IssueList) (web.Responder, error) {
 	if err != nil {
 		return nil, err
 	}
-	return web.View(views.IssuesPage(page)), nil
+	return web.Render(views.IssuesPage(page)), nil
 }
 
 // endregion
@@ -104,7 +104,7 @@ func (Issues) Edit(c *web.Ctx, in IssueID) (web.Responder, error) {
 	if err != nil {
 		return nil, err
 	}
-	return web.View(views.IssueForm(issue)), nil
+	return web.Render(views.IssueForm(issue)), nil
 }
 
 // Update saves the issue.

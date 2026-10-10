@@ -17,7 +17,7 @@
 //	}
 //	err = admin.Add(p, admin.Resource[models.Post, PostForm]{
 //		Name:    "posts",
-//		Columns: []admin.Column[models.Post]{admin.Field[models.Post]("Title", "title")},
+//		Columns: []admin.Column[models.Post]{admin.TextColumn[models.Post]("title", "Title")},
 //		Search:  []string{"title"},
 //		Edit:    func(p models.Post) PostForm { return PostForm{Title: p.Title} },
 //		Apply: func(ctx context.Context, in PostForm, p *models.Post) error {

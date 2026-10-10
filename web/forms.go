@@ -184,9 +184,9 @@ var ErrCrossOrigin = &HTTPError{Status: http.StatusForbidden, Message: "Cross-or
 // CSRFOption configures [CSRF].
 type CSRFOption func(*http.CrossOriginProtection) error
 
-// TrustedOrigins lets pages on the given origins ("https://admin.example.com")
-// send cross-origin requests.
-func TrustedOrigins(origins ...string) CSRFOption {
+// WithTrustedOrigins lets pages on the given origins
+// ("https://admin.example.com") send cross-origin requests.
+func WithTrustedOrigins(origins ...string) CSRFOption {
 	return func(p *http.CrossOriginProtection) error {
 		for _, o := range origins {
 			if err := p.AddTrustedOrigin(o); err != nil {
@@ -196,6 +196,13 @@ func TrustedOrigins(origins ...string) CSRFOption {
 		return nil
 	}
 }
+
+// TrustedOrigins is [WithTrustedOrigins].
+//
+// Deprecated: Use WithTrustedOrigins; TrustedOrigins is removed in v0.6.
+//
+//go:fix inline
+func TrustedOrigins(origins ...string) CSRFOption { return WithTrustedOrigins(origins...) }
 
 // CSRF protects the routes it wraps from cross-site request forgery. For
 // every request that may change something (any method but GET, HEAD,

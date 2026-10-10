@@ -46,10 +46,10 @@ func (l *logBuffer) String() string {
 	return l.b.String()
 }
 
-func newBus(t *testing.T, opts ...events.BusOption) (*events.Bus, *logBuffer) {
+func newBus(t *testing.T, opts ...events.Option) (*events.Bus, *logBuffer) {
 	t.Helper()
 	logs := &logBuffer{}
-	b := events.NewBus(append([]events.BusOption{events.WithLogger(slog.New(slog.NewTextHandler(logs, nil)))}, opts...)...)
+	b := events.NewBus(append([]events.Option{events.WithLogger(slog.New(slog.NewTextHandler(logs, nil)))}, opts...)...)
 	t.Cleanup(func() { _ = b.Close(context.Background()) })
 	return b, logs
 }
@@ -322,7 +322,7 @@ func TestAppNew(t *testing.T) {
 	app.AddContextValue(ctxKey{}, "app")
 	var unitMu sync.Mutex
 	var units []string
-	app.AroundUnits(func(ctx context.Context, u anetos.Unit) (context.Context, func()) {
+	app.AroundOperations(func(ctx context.Context, u anetos.Operation) (context.Context, func()) {
 		unitMu.Lock()
 		defer unitMu.Unlock()
 		units = append(units, u.Kind+" "+u.Name)

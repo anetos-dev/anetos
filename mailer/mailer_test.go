@@ -145,7 +145,7 @@ func TestQueueAfterMailer(t *testing.T) {
 }
 
 func TestSendErrors(t *testing.T) {
-	m := mailer.NewWithTransport(failing{queue.Permanent(errors.New("550 no"))}, mailer.DefaultFrom(mailer.Address{Address: "shop@example.com"}))
+	m := mailer.NewWithTransport(failing{queue.Permanent(errors.New("550 no"))}, mailer.WithDefaultFrom(mailer.Address{Address: "shop@example.com"}))
 	err := m.Send(context.Background(), &mailer.Message{To: []mailer.Address{{Address: "a@example.com"}}, Subject: "S", Text: "x"})
 	if err == nil || !queue.IsPermanent(err) || !strings.Contains(err.Error(), `"S" to a@example.com`) {
 		t.Errorf("err = %v", err)
@@ -225,7 +225,7 @@ func TestPreview(t *testing.T) {
 
 func TestLogger(t *testing.T) {
 	var logs bytes.Buffer
-	m := mailer.NewWithTransport(mailer.NewMemoryTransport(), mailer.DefaultFrom(mailer.Address{Address: "shop@example.com"}),
+	m := mailer.NewWithTransport(mailer.NewMemoryTransport(), mailer.WithDefaultFrom(mailer.Address{Address: "shop@example.com"}),
 		mailer.WithLogger(slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug}))))
 	check(t, m.Send(context.Background(), &mailer.Message{To: []mailer.Address{{Address: "a@example.com"}}, Subject: "S", Text: "x"}))
 	if !strings.Contains(logs.String(), "mail sent") {

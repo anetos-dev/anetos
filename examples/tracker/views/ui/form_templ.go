@@ -839,7 +839,7 @@ func Actions() templ.Component {
 }
 
 // Button submits its form.
-func Button(look Look, attrs templ.Attributes) templ.Component {
+func Button(variant Variant, attrs templ.Attributes, size ...Size) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -860,7 +860,7 @@ func Button(look Look, attrs templ.Attributes) templ.Component {
 			templ_7745c5c3_Var36 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		var templ_7745c5c3_Var37 = []any{look.class(false)}
+		var templ_7745c5c3_Var37 = []any{variant.class(false, size)}
 		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var37...)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
@@ -869,7 +869,7 @@ func Button(look Look, attrs templ.Attributes) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if look.class(false) != "" {
+		if variant.class(false, size) != "" {
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, " class=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -909,7 +909,7 @@ func Button(look Look, attrs templ.Attributes) templ.Component {
 }
 
 // LinkButton is a link that looks like a button.
-func LinkButton(href string, look Look) templ.Component {
+func LinkButton(href string, variant Variant, size ...Size) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -930,7 +930,7 @@ func LinkButton(href string, look Look) templ.Component {
 			templ_7745c5c3_Var39 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		var templ_7745c5c3_Var40 = []any{look.class(true)}
+		var templ_7745c5c3_Var40 = []any{variant.class(true, size)}
 		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var40...)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
@@ -955,7 +955,7 @@ func LinkButton(href string, look Look) templ.Component {
 		var templ_7745c5c3_Var42 templ.SafeURL
 		templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinURLErrs(href)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/ui/form.templ`, Line: 161, Col: 42}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/ui/form.templ`, Line: 161, Col: 51}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
 		if templ_7745c5c3_Err != nil {
@@ -980,7 +980,7 @@ func LinkButton(href string, look Look) templ.Component {
 // PostButton is a button in a form of its own, which sends method
 // (POST, or PUT, PATCH or DELETE) to action with the CSRF token: to
 // delete something, to log out.
-func PostButton(action, method string, look Look) templ.Component {
+func PostButton(action, method string, variant Variant, size ...Size) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -1031,7 +1031,7 @@ func PostButton(action, method string, look Look) templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = Button(look, nil).Render(templ.WithChildren(ctx, templ_7745c5c3_Var45), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = Button(variant, nil, size...).Render(templ.WithChildren(ctx, templ_7745c5c3_Var45), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

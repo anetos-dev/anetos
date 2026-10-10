@@ -20,7 +20,7 @@ func TestEvents(t *testing.T) {
 	var hadDeadline bool
 	var lateErr error
 	r.Get("/events", func(c *web.Ctx) error {
-		stream, err := c.Events()
+		stream, err := c.EventStream()
 		if err != nil {
 			return err
 		}

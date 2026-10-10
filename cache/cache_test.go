@@ -80,7 +80,7 @@ func TestValuesAndKeys(t *testing.T) {
 	if added, err := cache.Add(ctx, "p", 1, 0); added || err != nil {
 		t.Errorf("Add existing = %v, %v", added, err)
 	}
-	if err := cache.Forget(ctx, "p"); err != nil {
+	if err := cache.Delete(ctx, "p"); err != nil {
 		t.Fatal(err)
 	}
 	if ok, _ := cache.Has(ctx, "p"); ok {

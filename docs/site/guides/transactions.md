@@ -67,13 +67,13 @@ db.AfterCommit(ctx, func(ctx context.Context) {
 Outside a transaction, the function runs immediately. If the (nested)
 transaction it was registered in rolls back, it never runs.
 
-Forget cached values the same way, so no request caches the old data
-again between the forget and the commit:
+Delete cached values the same way, so no request caches the old data
+again between the delete and the commit:
 
 ```go
 // illustrative
 db.AfterCommit(ctx, func(ctx context.Context) {
-	_ = cache.Forget(ctx, "stats")
+	_ = cache.Delete(ctx, "stats")
 })
 ```
 
@@ -95,7 +95,7 @@ err := db.Tx(ctx, func(ctx context.Context) error {
 ends. SQLite has no row locks; its transactions take the database's write
 lock when they start.
 
-Use `db.TxWith(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable}, fn)`
+Use `db.TxWithOptions(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable}, fn)`
 for another isolation level or a read-only transaction.
 
 ### 5. Write outside the transaction

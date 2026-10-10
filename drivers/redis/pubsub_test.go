@@ -63,7 +63,7 @@ func TestPubSubDriver(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
-	go func() { done <- a.Run(ctx, "listeners") }()
+	go func() { done <- a.Run(ctx, "listener") }()
 	deadline := time.Now().Add(5 * time.Second)
 	for got.Load() != 7 && time.Now().Before(deadline) {
 		time.Sleep(10 * time.Millisecond)

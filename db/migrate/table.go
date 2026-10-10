@@ -81,12 +81,19 @@ func (c *Column) Unique() *Column {
 	return c
 }
 
-// UniqueLive adds a unique index on the column over the rows that aren't
-// soft-deleted ([Table.UniqueLive]).
-func (c *Column) UniqueLive() *Column {
-	c.t.UniqueLive(c.name)
+// UniqueWithoutTrashed adds a unique index on the column over the rows
+// that aren't soft-deleted ([Table.UniqueWithoutTrashed]).
+func (c *Column) UniqueWithoutTrashed() *Column {
+	c.t.UniqueWithoutTrashed(c.name)
 	return c
 }
+
+// UniqueLive is [Column.UniqueWithoutTrashed].
+//
+// Deprecated: Use UniqueWithoutTrashed; UniqueLive is removed in v0.6.
+//
+//go:fix inline
+func (c *Column) UniqueLive() *Column { return c.UniqueWithoutTrashed() }
 
 // Index adds an index on the column, named table_column_index.
 func (c *Column) Index() *Column {
@@ -183,7 +190,7 @@ type index struct {
 	name    string
 	columns []string
 	unique  bool
-	live    bool // UniqueLive: only rows that aren't soft-deleted
+	live    bool // UniqueWithoutTrashed: only rows that aren't soft-deleted
 }
 
 type alteration struct {
@@ -325,15 +332,22 @@ func (t *Table) Unique(columns ...string) {
 	t.indexes = append(t.indexes, index{name: indexName(t.name, columns, "unique"), columns: columns, unique: true})
 }
 
-// UniqueLive adds a unique index over the rows that aren't soft-deleted
-// (WHERE deleted_at IS NULL), named table_col1_col2_unique like
-// [Table.Unique], so a soft-deleted row doesn't keep its values (a
+// UniqueWithoutTrashed adds a unique index over the rows that aren't
+// soft-deleted (WHERE deleted_at IS NULL), named table_col1_col2_unique
+// like [Table.Unique], so a soft-deleted row doesn't keep its values (a
 // deleted user's email) from new rows. Pair it with the validation rule
-// unique_live. PostgreSQL and SQLite only: MySQL and MariaDB have no
-// partial indexes, and the migration fails there.
-func (t *Table) UniqueLive(columns ...string) {
+// unique_without_trashed. PostgreSQL and SQLite only: MySQL and MariaDB
+// have no partial indexes, and the migration fails there.
+func (t *Table) UniqueWithoutTrashed(columns ...string) {
 	t.indexes = append(t.indexes, index{name: indexName(t.name, columns, "unique"), columns: columns, unique: true, live: true})
 }
+
+// UniqueLive is [Table.UniqueWithoutTrashed].
+//
+// Deprecated: Use UniqueWithoutTrashed; UniqueLive is removed in v0.6.
+//
+//go:fix inline
+func (t *Table) UniqueLive(columns ...string) { t.UniqueWithoutTrashed(columns...) }
 
 // IndexNamed adds an index with a name of your choosing.
 func (t *Table) IndexNamed(name string, columns ...string) {

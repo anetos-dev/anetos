@@ -16,7 +16,7 @@ Packages `auth`, `auth/password`, `auth/social` and `auth/rbac`. How-to: [Authen
 |---|---|
 | `auth.Authenticatable` | `AuthID() string` and `AuthPassword() string`, implemented by the app's user type |
 | `auth.Users[U]{ByID, ByLogin, RememberToken, SetRememberToken, SetPassword, Disabled, SessionKey, SetSessionKey, TwoFactor, SetTwoFactor}` | How to find users (required: `ByID`, `ByLogin`; they return `db.ErrNotFound` or `auth.ErrUserNotFound`), store remember-me tokens and upgraded hashes; which accounts are disabled (`Disabled`, v0.3); the session key sessions are bound to (`SessionKey` and `SetSessionKey`, both or neither, v0.3); the two-factor state, stored encrypted (`TwoFactor` and `SetTwoFactor`, both or neither, v0.3) |
-| `auth.New(app, users, opts...)` | `*auth.Auth[U]` from `AUTH_*` and `APP_KEY`; needs `cache.New` first; provided to the app; once per app. Options as `NewWithConfig`'s, after its own, and `auth.DefaultHomeURL(path)`: `AUTH_HOME_URL`'s default (v0.3) |
+| `auth.New(app, users, opts...)` | `*auth.Auth[U]` from `AUTH_*` and `APP_KEY`; needs `cache.New` first; provided to the app; once per app. Options as `NewWithConfig`'s, after its own, and `auth.WithDefaultHomeURL(path)`: `AUTH_HOME_URL`'s default (v0.3) |
 | `auth.NewWithConfig(cfg, users, enc, opts...)` | Without an app; `auth.WithLogger`, `auth.WithInsecureCookies`, `auth.WithIssuer(name)` (two-factor setups' issuer; `auth.New` uses `APP_NAME`, v0.3) |
 | `auth.Migrations()` | The `api_tokens` table, for `migrate.New` |
 
@@ -143,7 +143,7 @@ Package `auth/rbac` (v0.3). Concepts: [Roles and permissions](../concepts/roles-
 |---|---|
 | `rbac.Permission` | A string type: `const EditPosts rbac.Permission = "posts.edit"`; lowercase letters, digits and `. _ : -`, up to 100 characters; also the API token ability that allows it |
 | `rbac.Role{Name, Title, Permissions, Super, Custom}` | A role; `Super` has every permission (code only); `Custom` is set for roles of the database. `r.Allows(p)`, `r.DisplayName()` (the title, or the name) |
-| `rbac.New(app, permissions, roles...)` | `*rbac.Registry`, checked (unique names, roles of declared permissions); provided to the app and its contexts; caches grants per unit of work; adds the commands below; once per app |
+| `rbac.New(app, permissions, roles...)` | `*rbac.Registry`, checked (unique names, roles of declared permissions); provided to the app and its contexts; caches grants per operation; adds the commands below; once per app |
 | `rbac.NewRegistry(permissions, roles...)`, `rbac.WithRegistry(ctx, reg)`, `rbac.From(ctx)` | Without an app; `rbac.ErrNoRegistry` when the context has none |
 | `reg.Declare(permissions...)` | Adds permissions to the registry, for packages that bring their own (the admin); idempotent; call it at setup, before the app serves (v0.3) |
 | `rbac.AuthorizeOver(ctx, userID)` | nil if the logged-in user has every permission `userID` has in every scope (and a super role wherever they have one), else `auth.ErrForbidden`: for managing their account (v0.3) |
@@ -181,7 +181,7 @@ the token has `*`), and role checks are false unless it has `*`.
 
 | API | Does |
 |---|---|
-| `rbac.Of(ctx, userID)` | The user's `*rbac.Grants`, read in one query (two with roles of the database) once per unit of work (request, job, listener, task, tool call) |
+| `rbac.Of(ctx, userID)` | The user's `*rbac.Grants`, read in one query (two with roles of the database) once per operation (request, job, listener, task, tool call) |
 | `g.Can(p)`, `g.CanIn(scope, p)` | Whether a grant in scope, or a global one, allows `p` |
 | `g.HasRole(role)`, `g.HasRoleIn(scope, role)` | Whether the user has the role in scope or globally (declared or stored roles only; none for a token without `*`) |
 | `g.Roles(scope)` | The roles assigned in exactly `scope`, by name (the same rules) |

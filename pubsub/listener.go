@@ -40,7 +40,7 @@ type listener struct {
 	o    listenOptions
 	call func(ctx context.Context, data []byte) error
 
-	warned atomic.Bool // about MaxAttempts without delivery counts
+	warned atomic.Bool // about Tries without delivery counts
 }
 
 // Name implements supervisor.Component.
@@ -121,10 +121,10 @@ func (l *listener) handle(ctx, base context.Context, m *Message) Outcome {
 		log.Info("pubsub: message stopped by the shutdown, to be delivered again", "error", err)
 		return Outcome{}
 	}
-	if l.o.maxAttempts > 0 && m.Attempt == 0 && l.warned.CompareAndSwap(false, true) {
-		log.Warn("pubsub: the broker doesn't count this subscription's deliveries, so MaxAttempts can't apply (with Google Pub/Sub, give the subscription a dead-letter policy)")
+	if l.o.tries > 0 && m.Attempt == 0 && l.warned.CompareAndSwap(false, true) {
+		log.Warn("pubsub: the broker doesn't count this subscription's deliveries, so Tries can't apply (with Google Pub/Sub, give the subscription a dead-letter policy)")
 	}
-	if !IsPermanent(err) && (l.o.maxAttempts == 0 || m.Attempt < l.o.maxAttempts) {
+	if !IsPermanent(err) && (l.o.tries == 0 || m.Attempt < l.o.tries) {
 		d := l.backoff(m.Attempt)
 		log.Warn("pubsub: message failed, to be delivered again", "error", err, "retry_in", d.Round(time.Millisecond))
 		return Outcome{RetryAfter: d}
@@ -177,9 +177,9 @@ func (l *listener) deadLetter(base context.Context, out Outgoing) error {
 func (l *listener) callSafe(ctx context.Context, m *Message) (err error) {
 	ctx, cancel := context.WithTimeout(context.WithValue(ctx, msgKey{}, m), l.o.timeout)
 	defer cancel()
-	if l.p.app != nil && l.p.app.HasAroundUnits() {
+	if l.p.app != nil && l.p.app.HasAroundOperations() {
 		var end func()
-		ctx, end = l.p.app.StartUnit(ctx, anetos.Unit{Kind: "message", Name: l.sub.Topic + " (" + l.sub.Name + ")"})
+		ctx, end = l.p.app.StartOperation(ctx, anetos.Operation{Kind: "message", Name: l.sub.Topic + " (" + l.sub.Name + ")"})
 		defer end()
 	}
 	defer func() {

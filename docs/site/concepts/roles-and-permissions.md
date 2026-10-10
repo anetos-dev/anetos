@@ -13,7 +13,7 @@ what it needs.
 ```mermaid
 flowchart LR
     C["code<br/>permissions (constants)<br/>roles"] --> R["Registry<br/>(rbac.New)"]
-    D["database<br/>rbac_grants: user, scope, role or permission<br/>rbac_roles: roles administrators add"] -->|"one query per user<br/>per unit of work"| G["the user's grants"]
+    D["database<br/>rbac_grants: user, scope, role or permission<br/>rbac_roles: roles administrators add"] -->|"one query per user<br/>per operation"| G["the user's grants"]
     R --> G
     T["API token's abilities"] -->|narrows| G
     G --> Q{"rbac.CanIn(ctx, team:42, projects.create)"}
@@ -65,12 +65,12 @@ ID, so give them only in existing teams, and remove them
 A user's grants (every scope's) are read in one query, two when they
 have roles of the database, the first time a request, a job, a listener
 or a tool call checks them, and kept until it ends: a page that checks a
-dozen permissions in a dozen teams queries once. A unit started inside
+dozen permissions in a dozen teams queries once. An operation started inside
 another (a tool call in a request, a job run synchronously) shares them.
-Changes made through the package in that unit of work are seen at once;
+Changes made through the package in that operation are seen at once;
 others are seen by the next one. What a transaction reads is kept only
 once it commits, so a rolled-back grant never lingers; checks inside a
-transaction read each time, so check before a loop that runs in one. Outside a unit (a
+transaction read each time, so check before a loop that runs in one. Outside an operation (a
 command, a test's own context), every check reads again. This suits users with grants in up to a few thousand
 scopes; staff who see everything get a global role instead of one in
 each team.

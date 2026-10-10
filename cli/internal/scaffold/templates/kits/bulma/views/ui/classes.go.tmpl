@@ -2,17 +2,18 @@ package ui
 
 import (
 	"context"
+	"slices"
 	"strings"
 
 	"anetos.dev/anetos/i18n"
 )
 
-// Bulma's classes of the looks and tones.
+// Bulma's classes of the variants, sizes and tones.
 
 // class is a button's classes.
-func (l Look) class() string {
+func (v Variant) class(sizes []Size) string {
 	c := []string{"button"}
-	switch l &^ (Small | Full) {
+	switch v {
 	case Secondary:
 		// Bulma's plain button.
 	case Danger:
@@ -22,10 +23,10 @@ func (l Look) class() string {
 	default:
 		c = append(c, "is-primary")
 	}
-	if l&Small != 0 {
+	if has(sizes, Small) {
 		c = append(c, "is-small")
 	}
-	if l&Full != 0 {
+	if has(sizes, FullWidth) {
 		c = append(c, "is-fullwidth")
 	}
 	return strings.Join(c, " ")
@@ -64,3 +65,6 @@ func control(base string, invalid bool) string {
 	}
 	return base
 }
+
+// has reports whether sizes has s.
+func has(sizes []Size, s Size) bool { return slices.Contains(sizes, s) }

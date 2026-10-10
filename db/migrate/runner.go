@@ -105,7 +105,7 @@ func NewRunner(d *db.DB, sets []*Set, opts ...Option) (*Runner, error) {
 // migration commands (migrate, migrate:rollback, …, db:seed) on the app,
 // for app.Execute, and provides the runner as a *migrate.Runner service.
 // It also adds the doctor's "migrations" check and, from [Config]: the
-// component "migrations" (role http), which keeps the app's readiness
+// component "migrations" (process type web), which keeps the app's readiness
 // (GET /health/ready, health:check) false while migrations are pending
 // (DB_MIGRATE_READINESS, on by default), and, with DB_MIGRATE_ON_START, migrating
 // when the app boots to run or serve (design D255). Call it once per app.
@@ -139,7 +139,7 @@ func New(app *anetos.App, sets []*Set, opts ...Option) (*Runner, error) {
 	}
 	app.AddCheck(anetos.Check{Name: "migrations", Booted: true, Run: r.check})
 	if cfg.Readiness {
-		if err := app.Component(&pendingWatch{r: r}, anetos.Roles("http"), anetos.Stage(supervisor.StageBackground), anetos.Restart(supervisor.RestartNever)); err != nil {
+		if err := app.Component(&pendingWatch{r: r}, anetos.ProcessTypes("web"), anetos.Stage(supervisor.StageBackground), anetos.Restart(supervisor.RestartNever)); err != nil {
 			return nil, fmt.Errorf("migrate: %w", err)
 		}
 	}

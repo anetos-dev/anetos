@@ -118,7 +118,7 @@ func WithConfig(cfg Config) ServerOption {
 }
 
 // NewServer creates the HTTP server for app and adds it to the app as the
-// "http" component (role "http", shutdown stage [supervisor.StageIngress],
+// "http" component (process type "web", shutdown stage [supervisor.StageIngress],
 // and [supervisor.StopOnFailure], since the app is useless if it can't
 // serve). Register routes on [Server.Router] before calling app.Run.
 //
@@ -152,7 +152,7 @@ func NewServer(app *anetos.App, opts ...ServerOption) (*Server, error) {
 	s := &Server{cfg: cfg, app: app, log: app.Logger(), stopping: make(chan struct{})}
 	s.router = NewRouter(WithApp(app))
 
-	global := []Middleware{Recover(s.log), RequestIDs, RealIP(trusted), units(app)}
+	global := []Middleware{Recover(s.log), RequestIDs, RealIP(trusted), operations(app)}
 	if cfg.AccessLog {
 		global = append(global, AccessLog(s.log))
 	}
@@ -176,7 +176,7 @@ func NewServer(app *anetos.App, opts ...ServerOption) (*Server, error) {
 	}
 
 	err := app.Component(s,
-		anetos.Roles("http"),
+		anetos.ProcessTypes("web"),
 		anetos.Stage(supervisor.StageIngress),
 		anetos.Restart(supervisor.StopOnFailure),
 	)
@@ -199,7 +199,7 @@ func (s *Server) commands(app *anetos.App) []cmd.Command {
 	return []cmd.Command{
 		{
 			Name:        "serve",
-			Description: "Run the HTTP server (components with the http role, and those without roles)",
+			Description: "Run the HTTP server (components of the web process type, and those without one)",
 			ManagesApp:  true,
 			Run: func(ctx context.Context, args *cmd.Args) error {
 				fs := flag.NewFlagSet("serve", flag.ContinueOnError)
@@ -209,7 +209,7 @@ func (s *Server) commands(app *anetos.App) []cmd.Command {
 				if fs.NArg() > 0 {
 					return cmd.Usagef("unexpected argument %q", fs.Arg(0))
 				}
-				return app.Run(ctx, "http")
+				return app.Run(ctx, "web")
 			},
 		},
 		{
@@ -363,16 +363,16 @@ func (s *Server) Run(ctx context.Context) error {
 	return err
 }
 
-// units makes each request a unit of work of the app (anetos.App.StartUnit),
+// operations makes each request an operation of the app (anetos.App.StartOperation),
 // such as db.Connect's repeated-query detection.
-func units(app *anetos.App) Middleware {
+func operations(app *anetos.App) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if !app.HasAroundUnits() {
+			if !app.HasAroundOperations() {
 				next.ServeHTTP(w, r)
 				return
 			}
-			ctx, end := app.StartUnit(r.Context(), anetos.Unit{Kind: "request", Name: r.Method + " " + r.URL.Path})
+			ctx, end := app.StartOperation(r.Context(), anetos.Operation{Kind: "request", Name: r.Method + " " + r.URL.Path})
 			defer end()
 			if ctx != r.Context() {
 				r = r.WithContext(ctx)

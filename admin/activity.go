@@ -484,6 +484,6 @@ func RecentActivity(n int) Widget {
 				t.Links = append(t.Links, row.URL)
 			}
 		}
-		return Content{Table: t, Link: &Link{Title: "All activity", URL: "activity"}}, nil
+		return Content{Table: t, Link: &Link{Label: "All activity", URL: "activity"}}, nil
 	}}
 }

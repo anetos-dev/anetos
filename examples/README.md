@@ -13,7 +13,7 @@ database. [`tutorial`](tutorial) is the app the
 [tutorial](../docs/site/getting-started/tutorial/README.md) builds. [`saas`](saas) is a whole app, made with
 `anetos new` and `anetos make:auth`: accounts with a password, Google or
 GitHub, a welcome email from a queue job, a pub/sub listener and a
-scheduled task, in one binary that also runs split by role
+scheduled task, in one binary that also runs split by process type
 (`run --only=…`), with a test that runs it that way. [`teams`](teams) is
 a JSON API where users have roles in teams and across them
 (`auth/rbac`). [`assistant`](assistant) is a help center with an AI

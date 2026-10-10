@@ -350,11 +350,11 @@ func TestSearchSQL(t *testing.T) {
 	}
 }
 
-func TestUniqueLiveSQL(t *testing.T) {
+func TestUniqueWithoutTrashedSQL(t *testing.T) {
 	table := func(t *Table) {
 		t.ID()
-		t.String("email", 100).UniqueLive()
-		t.UniqueLive("team_id", "email")
+		t.String("email", 100).UniqueWithoutTrashed()
+		t.UniqueWithoutTrashed("team_id", "email")
 		t.SoftDeletes()
 	}
 	for _, d := range []db.Dialect{db.Postgres(), db.SQLite()} {

@@ -105,7 +105,7 @@ func UploadDocument(c *web.Ctx, in UploadInput) (web.Responder, error) {
 
 (Copied from [`examples/files/documents.go`](../../../examples/files/documents.go), region `upload`.)
 
-`storage.From(ctx)` returns the default disk; `storage.From(ctx, "avatars")`
+`storage.From(ctx)` returns the default disk; `storage.DiskFrom(ctx, "avatars")`
 a named one. Choose the path yourself: the file name an upload comes with
 is the client's, so it may be anything.
 
@@ -198,8 +198,8 @@ with `APP_KEY`, which the disk's handler checks: mount it at
 // Local disks' files, at their STORAGE_URL. The default disk isn't
 // public: its handler serves only temporary URLs. (Files on S3 are
 // served by the bucket.)
-r.HandleStd(http.MethodGet, "/files/{path...}", st.Default().Handler())
-r.HandleStd(http.MethodGet, "/avatars/{path...}", avatars.Handler())
+r.Get("/files/{path...}", web.WrapHandler(st.Default().Handler()))
+r.Get("/avatars/{path...}", web.WrapHandler(avatars.Handler()))
 ```
 
 (Copied from [`examples/files`](../../../examples/files/main.go), region `serve`.)
@@ -225,7 +225,7 @@ type AvatarInput struct {
 // UploadAvatar stores the image on the public avatars disk and returns
 // its permanent URL.
 func UploadAvatar(c *web.Ctx, in AvatarInput) (web.Responder, error) {
-	avatars, err := storage.From(c, "avatars")
+	avatars, err := storage.DiskFrom(c, "avatars")
 	if err != nil {
 		return nil, err
 	}

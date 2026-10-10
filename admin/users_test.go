@@ -46,11 +46,11 @@ func usersApp(t *testing.T) (*anetostest.App, *mail) {
 	app := anetostest.New(t, setupWith(func(p *Panel) error {
 		a := anetos.MustResolve[*auth.Auth[*User]](p.app)
 		err := Users(p, Resource[User, UserForm]{
-			Name:    "users",
-			Columns: []Column[User]{Field[User]("Name", "name"), Field[User]("Email", "email")},
-			Search:  []string{"name", "email"},
-			Label:   func(u User) string { return u.Name },
-			Edit:    func(u User) UserForm { return UserForm{Name: u.Name, Email: u.Email} },
+			Name:        "users",
+			Columns:     []Column[User]{TextColumn[User]("name", "Name"), TextColumn[User]("email", "Email")},
+			Search:      []string{"name", "email"},
+			RecordTitle: func(u User) string { return u.Name },
+			Edit:        func(u User) UserForm { return UserForm{Name: u.Name, Email: u.Email} },
 			Apply: func(_ context.Context, in UserForm, u *User) error {
 				u.Name, u.Email = in.Name, in.Email
 				return nil
@@ -303,7 +303,7 @@ func TestImpersonation(t *testing.T) {
 func TestNoImpersonationAtAHost(t *testing.T) {
 	app := anetostest.New(t, setupWith(func(p *Panel) error {
 		a := anetos.MustResolve[*auth.Auth[*User]](p.app)
-		return Users(p, Resource[User, struct{}]{Columns: []Column[User]{Field[User]("Name", "name")}}, Accounts[*User]{Auth: a})
+		return Users(p, Resource[User, struct{}]{Columns: []Column[User]{TextColumn[User]("name", "Name")}}, Accounts[*User]{Auth: a})
 	}), anetostest.Env(map[string]string{"ADMIN_HOST": "admin.example.com"}))
 	p := anetos.MustResolve[*Panel](app.App)
 	r := p.byName["users"].(*res[User, struct{}])
@@ -406,7 +406,7 @@ func TestUsersErrors(t *testing.T) {
 	p := anetos.MustResolve[*Panel](app.App)
 	a := anetos.MustResolve[*auth.Auth[*User]](app.App)
 	q := &Panel{byName: map[string]resource{}, reg: p.reg}
-	r := Resource[User, struct{}]{Columns: []Column[User]{Field[User]("Name", "name")}}
+	r := Resource[User, struct{}]{Columns: []Column[User]{TextColumn[User]("name", "Name")}}
 	for name, acc := range map[string]Accounts[*User]{
 		"no auth":     {},
 		"no column":   {Auth: a, DisabledAt: "gone_at"},

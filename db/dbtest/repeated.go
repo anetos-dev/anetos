@@ -17,7 +17,7 @@ func init() {
 	extra = append(extra, test{"RepeatedQueries", testRepeatedQueries})
 }
 
-// testRepeatedQueries checks that a tracked unit reports a query it ran
+// testRepeatedQueries checks that a tracked operation reports a query it ran
 // at least the threshold number of times, once, with the caller.
 func testRepeatedQueries(t *testing.T, ctx context.Context) {
 	base, err := db.From(ctx)
@@ -37,7 +37,7 @@ func testRepeatedQueries(t *testing.T, ctx context.Context) {
 	authors, err := db.Query[stAuthor](ctx).OrderBy(db.C("id").Asc()).Get()
 	check(t, err)
 
-	unit := anetos.Unit{Kind: "request", Name: "GET /authors"}
+	unit := anetos.Operation{Kind: "request", Name: "GET /authors"}
 	tctx, end := d.Track(ctx, unit)
 	for _, a := range authors { // an N+1: one query per author
 		_, err := db.Query[stAuthor](tctx).Where(db.C("id").Eq(a.ID)).First()
@@ -47,13 +47,13 @@ func testRepeatedQueries(t *testing.T, ctx context.Context) {
 		_, err := db.Query[stAuthor](tctx).Count()
 		check(t, err)
 	}
-	quiet := db.Untracked(tctx)
+	quiet := db.AllowRepeatedQueries(tctx)
 	for range 5 { // left out
 		_, err := db.Query[stAuthor](quiet).Exists()
 		check(t, err)
 	}
 	// A nested unit counts its own queries.
-	nctx, nend := d.Track(tctx, anetos.Unit{Kind: "job", Name: "Nested"})
+	nctx, nend := d.Track(tctx, anetos.Operation{Kind: "job", Name: "Nested"})
 	for range 3 {
 		_, err := db.Query[stAuthor](nctx).Where(db.C("name").Eq("a0")).First()
 		check(t, err)
@@ -67,10 +67,10 @@ func testRepeatedQueries(t *testing.T, ctx context.Context) {
 	job, req := reps[0], reps[1]
 	// The caller is the app's code: here, framework code called by the
 	// testing package, so there is none.
-	if req.Unit != unit || req.Count != 4 || !strings.Contains(req.SQL, "WHERE") || req.Caller != "" {
+	if req.Operation != unit || req.Count != 4 || !strings.Contains(req.SQL, "WHERE") || req.Caller != "" {
 		t.Errorf("report %+v", req)
 	}
-	if job.Unit.Name != "Nested" || job.Count != 3 {
+	if job.Operation.Name != "Nested" || job.Count != 3 {
 		t.Errorf("nested report %+v", job)
 	}
 	if s := req.String(); !strings.HasPrefix(s, "request GET /authors ran the same query 4 times: SELECT") {

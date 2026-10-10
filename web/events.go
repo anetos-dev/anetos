@@ -21,7 +21,7 @@ type beforeTimeoutKey struct{}
 // after it: it is canceled when the client goes away or the server
 // stops, as the request is, but no timeout ends it. It keeps ctx's values. Use it for
 // responses that stream for as long as they need, such as server-sent
-// events ([Ctx.Events] uses it). Without the Timeout middleware, it
+// events ([Ctx.EventStream] uses it). Without the Timeout middleware, it
 // returns ctx.
 func WithoutTimeout(ctx context.Context) context.Context {
 	parent, ok := ctx.Value(beforeTimeoutKey{}).(context.Context)
@@ -39,7 +39,7 @@ type valuesFrom struct {
 
 func (v valuesFrom) Value(key any) any { return v.values.Value(key) }
 
-// EventStream writes server-sent events, from [Ctx.Events]. It is safe
+// EventStream writes server-sent events, from [Ctx.EventStream]. It is safe
 // for concurrent use: a goroutine may send keep-alives ([EventStream.Comment])
 // while the handler sends events.
 type EventStream struct {
@@ -48,10 +48,10 @@ type EventStream struct {
 	rc *http.ResponseController
 }
 
-// Events starts a response of server-sent events (text/event-stream),
+// EventStream starts a response of server-sent events (text/event-stream),
 // for EventSource in the browser and htmx's SSE extension:
 //
-//	stream, err := c.Events()
+//	stream, err := c.EventStream()
 //	if err != nil {
 //		return err
 //	}
@@ -61,14 +61,14 @@ type EventStream struct {
 //		}
 //	}
 //
-// The stream lasts as long as it needs: Events removes the request's
+// The stream lasts as long as it needs: EventStream removes the request's
 // deadline ([WithoutTimeout]; c, as a context, no longer has it) and the
 // server's write timeout (HTTP_WRITE_TIMEOUT) for this response. It ends
 // when the handler returns; watch c.Done() for a client that goes away,
-// and the server's Stopping() to end promptly at shutdown. Once Events
-// has returned, the response has started: a handler's error can only be
+// and the server's Stopping() to end promptly at shutdown. Once
+// EventStream has returned, the response has started: a handler's error can only be
 // logged, so send errors as events.
-func (c *Ctx) Events() (*EventStream, error) {
+func (c *Ctx) EventStream() (*EventStream, error) {
 	inner := http.NewResponseController(c.w.ResponseWriter)
 	if err := inner.SetWriteDeadline(time.Time{}); err != nil && !errors.Is(err, http.ErrNotSupported) {
 		return nil, err
@@ -124,3 +124,10 @@ func (s *EventStream) write(text string) error {
 	}
 	return s.rc.Flush()
 }
+
+// Events is [Ctx.EventStream].
+//
+// Deprecated: Use EventStream; Events is removed in v0.6.
+//
+//go:fix inline
+func (c *Ctx) Events() (*EventStream, error) { return c.EventStream() }

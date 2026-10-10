@@ -41,7 +41,7 @@ type IDPath struct {
 
 // NewDocument is a document to create.
 type NewDocument struct {
-	Slug  string `json:"slug" validate:"required|max:100|alpha_dash|unique_live:documents,slug"`
+	Slug  string `json:"slug" validate:"required|max:100|alpha_dash|unique_without_trashed:documents,slug"`
 	Title string `json:"title" validate:"required|max:255"`
 	Body  string `json:"body"`
 }
@@ -249,7 +249,7 @@ func setup(app *anetos.App) (*web.Server, error) {
 		return nil, err
 	}
 	// Documents deleted more than 30 days ago go for good: db:prune-trashed.
-	if err := db.PruneTrashed[Document](app, 30*24*time.Hour); err != nil {
+	if err := db.Prunable[Document](app, 30*24*time.Hour); err != nil {
 		return nil, err
 	}
 	// endregion

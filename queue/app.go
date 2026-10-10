@@ -386,13 +386,13 @@ func (q *Queue) addCommands(app *anetos.App) error {
 		},
 	}, {
 		Name:        "queue:work",
-		Description: "Run the queue's workers (run --only=workers)",
+		Description: "Run the queue's workers (run --only=worker)",
 		ManagesApp:  true,
 		Run: func(ctx context.Context, args *cmd.Args) error {
 			if len(args.Args) > 0 {
 				return cmd.Usagef("queue:work takes no arguments: the workers' queues are set where the app calls Work")
 			}
-			return app.Run(ctx, "workers")
+			return app.Run(ctx, "worker")
 		},
 	}}
 	for _, c := range cmds {

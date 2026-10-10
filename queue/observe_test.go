@@ -106,11 +106,11 @@ func TestObserveFailedDispatch(t *testing.T) {
 	}
 }
 
-// Each job run is a unit of work.
+// Each job run is an operation.
 func TestJobUnits(t *testing.T) {
 	app := newApp(t, nil) // QUEUE_DRIVER defaults to sync
-	var units []anetos.Unit
-	app.AroundUnits(func(ctx context.Context, u anetos.Unit) (context.Context, func()) {
+	var units []anetos.Operation
+	app.AroundOperations(func(ctx context.Context, u anetos.Operation) (context.Context, func()) {
 		units = append(units, u)
 		return ctx, nil
 	})
@@ -118,7 +118,7 @@ func TestJobUnits(t *testing.T) {
 	check(t, err)
 	check(t, queue.Register[noted](q, queue.Name("noted")))
 	check(t, queue.Dispatch(app.Context(context.Background()), noted{}))
-	if len(units) != 1 || units[0] != (anetos.Unit{Kind: "job", Name: "noted"}) {
+	if len(units) != 1 || units[0] != (anetos.Operation{Kind: "job", Name: "noted"}) {
 		t.Errorf("units %+v", units)
 	}
 }

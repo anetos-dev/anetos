@@ -181,7 +181,7 @@ func deadLetters(t *testing.T, b pubsub.Broker, topic string) func() []pubsub.Me
 func TestListen(t *testing.T) {
 	p, b, logs := newPS(t)
 	r := &recorder{}
-	check(t, pubsub.Listen(p, "orders.created", r.handle, pubsub.Concurrency(4), pubsub.MaxAttempts(3),
+	check(t, pubsub.Listen(p, "orders.created", r.handle, pubsub.Concurrency(4), pubsub.Tries(3),
 		pubsub.Backoff(5*time.Millisecond), pubsub.DeadLetter("orders.dlq"), pubsub.Timeout(50*time.Millisecond)))
 	dlq := deadLetters(t, b, "orders.dlq")
 	run(t, p)
@@ -240,7 +240,7 @@ func TestListen(t *testing.T) {
 func TestDropWithoutDeadLetter(t *testing.T) {
 	p, _, logs := newPS(t)
 	r := &recorder{}
-	check(t, pubsub.Listen(p, "orders.created", r.handle, pubsub.MaxAttempts(2), pubsub.Backoff(time.Millisecond)))
+	check(t, pubsub.Listen(p, "orders.created", r.handle, pubsub.Tries(2), pubsub.Backoff(time.Millisecond)))
 	run(t, p)
 	time.Sleep(20 * time.Millisecond)
 	check(t, p.Publish(context.Background(), "orders.created", OrderCreated{Key: "x", Fails: 9}))
@@ -255,7 +255,7 @@ func TestRawAndUnlimited(t *testing.T) {
 	var got atomic.Value
 	var n atomic.Int32
 	check(t, pubsub.Listen(p, "raw", func(ctx context.Context, b []byte) error {
-		if n.Add(1) < 4 { // no MaxAttempts: retried until it works
+		if n.Add(1) < 4 { // no Tries: retried until it works
 			return errors.New("not yet")
 		}
 		got.Store(string(b))
@@ -273,13 +273,13 @@ func TestRawAndUnlimited(t *testing.T) {
 func TestShutdownGrace(t *testing.T) {
 	p, b, _ := newPS(t)
 	r := &recorder{}
-	check(t, pubsub.Listen(p, "orders.created", r.handle, pubsub.ShutdownGrace(20*time.Millisecond), pubsub.MaxAttempts(1)))
+	check(t, pubsub.Listen(p, "orders.created", r.handle, pubsub.ShutdownGrace(20*time.Millisecond), pubsub.Tries(1)))
 	stop := run(t, p)
 	time.Sleep(20 * time.Millisecond)
 	check(t, p.Publish(context.Background(), "orders.created", OrderCreated{Key: "slow", Mode: "block"}))
 	eventually(t, "the message", func() bool { return r.count("slow") == 1 })
 	stop()
-	// Stopped by the shutdown: not given up on (despite MaxAttempts 1),
+	// Stopped by the shutdown: not given up on (despite Tries 1),
 	// so another listener gets it.
 	s := pubsub.SubscriptionSpec{Topic: "orders.created", Name: "orders.created.billing", Concurrency: 1, AckTimeout: time.Minute}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -337,7 +337,7 @@ func TestListenErrors(t *testing.T) {
 		"interface":       pubsub.Listen(p, "t", func(context.Context, any) error { return nil }),
 		"Concurrency(0)":  pubsub.Listen(p, "t", fn, pubsub.Concurrency(0)),
 		"Timeout(0)":      pubsub.Listen(p, "t", fn, pubsub.Timeout(0)),
-		"MaxAttempts(-1)": pubsub.Listen(p, "t", fn, pubsub.MaxAttempts(-1)),
+		"Tries(-1)":       pubsub.Listen(p, "t", fn, pubsub.Tries(-1)),
 		"Backoff()":       pubsub.Listen(p, "t", fn, pubsub.Backoff()),
 		"Backoff(-1)":     pubsub.Listen(p, "t", fn, pubsub.Backoff(-1)),
 		"bad dead letter": pubsub.Listen(p, "t", fn, pubsub.DeadLetter("bad topic")),
@@ -375,7 +375,7 @@ func TestAppNew(t *testing.T) {
 	app := newApp(t, nil)
 	var unitMu sync.Mutex
 	var units []string
-	app.AroundUnits(func(ctx context.Context, u anetos.Unit) (context.Context, func()) {
+	app.AroundOperations(func(ctx context.Context, u anetos.Operation) (context.Context, func()) {
 		unitMu.Lock()
 		defer unitMu.Unlock()
 		units = append(units, u.Kind+" "+u.Name)
@@ -386,13 +386,13 @@ func TestAppNew(t *testing.T) {
 	if anetos.MustResolve[*pubsub.PubSub](app) != p {
 		t.Error("not provided")
 	}
-	if got := app.Supervisor().Roles(); len(got) != 1 || got[0] != "listeners" {
-		t.Errorf("roles before Listen = %v", got)
+	if got := app.Supervisor().ProcessTypes(); len(got) != 1 || got[0] != "listener" {
+		t.Errorf("process types before Listen = %v", got)
 	}
 	r := &recorder{}
 	check(t, pubsub.Listen(p, "orders.created", r.handle))
-	if got := app.Supervisor().Roles(); len(got) != 1 || got[0] != "listeners" {
-		t.Errorf("roles = %v", got)
+	if got := app.Supervisor().ProcessTypes(); len(got) != 1 || got[0] != "listener" {
+		t.Errorf("process types = %v", got)
 	}
 	// A message published after boot, before the listener runs, is kept:
 	// the subscription is prepared when the app boots.
@@ -400,7 +400,7 @@ func TestAppNew(t *testing.T) {
 	check(t, pubsub.Publish(app.Context(context.Background()), "orders.created", OrderCreated{Key: "early"}))
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
-	go func() { done <- app.Run(ctx, "listeners") }()
+	go func() { done <- app.Run(ctx, "listener") }()
 	eventually(t, "the message", func() bool { return r.count("early") == 1 })
 	// A listener added while the app runs prepares its subscription and
 	// starts.
@@ -523,11 +523,11 @@ func TestMaxAttemptsWithoutCounts(t *testing.T) {
 	logs := &logBuffer{}
 	p := pubsub.NewWithBroker(noCount{pubsub.NewMemoryBroker()}, pubsub.WithLogger(slog.New(slog.NewTextHandler(logs, nil))))
 	r := &recorder{}
-	check(t, pubsub.Listen(p, "t", r.handle, pubsub.MaxAttempts(2), pubsub.Backoff(time.Millisecond)))
+	check(t, pubsub.Listen(p, "t", r.handle, pubsub.Tries(2), pubsub.Backoff(time.Millisecond)))
 	run(t, p)
 	time.Sleep(20 * time.Millisecond)
 	check(t, p.Publish(context.Background(), "t", OrderCreated{Key: "k", Fails: 4}))
-	eventually(t, "the fifth delivery", func() bool { return r.count("k") == 5 }) // MaxAttempts can't apply
+	eventually(t, "the fifth delivery", func() bool { return r.count("k") == 5 }) // Tries can't apply
 	if n := strings.Count(logs.String(), "doesn't count this subscription's deliveries"); n != 1 {
 		t.Errorf("warned %d times, want once", n)
 	}

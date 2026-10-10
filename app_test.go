@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -335,19 +336,19 @@ func TestRunLifecycle(t *testing.T) {
 	}
 }
 
-func TestRunRolesAndOptions(t *testing.T) {
+func TestRunProcessTypesAndOptions(t *testing.T) {
 	app := newApp(t, config.Map{})
 	ran := make(chan string, 3)
 	task := func(name string) func(context.Context) error {
 		return func(ctx context.Context) error { ran <- name; <-ctx.Done(); return nil }
 	}
-	must(t, app.Go("http", task("http"), anetos.Roles("http"), anetos.Stage(supervisor.StageIngress)))
-	must(t, app.Go("jobs", task("jobs"), anetos.Roles("workers"),
+	must(t, app.Go("http", task("http"), anetos.ProcessTypes("web"), anetos.Stage(supervisor.StageIngress)))
+	must(t, app.Go("jobs", task("jobs"), anetos.ProcessTypes("worker"),
 		anetos.Restart(supervisor.RestartOnFailure), anetos.Backoff(supervisor.Backoff{Initial: time.Millisecond})))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
-	go func() { done <- app.Run(ctx, "workers") }()
+	go func() { done <- app.Run(ctx, "worker") }()
 	if got := <-ran; got != "jobs" {
 		t.Errorf("started %s, want jobs", got)
 	}
@@ -362,6 +363,33 @@ func TestRunRolesAndOptions(t *testing.T) {
 		if st.Name == "jobs" && (st.Restart != supervisor.RestartOnFailure || st.Stage != supervisor.StageBackground) {
 			t.Errorf("jobs spec = %+v", st)
 		}
+	}
+}
+
+// The process types' names before v0.5 still select theirs, with a
+// warning, until v0.6.
+func TestRunFormerProcessTypes(t *testing.T) {
+	var logs bytes.Buffer
+	app := newApp(t, config.Map{}, anetos.WithLogger(slog.New(slog.NewTextHandler(&logs, nil))))
+	ran := make(chan string, 2)
+	task := func(name string) func(context.Context) error {
+		return func(ctx context.Context) error { ran <- name; <-ctx.Done(); return nil }
+	}
+	must(t, app.Go("web", task("web"), anetos.ProcessTypes("web")))
+	must(t, app.Go("jobs", task("jobs"), anetos.ProcessTypes("worker")))
+	must(t, app.Go("more", task("more"), anetos.ProcessTypes("workers")))
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- app.Run(ctx, "workers") }()
+	if got := []string{<-ran, <-ran}; !slices.Contains(got, "jobs") || !slices.Contains(got, "more") {
+		t.Errorf("started %v, want jobs and more", got)
+	}
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(logs.String(), "the process type workers is worker; the old name is removed in v0.6") {
+		t.Errorf("no warning in the log:\n%s", logs.String())
 	}
 }
 

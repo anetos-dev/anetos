@@ -18,7 +18,7 @@ of a project's `views/ui` are in the [UI components reference](ui.md).
 | API | Does |
 |---|---|
 | `c.Render(status, component)` | Renders a component (templ or `view.Component`) into a buffer and writes it as `text/html; charset=utf-8`; a render error becomes an error response |
-| `web.View(component)` | Responder rendering the component with 200 |
+| `web.Render(component)` | Responder rendering the component with 200 |
 | `web.URL(ctx, name, args...)` | `(string, error)`: path of a named route, from any request context (use in components); a trailing `url.Values` argument becomes the query string |
 | `web.MustURL(ctx, name, args...)` | The path of `web.URL` alone, for a component's string argument (`@ui.LinkButton(web.MustURL(ctx, "posts.edit", post.ID), ui.Secondary)`); panics on an unknown route name or arguments the route doesn't take, which the router answers with a 500 (v0.5) |
 | `web.RouteIs(ctx, names...)` | Whether the request's route has one of the names; `"issues.*"` matches the names starting with `issues.`. False outside a request or for an unnamed route (v0.3). The layout of `anetos new` marks the current page's link with it |
@@ -34,7 +34,7 @@ of a project's `views/ui` are in the [UI components reference](ui.md).
 | API | Does |
 |---|---|
 | `web.CSRF(opts...)` | Middleware: for every method but GET, HEAD, OPTIONS and TRACE, rejects cross-site requests (`web.ErrCrossOrigin`, 403) and requires the session token from `_token` or `X-CSRF-Token` (`web.ErrCSRF`, 403). Needs the session middleware first |
-| `web.TrustedOrigins(origins...)` | CSRF option: allow these origins (`https://admin.example.com`) |
+| `web.WithTrustedOrigins(origins...)` | CSRF option: allow these origins (`https://admin.example.com`) |
 | `web.MethodOverride` | Global middleware: a POST with `_method` of PUT, PATCH or DELETE (in a URL-encoded body of at most 10 MB, which is parsed into `r.PostForm` and restored, or in the query string) is routed with that method |
 
 Validation failures (422, or 400 with field errors) of a non-GET request
@@ -79,8 +79,8 @@ Form posts key errors by `form` name where it differs from the `json` name.
 | `m.Use(mw...)` | Middleware that run inside `m.Middleware`, wherever it runs (every group with sessions), after the session is loaded and before the group's other middleware, in order; for routes registered before and after. Call it at setup. `make:auth`'s `setupAuth` calls `sessions.Use(a.Middleware)`, so every page knows the logged-in user (v0.3) |
 | `m.CookieName()` | `SESSION_COOKIE`, with the `__Host-` prefix when Secure, without Domain, with Path `/` |
 | `session.From(ctx)` | The session, or nil |
-| `session.NewSession()`, `session.NewContext(ctx, s)` | A session for tests |
-| `s.Put(key, v)`, `s.Get(key, &dst)`, `session.Value[T](s, key)`, `s.String(key)` | Store (as JSON) and read values |
+| `session.NewSession()`, `session.WithSession(ctx, s)` | A session for tests |
+| `s.Put(key, v)`, `s.Get(key, &dst)`, `session.Value[T](s, key)`, `s.GetString(key)` | Store (as JSON) and read values |
 | `s.Has`, `s.Delete`, `s.Pull`, `s.Clear` | Check, remove, read-and-remove, remove all |
 | `s.Flash(key, v)`, `s.Keep(keys...)`, `s.Reflash()` | Values for the next request only |
 | `s.Regenerate()`, `s.Invalidate()` | New ID and token, restarting the maximum lifetime (login); remove everything (logout, in this browser only) |

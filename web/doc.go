@@ -27,8 +27,8 @@
 //	// … then app.Run(ctx)
 //
 // Handlers come in three forms: [HandlerFunc] (func(*Ctx) error), typed
-// handlers wrapped with [H], and plain http.Handlers via
-// [Router.HandleStd]. Errors returned by handlers become JSON problem
+// handlers wrapped with [H], and plain http.Handlers wrapped with
+// [WrapHandler]. Errors returned by handlers become JSON problem
 // details or HTML error pages (see [DefaultErrorHandler]).
 //
 // Guides: docs/site/guides/routing.md and docs/site/guides/handlers.md.

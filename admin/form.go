@@ -281,7 +281,7 @@ func (r *res[T, F]) renderForm(c *web.Ctx, title, action, cancel, submit string,
 
 func (r *res[T, F]) newPage(c *web.Ctx) error {
 	var zero T
-	return r.renderForm(c, "New "+strings.ToLower(r.Singular), r.url(""), r.url(""), "Create", r.Edit(zero),
+	return r.renderForm(c, "New "+strings.ToLower(r.Label), r.url(""), r.url(""), "Create", r.Edit(zero),
 		r.crumbs(navItem{Title: "New"}))
 }
 
@@ -357,7 +357,7 @@ func (r *res[T, F]) checkChoices(ctx context.Context, form reflect.Value) error 
 // outOfScope tells the user the record would leave the resource.
 func (r *res[T, F]) outOfScope(back string) web.Responder {
 	return web.ResponderFunc(func(c *web.Ctx) error {
-		return failed(c, "Not saved: the "+strings.ToLower(r.Singular)+" would be outside this list.", back)
+		return failed(c, "Not saved: the "+strings.ToLower(r.Label)+" would be outside this list.", back)
 	})
 }
 
@@ -369,7 +369,7 @@ func (r *res[T, F]) create(c *web.Ctx, in F) (web.Responder, error) {
 		return nil, err
 	}
 	to := r.url("/" + r.keyText(row))
-	return web.ResponderFunc(func(c *web.Ctx) error { return done(c, r.Singular+" created.", to) }), nil
+	return web.ResponderFunc(func(c *web.Ctx) error { return done(c, r.Label+" created.", to) }), nil
 }
 
 func (r *res[T, F]) edit(c *web.Ctx) error {

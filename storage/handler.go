@@ -84,7 +84,7 @@ func baseName(p string) string {
 // the request's "path" wildcard, or its URL path without the leading
 // "/". Mount it at STORAGE_URL's path:
 //
-//	r.HandleStd(http.MethodGet, "/files/{path...}", disk.Handler())
+//	r.Get("/files/{path...}", web.WrapHandler(disk.Handler()))
 //
 // On a disk that isn't public, it serves only requests with a valid
 // token from [Disk.TemporaryURL] (others get a 403), privately cached.

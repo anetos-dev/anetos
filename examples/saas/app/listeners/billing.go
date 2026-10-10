@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package listeners holds the app's pub/sub listeners, which run with
-// the app or alone (run --only=listeners).
+// the app or alone (run --only=listener).
 package listeners
 
 import (

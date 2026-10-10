@@ -18,7 +18,7 @@ import (
 )
 
 // Tool is something the model can call: a definition it reads, and a
-// call that runs in the app. [Func] makes one from a Go function.
+// call that runs in the app. [NewTool] makes one from a Go function.
 type Tool interface {
 	// Definition describes the tool to the model.
 	Definition() ToolSpec
@@ -52,7 +52,7 @@ type funcTool[In, Out any] struct {
 	fn   func(context.Context, In) (Out, error)
 }
 
-// Func returns a tool that runs fn. The model's input is decoded into
+// NewTool returns a tool that runs fn. The model's input is decoded into
 // In, a struct whose schema the model is given ([SchemaFor]: json
 // names, description tags, validate rules), and checked with In's
 // validate tags before fn runs; invalid input goes back to the model to
@@ -63,7 +63,7 @@ type funcTool[In, Out any] struct {
 //		Number int `json:"number" description:"The order's number" validate:"required|min:1"`
 //	}
 //
-//	var findOrder = ai.Func("find_order", "Look up one of the customer's orders by its number",
+//	var findOrder = ai.NewTool("find_order", "Look up one of the customer's orders by its number",
 //		func(ctx context.Context, in FindOrder) (Order, error) {
 //			user, err := auth.Current[*User](ctx)
 //			if err != nil {
@@ -78,11 +78,11 @@ type funcTool[In, Out any] struct {
 // web.Error) to tell the model why it can't; it's reported to the model
 // as a web client would see it. Any other error stops the generation.
 //
-// Func panics if name isn't a valid tool name, In isn't a struct, or
+// NewTool panics if name isn't a valid tool name, In isn't a struct, or
 // In's tags are wrong: tools are made at startup, and these are
 // programming errors. A panic in fn isn't recovered: it ends the call,
 // as it would end a handler.
-func Func[In, Out any](name, description string, fn func(ctx context.Context, in In) (Out, error)) Tool {
+func NewTool[In, Out any](name, description string, fn func(ctx context.Context, in In) (Out, error)) Tool {
 	if !toolName.MatchString(name) {
 		panic(fmt.Sprintf("ai: tool name %q: use 1 to 64 letters, digits, _ and -", name))
 	}
@@ -98,6 +98,15 @@ func Func[In, Out any](name, description string, fn func(ctx context.Context, in
 		panic(fmt.Sprintf("ai: tool %s: %v", name, err))
 	}
 	return &funcTool[In, Out]{spec: ToolSpec{Name: name, Description: description, Input: s}, plan: plan, fn: fn}
+}
+
+// Func is [NewTool].
+//
+// Deprecated: Use NewTool; Func is removed in v0.6.
+//
+//go:fix inline
+func Func[In, Out any](name, description string, fn func(ctx context.Context, in In) (Out, error)) Tool {
+	return NewTool(name, description, fn)
 }
 
 func (t *funcTool[In, Out]) Definition() ToolSpec { return t.spec }

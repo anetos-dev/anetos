@@ -64,7 +64,7 @@ templ [[.Plural]]Page(page db.Page[models.[[.Model]]]) {
 [[- end]]
 [[- end]]
 							@ui.ActionsCell() {
-								@ui.LinkButton(web.MustURL(ctx, "[[.Path]].edit", row.ID), ui.Secondary|ui.Small) {
+								@ui.LinkButton(web.MustURL(ctx, "[[.Path]].edit", row.ID), ui.Secondary, ui.Small) {
 									{ i18n.T(ctx, "[[.Key]].edit") }
 								}
 							}

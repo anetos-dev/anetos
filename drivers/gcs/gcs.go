@@ -103,11 +103,18 @@ type Option func(*options)
 
 type options struct{ client []option.ClientOption }
 
-// ClientOptions adds options to the client's (an HTTP client with a
+// WithClientOptions adds options to the client's (an HTTP client with a
 // proxy or custom TLS roots, an endpoint, a quota project).
-func ClientOptions(opts ...option.ClientOption) Option {
+func WithClientOptions(opts ...option.ClientOption) Option {
 	return func(o *options) { o.client = append(o.client, opts...) }
 }
+
+// ClientOptions is [WithClientOptions].
+//
+// Deprecated: Use WithClientOptions; ClientOptions is removed in v0.6.
+//
+//go:fix inline
+func ClientOptions(opts ...option.ClientOption) Option { return WithClientOptions(opts...) }
 
 // serviceAccountKey is what the backend reads of a key's JSON.
 type serviceAccountKey struct {
@@ -465,7 +472,7 @@ func (b *Backend) Copy(ctx context.Context, src, dst string) error {
 	return err
 }
 
-// SignedURL implements storage.URLSigner: a V4 signed GET URL, valid for
+// TemporaryURL implements storage.TemporaryURLBackend: a V4 signed GET URL, valid for
 // at most 7 days. A service account key (the settings', or Application
 // Default Credentials') signs it locally. Without one, each URL takes a
 // call to the IAM API (iamcredentials.googleapis.com, which must be
@@ -473,7 +480,7 @@ func (b *Backend) Copy(ctx context.Context, src, dst string) error {
 // account, which needs the iam.serviceAccounts.signBlob permission on
 // that account (the Service Account Token Creator role). The call uses
 // ctx.
-func (b *Backend) SignedURL(ctx context.Context, p string, expires time.Time) (string, error) {
+func (b *Backend) TemporaryURL(ctx context.Context, p string, expires time.Time) (string, error) {
 	ttl := time.Until(expires).Round(time.Second)
 	if ttl < time.Second || ttl > 7*24*time.Hour {
 		return "", fmt.Errorf("gcs: a signed URL lasts from a second to 7 days, not %s", ttl)
@@ -508,6 +515,15 @@ func (b *Backend) SignedURL(ctx context.Context, p string, expires time.Time) (s
 		return "", fmt.Errorf("gcs: signing a URL as %s: %w (the account needs the Service Account Token Creator role, and the IAM Service Account Credentials API must be enabled)", s.email, err)
 	}
 	return u, nil
+}
+
+// SignedURL is [Backend.TemporaryURL].
+//
+// Deprecated: Use TemporaryURL; SignedURL is removed in v0.6.
+//
+//go:fix inline
+func (b *Backend) SignedURL(ctx context.Context, p string, expires time.Time) (string, error) {
+	return b.TemporaryURL(ctx, p, expires)
 }
 
 // signerFor returns how URLs are signed, found once (again after a

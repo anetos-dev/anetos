@@ -237,7 +237,7 @@ func TestCSRF(t *testing.T) {
 	if res := do(t, r, http.MethodGet, "/x", nil); res.status != http.StatusMethodNotAllowed {
 		t.Errorf("GET: %d", res.status)
 	}
-	mustPanic(t, "bad trusted origin", func() { CSRF(TrustedOrigins("not a url")) })
+	mustPanic(t, "bad trusted origin", func() { CSRF(WithTrustedOrigins("not a url")) })
 }
 
 func TestMethodOverride(t *testing.T) {
@@ -271,7 +271,7 @@ func TestMethodOverride(t *testing.T) {
 func TestRenderAndHTMX(t *testing.T) {
 	r := newTestRouter()
 	r.Get("/ok", H(func(c *Ctx, _ struct{}) (Responder, error) {
-		return View(view.ComponentFunc(func(ctx context.Context, w io.Writer) error {
+		return Render(view.ComponentFunc(func(ctx context.Context, w io.Writer) error {
 			u, err := URL(ctx, "fail")
 			_, _ = fmt.Fprintf(w, "<p>%s %v</p>", u, err)
 			return nil

@@ -111,7 +111,7 @@ if err != nil {
 }
 err = pubsub.Listen(ps, "orders.created", CreateInvoice,
 	pubsub.Concurrency(8),                   // messages at once, in each process
-	pubsub.MaxAttempts(5),                   // then...
+	pubsub.Tries(5),                         // then...
 	pubsub.DeadLetter("orders.created.dlq"), // ...to this topic
 )
 if err != nil {
@@ -129,7 +129,7 @@ dependencies.
 | `pubsub.Subscription(name)` | `<topic>.<APP_NAME>` | The subscription's name |
 | `pubsub.Concurrency(n)` | 1 | Messages handled at once, in each process. The listener stops taking messages while that many are being handled |
 | `pubsub.Timeout(d)` | 1m | How long one message may take. The broker may deliver it again 30s after that |
-| `pubsub.MaxAttempts(n)` | 0: no limit | Deliveries before giving up on a message |
+| `pubsub.Tries(n)` | 0: no limit | Deliveries before giving up on a message |
 | `pubsub.Backoff(d1, d2, …)` | 10s, doubling up to 10m | Waits before deliveries after failures; the last repeats. Each varies by up to 20% |
 | `pubsub.DeadLetter(topic)` | none | Where messages given up on go. Without one, they are dropped and logged |
 | `pubsub.ShutdownGrace(d)` | Half of `APP_SHUTDOWN_TIMEOUT` | How long messages being handled may finish at shutdown |
@@ -141,11 +141,11 @@ plus `anetos.topic`, `anetos.subscription`, `anetos.error` and
 `anetos.attempts`. Listen to the dead-letter topic like any other to
 inspect or replay them.
 
-The listener runs with the app (`go run .`) as a component with the role
-`listeners`. You can run it apart:
+The listener runs with the app (`go run .`) as a component of the process
+type `listener`. You can run it apart:
 
 ```bash
-./billing run --only=listeners
+./billing run --only=listener
 ```
 
 The subscription is created when the app boots (for Redis and the
@@ -191,7 +191,7 @@ func TestCreateInvoice(t *testing.T) {
 
 	ctx, stop := context.WithCancel(context.Background())
 	done := make(chan error, 1)
-	go func() { done <- app.Run(ctx, "listeners") }()
+	go func() { done <- app.Run(ctx, "listener") }()
 	t.Cleanup(func() {
 		stop()
 		if err := <-done; err != nil {
@@ -264,7 +264,7 @@ Redis:
 - A failed message is redelivered as the **subscription's retry policy**
   says, not as `pubsub.Backoff` does.
 - Pub/Sub counts deliveries only for subscriptions with a **dead-letter
-  policy**: `pubsub.MaxAttempts` needs one. Without one, `Attempt` is 0,
+  policy**: `pubsub.Tries` needs one. Without one, `Attempt` is 0,
   failed messages are retried until they expire, and the listener logs a
   warning. With one, Pub/Sub's own dead-letter topic also catches messages
   that crash listeners.
@@ -275,7 +275,7 @@ Credentials come from Application Default Credentials;
 **Shutdown.** Listeners stop after the HTTP server and before the queue's
 workers. They stop taking messages, give those being handled the grace
 period, then cancel them. Those messages aren't given up on, whatever
-`MaxAttempts` says: they are delivered again later (and the broker counts
+`Tries` says: they are delivered again later (and the broker counts
 that delivery).
 
 ## Common problems
@@ -284,7 +284,7 @@ that delivery).
 |---|---|---|
 | Messages published before the first deploy never arrive | A subscription gets the messages published after it was created | Deploy the listener (or create the subscription) before publishing |
 | A message is handled twice | At-least-once delivery | Make the listener idempotent |
-| The same message keeps failing forever | No `MaxAttempts` (or Google without a dead-letter policy) | Set `MaxAttempts` and a `DeadLetter` topic |
+| The same message keeps failing forever | No `Tries` (or Google without a dead-letter policy) | Set `Tries` and a `DeadLetter` topic |
 | `NotFound … subscription projects/…` in the listener's logs (Google) | It wasn't created | Create it, or set `PUBSUB_GCP_CREATE=true` in development |
 | `NOGROUP` errors (Redis) | The stream was deleted | The listener recreates its group; messages from before are gone |
 | Two services share messages instead of each getting all | They use the same subscription name | Give each app its own `APP_NAME`, or `pubsub.Subscription` |
@@ -294,7 +294,7 @@ that delivery).
 - [Queues](queues.md): background jobs within one app.
 - [Events](events.md): in-process events, which can publish to a topic
   from a listener.
-- [Runtime supervisor](../concepts/runtime-supervisor.md): roles and
+- [Runtime supervisor](../concepts/runtime-supervisor.md): process types and
   shutdown stages.
 
 > **Coming from Laravel?** Laravel has no built-in pub/sub consumer: this

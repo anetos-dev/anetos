@@ -28,20 +28,20 @@ func Issues(p *admin.Panel) error {
 	return admin.Add(p, admin.Resource[models.Issue, IssueForm]{
 		Name: "issues",
 		Columns: []admin.Column[models.Issue]{
-			{Title: "Issue", Value: func(i models.Issue) any { return ref(i) }},
-			admin.Field[models.Issue]("Title", "title"),
-			admin.Field[models.Issue]("Status", "status"),
-			admin.Field[models.Issue]("Priority", "priority"),
-			admin.Field[models.Issue]("Created", "created_at"),
+			{Label: "Issue", Value: func(i models.Issue) any { return ref(i) }},
+			admin.TextColumn[models.Issue]("title", "Title"),
+			admin.TextColumn[models.Issue]("status", "Status"),
+			admin.TextColumn[models.Issue]("priority", "Priority"),
+			admin.TextColumn[models.Issue]("created_at", "Created"),
 		},
 		Search: []string{"title", "body"},
 		Filters: []admin.Filter[models.Issue]{
 			admin.Equals[models.Issue]("status", "Status", admin.Choices(models.Open, models.Closed)...),
 			admin.Equals[models.Issue]("priority", "Priority", admin.Choices(models.Priorities...)...),
 		},
-		Query:    func(q *db.Q[models.Issue]) *db.Q[models.Issue] { return q.With(models.IssueRels.Project) },
-		Label:    ref,
-		NoCreate: true,
+		Query:       func(q *db.Q[models.Issue]) *db.Q[models.Issue] { return q.With(models.IssueRels.Project) },
+		RecordTitle: ref,
+		NoCreate:    true,
 		Edit: func(m models.Issue) IssueForm {
 			return IssueForm{Title: m.Title, Body: m.Body, Status: m.Status, Priority: m.Priority}
 		},

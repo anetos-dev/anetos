@@ -38,7 +38,7 @@
 //   - the [Changes]: new values for a create, old and new values of the
 //     changed columns for an update, old values for a permanent delete;
 //     columns named like password, secret or token are [Redacted];
-//   - the unit of work (request, job, listener, task, command), the
+//   - the operation (request, job, listener, task, command), the
 //     request ID, and the client's IP address if AUDIT_IP asks for it.
 //
 // [History] returns a row's events, its own and the bulk writes that

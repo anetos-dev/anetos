@@ -119,8 +119,8 @@ func TestValuesPersist(t *testing.T) {
 	}
 	c.get(func(s *Session) {
 		uid, ok := Value[int64](s, "user_id")
-		if !ok || uid != 42 || s.String("name") != "Ada" || s.ID() != id {
-			t.Errorf("got %v %v %q %q", uid, ok, s.String("name"), s.ID())
+		if !ok || uid != 42 || s.GetString("name") != "Ada" || s.ID() != id {
+			t.Errorf("got %v %v %q %q", uid, ok, s.GetString("name"), s.ID())
 		}
 		if _, ok := Value[int64](s, "name"); ok {
 			t.Error("decoding a string as int64 succeeded")
@@ -150,7 +150,7 @@ func TestFlash(t *testing.T) {
 	c := newClient(t, DefaultConfig())
 	c.get(func(s *Session) { s.Flash("status", "Saved.") })
 	c.get(func(s *Session) {
-		if s.String("status") != "Saved." {
+		if s.GetString("status") != "Saved." {
 			t.Error("flash not available on the next request")
 		}
 		s.Flash("other", 1)
@@ -589,8 +589,8 @@ func TestLoadAndEdit(t *testing.T) {
 	}
 	c.cookie = ck.Value
 	s := c.m.Load(req())
-	if s.String("status") != "Saved." || len(s.Errors()) != 1 || !s.Has("seeded") || !s.VerifyToken(tok) {
-		t.Errorf("after Edit: status=%q errors=%v seeded=%v token=%v", s.String("status"), s.Errors(), s.Has("seeded"), s.VerifyToken(tok))
+	if s.GetString("status") != "Saved." || len(s.Errors()) != 1 || !s.Has("seeded") || !s.VerifyToken(tok) {
+		t.Errorf("after Edit: status=%q errors=%v seeded=%v token=%v", s.GetString("status"), s.Errors(), s.Has("seeded"), s.VerifyToken(tok))
 	}
 	// fn sees the session as a handler would, and Put on a flashed key
 	// keeps it, as in a request.
@@ -601,8 +601,8 @@ func TestLoadAndEdit(t *testing.T) {
 	}
 	c.cookie = ck.Value
 	c.get(func(*Session) {}) // a request uses up the flash
-	if s := c.m.Load(req()); s.String("status") != "Kept." || len(s.Errors()) != 0 {
-		t.Errorf("after a request: status=%q errors=%v", s.String("status"), s.Errors())
+	if s := c.m.Load(req()); s.GetString("status") != "Kept." || len(s.Errors()) != 0 {
+		t.Errorf("after a request: status=%q errors=%v", s.GetString("status"), s.Errors())
 	}
 	// Load doesn't save.
 	s.Put("unsaved", 1)
@@ -665,7 +665,7 @@ func TestUnchangedSessionNotSaved(t *testing.T) {
 	c := newClient(t, DefaultConfig())
 	c.get(func(s *Session) { s.Put("name", "Ada"); s.Token() })
 	for name, fn := range map[string]func(s *Session){
-		"read":           func(s *Session) { _ = s.String("name"); _ = s.Token(); _ = s.Has("x") },
+		"read":           func(s *Session) { _ = s.GetString("name"); _ = s.Token(); _ = s.Has("x") },
 		"same value":     func(s *Session) { s.Put("name", "Ada") },
 		"missing delete": func(s *Session) { s.Delete("nothing") },
 		"keep nothing":   func(s *Session) { s.Keep("nothing") },
@@ -701,7 +701,7 @@ func TestUnchangedSessionNotSaved(t *testing.T) {
 		}
 	}
 	c.get(func(s *Session) {
-		if s.String("status") != "Saved." {
+		if s.GetString("status") != "Saved." {
 			t.Error("a flashed value stored again with Put was dropped")
 		}
 	})

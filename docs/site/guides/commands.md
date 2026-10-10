@@ -8,7 +8,7 @@ weight: 108
 # Commands
 
 Your application builds to one binary. Its first argument picks what it
-does: run the app (the default), run only some roles, migrate the
+does: run the app (the default), run only some process types, migrate the
 database, list the routes, or run commands of your own.
 
 ## Before you start
@@ -34,21 +34,21 @@ func main() {
 
 ```sh
 ./blog                      # the default: run every component
-./blog run --only=http      # only the components with these roles
-./blog serve                # the same as run --only=http
+./blog run --only=web      # only the components of these process types
+./blog serve                # the same as run --only=web
 ./blog help                 # every command
 ./blog help migrate         # one command's arguments
 ```
 
 `run` starts the components and stops them gracefully on Ctrl-C or
-`SIGTERM`. Components without roles run in every process (see
+`SIGTERM`. Components without a process type run in every process (see
 [the runtime supervisor](../concepts/runtime-supervisor.md)).
 
 ### 2. Use the built-in commands
 
 | Command | Added by |
 |---|---|
-| `run [--only=role,…]` | Every app |
+| `run [--only=type,…]` | Every app |
 | `serve`, `route:list` | `web.NewServer` |
 | `openapi` | `openapi.Register` ([Describe an API with OpenAPI](openapi.md)) |
 | `migrate`, `migrate:rollback`, `migrate:reset`, `migrate:fresh`, `migrate:status`, `db:seed`, `search:reindex` | `migrate.New` ([Migrations](migrations.md), [Search](search.md)) |
@@ -147,7 +147,7 @@ app runs one command: create a new one per call.
 | `unknown command "migrate"` | `migrate.New` wasn't called before `Execute` | Call it while setting up the app |
 | `"m:r" could be migrate:reset, migrate:rollback` | A short name that fits several commands | Write more of it, or the whole name |
 | `command "x" registered twice` | Two commands with one name (`app.Command` panics, `app.AddCommand`, `migrate.New` and `web.NewServer` return the error) | Register each once |
-| `unknown role "…"` | `--only` names a role no component has and no package declared (the error lists the known ones) | Check `help run` and the roles of your components |
+| `unknown process type "…"` | `--only` names a process type no component has and no package declared (the error lists the known ones) | Check `help run` and the process types of your components (`web`, `worker`, `scheduler`, `listener`; before v0.5, `http`, `workers`, `listeners`) |
 
 ## Next steps
 

@@ -142,7 +142,7 @@ if err := events.OnQueued(bus, listeners.EmailAuthor); err != nil {
 comment's transaction commits. The queue's workers run it: in
 development they run in the app (`QUEUE_DRIVER=database` in `.env`); in
 production, in the same binary or in processes of their own (`run
---only=workers`).
+--only=worker`).
 
 ## Try it
 

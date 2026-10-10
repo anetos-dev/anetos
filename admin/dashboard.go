@@ -79,8 +79,8 @@ type Table struct {
 // Link is a widget's link. A URL without a leading / is the admin's own
 // page: "jobs" is /admin/jobs.
 type Link struct {
-	// Title is its text.
-	Title string
+	// Label is its text.
+	Label string
 	// URL is where it goes.
 	URL string
 }
@@ -221,7 +221,7 @@ func (p *Panel) loadWidgets(c *web.Ctx) []widgetView {
 		}
 		if content.Link != nil {
 			if u := p.link(content.Link.URL); u != "" {
-				v.Link = &Link{Title: content.Link.Title, URL: u}
+				v.Link = &Link{Label: content.Link.Label, URL: u}
 			}
 		}
 		out = append(out, v)

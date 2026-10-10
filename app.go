@@ -68,8 +68,8 @@ type App struct {
 
 	clock clock // Now
 
-	unitFuncs // AroundUnits
-	carriers  // AddCarrier
+	operationFuncs // AroundOperations
+	carriers       // AddCarrier
 }
 
 type ctxValue struct{ key, val any }
@@ -396,9 +396,10 @@ func (a *App) boot(ctx context.Context, providers []Provider) error {
 	return nil
 }
 
-// Run boots the app if necessary, then runs the components selected by roles
-// (all of them if roles is empty) until ctx is canceled or a component
-// escalates a failure. After the components stop, shutdown hooks run.
+// Run boots the app if necessary, then runs the components of the
+// process types given ("web", "worker", "scheduler", "listener"; all of
+// them if none is) until ctx is canceled or a component escalates a
+// failure. After the components stop, shutdown hooks run.
 //
 // A typical main function:
 //
@@ -410,10 +411,11 @@ func (a *App) boot(ctx context.Context, providers []Provider) error {
 //	}
 //
 // Run may be called only once.
-func (a *App) Run(ctx context.Context, roles ...string) error {
+func (a *App) Run(ctx context.Context, types ...string) error {
 	if err := a.Boot(ctx); err != nil {
 		return err
 	}
+	types = a.currentTypes(types)
 	a.mu.Lock()
 	if a.state != appBooted {
 		a.mu.Unlock()
@@ -422,7 +424,7 @@ func (a *App) Run(ctx context.Context, roles ...string) error {
 	a.state = appRunning
 	a.mu.Unlock()
 
-	runErr := a.sup.Run(a.Context(ctx), roles...)
+	runErr := a.sup.Run(a.Context(ctx), types...)
 
 	a.mu.Lock()
 	a.state = appStopped
@@ -476,10 +478,40 @@ func runHook(ctx context.Context, h hook) (err error) {
 // component.
 type ComponentOption func(*supervisor.Spec)
 
-// Roles assigns roles to the component, so `run --only=<role>` can select
-// it. Components without roles run in every process.
-func Roles(roles ...string) ComponentOption {
-	return func(s *supervisor.Spec) { s.Roles = roles }
+// ProcessTypes assigns process types to the component ("web",
+// "worker"…, Heroku's word), so `run --only=<type>` can select it.
+// Components without one run in every process.
+func ProcessTypes(types ...string) ComponentOption {
+	return func(s *supervisor.Spec) { s.ProcessTypes = types }
+}
+
+// Roles is [ProcessTypes].
+//
+// Deprecated: Use ProcessTypes; Roles is removed in v0.6.
+//
+//go:fix inline
+func Roles(roles ...string) ComponentOption { return ProcessTypes(roles...) }
+
+// formerTypes maps the process types' names before v0.5 to theirs.
+var formerTypes = map[string]string{"http": "web", "workers": "worker", "listeners": "listener"}
+
+// currentTypes replaces the former names of process types (in Run's
+// arguments and components' options), with a warning, until v0.6.
+func (a *App) currentTypes(types []string) []string {
+	var out []string
+	for i, t := range types {
+		if now, ok := formerTypes[t]; ok {
+			if out == nil {
+				out = slices.Clone(types)
+			}
+			out[i] = now
+			a.Logger().Warn(fmt.Sprintf("the process type %s is %s; the old name is removed in v0.6", t, now))
+		}
+	}
+	if out == nil {
+		return types
+	}
+	return out
 }
 
 // Stage sets the shutdown stage. Default [supervisor.StageBackground].
@@ -510,12 +542,13 @@ func (a *App) Go(name string, fn func(ctx context.Context) error, opts ...Compon
 }
 
 // Component adds a long-running component, such as a custom server or
-// consumer. Defaults: no roles, [supervisor.StageBackground],
+// consumer. Defaults: no process types, [supervisor.StageBackground],
 // [supervisor.RestartNever].
 func (a *App) Component(c supervisor.Component, opts ...ComponentOption) error {
 	spec := supervisor.Spec{Component: c, Stage: supervisor.StageBackground}
 	for _, opt := range opts {
 		opt(&spec)
 	}
+	spec.ProcessTypes = a.currentTypes(spec.ProcessTypes)
 	return a.sup.Add(spec)
 }

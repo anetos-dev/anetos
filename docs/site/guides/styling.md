@@ -33,8 +33,8 @@ The look of your app is two parts, which a *CSS framework* writes together:
 | `views/ui/page.templ` | A page's structure: `PageHeader`, `Card`, `Narrow`, `Stack`, `Cluster`, `Empty`… |
 | `views/ui/form.templ` | Forms: `Form`, `Field`, `Input`, `Textarea`, `Select`, `Checkbox`, `Button`, `LinkButton`, `PostButton`… |
 | `views/ui/data.templ` | Lists and values: `Table`, `Details`, `Badge`, `Pagination`… |
-| `views/ui/ui.go` | The types the components take: `Look`, `Tone`, `Option`, `Pages` |
-| `views/ui/classes.go` | The framework's classes for each look and tone (not with `none`) |
+| `views/ui/ui.go` | The types the components take: `Variant`, `Size`, `Tone`, `Option`, `Pages` |
+| `views/ui/classes.go` | The framework's classes for each variant, size and tone (not with `none`) |
 | `public/static/app.css` | The starter theme: light and dark, about 270 lines of plain CSS |
 
 Only `views/ui` has class names. The layout (`views/layout.templ`), the
@@ -98,9 +98,10 @@ templ statusBadge(status string) {
 
 - A component with content takes it as children, in `{ }`:
   `ui.PageHeader` puts its children (the buttons) beside the title.
-- A button's look is one of `ui.Primary` (the default), `ui.Secondary`,
-  `ui.Danger` and `ui.Ghost`, with `ui.Small` or `ui.Full` added:
-  `ui.Secondary|ui.Small`.
+- A button's variant is one of `ui.Primary` (the default),
+  `ui.Secondary`, `ui.Danger` and `ui.Ghost`; sizes may follow it,
+  `ui.Small` or `ui.FullWidth`: `@ui.LinkButton(url, ui.Secondary,
+  ui.Small)`.
 - A badge's or a message's tone is `ui.Neutral`, `ui.Success`,
   `ui.Warning`, `ui.Error` or `ui.Info`.
 - Components take URLs as strings. `web.MustURL(ctx, name, args...)` is

@@ -169,9 +169,9 @@ func TestVia(t *testing.T) {
 	if err != nil || c.viaKind != "command" || c.viaName != "db:prune-trashed" || c.actor != System {
 		t.Errorf("in a command: %+v, %v", c, err)
 	}
-	c, _ = tr.contextOf(context.WithValue(context.Background(), unitKey{}, anetos.Unit{Kind: "task", Name: "nightly"}))
+	c, _ = tr.contextOf(context.WithValue(context.Background(), operationKey{}, anetos.Operation{Kind: "task", Name: "nightly"}))
 	if c.viaKind != "task" || c.viaName != "nightly" {
-		t.Errorf("in a unit: %+v", c)
+		t.Errorf("in an operation: %+v", c)
 	}
 }
 

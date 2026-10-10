@@ -18,6 +18,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"anetos.dev/anetos/encryption"
@@ -35,22 +36,46 @@ type Disk struct {
 	now     func() time.Time
 }
 
+// warnSignedURL warns once about a backend with SignedURL.
+var warnSignedURL sync.Once
+
 // DiskOption configures a [Disk] made with [NewDisk].
 type DiskOption func(*Disk)
 
-// BaseURL sets the URL the disk's files are served at: a CDN, a public
+// WithBaseURL sets the URL the disk's files are served at: a CDN, a public
 // bucket, or the route of the disk's [Disk.Handler] ("https://example.com/files").
-func BaseURL(u string) DiskOption { return func(d *Disk) { d.url = strings.TrimSuffix(u, "/") } }
+func WithBaseURL(u string) DiskOption { return func(d *Disk) { d.url = strings.TrimSuffix(u, "/") } }
 
-// Public makes the files readable at the base URL by anyone, so
+// BaseURL is [WithBaseURL].
+//
+// Deprecated: Use WithBaseURL; BaseURL is removed in v0.6.
+//
+//go:fix inline
+func BaseURL(u string) DiskOption { return WithBaseURL(u) }
+
+// WithPublic makes the files readable at the base URL by anyone, so
 // [Disk.URL] works. Without it, only [Disk.TemporaryURL]'s signed URLs
 // are.
-func Public() DiskOption { return func(d *Disk) { d.public = true } }
+func WithPublic() DiskOption { return func(d *Disk) { d.public = true } }
 
-// SignWith sets the encrypter that signs the temporary URLs the disk's
+// Public is [WithPublic].
+//
+// Deprecated: Use WithPublic; Public is removed in v0.6.
+//
+//go:fix inline
+func Public() DiskOption { return WithPublic() }
+
+// WithSigner sets the encrypter that signs the temporary URLs the disk's
 // handler serves (for backends without signed URLs of their own).
 // [New] uses the app's APP_KEY.
-func SignWith(e *encryption.Encrypter) DiskOption { return func(d *Disk) { d.signer = e } }
+func WithSigner(e *encryption.Encrypter) DiskOption { return func(d *Disk) { d.signer = e } }
+
+// SignWith is [WithSigner].
+//
+// Deprecated: Use WithSigner; SignWith is removed in v0.6.
+//
+//go:fix inline
+func SignWith(e *encryption.Encrypter) DiskOption { return WithSigner(e) }
 
 // WithLogger sets the logger of the disk's handler errors. Default
 // slog.Default().
@@ -311,8 +336,14 @@ func (d *Disk) TemporaryURL(ctx context.Context, p string, ttl time.Duration) (s
 	if ttl <= 0 {
 		return "", fmt.Errorf("storage: TemporaryURL(%s): the ttl must be positive", ttl)
 	}
+	// The store checks its URLs against its own clock: real time.
+	if b, ok := d.backend.(TemporaryURLBackend); ok {
+		return b.TemporaryURL(ctx, p, time.Now().Add(ttl))
+	}
 	if s, ok := d.backend.(URLSigner); ok {
-		// The store checks it against its own clock: real time.
+		warnSignedURL.Do(func() {
+			slog.Default().Warn(fmt.Sprintf("storage: %T has SignedURL, which is TemporaryURL since v0.5; the old name is removed in v0.6", d.backend))
+		})
 		return s.SignedURL(ctx, p, time.Now().Add(ttl))
 	}
 	expires := d.now().Add(ttl) // checked by Handler, on the app's clock

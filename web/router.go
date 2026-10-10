@@ -232,6 +232,11 @@ func (r *Router) Handle(method, pattern string, h HandlerFunc) *Route {
 		panic("web: nil handler for " + method + " " + pattern)
 	}
 	rt := r.newRoute(method, pattern)
+	if std, ok := wrappedHandlers.Load(funcKey(h)); ok {
+		// A WrapHandler: served as it is, without a Ctx.
+		r.register(rt, std.(http.Handler))
+		return rt
+	}
 	if t, ok := typedHandlers.Load(funcKey(h)); ok {
 		rt.types = t.(handlerTypes)
 	}
@@ -239,15 +244,37 @@ func (r *Router) Handle(method, pattern string, h HandlerFunc) *Route {
 	return rt
 }
 
-// HandleStd registers a standard http.Handler. Route middleware still
-// applies; errors can't be returned, so the handler writes its own response.
-func (r *Router) HandleStd(method, pattern string, h http.Handler) *Route {
+// WrapHandler makes a standard http.Handler a [HandlerFunc] (Echo's
+// name; Gin's WrapH), for a handler from another library:
+//
+//	r.Get("/metrics", web.WrapHandler(promhttp.Handler()))
+//
+// Route middleware still applies; errors can't be returned, so h writes
+// its own response. A router serves it as it is, without a [Ctx].
+func WrapHandler(h http.Handler) HandlerFunc {
 	if h == nil {
-		panic("web: nil handler for " + method + " " + pattern)
+		panic("web: WrapHandler of a nil handler")
 	}
-	rt := r.newRoute(method, pattern)
-	r.register(rt, h)
-	return rt
+	f := HandlerFunc(func(c *Ctx) error {
+		h.ServeHTTP(c.w, c.r)
+		return nil
+	})
+	wrappedHandlers.Store(funcKey(f), h)
+	return f
+}
+
+// wrappedHandlers are the handlers of the funcs WrapHandler made, by
+// [funcKey], for the router to serve them directly.
+var wrappedHandlers sync.Map // unsafe.Pointer → http.Handler
+
+// HandleStd is [Router.Handle] with [WrapHandler].
+//
+// Deprecated: Use r.Handle(method, pattern, web.WrapHandler(h)), or
+// r.Get…; HandleStd is removed in v0.6.
+//
+//go:fix inline
+func (r *Router) HandleStd(method, pattern string, h http.Handler) *Route {
+	return r.Handle(method, pattern, WrapHandler(h))
 }
 
 func (r *Router) newRoute(method, pattern string) *Route {
@@ -277,7 +304,7 @@ func (r *Router) register(rt *Route, h http.Handler) {
 		last, _ = h.(*documented)
 	}
 	slices.Reverse(rt.docs)
-	// Record the route for outer middleware (access log, RouteFromContext),
+	// Record the route for outer middleware (access log, CurrentRoute),
 	// for plain handlers too.
 	next := h
 	h = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -360,7 +387,7 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		// the request it comes from knew, as context values would, so
 		// its middleware doesn't overwrite the outer request's ID,
 		// client IP or locale.
-		ns := &requestState{core: r.core, url: req.URL}
+		ns := &requestState{core: r.core, url: req.URL, remoteAddr: req.RemoteAddr}
 		if st != nil {
 			ns.requestID, ns.clientIP, ns.locale, ns.jsonErrors = st.requestID, st.clientIP, st.locale, st.jsonErrors
 		}
@@ -452,7 +479,7 @@ type Route struct {
 // (see [H]): 201 Created for a request that makes something, say. The
 // result is written as JSON with it; with 204 or 205, which have no
 // body, nothing is written. Results that are a [Responder] choose their
-// own, and errors are written as usual; plain handlers and [Router.HandleStd]
+// own, and errors are written as usual; plain handlers and [WrapHandler]
 // routes write their own status too, and ignore it. It panics unless code
 // is a 2xx status. Call it while registering routes:
 //
@@ -690,9 +717,10 @@ type requestState struct {
 
 	// Set by RequestIDs and RealIP running in the router, which keeps
 	// them here rather than in two more context values.
-	requestID string
-	clientIP  string
-	locale    *localeState // set by the server's locale middleware
+	requestID  string
+	clientIP   string
+	remoteAddr string       // the request's, for ClientIP without RealIP
+	locale     *localeState // set by the server's locale middleware
 
 	jsonErrors bool // set by JSONErrors: errors are problem JSON whatever the client accepts
 
@@ -706,12 +734,19 @@ func stateFrom(ctx context.Context) *requestState {
 	return st
 }
 
-// RouteFromContext returns the route that handled the request, or nil. It is
-// meant for middleware that runs around the router, after the handler
-// returns.
-func RouteFromContext(ctx context.Context) *Route {
+// CurrentRoute returns the route that handles the request ctx belongs
+// to, or nil: in a handler, or in middleware that runs around the
+// router, after the handler returns.
+func CurrentRoute(ctx context.Context) *Route {
 	if st := stateFrom(ctx); st != nil {
 		return st.route
 	}
 	return nil
 }
+
+// RouteFromContext is [CurrentRoute].
+//
+// Deprecated: Use CurrentRoute; RouteFromContext is removed in v0.6.
+//
+//go:fix inline
+func RouteFromContext(ctx context.Context) *Route { return CurrentRoute(ctx) }

@@ -56,7 +56,7 @@ type ReadInput struct {
 	ID int64 `json:"id" description:"The article's ID, from search_articles" validate:"required"`
 }
 
-var readArticle = ai.Func("read_article", "Read a help-center article",
+var readArticle = ai.NewTool("read_article", "Read a help-center article",
 	func(ctx context.Context, in ReadInput) (Article, error) {
 		return db.Find[Article](ctx, in.ID) // not found: 404, told to the model
 	})
@@ -202,7 +202,7 @@ which would ask the model again. The reply handler also answers a
 reconnecting browser with an empty stream when the question is answered
 already.
 
-An answer takes as long as it takes: `ai.SSE` (through `c.Events()`)
+An answer takes as long as it takes: `ai.SSE` (through `c.EventStream()`)
 lifts `HTTP_REQUEST_TIMEOUT` and `HTTP_WRITE_TIMEOUT` for the stream,
 which still stops when the browser goes away.
 
@@ -381,10 +381,10 @@ func TestAnswerLater(t *testing.T) {
 | Symptom | Cause | Fix |
 |---|---|---|
 | The same question is answered again and again | The page doesn't close the stream on `done`, and the browser reconnects | Add `sse-close="done"` (or close the `EventSource` on `done`) |
-| A stream stops after 30 seconds | The stream doesn't go through `c.Events()` (or `ai.SSE`), so the request's timeout applies | Use `ai.SSE`, or `web.WithoutTimeout` for other streaming |
+| A stream stops after 30 seconds | The stream doesn't go through `c.EventStream()` (or `ai.SSE`), so the request's timeout applies | Use `ai.SSE`, or `web.WithoutTimeout` for other streaming |
 | `The conversation changed while the answer was written` | Two questions at once in one conversation | Let one answer finish before the next question |
 | `ai: agent "…" can't answer queued replies` | The agent wasn't passed to `ai.QueueAgents`, or has no `Name` | Pass it at setup |
-| A queued reply stays `queued` | No worker runs the queue (with `QUEUE_DRIVER=database` or `redis`) | Run `./app run --only=workers`, or everything |
+| A queued reply stays `queued` | No worker runs the queue (with `QUEUE_DRIVER=database` or `redis`) | Run `./app run --only=worker`, or everything |
 | `You've reached your AI usage limit` | The user's budget is spent | Raise the budget, or wait for the period to start again |
 | No cost in `ai_usage` | No price for the model's name | Add it to `Prices`, by the name responses report (`Model`) |
 | Usage records vanish | The call ran inside a transaction that rolled back | Call models outside transactions |

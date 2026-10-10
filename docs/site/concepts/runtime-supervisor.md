@@ -29,34 +29,39 @@ the component stops taking new work, finishes or hands back what's in
 flight, and returns. `app.Go(name, fn)` wraps a function as a component;
 `app.Component(c)` adds your own type.
 
-## Roles: one binary, many shapes
+## Process types: one binary, many shapes
 
-Components declare **roles**. A process can run all of them or only some:
+Components declare **process types** (Heroku's word, from the
+`Procfile`: `web`, `worker`). A process can run all of them or only
+some:
 
 ```bash
 ./blog run                            # everything: dev and small deployments
-./blog run --only=http                # web machines
-./blog run --only=workers            # background machines
-./blog run --only=scheduler          # one machine, or several with OnOneServer
+./blog run --only=web                 # web machines
+./blog run --only=worker              # background machines
+./blog run --only=scheduler           # one machine, or several with OnOneServer
 ```
 
-The built-in components with roles are the web server (`http`), the
-queue's workers (`workers`, from `q.Work`; see [Queues](../guides/queues.md))
-pub/sub listeners (`listeners`, from `pubsub.Listen`; see
-[Pub/sub listeners](../guides/pubsub.md)) and the scheduler (`scheduler`,
+The built-in components with process types are the web server (`web`),
+the queue's workers (`worker`, from `q.Work`; see
+[Queues](../guides/queues.md)), pub/sub listeners (`listener`, from
+`pubsub.Listen`; see [Pub/sub listeners](../guides/pubsub.md)) and the
+scheduler (`scheduler`,
 from `schedule.New` once it has tasks; see
 [Scheduling](../guides/scheduling.md)). Your own components choose
-theirs with `anetos.Roles("workers")`.
+theirs with `anetos.ProcessTypes("worker")`.
 
 `run` is the binary's default command (`app.Execute`; see
-[Commands](../guides/commands.md)); in code, pass roles to
-`app.Run(ctx, "http")`.
+[Commands](../guides/commands.md)); in code, pass process types to
+`app.Run(ctx, "web")`. Before v0.5 they were "roles" named `http`,
+`workers` and `listeners`; those names still work, with a warning,
+until v0.6.
 
-- Components **without** roles run in every process.
-- Asking for a role nothing declares is an error, so typos in `--only`
+- Components **without** process types run in every process.
+- Asking for a process type nothing declares is an error, so typos in `--only`
   fail loudly. `schedule.New` and `pubsub.New` declare theirs
   (`Supervisor.Declare`) before their components exist, so
-  `run --only=workers,scheduler` works in an app that has no task yet
+  `run --only=worker,scheduler` works in an app that has no task yet
   and keeps working once it has one (v0.3).
 
 Split processes share work through shared stores: the database or Redis
@@ -64,8 +69,8 @@ for the queue, the cache (database or Redis) for the scheduler's
 `OnOneServer` locks, and a broker (Redis, Google Pub/Sub) for pub/sub;
 the `memory` drivers stay inside one process.
 [`examples/saas`](../../../examples/saas) runs one binary as four
-processes, `http`, `workers`, `listeners` and `scheduler`, and its
-`roles_test.go` follows a sign-up from one to the other.
+processes, `web`, `worker`, `listener` and `scheduler`, and its
+`process_types_test.go` follows a sign-up from one to the other.
 
 ## Failure policies
 
@@ -136,6 +141,6 @@ immediately canceled.
 ## Related
 
 - [Run background tasks](../guides/background-tasks.md)
-- [Deploy](../guides/deployment.md): roles in processes and containers
+- [Deploy](../guides/deployment.md): process types in processes and containers
 - [Application lifecycle](application-lifecycle.md)
 - Package docs: `supervisor`

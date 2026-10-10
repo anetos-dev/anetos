@@ -34,15 +34,16 @@ import (
 	"anetos.dev/anetos/examples/saas/app/models"
 )
 
-// TestRoles builds the app and runs the one binary as four processes,
-// one per role (run --only=http, workers, listeners, scheduler), sharing
+// TestProcessTypes builds the app and runs the one binary as four
+// processes, one per process type (run --only=web, worker, listener,
+// scheduler), sharing
 // a SQLite database and, when ANETOS_TEST_REDIS_URL is set, Redis for
 // pub/sub. It follows the work across them: a sign-up on the web process
 // is welcomed by the workers; the scheduler ends the trial; a message on
 // the billing topic reaches the listeners. Then it runs everything in one
 // process. The scheduler runs every minute, so the test takes up to a
 // minute or so.
-func TestRoles(t *testing.T) {
+func TestProcessTypes(t *testing.T) {
 	if testing.Short() {
 		t.Skip("builds the app and runs it in several processes, for up to a minute")
 	}
@@ -83,17 +84,17 @@ func TestRoles(t *testing.T) {
 	}
 	cli("migrate")
 
-	// A role no component has is an error.
-	if out, err := a.command("run", "--only=worker").CombinedOutput(); err == nil || !strings.Contains(string(out), `unknown role "worker"`) {
-		t.Errorf("--only=worker: %v\n%s", err, out)
+	// A process type no component has is an error.
+	if out, err := a.command("run", "--only=wroker").CombinedOutput(); err == nil || !strings.Contains(string(out), `unknown process type "wroker"`) {
+		t.Errorf("--only=wroker: %v\n%s", err, out)
 	}
 
-	web := a.start(t, "run", "--only=http")
-	workers := a.start(t, "run", "--only=workers")
-	listeners := a.start(t, "run", "--only=listeners")
+	web := a.start(t, "run", "--only=web")
+	workers := a.start(t, "run", "--only=worker")
+	listeners := a.start(t, "run", "--only=listener")
 	scheduler := a.start(t, "run", "--only=scheduler")
-	for p, role := range map[*proc]string{web: "http", workers: "workers", listeners: "listeners", scheduler: "scheduler"} {
-		p.waitLog(t, 10*time.Second, func(l logLine) bool { return l.Msg == "supervisor started" && l.attr("roles") == role })
+	for p, typ := range map[*proc]string{web: "web", workers: "worker", listeners: "listener", scheduler: "scheduler"} {
+		p.waitLog(t, 10*time.Second, func(l logLine) bool { return l.Msg == "supervisor started" && l.attr("process_types") == typ })
 	}
 	b := newBrowser(t, "http://"+addr)
 	b.waitUp(t)
@@ -129,7 +130,7 @@ func TestRoles(t *testing.T) {
 
 	// Everything in one process.
 	all := a.start(t, "run")
-	all.waitLog(t, 10*time.Second, func(l logLine) bool { return l.Msg == "supervisor started" && l.attr("roles") == "all" })
+	all.waitLog(t, 10*time.Second, func(l logLine) bool { return l.Msg == "supervisor started" && l.attr("process_types") == "all" })
 	b = newBrowser(t, "http://"+addr)
 	b.waitUp(t)
 	b.register(t, "Bob", "bob@example.com")

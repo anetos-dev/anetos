@@ -17,20 +17,26 @@ import (
 	"anetos.dev/anetos/web"
 )
 
-// Look is how a button looks: one kind (Primary, the default,
-// Secondary, Danger or Ghost), with Small or Full added:
-// ui.Secondary | ui.Small.
-type Look uint
+// Variant is a button's kind: Primary (the default), Secondary, Danger
+// or Ghost. A Size may follow it: @ui.LinkButton(url, ui.Secondary,
+// ui.Small).
+type Variant uint
 
-// The kinds of button, and the sizes added to them.
+// The variants.
 const (
-	Primary   Look = iota // the page's main action
-	Secondary             // another action
-	Danger                // an action that deletes, or can't be undone
-	Ghost                 // a quiet action, as in the header
+	Primary   Variant = iota // the page's main action
+	Secondary                // another action
+	Danger                   // an action that deletes, or can't be undone
+	Ghost                    // a quiet action, as in the header
+)
 
-	Small Look = 1 << 8 // smaller, as in a table's row
-	Full  Look = 1 << 9 // as wide as its container
+// Size is a button's size or width, given after its variant.
+type Size uint
+
+// The sizes.
+const (
+	Small     Size = iota + 1 // smaller, as in a table's row
+	FullWidth                 // as wide as its container
 )
 
 // Tone is what a badge's or a message's color means.
@@ -70,7 +76,7 @@ func PagesOf[T any](ctx context.Context, page db.Page[T], label, status, prev, n
 		// back to the last.
 		p.Prev = web.PageURL(ctx, min(page.CurrentPage-1, max(page.LastPage, 1)))
 	}
-	if page.HasMore() {
+	if page.HasNext() {
 		p.Next = web.PageURL(ctx, page.CurrentPage+1)
 	}
 	return p

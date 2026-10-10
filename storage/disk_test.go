@@ -143,14 +143,14 @@ func TestURLs(t *testing.T) {
 	if _, err := d.TemporaryURL(ctx, "a.txt", time.Minute); !errors.Is(err, storage.ErrNoURL) {
 		t.Errorf("TemporaryURL without a base = %v", err)
 	}
-	private := storage.NewDisk("files", mem, storage.BaseURL("https://example.com/files/"), storage.SignWith(signer))
+	private := storage.NewDisk("files", mem, storage.WithBaseURL("https://example.com/files/"), storage.WithSigner(signer))
 	if _, err := private.URL("a.txt"); err == nil || errors.Is(err, storage.ErrNoURL) {
 		t.Errorf("URL of a private disk = %v", err)
 	}
 	if _, err := private.TemporaryURL(ctx, "a.txt", 0); err == nil {
 		t.Error("TemporaryURL(0): no error")
 	}
-	public := storage.NewDisk("files", mem, storage.BaseURL("https://cdn.example.com"), storage.Public())
+	public := storage.NewDisk("files", mem, storage.WithBaseURL("https://cdn.example.com"), storage.WithPublic())
 	u, err := public.URL("photos/my cat#1.jpg")
 	check(t, err)
 	if u != "https://cdn.example.com/photos/my%20cat%231.jpg" {
@@ -161,10 +161,38 @@ func TestURLs(t *testing.T) {
 	}
 }
 
+// urlBackend has URLs of its own; formerURLBackend too, with the method
+// backends had before v0.5.
+type urlBackend struct{ *storage.MemoryBackend }
+
+func (urlBackend) TemporaryURL(_ context.Context, p string, _ time.Time) (string, error) {
+	return "https://store.example/" + p, nil
+}
+
+type formerURLBackend struct{ *storage.MemoryBackend }
+
+func (formerURLBackend) SignedURL(_ context.Context, p string, _ time.Time) (string, error) {
+	return "https://former.example/" + p, nil
+}
+
+// A backend's own temporary URLs win over the disk's signed ones; the
+// interface before v0.5 is still used, until v0.6.
+func TestBackendTemporaryURLs(t *testing.T) {
+	for b, want := range map[storage.Backend]string{
+		urlBackend{storage.NewMemoryBackend()}:       "https://store.example/a.txt",
+		formerURLBackend{storage.NewMemoryBackend()}: "https://former.example/a.txt",
+	} {
+		u, err := storage.NewDisk("files", b).TemporaryURL(ctx, "a.txt", time.Minute)
+		if err != nil || u != want {
+			t.Errorf("TemporaryURL = %q, %v; want %q", u, err, want)
+		}
+	}
+}
+
 func TestHandler(t *testing.T) {
 	signer := newSigner(t)
 	mem := storage.NewMemoryBackend()
-	private := storage.NewDisk("private", mem, storage.BaseURL("https://example.com/files"), storage.SignWith(signer))
+	private := storage.NewDisk("private", mem, storage.WithBaseURL("https://example.com/files"), storage.WithSigner(signer))
 	now := time.Now()
 	storage.SetNow(private, func() time.Time { return now })
 	check(t, private.PutBytes(ctx, "invoices/42 final.pdf", []byte("%PDF-1.7 invoice")))
@@ -220,7 +248,7 @@ func TestHandler(t *testing.T) {
 	// disk's: 403.
 	other, err := private.TemporaryURL(ctx, "page.html", time.Minute)
 	check(t, err)
-	otherDisk := storage.NewDisk("public", mem, storage.BaseURL("https://example.com/files"), storage.SignWith(signer))
+	otherDisk := storage.NewDisk("public", mem, storage.WithBaseURL("https://example.com/files"), storage.WithSigner(signer))
 	foreign, err := otherDisk.TemporaryURL(ctx, "invoices/42 final.pdf", time.Minute)
 	check(t, err)
 	_, otherQuery, _ := strings.Cut(other, "?")
@@ -260,7 +288,7 @@ func TestHandler(t *testing.T) {
 
 	// A public disk serves without a token; its handler works without a
 	// path wildcard too.
-	public := storage.NewDisk("public", mem, storage.BaseURL("https://example.com/pub"), storage.Public())
+	public := storage.NewDisk("public", mem, storage.WithBaseURL("https://example.com/pub"), storage.WithPublic())
 	psrv := httptest.NewServer(http.StripPrefix("/pub", public.Handler()))
 	defer psrv.Close()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, psrv.URL+"/pub/invoices/42%20final.pdf", nil)
@@ -311,21 +339,28 @@ func TestAppNew(t *testing.T) {
 	actx := app.Context(ctx)
 	def, err := storage.From(actx)
 	check(t, err)
-	avatars, err := storage.From(actx, "avatars")
+	avatars, err := storage.DiskFrom(actx, "avatars")
 	check(t, err)
-	exports, err := storage.From(actx, "exports")
+	exports, err := storage.DiskFrom(actx, "exports")
 	check(t, err)
 	if d, _ := st.Disk("default"); d != def || st.Default() != def {
 		t.Error("Disk(default) isn't the default disk")
 	}
-	if _, err := storage.From(actx, "nope"); err == nil {
-		t.Error("From(nope): no error")
+	if _, err := storage.DiskFrom(actx, "nope"); err == nil {
+		t.Error("DiskFrom(nope): no error")
 	}
-	if _, err := storage.From(actx, "a", "b"); err == nil {
-		t.Error("From with two names: no error")
+	if d, err := storage.DiskFrom(actx, ""); err != nil || d != def {
+		t.Errorf("DiskFrom(\"\") = %v, %v; want the default disk", d, err)
 	}
 	if _, err := storage.From(ctx); !errors.Is(err, storage.ErrNoStorage) {
 		t.Errorf("From without storage = %v", err)
+	}
+	if _, err := storage.DiskFrom(ctx, "a"); !errors.Is(err, storage.ErrNoStorage) {
+		t.Errorf("DiskFrom without storage = %v", err)
+	}
+	// A nil storage in the context is none, not a panic.
+	if _, err := storage.From(storage.WithStorage(ctx, nil)); !errors.Is(err, storage.ErrNoStorage) {
+		t.Errorf("From with a nil storage = %v", err)
 	}
 	check(t, def.PutBytes(actx, "a.txt", []byte("default")))
 	check(t, avatars.PutBytes(actx, "1.png", []byte("avatar")))
@@ -403,7 +438,7 @@ func TestHardening(t *testing.T) {
 		t.Error("DeleteAll without a trailing /: no error")
 	}
 	// Temporary URLs need APP_KEY.
-	nokey := storage.NewDisk("files", storage.NewMemoryBackend(), storage.BaseURL("https://example.com/files"))
+	nokey := storage.NewDisk("files", storage.NewMemoryBackend(), storage.WithBaseURL("https://example.com/files"))
 	if _, err := nokey.TemporaryURL(ctx, "a", time.Minute); err == nil || !strings.Contains(err.Error(), "APP_KEY") {
 		t.Errorf("TemporaryURL without a key = %v", err)
 	}
@@ -411,7 +446,7 @@ func TestHardening(t *testing.T) {
 
 func TestServeHardening(t *testing.T) {
 	mem := storage.NewMemoryBackend()
-	d := storage.NewDisk("public", mem, storage.Public())
+	d := storage.NewDisk("public", mem, storage.WithPublic())
 	check(t, d.PutBytes(ctx, "x.js", []byte("alert(1)")))
 	check(t, d.PutBytes(ctx, "data.txt", []byte("0123456789")))
 	serve := func(p string, header ...string) *httptest.ResponseRecorder {
@@ -451,7 +486,7 @@ func TestLocalHardening(t *testing.T) {
 	b, err := storage.NewLocalBackend(dir)
 	check(t, err)
 	t.Cleanup(func() { _ = b.Close() })
-	d := storage.NewDisk("local", b, storage.Public())
+	d := storage.NewDisk("local", b, storage.WithPublic())
 	if _, err := d.Get(ctx, "link"); !errors.Is(err, storage.ErrNotFound) {
 		t.Errorf("a link out of the root = %v", err)
 	}

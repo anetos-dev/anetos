@@ -231,7 +231,7 @@ func TestNoNPlusOne(t *testing.T) {
 		return c.JSON(http.StatusOK, posts)
 	})
 	app.GetJSON("/slow-posts").AssertOK()
-	if q := app.RepeatedQueries(); len(q) != 1 || q[0].Count != 6 || q[0].Unit.Name != "GET /slow-posts" ||
+	if q := app.RepeatedQueries(); len(q) != 1 || q[0].Count != 6 || q[0].Operation.Name != "GET /slow-posts" ||
 		!strings.HasPrefix(q[0].Caller, "database/main_test.go:") {
 		t.Errorf("repeated queries: %v", q)
 	}

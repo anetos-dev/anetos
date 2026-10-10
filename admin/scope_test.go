@@ -41,8 +41,8 @@ func notes(scoped bool) Resource[Note, NoteForm] {
 	r := Resource[Note, NoteForm]{
 		Name: "notes",
 		Columns: []Column[Note]{
-			Field[Note]("Title", "title"),
-			Field[Note]("Created", "created_at"),
+			TextColumn[Note]("title", "Title"),
+			TextColumn[Note]("created_at", "Created"),
 		},
 		Search: []string{"title"},
 		Edit:   func(n Note) NoteForm { return NoteForm{Title: n.Title, Status: n.Status, Featured: n.Featured} },

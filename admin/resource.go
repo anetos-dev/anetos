@@ -37,8 +37,8 @@ func Choices(values ...string) []Choice {
 
 // Column is a column of a resource's list, or a line of a record's page.
 type Column[T any] struct {
-	// Title is the column's heading.
-	Title string
+	// Label is the column's heading.
+	Label string
 	// Column is the database column it shows, for sorting and for the
 	// value when Value is nil.
 	Column string
@@ -50,18 +50,26 @@ type Column[T any] struct {
 	Sortable bool
 }
 
-// Field returns a sortable column showing the model's field for column.
-func Field[T any](title, column string) Column[T] {
-	return Column[T]{Title: title, Column: column, Sortable: true}
+// TextColumn returns a sortable column showing the model's field for
+// column, headed label (Filament's TextColumn::make('title')->label(…)).
+func TextColumn[T any](column, label string) Column[T] {
+	return Column[T]{Label: label, Column: column, Sortable: true}
 }
+
+// Field is [TextColumn], with its arguments the other way round.
+//
+// Deprecated: Use TextColumn(column, label); Field is removed in v0.6.
+//
+//go:fix inline
+func Field[T any](title, column string) Column[T] { return TextColumn[T](column, title) }
 
 // Filter narrows a resource's list to the records matching a choice.
 type Filter[T any] struct {
 	// Name is the filter's query parameter (?status=draft), unique in
 	// the resource.
 	Name string
-	// Title is its label.
-	Title string
+	// Label is what people see.
+	Label string
 	// Choices are the values offered; others are ignored.
 	Choices []Choice
 	// Apply narrows q to the records matching value.
@@ -70,8 +78,8 @@ type Filter[T any] struct {
 
 // Equals returns a filter keeping the records whose column equals the
 // chosen value.
-func Equals[T any](column, title string, choices ...Choice) Filter[T] {
-	return Filter[T]{Name: column, Title: title, Choices: choices, Apply: func(q *db.Q[T], v string) *db.Q[T] {
+func Equals[T any](column, label string, choices ...Choice) Filter[T] {
+	return Filter[T]{Name: column, Label: label, Choices: choices, Apply: func(q *db.Q[T], v string) *db.Q[T] {
 		return q.Where(db.C(column).Eq(v))
 	}}
 }
@@ -81,8 +89,8 @@ func Equals[T any](column, title string, choices ...Choice) Filter[T] {
 type Action[T any] struct {
 	// Name identifies it in URLs: lowercase letters, digits and -.
 	Name string
-	// Title is its button's label.
-	Title string
+	// Label is its button's label.
+	Label string
 	// Confirm, if set, is asked before it runs ("Refund this order?").
 	Confirm string
 	// Permission is the resource's permission it needs: "update" (the
@@ -97,7 +105,7 @@ type Action[T any] struct {
 	// Run does it. A *validate.Errors or validate.Fail error is shown
 	// to the user; other errors are server errors.
 	Run func(ctx context.Context, row *T) error
-	// Done is the message shown once it's done; default "<Title>: done."
+	// Done is the message shown once it's done; default "<Label>: done."
 	Done string
 
 	// then is where to go once it's done; the record's page if nil.
@@ -110,8 +118,8 @@ type Action[T any] struct {
 type BulkAction[T any] struct {
 	// Name identifies it: lowercase letters, digits and -.
 	Name string
-	// Title is its button's label.
-	Title string
+	// Label is its button's label.
+	Label string
 	// Confirm, if set, is asked before it runs.
 	Confirm string
 	// Permission is as for [Action]; "update" by default.
@@ -131,10 +139,10 @@ type Resource[T any, F any] struct {
 	// gives /admin/posts and admin.posts.view, .create, .update and
 	// .delete. Lowercase letters, digits and -.
 	Name string
-	// Title is its plural name ("Posts"), by default from Name.
-	Title string
-	// Singular is one record's name ("Post"), by default from Title.
-	Singular string
+	// PluralLabel is its plural name ("Posts"), by default from Name.
+	PluralLabel string
+	// Label is one record's name ("Post"), by default from PluralLabel.
+	Label string
 	// Columns are the list's columns.
 	Columns []Column[T]
 	// Details are the lines of a record's page; Columns if empty.
@@ -152,8 +160,8 @@ type Resource[T any, F any] struct {
 	// Query limits what the admin sees and changes of the model (a scope
 	// applied to every query), nil for every record.
 	Query func(q *db.Q[T]) *db.Q[T]
-	// Label names a record in titles; default "#<key>".
-	Label func(row T) string
+	// RecordTitle names a record in titles; default "#<key>".
+	RecordTitle func(row T) string
 	// Edit returns the form for a record (the zero T for a new one).
 	// With Edit and Apply nil, records can't be created or edited here.
 	Edit func(row T) F
@@ -215,11 +223,11 @@ func build[T, F any](p *Panel, r Resource[T, F]) (*res[T, F], error) {
 	if r.Name == "" {
 		return nil, errors.New("admin: a resource needs a Name")
 	}
-	if r.Title == "" {
-		r.Title = humanize(r.Name)
+	if r.PluralLabel == "" {
+		r.PluralLabel = humanize(r.Name)
 	}
-	if r.Singular == "" {
-		r.Singular = singular(r.Title)
+	if r.Label == "" {
+		r.Label = singular(r.PluralLabel)
 	}
 	if (r.Edit == nil) != (r.Apply == nil) {
 		return nil, fmt.Errorf("admin: resource %s needs both Edit and Apply, or neither", r.Name)
@@ -247,7 +255,7 @@ func build[T, F any](p *Panel, r Resource[T, F]) (*res[T, F], error) {
 			return nil, err
 		}
 		if c.Value == nil && c.Column == "" {
-			return nil, fmt.Errorf("admin: resource %s: column %q needs a Column or a Value", r.Name, c.Title)
+			return nil, fmt.Errorf("admin: resource %s: column %q needs a Column or a Value", r.Name, c.Label)
 		}
 	}
 	for _, s := range r.Search {
@@ -318,7 +326,7 @@ func build[T, F any](p *Panel, r Resource[T, F]) (*res[T, F], error) {
 		fields:   fields,
 		form:     form,
 		in: resInfo{
-			Name: r.Name, Title: r.Title, Singular: r.Singular,
+			Name: r.Name, Title: r.PluralLabel, Singular: r.Label,
 			soft: soft, editable: r.Edit != nil,
 			create: r.Edit != nil && !r.NoCreate, delete: !r.NoDelete,
 		},
@@ -470,11 +478,11 @@ func (r *res[T, F]) find(c *web.Ctx, trashed bool) (T, error) {
 }
 
 func (r *res[T, F]) label(row T) string {
-	if r.Label != nil {
-		return r.Label(row)
+	if r.RecordTitle != nil {
+		return r.RecordTitle(row)
 	}
 	_, k, _ := db.KeyOf(&row)
-	return fmt.Sprintf("%s #%v", r.Singular, k)
+	return fmt.Sprintf("%s #%v", r.Label, k)
 }
 
 func (r *res[T, F]) keyText(row T) string {
@@ -483,7 +491,7 @@ func (r *res[T, F]) keyText(row T) string {
 }
 
 func (r *res[T, F]) crumbs(more ...navItem) []navItem {
-	return append([]navItem{{Title: r.p.cfg.Title, URL: r.p.URL()}, {Title: r.Title, URL: r.url("")}}, more...)
+	return append([]navItem{{Title: r.p.cfg.Title, URL: r.p.URL()}, {Title: r.PluralLabel, URL: r.url("")}}, more...)
 }
 
 // done flashes msg and sends the browser to to.

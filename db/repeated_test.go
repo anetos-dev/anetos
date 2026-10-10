@@ -68,20 +68,21 @@ func TestTrackingContexts(t *testing.T) {
 	d := New(nil, nil, WithRepeatedQueries(2))
 	var reps []RepeatedQuery
 	d.OnRepeatedQuery(func(_ context.Context, r RepeatedQuery) { reps = append(reps, r) })
-	u := anetos.Unit{Kind: "request", Name: "GET /"}
+	u := anetos.Operation{Kind: "request", Name: "GET /"}
 
 	ctx, end := d.Track(context.Background(), u)
 	b := inBatch(ctx) // a chunked operation: counted once
 	for range 3 {
 		d.count(b, "INSERT chunk")
 	}
-	quiet := Untracked(ctx)
+	quiet := AllowRepeatedQueries(ctx)
 	for range 3 {
 		d.count(quiet, "SELECT quiet")
 	}
-	// A unit inside Untracked, or inside a batch, is tracked afresh.
+	// An operation inside AllowRepeatedQueries, or inside a batch, is
+	// tracked afresh.
 	for _, outer := range []context.Context{quiet, b} {
-		jctx, jend := d.Track(outer, anetos.Unit{Kind: "job", Name: "J"})
+		jctx, jend := d.Track(outer, anetos.Operation{Kind: "job", Name: "J"})
 		d.count(jctx, "SELECT job")
 		d.count(jctx, "SELECT job")
 		jend()
@@ -93,7 +94,7 @@ func TestTrackingContexts(t *testing.T) {
 	end()
 	var got []string
 	for _, r := range reps {
-		got = append(got, r.Unit.Name+" "+r.SQL)
+		got = append(got, r.Operation.Name+" "+r.SQL)
 	}
 	if want := []string{"J SELECT job", "J SELECT job", "GET / SELECT a", "GET / SELECT b"}; !slices.Equal(got, want) {
 		t.Errorf("reports %v, want %v", got, want)

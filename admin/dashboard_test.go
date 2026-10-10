@@ -66,7 +66,7 @@ func opsApp(t *testing.T, ran chan<- string, hold <-chan struct{}, env ...string
 					_, err := io.WriteString(w, "<p class=mine>custom</p>")
 					return err
 				}),
-				Link: &Link{Title: "Gone", URL: "nowhere"}}, nil
+				Link: &Link{Label: "Gone", URL: "nowhere"}}, nil
 		}}
 		broken := Widget{Title: "Broken", Load: func(context.Context) (Content, error) { return Content{}, errors.New("boom") }}
 		panics := Widget{Title: "Panics", Load: func(context.Context) (Content, error) { panic("oops") }}

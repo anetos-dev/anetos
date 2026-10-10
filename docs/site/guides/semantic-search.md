@@ -189,7 +189,7 @@ type ReadInput struct {
 	ID int64 `json:"id" description:"The article's ID, from search_articles" validate:"required"`
 }
 
-var readArticle = ai.Func("read_article", "Read a help-center article",
+var readArticle = ai.NewTool("read_article", "Read a help-center article",
 	func(ctx context.Context, in ReadInput) (Article, error) {
 		return db.Find[Article](ctx, in.ID) // not found: 404, told to the model
 	})

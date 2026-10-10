@@ -81,7 +81,7 @@ var Migrations = func() *migrate.Set {
 			return s.Create("documents", func(t *migrate.Table) {
 				t.ID()
 				t.ForeignID("owner_id").References("users")
-				t.String("slug", 100).UniqueLive() // PostgreSQL and SQLite
+				t.String("slug", 100).UniqueWithoutTrashed() // PostgreSQL and SQLite
 				t.String("title", 255)
 				t.Text("body")
 				t.String("status", 20).Default("draft")

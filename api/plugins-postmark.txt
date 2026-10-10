@@ -6,6 +6,9 @@ pkg anetos.dev/anetos/plugins/postmark, func NewTransport(string, ...Option) *Tr
 pkg anetos.dev/anetos/plugins/postmark, func Plugin() ext.Plugin
 pkg anetos.dev/anetos/plugins/postmark, func Stream(string) Option
 pkg anetos.dev/anetos/plugins/postmark, func Suppressed(context.Context, string) (bool, error)
+pkg anetos.dev/anetos/plugins/postmark, func WithBaseURL(string) Option
+pkg anetos.dev/anetos/plugins/postmark, func WithHTTPClient(*http.Client) Option
+pkg anetos.dev/anetos/plugins/postmark, func WithStream(string) Option
 pkg anetos.dev/anetos/plugins/postmark, method (*Error) Error() string
 pkg anetos.dev/anetos/plugins/postmark, method (*Transport) Send(context.Context, *mailer.Outgoing) error
 pkg anetos.dev/anetos/plugins/postmark, method (Suppression) TableName() string

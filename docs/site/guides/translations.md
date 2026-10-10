@@ -214,7 +214,7 @@ type User struct {
 }
 
 func (u *User) PreferredLocale() string     { return u.Locale }     // i18n.LocalePreference
-func (u *User) CommunicationLocale() string { return u.MailLocale } // i18n.CommunicationPreference
+func (u *User) PreferredMailLocale() string { return u.MailLocale } // i18n.MailLocalePreference
 func (u *User) PreferredTimeZone() string   { return u.TimeZone }   // i18n.TimeZonePreference
 ```
 

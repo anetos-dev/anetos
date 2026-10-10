@@ -31,10 +31,14 @@ type Features struct {
 	// ContentTypes: the backend keeps the content type given to Put
 	// (otherwise it gives the path's extension's).
 	ContentTypes bool
-	// SignedURLs: the backend implements storage.URLSigner, with URLs
-	// the test can fetch.
+	// TemporaryURLs: the backend implements storage.TemporaryURLBackend,
+	// with URLs the test can fetch.
+	TemporaryURLs bool
+	// SignedURLs is TemporaryURLs.
+	//
+	// Deprecated: Use TemporaryURLs; SignedURLs is removed in v0.6.
 	SignedURLs bool
-	// Client fetches signed URLs. Default http.DefaultClient.
+	// Client fetches temporary URLs. Default http.DefaultClient.
 	Client *http.Client
 }
 
@@ -61,12 +65,12 @@ func Run(t *testing.T, b storage.Backend, f Features) {
 		})
 	}
 	t.Run("ContentTypes", func(t *testing.T) { testContentTypes(t, context.Background(), b, prefix(), f) })
-	if f.SignedURLs {
+	if f.TemporaryURLs || f.SignedURLs {
 		client := f.Client
 		if client == nil {
 			client = http.DefaultClient
 		}
-		t.Run("SignedURLs", func(t *testing.T) { testSignedURLs(t, context.Background(), b, prefix(), client) })
+		t.Run("TemporaryURLs", func(t *testing.T) { testTemporaryURLs(t, context.Background(), b, prefix(), client) })
 	}
 }
 
@@ -436,13 +440,19 @@ func testContentTypes(t *testing.T, ctx context.Context, b storage.Backend, p st
 	}
 }
 
-func testSignedURLs(t *testing.T, ctx context.Context, b storage.Backend, p string, client *http.Client) {
-	s, ok := b.(storage.URLSigner)
-	if !ok {
-		t.Fatal("the backend isn't a storage.URLSigner")
+func testTemporaryURLs(t *testing.T, ctx context.Context, b storage.Backend, p string, client *http.Client) {
+	urlOf := func(path string, expires time.Time) (string, error) {
+		switch s := b.(type) {
+		case storage.TemporaryURLBackend:
+			return s.TemporaryURL(ctx, path, expires)
+		case storage.URLSigner: //nolint:staticcheck // the interface before v0.5, until v0.6
+			return s.SignedURL(ctx, path, expires)
+		}
+		t.Fatal("the backend isn't a storage.TemporaryURLBackend")
+		return "", nil
 	}
 	put(t, ctx, b, p+"signed file.txt", "secret")
-	u, err := s.SignedURL(ctx, p+"signed file.txt", time.Now().Add(time.Minute))
+	u, err := urlOf(p+"signed file.txt", time.Now().Add(time.Minute))
 	if err != nil {
 		t.Fatal(err)
 	}

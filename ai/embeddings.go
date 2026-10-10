@@ -272,7 +272,7 @@ func (e *Embeddings[T]) syncNow(ctx context.Context, rows []T) error {
 		var chunks []db.Chunk
 		for _, text := range splitChunks(e.cfg.Text(r), e.cfg.ChunkSize, 0) {
 			sum := sha256.Sum256([]byte(text))
-			chunks = append(chunks, db.Chunk{Content: text, ContentHash: hex.EncodeToString(sum[:]), Model: model})
+			chunks = append(chunks, db.Chunk{Content: text, ContentHash: hex.EncodeToString(sum[:]), EmbeddingModel: model})
 		}
 		recs = append(recs, record{id, chunks})
 		ids = append(ids, id)
@@ -290,7 +290,7 @@ func (e *Embeddings[T]) syncNow(ctx context.Context, rows []T) error {
 	byRecord := map[int64][]db.Chunk{}
 	for _, c := range stored {
 		byRecord[c.RecordID] = append(byRecord[c.RecordID], c)
-		if c.Model == model && len(c.Embedding) == e.cfg.Dimensions {
+		if c.EmbeddingModel == model && len(c.Embedding) == e.cfg.Dimensions {
 			have[key{c.RecordID, c.ContentHash}] = c.Embedding
 		}
 	}
@@ -310,7 +310,7 @@ func (e *Embeddings[T]) syncNow(ctx context.Context, rows []T) error {
 			}
 			if same {
 				old := byRecord[r.id][i]
-				same = old.Position == i && old.ContentHash == c.ContentHash && old.Model == model
+				same = old.Position == i && old.ContentHash == c.ContentHash && old.EmbeddingModel == model
 			}
 		}
 		if !same {
@@ -515,9 +515,9 @@ type SearchResult struct {
 //		Tools:        []ai.Tool{articles.Tool("search_articles", "Search the help articles", 5)},
 //	}
 //
-// Tool panics if name isn't a valid tool name, as [Func] does.
+// Tool panics if name isn't a valid tool name, as [NewTool] does.
 func (e *Embeddings[T]) Tool(name, description string, limit int) Tool {
-	return Func(name, description, func(ctx context.Context, in searchInput) ([]SearchResult, error) {
+	return NewTool(name, description, func(ctx context.Context, in searchInput) ([]SearchResult, error) {
 		found, err := e.Search(ctx, in.Query, limit)
 		if err != nil {
 			return nil, err

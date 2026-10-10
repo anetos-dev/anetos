@@ -92,12 +92,12 @@ If several requests miss the cache at once, the function runs once in
 each process and the others wait for its result. If it returns an error,
 nothing is stored and the error is returned.
 
-### 3. Forget a value when its data changes
+### 3. Delete a value when its data changes
 
 ```go
 // GET /stats counts the new post. The post is saved either way: a
 // cache failure only delays that, so log it rather than fail.
-if err := cache.Forget(c, "stats"); err != nil {
+if err := cache.Delete(c, "stats"); err != nil {
 	c.Logger().Warn("forget the cached stats", "error", err)
 }
 ```
@@ -117,7 +117,7 @@ err := cache.Set(ctx, "profile:7", profile, time.Hour) // cache.Forever: no expi
 profile, ok, err := cache.Get[Profile](ctx, "profile:7")
 added, err := cache.Add(ctx, "welcome-mail:7", true, 24*time.Hour) // only if absent
 ok, err := cache.Has(ctx, "profile:7")
-err = cache.Forget(ctx, "profile:7")
+err = cache.Delete(ctx, "profile:7")
 err = cache.Flush(ctx) // every key of this app's cache
 ```
 

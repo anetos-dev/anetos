@@ -122,7 +122,7 @@ type lookupInput struct {
 	Number int `json:"number"`
 }
 
-var lookupTool = ai.Func("lookup", "Look up an order", func(_ context.Context, in lookupInput) (string, error) {
+var lookupTool = ai.NewTool("lookup", "Look up an order", func(_ context.Context, in lookupInput) (string, error) {
 	return "shipped", nil
 })
 
@@ -152,7 +152,7 @@ func TestStoppedStreamCounts(t *testing.T) {
 
 func TestSSEKeepAlive(t *testing.T) {
 	defer ai.SetKeepAlive(5 * time.Millisecond)()
-	slow := ai.Func("slow", "Take a while", func(context.Context, struct{}) (string, error) {
+	slow := ai.NewTool("slow", "Take a while", func(context.Context, struct{}) (string, error) {
 		time.Sleep(50 * time.Millisecond)
 		return "done", nil
 	})

@@ -57,7 +57,7 @@ func (Issues) New(c *web.Ctx, in ProjectPath) (web.Responder, error) {
 	if err != nil {
 		return nil, err
 	}
-	return web.View(views.IssueFormPage(form)), nil
+	return web.Render(views.IssueFormPage(form)), nil
 }
 
 func issueForm(ctx context.Context, project models.Project, issue models.Issue) (views.IssueForm, error) {
@@ -187,7 +187,7 @@ func (Issues) Show(c *web.Ctx, in IssuePath) (web.Responder, error) {
 			return nil, err
 		}
 	}
-	return web.View(views.IssuePageView(page)), nil
+	return web.Render(views.IssuePageView(page)), nil
 }
 
 // tracked are the fields whose changes the issue's page shows.
@@ -301,7 +301,7 @@ func (Issues) Edit(c *web.Ctx, in IssuePath) (web.Responder, error) {
 	if err != nil {
 		return nil, err
 	}
-	return web.View(views.IssueFormPage(form)), nil
+	return web.Render(views.IssueFormPage(form)), nil
 }
 
 // Update saves an issue's title, text, priority, assignee and labels. A
@@ -369,7 +369,7 @@ func (Issues) SetStatus(c *web.Ctx, in StatusInput) (web.Responder, error) {
 		}
 	}
 	if c.IsHTMX() {
-		return web.View(views.IssueHeader(project, issue, true)), nil
+		return web.Render(views.IssueHeader(project, issue, true)), nil
 	}
 	return web.RedirectRoute("issues.show", project.Key, issue.Number), nil
 }
@@ -419,7 +419,7 @@ func (Issues) Comment(c *web.Ctx, in CommentInput) (web.Responder, error) {
 	}
 	if c.IsHTMX() {
 		comment.Author = u
-		return web.View(views.CommentItem(comment)), nil
+		return web.Render(views.CommentItem(comment)), nil
 	}
 	return web.RedirectRoute("issues.show", project.Key, issue.Number), nil
 }

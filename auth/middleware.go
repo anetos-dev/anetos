@@ -141,7 +141,7 @@ func (a *Auth[U]) load(ctx context.Context, st *state) (any, error) {
 	if s == nil {
 		return nil, nil
 	}
-	if id := s.String(keyID); id != "" {
+	if id := s.GetString(keyID); id != "" {
 		u, err := a.users.ByID(ctx, id)
 		switch {
 		case notFound(err):
@@ -149,7 +149,7 @@ func (a *Auth[U]) load(ctx context.Context, st *state) (any, error) {
 			return nil, nil
 		case err != nil:
 			return nil, err
-		case a.sessionPrint(u, u.AuthPassword()) != s.String(keyHash):
+		case a.sessionPrint(u, u.AuthPassword()) != s.GetString(keyHash):
 			// The password changed since this session logged in, or the
 			// user was logged out everywhere: log it out.
 			s.Invalidate()
@@ -158,7 +158,7 @@ func (a *Auth[U]) load(ctx context.Context, st *state) (any, error) {
 			s.Invalidate()
 			return nil, nil
 		}
-		if s.String(keyImpersonator) != "" {
+		if s.GetString(keyImpersonator) != "" {
 			// Impersonating u: only while the impersonator may still log in.
 			if ok, err := a.impersonatorValid(ctx, s); err != nil {
 				return nil, err

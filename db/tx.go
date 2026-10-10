@@ -52,12 +52,13 @@ func (d *DB) txIn(ctx context.Context) *txState {
 //
 // Don't run queries of one transaction from several goroutines at once.
 func Tx(ctx context.Context, fn func(ctx context.Context) error) error {
-	return TxWith(ctx, nil, fn)
+	return TxWithOptions(ctx, nil, fn)
 }
 
-// TxWith is like [Tx] with transaction options (isolation level, read-only).
-// Options are ignored for nested transactions, which inherit the outer one.
-func TxWith(ctx context.Context, opts *sql.TxOptions, fn func(ctx context.Context) error) (err error) {
+// TxWithOptions is like [Tx] with transaction options (isolation level,
+// read-only), as [sql.DB.BeginTx] takes them. Options are ignored for
+// nested transactions, which inherit the outer one.
+func TxWithOptions(ctx context.Context, opts *sql.TxOptions, fn func(ctx context.Context) error) (err error) {
 	d, err := From(ctx)
 	if err != nil {
 		return err
@@ -218,4 +219,13 @@ func WithoutTx(ctx context.Context) context.Context {
 func InTx(ctx context.Context) bool {
 	d, err := From(ctx)
 	return err == nil && d.txIn(ctx) != nil
+}
+
+// TxWith is [TxWithOptions].
+//
+// Deprecated: Use TxWithOptions; TxWith is removed in v0.6.
+//
+//go:fix inline
+func TxWith(ctx context.Context, opts *sql.TxOptions, fn func(ctx context.Context) error) error {
+	return TxWithOptions(ctx, opts, fn)
 }

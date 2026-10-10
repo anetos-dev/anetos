@@ -26,7 +26,7 @@ func Search(c *web.Ctx, in SearchInput) (web.Responder, error) {
 	if err != nil {
 		return nil, err
 	}
-	return web.View(views.SearchPage(in.Q, results)), nil
+	return web.Render(views.SearchPage(in.Q, results)), nil
 }
 
 // searchIssues returns up to limit issues matching q in the projects the

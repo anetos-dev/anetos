@@ -30,7 +30,7 @@ with `go tool anetos css:use bulma`.
 | `public/static/nav.js` | Opens and closes the header's links on a small screen (Bulma has no JavaScript of its own) |
 | `public/static/app.css` | The few rules Bulma has no class for (a narrow column, the details' grid, the current page in the header) |
 | `views/ui/*.templ` | The components: `navbar`, `box`, `field` and `control`, `notification`, `tag`, `pagination`…; `ui.Main` wraps the page in Bulma's `content`, which styles the pages' plain HTML (headings, lists) |
-| `views/ui/classes.go` | The classes of each look (`button is-primary`, `is-danger`, `is-ghost`, `is-small`, `is-fullwidth`) and tone |
+| `views/ui/classes.go` | The classes of each variant and size (`button is-primary`, `is-danger`, `is-ghost`, `is-small`, `is-fullwidth`) and tone |
 
 A form with its errors:
 

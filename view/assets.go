@@ -29,7 +29,7 @@ import (
 //
 //	files, _ := fs.Sub(public, "public")
 //	assets, err := view.NewAssets("/assets", files, htmx.FS)
-//	r.HandleStd("GET", "/assets/{path...}", assets)
+//	r.Get("/assets/{path...}", web.WrapHandler(assets))
 //
 //	<link rel="stylesheet" href={ assets.URL("app.css") }>
 //

@@ -68,14 +68,14 @@ func testAIConversations(t *testing.T, ctx context.Context) {
 		},
 	})
 	var conv *ai.Conversation
-	lookup := ai.Func("lookup", "Look up an order", func(ctx context.Context, in stLookup) (string, error) {
+	lookup := ai.NewTool("lookup", "Look up an order", func(ctx context.Context, in stLookup) (string, error) {
 		if in.Number == 13 { // a tool adding to the conversation during the call
 			return "", conv.Add(ctx, ai.UserMessage("interrupting"))
 		}
 		return "shipped", nil
 	})
 	var seen string // who the whoami tool ran as, and whether it could read orders
-	whoami := ai.Func("whoami", "Who is asking", func(ctx context.Context, _ struct{}) (string, error) {
+	whoami := ai.NewTool("whoami", "Who is asking", func(ctx context.Context, _ struct{}) (string, error) {
 		id, err := auth.CurrentID(ctx)
 		seen = fmt.Sprintf("%s %v", id, auth.TokenCan(ctx, "orders:read"))
 		return id, err

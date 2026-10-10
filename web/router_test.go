@@ -199,12 +199,12 @@ func TestRoutesListAndRouteContext(t *testing.T) {
 		seen = c.Route()
 		return c.NoContent()
 	}).Name("a.show")
-	r.HandleStd("", "/std", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if rt := RouteFromContext(req.Context()); rt == nil || rt.Pattern() != "/std" {
+	r.Handle("", "/std", WrapHandler(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if rt := CurrentRoute(req.Context()); rt == nil || rt.Pattern() != "/std" {
 			t.Error("std handlers must be visible to outer middleware")
 		}
 		w.WriteHeader(202)
-	}))
+	})))
 
 	do(t, r, "GET", "/a/1", nil)
 	if seen == nil || seen.Pattern() != "/a/{id}" || seen.Method() != "GET" || seen.RouteName() != "a.show" {

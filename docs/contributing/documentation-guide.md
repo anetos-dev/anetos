@@ -345,7 +345,7 @@ Use these terms consistently in code, docs and discussion.
 |---|---|
 | **App** | The application instance (`*anetos.App`) that owns config, services and the runtime |
 | **Component** | A long-running unit supervised by the runtime (HTTP server, worker pool, listener, scheduler, `app.Go` task) |
-| **Role** | A named group of components a process runs (`http`, `workers`, `listeners`, `scheduler`) |
+| **Process type** | A named group of components a process runs (`web`, `worker`, `listener`, `scheduler`; Heroku's word) |
 | **Supervisor** | The runtime part that starts, restarts and stops components |
 | **Contract** | A service interface (e.g. `cache.Store`) |
 | **Driver** | An implementation of a contract (e.g. the Redis cache driver) |

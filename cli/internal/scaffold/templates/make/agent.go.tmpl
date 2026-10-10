@@ -33,6 +33,6 @@ type [[.ID]]LookupInput struct {
 // [[.ID]]Lookup is a tool the model may call. Replace it with your own:
 // query the database, call a service. An error with a 4xx status (not
 // found, forbidden, invalid) is told to the model; others stop the call.
-var [[.ID]]Lookup = ai.Func("lookup", "Look something up", func(ctx context.Context, in [[.ID]]LookupInput) (string, error) {
+var [[.ID]]Lookup = ai.NewTool("lookup", "Look something up", func(ctx context.Context, in [[.ID]]LookupInput) (string, error) {
 	return "Nothing is known about " + in.Query + " yet.", nil
 })

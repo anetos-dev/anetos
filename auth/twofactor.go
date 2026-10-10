@@ -313,7 +313,7 @@ func (a *Auth[U]) ConfirmTwoFactor(ctx context.Context, u U, code string) ([]str
 // email address.
 func (a *Auth[U]) LogoutOthers(ctx context.Context, u U) error {
 	s, st := session.From(ctx), stateFrom(ctx)
-	mine := s != nil && st != nil && !st.acting && s.String(keyID) == u.AuthID() && s.String(keyImpersonator) == ""
+	mine := s != nil && st != nil && !st.acting && s.GetString(keyID) == u.AuthID() && s.GetString(keyImpersonator) == ""
 	var remembered rememberValue
 	if mine && st.r != nil {
 		if v, ok := a.rememberCookie(st.r); ok && v.ID == u.AuthID() {
@@ -778,7 +778,7 @@ func (a *Auth[U]) ConfirmPassword(ctx context.Context, pw string) error {
 	if st.token != nil {
 		return ErrUnauthenticated // a session's, not an API token's
 	}
-	if s.String(keyImpersonator) != "" {
+	if s.GetString(keyImpersonator) != "" {
 		return errConfirmActing
 	}
 	if err := a.CheckPassword(ctx, u, pw); err != nil {
@@ -852,7 +852,7 @@ func (a *Auth[U]) markFresh(ctx context.Context, u U, hash string) {
 func (a *Auth[U]) PasswordConfirmed(ctx context.Context) bool {
 	s := session.From(ctx)
 	st := stateFrom(ctx)
-	if s == nil || st == nil || s.String(keyImpersonator) != "" {
+	if s == nil || st == nil || s.GetString(keyImpersonator) != "" {
 		return false
 	}
 	id, err := CurrentID(ctx)

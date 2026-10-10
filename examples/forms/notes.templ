@@ -36,7 +36,7 @@ templ NotesPage(page db.Page[Note], q string) {
 			if page.LastPage > 1 {
 				<span>Page { page.CurrentPage } of { page.LastPage }</span>
 			}
-			if page.HasMore() {
+			if page.HasNext() {
 				<a href={ web.PageURL(ctx, page.CurrentPage+1) } rel="next">Older</a>
 			}
 		</nav>

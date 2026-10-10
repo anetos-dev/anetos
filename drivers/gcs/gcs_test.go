@@ -46,7 +46,7 @@ func fake(t *testing.T) (*fakestorage.Server, gcs.Option) {
 	check(t, err)
 	srv.CreateBucketWithOpts(fakestorage.CreateBucketOpts{Name: "test"})
 	t.Cleanup(srv.Stop)
-	return srv, gcs.ClientOptions(option.WithHTTPClient(srv.HTTPClient()))
+	return srv, gcs.WithClientOptions(option.WithHTTPClient(srv.HTTPClient()))
 }
 
 // serviceAccount returns a service account key with a new private key,
@@ -75,7 +75,7 @@ func TestConformanceFake(t *testing.T) {
 	b, err := gcs.New(context.Background(), gcs.Config{Bucket: "test", Prefix: "disk/", Credentials: anetos.Secret(serviceAccount(t))}, opt)
 	check(t, err)
 	t.Cleanup(func() { _ = b.Close() })
-	storagetest.Run(t, b, storagetest.Features{ContentTypes: true, SignedURLs: true, Client: srv.HTTPClient()})
+	storagetest.Run(t, b, storagetest.Features{ContentTypes: true, TemporaryURLs: true, Client: srv.HTTPClient()})
 }
 
 // TestConformance runs against Cloud Storage when ANETOS_TEST_GCS_BUCKET
@@ -90,7 +90,7 @@ func TestConformance(t *testing.T) {
 	b, err := gcs.New(ctx, gcs.Config{Bucket: bucket, Prefix: "anetos-test/", Signer: os.Getenv("ANETOS_TEST_GCS_SIGNER")})
 	check(t, err)
 	t.Cleanup(func() { _ = b.Close() })
-	storagetest.Run(t, b, storagetest.Features{ContentTypes: true, SignedURLs: true})
+	storagetest.Run(t, b, storagetest.Features{ContentTypes: true, TemporaryURLs: true})
 	var paths []string
 	for info, err := range b.List(ctx, "storagetest-") {
 		check(t, err)
@@ -118,22 +118,22 @@ func TestNew(t *testing.T) {
 	if b.Client() == nil || b.Bucket() == nil {
 		t.Error("no client")
 	}
-	if _, err := b.SignedURL(ctx, "x", time.Now().Add(8*24*time.Hour)); err == nil {
+	if _, err := b.TemporaryURL(ctx, "x", time.Now().Add(8*24*time.Hour)); err == nil {
 		t.Error("an 8-day signed URL: no error")
 	}
 }
 
-func TestSignedURL(t *testing.T) {
+func TestTemporaryURL(t *testing.T) {
 	_, opt := fake(t)
 	b, err := gcs.New(context.Background(), gcs.Config{Bucket: "test", Prefix: "p/", Credentials: anetos.Secret(serviceAccount(t))}, opt)
 	check(t, err)
 	defer b.Close()
-	u, err := b.SignedURL(context.Background(), "a b.txt", time.Now().Add(time.Hour))
+	u, err := b.TemporaryURL(context.Background(), "a b.txt", time.Now().Add(time.Hour))
 	check(t, err)
 	for _, want := range []string{"https://storage.googleapis.com/test/p/a%20b.txt?", "X-Goog-Algorithm=GOOG4-RSA-SHA256",
 		"X-Goog-Credential=files%40anetos-test.iam.gserviceaccount.com", "X-Goog-Expires=3", "X-Goog-Signature="} {
 		if !strings.Contains(u, want) {
-			t.Errorf("SignedURL = %s, lacks %s", u, want)
+			t.Errorf("TemporaryURL = %s, lacks %s", u, want)
 		}
 	}
 }
@@ -157,7 +157,7 @@ func TestAppNew(t *testing.T) {
 	ctx := app2.Context(context.Background())
 	def, err := storage.From(ctx)
 	check(t, err)
-	avatars, err := storage.From(ctx, "avatars")
+	avatars, err := storage.DiskFrom(ctx, "avatars")
 	check(t, err)
 	check(t, avatars.PutBytes(ctx, "1.png", []byte("png")))
 	data, err := def.Get(ctx, "avatars/1.png")
@@ -253,8 +253,8 @@ func TestCredentialChecks(t *testing.T) {
 	b, err := gcs.New(ctx, gcs.Config{Bucket: "test"}, opt)
 	check(t, err)
 	defer b.Close()
-	if _, err := b.SignedURL(ctx, "x", time.Now().Add(time.Minute)); err == nil || !strings.Contains(err.Error(), "no credentials to sign URLs") {
-		t.Errorf("SignedURL without credentials = %v", err)
+	if _, err := b.TemporaryURL(ctx, "x", time.Now().Add(time.Minute)); err == nil || !strings.Contains(err.Error(), "no credentials to sign URLs") {
+		t.Errorf("TemporaryURL without credentials = %v", err)
 	}
 }
 
@@ -314,9 +314,9 @@ func TestEmulator(t *testing.T) {
 	defer b.Close()
 	ctx := context.Background()
 	check(t, b.Put(ctx, "e.txt", strings.NewReader("emulated"), storage.PutOptions{}))
-	u, err := b.SignedURL(ctx, "e.txt", time.Now().Add(time.Minute))
+	u, err := b.TemporaryURL(ctx, "e.txt", time.Now().Add(time.Minute))
 	check(t, err)
 	if !strings.HasPrefix(u, srv.URL()+"/test/e.txt?") {
-		t.Errorf("SignedURL = %s", u)
+		t.Errorf("TemporaryURL = %s", u)
 	}
 }

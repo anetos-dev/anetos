@@ -91,7 +91,7 @@ func hashSecret(secret string) string {
 //
 //	plain, tok, err := a.CreateToken(c, u, "deploy script", []string{"deploy"}, 90*24*time.Hour)
 func (a *Auth[U]) CreateToken(ctx context.Context, u U, name string, abilities []string, ttl time.Duration) (string, *Token, error) {
-	if s := session.From(ctx); s != nil && s.String(keyImpersonator) != "" {
+	if s := session.From(ctx); s != nil && s.GetString(keyImpersonator) != "" {
 		return "", nil, errTokenActing
 	}
 	secret := randomToken()

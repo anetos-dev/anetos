@@ -113,7 +113,7 @@ func (s *DatabaseStore) now() string { return dbutil.NowMillis(s.dialect()) }
 // conn returns the context the workers' queries run with: the store's
 // database, and, except with SQLite, no transaction.
 func (s *DatabaseStore) conn(ctx context.Context) context.Context {
-	ctx = db.Untracked(db.WithDB(ctx, s.d))
+	ctx = db.AllowRepeatedQueries(db.WithDB(ctx, s.d))
 	if s.dialect() == "sqlite" {
 		return ctx // one writer at a time: another connection would wait for the transaction
 	}
@@ -160,7 +160,7 @@ func (s *DatabaseStore) joinsTx(ctx context.Context) bool {
 
 // Push implements [Store]. It joins the context's transaction.
 func (s *DatabaseStore) Push(ctx context.Context, m Message, delay time.Duration) error {
-	ctx = db.Untracked(db.WithDB(ctx, s.d)) // dispatching jobs in a loop is fine
+	ctx = db.AllowRepeatedQueries(db.WithDB(ctx, s.d)) // dispatching jobs in a loop is fine
 	_, err := s.exec(ctx, "INSERT INTO "+s.q(s.table)+" ("+s.q("id")+", "+s.q("queue")+", "+s.q("payload")+", "+s.q("attempts")+", "+
 		s.q("available_at")+", "+s.q("token")+", "+s.q("created_at")+") VALUES (?, ?, ?, 0, "+s.now()+" + ?, '', "+s.now()+")",
 		m.ID, m.Queue, string(m.Payload), ms(delay))

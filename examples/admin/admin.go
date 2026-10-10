@@ -37,15 +37,15 @@ func products() admin.Resource[Product, ProductForm] {
 	return admin.Resource[Product, ProductForm]{
 		Name: "products",
 		Columns: []admin.Column[Product]{
-			admin.Field[Product]("Name", "name"),
-			admin.Field[Product]("SKU", "sku"),
-			{Title: "Price", Column: "price", Sortable: true, Value: func(p Product) any { return dollars(p.Price) }},
-			admin.Field[Product]("Stock", "stock"),
-			admin.Field[Product]("Status", "status"),
+			admin.TextColumn[Product]("name", "Name"),
+			admin.TextColumn[Product]("sku", "SKU"),
+			{Label: "Price", Column: "price", Sortable: true, Value: func(p Product) any { return dollars(p.Price) }},
+			admin.TextColumn[Product]("stock", "Stock"),
+			admin.TextColumn[Product]("status", "Status"),
 		},
-		Search:  []string{"name", "sku"},
-		Filters: []admin.Filter[Product]{admin.Equals[Product]("status", "Status", admin.Choices("draft", "active", "archived")...)},
-		Label:   func(p Product) string { return p.Name },
+		Search:      []string{"name", "sku"},
+		Filters:     []admin.Filter[Product]{admin.Equals[Product]("status", "Status", admin.Choices("draft", "active", "archived")...)},
+		RecordTitle: func(p Product) string { return p.Name },
 		Edit: func(p Product) ProductForm {
 			return ProductForm{Name: p.Name, SKU: p.SKU, CategoryID: p.CategoryID,
 				Price: float64(p.Price) / 100, Stock: p.Stock, Status: p.Status}
@@ -69,7 +69,7 @@ func products() admin.Resource[Product, ProductForm] {
 			"category_id": categoryChoices,
 		},
 		Actions: []admin.Action[Product]{{
-			Name: "archive", Title: "Archive", Confirm: "Archive this product?",
+			Name: "archive", Label: "Archive", Confirm: "Archive this product?",
 			When: func(p Product) bool { return p.Status != "archived" },
 			Run: func(ctx context.Context, p *Product) error {
 				p.Status = "archived"
@@ -77,7 +77,7 @@ func products() admin.Resource[Product, ProductForm] {
 			},
 		}},
 		BulkActions: []admin.BulkAction[Product]{{
-			Name: "activate", Title: "Activate",
+			Name: "activate", Label: "Activate",
 			Run: func(_ context.Context, q *db.Q[Product]) (int64, error) {
 				return q.Update(db.C("status").Set("active"))
 			},
@@ -107,12 +107,12 @@ type CategoryForm struct {
 // categories is the admin's resource for categories.
 func categories() admin.Resource[Category, CategoryForm] {
 	return admin.Resource[Category, CategoryForm]{
-		Name:    "categories",
-		Columns: []admin.Column[Category]{admin.Field[Category]("Name", "name"), admin.Field[Category]("Created", "created_at")},
-		Search:  []string{"name"},
-		Sort:    "name",
-		Label:   func(c Category) string { return c.Name },
-		Edit:    func(c Category) CategoryForm { return CategoryForm{Name: c.Name} },
+		Name:        "categories",
+		Columns:     []admin.Column[Category]{admin.TextColumn[Category]("name", "Name"), admin.TextColumn[Category]("created_at", "Created")},
+		Search:      []string{"name"},
+		Sort:        "name",
+		RecordTitle: func(c Category) string { return c.Name },
+		Edit:        func(c Category) CategoryForm { return CategoryForm{Name: c.Name} },
 		Apply: func(_ context.Context, in CategoryForm, c *Category) error {
 			c.Name = in.Name
 			return nil
@@ -131,17 +131,17 @@ type UserForm struct {
 // logging out, API tokens, roles, impersonating them.
 func addUsers(p *admin.Panel, a *auth.Auth[*User]) error {
 	return admin.Users(p, admin.Resource[User, UserForm]{
-		Name:     "users",
-		Title:    "Staff",
-		Singular: "Member",
+		Name:        "users",
+		PluralLabel: "Staff",
+		Label:       "Member",
 		Columns: []admin.Column[User]{
-			admin.Field[User]("Name", "name"),
-			admin.Field[User]("Email", "email"),
+			admin.TextColumn[User]("name", "Name"),
+			admin.TextColumn[User]("email", "Email"),
 		},
-		Search:   []string{"name", "email"},
-		Label:    func(u User) string { return u.Name },
-		NoCreate: true, // seed creates them; this shop has no sign-up
-		Edit:     func(u User) UserForm { return UserForm{Name: u.Name, Email: u.Email} },
+		Search:      []string{"name", "email"},
+		RecordTitle: func(u User) string { return u.Name },
+		NoCreate:    true, // seed creates them; this shop has no sign-up
+		Edit:        func(u User) UserForm { return UserForm{Name: u.Name, Email: u.Email} },
 		Apply: func(_ context.Context, in UserForm, u *User) error {
 			u.Name, u.Email = in.Name, strings.ToLower(in.Email)
 			return nil
@@ -168,7 +168,7 @@ func lowStock() admin.Widget {
 		return admin.Content{
 			Stats: []admin.Stat{{Label: "Running out", Value: strconv.Itoa(len(low)), Warn: len(low) > 0}},
 			Table: t,
-			Link:  &admin.Link{Title: "Every active product", URL: "products?status=active&sort=stock"},
+			Link:  &admin.Link{Label: "Every active product", URL: "products?status=active&sort=stock"},
 		}, nil
 	}}
 }

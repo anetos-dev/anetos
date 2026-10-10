@@ -184,7 +184,7 @@ func NotesPage(page db.Page[Note], q string) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			if page.HasMore() {
+			if page.HasNext() {
 				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<a href=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err

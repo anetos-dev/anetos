@@ -60,7 +60,7 @@ and arguments: the pages of `make:crud` and `make:auth` call them.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Buttons all look alike, badges have no color | `none` has no styles: looks and tones write nothing | Style them by element, or switch to a CSS framework that has them |
+| Buttons all look alike, badges have no color | `none` has no styles: variants, sizes and tones write nothing | Style them by element, or switch to a CSS framework that has them |
 
 ## Next steps
 

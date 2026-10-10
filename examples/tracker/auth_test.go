@@ -31,7 +31,7 @@ func authRegister(t *testing.T) *anetostest.App {
 	app.PostForm("/register", url.Values{
 		"name": {"Ada"}, "email": {"Ada@Example.com"},
 		"password": {"correct horse"}, "password_confirmation": {"correct horse"},
-	}).AssertRedirect("/projects") // auth.DefaultHomeURL, in auth.go
+	}).AssertRedirect("/projects") // auth.WithDefaultHomeURL, in auth.go
 	return app
 }
 
@@ -288,7 +288,7 @@ func TestResetLogsOutAndRevokesTokens(t *testing.T) {
 	app.Get("/dashboard")
 	app.PostForm("/confirm-password", url.Values{"password": {"correct horse"}})
 	app.PostForm("/tokens", url.Values{"name": {"cli"}})
-	token := app.Session().String("token")
+	token := app.Session().GetString("token")
 	if token == "" {
 		t.Fatal("no token")
 	}
@@ -310,7 +310,7 @@ func TestAPIToken(t *testing.T) {
 	app.PostForm("/tokens", url.Values{"name": {"cli"}}).AssertRedirect("/confirm-password")
 	app.PostForm("/confirm-password", url.Values{"password": {"correct horse"}}).AssertRedirect("/dashboard")
 	app.PostForm("/tokens", url.Values{"name": {"cli"}}).AssertRedirect("/dashboard")
-	token := app.Session().String("token")
+	token := app.Session().GetString("token")
 	if token == "" {
 		t.Fatal("no token flashed")
 	}

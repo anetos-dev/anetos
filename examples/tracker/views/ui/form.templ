@@ -144,11 +144,11 @@ templ Actions() {
 }
 
 // Button submits its form.
-templ Button(look Look, attrs templ.Attributes) {
+templ Button(variant Variant, attrs templ.Attributes, size ...Size) {
 	<button
 		type="submit"
-		if look.class(false) != "" {
-			class={ look.class(false) }
+		if variant.class(false, size) != "" {
+			class={ variant.class(false, size) }
 		}
 		{ attrs... }
 	>
@@ -157,8 +157,8 @@ templ Button(look Look, attrs templ.Attributes) {
 }
 
 // LinkButton is a link that looks like a button.
-templ LinkButton(href string, look Look) {
-	<a class={ look.class(true) } href={ href }>
+templ LinkButton(href string, variant Variant, size ...Size) {
+	<a class={ variant.class(true, size) } href={ href }>
 		{ children... }
 	</a>
 }
@@ -166,9 +166,9 @@ templ LinkButton(href string, look Look) {
 // PostButton is a button in a form of its own, which sends method
 // (POST, or PUT, PATCH or DELETE) to action with the CSRF token: to
 // delete something, to log out.
-templ PostButton(action, method string, look Look) {
+templ PostButton(action, method string, variant Variant, size ...Size) {
 	@InlineForm(action, method, nil) {
-		@Button(look, nil) {
+		@Button(variant, nil, size...) {
 			{ children... }
 		}
 	}

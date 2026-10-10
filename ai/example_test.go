@@ -40,7 +40,7 @@ func ExampleAgent() {
 	type Weather struct {
 		City string `json:"city" validate:"required"`
 	}
-	weather := ai.Func("weather", "Today's weather in a city",
+	weather := ai.NewTool("weather", "Today's weather in a city",
 		func(ctx context.Context, in Weather) (string, error) { return "Sunny in " + in.City, nil })
 	forecaster := ai.Agent{Instructions: "You answer questions about the weather.", Tools: []ai.Tool{weather}}
 

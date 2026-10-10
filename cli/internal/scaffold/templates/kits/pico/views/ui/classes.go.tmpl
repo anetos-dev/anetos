@@ -1,16 +1,19 @@
 package ui
 
-import "strings"
+import (
+	"slices"
+	"strings"
+)
 
-// Pico's classes of the looks, and app.css's of the tones (Pico has no
+// Pico's classes of the variants and sizes, and app.css's of the tones (Pico has no
 // danger, ghost, small or full button, badge or colored message: app.css
 // adds them).
 
 // class is a button's classes: "" for the primary one, which Pico styles
 // without any.
-func (l Look) class() string {
+func (v Variant) class(sizes []Size) string {
 	var c []string
-	switch l &^ (Small | Full) {
+	switch v {
 	case Secondary:
 		c = append(c, "secondary")
 	case Danger:
@@ -18,10 +21,10 @@ func (l Look) class() string {
 	case Ghost:
 		c = append(c, "ghost")
 	}
-	if l&Small != 0 {
+	if has(sizes, Small) {
 		c = append(c, "small")
 	}
-	if l&Full != 0 {
+	if has(sizes, FullWidth) {
 		c = append(c, "full")
 	}
 	return strings.Join(c, " ")
@@ -41,3 +44,6 @@ func (t Tone) toneClass() string {
 	}
 	return ""
 }
+
+// has reports whether sizes has s.
+func has(sizes []Size, s Size) bool { return slices.Contains(sizes, s) }

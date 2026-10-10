@@ -29,10 +29,10 @@ same SQL five times or more, with whatever arguments, its end is logged
 as a warning:
 
 ```text
-level=WARN msg="repeated query: an N+1? Load related rows with With or a single query" component=db unit="request GET /slow-posts" count=6 sql="SELECT \"authors\".\"id\", … FROM \"authors\" WHERE \"authors\".\"id\" = ? LIMIT 1" at=handlers/posts.go:42
+level=WARN msg="repeated query: an N+1? Load related rows with With or a single query" component=db operation="request GET /slow-posts" count=6 sql="SELECT \"authors\".\"id\", … FROM \"authors\" WHERE \"authors\".\"id\" = ? LIMIT 1" at=handlers/posts.go:42
 ```
 
-`unit` is what ran the queries: `request GET /slow-posts`, `job
+`operation` is what ran the queries: `request GET /slow-posts`, `job
 SendDigest`, `listener emailReceipt`, `message orders.created
 (billing)`, `task prune-audit-log`, `tool find_order` (a model's call
 of an [AI tool](ai.md)). `count` is how many times it ran
@@ -96,7 +96,7 @@ func TestNoNPlusOne(t *testing.T) {
 		return c.JSON(http.StatusOK, posts)
 	})
 	app.GetJSON("/slow-posts").AssertOK()
-	if q := app.RepeatedQueries(); len(q) != 1 || q[0].Count != 6 || q[0].Unit.Name != "GET /slow-posts" ||
+	if q := app.RepeatedQueries(); len(q) != 1 || q[0].Count != 6 || q[0].Operation.Name != "GET /slow-posts" ||
 		!strings.HasPrefix(q[0].Caller, "database/main_test.go:") {
 		t.Errorf("repeated queries: %v", q)
 	}
@@ -111,7 +111,7 @@ posts runs its query twice, under it.
 ### 4. Tune it
 
 `DB_REPEATED_QUERIES` is the threshold: the number of runs of one query
-in one unit of work that triggers the warning.
+in one operation that triggers the warning.
 
 | Value | Then |
 |---|---|
@@ -121,27 +121,28 @@ in one unit of work that triggers the warning.
 
 A loop that has to repeat a query (it is bounded and small, or each run
 depends on the last) can opt out: queries made with
-`db.Untracked(ctx)`'s context aren't counted.
+`db.AllowRepeatedQueries(ctx)`'s context aren't counted.
 
 ```go
 // illustrative
-ctx := db.Untracked(ctx)
+ctx := db.AllowRepeatedQueries(ctx)
 for _, id := range ids { … }
 ```
 
 ## How it works
 
-Every unit of work of the app (a request, a queue job, an async or
+Every operation of the app (a request, a queue job, an async or
 queued event listener, a pub/sub message, a scheduled task, an AI tool
 call) starts with
-`app.StartUnit`, which runs the functions added with `app.AroundUnits`.
-`db.Connect` adds one that gives the unit a counter in its context, when
+`app.StartOperation`, which runs the functions added with
+`app.AroundOperations`.
+`db.Connect` adds one that gives the operation a counter in its context, when
 detection is on. Each query made with that context counts its SQL text,
 which the query builder writes the same way every time, placeholders
 for values; when a count reaches the threshold, the call stack is read
-once to find the first frame outside the framework. When the unit ends,
+once to find the first frame outside the framework. When the operation ends,
 each query at or over the threshold is logged, and passed to the
-functions added with `d.OnRepeatedQuery`. A unit inside another (a job
+functions added with `d.OnRepeatedQuery`. An operation inside another (a job
 the sync queue driver runs in a request, a tool call in a request)
 counts its own queries.
 
@@ -150,31 +151,31 @@ and session stores) aren't counted: a cache read per key or a job per
 item is by design. Neither are the queries of validation rules
 (`exists`, `unique`), which run once per element of a slice before the
 handler. An operation the framework splits into chunks (`With` over
-more than 1,000 keys, `CreateMany` of many rows) counts once. A unit
-started inside `db.Untracked` (a job the sync driver runs) is tracked
-again. Code outside a unit (a command, `migrate`, a seeder, a factory in
-a test) isn't tracked; `d.Track(ctx, unit)` tracks it. The caller is
+more than 1,000 keys, `CreateMany` of many rows) counts once. An operation
+started inside `db.AllowRepeatedQueries` (a job the sync driver runs) is tracked
+again. Code outside an operation (a command, `migrate`, a seeder, a factory in
+a test) isn't tracked; `d.Track(ctx, op)` tracks it. The caller is
 the first frame of the stack in neither the framework's modules nor the
 standard library, told apart by the binary's build information; a
 first-party plugin's code counts as the app's.
 
 `db.Connect`'s database is tracked. Another one, opened with `db.Open`
 (and `Config.RepeatedQueries` set), is tracked once the app has its
-units tracked: `app.AroundUnits(analytics.Track)`.
+operations tracked: `app.AroundOperations(analytics.Track)`.
 
 Counting costs a map lookup per query while detection is on; with it
-off, no unit function is added, so requests skip starting units, and
+off, no operation function is added, so requests skip starting operations, and
 queries skip counting.
 
 ## Common problems
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| A warning for queries that must repeat | A loop over a few items, by design | Use `db.Untracked(ctx)` for that loop, or raise `DB_REPEATED_QUERIES` |
+| A warning for queries that must repeat | A loop over a few items, by design | Use `db.AllowRepeatedQueries(ctx)` for that loop, or raise `DB_REPEATED_QUERIES` |
 | No warning for a loop over three rows | Under the threshold (5) | Test with more rows, or set `DB_REPEATED_QUERIES=2` in development |
-| `at` is empty | Every frame of the stack is the framework's or the standard library's (a query from the framework itself) | Look at the unit and the SQL |
-| A warning when a streaming handler (server-sent events, a WebSocket) ends | It polls the same query for as long as the client stays: by design | Poll with `db.Untracked(ctx)` |
-| A goroutine's queries are missing from the report | It ran them after the request ended, which reports its queries | Expected: the unit was over |
+| `at` is empty | Every frame of the stack is the framework's or the standard library's (a query from the framework itself) | Look at the operation and the SQL |
+| A warning when a streaming handler (server-sent events, a WebSocket) ends | It polls the same query for as long as the client stays: by design | Poll with `db.AllowRepeatedQueries(ctx)` |
+| A goroutine's queries are missing from the report | It ran them after the request ended, which reports its queries | Expected: the operation was over |
 | No warnings in production | Off there by default | Set `DB_REPEATED_QUERIES` in staging to try it with real data |
 
 ## Next steps

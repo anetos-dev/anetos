@@ -5,6 +5,7 @@ package i18n
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"slices"
 	"strconv"
 	"strings"
@@ -277,9 +278,24 @@ type LocalePreference interface {
 	PreferredLocale() string
 }
 
-// CommunicationPreference is implemented by user models with a locale
+// MailLocalePreference is implemented by user models with a locale
 // for mail and notifications, which may differ from the site's. Without
 // it, or when it returns "", their [LocalePreference] is used.
+type MailLocalePreference interface {
+	// PreferredMailLocale returns a locale ("en"), or "" for the
+	// display one.
+	PreferredMailLocale() string
+}
+
+// warnCommunication warns once about a CommunicationPreference.
+var warnCommunication sync.Once
+
+// CommunicationPreference is the interface [MailLocalePreference]
+// replaces: [ForUser] still reads it until v0.6.
+//
+// Deprecated: Implement MailLocalePreference (rename the method
+// CommunicationLocale to PreferredMailLocale); CommunicationPreference is
+// removed in v0.6.
 type CommunicationPreference interface {
 	// CommunicationLocale returns a locale ("en"), or "" for the
 	// display one.
@@ -294,7 +310,7 @@ type TimeZonePreference interface {
 	PreferredTimeZone() string
 }
 
-// ForUser returns ctx in user's communication locale and time zone, for
+// ForUser returns ctx in user's mail locale and time zone, for
 // mail and notifications sent to them:
 //
 //	err := mailer.Send(i18n.ForUser(ctx, u), mails.Welcome{User: u})
@@ -309,7 +325,14 @@ func ForUser(ctx context.Context, user any) context.Context {
 	if p, ok := user.(LocalePreference); ok {
 		locale = p.PreferredLocale()
 	}
-	if p, ok := user.(CommunicationPreference); ok {
+	if p, ok := user.(MailLocalePreference); ok {
+		if l := p.PreferredMailLocale(); l != "" {
+			locale = l
+		}
+	} else if p, ok := user.(CommunicationPreference); ok {
+		warnCommunication.Do(func() {
+			slog.Default().Warn(fmt.Sprintf("i18n: %T has CommunicationLocale, which is PreferredMailLocale since v0.5; the old name is removed in v0.6", user))
+		})
 		if l := p.CommunicationLocale(); l != "" {
 			locale = l
 		}

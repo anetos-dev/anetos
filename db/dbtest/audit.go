@@ -25,7 +25,7 @@ func init() {
 		test{"Audit", testAudit},
 		test{"AuditBulk", testAuditBulk},
 		test{"WatchedWrites", testWatchedWrites},
-		test{"UniqueLiveAndPrune", testUniqueLiveAndPrune},
+		test{"UniqueWithoutTrashedAndPrune", testUniqueWithoutTrashedAndPrune},
 	)
 }
 
@@ -189,8 +189,8 @@ func testAudit(t *testing.T, ctx context.Context) {
 	}
 	p.Title = "Second"
 
-	// A named actor, in a unit of work.
-	uctx, end := app.StartUnit(audit.WithActor(ctx, audit.Actor{Type: "service", ID: "stripe"}), anetos.Unit{Kind: "job", Name: "sync-prices"})
+	// A named actor, in an operation.
+	uctx, end := app.StartOperation(audit.WithActor(ctx, audit.Actor{Type: "service", ID: "stripe"}), anetos.Operation{Kind: "job", Name: "sync-prices"})
 	p.Views = 2
 	check(t, db.Update(uctx, &p))
 	end()
@@ -549,12 +549,12 @@ type stTrashable struct {
 // TableName implements db.Tabler.
 func (stTrashable) TableName() string { return "st_trashables" }
 
-func testUniqueLiveAndPrune(t *testing.T, ctx context.Context) {
+func testUniqueWithoutTrashedAndPrune(t *testing.T, ctx context.Context) {
 	set := migrate.NewSet("st_live")
 	set.AddFunc("2026_10_06_000000_create_st_trashables", func(s *migrate.Schema) error {
 		return s.Create("st_trashables", func(t *migrate.Table) {
 			t.ID()
-			t.String("email", 100).UniqueLive()
+			t.String("email", 100).UniqueWithoutTrashed()
 			t.Timestamps()
 			t.SoftDeletes()
 		})
@@ -570,7 +570,7 @@ func testUniqueLiveAndPrune(t *testing.T, ctx context.Context) {
 	_, err = r.Up(ctx)
 	if d(ctx).Dialect().Name() == "mysql" {
 		if err == nil {
-			t.Fatal("UniqueLive on MySQL didn't fail")
+			t.Fatal("UniqueWithoutTrashed on MySQL didn't fail")
 		}
 		return
 	}
@@ -582,14 +582,20 @@ func testUniqueLiveAndPrune(t *testing.T, ctx context.Context) {
 		t.Fatal("two live rows with one email")
 	}
 	type form struct {
-		Email string `json:"email" validate:"unique_live:st_trashables,email"`
+		Email string `json:"email" validate:"unique_without_trashed:st_trashables,email"`
 	}
 	if err := validate.Struct(ctx, &form{"a@example.com"}); err == nil {
-		t.Error("unique_live passed a live duplicate")
+		t.Error("unique_without_trashed passed a live duplicate")
 	}
 	check(t, db.Delete(ctx, &a))
 	if err := validate.Struct(ctx, &form{"a@example.com"}); err != nil {
-		t.Errorf("unique_live counted a deleted row: %v", err)
+		t.Errorf("unique_without_trashed counted a deleted row: %v", err)
+	}
+	type former struct {
+		Email string `json:"email" validate:"unique_live:st_trashables,email"`
+	}
+	if err := validate.Struct(ctx, &former{"a@example.com"}); err != nil {
+		t.Errorf("unique_live (until v0.6) counted a deleted row: %v", err)
 	}
 	b := stTrashable{Email: "a@example.com"}
 	check(t, db.Create(ctx, &b))
@@ -598,11 +604,11 @@ func testUniqueLiveAndPrune(t *testing.T, ctx context.Context) {
 	app, err := anetos.New(anetos.WithSource(config.Map{"APP_ENV": "testing"}), anetos.WithLogOutput(io.Discard))
 	check(t, err)
 	t.Cleanup(func() { _ = app.Close() })
-	check(t, db.PruneTrashed[stTrashable](app, 30*24*time.Hour))
-	if err := db.PruneTrashed[stTrashable](app, time.Hour); err == nil {
+	check(t, db.Prunable[stTrashable](app, 30*24*time.Hour))
+	if err := db.Prunable[stTrashable](app, time.Hour); err == nil {
 		t.Error("registered twice")
 	}
-	if err := db.PruneTrashed[stAuthor](app, time.Hour); err == nil {
+	if err := db.Prunable[stAuthor](app, time.Hour); err == nil {
 		t.Error("registered a model without SoftDeletes")
 	}
 	mustExec(t, ctx, "UPDATE st_trashables SET deleted_at = ? WHERE id = ?", time.Now().UTC().AddDate(0, 0, -40), a.ID)

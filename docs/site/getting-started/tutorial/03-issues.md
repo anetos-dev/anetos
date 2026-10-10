@@ -117,7 +117,7 @@ func (Issues) Index(c *web.Ctx, in IssueList) (web.Responder, error) {
 	if err != nil {
 		return nil, err
 	}
-	return web.View(views.IssuesPage(page)), nil
+	return web.Render(views.IssuesPage(page)), nil
 }
 ```
 
@@ -202,7 +202,7 @@ func (Issues) Edit(c *web.Ctx, in IssueID) (web.Responder, error) {
 	if err != nil {
 		return nil, err
 	}
-	return web.View(views.IssueForm(issue)), nil
+	return web.Render(views.IssueForm(issue)), nil
 }
 
 // Update saves the issue.
@@ -387,7 +387,7 @@ Open http://localhost:8080/issues. Open an issue with an empty title
 
 > **Tip:** Logging in leads to `/dashboard`. To land on the issues
 > instead, add `AUTH_HOME_URL=/issues` to `.env`, or change the default
-> in `auth.go`: `auth.DefaultHomeURL("/issues")`.
+> in `auth.go`: `auth.WithDefaultHomeURL("/issues")`.
 
 ## Test it
 

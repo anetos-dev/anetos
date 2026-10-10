@@ -239,12 +239,12 @@ func New(app *anetos.App, drivers ...Driver) (*Storage, error) {
 		if c, ok := b.(io.Closer); ok {
 			closers = append(closers, c)
 		}
-		opts := []DiskOption{BaseURL(cfg.URL), WithLogger(app.Logger().With("component", "storage"))}
+		opts := []DiskOption{WithBaseURL(cfg.URL), WithLogger(app.Logger().With("component", "storage"))}
 		if cfg.Public {
-			opts = append(opts, Public())
+			opts = append(opts, WithPublic())
 		}
 		if signer != nil {
-			opts = append(opts, SignWith(signer))
+			opts = append(opts, WithSigner(signer))
 		}
 		d := NewDisk(displayName(name), b, opts...)
 		d.now = app.Now // temporary URLs expire on the app's clock, which tests can move
@@ -304,24 +304,37 @@ func WithStorage(ctx context.Context, s *Storage) context.Context {
 	return context.WithValue(ctx, storageKey{}, s)
 }
 
-// ErrNoStorage is returned by [From] when the context has no storage.
+// ErrNoStorage is returned by [From] and [DiskFrom] when the context has
+// no storage.
 var ErrNoStorage = errors.New("storage: no storage in the context: call storage.New at startup, or storage.WithStorage")
 
-// From returns the disk name in ctx, or the default disk without a
-// name:
+// From returns the default disk of the storage in ctx (Laravel's
+// Storage::put); [DiskFrom] returns another:
 //
-//	disk, err := storage.From(ctx)            // the default disk
-//	avatars, err := storage.From(ctx, "avatars")
-func From(ctx context.Context, name ...string) (*Disk, error) {
-	s, ok := ctx.Value(storageKey{}).(*Storage)
-	if !ok {
+//	disk, err := storage.From(ctx)
+//	avatars, err := storage.DiskFrom(ctx, "avatars")
+func From(ctx context.Context) (*Disk, error) {
+	s, err := storageFrom(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return s.def, nil
+}
+
+// DiskFrom returns the disk name of the storage in ctx ("" for the
+// default one).
+func DiskFrom(ctx context.Context, name string) (*Disk, error) {
+	s, err := storageFrom(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return s.Disk(name)
+}
+
+func storageFrom(ctx context.Context) (*Storage, error) {
+	s, _ := ctx.Value(storageKey{}).(*Storage)
+	if s == nil {
 		return nil, ErrNoStorage
 	}
-	switch len(name) {
-	case 0:
-		return s.def, nil
-	case 1:
-		return s.Disk(name[0])
-	}
-	return nil, errors.New("storage: From takes one disk name")
+	return s, nil
 }

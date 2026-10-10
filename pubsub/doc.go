@@ -7,7 +7,7 @@
 //
 //	ps, err := pubsub.New(app, redis.PubSubDriver(), gcppubsub.Driver()) // PUBSUB_DRIVER picks one
 //	err = pubsub.Listen(ps, "orders.created", billing.OrderCreated,
-//		pubsub.Concurrency(20), pubsub.MaxAttempts(5), pubsub.DeadLetter("orders.created.dlq"))
+//		pubsub.Concurrency(20), pubsub.Tries(5), pubsub.DeadLetter("orders.created.dlq"))
 //
 //	err = pubsub.Publish(ctx, "invoices.created", InvoiceCreated{ID: inv.ID})
 //

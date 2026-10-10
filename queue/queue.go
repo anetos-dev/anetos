@@ -644,7 +644,7 @@ func (q *Queue) call(ctx context.Context, job Job, info Info, timeout time.Durat
 	defer cancel()
 	if q.app != nil {
 		var end func()
-		ctx, end = q.app.StartUnit(ctx, anetos.Unit{Kind: "job", Name: info.Job})
+		ctx, end = q.app.StartOperation(ctx, anetos.Operation{Kind: "job", Name: info.Job})
 		defer end()
 	}
 	defer func() {

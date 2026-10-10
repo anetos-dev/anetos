@@ -32,7 +32,7 @@ Tailwind CSS (80 to 112 MB, once): see [How it works](#how-it-works).
 | `public/static/app.css` | What Tailwind compiles from it, minified: the stylesheet the pages link. Commit it, as the `_templ.go` files: `go build`, `go test` and the `Dockerfile` use it as it is |
 | `public/static/tailwind.LICENSE.txt` | Tailwind's license (MIT): `app.css` carries its code |
 | `views/ui/*.templ` | The components, with utility classes |
-| `views/ui/classes.go` | The classes of each look and tone, and of the form controls |
+| `views/ui/classes.go` | The classes of each variant, size and tone, and of the form controls |
 
 A new project's `app.css` comes compiled: it has every class of the
 components, and the pages of `make:crud` and `make:auth` add none, so

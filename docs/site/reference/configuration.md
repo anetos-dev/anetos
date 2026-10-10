@@ -152,7 +152,7 @@ Read by `web.NewServer` (or `web.LoadConfig`) into `web.Config`.
 | `HTTP_CORS_MAX_AGE` | duration | `10m` | How long browsers cache preflights | v0.1 |
 
 Streaming responses lift `HTTP_REQUEST_TIMEOUT` and `HTTP_WRITE_TIMEOUT`
-for themselves: `c.Events()` (server-sent events, and `ai.SSE`) does both;
+for themselves: `c.EventStream()` (server-sent events, and `ai.SSE`) does both;
 other streams use `web.WithoutTimeout(ctx)` for the request's context and
 `http.ResponseController`'s `SetWriteDeadline` for the response. They
 should end when `srv.Stopping()` is closed, so shutdown doesn't wait for
@@ -206,7 +206,7 @@ keys with a prefix, e.g. `ANALYTICS_DB_HOST`) into `db.Config`.
 | `DB_CONN_MAX_IDLE_TIME` | duration | `5m` | Idle connections are closed after this long | v0.1 |
 | `DB_LOG_QUERIES` | bool | on when `APP_ENV=development` | Log every query, with its arguments and duration, at debug level | v0.1 |
 | `DB_SLOW_QUERY` | duration | `500ms` | Log queries taking at least this long as warnings (without arguments). `0` disables | v0.1 |
-| `DB_REPEATED_QUERIES` | int | `5` when `APP_ENV` is `development` or `testing`, off elsewhere | Warn when a unit of work (a request, a job, a listener, a task) runs the same query this many times or more: an N+1. `0` disables; otherwise at least 2. See [Find N+1 queries](../guides/n-plus-one.md) | v0.2 |
+| `DB_REPEATED_QUERIES` | int | `5` when `APP_ENV` is `development` or `testing`, off elsewhere | Warn when an operation (a request, a job, a listener, a task) runs the same query this many times or more: an N+1. `0` disables; otherwise at least 2. See [Find N+1 queries](../guides/n-plus-one.md) | v0.2 |
 | `DB_MIGRATE_ON_START` | bool | `false` | With `migrate.New`: run the pending migrations when the app starts with `run` (the default command) or `serve`, before its components. For one instance on SQLite in a container; the `Dockerfile` of a SQLite project sets it | v0.3 |
 | `DB_MIGRATE_READINESS` | bool | `true` | With `migrate.New`: the server isn't ready (`/health/ready` answers 503, `health:check` exits 1) while the database has migrations the app hasn't run, rechecked every 5 seconds. Turn it off where the migrations run after the new version starts and the platform waits for it to be ready | v0.3 |
 | `DB_ALLOW_LOCAL_TIMEZONE` | bool | `false` | Accept a database session time zone other than UTC (set in `DB_URL`), which the app otherwise refuses at boot so the database never writes local times next to the app's UTC ones. For a legacy database whose times are local; the app still writes UTC | v0.3 |
@@ -378,7 +378,7 @@ Read by `auth.New` (or `auth.LoadConfig`) into `auth.Config`.
 | Key | Type | Default | Description | Since |
 |---|---|---|---|---|
 | `AUTH_LOGIN_URL` | path | `/login` | Where `Require` sends guests asking for a page | v0.2 |
-| `AUTH_HOME_URL` | path | `/` (`auth.DefaultHomeURL` sets another; `make:auth`'s is `/dashboard`) | The page for logged-in users: where logging in or registering leads when there's no page they asked for, and where `Guest` sends them | v0.2 |
+| `AUTH_HOME_URL` | path | `/` (`auth.WithDefaultHomeURL` sets another; `make:auth`'s is `/dashboard`) | The page for logged-in users: where logging in or registering leads when there's no page they asked for, and where `Guest` sends them | v0.2 |
 | `AUTH_REMEMBER_TTL` | duration | `720h` | How long "remember me" lasts | v0.2 |
 | `AUTH_THROTTLE` | int | `5` | Login attempts allowed per minute for one login, or one account, from one IP address (cleared by a success) | v0.2 |
 | `AUTH_THROTTLE_IP` | int | `50` | Failed logins allowed per minute from one IP address (IPv6: its /64), whatever the login | v0.2 |
@@ -415,7 +415,7 @@ See [Add an admin panel](../guides/admin.md).
 |---|---|---|---|---|
 | `ADMIN_PATH` | string | `/admin` | Where the admin is mounted; starts with `/`. With `ADMIN_HOST`, the admin is at that host's root unless this is set; `/` needs `ADMIN_HOST` | v0.3 |
 | `ADMIN_HOST` | string | empty | A host the admin answers on alone (`admin.example.com`, on any port; a port given here goes into its URLs); empty for every host | v0.3 |
-| `ADMIN_TITLE` | string | `APP_NAME` | The admin's name in its pages (overrides `admin.Title`) | v0.3 |
+| `ADMIN_TITLE` | string | `APP_NAME` | The admin's name in its pages (overrides `admin.WithDefaultTitle`) | v0.3 |
 | `ADMIN_PER_PAGE` | int | `25` | How many records a list shows, 1 to 500 (a resource's `PerPage` overrides it) | v0.3 |
 | `ADMIN_CONFIRM` | bool | `true` | Ask for the password again (`AUTH_CONFIRM_TTL`) before dangerous actions: deleting, disabling, roles and permissions, impersonating a user, forgetting every failed job, actions marked `Danger` | v0.3 |
 | `ADMIN_TWO_FACTOR` | `optional`, `required` | `optional` | `required` lets in only users with two-factor authentication on; the others are told to turn it on (`AUTH_TWO_FACTOR_URL`) | v0.3 |

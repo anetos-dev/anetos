@@ -529,12 +529,12 @@ func testPaginate(t *testing.T, ctx context.Context) {
 	q := db.Query[stPost](ctx).OrderBy(id.Asc())
 	p, err := q.Paginate(2, 3)
 	check(t, err)
-	if p.Total != 7 || p.LastPage != 3 || p.CurrentPage != 2 || len(p.Data) != 3 || p.Data[0].Title != "post 03" || !p.HasMore() || !p.HasPrev() {
+	if p.Total != 7 || p.LastPage != 3 || p.CurrentPage != 2 || len(p.Data) != 3 || p.Data[0].Title != "post 03" || !p.HasNext() || !p.HasPrev() {
 		t.Errorf("page 2: %+v", p)
 	}
 	last, err := q.Paginate(3, 3)
 	check(t, err)
-	if len(last.Data) != 1 || last.HasMore() {
+	if len(last.Data) != 1 || last.HasNext() {
 		t.Errorf("last page: %+v", last)
 	}
 	past, err := q.Paginate(9, 3)
@@ -803,7 +803,7 @@ func testTransactions(t *testing.T, ctx context.Context) {
 		t.Error("AfterCommit outside a transaction didn't run at once")
 	}
 
-	check(t, db.TxWith(ctx, &sql.TxOptions{ReadOnly: d(ctx).Dialect().Name() != "sqlite"}, func(ctx context.Context) error {
+	check(t, db.TxWithOptions(ctx, &sql.TxOptions{ReadOnly: d(ctx).Dialect().Name() != "sqlite"}, func(ctx context.Context) error {
 		_, err := db.Query[stAuthor](ctx).Get()
 		return err
 	}))

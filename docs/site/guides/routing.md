@@ -149,8 +149,9 @@ middleware works.
 (when configured), the request's locale (with
 [translations](translations.md)), `BodyLimit` and `Timeout`. See the
 [configuration reference](../reference/configuration.md#http-server).
-`web.ClientIP(r)` returns the client's address `RealIP` found;
-`web.ClientIPFrom(ctx)` the same from a request's context.
+`web.ClientIP(ctx)` returns the client's address `RealIP` found
+(or the peer's), from the request's context: `web.ClientIP(c)` in a
+handler.
 To limit how often clients call a group of routes, add
 `ratelimit.Middleware` to it: see [Rate limiting](rate-limiting.md).
 

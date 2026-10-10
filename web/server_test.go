@@ -115,7 +115,7 @@ func TestServerEndToEnd(t *testing.T) {
 		t.Errorf("routes = %v", names)
 	}
 	for _, st := range app.Supervisor().Status() {
-		if st.Name == "http" && (st.Stage != supervisor.StageIngress || st.Restart != supervisor.StopOnFailure || st.Roles[0] != "http") {
+		if st.Name == "http" && (st.Stage != supervisor.StageIngress || st.Restart != supervisor.StopOnFailure || st.ProcessTypes[0] != "web") {
 			t.Errorf("http component spec = %+v", st)
 		}
 	}
@@ -296,7 +296,7 @@ func TestServerCommands(t *testing.T) {
 		}
 	}
 
-	// serve runs the http role until the context ends.
+	// serve runs the web process type until the context ends.
 	app2 := newApp(t, config.Map{"HTTP_ADDR": "127.0.0.1:0"})
 	srv2, err := web.NewServer(app2)
 	if err != nil {

@@ -122,7 +122,7 @@ func (Blog) CreatePost(c *web.Ctx, in NewPost) (web.Responder, error) {
 	// region: forget
 	// GET /stats counts the new post. The post is saved either way: a
 	// cache failure only delays that, so log it rather than fail.
-	if err := cache.Forget(c, "stats"); err != nil {
+	if err := cache.Delete(c, "stats"); err != nil {
 		c.Logger().Warn("forget the cached stats", "error", err)
 	}
 	// endregion
@@ -165,7 +165,7 @@ func (Blog) DeletePost(c *web.Ctx, in PostID) (web.Responder, error) {
 	if err := db.Delete(c, &p); err != nil { // soft delete
 		return nil, err
 	}
-	if err := cache.Forget(c, "stats"); err != nil {
+	if err := cache.Delete(c, "stats"); err != nil {
 		c.Logger().Warn("forget the cached stats", "error", err)
 	}
 	return web.NoContent(), nil

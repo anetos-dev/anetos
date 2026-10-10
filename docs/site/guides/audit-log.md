@@ -52,7 +52,7 @@ if err := audit.Track[Document](trail, audit.Except("view_count")); err != nil {
 	return nil, err
 }
 // Documents deleted more than 30 days ago go for good: db:prune-trashed.
-if err := db.PruneTrashed[Document](app, 30*24*time.Hour); err != nil {
+if err := db.Prunable[Document](app, 30*24*time.Hour); err != nil {
 	return nil, err
 }
 ```
@@ -230,7 +230,7 @@ any model: `db.Query[audit.Entry]`, `db.Query[audit.BulkOp]`.
 
 Not everything worth recording is a write: an export, a download, a
 failed permission check. `audit.Record` adds an entry with the same
-actor and unit of work, and your details as JSON:
+actor and operation, and your details as JSON:
 
 ```go
 // Export returns the user's documents, and records that they did: an
@@ -331,14 +331,14 @@ Two things help models with `db.SoftDeletes`:
 
 **Unique among live rows.** A soft-deleted row keeps its values, so a
 deleted user's email would block a new sign-up with a plain unique
-index. `UniqueLive` makes the index ignore deleted rows, and the
-`unique_live` validation rule checks the same:
+index. `UniqueWithoutTrashed` makes the index ignore deleted rows, and the
+`unique_without_trashed` validation rule checks the same:
 
 ```go
 return s.Create("documents", func(t *migrate.Table) {
 	t.ID()
 	t.ForeignID("owner_id").References("users")
-	t.String("slug", 100).UniqueLive() // PostgreSQL and SQLite
+	t.String("slug", 100).UniqueWithoutTrashed() // PostgreSQL and SQLite
 	t.String("title", 255)
 	t.Text("body")
 	t.String("status", 20).Default("draft")
@@ -353,14 +353,14 @@ return s.Create("documents", func(t *migrate.Table) {
 
 ```go
 // illustrative
-Slug string `json:"slug" validate:"required|unique_live:documents,slug"`
+Slug string `json:"slug" validate:"required|unique_without_trashed:documents,slug"`
 ```
 
-MySQL and MariaDB have no partial indexes, so `UniqueLive` fails there
+MySQL and MariaDB have no partial indexes, so `UniqueWithoutTrashed` fails there
 with the reason; use `Unique`, or a generated column that is `NULL` for
 deleted rows with a unique index on it.
 
-**Pruning.** `db.PruneTrashed[Document](app, 30*24*time.Hour)` (step 2)
+**Pruning.** `db.Prunable[Document](app, 30*24*time.Hour)` (step 2)
 registers the model; `db:prune-trashed` (or `db.PruneAllTrashed` in a
 scheduled task) then deletes for good the rows deleted more than 30 days
 ago, 1,000 per transaction. On a tracked model, each batch is a bulk
@@ -431,7 +431,7 @@ Use `app.Travel` to test retention and pruning.
   outside it (`db.WithoutTx`) waits for that lock; on SQLite with one
   connection it waits forever. Do the work in the hook's context, or
   after the commit (`db.AfterCommit`).
-- **`Upsert` fails on a `UniqueLive` index**: PostgreSQL and SQLite only
+- **`Upsert` fails on a `UniqueWithoutTrashed` index**: PostgreSQL and SQLite only
   take a partial index as the conflict target with its `WHERE`, which
   `Upsert` doesn't write. Use `Create` and `Update`, or a plain `Unique`
   index.

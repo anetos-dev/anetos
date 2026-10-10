@@ -7,6 +7,13 @@ tagged `drivers/s3/vX.Y.Z`. The framework's own changes are in the
 
 ## [Unreleased]
 
+### Changed
+- `Option` no longer exposes the MinIO client's options (a function of
+  `*minio.Options`): `WithTransport` (was `Transport`, deprecated until
+  v0.6) is the option there is. `Backend.TemporaryURL` implements
+  `storage.TemporaryURLBackend` (was `SignedURL`, deprecated until v0.6)
+  (M8b-5).
+
 ### Security
 - `golang.org/x/net` v0.60.0, an indirect dependency (GO-2026-6612,
   GO-2026-6617).

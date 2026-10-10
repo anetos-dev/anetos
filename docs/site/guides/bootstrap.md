@@ -30,7 +30,7 @@ with `go tool anetos css:use bootstrap`.
 | `public/static/theme.js` | Sets `data-bs-theme` on `<html>` from the visitor's light or dark mode, and follows its changes |
 | `public/static/app.css` | The few rules Bootstrap has no class for (a narrow column, the login card's width) |
 | `views/ui/*.templ` | The components: `navbar`, `card`, `form-control`, `alert`, `badge`, `pagination`… |
-| `views/ui/classes.go` | The classes of each look (`btn btn-primary`, `btn-outline-secondary`, `btn-danger`, `btn-link`, `btn-sm`, `w-100`) and tone |
+| `views/ui/classes.go` | The classes of each variant and size (`btn btn-primary`, `btn-outline-secondary`, `btn-danger`, `btn-link`, `btn-sm`, `w-100`) and tone |
 
 A form with its errors:
 

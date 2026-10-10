@@ -21,7 +21,7 @@ func unitName(c *web.Ctx) error {
 	return c.Text(http.StatusOK, name)
 }
 
-// Each request is a unit of work, whose context its handler gets.
+// Each request is an operation, whose context its handler gets.
 func TestRequestUnits(t *testing.T) {
 	app := newApp(t, config.Map{"APP_ENV": "testing"})
 	srv, err := web.NewServer(app)
@@ -35,11 +35,11 @@ func TestRequestUnits(t *testing.T) {
 		return w.Body.String()
 	}
 	if got := get("/posts/7"); got != "" {
-		t.Errorf("without AroundUnits: %q", got)
+		t.Errorf("without AroundOperations: %q", got)
 	}
-	var units []anetos.Unit
+	var units []anetos.Operation
 	ended := 0
-	app.AroundUnits(func(ctx context.Context, u anetos.Unit) (context.Context, func()) {
+	app.AroundOperations(func(ctx context.Context, u anetos.Operation) (context.Context, func()) {
 		units = append(units, u)
 		return context.WithValue(ctx, unitCtxKey{}, u.Name), func() { ended++ }
 	})

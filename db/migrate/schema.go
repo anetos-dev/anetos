@@ -468,7 +468,7 @@ func (s *Schema) indexSQL(table string, ix index) (string, error) {
 	stmt := fmt.Sprintf("CREATE %s %s ON %s (%s)", kind, s.q(ix.name), s.q(table), s.list(ix.columns))
 	if ix.live {
 		if s.dialect == "mysql" {
-			return "", fmt.Errorf("migrate: %s: UniqueLive needs a partial index, which MySQL and MariaDB don't have; use Unique, or a generated column that is NULL for deleted rows with a unique index on it", ix.name)
+			return "", fmt.Errorf("migrate: %s: UniqueWithoutTrashed needs a partial index, which MySQL and MariaDB don't have; use Unique, or a generated column that is NULL for deleted rows with a unique index on it", ix.name)
 		}
 		stmt += " WHERE " + s.q("deleted_at") + " IS NULL"
 	}

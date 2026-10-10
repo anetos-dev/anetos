@@ -160,7 +160,7 @@ func AccountMenu() templ.Component {
 						}
 						return nil
 					})
-					templ_7745c5c3_Err = ui.LinkButton(web.MustURL(ctx, "register"), ui.Primary|ui.Small).Render(templ.WithChildren(ctx, templ_7745c5c3_Var7), templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = ui.LinkButton(web.MustURL(ctx, "register"), ui.Primary, ui.Small).Render(templ.WithChildren(ctx, templ_7745c5c3_Var7), templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -1232,7 +1232,7 @@ func Dashboard(u *models.User, tokens []auth.Token, newToken string, assigned []
 							}
 							return nil
 						})
-						templ_7745c5c3_Err = ui.PostButton(web.MustURL(ctx, "verification.send"), "POST", ui.Secondary|ui.Small).Render(templ.WithChildren(ctx, templ_7745c5c3_Var67), templ_7745c5c3_Buffer)
+						templ_7745c5c3_Err = ui.PostButton(web.MustURL(ctx, "verification.send"), "POST", ui.Secondary, ui.Small).Render(templ.WithChildren(ctx, templ_7745c5c3_Var67), templ_7745c5c3_Buffer)
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -1392,7 +1392,7 @@ func Dashboard(u *models.User, tokens []auth.Token, newToken string, assigned []
 										}
 										return nil
 									})
-									templ_7745c5c3_Err = ui.PostButton(web.MustURL(ctx, "tokens.delete", t.ID), "POST", ui.Secondary|ui.Small).Render(templ.WithChildren(ctx, templ_7745c5c3_Var77), templ_7745c5c3_Buffer)
+									templ_7745c5c3_Err = ui.PostButton(web.MustURL(ctx, "tokens.delete", t.ID), "POST", ui.Secondary, ui.Small).Render(templ.WithChildren(ctx, templ_7745c5c3_Var77), templ_7745c5c3_Buffer)
 									if templ_7745c5c3_Err != nil {
 										return templ_7745c5c3_Err
 									}
@@ -2407,7 +2407,7 @@ func socialButtons(buttons []SocialButton) templ.Component {
 						}
 						return nil
 					})
-					templ_7745c5c3_Err = ui.LinkButton(web.MustURL(ctx, "social.redirect", b.Name), ui.Secondary|ui.Full).Render(templ.WithChildren(ctx, templ_7745c5c3_Var133), templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = ui.LinkButton(web.MustURL(ctx, "social.redirect", b.Name), ui.Secondary, ui.FullWidth).Render(templ.WithChildren(ctx, templ_7745c5c3_Var133), templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}

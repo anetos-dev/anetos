@@ -134,7 +134,7 @@ func New(app *anetos.App, drivers ...Driver) (*Mailer, error) {
 		name = app.Config().Name
 	}
 	log := app.Logger().With("component", "mailer")
-	m := NewWithTransport(t, DefaultFrom(Address{Name: name, Address: cfg.FromAddress}), BaseURL(app.Config().URL), WithLogger(log))
+	m := NewWithTransport(t, WithDefaultFrom(Address{Name: name, Address: cfg.FromAddress}), WithAppURL(app.Config().URL), WithLogger(log))
 	m.now = app.Now // emails' Date on the app's clock, which tests can move
 	if q, err := anetos.Resolve[*queue.Queue](app); err == nil {
 		if err := m.register(q); err != nil {

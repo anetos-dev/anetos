@@ -75,7 +75,7 @@ func setup(app *anetos.App) (*web.Server, error) {
 		return nil, err
 	}
 	// Register job types here (queue.Register[jobs.SendWelcome](q)). The
-	// workers run with the app, or alone with `go run . run --only=workers`.
+	// workers run with the app, or alone with `go run . run --only=worker`.
 	if err := q.Work(); err != nil {
 		return nil, err
 	}

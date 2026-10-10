@@ -99,7 +99,7 @@ func setup(app *anetos.App) (*web.Server, error) {
 		return nil, err
 	}
 	// The emails about issues. The workers run with the app, or alone
-	// with `go run . run --only=workers`.
+	// with `go run . run --only=worker`.
 	if err := queue.Register[jobs.NotifyAssigned](q, queue.Tries(5)); err != nil {
 		return nil, err
 	}

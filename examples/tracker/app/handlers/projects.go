@@ -186,7 +186,7 @@ func (Projects) Show(c *web.Ctx, in IssueFilter) (web.Responder, error) {
 	if err != nil {
 		return nil, err
 	}
-	return web.View(views.ProjectPage(views.IssueList{
+	return web.Render(views.ProjectPage(views.IssueList{
 		Project: project, Page: page, Filter: f, Labels: labels, Assignees: assignees,
 		CanCreate: !project.Archived() && access.Can(c, project.Key, access.CreateIssues),
 		CanManage: access.Can(c, project.Key, access.ManageProjects),
@@ -203,7 +203,7 @@ func (Projects) Settings(c *web.Ctx, in ProjectPath) (web.Responder, error) {
 	if err != nil {
 		return nil, err
 	}
-	return web.View(views.ProjectSettingsPage(page)), nil
+	return web.Render(views.ProjectSettingsPage(page)), nil
 }
 
 func settingsPage(c *web.Ctx, project models.Project) (views.ProjectSettings, error) {

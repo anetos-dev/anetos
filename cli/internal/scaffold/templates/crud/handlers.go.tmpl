@@ -51,7 +51,7 @@ func ([[.Plural]]) Index(c *web.Ctx, in [[.Model]]List) (web.Responder, error) {
 	if err != nil {
 		return nil, err
 	}
-	return web.View(views.[[.Plural]]Page(page)), nil
+	return web.Render(views.[[.Plural]]Page(page)), nil
 }
 
 // Show shows a [[.Words]]; one that doesn't exist is a 404 (db.ErrNotFound).
@@ -60,7 +60,7 @@ func ([[.Plural]]) Show(c *web.Ctx, in [[.Model]]ID) (web.Responder, error) {
 	if err != nil {
 		return nil, err
 	}
-	return web.View(views.[[.Model]]Page(row)), nil
+	return web.Render(views.[[.Model]]Page(row)), nil
 }
 
 // New shows the form for a new [[.Words]].
@@ -85,7 +85,7 @@ func ([[.Plural]]) Edit(c *web.Ctx, in [[.Model]]ID) (web.Responder, error) {
 	if err != nil {
 		return nil, err
 	}
-	return web.View(views.[[.Model]]Form(row)), nil
+	return web.Render(views.[[.Model]]Form(row)), nil
 }
 
 // Update saves the changes to a [[.Words]].

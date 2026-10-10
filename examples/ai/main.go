@@ -123,7 +123,7 @@ type FindOrderInput struct {
 // findOrder looks up an order of the current customer. It runs with the
 // request's context: another customer's order is "not found", as it would
 // be in the customer's own browser, and the model is told so.
-var findOrder = ai.Func("find_order", "Look up one of the customer's orders by its number",
+var findOrder = ai.NewTool("find_order", "Look up one of the customer's orders by its number",
 	func(ctx context.Context, in FindOrderInput) (Order, error) {
 		i := slices.IndexFunc(orders, func(o Order) bool { return o.Number == in.Number && o.Customer == customer(ctx) })
 		if i < 0 {

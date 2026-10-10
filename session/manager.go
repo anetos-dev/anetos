@@ -363,7 +363,7 @@ func (m *Manager) Middleware(next http.Handler) http.Handler {
 			return
 		}
 		sw := &saver{ResponseWriter: w, m: m, st: st, ctx: context.WithoutCancel(r.Context())}
-		ctx := context.WithValue(NewContext(r.Context(), st.s), managerKey{}, m)
+		ctx := context.WithValue(WithSession(r.Context(), st.s), managerKey{}, m)
 		h := next
 		if mws := m.inner.Load(); mws != nil {
 			c := cached.Load()

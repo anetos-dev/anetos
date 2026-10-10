@@ -182,7 +182,7 @@ database in the validation context, which in `web.H` is the request's.
 | Rule | Passes when | Default message |
 |---|---|---|
 | `unique:table[,column[,exceptField[,idColumn]]]` | No row in *table* has this value in *column* (default: the field's key). With *exceptField*, the row whose *idColumn* (default `id`) equals that field's value is ignored, for edit forms | The {label} has already been taken. |
-| `unique_live:table[,column[,exceptField[,idColumn]]]` | As `unique`, among the rows whose `deleted_at` is NULL: pair it with `migrate.Table.UniqueLive` (v0.3) | The {label} has already been taken. |
+| `unique_without_trashed:table[,column[,exceptField[,idColumn]]]` | As `unique`, among the rows whose `deleted_at` is NULL: pair it with `migrate.Table.UniqueWithoutTrashed` (v0.3; `unique_live` before v0.5, until v0.6) | The {label} has already been taken. |
 | `exists:table[,column]` | A row in *table* has this value in *column* | The selected {label} is invalid. |
 
 ```go
@@ -198,7 +198,7 @@ Take the *exceptField* from the path (or set it in code), never from a
 body field: a client could otherwise name another user's ID and skip the
 check.
 
-`unique` and `exists` count soft-deleted rows, as a unique index would; `unique_live` doesn't. Without a database
+`unique` and `exists` count soft-deleted rows, as a unique index would; `unique_without_trashed` doesn't. Without a database
 in the context they fail with `db.ErrNoDB` (a 500). Like every custom rule,
 they skip empty fields.
 

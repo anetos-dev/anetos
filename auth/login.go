@@ -269,7 +269,7 @@ func (a *Auth[U]) Logout(ctx context.Context) error {
 	u, err := Current[U](ctx)
 	// Impersonating u (Impersonate): logging out is the impersonator's, and
 	// mustn't log u out of their remembered browsers.
-	acting := s.String(keyImpersonator) != ""
+	acting := s.GetString(keyImpersonator) != ""
 	s.Invalidate()
 	a.clearRemember(st)
 	st.set(nil, nil)

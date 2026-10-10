@@ -94,7 +94,7 @@ func (Notes) Index(c *web.Ctx, in ListNotes) (web.Responder, error) {
 	if err != nil {
 		return nil, err
 	}
-	return web.View(NotesPage(page, in.Q)), nil
+	return web.Render(NotesPage(page, in.Q)), nil
 }
 
 // endregion
@@ -121,7 +121,7 @@ func (Notes) Edit(c *web.Ctx, in NoteID) (web.Responder, error) {
 	if err != nil {
 		return nil, err
 	}
-	return web.View(NoteFormPage(n)), nil
+	return web.Render(NoteFormPage(n)), nil
 }
 
 func (Notes) Update(c *web.Ctx, in UpdateNote) (web.Responder, error) {
@@ -180,7 +180,7 @@ func setup(app *anetos.App) (*web.Server, error) {
 	}
 	r := srv.Router()
 	r.UseGlobal(web.MethodOverride) // forms can send PUT and DELETE with _method
-	r.HandleStd(http.MethodGet, "/assets/{path...}", assets)
+	r.Get("/assets/{path...}", web.WrapHandler(assets))
 
 	var h Notes
 	pages := r.Group("", sessions.Middleware, web.CSRF())

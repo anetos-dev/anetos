@@ -74,11 +74,25 @@ func (m *Mailer) observe(ctx context.Context, r Record) {
 // Option configures a [Mailer] made with [NewWithTransport].
 type Option func(*Mailer)
 
-// DefaultFrom sets the sender of messages without one.
-func DefaultFrom(a Address) Option { return func(m *Mailer) { m.from = a } }
+// WithDefaultFrom sets the sender of messages without one.
+func WithDefaultFrom(a Address) Option { return func(m *Mailer) { m.from = a } }
 
-// BaseURL sets the app's public URL, for [URL].
-func BaseURL(url string) Option { return func(m *Mailer) { m.url = strings.TrimSuffix(url, "/") } }
+// DefaultFrom is [WithDefaultFrom].
+//
+// Deprecated: Use WithDefaultFrom; DefaultFrom is removed in v0.6.
+//
+//go:fix inline
+func DefaultFrom(a Address) Option { return WithDefaultFrom(a) }
+
+// WithAppURL sets the app's public URL, for [URL].
+func WithAppURL(url string) Option { return func(m *Mailer) { m.url = strings.TrimSuffix(url, "/") } }
+
+// BaseURL is [WithAppURL].
+//
+// Deprecated: Use WithAppURL; BaseURL is removed in v0.6.
+//
+//go:fix inline
+func BaseURL(url string) Option { return WithAppURL(url) }
 
 // WithLogger sets the mailer's logger. Default slog.Default().
 func WithLogger(l *slog.Logger) Option { return func(m *Mailer) { m.log = l } }
@@ -258,7 +272,7 @@ func URL(ctx context.Context, path string) (string, error) {
 // it shows whatever the mailable puts in the email.
 //
 //	if app.Config().Env.IsDevelopment() {
-//		r.HandleStd("GET", "/dev/mail/receipt", mailer.Preview(func(r *http.Request) mailer.Mailable { return mails.Receipt{…} }))
+//		r.Get("/dev/mail/receipt", web.WrapHandler(mailer.Preview(func(r *http.Request) mailer.Mailable { return mails.Receipt{…} })))
 //	}
 func Preview(newMailable func(r *http.Request) Mailable) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

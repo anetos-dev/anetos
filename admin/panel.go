@@ -138,9 +138,9 @@ func (p *Panel) hasSettings() bool {
 // Option changes a [Panel].
 type Option func(*Panel)
 
-// Title sets the admin's name, shown in its pages; ADMIN_TITLE overrides
+// WithDefaultTitle sets the admin's name, shown in its pages; ADMIN_TITLE overrides
 // it.
-func Title(title string) Option {
+func WithDefaultTitle(title string) Option {
 	return func(p *Panel) {
 		if p.cfg.Title == "" {
 			p.cfg.Title = title
@@ -148,9 +148,16 @@ func Title(title string) Option {
 	}
 }
 
-// UserName sets how the admin names the logged-in user in its pages;
+// Title is [WithDefaultTitle].
+//
+// Deprecated: Use WithDefaultTitle; Title is removed in v0.6.
+//
+//go:fix inline
+func Title(title string) Option { return WithDefaultTitle(title) }
+
+// WithUserName sets how the admin names the logged-in user in its pages;
 // by default, their AdminName or String method, else "User <id>".
-func UserName[U auth.Authenticatable](name func(u U) string) Option {
+func WithUserName[U auth.Authenticatable](name func(u U) string) Option {
 	return func(p *Panel) {
 		p.userName = func(ctx context.Context) string {
 			if u, ok := auth.User[U](ctx); ok {
@@ -160,6 +167,13 @@ func UserName[U auth.Authenticatable](name func(u U) string) Option {
 		}
 	}
 }
+
+// UserName is [WithUserName].
+//
+// Deprecated: Use WithUserName; UserName is removed in v0.6.
+//
+//go:fix inline
+func UserName[U auth.Authenticatable](name func(u U) string) Option { return WithUserName[U](name) }
 
 var nameRe = regexp.MustCompile(`^[a-z][a-z0-9-]{0,49}$`)
 
@@ -258,7 +272,7 @@ func (p *Panel) Mount(r *web.Router, mws ...web.Middleware) error {
 	}
 	p.assets = assets
 	// Assets need no session: they are the same for everyone.
-	r.Group(p.base, p.allowIPs).HandleStd(http.MethodGet, "/_assets/{file...}", assets).Name("admin.assets")
+	r.Group(p.base, p.allowIPs).Get("/_assets/{file...}", web.WrapHandler(assets)).Name("admin.assets")
 	// Stopping impersonating a user needs no admin permission: the user
 	// impersonated may have none.
 	r.Group(p.base, append([]web.Middleware{p.allowIPs}, append(slices.Clip(mws), secureHeaders)...)...).

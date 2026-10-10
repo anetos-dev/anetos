@@ -120,7 +120,7 @@ templ PostPage(p Post) {
 }
 ```
 
-Render it from a handler with `c.Render`, or return `web.View` from a
+Render it from a handler with `c.Render`, or return `web.Render` from a
 typed handler:
 
 ```go
@@ -131,7 +131,7 @@ func (h Posts) Show(c *web.Ctx, in PostID) (web.Responder, error) {
 	if err != nil {
 		return nil, err
 	}
-	return web.View(PostPage(p)), nil
+	return web.Render(PostPage(p)), nil
 }
 ```
 
@@ -169,12 +169,12 @@ func mustAssets() *view.Assets {
 
 `assets.URL("app.css")` is `/assets/app.css?v=3f2a9c01d4`. Requests
 with the current hash may be cached for a year; a changed file gets a new
-URL. Mount it with `r.HandleStd(http.MethodGet, "/assets/{path...}", assets)`.
+URL. Mount it with `r.Get("/assets/{path...}", web.WrapHandler(assets))`.
 `htmx.FS` holds the bundled htmx (version `htmx.Version`) and its
 server-sent events extension, `htmx-ext-sse.min.js` (`htmx.SSEVersion`),
 for pages that show updates as they happen: a streamed AI answer (see
 [Build an AI assistant](ai-assistant.md)), or events of your own, sent
-with `c.Events()`.
+with `c.EventStream()`.
 
 Files that need a fixed URL, such as `robots.txt` or
 `.well-known/security.txt`, go in `public/` itself, the web root, which
@@ -256,7 +256,7 @@ With `views/ui`, `ui.Form` writes the same form, CSRF token and
 	"hx-swap":    "outerHTML",
 	"hx-confirm": "Delete this note?",
 }) {
-	@ui.Button(ui.Danger|ui.Small, nil) {
+	@ui.Button(ui.Danger, nil, ui.Small) {
 		Delete
 	}
 }
@@ -266,12 +266,12 @@ The layout puts the CSRF token in `hx-headers`, so every htmx request
 passes [CSRF protection](forms.md). `c.HTMX()` returns the other htmx
 headers (target, trigger, boosted).
 
-For updates the server pushes, `c.Events()` starts a response of
+For updates the server pushes, `c.EventStream()` starts a response of
 server-sent events, which the SSE extension swaps into the page:
 
 ```go
 // illustrative
-stream, err := c.Events() // no request or write timeout for this response
+stream, err := c.EventStream() // no request or write timeout for this response
 if err != nil {
 	return err
 }

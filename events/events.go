@@ -123,20 +123,20 @@ type listener struct {
 	dispatch []queue.DispatchOption
 }
 
-// BusOption configures a [Bus] made with [NewBus].
-type BusOption func(*Bus)
+// Option configures a [Bus] made with [NewBus].
+type Option func(*Bus)
 
 // WithLogger sets the logger for async listeners' failures. Default
 // slog.Default().
-func WithLogger(l *slog.Logger) BusOption { return func(b *Bus) { b.log = l } }
+func WithLogger(l *slog.Logger) Option { return func(b *Bus) { b.log = l } }
 
 // WithQueue sets the queue of queued listeners. [New] uses the app's
 // (from queue.New).
-func WithQueue(q *queue.Queue) BusOption { return func(b *Bus) { b.queue = q } }
+func WithQueue(q *queue.Queue) Option { return func(b *Bus) { b.queue = q } }
 
 // NewBus returns a bus without an app: async listeners get a context with
 // the bus only. Call [Bus.Close] when done with it.
-func NewBus(opts ...BusOption) *Bus {
+func NewBus(opts ...Option) *Bus {
 	b := &Bus{log: slog.Default(), listeners: map[reflect.Type][]*listener{}, stop: make(chan struct{})}
 	b.base, b.cancel = context.WithCancel(context.Background())
 	for _, opt := range opts {
@@ -144,6 +144,13 @@ func NewBus(opts ...BusOption) *Bus {
 	}
 	return b
 }
+
+// BusOption is [Option].
+//
+// Deprecated: Use Option; BusOption is removed in v0.6.
+//
+//go:fix inline
+type BusOption = Option
 
 // New returns the app's bus: it is available in every context the app
 // creates (for [Emit]) and to [anetos.Resolve], and closed at shutdown
@@ -182,8 +189,9 @@ func (b *Bus) context() context.Context {
 	return ctx
 }
 
-// Option configures a listener.
-type Option func(*listenerOptions) error
+// ListenOption configures a listener ([On], [OnAsync], [OnQueued]), as
+// pubsub.ListenOption does a subscriber.
+type ListenOption func(*listenerOptions) error
 
 type listenerOptions struct {
 	kind        kind
@@ -208,7 +216,7 @@ func (o *listenerOptions) only(option string, kinds ...kind) error {
 // queue. Default: its function's name, such as "listeners.SendWelcome".
 // Queued listeners that are anonymous functions need one: the name must
 // stay the same across deploys, or queued events won't find it.
-func Name(name string) Option {
+func Name(name string) ListenOption {
 	return func(o *listenerOptions) error {
 		if name == "" || len(name) > 150 {
 			return fmt.Errorf("events: listener name %q must have 1 to 150 bytes", name)
@@ -220,7 +228,7 @@ func Name(name string) Option {
 
 // Concurrency sets how many events an async listener handles at once.
 // Default 1.
-func Concurrency(n int) Option {
+func Concurrency(n int) ListenOption {
 	return func(o *listenerOptions) error {
 		if n < 1 {
 			return fmt.Errorf("events: Concurrency(%d) must be at least 1", n)
@@ -234,7 +242,7 @@ func Concurrency(n int) Option {
 // all taken, Emit waits for room (or for its context to end). Default
 // 1000. A listener that emits events to itself waits for its own room:
 // with a full buffer, until its timeout.
-func Buffer(n int) Option {
+func Buffer(n int) ListenOption {
 	return func(o *listenerOptions) error {
 		if n < 1 {
 			return fmt.Errorf("events: Buffer(%d) must be at least 1", n)
@@ -247,7 +255,7 @@ func Buffer(n int) Option {
 // Timeout bounds an async listener's handling of one event: then its
 // context is canceled. Default 1m. (For a queued listener, use
 // Job(queue.Timeout(d)).)
-func Timeout(d time.Duration) Option {
+func Timeout(d time.Duration) ListenOption {
 	return func(o *listenerOptions) error {
 		if d <= 0 {
 			return fmt.Errorf("events: Timeout(%s) must be positive", d)
@@ -259,7 +267,7 @@ func Timeout(d time.Duration) Option {
 
 // Job sets a queued listener's job options: queue.Tries, queue.Timeout,
 // queue.Backoff.
-func Job(opts ...queue.JobOption) Option {
+func Job(opts ...queue.JobOption) ListenOption {
 	return func(o *listenerOptions) error {
 		o.job = append(o.job, opts...)
 		return o.only("Job", queuedKind)
@@ -268,7 +276,7 @@ func Job(opts ...queue.JobOption) Option {
 
 // Dispatch sets the options a queued listener's jobs are dispatched with:
 // queue.OnQueue, queue.Delay.
-func Dispatch(opts ...queue.DispatchOption) Option {
+func Dispatch(opts ...queue.DispatchOption) ListenOption {
 	return func(o *listenerOptions) error {
 		o.dispatch = append(o.dispatch, opts...)
 		return o.only("Dispatch", queuedKind)
@@ -291,7 +299,7 @@ func funcName(fn any) string {
 	return name
 }
 
-func newListener[E any](b *Bus, k kind, fn func(context.Context, E) error, opts []Option) (*listener, reflect.Type, error) {
+func newListener[E any](b *Bus, k kind, fn func(context.Context, E) error, opts []ListenOption) (*listener, reflect.Type, error) {
 	t := reflect.TypeFor[E]()
 	if fn == nil {
 		return nil, t, fmt.Errorf("events: %s with a nil function for %s", k, t)
@@ -342,7 +350,7 @@ func (b *Bus) queueOf() (*queue.Queue, error) {
 	return nil, errors.New("events: queued listeners need the queue: call queue.New before events.OnQueued")
 }
 
-func add[E any](b *Bus, k kind, fn func(context.Context, E) error, opts []Option) error {
+func add[E any](b *Bus, k kind, fn func(context.Context, E) error, opts []ListenOption) error {
 	l, t, err := newListener(b, k, fn, opts)
 	if err != nil {
 		return err
@@ -358,7 +366,7 @@ func add[E any](b *Bus, k kind, fn func(context.Context, E) error, opts []Option
 // and the first error stops the others and is returned by Emit.
 //
 //	err := events.On(bus, func(ctx context.Context, e OrderPlaced) error { … })
-func On[E any](b *Bus, fn func(ctx context.Context, e E) error, opts ...Option) error {
+func On[E any](b *Bus, fn func(ctx context.Context, e E) error, opts ...ListenOption) error {
 	return add(b, syncKind, fn, opts)
 }
 
@@ -371,7 +379,7 @@ func On[E any](b *Bus, fn func(ctx context.Context, e E) error, opts ...Option) 
 // Async events are lost if the process stops before they are handled
 // (they get the shutdown budget to finish). Use [OnQueued] for work that
 // must happen.
-func OnAsync[E any](b *Bus, fn func(ctx context.Context, e E) error, opts ...Option) error {
+func OnAsync[E any](b *Bus, fn func(ctx context.Context, e E) error, opts ...ListenOption) error {
 	return add(b, asyncKind, fn, opts)
 }
 
@@ -381,7 +389,7 @@ func OnAsync[E any](b *Bus, fn func(ctx context.Context, e E) error, opts ...Opt
 // the queue's database driver, in the transaction). The listener's name
 // ([Name]) names the job, "event:<name>". It needs queue.New first
 // (or [WithQueue]); register it in the workers' app too.
-func OnQueued[E any](b *Bus, fn func(ctx context.Context, e E) error, opts ...Option) error {
+func OnQueued[E any](b *Bus, fn func(ctx context.Context, e E) error, opts ...ListenOption) error {
 	return add(b, queuedKind, fn, opts)
 }
 
@@ -562,7 +570,7 @@ func (b *Bus) handle(l *listener, d delivery) {
 	if b.app != nil {
 		ctx = b.app.WithCarried(ctx, d.carried)
 		var end func()
-		ctx, end = b.app.StartUnit(ctx, anetos.Unit{Kind: "listener", Name: l.name})
+		ctx, end = b.app.StartOperation(ctx, anetos.Operation{Kind: "listener", Name: l.name})
 		defer end()
 	}
 	log := b.log.With("listener", l.name, "event", reflect.TypeOf(e).String())

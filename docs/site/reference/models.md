@@ -143,4 +143,4 @@ change another). Passing one relation twice to `With` is an error.
 | `db.Upsert(ctx, rows, conflict, update...)` | INSERT … ON CONFLICT / ON DUPLICATE KEY UPDATE; no update columns means "keep the existing row" | Unknown column names |
 | `db.Find[T](ctx, id)` | SELECT by key | `db.ErrNotFound` (a 404 in handlers) |
 | `db.KeyOf(row)` | The row's table and primary key (v0.3) | No primary key |
-| `db.PruneTrashed[T](app, after)` | Registers a `SoftDeletes` model whose rows deleted longer than *after* ago `db:prune-trashed` and `db.PruneAllTrashed(ctx)` delete for good, 1,000 per transaction (v0.3) | No `SoftDeletes`, no key, registered twice |
+| `db.Prunable[T](app, after)` | Registers a `SoftDeletes` model whose rows deleted longer than *after* ago `db:prune-trashed` and `db.PruneAllTrashed(ctx)` delete for good, 1,000 per transaction (v0.3) | No `SoftDeletes`, no key, registered twice |

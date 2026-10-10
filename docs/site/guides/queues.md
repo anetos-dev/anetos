@@ -134,7 +134,7 @@ in.
 | `queue.Backoff(d1, d2, …)` | `QUEUE_BACKOFF` (10s), doubling up to `QUEUE_BACKOFF_MAX` (10m) | Waits before the retries; the last repeats. Each varies by up to 20% |
 | `queue.Name(s)` | The Go type, `main.ChargeOrder` | The name jobs are stored under: set it before renaming or moving the type |
 
-`q.Work` adds the workers to the app, with the role `workers`:
+`q.Work` adds the workers to the app, of the process type `worker`:
 
 | Option | Default | |
 |---|---|---|
@@ -146,8 +146,8 @@ in.
 production, you can run them apart, from the same binary:
 
 ```bash
-./app serve                # web servers (run --only=http)
-./app queue:work           # workers, as many as you need (run --only=workers)
+./app serve                # web servers (run --only=web)
+./app queue:work           # workers, as many as you need (run --only=worker)
 ```
 
 ### 3. Dispatch jobs
@@ -295,7 +295,7 @@ func TestWorkersRetry(t *testing.T) {
 	}))
 	ctx, stop := context.WithCancel(context.Background())
 	done := make(chan error, 1)
-	go func() { done <- app.Run(ctx, "workers") }()
+	go func() { done <- app.Run(ctx, "worker") }()
 	t.Cleanup(func() {
 		stop()
 		if err := <-done; err != nil {
@@ -384,7 +384,7 @@ server's clock for delays and leases.
 | Problem | Cause | Fix |
 |---|---|---|
 | `job type … isn't registered` | `queue.Register` wasn't called for it | Register every job type in `setup` |
-| Jobs are never run | No workers: they run with `run` or `run --only=workers`, not with other commands | Run the app (`go run .`) or a worker process |
+| Jobs are never run | No workers: they run with `run` or `run --only=worker`, not with other commands | Run the app (`go run .`) or a worker process |
 | `unknown job "…"` in failed jobs | The worker's app doesn't register that type (an older deploy, or a renamed type) | Deploy workers first; keep old names with `queue.Name` |
 | A job runs twice | At-least-once delivery: a worker stopped, or the job ran past its timeout | Make the job idempotent |
 | `no such table: jobs` | The queue's migration hasn't run | Add `queue.Migrations("", "")` to `migrate.New`, then `migrate` |
@@ -397,7 +397,7 @@ server's clock for delays and leases.
 - [Scheduling](scheduling.md): dispatch a job every hour or night with
   `schedule.Dispatch`.
 - [Send email](mail.md): `mailer.Queue` sends email from a queue job.
-- [Runtime supervisor](../concepts/runtime-supervisor.md): roles, stages
+- [Runtime supervisor](../concepts/runtime-supervisor.md): process types, stages
   and shutdown.
 
 > **Coming from Laravel?** A job is a `ShouldQueue` class, `Handle` is
@@ -406,7 +406,7 @@ server's clock for delays and leases.
 > `queue.Tries`, `queue.Backoff` and `queue.Timeout` are the `$tries`,
 > `$backoff` and `$timeout` properties, `queue.Permanent(err)` is
 > `$this->fail()`, and `Failed` is `failed()`. Workers run inside the
-> app, supervised, and `queue:work` (`run --only=workers`) runs only
+> app, supervised, and `queue:work` (`run --only=worker`) runs only
 > them; the queues and concurrency are the app's `Work` call's, not
 > flags. `queue:failed`, `queue:retry`,
 > `queue:forget`, `queue:flush` and `queue:clear` work as in Laravel.

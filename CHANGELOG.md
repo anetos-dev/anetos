@@ -7,6 +7,12 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- `web.WrapHandler(h)` makes an `http.Handler` a route's handler
+  (Echo's name): `r.Get("/metrics", web.WrapHandler(h))`; the router
+  serves it as it is, as `HandleStd` did. `storage.DiskFrom(ctx, name)`
+  returns a named disk; `storage.TemporaryURLBackend`, the interface of
+  backends with temporary URLs of their own; `admin.TextColumn(column,
+  label)`; `gcppubsub.WithClientOptions` (M8b-5, D315).
 - Short command names, much as artisan's abbreviations: each part of a
   command's name may be cut short while it still means one command
   with as many parts, in the app binary and the `anetos` tool (`./app
@@ -38,7 +44,7 @@ All notable changes to this project are documented here. The format follows
   new` writes the components (`ui.Header`, `ui.Nav`,
   `ui.PageHeader`, `ui.Card`, `ui.Form`, `ui.Field`, `ui.Input`,
   `ui.Button`, `ui.PostButton`, `ui.Table`, `ui.Badge`,
-  `ui.Pagination`… about 35, typed looks and tones) into the app, and
+  `ui.Pagination`… about 35, typed variants, sizes and tones) into the app, and
   the layout and the pages of `make:crud` and `make:auth` call them,
   with no classes of their own, so another CSS framework restyles every
   generated page.
@@ -93,6 +99,64 @@ All notable changes to this project are documented here. The format follows
   D300).
 
 ### Changed
+- The rest of the API uses the words developers already know (M8b-5,
+  D315); most old names stay, deprecated, until v0.6, and `go fix ./...`
+  rewrites most calls; struct fields, `web.ClientIP(r)`, `storage.From`
+  with a name and `events.Option` (now the bus's) change without one
+  (see the [upgrade guide](docs/site/upgrade/v0.5.md)):
+  - constructor options start with `With`: `auth.WithDefaultHomeURL`,
+    `mailer.WithAppURL`, `mailer.WithDefaultFrom`, `i18n.WithWarnMissing`,
+    `storage.WithBaseURL`, `WithPublic`, `WithSigner`,
+    `admin.WithDefaultTitle`, `admin.WithUserName`,
+    `web.WithTrustedOrigins`, `gcs.WithClientOptions`,
+    `s3.WithTransport`, `postmark.WithBaseURL`, `WithHTTPClient`,
+    `WithStream`; `events.Option` is the bus's option (was `BusOption`)
+    and `events.ListenOption` a listener's (was `Option`), as in
+    `pubsub`; `audit.TrackOption` (was `Option`);
+  - values of the request are `web.CurrentRoute(ctx)` (was
+    `RouteFromContext`), `web.ClientIP(ctx)` (was `ClientIPFrom`; it
+    replaces `ClientIP(r)`: `web.ClientIP(r.Context())`, and gives the
+    peer's address without `RealIP` too) and `session.WithSession` (was
+    `NewContext`);
+  - an app's request, job, listener, task or tool call is an
+    *operation*, OpenTelemetry's word (a "unit of work" is change
+    tracking in an ORM): `anetos.Operation`, `OperationFunc`,
+    `App.StartOperation`, `AroundOperations`, `HasAroundOperations`,
+    `db.RepeatedQuery.Operation`; the repeated-query warning's
+    attribute is `operation` (was `unit`);
+  - "process type", Heroku's word, for what `run --only` selects
+    ("role" is RBAC's): `--only=web`, `worker`, `scheduler`, `listener`
+    (were `http`, `workers`, `listeners`, which still work, with a
+    warning, until v0.6), `anetos.ProcessTypes` (was `Roles`),
+    `supervisor.Spec.ProcessTypes`, `ComponentStatus.ProcessTypes`,
+    `Supervisor.ProcessTypes()`; the supervisor's log attribute is
+    `process_types`;
+  - `db.AllowRepeatedQueries` (was `Untracked`), `db.TxWithOptions`
+    (was `TxWith`), `db.Prunable` (was `PruneTrashed`),
+    `db.Page.HasNext` (was `HasMore`), `migrate`'s
+    `UniqueWithoutTrashed` and the rule `unique_without_trashed` (were
+    `UniqueLive` and `unique_live`, which still works with a warning),
+    `db.Chunk.EmbeddingModel` (was `Model`), and `Q.Similar`'s and
+    `Hybrid`'s `embeddingModel` parameter;
+  - `pubsub.Tries` (was `MaxAttempts`), `c.EventStream()` (was
+    `c.Events()`), `web.Render` (was `web.View`), `Session.GetString`
+    (was `String`), `ai.NewTool` (was `ai.Func`), `cache.Delete` (was
+    `Forget`), `schedule.Config.TimeZone` (was `Timezone`);
+  - `i18n.MailLocalePreference` and its `PreferredMailLocale()`, as
+    `PreferredLocale` and `PreferredTimeZone` (were
+    `CommunicationPreference` and `CommunicationLocale()`, still read
+    until v0.6); storage backends' `TemporaryURL`, as
+    `Disk.TemporaryURL` (was `SignedURL`, still used until v0.6;
+    `storagetest.Features.TemporaryURLs`);
+  - the admin says Filament's words: `Label` on columns, actions,
+    filters and links (was `Title`); a resource's `PluralLabel`,
+    `Label` and `RecordTitle` (were `Title`, `Singular` and the
+    function `Label`).
+- `storage.From(ctx)` returns the default disk only; a named one is
+  `storage.DiskFrom(ctx, name)` (M8b-5).
+- `gcppubsub.Driver` takes its own options (`WithClientOptions`), and
+  `s3.Option` no longer exposes the MinIO client's options: no SDK
+  types in the drivers' options (M8b-5, D315).
 - Commands use singular groups and Laravel's names: `route:list`,
   `plugin:list`, `plugin:env`, `locale:check`, and in the `anetos`
   tool `generate` (was `gen`, which stays as a short form; generated
@@ -186,6 +250,22 @@ All notable changes to this project are documented here. The format follows
   `>= v0.2.0, < v0.6.0`) (after v0.4.0).
 
 ### Deprecated
+- The names the M8b-5 entry above replaces (`auth.DefaultHomeURL`,
+  `mailer.BaseURL`, `mailer.DefaultFrom`, `i18n.WarnMissing`,
+  `storage.BaseURL`, `Public`, `SignWith`, `admin.Title`,
+  `admin.UserName`, `admin.Field`, `web.TrustedOrigins`,
+  `gcs.ClientOptions`, `s3.Transport`, `postmark.BaseURL`,
+  `HTTPClient`, `Stream`, `events.BusOption`, `audit.Option`,
+  `session.NewContext`, `web.RouteFromContext`, `web.ClientIPFrom`,
+  `anetos.Unit`, `UnitFunc`, `App.StartUnit`, `AroundUnits`,
+  `HasAroundUnits`, `anetos.Roles`, `Supervisor.Roles`, `db.Untracked`,
+  `db.TxWith`, `db.PruneTrashed`, `Page.HasMore`, `UniqueLive`, the rule
+  `unique_live`, `pubsub.MaxAttempts`, `Ctx.Events`, `web.View`,
+  `Router.HandleStd`, `Session.String`, `ai.Func`, `cache.Forget`,
+  `i18n.CommunicationPreference`, `storage.URLSigner`,
+  `storagetest.Features.SignedURLs`, the s3 and gcs backends'
+  `SignedURL`) and the process types `http`, `workers`, `listeners`.
+  Removed in v0.6 (M8b-5).
 - The commands `routes:list`, `plugins:list`, `plugins:env`,
   `lang:check`, `schedule:run <task>`, and the `anetos` tool's
   `lang:add`, `add lang` and `make:admin:resource`: use the names above
@@ -204,6 +284,8 @@ All notable changes to this project are documented here. The format follows
   `auth.ForApp` and `social.ForApp`. Removed in v0.6 (M8b-1).
 
 ### Fixed
+- `storage.From` panicked on a context holding a nil `*storage.Storage`
+  (M8b-5).
 - `social.New` without a configured provider returned a service without a
   logger (M8b-1).
 - `events.Bus.Close`, when its context ends with listeners still

@@ -33,9 +33,9 @@ func blocker(name string, stopped func(string)) Component {
 	})
 }
 
-func runAsync(s *Supervisor, ctx context.Context, roles ...string) <-chan error {
+func runAsync(s *Supervisor, ctx context.Context, types ...string) <-chan error {
 	ch := make(chan error, 1)
-	go func() { ch <- s.Run(ctx, roles...) }()
+	go func() { ch <- s.Run(ctx, types...) }()
 	return ch
 }
 
@@ -220,7 +220,7 @@ func TestPanicIsRecovered(t *testing.T) {
 	}
 }
 
-func TestRoles(t *testing.T) {
+func TestProcessTypes(t *testing.T) {
 	s := newTestSupervisor(time.Second)
 	var started sync.Map
 	mk := func(name string) Component {
@@ -230,21 +230,21 @@ func TestRoles(t *testing.T) {
 			return nil
 		})
 	}
-	mustAdd(t, s, Spec{Component: mk("http"), Roles: []string{"http"}})
-	mustAdd(t, s, Spec{Component: mk("worker"), Roles: []string{"workers"}})
-	mustAdd(t, s, Spec{Component: mk("both"), Roles: []string{"workers", "listeners"}})
-	mustAdd(t, s, Spec{Component: mk("roleless")})
+	mustAdd(t, s, Spec{Component: mk("http"), ProcessTypes: []string{"web"}})
+	mustAdd(t, s, Spec{Component: mk("worker"), ProcessTypes: []string{"worker"}})
+	mustAdd(t, s, Spec{Component: mk("both"), ProcessTypes: []string{"worker", "listener"}})
+	mustAdd(t, s, Spec{Component: mk("anywhere")})
 
-	if got := strings.Join(s.Roles(), ","); got != "http,listeners,workers" {
-		t.Errorf("Roles = %s", got)
+	if got := strings.Join(s.ProcessTypes(), ","); got != "listener,web,worker" {
+		t.Errorf("ProcessTypes = %s", got)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	done := runAsync(s, ctx, "workers")
+	done := runAsync(s, ctx, "worker")
 	waitFor(t, "start", func() bool {
 		_, a := started.Load("worker")
 		_, b := started.Load("both")
-		_, c := started.Load("roleless")
+		_, c := started.Load("anywhere")
 		return a && b && c
 	})
 	if _, ok := started.Load("http"); ok {
@@ -259,37 +259,37 @@ func TestRoles(t *testing.T) {
 	}
 }
 
-func TestUnknownRole(t *testing.T) {
+func TestUnknownProcessType(t *testing.T) {
 	s := newTestSupervisor(time.Second)
-	mustAdd(t, s, Spec{Component: blocker("http", nil), Roles: []string{"http"}})
-	err := s.Run(context.Background(), "htp")
-	if err == nil || err.Error() != `supervisor: unknown role "htp" (known roles: http)` {
+	mustAdd(t, s, Spec{Component: blocker("http", nil), ProcessTypes: []string{"web"}})
+	err := s.Run(context.Background(), "wbe")
+	if err == nil || err.Error() != `supervisor: unknown process type "wbe" (known: web)` {
 		t.Fatalf("Run = %v", err)
 	}
 }
 
-// A declared role is accepted before a component has it, and its
+// A declared process type is accepted before a component has it, and its
 // components added later start in a process that chose it.
-func TestDeclaredRole(t *testing.T) {
+func TestDeclaredProcessType(t *testing.T) {
 	s := newTestSupervisor(time.Second)
-	mustAdd(t, s, Spec{Component: blocker("http", nil), Roles: []string{"http"}})
+	mustAdd(t, s, Spec{Component: blocker("http", nil), ProcessTypes: []string{"web"}})
 	s.Declare("scheduler")
-	if got := s.Roles(); !slices.Equal(got, []string{"http", "scheduler"}) {
-		t.Errorf("Roles = %v", got)
+	if got := s.ProcessTypes(); !slices.Equal(got, []string{"scheduler", "web"}) {
+		t.Errorf("ProcessTypes = %v", got)
 	}
-	if err := s.Run(context.Background(), "htp"); err == nil || err.Error() != `supervisor: unknown role "htp" (known roles: http, scheduler)` {
+	if err := s.Run(context.Background(), "wbe"); err == nil || err.Error() != `supervisor: unknown process type "wbe" (known: scheduler, web)` {
 		t.Fatalf("Run = %v", err)
 	}
 	s = newTestSupervisor(time.Second)
-	mustAdd(t, s, Spec{Component: blocker("http", nil), Roles: []string{"http"}})
+	mustAdd(t, s, Spec{Component: blocker("http", nil), ProcessTypes: []string{"web"}})
 	s.Declare("scheduler")
-	// A component without roles keeps Run going: with nothing running,
+	// A component without process types keeps Run going: with nothing running,
 	// Run would finish at once, and the Add below would race with it.
 	mustAdd(t, s, Spec{Component: blocker("keep", nil)})
 	ctx, cancel := context.WithCancel(context.Background())
 	done := runAsync(s, ctx, "scheduler")
 	waitFor(t, "keep running", func() bool { return statusOf(s, "keep").State == StateRunning })
-	mustAdd(t, s, Spec{Component: blocker("tasks", nil), Roles: []string{"scheduler"}})
+	mustAdd(t, s, Spec{Component: blocker("tasks", nil), ProcessTypes: []string{"scheduler"}})
 	waitFor(t, "tasks running", func() bool { return statusOf(s, "tasks").State == StateRunning })
 	if statusOf(s, "http").State != StatePending {
 		t.Errorf("http state = %v, want pending", statusOf(s, "http").State)

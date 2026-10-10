@@ -96,7 +96,7 @@ func (Issues) Show(c *web.Ctx, in IssueID) (web.Responder, error) {
 	if err != nil {
 		return nil, err
 	}
-	return web.View(views.IssuePage(issue, comments)), nil
+	return web.Render(views.IssuePage(issue, comments)), nil
 }
 ```
 
@@ -134,7 +134,7 @@ func (Issues) Comment(c *web.Ctx, in CommentInput) (web.Responder, error) {
 	}
 	if c.IsHTMX() {
 		comment.Author = u
-		return web.View(views.CommentItem(comment)), nil
+		return web.Render(views.CommentItem(comment)), nil
 	}
 	return web.RedirectRoute("issues.show", issue.ID), nil
 }

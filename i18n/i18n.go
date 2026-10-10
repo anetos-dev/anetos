@@ -134,12 +134,19 @@ type options struct {
 func WithLocales(fsys fs.FS) Option { return func(o *options) { o.files = append(o.files, fsys) } }
 
 // WithLogger sets the logger, which reports keys missing from every
-// catalog once each when warnings are on ([WarnMissing]).
+// catalog once each when warnings are on ([WithWarnMissing]).
 func WithLogger(l *slog.Logger) Option { return func(o *options) { o.log = l } }
 
-// WarnMissing logs keys missing from every catalog, once per locale and
+// WithWarnMissing logs keys missing from every catalog, once per locale and
 // key. New turns it on in development.
-func WarnMissing() Option { return func(o *options) { o.warn = true } }
+func WithWarnMissing() Option { return func(o *options) { o.warn = true } }
+
+// WarnMissing is [WithWarnMissing].
+//
+// Deprecated: Use WithWarnMissing; WarnMissing is removed in v0.6.
+//
+//go:fix inline
+func WarnMissing() Option { return WithWarnMissing() }
 
 // NewTranslator returns a translator for cfg with the catalogs of [WithLocales]
 // and the framework's English catalog.
@@ -230,7 +237,7 @@ func New(app *anetos.App, locales fs.FS) (*Translator, error) {
 		opts = append(opts, WithLocales(locales))
 	}
 	if app.Config().Env.IsDevelopment() {
-		opts = append(opts, WarnMissing())
+		opts = append(opts, WithWarnMissing())
 	}
 	tr, err := NewTranslator(cfg, opts...)
 	if err != nil {
