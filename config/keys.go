@@ -20,6 +20,9 @@ type Key struct {
 	HasDefault bool
 	// Required says the key must be set (env:"KEY,required").
 	Required bool
+	// Was is the key's former name (a was tag), still read when the key
+	// is unset: "DB_USER".
+	Was string
 }
 
 // Keys lists the keys [Bind] would read into the struct dst points to
@@ -68,6 +71,10 @@ func keysOf(t reflect.Type, prefix, path string, keys *[]Key, errs *[]error, vis
 			continue
 		}
 		def, hasDef := sf.Tag.Lookup("default")
-		*keys = append(*keys, Key{Name: prefix + name, Field: fieldPath, Default: def, HasDefault: hasDef, Required: required})
+		was := sf.Tag.Get("was")
+		if was != "" {
+			was = prefix + was
+		}
+		*keys = append(*keys, Key{Name: prefix + name, Field: fieldPath, Default: def, HasDefault: hasDef, Required: required, Was: was})
 	}
 }

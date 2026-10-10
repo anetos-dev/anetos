@@ -28,9 +28,8 @@ COPY --from=build /out/tracker /app/tracker
 # mount a volume there.
 COPY --from=build --chown=65532:65532 /out/data /data
 ENV APP_ENV=production \
-    HTTP_ADDR=:8080 \
     STORAGE_ROOT=/data/storage \
-    DB_DATABASE=/data/app.db
+    DB_NAME=/data/app.db
 EXPOSE 8080
 USER 65532:65532
 # The server's readiness; turn it off for containers that don't serve

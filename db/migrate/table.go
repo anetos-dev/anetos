@@ -394,10 +394,10 @@ func (t *Table) DropUnique(columns ...string) {
 //
 //	t.SearchIndex("title", "body")
 //
-// It is built for SEARCH_LANGUAGE and SEARCH_RANKING, which the
+// It is built for DB_SEARCH_LANGUAGE and DB_SEARCH_RANKING, which the
 // database must support, and recorded in the search_indexes table
 // (db.SearchIndexes). PostgreSQL gets a generated search_vector column
-// with a GIN index (and, for SEARCH_RANKING=bm25, a generated
+// with a GIN index (and, for DB_SEARCH_RANKING=bm25, a generated
 // search_text column with a bm25 index); MySQL and MariaDB a generated
 // search_text column with a FULLTEXT index; SQLite a <table>_search FTS5
 // table, kept in sync by triggers. In Alter, rows already in the table

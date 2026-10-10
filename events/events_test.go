@@ -263,7 +263,7 @@ func (*Mailer) Send(context.Context, OrderPlaced) error { return nil }
 
 func TestOnQueued(t *testing.T) {
 	store := queue.NewMemoryStore()
-	q := queue.NewWithStore(store, queue.Config{Poll: 5 * time.Millisecond}, queue.WithLogger(slog.New(slog.NewTextHandler(io.Discard, nil))))
+	q := queue.NewWithStore(store, queue.Config{PollInterval: 5 * time.Millisecond}, queue.WithLogger(slog.New(slog.NewTextHandler(io.Discard, nil))))
 	b, _ := newBus(t, events.WithQueue(q))
 	var got atomic.Int64
 	check(t, events.OnQueued(b, func(ctx context.Context, e OrderPlaced) error {

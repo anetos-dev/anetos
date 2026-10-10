@@ -14,7 +14,7 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 )
 
-// CacheDriver is the Redis cache store's driver (CACHE_STORE=redis), on
+// CacheDriver is the Redis cache store's driver (CACHE_DRIVER=redis), on
 // the app's client from [Connect]:
 //
 //	c, err := cache.New(app, redis.CacheDriver())

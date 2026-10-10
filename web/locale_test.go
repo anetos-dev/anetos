@@ -189,7 +189,7 @@ func TestLocaleNone(t *testing.T) {
 }
 
 func TestLocalePrefix(t *testing.T) {
-	c := localeServer(t, config.Map{"LOCALE_URL": "prefix"})
+	c := localeServer(t, config.Map{"APP_LOCALE_STRATEGY": "prefix"})
 	if got := c.get("/bn/hello").body; got != "bn হ্যালো /bn/hello /bn/hello /en/hello" {
 		t.Errorf("/bn/hello: %q", got)
 	}
@@ -219,7 +219,7 @@ func TestLocalePrefix(t *testing.T) {
 }
 
 func TestLocaleSubdomain(t *testing.T) {
-	c := localeServer(t, config.Map{"LOCALE_URL": "subdomain", "APP_URL": "http://example.test"})
+	c := localeServer(t, config.Map{"APP_LOCALE_STRATEGY": "subdomain", "APP_URL": "http://example.test"})
 	get := func(host, path string) reply {
 		c.t.Helper()
 		req, _ := http.NewRequest(http.MethodGet, c.srv.URL+path, nil)
@@ -250,7 +250,7 @@ func TestLocaleSubdomain(t *testing.T) {
 		t.Errorf("bn.other.test: %q", got)
 	}
 
-	app := newApp(t, config.Map{"LOCALE_URL": "subdomain"})
+	app := newApp(t, config.Map{"APP_LOCALE_STRATEGY": "subdomain"})
 	if _, err := i18n.New(app, catalogs); err == nil || !strings.Contains(err.Error(), "APP_URL") {
 		t.Errorf("subdomain without APP_URL: %v", err)
 	}
@@ -305,7 +305,7 @@ func TestLocaleUserPreference(t *testing.T) {
 // another host never become one in a redirect.
 func TestLocaleRedirectsStayOnSite(t *testing.T) {
 	for _, mode := range []string{"none", "prefix"} {
-		c := localeServer(t, config.Map{"LOCALE_URL": mode})
+		c := localeServer(t, config.Map{"APP_LOCALE_STRATEGY": mode})
 		for _, p := range []string{"//evil.example/x", "/%2Fevil.example/x", "/\\evil.example/x", "/en//evil.example/x", "/en/%5Cevil.example"} {
 			target := p
 			if mode == "none" {
@@ -329,7 +329,7 @@ func TestLocaleRedirectsStayOnSite(t *testing.T) {
 }
 
 func TestLocalePrefixDetails(t *testing.T) {
-	c := localeServer(t, config.Map{"LOCALE_URL": "prefix"})
+	c := localeServer(t, config.Map{"APP_LOCALE_STRATEGY": "prefix"})
 	// Escaped paths keep their escapes.
 	if r := c.get("/bn/hello%20there"); r.status != http.StatusNotFound {
 		t.Errorf("/bn/hello%%20there: %d", r.status)
@@ -372,6 +372,6 @@ func TestLocaleQueryParameter(t *testing.T) {
 		t.Errorf("Vary: %v", r.header.Get("Vary"))
 	}
 	if got := c.get("/alternates").body; got != "" {
-		t.Errorf("Alternates with LOCALE_URL=none: %q", got)
+		t.Errorf("Alternates with APP_LOCALE_STRATEGY=none: %q", got)
 	}
 }

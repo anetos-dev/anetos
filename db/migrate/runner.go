@@ -107,7 +107,7 @@ func NewRunner(d *db.DB, sets []*Set, opts ...Option) (*Runner, error) {
 // It also adds the doctor's "migrations" check and, from [Config]: the
 // component "migrations" (role http), which keeps the app's readiness
 // (GET /health/ready, health:check) false while migrations are pending
-// (MIGRATE_READINESS, on by default), and, with MIGRATE_ON_RUN, migrating
+// (DB_MIGRATE_READINESS, on by default), and, with DB_MIGRATE_ON_START, migrating
 // when the app boots to run or serve (design D255). Call it once per app.
 func New(app *anetos.App, sets []*Set, opts ...Option) (*Runner, error) {
 	if _, ok := anetos.Lookup[*Runner](app); ok {
@@ -134,7 +134,7 @@ func New(app *anetos.App, sets []*Set, opts ...Option) (*Runner, error) {
 	if err != nil {
 		return nil, err
 	}
-	if cfg.OnRun {
+	if cfg.OnStart {
 		app.Use(onRun{r})
 	}
 	app.AddCheck(anetos.Check{Name: "migrations", Booted: true, Run: r.check})
@@ -743,23 +743,23 @@ func (r *Runner) pending(ctx context.Context) ([]string, error) {
 
 // Config holds the migration settings [New] reads.
 type Config struct {
-	// OnRun runs the pending migrations when the app starts with the run
+	// OnStart runs the pending migrations when the app starts with the run
 	// command (the default) or serve, before its components: for one
 	// instance on SQLite in a container, where no step runs before the
-	// server (design D255). MIGRATE_ON_RUN, default false.
-	OnRun bool `env:"MIGRATE_ON_RUN" default:"false"`
+	// server (design D255). DB_MIGRATE_ON_START, default false.
+	OnStart bool `env:"DB_MIGRATE_ON_START" was:"MIGRATE_ON_RUN" default:"false"`
 	// Readiness keeps the server unready while migrations are pending.
 	// Turn it off where the migrations run after the new version starts
-	// and the platform waits for it to be ready. MIGRATE_READINESS,
+	// and the platform waits for it to be ready. DB_MIGRATE_READINESS,
 	// default true.
-	Readiness bool `env:"MIGRATE_READINESS" default:"true"`
+	Readiness bool `env:"DB_MIGRATE_READINESS" was:"MIGRATE_READINESS" default:"true"`
 }
 
 // onRun is the provider that migrates when the app boots to run (or
 // serve, or with no command: app.Run called directly).
 type onRun struct{ r *Runner }
 
-func (onRun) Name() string               { return "migrate.OnRun" }
+func (onRun) Name() string               { return "migrate.OnStart" }
 func (onRun) Register(*anetos.App) error { return nil }
 func (p onRun) Boot(ctx context.Context, _ *anetos.App) error {
 	if c, ok := cmd.Running(ctx); ok && c.Name != "run" && c.Name != "serve" {
@@ -770,7 +770,7 @@ func (p onRun) Boot(ctx context.Context, _ *anetos.App) error {
 		return err
 	}
 	if len(done) > 0 {
-		p.r.log.InfoContext(ctx, "migrated before running (MIGRATE_ON_RUN)", "migrations", len(done))
+		p.r.log.InfoContext(ctx, "migrated before running (DB_MIGRATE_ON_START)", "migrations", len(done))
 	}
 	return nil
 }

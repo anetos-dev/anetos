@@ -291,7 +291,7 @@ func TestWorkersRetry(t *testing.T) {
 	g := &FakeGateway{Flaky: true} // each charge fails once
 	fakeGateway(t, g)
 	app := anetostest.New(t, setup, anetostest.Env(map[string]string{
-		"QUEUE_DRIVER": "database", "QUEUE_POLL": "10ms", "QUEUE_BACKOFF": "10ms",
+		"QUEUE_DRIVER": "database", "QUEUE_POLL_INTERVAL": "10ms", "QUEUE_BACKOFF": "10ms",
 	}))
 	ctx, stop := context.WithCancel(context.Background())
 	done := make(chan error, 1)

@@ -129,7 +129,7 @@ right-to-left languages (Arabic, Hebrew, Persian, Urdu) from the right:
 ```
 
 `web.Alternates` lists the page's address in each language, and
-`x-default`, for search engines, when `LOCALE_URL` is `prefix` or
+`x-default`, for search engines, when `APP_LOCALE_STRATEGY` is `prefix` or
 `subdomain` (with `none` a page has one address, and it returns nothing).
 Set `APP_URL` so the addresses are absolute. A language switcher can name
 each language in itself with `i18n.LanguageName(ctx, "bn")` ("বাংলা"),

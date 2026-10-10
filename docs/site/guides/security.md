@@ -64,7 +64,7 @@ sudo systemd-run --pipe --wait --collect --quiet \
   /opt/blog/blog doctor
 ```
 
-(add `-E DB_DATABASE=/var/lib/blog/app.db` for SQLite, as the unit
+(add `-E DB_NAME=/var/lib/blog/app.db` for SQLite, as the unit
 does). In a container, `docker compose run --rm web doctor`. The
 [reference](../reference/cli.md#the-doctor-command) lists every check.
 

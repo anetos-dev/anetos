@@ -28,7 +28,7 @@
 // catalog, which has the validation messages, error pages and other
 // messages the framework shows; an app overrides one by defining its key.
 //
-// A request's locale is resolved when first needed. With LOCALE_URL=none
+// A request's locale is resolved when first needed. With APP_LOCALE_STRATEGY=none
 // (the default): the locale cookie, the session, the signed-in user's
 // preference ([LocalePreference]), Accept-Language, then APP_LOCALE. With
 // prefix or subdomain: the URL's, else APP_LOCALE. Queue jobs carry the

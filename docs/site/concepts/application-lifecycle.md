@@ -46,7 +46,7 @@ func setup(app *anetos.App) (*web.Server, error) {
 	if _, err := db.Connect(context.Background(), app, sqlite.Driver()); err != nil {
 		return nil, err
 	}
-	if _, err := cache.New(app); err != nil { // CACHE_STORE
+	if _, err := cache.New(app); err != nil { // CACHE_DRIVER
 		return nil, err
 	}
 	q, err := queue.New(app) // QUEUE_DRIVER

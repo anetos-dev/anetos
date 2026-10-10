@@ -12,9 +12,9 @@ and use locks so only one instance of the app does a job at a time.
 
 ## Before you start
 
-Choose a store with `CACHE_STORE`:
+Choose a store with `CACHE_DRIVER`:
 
-| Store | `CACHE_STORE` | Shared between instances | Needs |
+| Store | `CACHE_DRIVER` | Shared between instances | Needs |
 |---|---|---|---|
 | Memory | `memory` (default) | No: each process has its own | Nothing |
 | Database | `database` | Yes | `db.Connect`, and the table from `cache.Migrations` |
@@ -31,7 +31,7 @@ caches its own copy, and locks only work within one process.
 Call `cache.New` while setting up the app, after `db.Connect`:
 
 ```go
-// CACHE_STORE (default memory) picks the store; database uses the
+// CACHE_DRIVER (default memory) picks the store; database uses the
 // cache table from cache.Migrations.
 if _, err := cache.New(app); err != nil {
 	return nil, err
@@ -65,7 +65,7 @@ go get anetos.dev/anetos/drivers/redis
 
 ```go
 // illustrative
-if _, err := cache.New(app, redis.CacheDriver()); err != nil { // CACHE_STORE=redis, REDIS_URL
+if _, err := cache.New(app, redis.CacheDriver()); err != nil { // CACHE_DRIVER=redis, REDIS_URL
 	return nil, err
 }
 ```
@@ -257,7 +257,7 @@ prefix.
 | Symptom | Cause | Fix |
 |---|---|---|
 | `cache: no cache in context` | `cache.New` wasn't called, or the context didn't come from the app | Call it in setup; in code outside the app, use `cache.WithCache(ctx, c)` |
-| `CACHE_STORE is "redis", but the drivers are [memory, database]` | The driver wasn't passed | `cache.New(app, redis.CacheDriver())` |
+| `CACHE_DRIVER is "redis", but the drivers are [memory, database]` | The driver wasn't passed | `cache.New(app, redis.CacheDriver())` |
 | `the database store needs the app's database` | `cache.New` ran before `db.Connect` | Connect the database first |
 | `no such table: cache` / `relation "cache" does not exist` | The migration didn't run | Add `cache.Migrations("")` to the runner and run `migrate` |
 | `holds something that isn't a …` | The cached value was stored as another type | `cache:clear`, or change the key when you change the type |

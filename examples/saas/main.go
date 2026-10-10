@@ -67,7 +67,7 @@ func setup(app *anetos.App) (*web.Server, error) {
 	if _, err := db.Connect(context.Background(), app, sqlite.Driver()); err != nil {
 		return nil, err
 	}
-	// The cache, sessions and jobs tables serve CACHE_STORE=database,
+	// The cache, sessions and jobs tables serve CACHE_DRIVER=database,
 	// SESSION_DRIVER=database and QUEUE_DRIVER=database.
 	sets := []*migrate.Set{migrations.All, cache.Migrations(""), session.Migrations(""), queue.Migrations("", "")}
 	if _, err := migrate.New(app, sets, migrate.WithSeeders(migrations.Seeders...)); err != nil {
@@ -143,7 +143,7 @@ func setup(app *anetos.App) (*web.Server, error) {
 
 // schedules adds the scheduled tasks. They run with the app, or alone
 // with `go run . run --only=scheduler`; `go run . schedule:list` lists
-// them. OnOneServer needs a shared cache (CACHE_STORE=database) when
+// them. OnOneServer needs a shared cache (CACHE_DRIVER=database) when
 // several processes run the scheduler.
 func schedules(s *schedule.Scheduler) error {
 	return s.Add(schedule.EveryMinute(), "end-trials", tasks.EndTrials,

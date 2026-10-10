@@ -47,7 +47,7 @@ func TestProjectChecksGit(t *testing.T) {
 	write(".env", "APP_KEY=x\n", 0o600)
 	write("deploy/production.env", "DB_PASSWORD=x\n", 0o600)
 	write("deploy/production.env.example", "DB_PASSWORD=\n", 0o644)
-	write(".env.testing", "DB_DATABASE=test\n", 0o644)
+	write(".env.testing", "DB_NAME=test\n", 0o644)
 	git("add", "deploy", ".env.testing")
 
 	text := func() string {

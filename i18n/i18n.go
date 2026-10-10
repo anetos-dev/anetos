@@ -45,15 +45,29 @@ type Config struct {
 	// locale comes from the locale cookie, the session, the signed-in
 	// user's preference or the browser),
 	// prefix (/bn/about; the default locale has none) or subdomain
-	// (bn.example.com; APP_URL's host is the default locale's). LOCALE_URL.
-	URL string `env:"LOCALE_URL" default:"none"`
+	// (bn.example.com; APP_URL's host is the default locale's). APP_LOCALE_STRATEGY.
+	Strategy string `env:"APP_LOCALE_STRATEGY" was:"LOCALE_URL" default:"none"`
 }
 
-// URL strategies ([Config.URL]).
+// The locale strategies ([Config.Strategy]): where a request's locale
+// is in its URL.
 const (
-	URLNone      = "none"
-	URLPrefix    = "prefix"
-	URLSubdomain = "subdomain"
+	StrategyNone      = "none"
+	StrategyPrefix    = "prefix"
+	StrategySubdomain = "subdomain"
+)
+
+// The former names of the strategies.
+//
+// Deprecated: Use StrategyNone, StrategyPrefix and StrategySubdomain; these
+// are removed in v0.6.
+const (
+	//go:fix inline
+	URLNone = StrategyNone
+	//go:fix inline
+	URLPrefix = StrategyPrefix
+	//go:fix inline
+	URLSubdomain = StrategySubdomain
 )
 
 // Validate implements config.Validator.
@@ -70,16 +84,16 @@ func (c Config) Validate() error {
 			errs = append(errs, fmt.Errorf("APP_LOCALES: %w", err))
 		}
 	}
-	switch c.URL {
-	case URLNone, URLPrefix, URLSubdomain:
+	switch c.Strategy {
+	case StrategyNone, StrategyPrefix, StrategySubdomain:
 	default:
-		errs = append(errs, fmt.Errorf("LOCALE_URL %q is not one of none, prefix, subdomain", c.URL))
+		errs = append(errs, fmt.Errorf("APP_LOCALE_STRATEGY %q is not one of none, prefix, subdomain", c.Strategy))
 	}
 	return errors.Join(errs...)
 }
 
 // LoadConfig reads the APP_LOCALE, APP_FALLBACK_LOCALE, APP_LOCALES and
-// LOCALE_URL settings.
+// APP_LOCALE_STRATEGY settings.
 func LoadConfig(src config.Source) (Config, error) { return config.Get[Config](src) }
 
 // Translator translates messages from catalogs: the app's, then the
@@ -192,7 +206,7 @@ func (tr *Translator) addSupported(tag language.Tag) {
 type translatorKey struct{}
 
 // New returns the app's translator, configured from APP_LOCALE,
-// APP_FALLBACK_LOCALE, APP_LOCALES and LOCALE_URL, with the catalogs in
+// APP_FALLBACK_LOCALE, APP_LOCALES and APP_LOCALE_STRATEGY, with the catalogs in
 // locales (the embedded files of the app's locales folder; nil for none).
 // It adds the translator to every context the app creates, so [T] and
 // the framework's messages use it, provides it as a service (the HTTP
@@ -208,8 +222,8 @@ func New(app *anetos.App, locales fs.FS) (*Translator, error) {
 	if err != nil {
 		return nil, err
 	}
-	if cfg.URL == URLSubdomain && app.Config().URL == "" {
-		return nil, errors.New("i18n: LOCALE_URL=subdomain needs APP_URL, the default locale's address (https://example.com)")
+	if cfg.Strategy == StrategySubdomain && app.Config().URL == "" {
+		return nil, errors.New("i18n: APP_LOCALE_STRATEGY=subdomain needs APP_URL, the default locale's address (https://example.com)")
 	}
 	opts := []Option{WithLogger(app.Logger().With("component", "i18n"))}
 	if locales != nil {
@@ -246,7 +260,7 @@ func WithTranslator(ctx context.Context, tr *Translator) context.Context {
 }
 
 var defaultTranslator = sync.OnceValue(func() *Translator {
-	tr, err := NewTranslator(Config{Locale: "en", Fallback: "en", URL: URLNone})
+	tr, err := NewTranslator(Config{Locale: "en", Fallback: "en", Strategy: StrategyNone})
 	if err != nil {
 		panic(err) // the embedded core catalog is broken
 	}

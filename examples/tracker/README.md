@@ -36,7 +36,7 @@ Sign in as `ada@example.com` (an administrator: `/admin`) or
 `grace@example.com`, both with the password `correct horse`. Emails go
 to the log (`MAIL_DRIVER=log`).
 
-It runs on SQLite by default; set `DB_CONNECTION` and `DB_URL` for
+It runs on SQLite by default; set `DB_DRIVER` and `DB_URL` for
 PostgreSQL or MySQL (`main.go` passes all three drivers).
 
 ## Test it
@@ -50,10 +50,10 @@ browser or an API client would: [`tracker_test.go`](tracker_test.go)
 builds a project with an owner, a member, a viewer and an outsider, and
 signs them in with `anetostest.ActingAs`. They run on an in-memory
 SQLite database; for PostgreSQL or MySQL, create a database and set
-`DB_CONNECTION` and `DB_URL`:
+`DB_DRIVER` and `DB_URL`:
 
 ```sh
-DB_CONNECTION=postgres DB_URL=postgres://localhost/tracker_test go test ./...
+DB_DRIVER=postgres DB_URL=postgres://localhost/tracker_test go test ./...
 ```
 
 On MySQL and MariaDB, the tests that search commit their rows and

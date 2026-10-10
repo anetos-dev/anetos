@@ -137,7 +137,7 @@ are sorted as strings: start them with `YYYY_MM_DD_HHMMSS`.
 
 | API | Does |
 |---|---|
-| `migrate.New(app, sets, opts...)` | Runner on the app's database, environment and logger; adds the migration commands, the `doctor` check, a readiness gate (the server's `/health/ready` answers 503 while migrations are pending, rechecked every 5 seconds; `MIGRATE_READINESS=false` turns it off) and, with `MIGRATE_ON_RUN=true`, migrating when the app starts with `run` or `serve` |
+| `migrate.New(app, sets, opts...)` | Runner on the app's database, environment and logger; adds the migration commands, the `doctor` check, a readiness gate (the server's `/health/ready` answers 503 while migrations are pending, rechecked every 5 seconds; `DB_MIGRATE_READINESS=false` turns it off) and, with `DB_MIGRATE_ON_START=true`, migrating when the app starts with `run` or `serve` |
 | `migrate.NewRunner(d, sets, opts...)` | Runner on any `*db.DB` |
 | `WithSeeders(...)`, `WithTable(name)`, `WithEnvironment(env)`, `WithLogger(l)` | Options; the default table is `migrations`, the default environment production |
 | `Up(ctx)` | Applies pending migrations as one batch; returns them |
@@ -165,8 +165,8 @@ Registered on the app by `migrate.New`, so the binary runs them
 | `search:reindex` | table names (default: all) | Allowed |
 
 Every command but `db:seed` changes the schema (`cmd.Command.ChangesSchema`),
-so it runs even when the search indexes don't match `SEARCH_LANGUAGE` and
-`SEARCH_RANKING`, which stops the app and other commands at boot.
+so it runs even when the search indexes don't match `DB_SEARCH_LANGUAGE` and
+`DB_SEARCH_RANKING`, which stops the app and other commands at boot.
 
 On PostgreSQL and MySQL, runs are serialized with an advisory or named
 lock (per database) held on its own connection: the pool needs at least
@@ -174,13 +174,13 @@ lock (per database) held on its own connection: the pool needs at least
 
 ## Search indexes
 
-`t.SearchIndex("title", "body")` builds, for `SEARCH_LANGUAGE` and
-`SEARCH_RANKING` (which the database must support, or the migration
+`t.SearchIndex("title", "body")` builds, for `DB_SEARCH_LANGUAGE` and
+`DB_SEARCH_RANKING` (which the database must support, or the migration
 fails):
 
 | Database | Objects |
 |---|---|
-| PostgreSQL | `search_vector`, a stored generated `tsvector` column (columns weighted A, B, C, D in order), and its GIN index `<table>_search_index`; with `SEARCH_RANKING=bm25`, also `search_text`, a generated text column, and its `bm25` index `<table>_search_bm25` (pg_textsearch) |
+| PostgreSQL | `search_vector`, a stored generated `tsvector` column (columns weighted A, B, C, D in order), and its GIN index `<table>_search_index`; with `DB_SEARCH_RANKING=bm25`, also `search_text`, a generated text column, and its `bm25` index `<table>_search_bm25` (pg_textsearch) |
 | MySQL, MariaDB | `search_text`, a stored generated `LONGTEXT` column (the columns joined), and its `FULLTEXT` index `<table>_search_index` |
 | SQLite | `<table>_search`, an FTS5 table on the table's rows (tokenizer `unicode61`, with `porter` for english; column weights 1, 0.4, 0.2, 0.1), and the triggers `<table>_search_insert`, `_delete` and `_update` that keep it current |
 

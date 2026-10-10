@@ -25,7 +25,7 @@ var commandHelp = map[string][2]string{ // usage, description
 	"migrate:fresh":    {"[--seed]", "Drop all tables and migrate again (development and testing only)"},
 	"migrate:status":   {"", "List migrations and whether they ran"},
 	"db:seed":          {"[--seeder=NAME] [--force]", "Run the seeders, or one"},
-	"search:reindex":   {"[table…]", "Rebuild the search indexes (or those of the tables) for SEARCH_LANGUAGE and SEARCH_RANKING"},
+	"search:reindex":   {"[table…]", "Rebuild the search indexes (or those of the tables) for DB_SEARCH_LANGUAGE and DB_SEARCH_RANKING"},
 }
 
 // AppCommands returns the migration commands as commands of the app

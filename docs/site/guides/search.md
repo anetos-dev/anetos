@@ -239,8 +239,8 @@ queried:
 
 | Setting | Values | Default |
 |---|---|---|
-| `SEARCH_LANGUAGE` | `simple`: words as written, in any language. `english` (PostgreSQL, SQLite): also their other forms ("runs" finds "running"). On PostgreSQL, any text search configuration: `german`, `french`, `spanish`… | `simple` |
-| `SEARCH_RANKING` | `default`: the database's own ranking. `bm25`: BM25, which weighs rare words more and long texts less | `default` |
+| `DB_SEARCH_LANGUAGE` | `simple`: words as written, in any language. `english` (PostgreSQL, SQLite): also their other forms ("runs" finds "running"). On PostgreSQL, any text search configuration: `german`, `french`, `spanish`… | `simple` |
+| `DB_SEARCH_RANKING` | `default`: the database's own ranking. `bm25`: BM25, which weighs rare words more and long texts less | `default` |
 
 `simple` with prefix matching is the default because it's right for
 every language (Bangla, Hindi and mixed content included) and behaves
@@ -255,8 +255,8 @@ go run . search:reindex          # all of them; or name the tables
 
 | | PostgreSQL | SQLite | MySQL, MariaDB |
 |---|---|---|---|
-| `SEARCH_LANGUAGE` | `simple`, `english` and the server's other text search configurations | `simple`, `english` | `simple` only |
-| `SEARCH_RANKING=bm25` | PostgreSQL 17+ with the [pg_textsearch](https://github.com/timescale/pg_textsearch) extension (in `shared_preload_libraries`, then `CREATE EXTENSION pg_textsearch`) | built in | not available |
+| `DB_SEARCH_LANGUAGE` | `simple`, `english` and the server's other text search configurations | `simple`, `english` | `simple` only |
+| `DB_SEARCH_RANKING=bm25` | PostgreSQL 17+ with the [pg_textsearch](https://github.com/timescale/pg_textsearch) extension (in `shared_preload_libraries`, then `CREATE EXTENSION pg_textsearch`) | built in | not available |
 | Column weights | yes | yes | no: columns count alike |
 | Common words ("the", "and") | ignored with a language other than `simple`; a search of only those finds nothing | searched | not indexed (stop words), like words shorter than 3 characters (`innodb_ft_min_token_size`): they only find longer words they start, and are optional next to other words |
 | Accents ("cafe" finds "Café") | no | yes | yes, with the default accent-insensitive collation |
@@ -267,8 +267,8 @@ serve stops the app with a message saying which setting, which database,
 and what to do:
 
 ```text
-blog serve: anetos: provider "db.Connect(mysql)": boot: db: SEARCH_RANKING=bm25 needs BM25 ranking, which this MySQL/MariaDB database doesn't have: MySQL and MariaDB don't have it; use SQLite, or PostgreSQL with pg_textsearch
-blog serve: anetos: provider "db.Connect(sqlite)": boot: db: the search indexes of notes (built for SEARCH_LANGUAGE=simple, SEARCH_RANKING=default) don't match SEARCH_LANGUAGE=english, SEARCH_RANKING=default: rebuild them with the search:reindex command, or set the settings back
+blog serve: anetos: provider "db.Connect(mysql)": boot: db: DB_SEARCH_RANKING=bm25 needs BM25 ranking, which this MySQL/MariaDB database doesn't have: MySQL and MariaDB don't have it; use SQLite, or PostgreSQL with pg_textsearch
+blog serve: anetos: provider "db.Connect(sqlite)": boot: db: the search indexes of notes (built for DB_SEARCH_LANGUAGE=simple, DB_SEARCH_RANKING=default) don't match DB_SEARCH_LANGUAGE=english, DB_SEARCH_RANKING=default: rebuild them with the search:reindex command, or set the settings back
 ```
 
 `migrate` and `search:reindex` still run when only the indexes are out of
@@ -308,9 +308,9 @@ roadmap behind the same `Search` method.
 | Problem | Cause | Fix |
 |---|---|---|
 | `… (does notes have a search index? …)` | No `t.SearchIndex` for the model's table, or the migration hasn't run | Add it in a migration; `go run . migrate` |
-| The app doesn't start: `the search indexes of … don't match` | `SEARCH_LANGUAGE` or `SEARCH_RANKING` changed since the indexes were built | `go run . search:reindex` |
-| The app doesn't start: `SEARCH_LANGUAGE=english isn't available on MySQL/MariaDB` | MySQL can't stem words | `SEARCH_LANGUAGE=simple`, or PostgreSQL or SQLite |
-| The app doesn't start: `needs BM25 ranking` | The database has no BM25 | `SEARCH_RANKING=default`, or install pg_textsearch on PostgreSQL 17+ |
+| The app doesn't start: `the search indexes of … don't match` | `DB_SEARCH_LANGUAGE` or `DB_SEARCH_RANKING` changed since the indexes were built | `go run . search:reindex` |
+| The app doesn't start: `DB_SEARCH_LANGUAGE=english isn't available on MySQL/MariaDB` | MySQL can't stem words | `DB_SEARCH_LANGUAGE=simple`, or PostgreSQL or SQLite |
+| The app doesn't start: `needs BM25 ranking` | The database has no BM25 | `DB_SEARCH_RANKING=default`, or install pg_textsearch on PostgreSQL 17+ |
 | "Go" or "the" doesn't find "Go" or "the" on MySQL | MySQL doesn't index words shorter than 3 characters, or stop words; they only find longer words they start | Expected; lower `innodb_ft_min_token_size` on the server and rebuild, or use PostgreSQL or SQLite |
 | Results of a `Distinct` or `GroupBy` search aren't best first | Those queries have no relevance order | Order them with `OrderBy`, or drop `Distinct` |
 | `CursorPaginate can't page through Search results` | Results are ordered by relevance, which has no cursor | Use `Paginate` |
@@ -327,7 +327,7 @@ roadmap behind the same `Search` method.
 - [Migrations reference](../reference/migrations.md#search-indexes): the
   objects each database gets.
 - [Configuration reference](../reference/configuration.md#search):
-  `SEARCH_LANGUAGE`, `SEARCH_RANKING`.
+  `DB_SEARCH_LANGUAGE`, `DB_SEARCH_RANKING`.
 
 > **Coming from Laravel?** This is Scout's database engine without the
 > `Searchable` trait: the migration declares what's searchable, and the

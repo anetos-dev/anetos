@@ -7,7 +7,7 @@
 // and validation messages in the visitor's language.
 //
 //	go run ./examples/i18n            # http://localhost:8080
-//	LOCALE_URL=prefix go run ./examples/i18n   # /bn/ for Bangla
+//	APP_LOCALE_STRATEGY=prefix go run ./examples/i18n   # /bn/ for Bangla
 //	go run ./examples/i18n lang:check # what Bangla is missing
 package main
 

@@ -37,9 +37,9 @@ type Config struct {
 	Backoff time.Duration `env:"QUEUE_BACKOFF" default:"10s"`
 	// MaxBackoff caps the doubling. QUEUE_BACKOFF_MAX, default 10m.
 	MaxBackoff time.Duration `env:"QUEUE_BACKOFF_MAX" default:"10m"`
-	// Poll is how long an idle worker waits before looking for jobs
-	// again. QUEUE_POLL, default 1s.
-	Poll time.Duration `env:"QUEUE_POLL" default:"1s"`
+	// PollInterval is how long an idle worker waits before looking for jobs
+	// again. QUEUE_POLL_INTERVAL, default 1s.
+	PollInterval time.Duration `env:"QUEUE_POLL_INTERVAL" was:"QUEUE_POLL" default:"1s"`
 	// Table is the database driver's table of jobs. QUEUE_TABLE, default
 	// jobs.
 	Table string `env:"QUEUE_TABLE" default:"jobs"`
@@ -55,7 +55,7 @@ type Config struct {
 // withDefaults fills in zero fields.
 func (c Config) withDefaults() Config {
 	d := Config{Driver: "sync", Default: "default", Tries: 3, Timeout: time.Minute, Backoff: 10 * time.Second,
-		MaxBackoff: 10 * time.Minute, Poll: time.Second, Table: "jobs", FailedTable: "failed_jobs"}
+		MaxBackoff: 10 * time.Minute, PollInterval: time.Second, Table: "jobs", FailedTable: "failed_jobs"}
 	if c.Driver == "" {
 		c.Driver = d.Driver
 	}
@@ -75,8 +75,8 @@ func (c Config) withDefaults() Config {
 		c.MaxBackoff = d.MaxBackoff
 	}
 	c.MaxBackoff = max(c.MaxBackoff, c.Backoff)
-	if c.Poll <= 0 {
-		c.Poll = d.Poll
+	if c.PollInterval <= 0 {
+		c.PollInterval = d.PollInterval
 	}
 	if c.Table == "" {
 		c.Table = d.Table
@@ -101,7 +101,7 @@ func LoadConfig(src config.Source) (Config, error) {
 		errs = append(errs, errors.New("QUEUE_TRIES must be at least 1"))
 	}
 	for name, d := range map[string]time.Duration{"QUEUE_TIMEOUT": cfg.Timeout, "QUEUE_BACKOFF": cfg.Backoff,
-		"QUEUE_BACKOFF_MAX": cfg.MaxBackoff, "QUEUE_POLL": cfg.Poll} {
+		"QUEUE_BACKOFF_MAX": cfg.MaxBackoff, "QUEUE_POLL_INTERVAL": cfg.PollInterval} {
 		if d <= 0 {
 			errs = append(errs, fmt.Errorf("%s must be positive", name))
 		}

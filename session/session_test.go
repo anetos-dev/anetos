@@ -368,21 +368,21 @@ func TestImplicitResponseAndStreaming(t *testing.T) {
 func TestConfig(t *testing.T) {
 	no := false
 	for _, cfg := range []Config{
-		{Cookie: "a b", Lifetime: time.Hour, Path: "/", SameSite: "lax"},
-		{Cookie: "s", Lifetime: time.Second, Path: "/", SameSite: "lax"},
-		{Cookie: "s", Lifetime: time.Hour, Path: "x", SameSite: "lax"},
-		{Cookie: "s", Lifetime: time.Hour, Path: "/", SameSite: "loose"},
-		{Cookie: "s", Lifetime: time.Hour, Path: "/", SameSite: "none", Secure: &no},
-		{Cookie: "app:session", Lifetime: time.Hour, Path: "/", SameSite: "lax"},
-		{Cookie: "s", Lifetime: time.Hour, Path: "/", SameSite: "lax", Domain: "bad domain"},
-		{Cookie: "s", Lifetime: time.Hour, MaxLifetime: time.Minute, Path: "/", SameSite: "lax"},
-		{Cookie: "s", Lifetime: time.Hour, Path: "/a\x00", SameSite: "lax"},
+		{Cookie: "a b", TTL: time.Hour, Path: "/", SameSite: "lax"},
+		{Cookie: "s", TTL: time.Second, Path: "/", SameSite: "lax"},
+		{Cookie: "s", TTL: time.Hour, Path: "x", SameSite: "lax"},
+		{Cookie: "s", TTL: time.Hour, Path: "/", SameSite: "loose"},
+		{Cookie: "s", TTL: time.Hour, Path: "/", SameSite: "none", Secure: &no},
+		{Cookie: "app:session", TTL: time.Hour, Path: "/", SameSite: "lax"},
+		{Cookie: "s", TTL: time.Hour, Path: "/", SameSite: "lax", Domain: "bad domain"},
+		{Cookie: "s", TTL: time.Hour, MaxTTL: time.Minute, Path: "/", SameSite: "lax"},
+		{Cookie: "s", TTL: time.Hour, Path: "/a\x00", SameSite: "lax"},
 	} {
 		if cfg.Validate() == nil {
 			t.Errorf("%+v accepted", cfg)
 		}
 	}
-	if _, err := LoadConfig(config.Map{"SESSION_LIFETIME": "soon"}); err == nil {
+	if _, err := LoadConfig(config.Map{"SESSION_TTL": "soon"}); err == nil {
 		t.Error("bad lifetime accepted")
 	}
 	if _, err := NewManager(DefaultConfig(), nil); err == nil {
@@ -445,7 +445,7 @@ func TestMaxLifetime(t *testing.T) {
 	c.clock = c.clock.Add(time.Hour)
 	c.get(func(s *Session) {
 		if s.Has("user_id") {
-			t.Error("session outlived SESSION_MAX_LIFETIME")
+			t.Error("session outlived SESSION_MAX_TTL")
 		}
 		s.Put("user_id", 2)
 		s.Regenerate()

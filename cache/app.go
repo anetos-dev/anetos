@@ -16,9 +16,9 @@ import (
 
 // Config selects and configures the app's cache.
 type Config struct {
-	// Store is the store's driver: memory, database, or one passed to
-	// New (redis). CACHE_STORE, default memory.
-	Store string `env:"CACHE_STORE" default:"memory"`
+	// Driver is the store's driver: memory, database, or one passed to
+	// New (redis). CACHE_DRIVER, default memory.
+	Driver string `env:"CACHE_DRIVER" was:"CACHE_STORE" default:"memory"`
 	// Prefix starts every key, so apps (and, in Redis, sessions and
 	// queues) can share a store: cache:clear removes only its keys.
 	// CACHE_PREFIX, default APP_NAME followed by ":cache:" ("blog:cache:").
@@ -35,14 +35,14 @@ func LoadConfig(src config.Source) (Config, error) {
 // Driver opens a store for [New]. The memory and database drivers are
 // built in; driver modules provide others (redis.CacheDriver()).
 type Driver struct {
-	// Name is the value of CACHE_STORE that selects the driver.
+	// Name is the value of CACHE_DRIVER that selects the driver.
 	Name string
 	// Open returns the store for the app. It may add providers to the app,
 	// for example to check a server when the app boots.
 	Open func(app *anetos.App, cfg Config) (Store, error)
 }
 
-// MemoryDriver is the memory store's driver (CACHE_STORE=memory).
+// MemoryDriver is the memory store's driver (CACHE_DRIVER=memory).
 func MemoryDriver() Driver {
 	return Driver{Name: "memory", Open: func(app *anetos.App, _ Config) (Store, error) {
 		s := NewMemoryStore()
@@ -52,7 +52,7 @@ func MemoryDriver() Driver {
 }
 
 // New sets up the app's cache from the CACHE_* settings: it opens the
-// store with the driver CACHE_STORE names (memory and database are
+// store with the driver CACHE_DRIVER names (memory and database are
 // built in; pass others, such as redis.CacheDriver()), makes the cache
 // available in every context the app creates (for [Get], [Set],
 // [Remember], …) and to [anetos.Resolve], closes the store at shutdown,
@@ -71,17 +71,17 @@ func New(app *anetos.App, drivers ...Driver) (*Cache, error) {
 		return nil, err
 	}
 	all := append([]Driver{MemoryDriver(), DatabaseDriver()}, drivers...)
-	i := slices.IndexFunc(all, func(d Driver) bool { return d.Name == cfg.Store })
+	i := slices.IndexFunc(all, func(d Driver) bool { return d.Name == cfg.Driver })
 	if i < 0 {
 		names := make([]string, len(all))
 		for j, d := range all {
 			names[j] = d.Name
 		}
-		return nil, fmt.Errorf("cache: CACHE_STORE is %q, but the drivers are [%s]; pass its driver to cache.New (redis.CacheDriver() from drivers/redis)", cfg.Store, strings.Join(names, ", "))
+		return nil, fmt.Errorf("cache: CACHE_DRIVER is %q, but the drivers are [%s]; pass its driver to cache.New (redis.CacheDriver() from drivers/redis)", cfg.Driver, strings.Join(names, ", "))
 	}
 	store, err := all[i].Open(app, cfg)
 	if err != nil {
-		return nil, fmt.Errorf("cache: open the %s store: %w", cfg.Store, err)
+		return nil, fmt.Errorf("cache: open the %s store: %w", cfg.Driver, err)
 	}
 	prefix := cfg.Prefix
 	if prefix == "" {
@@ -99,19 +99,19 @@ func New(app *anetos.App, drivers ...Driver) (*Cache, error) {
 			if err := store.Flush(ctx, c.prefix); err != nil {
 				return err
 			}
-			_, err := fmt.Fprintf(args.Stdout, "Cleared the %s cache (keys starting with %q).\n", cfg.Store, c.prefix)
+			_, err := fmt.Fprintf(args.Stdout, "Cleared the %s cache (keys starting with %q).\n", cfg.Driver, c.prefix)
 			return err
 		},
 	}); err != nil {
 		return nil, errors.Join(err, store.Close())
 	}
-	if cfg.Store == "memory" {
+	if cfg.Driver == "memory" {
 		env := app.Config().Env
 		app.AddCheck(anetos.Check{Name: "cache", Run: func(context.Context) []anetos.Finding {
 			if !env.Deployed() {
 				return nil
 			}
-			return []anetos.Finding{{Severity: anetos.Note, Message: "CACHE_STORE=memory: each instance of the app has its own cache, rate limits and locks (cache.WithLock); with more than one instance, use redis or database"}}
+			return []anetos.Finding{{Severity: anetos.Note, Message: "CACHE_DRIVER=memory: each instance of the app has its own cache, rate limits and locks (cache.WithLock); with more than one instance, use redis or database"}}
 		}})
 	}
 	app.AddContextValue(cacheKey{}, c)

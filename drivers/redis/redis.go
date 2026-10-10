@@ -4,7 +4,7 @@
 // as Valkey), using github.com/redis/go-redis, and provides the Redis
 // cache store:
 //
-//	c, err := cache.New(app, redis.CacheDriver()) // with CACHE_STORE=redis
+//	c, err := cache.New(app, redis.CacheDriver()) // with CACHE_DRIVER=redis
 //
 // The server is REDIS_URL (default redis://127.0.0.1:6379/0; rediss://
 // for TLS, with the password and database in the URL:

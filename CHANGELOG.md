@@ -7,6 +7,17 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- `config`'s `was:"OLD"` tag reads a renamed setting's former name;
+  `config.RenameReporter` and `config.Lister`; `config.Key.Was`. The app
+  logs each former name in use once, and `doctor` lists them and points
+  at `.env` keys that are another framework's name
+  (`QUEUE_CONNECTION`: use `QUEUE_DRIVER`), a former name beside its new
+  one, or a typo of a setting (M8b-2, D311).
+- `PORT`, which hosting platforms set, is the port when `HTTP_ADDR`
+  isn't set; a platform's `postgres://` `DATABASE_URL` is the database
+  when nothing else says where it is (no `DB_URL`, `DB_HOST` or
+  `DB_NAME`; `DB_DRIVER` unset or `postgres`), and the app logs that it
+  uses it. Tests ignore a `DATABASE_URL` in the shell (M8b-2).
 - `views/ui`, the app's interface components (K1, D292–D297): `anetos
   new` writes a design kit's components (`ui.Header`, `ui.Nav`,
   `ui.PageHeader`, `ui.Card`, `ui.Form`, `ui.Field`, `ui.Input`,
@@ -64,6 +75,19 @@ All notable changes to this project are documented here. The format follows
   D300).
 
 ### Changed
+- Settings have one prefix per area and one word per idea (M8b-2,
+  D311): `DB_DRIVER`, `DB_NAME`, `DB_USER` (were `DB_CONNECTION`,
+  `DB_DATABASE`, `DB_USERNAME`), `DB_MIGRATE_ON_START`,
+  `DB_MIGRATE_READINESS`, `DB_SEARCH_LANGUAGE`, `DB_SEARCH_RANKING`,
+  `CACHE_DRIVER`, `SESSION_TTL`, `SESSION_MAX_TTL`, `AUTH_REMEMBER_TTL`,
+  `QUEUE_POLL_INTERVAL`, `APP_LOCALE_STRATEGY` (was `LOCALE_URL`). The
+  former names are
+  read, with a warning, until v0.6. The config structs' fields follow
+  (`db.Config.Driver`, `Name`, `User`; `cache.Config.Driver`;
+  `session.Config.TTL`, `MaxTTL`; `auth.Config.RememberTTL`;
+  `queue.Config.PollInterval`; `migrate.Config.OnStart`;
+  `i18n.Config.Strategy` and `i18n.StrategyNone`…). See the
+  [upgrade guide](docs/site/upgrade/v0.5.md).
 - Services are built from the app's settings by their package's `New`:
   `cache.New(app)`, `queue.New(app)`, `session.New(app)`… (16 packages)
   instead of `ForApp`; `openapi.ForApp` is `openapi.Register`;
@@ -106,6 +130,8 @@ All notable changes to this project are documented here. The format follows
   `>= v0.2.0, < v0.6.0`) (after v0.4.0).
 
 ### Deprecated
+- `i18n.URLNone`, `URLPrefix`, `URLSubdomain`: use `StrategyNone`,
+  `StrategyPrefix`, `StrategySubdomain` (M8b-2).
 - `ForApp` in every package (`cache.ForApp`… `openapi.ForApp`): use
   `New` (`openapi.Register`); `go fix ./...` rewrites the calls, except
   `auth.ForApp` and `social.ForApp`. Removed in v0.6 (M8b-1).

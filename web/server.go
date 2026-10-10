@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"slices"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"text/tabwriter"
@@ -68,12 +69,23 @@ func DefaultConfig() Config {
 	return cfg
 }
 
-// LoadConfig reads the HTTP_* settings from src.
+// LoadConfig reads the HTTP_* settings from src. Without HTTP_ADDR, a
+// PORT setting (which Heroku, Render, Railway, Fly and Cloud Run give an
+// app) makes the address ":PORT".
 func LoadConfig(src config.Source) (Config, error) {
 	var wrapper struct {
 		HTTP Config `prefix:"HTTP_"`
 	}
 	err := config.Bind(src, &wrapper)
+	if addr, ok := src.Lookup("HTTP_ADDR"); !ok || addr == "" {
+		if port, ok := src.Lookup("PORT"); ok && port != "" {
+			if n, perr := strconv.Atoi(port); perr != nil || n < 0 || n > 65535 {
+				err = errors.Join(err, fmt.Errorf("web: PORT %q isn't a port number (set HTTP_ADDR instead)", port))
+			} else {
+				wrapper.HTTP.Addr = net.JoinHostPort("", port)
+			}
+		}
+	}
 	return wrapper.HTTP, err
 }
 
@@ -113,7 +125,7 @@ func WithConfig(cfg Config) ServerOption {
 // The router comes with these global middleware, outermost first: Recover,
 // RequestIDs, RealIP, AccessLog (HTTP_ACCESS_LOG), SecureHeaders (HSTS in
 // production), CORS (when HTTP_CORS_ORIGINS is set), the request's locale
-// (with i18n.New: the locale in the URL with LOCALE_URL, the redirects
+// (with i18n.New: the locale in the URL with APP_LOCALE_STRATEGY, the redirects
 // to the visitor's locale, ?locale= switches; see [LocaleURL]), BodyLimit
 // (HTTP_MAX_BODY) and Timeout (HTTP_REQUEST_TIMEOUT). Unless
 // HTTP_HEALTH_ROUTES=false, it also serves GET /health/live and

@@ -66,8 +66,8 @@ func newTranslator(t *testing.T, cfg i18n.Config, opts ...i18n.Option) *i18n.Tra
 	if cfg.Fallback == "" {
 		cfg.Fallback = "en"
 	}
-	if cfg.URL == "" {
-		cfg.URL = i18n.URLNone
+	if cfg.Strategy == "" {
+		cfg.Strategy = i18n.StrategyNone
 	}
 	tr, err := i18n.NewTranslator(cfg, append([]i18n.Option{i18n.WithLocales(files)}, opts...)...)
 	if err != nil {
@@ -158,9 +158,9 @@ func TestLocales(t *testing.T) {
 	}
 
 	bad := []i18n.Config{
-		{Locale: "xx-!!", Fallback: "en", URL: "none"},
-		{Locale: "en", Fallback: "en", URL: "path"},
-		{Locale: "bn", Fallback: "en", URL: "none", Locales: []string{"en"}},
+		{Locale: "xx-!!", Fallback: "en", Strategy: "none"},
+		{Locale: "en", Fallback: "en", Strategy: "path"},
+		{Locale: "bn", Fallback: "en", Strategy: "none", Locales: []string{"en"}},
 	}
 	for _, cfg := range bad {
 		if _, err := i18n.NewTranslator(cfg); err == nil {
@@ -170,7 +170,7 @@ func TestLocales(t *testing.T) {
 }
 
 func TestCatalogErrors(t *testing.T) {
-	cfg := i18n.Config{Locale: "en", Fallback: "en", URL: "none"}
+	cfg := i18n.Config{Locale: "en", Fallback: "en", Strategy: "none"}
 	cases := map[string]fstest.MapFS{
 		"is 3, not text":        {"en.yaml": {Data: []byte("count: 3")}},
 		"also defined in":       {"en/a.yaml": {Data: []byte("x: a")}, "en/b.yaml": {Data: []byte("x: b")}},
@@ -298,7 +298,7 @@ func TestCheck(t *testing.T) {
 	}
 
 	// Placeholders and plural forms.
-	tr, err := i18n.NewTranslator(i18n.Config{Locale: "en", Fallback: "en", URL: "none"}, i18n.WithLocales(fstest.MapFS{
+	tr, err := i18n.NewTranslator(i18n.Config{Locale: "en", Fallback: "en", Strategy: "none"}, i18n.WithLocales(fstest.MapFS{
 		"en.yaml": {Data: []byte("hi: \"Hi {name}\"\nn: {zero: \"no x\", one: \"{count} x\", other: \"{count} xs\"}")},
 		"ar.yaml": {Data: []byte("hi: \"Hi {nom}\"\nn: {one: \"x\", other: \"{count} xs\"}")},
 	}))
@@ -387,7 +387,7 @@ func TestWithLocaleKeepsZone(t *testing.T) {
 }
 
 func TestLookupDetails(t *testing.T) {
-	cfg := i18n.Config{Locale: "bn", Fallback: "bn", URL: "none", Locales: []string{"bn", "en", "ja"}}
+	cfg := i18n.Config{Locale: "bn", Fallback: "bn", Strategy: "none", Locales: []string{"bn", "en", "ja"}}
 	tr, err := i18n.NewTranslator(cfg, i18n.WithLocales(fstest.MapFS{
 		"bn.yaml":          {Data: []byte("validation:\n  required: \"{label} দিতে হবে।\"\nhi: \"নমস্কার\"\nfiles: {one: \"{count} ফাইল\", other: \"{count}টি ফাইল\"}")},
 		"en.yaml":          {Data: []byte("posts: {one: \"{count} post\", other: \"{count} posts\"}\nreasons: {other: \"Other\"}")},
@@ -417,7 +417,7 @@ func TestLookupDetails(t *testing.T) {
 }
 
 func TestMatchQuality(t *testing.T) {
-	tr, err := i18n.NewTranslator(i18n.Config{Locale: "en", Fallback: "en", URL: "none", Locales: []string{"en", "fr", "fr-CA", "zh-Hant", "pt-BR"}})
+	tr, err := i18n.NewTranslator(i18n.Config{Locale: "en", Fallback: "en", Strategy: "none", Locales: []string{"en", "fr", "fr-CA", "zh-Hant", "pt-BR"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -433,7 +433,7 @@ func TestMatchQuality(t *testing.T) {
 }
 
 func TestFill(t *testing.T) {
-	tr, err := i18n.NewTranslator(i18n.Config{Locale: "en", Fallback: "en", URL: "none"}, i18n.WithLocales(fstest.MapFS{
+	tr, err := i18n.NewTranslator(i18n.Config{Locale: "en", Fallback: "en", Strategy: "none"}, i18n.WithLocales(fstest.MapFS{
 		"en.yaml": {Data: []byte("a: \"{x\"\nb: \"{{x}}\"\nc: \"{}\"\nd: \"{x} {x}\"")},
 	}))
 	if err != nil {
@@ -469,7 +469,7 @@ func TestResolverPanics(t *testing.T) {
 }
 
 func TestMatchOtherLanguages(t *testing.T) {
-	tr, err := i18n.NewTranslator(i18n.Config{Locale: "en", Fallback: "en", URL: "none", Locales: []string{"en", "ru", "es", "zh-Hans"}})
+	tr, err := i18n.NewTranslator(i18n.Config{Locale: "en", Fallback: "en", Strategy: "none", Locales: []string{"en", "ru", "es", "zh-Hans"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -486,7 +486,7 @@ func TestMatchOtherLanguages(t *testing.T) {
 }
 
 func TestRootKeys(t *testing.T) {
-	cfg := i18n.Config{Locale: "en", Fallback: "en", URL: "none"}
+	cfg := i18n.Config{Locale: "en", Fallback: "en", Strategy: "none"}
 	for _, data := range []string{"true: x", "~: x", "1.5: x", "- a\n- b"} {
 		if _, err := i18n.NewTranslator(cfg, i18n.WithLocales(fstest.MapFS{"en.yaml": {Data: []byte(data)}})); err == nil {
 			t.Errorf("%q: no error", data)
@@ -500,7 +500,7 @@ func TestRootKeys(t *testing.T) {
 }
 
 func TestCheckFormat(t *testing.T) {
-	tr, err := i18n.NewTranslator(i18n.Config{Locale: "en", Fallback: "en", URL: "none"}, i18n.WithLocales(fstest.MapFS{
+	tr, err := i18n.NewTranslator(i18n.Config{Locale: "en", Fallback: "en", Strategy: "none"}, i18n.WithLocales(fstest.MapFS{
 		"bn.yaml": {Data: []byte("format: {months: [a, b]}")},
 	}))
 	if err != nil {
@@ -513,7 +513,7 @@ func TestCheckFormat(t *testing.T) {
 }
 
 func TestCheckFrameworkPlaceholders(t *testing.T) {
-	tr, err := i18n.NewTranslator(i18n.Config{Locale: "en", Fallback: "en", URL: "none"}, i18n.WithLocales(fstest.MapFS{
+	tr, err := i18n.NewTranslator(i18n.Config{Locale: "en", Fallback: "en", Strategy: "none"}, i18n.WithLocales(fstest.MapFS{
 		"fr.yaml": {Data: []byte("validation:\n  min:\n    numeric: \"{label} au moins {min}\"\n  requird: \"x\"\nhttp:\n  request_id: \"ID\"\nformat:\n  numbering: \"latn\"")},
 	}))
 	if err != nil {

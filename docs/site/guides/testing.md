@@ -65,7 +65,7 @@ test ends. The settings, from highest priority:
 5. `HTTP_ACCESS_LOG=false`, `APP_URL=http://example.test` (the test client's site) and
    `MAIL_FROM_ADDRESS=test@example.com`.
 
-`.env` isn't read, and with SQLite and neither `DB_DATABASE` nor `DB_URL`
+`.env` isn't read, and with SQLite and neither `DB_NAME` nor `DB_URL`
 set (or set to `""`), the database is in memory: a test never touches
 your development database.
 
@@ -385,7 +385,7 @@ lists what reads the app's clock.
 ## How it works
 
 Everything a test does runs on the test's context (`app.Context()`),
-which carries the app's database. With SQLite and no `DB_DATABASE`, each
+which carries the app's database. With SQLite and no `DB_NAME`, each
 test gets its own in-memory database, migrated from scratch. With a
 database server (or a SQLite file), migrations run once and each test runs
 in a transaction that is rolled back when it ends, so tests leave nothing
@@ -442,11 +442,11 @@ over `.env.testing`.
 | `setup returned no server` | `setup` returns a nil `*web.Server` | Return the server |
 | A redirect back goes to `/` | No HTML page loaded first, so there's no `Referer` | `app.Get` the form's page before posting |
 | `app.Freeze` doesn't change a time your code sets | The code reads `time.Now()` | Use `anetos.Now(ctx)` |
-| An item in the database or Redis cache doesn't expire after `app.Travel` | Those stores use their server's clock | Use `CACHE_STORE=memory` in tests, or test expiry another way |
+| An item in the database or Redis cache doesn't expire after `app.Travel` | Those stores use their server's clock | Use `CACHE_DRIVER=memory` in tests, or test expiry another way |
 | `anetostest: FakeQueue: the app has no queue` | `setup` doesn't call `queue.New` (or `events.New`, `pubsub.New` for the other fakes) | Drop the option, or set the service up |
 | `job type … isn't registered` from `Jobs[J]` or `AssertDispatched[J]` | `J` isn't registered with `queue.Register` | Register it in `setup`; check function jobs with `app.Dispatched()` |
 | `Search` finds nothing on MySQL or MariaDB in a test | Their full-text indexes only see committed rows, and the test runs in a transaction | `anetostest.WithoutTransaction()` for that test, or test search on SQLite or PostgreSQL |
-| The app doesn't start: a search index doesn't match `SEARCH_LANGUAGE` | The test database was migrated with other search settings | Run `search:reindex` (or `migrate:fresh`) on it with the test settings |
+| The app doesn't start: a search index doesn't match `DB_SEARCH_LANGUAGE` | The test database was migrated with other search settings | Run `search:reindex` (or `migrate:fresh`) on it with the test settings |
 
 > **Coming from Laravel?** `anetostest.New` is the `TestCase` with
 > `RefreshDatabase` (in-memory SQLite, or migrations plus a transaction per

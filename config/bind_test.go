@@ -346,3 +346,56 @@ func TestKeys(t *testing.T) {
 		t.Error("a bad tag: no error")
 	}
 }
+
+type renames struct {
+	Map
+	got [][2]string
+}
+
+func (r *renames) ReportRename(old, current string) { r.got = append(r.got, [2]string{old, current}) }
+
+func (r *renames) ReportFormer(string, string) {}
+
+// TestBindWas: a key's former name is read when the key is unset, and
+// reported; the new name wins when both are set.
+func TestBindWas(t *testing.T) {
+	type cfg struct {
+		User string `env:"USER" was:"USERNAME"`
+		Name string `env:"NAME" was:"DATABASE" default:"app"`
+	}
+	var w struct {
+		DB cfg `prefix:"DB_"`
+	}
+	src := &renames{Map: Map{"DB_USERNAME": "ada", "DB_NAME": "new", "DB_DATABASE": "old"}}
+	if err := Bind(src, &w); err != nil {
+		t.Fatal(err)
+	}
+	if w.DB.User != "ada" || w.DB.Name != "new" {
+		t.Errorf("bound %+v", w.DB)
+	}
+	if len(src.got) != 1 || src.got[0] != [2]string{"DB_USERNAME", "DB_USER"} {
+		t.Errorf("reported %v", src.got)
+	}
+	// Neither set: the default.
+	src = &renames{Map: Map{}}
+	if err := Bind(src, &w); err != nil || w.DB.Name != "app" || len(src.got) != 0 {
+		t.Errorf("unset: %+v %v %v", w.DB, src.got, err)
+	}
+	keys, err := Keys(&w)
+	if err != nil || keys[0].Was != "DB_USERNAME" || keys[1].Was != "DB_DATABASE" {
+		t.Errorf("Keys: %+v %v", keys, err)
+	}
+	// A bad value under the former name: the error names that key.
+	var d struct {
+		TTL time.Duration `env:"SESSION_TTL" was:"SESSION_LIFETIME"`
+	}
+	if err := Bind(Map{"SESSION_LIFETIME": "abc"}, &d); err == nil || !strings.Contains(err.Error(), "SESSION_LIFETIME") {
+		t.Errorf("bad former value: %v", err)
+	}
+	if names := (Map{"B": "", "A": ""}).Names(); len(names) != 2 || names[0] != "A" {
+		t.Errorf("Names: %v", names)
+	}
+	if names := Layers(Env(), Map{"B": ""}, Map{"A": "", "B": ""}).(Lister).Names(); len(names) != 2 || names[0] != "A" {
+		t.Errorf("Layers Names: %v", names)
+	}
+}

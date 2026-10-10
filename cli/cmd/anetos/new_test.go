@@ -212,7 +212,7 @@ func TestNewProject(t *testing.T) {
 		t.Helper()
 		c := exec.Command(bin, args...)
 		c.Dir = dir
-		c.Env = append(os.Environ(), "DB_DATABASE="+filepath.Join(dir, "app.db"))
+		c.Env = append(os.Environ(), "DB_NAME="+filepath.Join(dir, "app.db"))
 		b, err := c.CombinedOutput()
 		if err != nil {
 			t.Fatalf("%v: %v\n%s", args, err, b)
@@ -227,7 +227,7 @@ func TestNewProject(t *testing.T) {
 	// the project's own, in development.
 	c := exec.Command(bin, "doctor", "--strict")
 	c.Dir = dir
-	c.Env = append(os.Environ(), "DB_DATABASE="+filepath.Join(dir, "app.db"), "APP_ENV=production", "APP_DEBUG=false", "APP_URL=https://blog.acme.io", "MAIL_FROM_ADDRESS=hello@acme.io")
+	c.Env = append(os.Environ(), "DB_NAME="+filepath.Join(dir, "app.db"), "APP_ENV=production", "APP_DEBUG=false", "APP_URL=https://blog.acme.io", "MAIL_FROM_ADDRESS=hello@acme.io")
 	b, err := c.CombinedOutput()
 	if out := strings.Join(strings.Fields(string(b)), " "); err == nil || !strings.Contains(out, "Checking blog (APP_ENV=production).") ||
 		!strings.Contains(out, "warning mail: MAIL_DRIVER=log in production") || !strings.Contains(out, "ok migrations") ||
@@ -370,7 +370,7 @@ func TestNewAPIProject(t *testing.T) {
 		t.Helper()
 		c := exec.Command(filepath.Join(dir, "bin", "shop"), args...)
 		c.Dir = dir
-		c.Env = append(os.Environ(), "DB_DATABASE="+filepath.Join(dir, "app.db"))
+		c.Env = append(os.Environ(), "DB_NAME="+filepath.Join(dir, "app.db"))
 		b, err := c.CombinedOutput()
 		if err != nil {
 			t.Fatalf("%v: %v\n%s", args, err, b)

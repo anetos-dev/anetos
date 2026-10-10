@@ -159,7 +159,7 @@ loop:
 		if err != nil {
 			<-slots
 			failures++
-			wait := min(q.cfg.Poll<<min(failures, 5), 30*time.Second)
+			wait := min(q.cfg.PollInterval<<min(failures, 5), 30*time.Second)
 			q.log.Error("queue: reserve a job", "error", err, "retry_in", wait)
 			if !sleep(ctx, jitter(wait)) {
 				break loop
@@ -169,7 +169,7 @@ loop:
 		failures = 0
 		if r == nil {
 			<-slots
-			if !sleep(ctx, jitter(q.cfg.Poll)) {
+			if !sleep(ctx, jitter(q.cfg.PollInterval)) {
 				break loop
 			}
 			continue

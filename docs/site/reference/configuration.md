@@ -24,7 +24,7 @@ Read by `anetos.New` into `anetos.AppConfig`.
 | `APP_LOCALE` | locale (`en`, `bn`, `pt-BR`) | `en` | The default locale: of requests that ask for no supported one, and of code outside requests. Read by `i18n.New` | v0.3 |
 | `APP_FALLBACK_LOCALE` | locale | `en` | Where a locale's missing messages come from, after its parents (`bn-BD`, then `bn`); the framework's English messages come last | v0.3 |
 | `APP_LOCALES` | list of locales | `APP_LOCALE` and every locale with a catalog | The locales requests can ask for. `APP_LOCALE` must be one of them | v0.3 |
-| `LOCALE_URL` | `none` \| `prefix` \| `subdomain` | `none` | Where a request's locale is in its URL: nowhere (the `locale` cookie, the session, the signed-in user's preference, `Accept-Language`), a path prefix (`/bn/about`; the default locale has none), or a subdomain (`bn.example.com`; needs `APP_URL`). See [Translations](../guides/translations.md#4-choose-how-visitors-get-their-language) | v0.3 |
+| `APP_LOCALE_STRATEGY` | `none` \| `prefix` \| `subdomain` | `none` | Where a request's locale is in its URL: nowhere (the `locale` cookie, the session, the signed-in user's preference, `Accept-Language`), a path prefix (`/bn/about`; the default locale has none), or a subdomain (`bn.example.com`; needs `APP_URL`). See [Translations](../guides/translations.md#4-choose-how-visitors-get-their-language) | v0.3 |
 | `LOG_LEVEL` | `debug` \| `info` \| `warn` \| `error` | `info` | Minimum log level | v0.1 |
 | `LOG_FORMAT` | `text` \| `json` \| empty | empty | Log format; empty means JSON in production, text elsewhere | v0.1 |
 
@@ -43,6 +43,7 @@ Used by `config.Bind` and `config.Get`.
 | `env:"-"` | | Ignore the field |
 | `default:"value"` | `default:"5432"` | Used when the key is missing or empty |
 | `prefix:"P_"` | `prefix:"DB_"` | On a nested struct (or pointer to struct) without `env`: prepend `P_` to its keys |
+| `was:"OLD"` | `was:"DB_USERNAME"` | The key's former name (with the same prefix), read when the key is unset; the app logs a warning and `doctor` lists it |
 
 Untagged nested structs are bound recursively, without a prefix unless one is
 given. Unexported fields are ignored.
@@ -97,13 +98,42 @@ byte order mark and CRLF line endings are handled.
 `anetos.WithConfigDir(dir)` changes where the files are read from, and
 `anetos.WithSource(src)` replaces the whole mechanism (useful in tests).
 
+Every key of an area starts with its prefix (`DB_`, `CACHE_`, `MAIL_`…),
+and the key that picks a backend is `<AREA>_DRIVER`. A few keys keep the
+name a whole ecosystem uses: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`,
+`GEMINI_API_KEY`, `REDIS_URL`, and the hosting platforms' `PORT` (when
+`HTTP_ADDR` isn't set) and `DATABASE_URL` (see `DB_URL`).
+`go run . doctor` points at a key in a `.env` file that is another
+framework's name for a setting (`QUEUE_CONNECTION`), a former name left
+beside its new one, or a typo of a setting.
+
+### Renamed in v0.5
+
+The former names are still read, with a warning, until v0.6.
+
+| Before v0.5 | Since |
+|---|---|
+| `DB_CONNECTION` | `DB_DRIVER` |
+| `DB_DATABASE` | `DB_NAME` |
+| `DB_USERNAME` | `DB_USER` |
+| `MIGRATE_ON_RUN` | `DB_MIGRATE_ON_START` |
+| `MIGRATE_READINESS` | `DB_MIGRATE_READINESS` |
+| `SEARCH_LANGUAGE` | `DB_SEARCH_LANGUAGE` |
+| `SEARCH_RANKING` | `DB_SEARCH_RANKING` |
+| `CACHE_STORE` | `CACHE_DRIVER` |
+| `SESSION_LIFETIME` | `SESSION_TTL` |
+| `SESSION_MAX_LIFETIME` | `SESSION_MAX_TTL` |
+| `AUTH_REMEMBER_LIFETIME` | `AUTH_REMEMBER_TTL` |
+| `QUEUE_POLL` | `QUEUE_POLL_INTERVAL` |
+| `LOCALE_URL` | `APP_LOCALE_STRATEGY` |
+
 ## HTTP server
 
 Read by `web.NewServer` (or `web.LoadConfig`) into `web.Config`.
 
 | Key | Type | Default | Description | Since |
 |---|---|---|---|---|
-| `HTTP_ADDR` | string | `:8080` | Listen address. `127.0.0.1:0` picks a free port (tests) | v0.1 |
+| `HTTP_ADDR` | string | `:8080`, or `:$PORT` when the platform sets `PORT` | Listen address. `127.0.0.1:0` picks a free port (tests) | v0.1 |
 | `HTTP_READ_HEADER_TIMEOUT` | duration | `10s` | Time to read request headers (slowloris protection) | v0.1 |
 | `HTTP_READ_TIMEOUT` | duration | `30s` | Time to read the whole request | v0.1 |
 | `HTTP_WRITE_TIMEOUT` | duration | `30s` | Time to write the response | v0.1 |
@@ -139,8 +169,8 @@ Read by `session.New` (or `session.LoadConfig`) into `session.Config`.
 | Key | Type | Default | Description | Since |
 |---|---|---|---|---|
 | `SESSION_COOKIE` | string | `anetos_session` | Cookie name. A Secure cookie without `SESSION_DOMAIN` and with path `/` gets the `__Host-` prefix. A name you give with `__Host-` or `__Secure-` must meet the browser's rules for it | v0.1 |
-| `SESSION_LIFETIME` | duration | `2h` | The session ends after this long without a request (at least `1m`) | v0.1 |
-| `SESSION_MAX_LIFETIME` | duration | `168h` | The session ends this long after it started or was regenerated (login), however active. `0` disables | v0.1 |
+| `SESSION_TTL` | duration | `2h` | The session ends after this long without a request (at least `1m`) | v0.1 |
+| `SESSION_MAX_TTL` | duration | `168h` | The session ends this long after it started or was regenerated (login), however active. `0` disables | v0.1 |
 | `SESSION_EXPIRE_ON_CLOSE` | bool | `false` | Browser-session cookie: dropped when the browser closes | v0.1 |
 | `SESSION_DOMAIN` | string | empty (this host only) | Cookie domain; set it to share the session with subdomains | v0.1 |
 | `SESSION_PATH` | string | `/` | Cookie path | v0.1 |
@@ -161,12 +191,12 @@ keys with a prefix, e.g. `ANALYTICS_DB_HOST`) into `db.Config`.
 
 | Key | Type | Default | Description | Since |
 |---|---|---|---|---|
-| `DB_CONNECTION` | `sqlite` \| `postgres` \| `mysql` | `sqlite` | Selects one of the drivers passed to `db.Connect` | v0.1 |
-| `DB_URL` | string | empty | Complete connection string in the driver's format; when set, the five keys below are ignored. Use it for TLS and driver options | v0.1 |
+| `DB_DRIVER` | `sqlite` \| `postgres` \| `mysql` | `sqlite` | Selects one of the drivers passed to `db.Connect` | v0.1 |
+| `DB_URL` | string | empty | Complete connection string in the driver's format; when set, the five keys below are ignored. Use it for TLS and driver options. Without it, `DB_HOST` and `DB_NAME`, and with `DB_DRIVER` unset or `postgres`, a `postgres://` `DATABASE_URL` (a hosting platform's) is used, with the postgres driver | v0.1 |
 | `DB_HOST` | string | `127.0.0.1` | Server host (PostgreSQL, MySQL) | v0.1 |
 | `DB_PORT` | int | driver default (5432, 3306) | Server port | v0.1 |
-| `DB_DATABASE` | string | empty; SQLite: `database/app.db` | Database name, or the SQLite file (`:memory:` for an in-memory database) | v0.1 |
-| `DB_USERNAME` | string | empty | User | v0.1 |
+| `DB_NAME` | string | empty; SQLite: `database/app.db` | Database name, or the SQLite file (`:memory:` for an in-memory database) | v0.1 |
+| `DB_USER` | string | empty | User | v0.1 |
 | `DB_PASSWORD` | string | empty | Password | v0.1 |
 | `DB_TLS` | `verify` \| `skip-verify` \| `none` | `verify` with `DB_TLS_CA` set or a remote host; `none` for a local host (localhost, loopback, Unix socket) | TLS of the connection built from `DB_HOST` (PostgreSQL `sslmode=verify-full`/`require`/`disable`, MySQL `tls=true`/`skip-verify`/`false`). With `DB_URL`, set it in the URL instead (setting both is refused) | v0.3 |
 | `DB_TLS_CA` | path | empty | PEM file of the CAs that sign the server's certificate, for `verify` when they aren't the system's; setting it means `verify` (also through a tunnel on localhost), and it is refused with `skip-verify` or `none` | v0.3 |
@@ -177,16 +207,16 @@ keys with a prefix, e.g. `ANALYTICS_DB_HOST`) into `db.Config`.
 | `DB_LOG_QUERIES` | bool | on when `APP_ENV=development` | Log every query, with its arguments and duration, at debug level | v0.1 |
 | `DB_SLOW_QUERY` | duration | `500ms` | Log queries taking at least this long as warnings (without arguments). `0` disables | v0.1 |
 | `DB_REPEATED_QUERIES` | int | `5` when `APP_ENV` is `development` or `testing`, off elsewhere | Warn when a unit of work (a request, a job, a listener, a task) runs the same query this many times or more: an N+1. `0` disables; otherwise at least 2. See [Find N+1 queries](../guides/n-plus-one.md) | v0.2 |
-| `MIGRATE_ON_RUN` | bool | `false` | With `migrate.New`: run the pending migrations when the app starts with `run` (the default command) or `serve`, before its components. For one instance on SQLite in a container; the `Dockerfile` of a SQLite project sets it | v0.3 |
-| `MIGRATE_READINESS` | bool | `true` | With `migrate.New`: the server isn't ready (`/health/ready` answers 503, `health:check` exits 1) while the database has migrations the app hasn't run, rechecked every 5 seconds. Turn it off where the migrations run after the new version starts and the platform waits for it to be ready | v0.3 |
+| `DB_MIGRATE_ON_START` | bool | `false` | With `migrate.New`: run the pending migrations when the app starts with `run` (the default command) or `serve`, before its components. For one instance on SQLite in a container; the `Dockerfile` of a SQLite project sets it | v0.3 |
+| `DB_MIGRATE_READINESS` | bool | `true` | With `migrate.New`: the server isn't ready (`/health/ready` answers 503, `health:check` exits 1) while the database has migrations the app hasn't run, rechecked every 5 seconds. Turn it off where the migrations run after the new version starts and the platform waits for it to be ready | v0.3 |
 | `DB_ALLOW_LOCAL_TIMEZONE` | bool | `false` | Accept a database session time zone other than UTC (set in `DB_URL`), which the app otherwise refuses at boot so the database never writes local times next to the app's UTC ones. For a legacy database whose times are local; the app still writes UTC | v0.3 |
 
 ### Search
 
 | Key | Type | Default | Description | Since |
 |---|---|---|---|---|
-| `SEARCH_LANGUAGE` | `simple` \| a language | `simple` | How search matches words: `simple` as written, in any language; `english` (PostgreSQL, SQLite) also matches their other forms; on PostgreSQL any text search configuration (`german`, `french`…). MySQL has `simple` only. Search indexes are built for it: change it, then run `search:reindex` | v0.3 |
-| `SEARCH_RANKING` | `default` \| `bm25` | `default` | Order of search results: the database's own ranking, or BM25 (SQLite; PostgreSQL 17+ with the pg_textsearch extension; not MySQL). PostgreSQL needs `search:reindex` after a change | v0.3 |
+| `DB_SEARCH_LANGUAGE` | `simple` \| a language | `simple` | How search matches words: `simple` as written, in any language; `english` (PostgreSQL, SQLite) also matches their other forms; on PostgreSQL any text search configuration (`german`, `french`…). MySQL has `simple` only. Search indexes are built for it: change it, then run `search:reindex` | v0.3 |
+| `DB_SEARCH_RANKING` | `default` \| `bm25` | `default` | Order of search results: the database's own ranking, or BM25 (SQLite; PostgreSQL 17+ with the pg_textsearch extension; not MySQL). PostgreSQL needs `search:reindex` after a change | v0.3 |
 
 The app refuses to start when the database can't serve these settings,
 or when a search index was built for other ones (except for `migrate…`
@@ -215,7 +245,7 @@ Read by `cache.New` (or `cache.LoadConfig`) into `cache.Config`.
 
 | Key | Type | Default | Description | Since |
 |---|---|---|---|---|
-| `CACHE_STORE` | `memory` \| `database` \| a driver's name (`redis`) | `memory` | Selects the store; `redis` needs `redis.CacheDriver()` passed to `cache.New` | v0.2 |
+| `CACHE_DRIVER` | `memory` \| `database` \| a driver's name (`redis`) | `memory` | Selects the store; `redis` needs `redis.CacheDriver()` passed to `cache.New` | v0.2 |
 | `CACHE_PREFIX` | string | `APP_NAME` + `:cache:` | Starts every key, so apps (and other features in Redis) can share a store; `cache:clear` removes only these keys. `anetostest` sets one per test app | v0.2 |
 | `CACHE_TABLE` | string | `cache` | The database store's table; pass the same name to `cache.Migrations` | v0.2 |
 
@@ -232,7 +262,7 @@ Read by `queue.New` (or `queue.LoadConfig`) into `queue.Config`. See
 | `QUEUE_TIMEOUT` | duration | `1m` | How long an attempt may run, unless its type sets `queue.Timeout` | v0.2 |
 | `QUEUE_BACKOFF` | duration | `10s` | The wait before the first retry, doubling for each later one, unless the type sets `queue.Backoff` | v0.2 |
 | `QUEUE_BACKOFF_MAX` | duration | `10m` | Caps the doubling | v0.2 |
-| `QUEUE_POLL` | duration | `1s` | How long an idle worker waits before looking for jobs again | v0.2 |
+| `QUEUE_POLL_INTERVAL` | duration | `1s` | How long an idle worker waits before looking for jobs again | v0.2 |
 | `QUEUE_TABLE`, `QUEUE_FAILED_TABLE` | string | `jobs`, `failed_jobs` | The database driver's tables; pass the same names to `queue.Migrations` | v0.2 |
 | `QUEUE_PREFIX` | string | `APP_NAME` + `:queue:` | Starts the Redis driver's keys (Redis 5 or later). In a Redis Cluster, put a hash tag in it (`{blog}:queue:`). `anetostest` sets one per test app | v0.2 |
 
@@ -349,7 +379,7 @@ Read by `auth.New` (or `auth.LoadConfig`) into `auth.Config`.
 |---|---|---|---|---|
 | `AUTH_LOGIN_URL` | path | `/login` | Where `Require` sends guests asking for a page | v0.2 |
 | `AUTH_HOME_URL` | path | `/` (`auth.DefaultHomeURL` sets another; `make:auth`'s is `/dashboard`) | The page for signed-in users: where signing in or registering leads when there's no page they asked for, and where `Guest` sends them | v0.2 |
-| `AUTH_REMEMBER_LIFETIME` | duration | `720h` | How long "remember me" lasts | v0.2 |
+| `AUTH_REMEMBER_TTL` | duration | `720h` | How long "remember me" lasts | v0.2 |
 | `AUTH_THROTTLE` | int | `5` | Login attempts allowed per minute for one login, or one account, from one IP address (cleared by a success) | v0.2 |
 | `AUTH_THROTTLE_IP` | int | `50` | Failed logins allowed per minute from one IP address (IPv6: its /64), whatever the login | v0.2 |
 | `AUTH_RESET_TTL` | duration | `60m` | How long a password-reset token works | v0.2 |

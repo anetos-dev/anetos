@@ -98,7 +98,7 @@ func TestStatsCache(t *testing.T) {
 
 // TestDatabaseCache runs the stats cache on the database store.
 func TestDatabaseCache(t *testing.T) {
-	app := anetostest.New(t, setup, anetostest.Env(map[string]string{"CACHE_STORE": "database"}))
+	app := anetostest.New(t, setup, anetostest.Env(map[string]string{"CACHE_DRIVER": "database"}))
 	anetostest.Create(app, Authors)
 	app.GetJSON("/stats").AssertJSONPath("0.posts", 0)
 	c, err := anetos.Resolve[*cache.Cache](app.App)
@@ -156,7 +156,7 @@ func TestCommands(t *testing.T) {
 	// Each invocation is a new process in real life: a new app.
 	execute := func(args ...string) {
 		t.Helper()
-		app, err := anetos.New(anetos.WithSource(config.Map{"DB_DATABASE": dbFile, "APP_ENV": "development"}), anetos.WithLogOutput(io.Discard))
+		app, err := anetos.New(anetos.WithSource(config.Map{"DB_NAME": dbFile, "APP_ENV": "development"}), anetos.WithLogOutput(io.Discard))
 		if err != nil {
 			t.Fatal(err)
 		}

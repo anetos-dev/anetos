@@ -59,11 +59,11 @@ The web stack's files:
 | `app/models/` | Models (empty at first) |
 | `database/migrations/migrations.go` | The `All` migration set and `Seeders` |
 | `database/factories/factories.go` | The package for model factories (empty at first) |
-| `views/layout.templ`, `views/home.templ` | templ layout (`<html lang dir>` in the request's locale, `hreflang` links with `LOCALE_URL=prefix` or `subdomain`, the header with the app's name and its nav (`ui.Header`, `ui.Nav`, and `navLink`, which marks the current page with `web.RouteIs`), flash messages, CSRF header for htmx) and home page, its text from the catalog; `views/errors.templ`: error pages (404, 500…) in the layout |
+| `views/layout.templ`, `views/home.templ` | templ layout (`<html lang dir>` in the request's locale, `hreflang` links with `APP_LOCALE_STRATEGY=prefix` or `subdomain`, the header with the app's name and its nav (`ui.Header`, `ui.Nav`, and `navLink`, which marks the current page with `web.RouteIs`), flash messages, CSRF header for htmx) and home page, its text from the catalog; `views/errors.templ`: error pages (404, 500…) in the layout |
 | `views/ui/` | The design kit's components (v0.5), which the layout and the pages of `make:crud` and `make:auth` call: `ui.go` (the types: `Look`, `Tone`, `Option`, `Pages`), `shell.templ`, `page.templ`, `form.templ`, `data.templ`, and with every kit but `none`, `classes.go` (the classes of each look and tone), and `kit.json`, the kit's record (`css:use`). See the [UI components reference](ui.md) |
 | `locales/locales.go`, `locales/en/app.yaml` | The translations, embedded: the home page's English text. Add a language with its folder (`locales/bn/app.yaml`); see [Translations](../guides/translations.md) |
 | `public/public.go`, `public/static/app.css`, `public/static/favicon.svg` | `public.Assets`: the static files and htmx under `/assets`; the stylesheet (`--css`; a CSS framework's kit adds the framework's files); the icon browsers show |
-| `Dockerfile`, `.dockerignore` | A container image (v0.3): `anetos build` in `golang:<go version>`, the binary alone in `gcr.io/distroless/static-debian12:nonroot` (user 65532), `/data` for the files (and the SQLite database, migrated when the server starts: `MIGRATE_ON_RUN=true`), `HEALTHCHECK` with `health:check`. See [Deploy](../guides/deployment.md#run-it-in-a-container) |
+| `Dockerfile`, `.dockerignore` | A container image (v0.3): `anetos build` in `golang:<go version>`, the binary alone in `gcr.io/distroless/static-debian12:nonroot` (user 65532), `/data` for the files (and the SQLite database, migrated when the server starts: `DB_MIGRATE_ON_START=true`), `HEALTHCHECK` with `health:check`. See [Deploy](../guides/deployment.md#run-it-in-a-container) |
 | `deploy/<name>.service`, `deploy/production.env.example` | A systemd unit (v0.3: migrations before start, restart on failure, sandboxed) and the production settings to fill in. See [Deploy](../guides/deployment.md#run-it-on-a-server-with-systemd) |
 
 ### The API project
@@ -85,7 +85,7 @@ static files:
 `.env`, `.env.example` and `deploy/production.env.example` have
 `HTTP_CORS_ORIGINS=` (empty: no browser on another origin may call the
 API; [configuration](configuration.md)) and no `SESSION_DRIVER` or
-`LOCALE_URL`. In an API project (`routes/api.go` and no `routes/web.go`),
+`APP_LOCALE_STRATEGY`. In an API project (`routes/api.go` and no `routes/web.go`),
 `make:handler` (a typed handler, routed with `web.H`, answering a struct),
 `make:middleware`, `make:auth` (accounts signing in with API tokens,
 v0.4) and `make:crud` (JSON endpoints, v0.4) write for the API, and
@@ -280,7 +280,7 @@ the production settings too, on the server.
 | `openapi [--check] [--out=FILE]` | `openapi.Register` | Writes the API's OpenAPI 3.1 description to `openapi.json` (`Config.File`; `--out=-`: the standard output), warning about routes it leaves out; `--check` exits 1 if the file differs. Doesn't boot the app (v0.4). See [Describe an API with OpenAPI](../guides/openapi.md) |
 | `health:check [--live] [--timeout=5s]` | `web.NewServer` | Asks the server running on `HTTP_ADDR` (on `127.0.0.1` when its host is empty, `0.0.0.0` or `[::]`) for `/health/ready` (`--live`: `/health/live`), for container health checks: prints `ok`, or exits 1. An error with `HTTP_HEALTH_ROUTES=false` (v0.3) |
 | `migrate`, `migrate:rollback`, `migrate:reset`, `migrate:fresh`, `migrate:status`, `db:seed` | `migrate.New` | See the [migrations reference](migrations.md#commands) |
-| `search:reindex [table…]` | `migrate.New` | Rebuilds the search indexes (all, or the tables') for `SEARCH_LANGUAGE` and `SEARCH_RANKING`. See [Search](../guides/search.md) |
+| `search:reindex [table…]` | `migrate.New` | Rebuilds the search indexes (all, or the tables') for `DB_SEARCH_LANGUAGE` and `DB_SEARCH_RANKING`. See [Search](../guides/search.md) |
 | `ai:embed [table…]` | `ai.EmbeddingsFor` | Embeds the records whose text or embedding model changed (all tables', or the named ones), a hundred at a time; unchanged chunks aren't embedded again. See [Search by meaning](../guides/semantic-search.md) |
 | `cache:clear` | `cache.New` | Removes the app's cache items (keys with `CACHE_PREFIX`), locks included |
 | `queue:failed [--limit=N]`, `queue:retry <id>…\|all`, `queue:forget <id>…`, `queue:flush [--force]`, `queue:clear [--force] [queue]` | `queue.New` | List, retry and delete failed jobs; delete the jobs waiting on a queue. `flush` and `clear` need `--force` in production. See [Queues](../guides/queues.md#4-handle-failed-jobs) |
@@ -327,7 +327,7 @@ Checking blog (APP_ENV=production).
   warning  mail: MAIL_DRIVER=log in production: emails aren't sent; set MAIL_DRIVER=smtp (with MAIL_SMTP_URL) or a plugin's driver
   ok       session
   ok       http
-  note     cache: CACHE_STORE=memory: each instance of the app has its own cache, rate limits and locks (cache.WithLock); with more than one instance, use redis or database
+  note     cache: CACHE_DRIVER=memory: each instance of the app has its own cache, rate limits and locks (cache.WithLock); with more than one instance, use redis or database
   ok       migrations
 0 problems, 1 warning, 1 note.
 ```
@@ -340,7 +340,7 @@ Checking blog (APP_ENV=production).
 | `session` | `session.New` | `SESSION_SECURE=false` in production or staging (problem); `SESSION_SAME_SITE=none` (warning); `SESSION_DOMAIN` set (note) |
 | `http` | `web.NewServer` | `HTTP_TRUSTED_PROXIES` with `0.0.0.0/0` or `::/0` (problem) or a range wider than /8 (IPv4) or /16 (IPv6) (warning); `HTTP_CORS_ORIGINS=*` (warning); in production and staging, `HTTP_MAX_BODY`, `HTTP_REQUEST_TIMEOUT` or `HTTP_READ_HEADER_TIMEOUT` set to 0 (warning) |
 | `mail` | `mailer.New` | `MAIL_DRIVER` `log` or `memory` in production or staging (warning); no `MAIL_FROM_ADDRESS` for a driver that sends (warning); `tls=none` in `MAIL_SMTP_URL` for a server other than this machine (warning); in production and staging, an example's domain (`example.com`, `.test`) as `MAIL_SMTP_URL`'s server or `MAIL_FROM_ADDRESS`'s (warning) |
-| `cache` | `cache.New` | `CACHE_STORE=memory` in production or staging (note) |
+| `cache` | `cache.New` | `CACHE_DRIVER=memory` in production or staging (note) |
 | `queue` | `queue.New` | In production and staging: `QUEUE_DRIVER=memory` (warning), `sync` (note) |
 
 | API | Does |

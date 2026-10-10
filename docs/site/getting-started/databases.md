@@ -57,7 +57,7 @@ to tables made with SQL (SQL-file migrations, `s.Exec`), and `doctor`
 warns about text columns in another character set.
 
 `anetos new blog --db=postgres` then writes the `DB_*` settings in
-`.env` (`DB_DATABASE=blog`) and `.env.testing` (`blog_test`): set the
+`.env` (`DB_NAME=blog`) and `.env.testing` (`blog_test`): set the
 user and password there.
 
 Some features use what each database has: full-text search works on all

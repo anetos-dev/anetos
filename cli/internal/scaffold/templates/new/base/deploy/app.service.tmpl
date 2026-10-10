@@ -24,7 +24,7 @@ WorkingDirectory=/var/lib/[[.Name]]
 Environment=APP_ENV=production
 Environment=STORAGE_ROOT=/var/lib/[[.Name]]/storage
 [[- if eq .DB "sqlite"]]
-Environment=DB_DATABASE=/var/lib/[[.Name]]/app.db
+Environment=DB_NAME=/var/lib/[[.Name]]/app.db
 [[- end]]
 # The settings, which override the lines above: APP_KEY, APP_URL, the database…
 EnvironmentFile=/etc/[[.Name]]/env

@@ -541,7 +541,7 @@ func (s *Scheduler) checkLocks(ctx context.Context) error {
 			return fmt.Errorf("schedule: the task %s uses a lock (WithoutOverlapping, OnOneServer): Run's context needs a cache", t.name)
 		}
 		if _, inMemory := c.Store().(*cache.MemoryStore); inMemory && t.oneServer {
-			s.log.WarnContext(ctx, "schedule: OnOneServer with the memory cache store holds only within this process: use a store the instances share (CACHE_STORE=database or redis) if several run the scheduler", "task", t.name)
+			s.log.WarnContext(ctx, "schedule: OnOneServer with the memory cache store holds only within this process: use a store the instances share (CACHE_DRIVER=database or redis) if several run the scheduler", "task", t.name)
 		}
 	}
 	return nil
@@ -580,7 +580,7 @@ func (s *Scheduler) recordRun(ctx context.Context, name string, start time.Time,
 
 // LastRun returns the last run of the task name, from the cache: kept by
 // whichever process ran it, so processes share it with a shared cache
-// store (CACHE_STORE=database or redis). It reports false if none is
+// store (CACHE_DRIVER=database or redis). It reports false if none is
 // known.
 func (s *Scheduler) LastRun(ctx context.Context, name string) (Run, bool, error) {
 	return cache.Get[Run](ctx, "schedule:last:"+name)

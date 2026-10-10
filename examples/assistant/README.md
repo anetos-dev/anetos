@@ -44,11 +44,11 @@ embedding model of the same server (`AI_EMBEDDING_MODEL`; set
 `OPENAI_API_KEY`, for both.
 
 It runs on SQLite by default, and on a database
-that searches vectors: PostgreSQL with pgvector (`DB_CONNECTION=postgres`
+that searches vectors: PostgreSQL with pgvector (`DB_DRIVER=postgres`
 and `DB_URL`, or the `DB_*` settings) or MariaDB 11.7+
-(`DB_CONNECTION=mysql`). On MySQL or an older MariaDB it refuses to
+(`DB_DRIVER=mysql`). On MySQL or an older MariaDB it refuses to
 start, saying why. The tests run on any of them the same way:
-`DB_CONNECTION=postgres DB_URL=postgres://…/assistant_test go test ./...`.
+`DB_DRIVER=postgres DB_URL=postgres://…/assistant_test go test ./...`.
 
 By default (`QUEUE_DRIVER=sync`), a background answer runs right after
 the request that asked for it, within its timeout. With

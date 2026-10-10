@@ -40,7 +40,7 @@ running in a terminal of its own for the rest of the tutorial.
 | Path | Holds |
 |---|---|
 | `main.go` | `setup`: connects the database, then adds the migrations, cache, queue, events, mailer, storage, scheduler, web server and routes. `main` calls it, and so do the tests |
-| `.env` | The settings, for your machine: `APP_KEY` (a fresh key), `DB_DATABASE=database/app.db`… It stays out of git; `.env.example` lists the settings |
+| `.env` | The settings, for your machine: `APP_KEY` (a fresh key), `DB_NAME=database/app.db`… It stays out of git; `.env.example` lists the settings |
 | `routes/web.go` | The routes: URLs to handlers |
 | `app/handlers/home.go` | The home page's handler |
 | `views/layout.templ`, `views/home.templ` | The page shell (a header with the app's links) and the home page, as [templ](https://templ.guide) components: typed Go functions that render HTML; `views/errors.templ` shows errors (a 404…) in the same shell |

@@ -37,7 +37,7 @@ register, sent by a worker.
 
 Each process runs the components with its role, from the same binary.
 They share the database (the jobs, and the scheduler's locks with
-`CACHE_STORE=database`) and, for the topic, Redis:
+`CACHE_DRIVER=database`) and, for the topic, Redis:
 
 ```sh
 # .env: PUBSUB_DRIVER=redis and REDIS_URL=redis://127.0.0.1:6379/0

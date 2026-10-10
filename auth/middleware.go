@@ -242,7 +242,7 @@ func (a *Auth[U]) rememberCookie(r *http.Request) (rememberValue, bool) {
 
 func (a *Auth[U]) setRemember(st *state, value string) {
 	http.SetCookie(st.w, &http.Cookie{
-		Name: a.cookie, Value: value, Path: "/", MaxAge: int(a.cfg.RememberLifetime / time.Second),
+		Name: a.cookie, Value: value, Path: "/", MaxAge: int(a.cfg.RememberTTL / time.Second),
 		Secure: a.secure, HttpOnly: true, SameSite: http.SameSiteLaxMode,
 	})
 }

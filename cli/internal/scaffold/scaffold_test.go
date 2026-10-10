@@ -47,10 +47,10 @@ func TestCreate(t *testing.T) {
 				}
 			}
 			env := read(t, filepath.Join(dir, ".env"))
-			if !regexp.MustCompile(`APP_KEY=base64:[A-Za-z0-9+/]{43}=`).MatchString(env) || !strings.Contains(env, "DB_CONNECTION="+db) {
+			if !regexp.MustCompile(`APP_KEY=base64:[A-Za-z0-9+/]{43}=`).MatchString(env) || !strings.Contains(env, "DB_DRIVER="+db) {
 				t.Errorf(".env:\n%s", env)
 			}
-			if db != "sqlite" && !strings.Contains(env, "DB_DATABASE=my_blog") {
+			if db != "sqlite" && !strings.Contains(env, "DB_NAME=my_blog") {
 				t.Errorf(".env database name:\n%s", env)
 			}
 			if info, _ := os.Stat(filepath.Join(dir, ".env")); info.Mode().Perm() != 0o600 {
@@ -60,7 +60,7 @@ func TestCreate(t *testing.T) {
 				if slices.Contains(files, ".env.testing") {
 					t.Error("SQLite projects need no .env.testing (tests use an in-memory database)")
 				}
-			} else if env := read(t, filepath.Join(dir, ".env.testing")); !strings.Contains(env, "DB_DATABASE=my_blog_test\n") || !strings.Contains(env, "DB_CONNECTION="+db) {
+			} else if env := read(t, filepath.Join(dir, ".env.testing")); !strings.Contains(env, "DB_NAME=my_blog_test\n") || !strings.Contains(env, "DB_DRIVER="+db) {
 				t.Errorf(".env.testing:\n%s", env)
 			}
 			if ex := read(t, filepath.Join(dir, ".env.example")); strings.Contains(ex, "base64:") {
@@ -81,15 +81,15 @@ func TestCreate(t *testing.T) {
 			// SQLite's database lives on the data volume.
 			docker := read(t, filepath.Join(dir, "Dockerfile"))
 			if !strings.Contains(mod, "\ngo "+goMinor+".") || !strings.Contains(docker, "FROM golang:"+goMinor+" AS build") ||
-				!strings.Contains(docker, `ENTRYPOINT ["/app/my-blog"]`) || strings.Contains(docker, "DB_DATABASE") != (db == "sqlite") {
+				!strings.Contains(docker, `ENTRYPOINT ["/app/my-blog"]`) || strings.Contains(docker, "DB_NAME") != (db == "sqlite") {
 				t.Errorf("Dockerfile:\n%s", docker)
 			}
 			unit := read(t, filepath.Join(dir, "deploy/my-blog.service"))
-			if !strings.Contains(unit, "ExecStart=/opt/my-blog/my-blog run") || strings.Contains(unit, "DB_DATABASE") != (db == "sqlite") {
+			if !strings.Contains(unit, "ExecStart=/opt/my-blog/my-blog run") || strings.Contains(unit, "DB_NAME") != (db == "sqlite") {
 				t.Errorf("unit:\n%s", unit)
 			}
 			prod := read(t, filepath.Join(dir, "deploy/production.env.example"))
-			if !strings.Contains(prod, "APP_ENV=production") || !strings.Contains(prod, "DB_CONNECTION="+db) || strings.Contains(prod, "base64:") {
+			if !strings.Contains(prod, "APP_ENV=production") || !strings.Contains(prod, "DB_DRIVER="+db) || strings.Contains(prod, "base64:") {
 				t.Errorf("production.env.example:\n%s", prod)
 			}
 		})
@@ -106,7 +106,7 @@ func TestCreateDeployNames(t *testing.T) {
 	if unit := read(t, filepath.Join(dir, "deploy", "MyBlog.service")); !strings.Contains(unit, "sudo install -D bin/shop /opt/MyBlog/MyBlog") {
 		t.Errorf("unit:\n%s", unit)
 	}
-	if df := read(t, filepath.Join(dir, "Dockerfile")); !strings.Contains(df, "docker build -t myblog ") || strings.Contains(df, "DB_DATABASE") {
+	if df := read(t, filepath.Join(dir, "Dockerfile")); !strings.Contains(df, "docker build -t myblog ") || strings.Contains(df, "DB_NAME") {
 		t.Errorf("Dockerfile:\n%s", df)
 	}
 	if ignore := read(t, filepath.Join(dir, ".dockerignore")); !strings.Contains(ignore, "**/*.db\n") || !strings.Contains(ignore, "*.env\n") {
@@ -394,7 +394,7 @@ func TestCreateAPI(t *testing.T) {
 			}
 			for _, f := range []string{".env", ".env.example", "deploy/production.env.example"} {
 				env := read(t, filepath.Join(dir, f))
-				if !strings.Contains(env, "\nHTTP_CORS_ORIGINS=\n") || strings.Contains(env, "SESSION_DRIVER") || strings.Contains(env, "LOCALE_URL") {
+				if !strings.Contains(env, "\nHTTP_CORS_ORIGINS=\n") || strings.Contains(env, "SESSION_DRIVER") || strings.Contains(env, "APP_LOCALE_STRATEGY") {
 					t.Errorf("%s:\n%s", f, env)
 				}
 			}

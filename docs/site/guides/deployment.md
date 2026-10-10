@@ -65,11 +65,17 @@ no `.env` file. `deploy/production.env.example` lists the ones to set:
 | `APP_ENV=production` | The default when unset; JSON logs, secure cookies, `APP_DEBUG` refused |
 | `APP_KEY` | A new key for production (`go tool anetos key:generate`), never the one in `.env`. Keep it secret: it encrypts sessions and two-factor secrets. When you change it, put the old one in `APP_PREVIOUS_KEYS` |
 | `APP_URL` | The public URL (`https://blog.example.com`), for links in emails and social sign-in |
-| `DB_CONNECTION`, `DB_URL` | The database, with TLS that checks the server (`sslmode=verify-full`, `tls=true`). With `DB_HOST` and the others instead of `DB_URL`, TLS is on and verified for any host but `localhost` (`DB_TLS`; `DB_TLS_CA` for a provider's own CA) |
-| `CACHE_STORE`, `SESSION_DRIVER`, `QUEUE_DRIVER` | `database` (or `redis`) so that every process shares them: with `memory`, a second process has its own cache and queue |
+| `DB_DRIVER`, `DB_URL` | The database, with TLS that checks the server (`sslmode=verify-full`, `tls=true`). With `DB_HOST` and the others instead of `DB_URL`, TLS is on and verified for any host but `localhost` (`DB_TLS`; `DB_TLS_CA` for a provider's own CA) |
+| `CACHE_DRIVER`, `SESSION_DRIVER`, `QUEUE_DRIVER` | `database` (or `redis`) so that every process shares them: with `memory`, a second process has its own cache and queue |
 | `MAIL_DRIVER`, `MAIL_FROM_ADDRESS` | `log` sends nothing (the app warns at start); in production it logs who an email is for and its subject, never its body, which may hold sign-in links |
 | `HTTP_TRUSTED_PROXIES` | The address of the proxy in front of the app, so client IPs (rate limits, logs, the audit log) are the visitors' (step 5) |
 | `STORAGE_ROOT` or `STORAGE_DRIVER` | Uploaded files: a directory that survives deploys, or `s3`/`gcs` |
+
+On a platform that gives the app `PORT` and `DATABASE_URL` (Heroku,
+Render, Railway, Fly, Cloud Run), the app listens on that port when
+`HTTP_ADDR` isn't set, and connects to a `postgres://` `DATABASE_URL`
+when nothing else says where the database is (no `DB_URL`, `DB_HOST` or
+`DB_NAME`, and `DB_DRIVER` unset or `postgres`); it logs that it does.
 
 An API project (`anetos new --stack=api`, v0.4) has no sessions, so
 `SESSION_*` don't apply; it adds:
@@ -148,10 +154,10 @@ docker run -d --name blog -p 8080:8080 --env-file production.env -v blog-data:/d
 
 The `migrate` step needs the same volume as the server when the
 database is SQLite (in `/data`). A SQLite project's image doesn't need
-the step at all: its `Dockerfile` sets `MIGRATE_ON_RUN=true`, so the
+the step at all: its `Dockerfile` sets `DB_MIGRATE_ON_START=true`, so the
 server migrates when it starts. Run one container on a SQLite volume
 that way; a second one on the same volume (the workers below) gets
-`-e MIGRATE_ON_RUN=false`, since two starting at once could both
+`-e DB_MIGRATE_ON_START=false`, since two starting at once could both
 migrate. Until the migrations have run, the
 server reports itself unavailable (`health:check`, `/health/ready`) and
 logs which ones are pending, so a forgotten step shows as `unhealthy`.
@@ -162,9 +168,9 @@ the binary alone into a distroless image (about 25 MB), run as user
 stylesheet first, with Tailwind CSS downloaded once into BuildKit's
 cache, so the build needs to reach GitHub's releases the first time
 ([Tailwind CSS](kit-tailwind.md)). The image sets
-`APP_ENV=production`, `HTTP_ADDR=:8080` and
-`STORAGE_ROOT=/data/storage` (and `DB_DATABASE=/data/app.db` for
-SQLite): mount a volume on `/data`. Its `HEALTHCHECK` runs
+`APP_ENV=production` and `STORAGE_ROOT=/data/storage` (and
+`DB_NAME=/data/app.db` and `DB_MIGRATE_ON_START=true` for SQLite), and
+listens on port 8080, or a platform's `PORT`: mount a volume on `/data`. Its `HEALTHCHECK` runs
 `blog health:check`, which asks the server for `/health/ready`;
 `docker ps` shows `healthy`.
 
@@ -208,7 +214,7 @@ kill_timeout = 35
 
 [env]
   APP_URL = "https://blog.fly.dev"
-  CACHE_STORE = "database"
+  CACHE_DRIVER = "database"
   SESSION_DRIVER = "database"
   QUEUE_DRIVER = "database"
 
@@ -230,7 +236,7 @@ Set the secrets with `fly secrets set APP_KEY=base64:… DB_URL=…`, then
 PostgreSQL or MySQL. For SQLite, run one machine of a single process
 (no `[processes]`), with a volume (`[[mounts]] source = "blog_data"`,
 `destination = "/data"`) and without `release_command`: the image
-migrates when it starts (`MIGRATE_ON_RUN=true`, set by the
+migrates when it starts (`DB_MIGRATE_ON_START=true`, set by the
 `Dockerfile`), and the health check passes once it has.
 
 **Render**: a `render.yaml` blueprint with a PostgreSQL database; the
@@ -274,9 +280,9 @@ envVarGroups:
     envVars:
       - key: APP_URL
         value: https://blog.onrender.com
-      - key: DB_CONNECTION
+      - key: DB_DRIVER
         value: postgres
-      - key: CACHE_STORE
+      - key: CACHE_DRIVER
         value: database
       - key: SESSION_DRIVER
         value: database
@@ -337,7 +343,7 @@ roles):
 |---|---|
 | `http` | As many as you need, behind the load balancer |
 | `workers`, `listeners` | As many as the jobs need; they share the queue (`QUEUE_DRIVER=database` or `redis`) and the broker |
-| `scheduler` | One; or several, with tasks marked `schedule.OnOneServer()` and a shared cache (`CACHE_STORE=database` or `redis`) |
+| `scheduler` | One; or several, with tasks marked `schedule.OnOneServer()` and a shared cache (`CACHE_DRIVER=database` or `redis`) |
 
 Make sure some process runs each role the app has: a scheduler that no
 process runs never runs its tasks. `run --only=` with a role the app
@@ -369,7 +375,7 @@ x-app: &app
   image: blog
   env_file: production.env
   environment:
-    DB_CONNECTION: postgres
+    DB_DRIVER: postgres
     # Plain text on the hosts' own network, with nothing else on it.
     DB_URL: postgres://blog:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/blog?sslmode=disable
   volumes:
@@ -445,7 +451,7 @@ migrates, and replaces the containers that changed.
   are ready, so a load balancer stops sending requests as soon as
   shutdown starts. With `migrate.New`, it also answers 503 while the
   database has migrations the app hasn't run (checked every 5 seconds;
-  `MIGRATE_READINESS=false` turns that off, for a platform that waits
+  `DB_MIGRATE_READINESS=false` turns that off, for a platform that waits
   for readiness before a later migration step). `health:check` asks the server on `HTTP_ADDR` (on
   `127.0.0.1` when the address has no host, `0.0.0.0` or `[::]`) and
   exits 1 if it isn't ready.
@@ -457,7 +463,7 @@ Before the first deploy, run the production build locally:
 ```sh
 go tool anetos build
 export APP_ENV=production APP_DEBUG=false APP_KEY=$(go tool anetos key:generate | cut -d= -f2-)
-export DB_DATABASE=/tmp/blog.db STORAGE_ROOT=/tmp/blog-storage   # SQLite; DB_URL for the others
+export DB_NAME=/tmp/blog.db STORAGE_ROOT=/tmp/blog-storage   # SQLite; DB_URL for the others
 ./bin/blog migrate
 ./bin/blog run
 ```

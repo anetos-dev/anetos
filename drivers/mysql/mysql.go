@@ -6,7 +6,7 @@
 //	database, err := db.Connect(ctx, app, mysql.Driver())
 //
 // The connection is built from DB_HOST, DB_PORT (default 3306),
-// DB_DATABASE, DB_USERNAME and DB_PASSWORD, or taken from DB_URL in the
+// DB_NAME, DB_USER and DB_PASSWORD, or taken from DB_URL in the
 // driver's DSN format (user:password@tcp(host:3306)/app?tls=true). Either
 // way, times are read as time.Time in UTC (parseTime=true, loc=UTC), and
 // updates report the rows they matched (clientFoundRows=true), which the db
@@ -41,7 +41,7 @@ import (
 )
 
 // Driver returns the MySQL/MariaDB driver, selected by
-// DB_CONNECTION=mysql.
+// DB_DRIVER=mysql.
 func Driver() db.Driver {
 	return db.Driver{Name: "mysql", Dialect: db.MySQL(), Open: open, InspectURL: inspectURL}
 }
@@ -146,8 +146,8 @@ func DSN(cfg db.Config) (string, error) {
 		c = mysql.NewConfig()
 		c.Net = "tcp"
 		c.Addr = net.JoinHostPort(cfg.Host, strconv.Itoa(port))
-		c.DBName = cfg.Database
-		c.User = cfg.Username
+		c.DBName = cfg.Name
+		c.User = cfg.User
 		c.Passwd = cfg.Password
 		switch cfg.TLSMode() {
 		case db.TLSVerify:

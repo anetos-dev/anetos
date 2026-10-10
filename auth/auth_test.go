@@ -636,7 +636,7 @@ func TestRememberExpiryAndPasswordChange(t *testing.T) {
 	if res := b.do(http.MethodGet, "/dashboard", nil); res.StatusCode != http.StatusOK {
 		t.Fatalf("remembered: %d", res.StatusCode)
 	}
-	// Past AUTH_REMEMBER_LIFETIME the cookie is refused, whatever the
+	// Past AUTH_REMEMBER_TTL the cookie is refused, whatever the
 	// browser does with it.
 	now = now.Add(721 * time.Hour)
 	b.drop("anetos_session")

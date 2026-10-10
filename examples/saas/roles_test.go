@@ -62,8 +62,8 @@ func TestRoles(t *testing.T) {
 	env := map[string]string{
 		"APP_ENV": "development", "APP_NAME": "saas", "APP_KEY": encryption.GenerateKey(),
 		"APP_URL": "http://" + addr, "HTTP_ADDR": addr, "LOG_FORMAT": "json", "LOG_LEVEL": "info",
-		"HTTP_ACCESS_LOG": "false", "DB_CONNECTION": "sqlite", "DB_DATABASE": filepath.Join(dir, "app.db"),
-		"QUEUE_DRIVER": "database", "CACHE_STORE": "database", "MAIL_DRIVER": "log", "MAIL_FROM_ADDRESS": "hello@example.com", "STORAGE_DRIVER": "memory",
+		"HTTP_ACCESS_LOG": "false", "DB_DRIVER": "sqlite", "DB_NAME": filepath.Join(dir, "app.db"),
+		"QUEUE_DRIVER": "database", "CACHE_DRIVER": "database", "MAIL_DRIVER": "log", "MAIL_FROM_ADDRESS": "hello@example.com", "STORAGE_DRIVER": "memory",
 		"PUBSUB_DRIVER": "memory",
 	}
 	redisURL := os.Getenv("ANETOS_TEST_REDIS_URL")
@@ -111,7 +111,7 @@ func TestRoles(t *testing.T) {
 
 	// The trial ends (we move its end back); the scheduler's next run, on
 	// the minute, moves Ada to the free plan.
-	endTrial(t, env["DB_DATABASE"], "ada@example.com")
+	endTrial(t, env["DB_NAME"], "ada@example.com")
 	scheduler.waitLog(t, 75*time.Second, func(l logLine) bool { return l.Msg == "trials ended" && l.attr("users") == "1" })
 	b.dashboard(t, "Plan: free")
 
@@ -353,7 +353,7 @@ func (b *browser) dashboard(t *testing.T, want string) {
 // database.
 func endTrial(t *testing.T, file, email string) {
 	t.Helper()
-	d, err := db.Open(sqlite.Driver(), db.Config{Connection: "sqlite", Database: file})
+	d, err := db.Open(sqlite.Driver(), db.Config{Driver: "sqlite", Name: file})
 	if err != nil {
 		t.Fatal(err)
 	}

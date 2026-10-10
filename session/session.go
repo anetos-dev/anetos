@@ -19,7 +19,7 @@
 // it is limited to about 4 KB. With SESSION_DRIVER=database (or redis, from
 // drivers/redis) the session is kept in a store and the cookie holds its
 // encrypted ID, so sessions can be revoked. Sessions end after
-// SESSION_LIFETIME without a request.
+// SESSION_TTL without a request.
 package session
 
 import (
@@ -248,8 +248,8 @@ func (s *Session) Regenerate() {
 // user logs out. With a server-side store, the old session is removed
 // from it, so no copy of the old cookie works any more. With cookie
 // sessions it clears the session in this browser only: a copy of an
-// earlier cookie stays valid until it expires (SESSION_LIFETIME idle,
-// SESSION_MAX_LIFETIME in all).
+// earlier cookie stays valid until it expires (SESSION_TTL idle,
+// SESSION_MAX_TTL in all).
 func (s *Session) Invalidate() {
 	s.Clear()
 	s.mu.Lock()

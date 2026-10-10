@@ -40,17 +40,17 @@ type Config struct {
 	// "__Host-" prefix, so no other site (subdomains included) can set it.
 	Cookie string `env:"COOKIE" default:"anetos_session"`
 
-	// Lifetime is how long a session lasts without a request.
-	// SESSION_LIFETIME, default 2h.
-	Lifetime time.Duration `env:"LIFETIME" default:"2h"`
+	// TTL is how long a session lasts without a request.
+	// SESSION_TTL, default 2h.
+	TTL time.Duration `env:"TTL" was:"LIFETIME" default:"2h"`
 
-	// MaxLifetime is how long a session lasts in all, however active: a
+	// MaxTTL is how long a session lasts in all, however active: a
 	// copied cookie can't be used forever. Regenerate (at login) restarts
-	// it. SESSION_MAX_LIFETIME, default 168h (7 days); 0 disables.
-	MaxLifetime time.Duration `env:"MAX_LIFETIME" default:"168h"`
+	// it. SESSION_MAX_TTL, default 168h (7 days); 0 disables.
+	MaxTTL time.Duration `env:"MAX_TTL" was:"MAX_LIFETIME" default:"168h"`
 
 	// ExpireOnClose makes the cookie a browser-session cookie, dropped
-	// when the browser closes (Lifetime still applies). SESSION_EXPIRE_ON_CLOSE.
+	// when the browser closes (TTL still applies). SESSION_EXPIRE_ON_CLOSE.
 	ExpireOnClose bool `env:"EXPIRE_ON_CLOSE"`
 
 	// Domain and Path scope the cookie. SESSION_DOMAIN (default: the
@@ -92,11 +92,11 @@ func (c Config) Validate() error {
 			errs = append(errs, fmt.Errorf("SESSION_DOMAIN %q is not a valid cookie domain", c.Domain))
 		}
 	}
-	if c.Lifetime < time.Minute {
-		errs = append(errs, errors.New("SESSION_LIFETIME must be at least 1m"))
+	if c.TTL < time.Minute {
+		errs = append(errs, errors.New("SESSION_TTL must be at least 1m"))
 	}
-	if c.MaxLifetime != 0 && c.MaxLifetime < c.Lifetime {
-		errs = append(errs, errors.New("SESSION_MAX_LIFETIME must be 0 or at least SESSION_LIFETIME"))
+	if c.MaxTTL != 0 && c.MaxTTL < c.TTL {
+		errs = append(errs, errors.New("SESSION_MAX_TTL must be 0 or at least SESSION_TTL"))
 	}
 	if !strings.HasPrefix(c.Path, "/") || strings.ContainsFunc(c.Path, func(r rune) bool { return r == ';' || unicode.IsControl(r) }) {
 		errs = append(errs, fmt.Errorf("SESSION_PATH %q must start with / (and contain no ;)", c.Path))
@@ -513,10 +513,10 @@ func (m *Manager) expired(p *payload, now time.Time) string {
 	switch {
 	case last.After(now.Add(time.Minute)) || created.After(now.Add(time.Minute)):
 		return "session times are in the future"
-	case now.Sub(last) > m.cfg.Lifetime:
-		return "session idle for longer than SESSION_LIFETIME"
-	case m.cfg.MaxLifetime > 0 && now.Sub(created) > m.cfg.MaxLifetime:
-		return "session older than SESSION_MAX_LIFETIME"
+	case now.Sub(last) > m.cfg.TTL:
+		return "session idle for longer than SESSION_TTL"
+	case m.cfg.MaxTTL > 0 && now.Sub(created) > m.cfg.MaxTTL:
+		return "session older than SESSION_MAX_TTL"
 	}
 	return ""
 }
@@ -728,10 +728,10 @@ func (m *Manager) persist(ctx context.Context, st *state, p *payload) (value str
 	enc := m.enc.EncryptString(string(b), m.storeContext(key))
 	regenerated := st.had && p.ID != st.id
 	if st.had && !regenerated {
-		if ok, err = m.store.Replace(ctx, key, []byte(enc), m.cfg.Lifetime); err != nil || !ok {
+		if ok, err = m.store.Replace(ctx, key, []byte(enc), m.cfg.TTL); err != nil || !ok {
 			return "", false, err
 		}
-	} else if err = m.store.Set(ctx, key, []byte(enc), m.cfg.Lifetime); err != nil {
+	} else if err = m.store.Set(ctx, key, []byte(enc), m.cfg.TTL); err != nil {
 		return "", false, err
 	}
 	if regenerated {
@@ -761,7 +761,7 @@ func (m *Manager) maxAge() int {
 	if m.cfg.ExpireOnClose {
 		return 0
 	}
-	return int(m.cfg.Lifetime / time.Second)
+	return int(m.cfg.TTL / time.Second)
 }
 
 // addVary adds value to the Vary header unless it is there.
@@ -779,7 +779,7 @@ func addVary(h http.Header, value string) {
 // refreshAfter is how stale the cookie's activity time may get before an
 // unchanged session is written again to extend it.
 func (m *Manager) refreshAfter() time.Duration {
-	return max(m.cfg.Lifetime/10, time.Minute)
+	return max(m.cfg.TTL/10, time.Minute)
 }
 
 func (m *Manager) encode(p *payload) (string, bool) {

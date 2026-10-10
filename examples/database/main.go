@@ -5,7 +5,7 @@
 // rules, a cache and rate limiting. It uses SQLite, so it runs without a
 // database server.
 //
-//	export APP_ENV=development DB_DATABASE=blog.db HTTP_ADDR=:8080
+//	export APP_ENV=development DB_NAME=blog.db HTTP_ADDR=:8080
 //	go run . migrate      # create the tables
 //	go run . db:seed      # optional sample data
 //	go run .              # serve
@@ -248,7 +248,7 @@ func addCommands(app *anetos.App) {
 // migrate commands), the cache and the server. Tests call it too.
 func setup(app *anetos.App) (*web.Server, error) {
 	// region: connect
-	// DB_CONNECTION (default sqlite) picks one of the drivers passed here.
+	// DB_DRIVER (default sqlite) picks one of the drivers passed here.
 	if _, err := db.Connect(context.Background(), app, sqlite.Driver()); err != nil {
 		return nil, err
 	}
@@ -259,7 +259,7 @@ func setup(app *anetos.App) (*web.Server, error) {
 	}
 	// endregion
 	// region: cache
-	// CACHE_STORE (default memory) picks the store; database uses the
+	// CACHE_DRIVER (default memory) picks the store; database uses the
 	// cache table from cache.Migrations.
 	if _, err := cache.New(app); err != nil {
 		return nil, err

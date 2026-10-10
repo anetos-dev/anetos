@@ -144,7 +144,7 @@ go through unlimited.
 |---|---|---|
 | Every request fails with `ratelimit: cache: no cache in context` | `cache.New` wasn't called | Set up the cache in `setup` |
 | All clients share one limit in production | The app sees the proxy's address | Set `HTTP_TRUSTED_PROXIES` to your proxies' networks |
-| A limit allows more than expected with several instances | The memory store counts per instance | `CACHE_STORE=database` or `redis` |
+| A limit allows more than expected with several instances | The memory store counts per instance | `CACHE_DRIVER=database` or `redis` |
 | Two routes' limits share a count | Their `Middleware` calls have the same name | Give each its own name |
 
 ## Next steps

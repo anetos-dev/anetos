@@ -44,6 +44,13 @@ follow [Effective Go](https://go.dev/doc/effective_go) and
   `sql.Open`), `LoadConfig` reads a package's settings, `Register` adds
   to a registry at startup.
 - No package name shadows a standard library package (design §5).
+- **Settings** (environment keys) start with their area (`DB_`,
+  `CACHE_`, `MAIL_`…); the one that picks a backend is `<AREA>_DRIVER`, a
+  driver's own are `<AREA>_<DRIVER>_*` (`STORAGE_S3_BUCKET`), and how long
+  something stays valid is `_TTL`. A key the whole ecosystem already
+  uses keeps its name (`OPENAI_API_KEY`, `REDIS_URL`, the platforms'
+  `PORT` and `DATABASE_URL`). A renamed key keeps its former name in a
+  `was` tag until the next minor (design D311).
 
 ## 2. Constructors and options
 

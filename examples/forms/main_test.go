@@ -79,7 +79,7 @@ func TestAssets(t *testing.T) {
 func TestDatabaseSessions(t *testing.T) {
 	for name, file := range map[string]string{"memory": "", "file": filepath.Join(t.TempDir(), "app.db")} {
 		t.Run(name, func(t *testing.T) {
-			app := anetostest.New(t, setup, anetostest.Env(map[string]string{"SESSION_DRIVER": "database", "DB_DATABASE": file}))
+			app := anetostest.New(t, setup, anetostest.Env(map[string]string{"SESSION_DRIVER": "database", "DB_NAME": file}))
 			app.WithSession(func(s *session.Session) { s.Put("theme", "dark") })
 			app.Get("/notes/new").AssertOK()
 			app.PostForm("/notes", url.Values{"title": {"Groceries"}, "body": {""}}).

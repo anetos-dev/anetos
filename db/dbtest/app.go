@@ -221,12 +221,12 @@ func RunApp(t *testing.T, drv db.Driver, env map[string]string) {
 			time.Sleep(100 * time.Millisecond)
 		}
 	})
-	t.Run("MIGRATE_ON_RUN", func(t *testing.T) {
+	t.Run("DB_MIGRATE_ON_START", func(t *testing.T) {
 		drop()
 		defer drop()
 		boot := func(command string) bool {
 			t.Helper()
-			src := config.Map{"APP_ENV": "production", "APP_KEY": encryption.GenerateKey(), "MIGRATE_ON_RUN": "true"}
+			src := config.Map{"APP_ENV": "production", "APP_KEY": encryption.GenerateKey(), "DB_MIGRATE_ON_START": "true"}
 			maps.Copy(src, env)
 			app, err := anetos.New(anetos.WithSource(src), anetos.WithLogger(slog.New(slog.DiscardHandler)))
 			check(t, err)
@@ -276,7 +276,7 @@ func RunApp(t *testing.T, drv db.Driver, env map[string]string) {
 }
 
 // runSearchApp checks the search settings when the app boots: a search
-// index built for another SEARCH_LANGUAGE stops the app, but not the
+// index built for another DB_SEARCH_LANGUAGE stops the app, but not the
 // commands that change the schema, and search:reindex rebuilds it.
 func runSearchApp(t *testing.T, drv db.Driver, env map[string]string, d *db.DB) {
 	set := migrate.NewSet("dbtest")
@@ -292,7 +292,7 @@ func runSearchApp(t *testing.T, drv db.Driver, env map[string]string, d *db.DB) 
 	))
 	run := func(lang string, args ...string) (int, string) {
 		t.Helper()
-		src := config.Map{"APP_ENV": "testing", "SEARCH_LANGUAGE": lang}
+		src := config.Map{"APP_ENV": "testing", "DB_SEARCH_LANGUAGE": lang}
 		maps.Copy(src, env)
 		app, err := anetos.New(anetos.WithSource(src), anetos.WithLogOutput(io.Discard))
 		if err != nil {

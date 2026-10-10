@@ -33,7 +33,7 @@ func (c *Ctx) Session() *session.Session {
 
 // URL returns the path of the named route, like [Router.URL], for any
 // context of a request served by a [Router], in the request's locale
-// (with LOCALE_URL=prefix, "/bn/posts/1"; see [LocalePath]). Components
+// (with APP_LOCALE_STRATEGY=prefix, "/bn/posts/1"; see [LocalePath]). Components
 // use it to link to routes:
 //
 //	<a href={ web.URL(ctx, "posts.show", post.ID) }>

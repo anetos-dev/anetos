@@ -23,7 +23,7 @@ StateDirectory=tracker
 WorkingDirectory=/var/lib/tracker
 Environment=APP_ENV=production
 Environment=STORAGE_ROOT=/var/lib/tracker/storage
-Environment=DB_DATABASE=/var/lib/tracker/app.db
+Environment=DB_NAME=/var/lib/tracker/app.db
 # The settings, which override the lines above: APP_KEY, APP_URL, the database…
 EnvironmentFile=/etc/tracker/env
 ExecStartPre=/opt/tracker/tracker migrate

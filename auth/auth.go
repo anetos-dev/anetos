@@ -111,9 +111,9 @@ type Config struct {
 	// wanted ([Intended]'s usual fallback). AUTH_HOME_URL, default /
 	// ([DefaultHomeURL] sets another default).
 	HomeURL string `env:"AUTH_HOME_URL" default:"/"`
-	// RememberLifetime is how long "remember me" lasts.
-	// AUTH_REMEMBER_LIFETIME, default 720h (30 days).
-	RememberLifetime time.Duration `env:"AUTH_REMEMBER_LIFETIME" default:"720h"`
+	// RememberTTL is how long "remember me" lasts.
+	// AUTH_REMEMBER_TTL, default 720h (30 days).
+	RememberTTL time.Duration `env:"AUTH_REMEMBER_TTL" was:"AUTH_REMEMBER_LIFETIME" default:"720h"`
 	// Throttle is the number of failed logins allowed per minute for one
 	// login from one IP address. AUTH_THROTTLE, default 5.
 	Throttle int `env:"AUTH_THROTTLE" default:"5"`
@@ -165,8 +165,8 @@ func (c Config) Validate() error {
 			errs = append(errs, fmt.Errorf("%s %q must be a path on this site (starting with /)", name, u))
 		}
 	}
-	if c.RememberLifetime < time.Minute || c.ResetTTL < time.Minute || c.VerifyTTL < time.Minute || c.ConfirmTTL < time.Minute || c.RevertTTL < time.Minute {
-		errs = append(errs, errors.New("AUTH_REMEMBER_LIFETIME, AUTH_RESET_TTL, AUTH_VERIFY_TTL, AUTH_CONFIRM_TTL and AUTH_REVERT_TTL must be at least 1m"))
+	if c.RememberTTL < time.Minute || c.ResetTTL < time.Minute || c.VerifyTTL < time.Minute || c.ConfirmTTL < time.Minute || c.RevertTTL < time.Minute {
+		errs = append(errs, errors.New("AUTH_REMEMBER_TTL, AUTH_RESET_TTL, AUTH_VERIFY_TTL, AUTH_CONFIRM_TTL and AUTH_REVERT_TTL must be at least 1m"))
 	}
 	if c.ClientURL != "" {
 		if u, err := url.Parse(c.ClientURL); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" ||

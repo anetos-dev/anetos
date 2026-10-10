@@ -9,7 +9,7 @@
 // or redis (REDIS_URL). Receipts are emailed with the mailer (MAIL_DRIVER:
 // log, smtp, memory or postmark). A scheduler prunes the audit log every night and
 // dispatches an hourly sales report; its locks are in the cache
-// (CACHE_STORE: memory, database or redis).
+// (CACHE_DRIVER: memory, database or redis).
 //
 //	go tool anetos key:generate >> .env   # APP_KEY, once
 //	export APP_ENV=development HTTP_ADDR=:8080 QUEUE_DRIVER=database
@@ -104,7 +104,7 @@ func setup(app *anetos.App) (*web.Server, error) {
 	// region: schedule-setup
 	// The scheduler's locks (WithoutOverlapping, OnOneServer) are in the
 	// cache: with several instances, use a store they share.
-	if _, err := cache.New(app, redis.CacheDriver()); err != nil { // CACHE_STORE: memory, database or redis
+	if _, err := cache.New(app, redis.CacheDriver()); err != nil { // CACHE_DRIVER: memory, database or redis
 		return nil, err
 	}
 	s, err := schedule.New(app) // SCHEDULE_TIMEZONE, default APP_TIMEZONE (UTC)

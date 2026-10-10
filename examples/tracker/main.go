@@ -66,16 +66,16 @@ func main() {
 // migrations, the cache, the queue and its workers, the mailer, file
 // storage, the scheduler, the web server, the routes and the plugins.
 func setup(app *anetos.App) (*web.Server, error) {
-	// Translations: locales/<locale>/*.yaml; APP_LOCALE, LOCALE_URL.
+	// Translations: locales/<locale>/*.yaml; APP_LOCALE, APP_LOCALE_STRATEGY.
 	if _, err := i18n.New(app, locales.FS); err != nil {
 		return nil, err
 	}
-	// DB_CONNECTION picks one: the tracker runs on SQLite (the default),
+	// DB_DRIVER picks one: the tracker runs on SQLite (the default),
 	// PostgreSQL and MySQL or MariaDB.
 	if _, err := db.Connect(context.Background(), app, sqlite.Driver(), postgres.Driver(), mysql.Driver()); err != nil {
 		return nil, err
 	}
-	// The cache, sessions and jobs tables serve CACHE_STORE=database,
+	// The cache, sessions and jobs tables serve CACHE_DRIVER=database,
 	// SESSION_DRIVER=database and QUEUE_DRIVER=database; the audit log
 	// keeps the history of projects and issues.
 	sets := []*migrate.Set{migrations.All, cache.Migrations(""), session.Migrations(""), queue.Migrations("", ""), audit.Migrations()}

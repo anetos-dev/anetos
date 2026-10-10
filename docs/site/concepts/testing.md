@@ -37,10 +37,10 @@ options; `APP_ENV=testing`, a random `APP_KEY`, and a `CACHE_PREFIX`,
 rather than sent and files kept in memory; the process
 environment; `.env.testing` next to `go.mod`; then `HTTP_ACCESS_LOG=false`,
 `APP_URL=http://example.test` (the test client's site) and `MAIL_FROM_ADDRESS=test@example.com`.
-Settings in `.env` are never used. With SQLite and no `DB_DATABASE` or
+Settings in `.env` are never used. With SQLite and no `DB_NAME` or
 `DB_URL`, the database is `:memory:`, never the default `database/app.db`.
-If the test settings name a database without `DB_CONNECTION` while `.env`
-sets another `DB_CONNECTION`, the test fails rather than create a SQLite
+If the test settings name a database without `DB_DRIVER` while `.env`
+sets another `DB_DRIVER`, the test fails rather than create a SQLite
 file of that name. The app's logs go to the test's log.
 
 ## Database isolation

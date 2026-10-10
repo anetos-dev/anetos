@@ -386,7 +386,7 @@ func TestAppNew(t *testing.T) {
 
 func TestAppNewConfig(t *testing.T) {
 	t.Parallel()
-	app := newApp(t, config.Map{"CACHE_STORE": "redis"})
+	app := newApp(t, config.Map{"CACHE_DRIVER": "redis"})
 	_, err := cache.New(app)
 	if err == nil || !strings.Contains(err.Error(), "[memory, database]") || !strings.Contains(err.Error(), "redis.CacheDriver()") {
 		t.Errorf("unknown store: %v", err)
@@ -398,12 +398,12 @@ func TestAppNewConfig(t *testing.T) {
 		got = cfg
 		return cache.NewMemoryStore(), nil
 	}}
-	app = newApp(t, config.Map{"CACHE_STORE": "custom", "CACHE_PREFIX": "x/"})
+	app = newApp(t, config.Map{"CACHE_DRIVER": "custom", "CACHE_PREFIX": "x/"})
 	c, err := cache.New(app, custom)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.Prefix() != "x/" || got.Store != "custom" || got.Table != "cache" {
+	if c.Prefix() != "x/" || got.Driver != "custom" || got.Table != "cache" {
 		t.Errorf("prefix %q, config %+v", c.Prefix(), got)
 	}
 
@@ -411,13 +411,13 @@ func TestAppNewConfig(t *testing.T) {
 	failingDriver := cache.Driver{Name: "custom", Open: func(*anetos.App, cache.Config) (cache.Store, error) {
 		return nil, errDown
 	}}
-	app = newApp(t, config.Map{"CACHE_STORE": "custom"})
+	app = newApp(t, config.Map{"CACHE_DRIVER": "custom"})
 	if _, err := cache.New(app, failingDriver); !errors.Is(err, errDown) || !strings.Contains(err.Error(), "open the custom store") {
 		t.Errorf("driver error: %v", err)
 	}
 
 	// The database store needs the app's database.
-	app = newApp(t, config.Map{"CACHE_STORE": "database"})
+	app = newApp(t, config.Map{"CACHE_DRIVER": "database"})
 	if _, err := cache.New(app); err == nil || !strings.Contains(err.Error(), "db.Connect") {
 		t.Errorf("database store without a database: %v", err)
 	}

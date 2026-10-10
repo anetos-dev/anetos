@@ -356,7 +356,7 @@ func testSearchSettings(t *testing.T, ctx context.Context) {
 	enCtx, en := withSearch(ctx, english)
 	err := en.CheckSearch(ctx)
 	if dialect == "mysql" {
-		if err == nil || !strings.Contains(err.Error(), "SEARCH_LANGUAGE=english isn't available on MySQL") {
+		if err == nil || !strings.Contains(err.Error(), "DB_SEARCH_LANGUAGE=english isn't available on MySQL") {
 			t.Errorf("english on MySQL: %v", err)
 		}
 	} else {
@@ -401,7 +401,7 @@ func testSearchSettings(t *testing.T, ctx context.Context) {
 		t.Errorf("Supports(BM25) = %v on %s", has, dialect)
 	}
 	if !has {
-		if err := bm.CheckSearch(ctx); err == nil || !strings.Contains(err.Error(), "SEARCH_RANKING=bm25 needs BM25 ranking") {
+		if err := bm.CheckSearch(ctx); err == nil || !strings.Contains(err.Error(), "DB_SEARCH_RANKING=bm25 needs BM25 ranking") {
 			t.Errorf("bm25 without BM25: %v", err)
 		}
 		if err := bm.Require("a feature", db.BM25); err != nil {

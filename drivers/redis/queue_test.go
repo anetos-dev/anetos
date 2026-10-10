@@ -67,7 +67,7 @@ func TestQueueDriver(t *testing.T) {
 	url := redisURL(t)
 	prefix := randomPrefix()
 	app := newApp(t, config.Map{"APP_NAME": "redistest", "QUEUE_DRIVER": "redis", "REDIS_URL": url, "QUEUE_PREFIX": prefix,
-		"QUEUE_POLL": "10ms", "APP_SHUTDOWN_TIMEOUT": "5s"})
+		"QUEUE_POLL_INTERVAL": "10ms", "APP_SHUTDOWN_TIMEOUT": "5s"})
 	q, err := queue.New(app, redis.QueueDriver())
 	if err != nil {
 		t.Fatal(err)

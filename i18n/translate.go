@@ -215,7 +215,7 @@ func WithResolver(ctx context.Context, resolve func(ctx context.Context) (locale
 }
 
 // Locale returns the locale of ctx: the one set with [WithLocale] (or
-// [ForUser]), else the request's (with LOCALE_URL=none, the locale
+// [ForUser]), else the request's (with APP_LOCALE_STRATEGY=none, the locale
 // cookie, the session, the signed-in user's preference, Accept-Language;
 // with prefix or subdomain, the URL's), else the default (APP_LOCALE).
 // It is canonical: "en", "pt-BR".

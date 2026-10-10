@@ -26,15 +26,15 @@ import (
 // the DB_* keys; [LoadConfig] reads it with another prefix for extra
 // connections.
 type Config struct {
-	// Connection selects the driver: sqlite, postgres or mysql.
-	Connection string `env:"DB_CONNECTION" default:"sqlite"`
+	// Driver selects the driver: sqlite, postgres or mysql.
+	Driver string `env:"DB_DRIVER" was:"DB_CONNECTION" default:"sqlite"`
 	// URL is a complete connection string in the driver's format. When set,
-	// Host, Port, Database, Username and Password are ignored.
+	// Host, Port, Name, User and Password are ignored.
 	URL      string `env:"DB_URL"`
 	Host     string `env:"DB_HOST" default:"127.0.0.1"` // server host (PostgreSQL, MySQL)
 	Port     int    `env:"DB_PORT"`                     // 0: the driver's default port
-	Database string `env:"DB_DATABASE"`                 // database name; for SQLite, the file (default database/app.db)
-	Username string `env:"DB_USERNAME"`                 // user to connect as
+	Name     string `env:"DB_NAME" was:"DB_DATABASE"`   // database name; for SQLite, the file (default database/app.db)
+	User     string `env:"DB_USER" was:"DB_USERNAME"`   // user to connect as
 	Password string `env:"DB_PASSWORD"`                 // that user's password
 	// TLS secures connections built from DB_HOST (PostgreSQL, MySQL):
 	// "verify" (encrypt, and check the server's certificate and name),
@@ -73,6 +73,8 @@ type Config struct {
 	// database whose times are local. The app still writes UTC.
 	// DB_ALLOW_LOCAL_TIMEZONE, default false.
 	AllowLocalTimeZone bool `env:"DB_ALLOW_LOCAL_TIMEZONE"`
+
+	urlKey string // "DATABASE_URL" when URL came from it, for messages
 }
 
 // Validate implements config.Validator.
@@ -148,9 +150,9 @@ func (c Config) String() string {
 	if c.RepeatedQueries != nil {
 		repeated = strconv.Itoa(*c.RepeatedQueries)
 	}
-	return fmt.Sprintf("{Connection:%s URL:%s Host:%s Port:%d Database:%s Username:%s Password:%s TLS:%s TLSCA:%s "+
+	return fmt.Sprintf("{Driver:%s URL:%s Host:%s Port:%d Name:%s User:%s Password:%s TLS:%s TLSCA:%s "+
 		"MaxOpenConns:%d MaxIdleConns:%d ConnMaxLifetime:%s ConnMaxIdleTime:%s LogQueries:%s SlowQuery:%s RepeatedQueries:%s}",
-		c.Connection, maskDSN(c.URL), c.Host, c.Port, c.Database, c.Username, mask(c.Password), c.TLS, c.TLSCA,
+		c.Driver, maskDSN(c.URL), c.Host, c.Port, c.Name, c.User, mask(c.Password), c.TLS, c.TLSCA,
 		c.MaxOpenConns, c.MaxIdleConns, c.ConnMaxLifetime, c.ConnMaxIdleTime, logQueries, c.SlowQuery, repeated)
 }
 
@@ -302,7 +304,7 @@ func maskKeyValues(s string) string {
 }
 
 // LoadConfig reads a Config from src with every key prefixed by prefix, so
-// LoadConfig(src, "ANALYTICS_") reads ANALYTICS_DB_CONNECTION,
+// LoadConfig(src, "ANALYTICS_") reads ANALYTICS_DB_DRIVER,
 // ANALYTICS_DB_HOST and so on. An empty prefix reads the DB_* keys.
 func LoadConfig(src config.Source, prefix string) (Config, error) {
 	cfg, err := config.Get[Config](prefixed{src, prefix})
@@ -310,6 +312,38 @@ func LoadConfig(src config.Source, prefix string) (Config, error) {
 		err = withPrefix(err, prefix)
 	}
 	return cfg, err
+}
+
+// platformURL uses the postgres:// DATABASE_URL that Heroku, Render and
+// Railway give an app when nothing else says where the database is: no
+// DB_URL, DB_HOST or DB_NAME, and DB_DRIVER unset or postgres. It reports
+// whether it did.
+func platformURL(src config.Source, c *Config) bool {
+	set := func(keys ...string) bool {
+		for _, k := range keys {
+			if v, ok := src.Lookup(k); ok && v != "" {
+				return true
+			}
+		}
+		return false
+	}
+	u, _ := src.Lookup("DATABASE_URL")
+	if !strings.HasPrefix(u, "postgres://") && !strings.HasPrefix(u, "postgresql://") {
+		return false
+	}
+	if set("DB_URL", "DB_HOST", "DB_NAME", "DB_DATABASE") || set("DB_DRIVER", "DB_CONNECTION") && c.Driver != "postgres" {
+		return false
+	}
+	c.URL, c.Driver, c.urlKey = u, "postgres", "DATABASE_URL"
+	return true
+}
+
+// urlKey names the setting cfg.URL came from.
+func urlKey(cfg Config) string {
+	if cfg.urlKey != "" {
+		return cfg.urlKey
+	}
+	return "DB_URL"
 }
 
 // withPrefix makes errors name the prefixed keys (ANALYTICS_DB_PORT, not
@@ -348,10 +382,24 @@ type prefixed struct {
 
 func (p prefixed) Lookup(key string) (string, bool) { return p.src.Lookup(p.prefix + key) }
 
+// ReportRename passes a renamed key's report on, with the prefix.
+func (p prefixed) ReportRename(old, current string) {
+	if r, ok := p.src.(config.RenameReporter); ok {
+		r.ReportRename(p.prefix+old, p.prefix+current)
+	}
+}
+
+// ReportFormer passes a former name on, with the prefix.
+func (p prefixed) ReportFormer(old, current string) {
+	if r, ok := p.src.(config.RenameReporter); ok {
+		r.ReportFormer(p.prefix+old, p.prefix+current)
+	}
+}
+
 // Driver pairs a [Dialect] with a way to open connections. Driver modules
 // provide one each: sqlite.Driver(), postgres.Driver(), mysql.Driver().
 type Driver struct {
-	// Name is the value of DB_CONNECTION that selects this driver.
+	// Name is the value of DB_DRIVER that selects this driver.
 	Name string
 	// Dialect writes the database's SQL.
 	Dialect Dialect
@@ -484,7 +532,7 @@ func (d *DB) Close() error { return d.sql.Close() }
 //
 //	database, err := db.Connect(ctx, app, sqlite.Driver(), postgres.Driver())
 //
-// DB_CONNECTION picks one of the given drivers, so an app can use SQLite in
+// DB_DRIVER picks one of the given drivers, so an app can use SQLite in
 // development and PostgreSQL in production with both compiled in. Connect
 // opens the connection pool, adds the DB to every context the app creates
 // (see anetos.App.AddContextValue), provides it as a *db.DB service, and
@@ -504,17 +552,23 @@ func Connect(ctx context.Context, app *anetos.App, drivers ...Driver) (*DB, erro
 	if err != nil {
 		return nil, err
 	}
+	if platformURL(app.Source(), &cfg) {
+		if err := cfg.Validate(); err != nil {
+			return nil, fmt.Errorf("db: with the platform's DATABASE_URL: %w", err)
+		}
+		app.Logger().Info("db: connecting to DATABASE_URL, the platform's database (DB_URL and DB_HOST aren't set)", "component", "db")
+	}
 	search, err := config.Get[SearchConfig](app.Source())
 	if err != nil {
 		return nil, err
 	}
-	i := slices.IndexFunc(drivers, func(d Driver) bool { return d.Name == cfg.Connection })
+	i := slices.IndexFunc(drivers, func(d Driver) bool { return d.Name == cfg.Driver })
 	if i < 0 {
 		names := make([]string, len(drivers))
 		for j, d := range drivers {
 			names[j] = d.Name
 		}
-		return nil, fmt.Errorf("db: DB_CONNECTION is %q, but the drivers passed to Connect are [%s]; import the driver module and pass its Driver()", cfg.Connection, strings.Join(names, ", "))
+		return nil, fmt.Errorf("db: DB_DRIVER is %q, but the drivers passed to Connect are [%s]; import the driver module and pass its Driver()", cfg.Driver, strings.Join(names, ", "))
 	}
 	repeated := 0
 	if env := app.Config().Env; env.IsDevelopment() || env.IsTesting() {
@@ -533,7 +587,7 @@ func Connect(ctx context.Context, app *anetos.App, drivers ...Driver) (*DB, erro
 	if err != nil {
 		return nil, err
 	}
-	check := &connCheck{d: d, name: cfg.Connection}
+	check := &connCheck{d: d, name: cfg.Driver}
 	if app.Booted() {
 		if err := check.Boot(ctx, app); err != nil {
 			return nil, errors.Join(err, d.Close())
@@ -565,7 +619,7 @@ func checks(cfg Config, d Driver, env anetos.Environment) []anetos.Finding {
 	if cfg.LogQueries != nil && *cfg.LogQueries {
 		out = append(out, anetos.Finding{Severity: anetos.Warning, Message: fmt.Sprintf("DB_LOG_QUERIES=true in %s: the log gets every query with its values (emails, token hashes, personal data); turn it off", env)})
 	}
-	if cfg.Connection == "sqlite" {
+	if cfg.Driver == "sqlite" {
 		return out
 	}
 	host, mode, setting := cfg.Host, cfg.TLSMode(), "DB_TLS="+cfg.TLSMode()
@@ -575,9 +629,9 @@ func checks(cfg Config, d Driver, env anetos.Environment) []anetos.Finding {
 		}
 		var err error
 		if host, mode, err = d.InspectURL(cfg.URL); err != nil {
-			return append(out, anetos.Finding{Severity: anetos.Warning, Message: "DB_URL can't be read to check its TLS settings: " + err.Error()})
+			return append(out, anetos.Finding{Severity: anetos.Warning, Message: urlKey(cfg) + " can't be read to check its TLS settings: " + err.Error()})
 		}
-		setting = "DB_URL"
+		setting = urlKey(cfg)
 	}
 	if LocalHost(host) {
 		return out

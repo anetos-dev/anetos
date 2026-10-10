@@ -758,7 +758,7 @@ pkg anetos.dev/anetos/auth, type Config struct, ConfirmTTL time.Duration
 pkg anetos.dev/anetos/auth, type Config struct, ConfirmURL string
 pkg anetos.dev/anetos/auth, type Config struct, HomeURL string
 pkg anetos.dev/anetos/auth, type Config struct, LoginURL string
-pkg anetos.dev/anetos/auth, type Config struct, RememberLifetime time.Duration
+pkg anetos.dev/anetos/auth, type Config struct, RememberTTL time.Duration
 pkg anetos.dev/anetos/auth, type Config struct, ResetTTL time.Duration
 pkg anetos.dev/anetos/auth, type Config struct, RevertTTL time.Duration
 pkg anetos.dev/anetos/auth, type Config struct, SettingsURL string
@@ -1019,8 +1019,8 @@ pkg anetos.dev/anetos/cache, method (*MemoryStore) Replace(context.Context, stri
 pkg anetos.dev/anetos/cache, method (*MemoryStore) Set(context.Context, string, []byte, time.Duration) error
 pkg anetos.dev/anetos/cache, type Cache struct
 pkg anetos.dev/anetos/cache, type Config struct
+pkg anetos.dev/anetos/cache, type Config struct, Driver string
 pkg anetos.dev/anetos/cache, type Config struct, Prefix string
-pkg anetos.dev/anetos/cache, type Config struct, Store string
 pkg anetos.dev/anetos/cache, type Config struct, Table string
 pkg anetos.dev/anetos/cache, type DatabaseStore struct
 pkg anetos.dev/anetos/cache, type Driver struct
@@ -1075,6 +1075,7 @@ pkg anetos.dev/anetos/config, method (*FieldError) Error() string
 pkg anetos.dev/anetos/config, method (*FieldError) Unwrap() error
 pkg anetos.dev/anetos/config, method (ByteSize) String() string
 pkg anetos.dev/anetos/config, method (Map) Lookup(string) (string, bool)
+pkg anetos.dev/anetos/config, method (Map) Names() []string
 pkg anetos.dev/anetos/config, type ByteSize int64
 pkg anetos.dev/anetos/config, type FieldError struct
 pkg anetos.dev/anetos/config, type FieldError struct, Err error
@@ -1086,11 +1087,17 @@ pkg anetos.dev/anetos/config, type Key struct, Field string
 pkg anetos.dev/anetos/config, type Key struct, HasDefault bool
 pkg anetos.dev/anetos/config, type Key struct, Name string
 pkg anetos.dev/anetos/config, type Key struct, Required bool
+pkg anetos.dev/anetos/config, type Key struct, Was string
+pkg anetos.dev/anetos/config, type Lister interface
+pkg anetos.dev/anetos/config, type Lister interface, Names() []string
 pkg anetos.dev/anetos/config, type LoadOptions struct
 pkg anetos.dev/anetos/config, type LoadOptions struct, Dir string
 pkg anetos.dev/anetos/config, type LoadOptions struct, Environment string
 pkg anetos.dev/anetos/config, type LoadOptions struct, OSEnv Source
 pkg anetos.dev/anetos/config, type Map map[string]string
+pkg anetos.dev/anetos/config, type RenameReporter interface
+pkg anetos.dev/anetos/config, type RenameReporter interface, ReportFormer(string, string)
+pkg anetos.dev/anetos/config, type RenameReporter interface, ReportRename(string, string)
 pkg anetos.dev/anetos/config, type Source interface
 pkg anetos.dev/anetos/config, type Source interface, Lookup(string) (string, bool)
 pkg anetos.dev/anetos/config, type Validator interface
@@ -1319,12 +1326,12 @@ pkg anetos.dev/anetos/db, type Config struct
 pkg anetos.dev/anetos/db, type Config struct, AllowLocalTimeZone bool
 pkg anetos.dev/anetos/db, type Config struct, ConnMaxIdleTime time.Duration
 pkg anetos.dev/anetos/db, type Config struct, ConnMaxLifetime time.Duration
-pkg anetos.dev/anetos/db, type Config struct, Connection string
-pkg anetos.dev/anetos/db, type Config struct, Database string
+pkg anetos.dev/anetos/db, type Config struct, Driver string
 pkg anetos.dev/anetos/db, type Config struct, Host string
 pkg anetos.dev/anetos/db, type Config struct, LogQueries *bool
 pkg anetos.dev/anetos/db, type Config struct, MaxIdleConns int
 pkg anetos.dev/anetos/db, type Config struct, MaxOpenConns int
+pkg anetos.dev/anetos/db, type Config struct, Name string
 pkg anetos.dev/anetos/db, type Config struct, Password string
 pkg anetos.dev/anetos/db, type Config struct, Port int
 pkg anetos.dev/anetos/db, type Config struct, RepeatedQueries *int
@@ -1332,7 +1339,7 @@ pkg anetos.dev/anetos/db, type Config struct, SlowQuery time.Duration
 pkg anetos.dev/anetos/db, type Config struct, TLS string
 pkg anetos.dev/anetos/db, type Config struct, TLSCA string
 pkg anetos.dev/anetos/db, type Config struct, URL string
-pkg anetos.dev/anetos/db, type Config struct, Username string
+pkg anetos.dev/anetos/db, type Config struct, User string
 pkg anetos.dev/anetos/db, type CursorPage[T any] struct
 pkg anetos.dev/anetos/db, type CursorPage[T any] struct, Data []T
 pkg anetos.dev/anetos/db, type CursorPage[T any] struct, NextCursor string
@@ -1526,7 +1533,7 @@ pkg anetos.dev/anetos/db/migrate, method (*Table) Vector(string, int) *Column
 pkg anetos.dev/anetos/db/migrate, type Action string
 pkg anetos.dev/anetos/db/migrate, type Column struct
 pkg anetos.dev/anetos/db/migrate, type Config struct
-pkg anetos.dev/anetos/db/migrate, type Config struct, OnRun bool
+pkg anetos.dev/anetos/db/migrate, type Config struct, OnStart bool
 pkg anetos.dev/anetos/db/migrate, type Config struct, Readiness bool
 pkg anetos.dev/anetos/db/migrate, type Foreign struct
 pkg anetos.dev/anetos/db/migrate, type Migration interface
@@ -1629,9 +1636,12 @@ pkg anetos.dev/anetos/i18n, const Full Style = 3
 pkg anetos.dev/anetos/i18n, const Long Style = 2
 pkg anetos.dev/anetos/i18n, const Medium Style = 0
 pkg anetos.dev/anetos/i18n, const Short Style = 1
-pkg anetos.dev/anetos/i18n, const URLNone = "none"
-pkg anetos.dev/anetos/i18n, const URLPrefix = "prefix"
-pkg anetos.dev/anetos/i18n, const URLSubdomain = "subdomain"
+pkg anetos.dev/anetos/i18n, const StrategyNone = "none"
+pkg anetos.dev/anetos/i18n, const StrategyPrefix = "prefix"
+pkg anetos.dev/anetos/i18n, const StrategySubdomain = "subdomain"
+pkg anetos.dev/anetos/i18n, const URLNone = StrategyNone
+pkg anetos.dev/anetos/i18n, const URLPrefix = StrategyPrefix
+pkg anetos.dev/anetos/i18n, const URLSubdomain = StrategySubdomain
 pkg anetos.dev/anetos/i18n, func Ago(context.Context, time.Time) string
 pkg anetos.dev/anetos/i18n, func Currency[N Numeric](context.Context, N, string) string
 pkg anetos.dev/anetos/i18n, func DateTime(context.Context, time.Time, ...Style) string
@@ -1682,7 +1692,7 @@ pkg anetos.dev/anetos/i18n, type Config struct
 pkg anetos.dev/anetos/i18n, type Config struct, Fallback string
 pkg anetos.dev/anetos/i18n, type Config struct, Locale string
 pkg anetos.dev/anetos/i18n, type Config struct, Locales []string
-pkg anetos.dev/anetos/i18n, type Config struct, URL string
+pkg anetos.dev/anetos/i18n, type Config struct, Strategy string
 pkg anetos.dev/anetos/i18n, type LocalePreference interface
 pkg anetos.dev/anetos/i18n, type LocalePreference interface, PreferredLocale() string
 pkg anetos.dev/anetos/i18n, type Moment interface
@@ -1960,7 +1970,7 @@ pkg anetos.dev/anetos/queue, type Config struct, Default string
 pkg anetos.dev/anetos/queue, type Config struct, Driver string
 pkg anetos.dev/anetos/queue, type Config struct, FailedTable string
 pkg anetos.dev/anetos/queue, type Config struct, MaxBackoff time.Duration
-pkg anetos.dev/anetos/queue, type Config struct, Poll time.Duration
+pkg anetos.dev/anetos/queue, type Config struct, PollInterval time.Duration
 pkg anetos.dev/anetos/queue, type Config struct, Prefix string
 pkg anetos.dev/anetos/queue, type Config struct, Table string
 pkg anetos.dev/anetos/queue, type Config struct, Timeout time.Duration
@@ -2123,12 +2133,12 @@ pkg anetos.dev/anetos/session, type Config struct, Cookie string
 pkg anetos.dev/anetos/session, type Config struct, Domain string
 pkg anetos.dev/anetos/session, type Config struct, Driver string
 pkg anetos.dev/anetos/session, type Config struct, ExpireOnClose bool
-pkg anetos.dev/anetos/session, type Config struct, Lifetime time.Duration
-pkg anetos.dev/anetos/session, type Config struct, MaxLifetime time.Duration
+pkg anetos.dev/anetos/session, type Config struct, MaxTTL time.Duration
 pkg anetos.dev/anetos/session, type Config struct, Path string
 pkg anetos.dev/anetos/session, type Config struct, Prefix string
 pkg anetos.dev/anetos/session, type Config struct, SameSite string
 pkg anetos.dev/anetos/session, type Config struct, Secure *bool
+pkg anetos.dev/anetos/session, type Config struct, TTL time.Duration
 pkg anetos.dev/anetos/session, type Config struct, Table string
 pkg anetos.dev/anetos/session, type Driver struct
 pkg anetos.dev/anetos/session, type Driver struct, Name string

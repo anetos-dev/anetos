@@ -195,7 +195,7 @@ type postID struct {
 // post, and its router.
 func dbApp(b testing.TB) (*anetos.App, *web.Router, *db.DB) {
 	b.Helper()
-	app := newApp(b, config.Map{"DB_DATABASE": ":memory:"})
+	app := newApp(b, config.Map{"DB_NAME": ":memory:"})
 	d, err := db.Connect(context.Background(), app, sqlite.Driver())
 	if err != nil {
 		b.Fatal(err)

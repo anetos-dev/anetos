@@ -365,3 +365,24 @@ func TestHealthCheckCommand(t *testing.T) {
 		t.Errorf("routes off: %d %q", code, errOut.String())
 	}
 }
+
+// TestLoadConfigPORT: a hosting platform's PORT sets the address unless
+// HTTP_ADDR does.
+func TestLoadConfigPORT(t *testing.T) {
+	for _, c := range []struct {
+		src  config.Map
+		want string
+	}{
+		{config.Map{}, ":8080"},
+		{config.Map{"PORT": "5000"}, ":5000"},
+		{config.Map{"PORT": "5000", "HTTP_ADDR": "127.0.0.1:9000"}, "127.0.0.1:9000"},
+	} {
+		cfg, err := web.LoadConfig(c.src)
+		if err != nil || cfg.Addr != c.want {
+			t.Errorf("%v: %q, %v; want %q", c.src, cfg.Addr, err, c.want)
+		}
+	}
+	if _, err := web.LoadConfig(config.Map{"PORT": "web"}); err == nil || !strings.Contains(err.Error(), "PORT") {
+		t.Errorf("PORT=web: %v", err)
+	}
+}

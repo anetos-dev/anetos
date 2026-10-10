@@ -23,6 +23,17 @@ type Validator interface {
 	Validate() error
 }
 
+// RenameReporter is implemented by a [Source] that wants to know when
+// [Bind] reads a setting under its former name (a `was` tag): the app's
+// source logs a warning and lists it in doctor.
+type RenameReporter interface {
+	// ReportFormer says the key current was called old: Bind calls it
+	// for every was tag, whether old is set or not.
+	ReportFormer(old, current string)
+	// ReportRename says the value of current came from the key old.
+	ReportRename(old, current string)
+}
+
 // FieldError describes a problem with a single configuration key.
 type FieldError struct {
 	Key   string // environment key, e.g. "DB_PORT"
@@ -54,6 +65,7 @@ func Get[T any](src Source) (T, error) {
 //	Timeout time.Duration `env:"DB_TIMEOUT" default:"5s"`
 //	Hosts   []string      `env:"DB_HOSTS"`            // comma-separated
 //	Mail    MailConfig    `prefix:"MAIL_"`            // nested struct, keys prefixed
+//	User    string        `env:"DB_USER" was:"DB_USERNAME"` // renamed key
 //
 // Rules:
 //   - Only exported fields are considered. `env:"-"` skips a field.
@@ -64,6 +76,9 @@ func Get[T any](src Source) (T, error) {
 //     `prefix` tag is prepended to their keys. A nil pointer to a struct is
 //     allocated only if at least one of its keys is set, so optional
 //     sections stay nil. Recursive types are not followed.
+//   - A `was` tag names the key's former name (with the same prefix): it
+//     is read when the key itself is unset, and a src that implements
+//     [RenameReporter] is told, so the app can warn that it's renamed.
 //   - Supported types: string, bool, all int, uint and float kinds,
 //     time.Duration, slices of those (comma-separated), pointers to them, and
 //     any type whose pointer implements encoding.TextUnmarshaler (e.g.
@@ -138,6 +153,21 @@ func bindStruct(src Source, v reflect.Value, prefix, path string, errs *[]error,
 		raw, ok := src.Lookup(key)
 		if ok && raw == "" {
 			ok = false
+		}
+		if was := sf.Tag.Get("was"); was != "" {
+			if r, isR := src.(RenameReporter); isR {
+				r.ReportFormer(prefix+was, key)
+			}
+			if !ok {
+				if raw, ok = src.Lookup(prefix + was); ok && raw != "" {
+					if r, isR := src.(RenameReporter); isR {
+						r.ReportRename(prefix+was, key)
+					}
+					key = prefix + was // errors name the key the value came from
+				} else {
+					ok = false
+				}
+			}
 		}
 		if ok {
 			anySet = true

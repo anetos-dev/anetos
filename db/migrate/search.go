@@ -167,8 +167,8 @@ func (s *Schema) checkSearch() error {
 	return nil
 }
 
-// Reindex rebuilds search indexes for the current SEARCH_LANGUAGE and
-// SEARCH_RANKING (after changing them, or to repair one): those of the
+// Reindex rebuilds search indexes for the current DB_SEARCH_LANGUAGE and
+// DB_SEARCH_RANKING (after changing them, or to repair one): those of the
 // given tables, or all. It returns the tables it rebuilt.
 func (r *Runner) Reindex(ctx context.Context, tables ...string) ([]string, error) {
 	ctx, unlock, err := r.prepare(ctx)

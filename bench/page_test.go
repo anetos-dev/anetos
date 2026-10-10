@@ -100,7 +100,7 @@ func postsPage(title, user, token string, posts []Post) view.Component {
 // carrying a signed-in user's session cookie.
 func pageApp(b testing.TB, logger *slog.Logger) (*anetos.App, *web.Router, func(path string) func() *http.Request) {
 	b.Helper()
-	src := config.Map{"APP_ENV": "production", "APP_KEY": benchKey, "DB_DATABASE": ":memory:"}
+	src := config.Map{"APP_ENV": "production", "APP_KEY": benchKey, "DB_NAME": ":memory:"}
 	app, err := anetos.New(anetos.WithSource(src), anetos.WithLogger(logger))
 	if err != nil {
 		b.Fatal(err)

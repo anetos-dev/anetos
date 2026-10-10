@@ -60,7 +60,7 @@ func newApp(t *testing.T, env config.Map) *anetos.App {
 
 func TestCacheDriver(t *testing.T) {
 	url := redisURL(t)
-	app := newApp(t, config.Map{"APP_NAME": "redistest", "CACHE_STORE": "redis", "REDIS_URL": url})
+	app := newApp(t, config.Map{"APP_NAME": "redistest", "CACHE_DRIVER": "redis", "REDIS_URL": url})
 	c, err := cache.New(app, redis.CacheDriver())
 	if err != nil {
 		t.Fatal(err)
@@ -137,7 +137,7 @@ func TestAnetostest(t *testing.T) {
 				prefix = c.Prefix()
 			}
 			return nil, err
-		}, anetostest.Env(map[string]string{"CACHE_STORE": "redis", "REDIS_URL": url}))
+		}, anetostest.Env(map[string]string{"CACHE_DRIVER": "redis", "REDIS_URL": url}))
 		if err := cache.Set(app.Context(), "k", 1, cache.Forever); err != nil {
 			t.Fatal(err)
 		}
@@ -180,7 +180,7 @@ func TestSessionDriver(t *testing.T) {
 		t.Fatalf("session keys: %v, %v", keys, err)
 	}
 	if ttl := client.PTTL(t.Context(), keys[0]).Val(); ttl <= 0 || ttl > 2*time.Hour {
-		t.Errorf("session ttl %v, want SESSION_LIFETIME", ttl)
+		t.Errorf("session ttl %v, want SESSION_TTL", ttl)
 	}
 	r := httptest.NewRequest(http.MethodGet, "/", nil)
 	r.AddCookie(ck)

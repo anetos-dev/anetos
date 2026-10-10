@@ -60,7 +60,7 @@ In `setup`, after `cache.New` (and `queue.New`, for jobs):
 ```go
 // The scheduler's locks (WithoutOverlapping, OnOneServer) are in the
 // cache: with several instances, use a store they share.
-if _, err := cache.New(app, redis.CacheDriver()); err != nil { // CACHE_STORE: memory, database or redis
+if _, err := cache.New(app, redis.CacheDriver()); err != nil { // CACHE_DRIVER: memory, database or redis
 	return nil, err
 }
 s, err := schedule.New(app) // SCHEDULE_TIMEZONE, default APP_TIMEZONE (UTC)
@@ -154,7 +154,7 @@ go run . run --only=scheduler    # only the scheduler
 With several instances (several web servers, say), each one runs the
 scheduler unless you split it out with `--only`. Either run it in one
 process, or give the tasks `OnOneServer` and a cache store the instances
-share (`CACHE_STORE=database` or `redis`): then the first instance to
+share (`CACHE_DRIVER=database` or `redis`): then the first instance to
 take a run's lock runs it, and the others skip it. With the memory store,
 the locks hold only within a process, and the scheduler warns at start.
 
@@ -188,7 +188,7 @@ Each run, scheduled or not, is kept in the cache as the task's last run:
 when it started, how long it took, its error, or that it was skipped
 because the previous run was still going. `s.LastRun(ctx, name)` returns
 it, and the [admin](admin.md)'s scheduled tasks page shows it. Processes
-see each other's runs with a shared cache store (`CACHE_STORE=database`
+see each other's runs with a shared cache store (`CACHE_DRIVER=database`
 or `redis`).
 
 ### 5. Test
@@ -260,7 +260,7 @@ that never matches (`0 0 30 2 *`) is an error then.
 | Problem | Cause | Fix |
 |---|---|---|
 | `uses a lock … call cache.New` | A task has `WithoutOverlapping` or `OnOneServer` but the app has no cache | Call `cache.New` in `setup` |
-| A task runs on every instance | `OnOneServer` is missing, or the cache store is `memory` | Add `OnOneServer` and use `CACHE_STORE=database` or `redis`, or run the scheduler in one process (`--only=scheduler`) |
+| A task runs on every instance | `OnOneServer` is missing, or the cache store is `memory` | Add `OnOneServer` and use `CACHE_DRIVER=database` or `redis`, or run the scheduler in one process (`--only=scheduler`) |
 | A task never runs | Its process doesn't run the `scheduler` role (`--only=http`), or it's running in another time zone than you think | Check `schedule:list`, and `SCHEDULE_TIMEZONE` |
 | `skipped: the previous run is still going` | A `WithoutOverlapping` run takes longer than the time between runs | Run it less often, or make it faster |
 | A failed run isn't retried | The scheduler doesn't retry | Dispatch a queue job with `schedule.Dispatch` |

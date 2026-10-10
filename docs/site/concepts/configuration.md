@@ -32,7 +32,7 @@ with its name and line. `app.Source()` hands the same source to every
 package; `anetos.WithSource` replaces it.
 
 `anetostest.New` doesn't use the settings in `.env`, so your development
-database can't leak into tests (it only looks at `.env`'s `DB_CONNECTION`,
+database can't leak into tests (it only looks at `.env`'s `DB_DRIVER`,
 to stop a test that would use SQLite by mistake). It forces `APP_ENV=testing` and a random `APP_KEY` over
 the process environment, and reads `.env.testing` below it.
 

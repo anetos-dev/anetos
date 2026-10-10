@@ -23,7 +23,7 @@ StateDirectory=bookmarks
 WorkingDirectory=/var/lib/bookmarks
 Environment=APP_ENV=production
 Environment=STORAGE_ROOT=/var/lib/bookmarks/storage
-Environment=DB_DATABASE=/var/lib/bookmarks/app.db
+Environment=DB_NAME=/var/lib/bookmarks/app.db
 # The settings, which override the lines above: APP_KEY, APP_URL, the database…
 EnvironmentFile=/etc/bookmarks/env
 ExecStartPre=/opt/bookmarks/bookmarks migrate

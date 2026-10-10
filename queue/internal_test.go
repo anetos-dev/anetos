@@ -59,7 +59,7 @@ func TestBackoff(t *testing.T) {
 		}
 	}
 	if d := NewWithStore(nil, Config{}).Config(); d.Tries != 3 || d.Timeout != time.Minute || d.Backoff != 10*time.Second ||
-		d.MaxBackoff != 10*time.Minute || d.Default != "default" || d.Table != "jobs" || d.FailedTable != "failed_jobs" || d.Poll != time.Second {
+		d.MaxBackoff != 10*time.Minute || d.Default != "default" || d.Table != "jobs" || d.FailedTable != "failed_jobs" || d.PollInterval != time.Second {
 		t.Errorf("defaults = %+v", d)
 	}
 }

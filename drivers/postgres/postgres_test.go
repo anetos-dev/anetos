@@ -28,7 +28,7 @@ func TestConformance(t *testing.T) {
 	if url == "" {
 		t.Skip("ANETOS_TEST_POSTGRES_URL not set")
 	}
-	d, err := db.Open(postgres.Driver(), db.Config{Connection: "postgres", URL: url, MaxOpenConns: 10, MaxIdleConns: 10})
+	d, err := db.Open(postgres.Driver(), db.Config{Driver: "postgres", URL: url, MaxOpenConns: 10, MaxIdleConns: 10})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +45,7 @@ func TestApp(t *testing.T) {
 	if url == "" {
 		t.Skip("ANETOS_TEST_POSTGRES_URL not set")
 	}
-	dbtest.RunApp(t, postgres.Driver(), map[string]string{"DB_CONNECTION": "postgres", "DB_URL": url})
+	dbtest.RunApp(t, postgres.Driver(), map[string]string{"DB_DRIVER": "postgres", "DB_URL": url})
 }
 
 // TestLocalTimeZone checks that a session time zone set in DB_URL
@@ -59,7 +59,7 @@ func TestLocalTimeZone(t *testing.T) {
 	if strings.Contains(url, "?") {
 		sep = "&"
 	}
-	dbtest.RunLocalTimeZone(t, postgres.Driver(), db.Config{Connection: "postgres", URL: url + sep + "timezone=Asia/Dhaka"})
+	dbtest.RunLocalTimeZone(t, postgres.Driver(), db.Config{Driver: "postgres", URL: url + sep + "timezone=Asia/Dhaka"})
 }
 
 func TestDSN(t *testing.T) {
@@ -67,18 +67,18 @@ func TestDSN(t *testing.T) {
 		cfg  db.Config
 		want string
 	}{
-		{db.Config{Host: "db", Database: "app", Username: "u", Password: "p@ss/word"}, "postgres://u:p%40ss%2Fword@db:5432/app?sslmode=verify-full&timezone=UTC"},
-		{db.Config{Host: "::1", Port: 6543, Database: "app"}, "postgres://[::1]:6543/app?sslmode=disable&timezone=UTC"},
-		{db.Config{Host: "db", Database: "app", Username: "u", TLS: "none"}, "postgres://u@db:5432/app?sslmode=disable&timezone=UTC"},
-		{db.Config{Host: "db", Database: "app", TLS: "skip-verify"}, "postgres://db:5432/app?sslmode=require&timezone=UTC"},
-		{db.Config{Host: "db", Database: "app", TLSCA: "/etc/ca.pem"}, "postgres://db:5432/app?sslmode=verify-full&sslrootcert=%2Fetc%2Fca.pem&timezone=UTC"},
-		{db.Config{Host: "localhost", Database: "app"}, "postgres://localhost:5432/app?sslmode=disable&timezone=UTC"},
-		{db.Config{Host: "127.0.0.1", Database: "app", TLSCA: "/etc/ca.pem"}, "postgres://127.0.0.1:5432/app?sslmode=verify-full&sslrootcert=%2Fetc%2Fca.pem&timezone=UTC"}, // a tunnel
+		{db.Config{Host: "db", Name: "app", User: "u", Password: "p@ss/word"}, "postgres://u:p%40ss%2Fword@db:5432/app?sslmode=verify-full&timezone=UTC"},
+		{db.Config{Host: "::1", Port: 6543, Name: "app"}, "postgres://[::1]:6543/app?sslmode=disable&timezone=UTC"},
+		{db.Config{Host: "db", Name: "app", User: "u", TLS: "none"}, "postgres://u@db:5432/app?sslmode=disable&timezone=UTC"},
+		{db.Config{Host: "db", Name: "app", TLS: "skip-verify"}, "postgres://db:5432/app?sslmode=require&timezone=UTC"},
+		{db.Config{Host: "db", Name: "app", TLSCA: "/etc/ca.pem"}, "postgres://db:5432/app?sslmode=verify-full&sslrootcert=%2Fetc%2Fca.pem&timezone=UTC"},
+		{db.Config{Host: "localhost", Name: "app"}, "postgres://localhost:5432/app?sslmode=disable&timezone=UTC"},
+		{db.Config{Host: "127.0.0.1", Name: "app", TLSCA: "/etc/ca.pem"}, "postgres://127.0.0.1:5432/app?sslmode=verify-full&sslrootcert=%2Fetc%2Fca.pem&timezone=UTC"}, // a tunnel
 		{db.Config{URL: "postgres://x/y?sslmode=require"}, "postgres://x/y?sslmode=require&timezone=UTC"},
 		{db.Config{URL: "postgres://x/y?TimeZone=Asia/Dhaka"}, "postgres://x/y?TimeZone=Asia/Dhaka"},
 		{db.Config{URL: "host=x dbname=y"}, "host=x dbname=y timezone=UTC"},
 		{db.Config{URL: "host=x timezone=UTC"}, "host=x timezone=UTC"},
-		{db.Config{Host: "/var/run/postgresql", Database: "my db", Username: "u"}, "postgres://u@/my%20db?host=%2Fvar%2Frun%2Fpostgresql&port=5432&sslmode=disable&timezone=UTC"},
+		{db.Config{Host: "/var/run/postgresql", Name: "my db", User: "u"}, "postgres://u@/my%20db?host=%2Fvar%2Frun%2Fpostgresql&port=5432&sslmode=disable&timezone=UTC"},
 	}
 	for _, c := range cases {
 		if got := postgres.DSN(c.cfg); got != c.want {

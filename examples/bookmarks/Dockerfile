@@ -5,7 +5,7 @@
 #   docker run -d -p 8080:8080 --env-file production.env -v bookmarks-data:/data bookmarks
 #
 # It migrates the SQLite database in /data when it starts
-# (MIGRATE_ON_RUN); the server is ready once that's done.
+# (DB_MIGRATE_ON_START); the server is ready once that's done.
 #
 # The settings come from the environment (production.env: see
 # deploy/production.env.example); .env isn't in the image. RUN --mount
@@ -30,10 +30,9 @@ COPY --from=build /out/bookmarks /app/bookmarks
 # mount a volume there.
 COPY --from=build --chown=65532:65532 /out/data /data
 ENV APP_ENV=production \
-    HTTP_ADDR=:8080 \
     STORAGE_ROOT=/data/storage \
-    DB_DATABASE=/data/app.db \
-    MIGRATE_ON_RUN=true
+    DB_NAME=/data/app.db \
+    DB_MIGRATE_ON_START=true
 EXPOSE 8080
 USER 65532:65532
 # The server's readiness; turn it off for containers that don't serve

@@ -283,7 +283,7 @@ func TestClock(t *testing.T) {
 	app.Unfreeze()
 	app.WithSession(func(s *session.Session) { s.Put("user", "ada") })
 	app.Get("/items").AssertSee("user ada")
-	app.Travel(3 * time.Hour) // SESSION_LIFETIME is 2h by default
+	app.Travel(3 * time.Hour) // SESSION_TTL is 2h by default
 	app.Get("/items").AssertDontSee("user ada")
 
 	// The clock is in the app's zone.

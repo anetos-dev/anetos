@@ -46,7 +46,7 @@ func NewDatabaseStore(d *db.DB, table string) *DatabaseStore {
 	return &DatabaseStore{d: d, table: table}
 }
 
-// DatabaseDriver is the database store's driver (CACHE_STORE=database),
+// DatabaseDriver is the database store's driver (CACHE_DRIVER=database),
 // in the table CACHE_TABLE. It uses the app's database: call db.Connect
 // before cache.New.
 func DatabaseDriver() Driver {

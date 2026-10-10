@@ -83,7 +83,7 @@ guide lists the differences instead of hiding them.
 ## The database is checked when the app boots
 
 `db.Connect` pings the database when the app boots, then checks that it
-can serve what the app asks of it: `SEARCH_LANGUAGE` and `SEARCH_RANKING`,
+can serve what the app asks of it: `DB_SEARCH_LANGUAGE` and `DB_SEARCH_RANKING`,
 the capabilities features declared with `d.Require(feature, caps...)`
 (`db.FullText`, `db.BM25`), and that the search indexes were built for the
 current settings. A mismatch stops the app (and its commands) at once,

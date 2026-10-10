@@ -19,7 +19,7 @@ func TestConformance(t *testing.T) {
 	if url == "" {
 		t.Skip("ANETOS_TEST_MYSQL_URL not set")
 	}
-	d, err := db.Open(mysql.Driver(), db.Config{Connection: "mysql", URL: url, MaxOpenConns: 10, MaxIdleConns: 10})
+	d, err := db.Open(mysql.Driver(), db.Config{Driver: "mysql", URL: url, MaxOpenConns: 10, MaxIdleConns: 10})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +36,7 @@ func TestApp(t *testing.T) {
 	if url == "" {
 		t.Skip("ANETOS_TEST_MYSQL_URL not set")
 	}
-	dbtest.RunApp(t, mysql.Driver(), map[string]string{"DB_CONNECTION": "mysql", "DB_URL": url})
+	dbtest.RunApp(t, mysql.Driver(), map[string]string{"DB_DRIVER": "mysql", "DB_URL": url})
 }
 
 // TestLocalTimeZone checks that a session time zone set in DB_URL
@@ -50,10 +50,10 @@ func TestLocalTimeZone(t *testing.T) {
 	if strings.Contains(url, "?") {
 		sep = "&"
 	}
-	dbtest.RunLocalTimeZone(t, mysql.Driver(), db.Config{Connection: "mysql", URL: url + sep + "time_zone=%27%2B06:00%27"})
+	dbtest.RunLocalTimeZone(t, mysql.Driver(), db.Config{Driver: "mysql", URL: url + sep + "time_zone=%27%2B06:00%27"})
 
 	// The server's own zone (SYSTEM) is accepted only if it is UTC.
-	d, err := db.Open(mysql.Driver(), db.Config{Connection: "mysql", URL: url + sep + "time_zone=%27SYSTEM%27"})
+	d, err := db.Open(mysql.Driver(), db.Config{Driver: "mysql", URL: url + sep + "time_zone=%27SYSTEM%27"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +69,7 @@ func TestLocalTimeZone(t *testing.T) {
 }
 
 func TestDSN(t *testing.T) {
-	got, err := mysql.DSN(db.Config{Host: "db", Database: "app", Username: "u", Password: "p@ss"})
+	got, err := mysql.DSN(db.Config{Host: "db", Name: "app", User: "u", Password: "p@ss"})
 	if err != nil || !strings.HasPrefix(got, "u:p@ss@tcp(db:3306)/app?") || !strings.Contains(got, "parseTime=true") || !strings.Contains(got, "clientFoundRows=true") {
 		t.Errorf("DSN = %s, %v", got, err)
 	}

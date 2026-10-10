@@ -23,7 +23,7 @@ production settings and a database of its own:
 
 ```sh
 export APP_ENV=production APP_DEBUG=false APP_KEY=$(go tool anetos key:generate | cut -d= -f2-)
-export DB_DATABASE=/tmp/tracker.db STORAGE_ROOT=/tmp/tracker-files HTTP_ADDR=:8081
+export DB_NAME=/tmp/tracker.db STORAGE_ROOT=/tmp/tracker-files HTTP_ADDR=:8081
 ./bin/tracker migrate
 ./bin/tracker run
 ```

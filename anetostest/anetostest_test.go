@@ -313,8 +313,8 @@ func TestHalfSwitchedDatabase(t *testing.T) {
 	dir := t.TempDir()
 	for name, content := range map[string]string{
 		"go.mod":       "module x\n",
-		".env":         "DB_CONNECTION=postgres\nDB_DATABASE=blog\n",
-		".env.testing": "DB_DATABASE=blog_test\n",
+		".env":         "DB_DRIVER=postgres\nDB_NAME=blog\n",
+		".env.testing": "DB_NAME=blog_test\n",
 	} {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {
 			t.Fatal(err)
@@ -322,13 +322,13 @@ func TestHalfSwitchedDatabase(t *testing.T) {
 	}
 	t.Chdir(dir)
 	msg := fatalOf(func() { anetostest.New(&fakeT{TB: t}, nil) })
-	if !strings.Contains(msg, "DB_DATABASE=blog_test but no DB_CONNECTION") || !strings.Contains(msg, "Set DB_CONNECTION=postgres in .env.testing") {
+	if !strings.Contains(msg, "DB_NAME=blog_test but no DB_DRIVER") || !strings.Contains(msg, "Set DB_DRIVER=postgres in .env.testing") {
 		t.Errorf("message = %q", msg)
 	}
 	msg = fatalOf(func() {
-		anetostest.New(&fakeT{TB: t}, nil, anetostest.Env(map[string]string{"DB_DATABASE": "", "DB_URL": "postgres://db/blog_test"}))
+		anetostest.New(&fakeT{TB: t}, nil, anetostest.Env(map[string]string{"DB_NAME": "", "DB_URL": "postgres://db/blog_test"}))
 	})
-	if !strings.Contains(msg, "DB_URL but no DB_CONNECTION") {
+	if !strings.Contains(msg, "DB_URL but no DB_DRIVER") {
 		t.Errorf("DB_URL message = %q", msg)
 	}
 	// Without .env.testing, the tests would use an in-memory SQLite

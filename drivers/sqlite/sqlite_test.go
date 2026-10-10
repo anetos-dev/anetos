@@ -30,7 +30,7 @@ func open(t *testing.T, cfg db.Config) *db.DB {
 }
 
 func cfgFor(database string) db.Config {
-	return db.Config{Connection: "sqlite", Database: database, MaxOpenConns: 10, MaxIdleConns: 10}
+	return db.Config{Driver: "sqlite", Name: database, MaxOpenConns: 10, MaxIdleConns: 10}
 }
 
 func TestConformanceFile(t *testing.T) {
@@ -38,7 +38,7 @@ func TestConformanceFile(t *testing.T) {
 }
 
 func TestApp(t *testing.T) {
-	dbtest.RunApp(t, sqlite.Driver(), map[string]string{"DB_DATABASE": filepath.Join(t.TempDir(), "app.db")})
+	dbtest.RunApp(t, sqlite.Driver(), map[string]string{"DB_NAME": filepath.Join(t.TempDir(), "app.db")})
 }
 
 func TestConformanceMemory(t *testing.T) {
@@ -77,10 +77,10 @@ func TestAnetostestDatabases(t *testing.T) {
 	t.Chdir(dir)
 	file := filepath.Join(dir, "test.db")
 	for name, env := range map[string]map[string]string{
-		"empty DB_DATABASE": {"DB_DATABASE": ""},
-		"explicit memory":   {"DB_DATABASE": ":memory:"},
-		"file":              {"DB_DATABASE": file},
-		"file URL":          {"DB_URL": "file:" + file},
+		"empty DB_NAME":   {"DB_NAME": ""},
+		"explicit memory": {"DB_NAME": ":memory:"},
+		"file":            {"DB_NAME": file},
+		"file URL":        {"DB_URL": "file:" + file},
 	} {
 		t.Run(name, func(t *testing.T) {
 			for range 2 { // the second app sees nothing of the first

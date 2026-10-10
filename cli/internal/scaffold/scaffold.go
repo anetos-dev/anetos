@@ -117,59 +117,59 @@ type Replacement struct{ Path, Dir string }
 // dbEnvProd is the production settings' database lines.
 const dbEnvProd = `[[define "db-env-prod"]]
 [[- if eq .DB "sqlite" -]]
-DB_CONNECTION=sqlite
-# The database file is DB_DATABASE, which the Dockerfile and the systemd
+DB_DRIVER=sqlite
+# The database file is DB_NAME, which the Dockerfile and the systemd
 # unit set, in the data directory (keep it on a volume or disk).
 [[- else if eq .DB "postgres" -]]
-DB_CONNECTION=postgres
-# The connection string (DB_URL), or DB_HOST, DB_PORT, DB_DATABASE,
-# DB_USERNAME and DB_PASSWORD (TLS on and verified unless the host is
+DB_DRIVER=postgres
+# The connection string (DB_URL), or DB_HOST, DB_PORT, DB_NAME,
+# DB_USER and DB_PASSWORD (TLS on and verified unless the host is
 # local; DB_TLS, DB_TLS_CA). verify-full checks the server's certificate:
 # add sslrootcert=/path/ca.pem for a provider's own CA.
 DB_URL=postgres://[[.DBName]]:password@db.example.com:5432/[[.DBName]]?sslmode=verify-full
 [[- else -]]
-DB_CONNECTION=mysql
+DB_DRIVER=mysql
 # The connection string (DB_URL, the driver's DSN), or DB_HOST, DB_PORT,
-# DB_DATABASE, DB_USERNAME and DB_PASSWORD (TLS on and verified unless
+# DB_NAME, DB_USER and DB_PASSWORD (TLS on and verified unless
 # the host is local; DB_TLS, DB_TLS_CA).
 DB_URL=[[.DBName]]:password@tcp(db.example.com:3306)/[[.DBName]]?tls=true
-SEARCH_LANGUAGE=simple
+DB_SEARCH_LANGUAGE=simple
 [[- end]]
 [[- end]]`
 
 const dbEnv = `[[define "db-env"]]
 [[- if eq .DB "sqlite" -]]
-DB_CONNECTION=sqlite
-DB_DATABASE=database/app.db
+DB_DRIVER=sqlite
+DB_NAME=database/app.db
 [[- else if eq .DB "postgres" -]]
-DB_CONNECTION=postgres
+DB_DRIVER=postgres
 DB_HOST=127.0.0.1
 DB_PORT=5432
-DB_DATABASE=[[.DBName]]
-DB_USERNAME=postgres
+DB_NAME=[[.DBName]]
+DB_USER=postgres
 DB_PASSWORD=
 [[- else -]]
-DB_CONNECTION=mysql
+DB_DRIVER=mysql
 DB_HOST=127.0.0.1
 DB_PORT=3306
-DB_DATABASE=[[.DBName]]
-DB_USERNAME=root
+DB_NAME=[[.DBName]]
+DB_USER=root
 DB_PASSWORD=
 [[- end]]
 
 # Full-text search (Search in queries, t.SearchIndex in migrations)
 [[- if eq .DB "mysql"]]: MySQL matches
 # words as written (simple), and has no BM25 ranking
-SEARCH_LANGUAGE=simple
-SEARCH_RANKING=default
+DB_SEARCH_LANGUAGE=simple
+DB_SEARCH_RANKING=default
 [[- else]]: simple
 # (default) matches words as written, in any language; english also
 # matches their other forms (run, running)[[if eq .DB "postgres"]], as do PostgreSQL's other
 # text search configurations (german, french…)[[end]]. Changing it needs
 # go run . search:reindex
-SEARCH_LANGUAGE=simple
+DB_SEARCH_LANGUAGE=simple
 # default, or bm25[[if eq .DB "postgres"]] (needs PostgreSQL 17+ with the pg_textsearch extension)[[end]]
-SEARCH_RANKING=default
+DB_SEARCH_RANKING=default
 [[- end]]
 [[end]]`
 

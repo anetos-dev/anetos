@@ -15,7 +15,7 @@ in each user's language. Adding a language is adding a file.
 - An app made with `anetos new` has translations set up: `locales/` holds
   the English text and `main.go` loads it. For an older app, see step 2.
 - Settings: `APP_LOCALE` (default `en`), `APP_FALLBACK_LOCALE` (default
-  `en`), `APP_LOCALES`, `LOCALE_URL` ([reference](../reference/configuration.md)).
+  `en`), `APP_LOCALES`, `APP_LOCALE_STRATEGY` ([reference](../reference/configuration.md)).
 
 ## Steps
 
@@ -161,9 +161,9 @@ finds them before users do.
 ### 4. Choose how visitors get their language
 
 A request's locale is worked out the first time something asks for it.
-`LOCALE_URL` decides how:
+`APP_LOCALE_STRATEGY` decides how:
 
-| `LOCALE_URL` | URLs | A visitor who prefers Bangla |
+| `APP_LOCALE_STRATEGY` | URLs | A visitor who prefers Bangla |
 |---|---|---|
 | `none` (default) | `/about` in every language | sees `/about` in Bangla |
 | `prefix` | `/about` (English, the default), `/bn/about` | opening `/about` is redirected to `/bn/about` |
@@ -219,7 +219,7 @@ func (u *User) PreferredTimeZone() string   { return u.TimeZone }   // i18n.Time
 ```
 
 With `auth.New`, a signed-in user's `PreferredLocale` is the request's
-with `LOCALE_URL=none` (unless they chose another on this device), and
+with `APP_LOCALE_STRATEGY=none` (unless they chose another on this device), and
 `i18n.TimeZone(ctx)` is their zone, which `i18n.Date` and `i18n.Time`
 show times in ([Numbers, dates and languages](formatting.md)). A settings
 page that saves their
@@ -305,7 +305,7 @@ catalogs, a switcher and translated validation:
 
 ```sh
 go run ./examples/i18n
-LOCALE_URL=prefix go run ./examples/i18n
+APP_LOCALE_STRATEGY=prefix go run ./examples/i18n
 ```
 
 ## How it works
@@ -363,5 +363,5 @@ translator's `Check` method runs `lang:check`'s checks in a test.
 | A language is never chosen | It isn't supported | Add its catalog, or list it in `APP_LOCALES` |
 | `… is not a locale` at startup | A catalog file's name isn't a locale (`english.yaml`) | Name it `en.yaml`, or the folder `en/` |
 | `… is 3, not text; quote it` | A number or `true` as a message | Quote it: `"3"` |
-| `LOCALE_URL=subdomain needs APP_URL` | The default locale's host is unknown | Set `APP_URL=https://example.com` |
+| `APP_LOCALE_STRATEGY=subdomain needs APP_URL` | The default locale's host is unknown | Set `APP_URL=https://example.com` |
 | Email in the site's language, not the user's | The mail was built with the request's context | `mailer.Send(i18n.ForUser(ctx, u), …)` |

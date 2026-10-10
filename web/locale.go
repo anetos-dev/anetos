@@ -54,7 +54,7 @@ func localeFrom(ctx context.Context) *localeState {
 }
 
 // localize resolves each request's locale, when the app has a translator
-// (i18n.New). With LOCALE_URL=prefix or subdomain, it takes the locale
+// (i18n.New). With APP_LOCALE_STRATEGY=prefix or subdomain, it takes the locale
 // out of the URL, which decides it, and sends visitors asking for a page
 // without one to the locale they chose before (the cookie) or their
 // browser prefers. With none, ?locale= on a page switches, and the
@@ -77,13 +77,13 @@ func localize(app *anetos.App) Middleware {
 			}
 			return nil
 		}
-		s := &localeSetup{tr: tr, mode: tr.Config().URL, tags: tr.Supported(), secure: strings.HasPrefix(app.Config().URL, "https://")}
+		s := &localeSetup{tr: tr, mode: tr.Config().Strategy, tags: tr.Supported(), secure: strings.HasPrefix(app.Config().URL, "https://")}
 		for _, l := range s.tags {
 			s.lower = append(s.lower, strings.ToLower(l))
 		}
 		if u, err := url.Parse(app.Config().URL); err == nil && u.Host != "" {
 			s.base = u
-			if s.mode == i18n.URLSubdomain {
+			if s.mode == i18n.StrategySubdomain {
 				s.domain = strings.ToLower(u.Hostname())
 			}
 		}
@@ -100,7 +100,7 @@ func localize(app *anetos.App) Middleware {
 			tr := ls.tr
 			st := &localeState{localeSetup: ls, path: safePath(r.URL.EscapedPath()), query: r.URL.RawQuery, secure: ls.secure || r.TLS != nil}
 			switch ls.mode {
-			case i18n.URLPrefix:
+			case i18n.StrategyPrefix:
 				if loc, rest, ok := ls.splitPrefix(st.path); ok {
 					if loc == tr.Default() && readOnly(r) { // /en/about: remember, then the canonical URL
 						setLocaleCookie(w, st, loc)
@@ -123,7 +123,7 @@ func localize(app *anetos.App) Middleware {
 					r = r.WithContext(r.Context())
 					r.URL = &u
 				}
-			case i18n.URLSubdomain:
+			case i18n.StrategySubdomain:
 				if loc, ok := ls.subdomain(r.Host); ok {
 					if loc == tr.Default() && readOnly(r) { // en.example.com: remember, then the canonical host
 						setLocaleCookie(w, st, loc)
@@ -142,7 +142,7 @@ func localize(app *anetos.App) Middleware {
 					}
 				}
 			}
-			if ls.mode != i18n.URLNone {
+			if ls.mode != i18n.StrategyNone {
 				if st.url != "" {
 					if c, err := r.Cookie(LocaleCookie); err != nil || c.Value != st.url {
 						setLocaleCookie(w, st, st.url) // remember the visitor's choice
@@ -167,7 +167,7 @@ func localize(app *anetos.App) Middleware {
 			ctx = i18n.WithResolver(ctx, func(ctx context.Context) (string, *time.Location) {
 				user, zone := i18n.Preferences(ctx)
 				switch {
-				case ls.mode == i18n.URLNone:
+				case ls.mode == i18n.StrategyNone:
 				case st.url != "":
 					return st.url, zone
 				default:
@@ -300,7 +300,7 @@ var ErrUnsupportedLocale = &HTTPError{Status: http.StatusUnprocessableEntity, Me
 // and the session (if the route has one), which come before a signed-in
 // user's preference, and used for the rest of the request. A settings
 // page that saves a user's preferred locale calls it too, so the change
-// shows at once. With LOCALE_URL=prefix or subdomain, send the visitor
+// shows at once. With APP_LOCALE_STRATEGY=prefix or subdomain, send the visitor
 // to the page in that locale afterwards ([LocaleURL]). It returns
 // [ErrUnsupportedLocale] for a locale the app doesn't support, and an
 // error without a translator (i18n.New).
@@ -342,7 +342,7 @@ func (c *Ctx) ForgetLocale() {
 
 // LocaleURL returns the URL of the current page (its path and query) in
 // locale, for a language switcher; following it remembers the choice:
-// /bn/about with LOCALE_URL=prefix (/en/about for the default locale,
+// /bn/about with APP_LOCALE_STRATEGY=prefix (/en/about for the default locale,
 // which redirects to /about), https://bn.example.com/about with
 // subdomain (en.example.com for the default, which redirects to
 // example.com), and /about?locale=bn with none (which redirects to
@@ -358,9 +358,9 @@ func LocaleURL(ctx context.Context, locale string) string {
 		loc = st.tr.Default()
 	}
 	switch st.mode {
-	case i18n.URLPrefix:
+	case i18n.StrategyPrefix:
 		return withQuery("/"+strings.ToLower(loc)+st.path, st.query)
-	case i18n.URLSubdomain:
+	case i18n.StrategySubdomain:
 		if st.base == nil || st.base.Host == "" {
 			return withQuery(st.path, st.query)
 		}
@@ -382,24 +382,24 @@ type Alternate struct {
 
 // Alternates returns the current page's address in each supported
 // locale, then "x-default" (the default locale's), for search engines,
-// with LOCALE_URL=prefix or subdomain:
+// with APP_LOCALE_STRATEGY=prefix or subdomain:
 //
 //	for _, a := range web.Alternates(ctx) {
 //		<link rel="alternate" hreflang={ a.Locale } href={ a.URL }/>
 //	}
 //
 // Unlike [LocaleURL]'s links, these are the canonical addresses (no
-// /en/ prefix for the default locale). With LOCALE_URL=none, a page has
+// /en/ prefix for the default locale). With APP_LOCALE_STRATEGY=none, a page has
 // one address for every language, so it returns nil, as it does
 // without a translator.
 func Alternates(ctx context.Context) []Alternate {
 	st := localeFrom(ctx)
-	if st == nil || st.mode == i18n.URLNone {
+	if st == nil || st.mode == i18n.StrategyNone {
 		return nil
 	}
 	pq := withQuery(st.path, st.query)
 	addr := func(loc string) string {
-		if st.mode == i18n.URLSubdomain {
+		if st.mode == i18n.StrategySubdomain {
 			return st.canonicalURL(loc, pq)
 		}
 		p := pq
@@ -432,12 +432,12 @@ func (st *localeState) canonicalURL(loc, path string) string {
 }
 
 // LocalePath returns path (a path of the app, "/dashboard") in the
-// current request's locale: with LOCALE_URL=prefix, prefixed by a
+// current request's locale: with APP_LOCALE_STRATEGY=prefix, prefixed by a
 // locale other than the default ("/bn/dashboard"); otherwise unchanged.
 // Route URLs ([URL], [Ctx.URL]) do it already.
 func LocalePath(ctx context.Context, path string) string {
 	st := localeFrom(ctx)
-	if st == nil || st.mode != i18n.URLPrefix || !strings.HasPrefix(path, "/") {
+	if st == nil || st.mode != i18n.StrategyPrefix || !strings.HasPrefix(path, "/") {
 		return path
 	}
 	loc := i18n.Locale(ctx)

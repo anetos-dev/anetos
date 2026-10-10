@@ -41,8 +41,8 @@ Highest priority first. `.env` is never read.
 | `.env.testing` | Next to the test's `go.mod`; optional |
 | Defaults | `HTTP_ACCESS_LOG=false`, `APP_URL=http://example.test` (the test client's site), `MAIL_FROM_ADDRESS=test@example.com` |
 
-With `DB_CONNECTION` unset or `sqlite`, and `DB_DATABASE` and `DB_URL`
-unset or empty in every source, `DB_DATABASE=:memory:` wins over all of
+With `DB_DRIVER` unset or `sqlite`, and `DB_NAME` and `DB_URL`
+unset or empty in every source, `DB_NAME=:memory:` wins over all of
 them: never the default `database/app.db`.
 
 ### Database

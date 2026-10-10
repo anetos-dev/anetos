@@ -177,7 +177,7 @@ func (a *Auth[U]) hit(ctx context.Context, key string, limit ratelimit.Limit) er
 // Login signs u in: the session gets a new ID (so a session identifier
 // seen before the login is useless) and remembers the user; with
 // remember, a remember-me cookie keeps them signed in for
-// AUTH_REMEMBER_LIFETIME after the session ends. Use it after
+// AUTH_REMEMBER_TTL after the session ends. Use it after
 // registration. It doesn't ask for a two-factor code: for sign-in
 // methods other than passwords, use [Auth.SignIn].
 func (a *Auth[U]) Login(ctx context.Context, u U, remember bool) error {
@@ -240,7 +240,7 @@ func (a *Auth[U]) login(ctx context.Context, u U, hash string, remember bool) er
 		return nil
 	}
 	b, _ := json.Marshal(rememberValue{ID: u.AuthID(), Token: tok, Hash: a.sessionPrint(u, hash),
-		Expires: a.now().Add(a.cfg.RememberLifetime).Unix()})
+		Expires: a.now().Add(a.cfg.RememberTTL).Unix()})
 	a.setRemember(st, a.enc.EncryptString(string(b), rememberContext))
 	return nil
 }

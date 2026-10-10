@@ -89,11 +89,11 @@ jobs:
         run: |
           for e in tracker assistant; do
             PGPASSWORD=secret psql -h 127.0.0.1 -U postgres -qc "CREATE DATABASE ${e}_test"
-            (cd examples/$e && DB_CONNECTION=postgres DB_URL="postgres://postgres:secret@127.0.0.1:5432/${e}_test?sslmode=disable" go test -count=1 ./...)
+            (cd examples/$e && DB_DRIVER=postgres DB_URL="postgres://postgres:secret@127.0.0.1:5432/${e}_test?sslmode=disable" go test -count=1 ./...)
           done
           # MySQL 8 can't search vectors: the assistant refuses it.
           mysql -h 127.0.0.1 -u root -psecret -e "CREATE DATABASE tracker_test"
-          (cd examples/tracker && DB_CONNECTION=mysql DB_URL="root:secret@tcp(127.0.0.1:3306)/tracker_test?parseTime=true" go test -count=1 ./...)
+          (cd examples/tracker && DB_DRIVER=mysql DB_URL="root:secret@tcp(127.0.0.1:3306)/tracker_test?parseTime=true" go test -count=1 ./...)
       - if: matrix.part == 'core'
         run: make bench-check
 

@@ -23,7 +23,7 @@ func TestDoctorQueueAndCache(t *testing.T) {
 		want []string
 	}{
 		{config.Map{"APP_ENV": "development"}, []string{"ok queue", "ok cache"}},
-		{config.Map{"APP_ENV": "production"}, []string{"note queue: QUEUE_DRIVER=sync", "note cache: CACHE_STORE=memory"}},
+		{config.Map{"APP_ENV": "production"}, []string{"note queue: QUEUE_DRIVER=sync", "note cache: CACHE_DRIVER=memory"}},
 		{config.Map{"APP_ENV": "production", "QUEUE_DRIVER": "memory"}, []string{"warning queue: QUEUE_DRIVER=memory: waiting jobs are lost"}},
 	}
 	for _, tt := range tests {

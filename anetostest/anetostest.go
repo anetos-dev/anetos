@@ -23,7 +23,7 @@
 //	}
 //
 // Make one App per test or subtest: it reports to the t it was made with.
-// With SQLite and no DB_DATABASE, each App gets its own in-memory database;
+// With SQLite and no DB_NAME, each App gets its own in-memory database;
 // with PostgreSQL or MySQL (DB_* in the environment or .env.testing) or a
 // SQLite file, migrations run and everything the test does happens in a
 // transaction that is rolled back at the end.
@@ -134,13 +134,13 @@ func LogLevel(l slog.Level) Option { return func(o *options) { o.level = l } }
 // [FakeAI] scripts the answers) and an empty AI_EMBEDDING_PROVIDER (so
 // embeddings are AI_PROVIDER's: the fake's); the process environment; the
 // .env.testing file next to go.mod, if there is one (say,
-// DB_DATABASE=blog_test); then HTTP_ACCESS_LOG=false,
+// DB_NAME=blog_test); then HTTP_ACCESS_LOG=false,
 // APP_URL=http://example.test (the test client's site, for absolute
 // links, in emails say) and MAIL_FROM_ADDRESS=test@example.com. The
 // settings in .env are not used (New only
-// looks at its DB_CONNECTION, to stop a test that would use SQLite by
+// looks at its DB_DRIVER, to stop a test that would use SQLite by
 // mistake: when .env uses PostgreSQL, say, the test settings must name a
-// DB_CONNECTION too, if only DB_CONNECTION=sqlite). With SQLite and neither DB_DATABASE nor DB_URL set (or set to
+// DB_DRIVER too, if only DB_DRIVER=sqlite). With SQLite and neither DB_NAME nor DB_URL set (or set to
 // ""), the database is in memory, not database/app.db.
 //
 // After setup, New records what the app's queue, event bus, mailer and
@@ -155,22 +155,23 @@ func New(t testing.TB, setup func(app *anetos.App) (*web.Server, error), opts ..
 	}
 	prefix := testPrefix()
 	forced := config.Map{"APP_ENV": "testing", "APP_KEY": encryption.GenerateKey(), "CACHE_PREFIX": prefix + "cache:", "SESSION_PREFIX": prefix + "session:",
-		"QUEUE_PREFIX": prefix + "queue:", "PUBSUB_PREFIX": prefix + "pubsub:", "MAIL_DRIVER": "memory", "STORAGE_DRIVER": "memory", "AI_PROVIDER": "fake", "AI_EMBEDDING_PROVIDER": ""}
+		"QUEUE_PREFIX": prefix + "queue:", "PUBSUB_PREFIX": prefix + "pubsub:", "MAIL_DRIVER": "memory", "STORAGE_DRIVER": "memory", "AI_PROVIDER": "fake", "AI_EMBEDDING_PROVIDER": "",
+		"DATABASE_URL": ""} // a platform's, from the shell: never the tests'
 	defaults := config.Map{"HTTP_ACCESS_LOG": "false", "APP_URL": "http://example.test", "MAIL_FROM_ADDRESS": "test@example.com"}
 	file, err := moduleEnv(".env.testing")
 	if err != nil {
 		t.Fatalf("anetostest: %v", err)
 	}
 	explicit := config.Layers(o.env, config.Env(), file)
-	conn, _ := explicit.Lookup("DB_CONNECTION")
-	database, _ := explicit.Lookup("DB_DATABASE")
+	conn := lookupEither(explicit, "DB_DRIVER", "DB_CONNECTION")
+	database := lookupEither(explicit, "DB_NAME", "DB_DATABASE")
 	dbURL, _ := explicit.Lookup("DB_URL")
 	checkConnection(t, conn, database, dbURL)
 	memory := config.Map{}
 	if (conn == "" || conn == "sqlite") && database == "" && dbURL == "" {
-		// Not the default database/app.db, even when DB_DATABASE is set
+		// Not the default database/app.db, even when DB_NAME is set
 		// to "".
-		memory["DB_DATABASE"] = ":memory:"
+		memory["DB_NAME"] = ":memory:"
 	}
 	src := config.Layers(memory, o.env, forced, config.Env(), file, defaults)
 
@@ -351,8 +352,8 @@ func moduleEnv(file string) (config.Map, error) {
 }
 
 // checkConnection fails a test that would use SQLite by accident: the
-// test settings have no DB_CONNECTION while the app's .env uses another
-// database, either naming a database (DB_DATABASE or DB_URL), which
+// test settings have no DB_DRIVER while the app's .env uses another
+// database, either naming a database (DB_NAME or DB_URL), which
 // SQLite, the default, would open, or none (no .env.testing), which would
 // test on an in-memory SQLite database rather than the app's.
 func checkConnection(t testing.TB, conn, database, dbURL string) {
@@ -364,21 +365,21 @@ func checkConnection(t testing.TB, conn, database, dbURL string) {
 	if err != nil {
 		return // .env is the app's business; it isn't used here
 	}
-	devConn, _ := dev.Lookup("DB_CONNECTION")
+	devConn := lookupEither(dev, "DB_DRIVER", "DB_CONNECTION")
 	if devConn == "" || devConn == "sqlite" {
 		return
 	}
 	if (database == "" || database == ":memory:") && dbURL == "" {
-		t.Fatalf("anetostest: no DB_CONNECTION in the test settings, so tests would use an in-memory SQLite database, "+
-			"while .env uses %s (tests don't use .env). Add .env.testing next to go.mod with DB_CONNECTION=%s and the test "+
-			"database's DB_* settings, or DB_CONNECTION=sqlite to test on SQLite.", devConn, devConn)
+		t.Fatalf("anetostest: no DB_DRIVER in the test settings, so tests would use an in-memory SQLite database, "+
+			"while .env uses %s (tests don't use .env). Add .env.testing next to go.mod with DB_DRIVER=%s and the test "+
+			"database's DB_* settings, or DB_DRIVER=sqlite to test on SQLite.", devConn, devConn)
 	}
-	setting := "DB_DATABASE=" + database
+	setting := "DB_NAME=" + database
 	if database == "" || database == ":memory:" {
 		setting = "DB_URL"
 	}
-	t.Fatalf("anetostest: %s but no DB_CONNECTION in the test settings, so tests would use SQLite, "+
-		"while .env uses %s (tests don't use .env). Set DB_CONNECTION=%s in .env.testing, with the other DB_* settings.", setting, devConn, devConn)
+	t.Fatalf("anetostest: %s but no DB_DRIVER in the test settings, so tests would use SQLite, "+
+		"while .env uses %s (tests don't use .env). Set DB_DRIVER=%s in .env.testing, with the other DB_* settings.", setting, devConn, devConn)
 }
 
 var base = &url.URL{Scheme: "http", Host: "example.test", Path: "/"}
@@ -426,3 +427,13 @@ func (l *testLog) stop() {
 }
 
 var _ io.Writer = (*testLog)(nil)
+
+// lookupEither returns key's value, or its former name's (read until
+// v0.6, as the app does).
+func lookupEither(src config.Source, key, former string) string {
+	if v, ok := src.Lookup(key); ok && v != "" {
+		return v
+	}
+	v, _ := src.Lookup(former)
+	return v
+}

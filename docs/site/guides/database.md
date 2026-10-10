@@ -15,7 +15,7 @@ and background tasks.
 Pick a driver module. Each is a separate Go module, so your binary only
 contains the drivers you use:
 
-| Database | Module | `DB_CONNECTION` |
+| Database | Module | `DB_DRIVER` |
 |---|---|---|
 | SQLite (pure Go, no C compiler) | `anetos.dev/anetos/drivers/sqlite` | `sqlite` |
 | PostgreSQL | `anetos.dev/anetos/drivers/postgres` | `postgres` |
@@ -31,14 +31,14 @@ go get anetos.dev/anetos/drivers/sqlite
 
 ```sh
 # .env
-DB_CONNECTION=postgres
+DB_DRIVER=postgres
 DB_HOST=127.0.0.1
-DB_DATABASE=blog
-DB_USERNAME=blog
+DB_NAME=blog
+DB_USER=blog
 DB_PASSWORD=secret
 ```
 
-For SQLite, `DB_DATABASE` is a file path (default `database/app.db`).
+For SQLite, `DB_NAME` is a file path (default `database/app.db`).
 A database on another machine is reached over TLS that checks its
 certificate (`DB_TLS=verify`, the default for any host but `localhost`
 or a loopback address); `DB_TLS_CA` names a PEM file of your provider's
@@ -51,7 +51,7 @@ driver options in `DB_URL`, which replaces the individual settings
 ### 2. Connect at startup
 
 ```go
-// DB_CONNECTION (default sqlite) picks one of the drivers passed here.
+// DB_DRIVER (default sqlite) picks one of the drivers passed here.
 if _, err := db.Connect(context.Background(), app, sqlite.Driver()); err != nil {
 	return nil, err
 }
@@ -59,7 +59,7 @@ if _, err := db.Connect(context.Background(), app, sqlite.Driver()); err != nil 
 
 (Copied from [`examples/database`](../../../examples/database/main.go), region `connect`.)
 
-Pass every driver the app may use: `DB_CONNECTION` picks one, so you can
+Pass every driver the app may use: `DB_DRIVER` picks one, so you can
 develop on SQLite and deploy on PostgreSQL with the same binary.
 
 `db.Connect` pings the database when the app boots, so a wrong password
@@ -93,7 +93,7 @@ context when you need it:
 
 ```go
 // illustrative
-cfg, err := db.LoadConfig(app.Source(), "ANALYTICS_") // ANALYTICS_DB_CONNECTION, ANALYTICS_DB_HOST, …
+cfg, err := db.LoadConfig(app.Source(), "ANALYTICS_") // ANALYTICS_DB_DRIVER, ANALYTICS_DB_HOST, …
 analytics, err := db.Open(postgres.Driver(), cfg, db.WithLogger(app.Logger()))
 app.OnShutdown("analytics-db", func(context.Context) error { return analytics.Close() })
 
@@ -108,29 +108,29 @@ A project made with `anetos new` uses SQLite unless you passed
 1. Add the driver: `go get anetos.dev/anetos/drivers/postgres`,
    and pass `postgres.Driver()` to `db.Connect` in `main.go` (keep
    `sqlite.Driver()` too if you still want SQLite anywhere).
-2. Set `DB_CONNECTION=postgres` and the other `DB_*` settings in `.env`
+2. Set `DB_DRIVER=postgres` and the other `DB_*` settings in `.env`
    (and `.env.example`), as in step 1.
 3. Create a test database and write `.env.testing` with **all** its
    settings: tests don't read `.env`, so nothing is inherited from it.
 
    ```sh
    # .env.testing
-   DB_CONNECTION=postgres
+   DB_DRIVER=postgres
    DB_HOST=127.0.0.1
-   DB_DATABASE=blog_test
-   DB_USERNAME=blog
+   DB_NAME=blog_test
+   DB_USER=blog
    DB_PASSWORD=secret
    ```
 
-   Without `DB_CONNECTION` there (or without the file), tests would
+   Without `DB_DRIVER` there (or without the file), tests would
    use SQLite; `anetostest` stops them with a message when `.env` has
-   another `DB_CONNECTION`.
+   another `DB_DRIVER`.
 4. `go run . migrate`, then `go test ./...`.
 5. The deploy files still say SQLite: in `deploy/production.env.example`,
-   put `DB_CONNECTION` and `DB_URL` in place of SQLite's settings; in
-   the `Dockerfile`, drop `DB_DATABASE` and `MIGRATE_ON_RUN` (run
+   put `DB_DRIVER` and `DB_URL` in place of SQLite's settings; in
+   the `Dockerfile`, drop `DB_NAME` and `DB_MIGRATE_ON_START` (run
    `migrate` on each deploy instead); in `deploy/<name>.service`, drop
-   `DB_DATABASE`; the README's "nothing to set up" is SQLite's too. A
+   `DB_NAME`; the README's "nothing to set up" is SQLite's too. A
    project made with `--db postgres` shows the server versions of these
    files.
 
@@ -151,12 +151,14 @@ that runs the same query five times or more is logged as a warning: see
 [Find N+1 queries](n-plus-one.md).
 
 When the app starts, it also checks that the database can serve what the
-app asks of it (the `SEARCH_*` settings, features' requirements), and
+app asks of it (the `DB_SEARCH_*` settings, features' requirements), and
 stops with a clear message if it can't: see
 [Add full-text search](search.md#choose-the-settings).
 
-> **Coming from Laravel?** `DB_CONNECTION`, `DB_HOST` and friends mean what
-> they mean in Laravel's `.env`. There is no `config/database.php`: extra
+> **Coming from Laravel?** `DB_HOST`, `DB_PORT` and `DB_PASSWORD` are
+> Laravel's; `DB_DRIVER`, `DB_NAME` and `DB_USER` are its
+> `DB_CONNECTION`, `DB_DATABASE` and `DB_USERNAME` (those are read too,
+> with a warning, until v0.6). There is no `config/database.php`: extra
 > connections use prefixed keys.
 
 ## Testing it
@@ -170,7 +172,7 @@ To test code without the app, open a database and put it in a context:
 
 ```go
 // illustrative
-d, err := db.Open(sqlite.Driver(), db.Config{Database: ":memory:"})
+d, err := db.Open(sqlite.Driver(), db.Config{Name: ":memory:"})
 if err != nil {
 	t.Fatal(err)
 }
@@ -186,7 +188,7 @@ loop) blocks. A file in `t.TempDir()` behaves like production instead.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `db: DB_CONNECTION is "postgres", but the drivers passed to Connect are [sqlite]` | The driver isn't passed to `Connect` | Import the driver module and pass its `Driver()` |
+| `db: DB_DRIVER is "postgres", but the drivers passed to Connect are [sqlite]` | The driver isn't passed to `Connect` | Import the driver module and pass its `Driver()` |
 | `db: no database in context` | The context didn't come from the app | Use the request's `c`, a context from `app.Context`, or `db.WithDB` |
 | `connect to postgres: … connection refused` at startup | Wrong host or port, or the server isn't running | Check `DB_HOST`/`DB_PORT`; the error comes from the ping in `Connect` |
 | `… certificate signed by unknown authority`, `server does not support SSL`, `TLS requested but server does not support TLS` (v0.3) | A remote `DB_HOST` gets verified TLS by default | Set `DB_TLS_CA` to your provider's CA file, or `DB_TLS=none` on a private network (a Compose service, say) |

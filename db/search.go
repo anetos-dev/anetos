@@ -27,13 +27,13 @@ type SearchConfig struct {
 	// configuration the server has (german, french, …). MySQL only has
 	// "simple". Search indexes are built for it, and the app refuses to
 	// start when an index was built for another one (run search:reindex).
-	// SEARCH_LANGUAGE.
-	Language string `env:"SEARCH_LANGUAGE" default:"simple"`
+	// DB_SEARCH_LANGUAGE.
+	Language string `env:"DB_SEARCH_LANGUAGE" was:"SEARCH_LANGUAGE" default:"simple"`
 	// Ranking orders results: "default", the database's own ranking, or
 	// "bm25", which the database must provide (SQLite; PostgreSQL 17+
 	// with the pg_textsearch extension), or the app refuses to start.
-	// SEARCH_RANKING.
-	Ranking string `env:"SEARCH_RANKING" default:"default"`
+	// DB_SEARCH_RANKING.
+	Ranking string `env:"DB_SEARCH_RANKING" was:"SEARCH_RANKING" default:"default"`
 }
 
 var languageRe = regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`)
@@ -43,10 +43,10 @@ var languageRe = regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`)
 func (c SearchConfig) Validate() error {
 	var errs []error
 	if !languageRe.MatchString(c.Language) {
-		errs = append(errs, fmt.Errorf("SEARCH_LANGUAGE %q must be a language name in lower case, such as simple or english", c.Language))
+		errs = append(errs, fmt.Errorf("DB_SEARCH_LANGUAGE %q must be a language name in lower case, such as simple or english", c.Language))
 	}
 	if c.Ranking != "default" && c.Ranking != "bm25" {
-		errs = append(errs, fmt.Errorf("SEARCH_RANKING %q must be default or bm25", c.Ranking))
+		errs = append(errs, fmt.Errorf("DB_SEARCH_RANKING %q must be default or bm25", c.Ranking))
 	}
 	return errors.Join(errs...)
 }
@@ -226,8 +226,8 @@ func (d *DB) Check(ctx context.Context) error {
 }
 
 // CheckSearch checks that the database supports the search settings:
-// SEARCH_LANGUAGE (on PostgreSQL, a text search configuration the server
-// has) and SEARCH_RANKING. Migrations creating search indexes check it
+// DB_SEARCH_LANGUAGE (on PostgreSQL, a text search configuration the server
+// has) and DB_SEARCH_RANKING. Migrations creating search indexes check it
 // too.
 func (d *DB) CheckSearch(ctx context.Context) error {
 	if err := d.search.Validate(); err != nil {
@@ -237,25 +237,25 @@ func (d *DB) CheckSearch(ctx context.Context) error {
 	switch d.dialect.Name() {
 	case "sqlite":
 		if lang != "simple" && lang != "english" {
-			return fmt.Errorf("db: SEARCH_LANGUAGE=%s isn't available on SQLite, which has simple and english; use one of them, or PostgreSQL", lang)
+			return fmt.Errorf("db: DB_SEARCH_LANGUAGE=%s isn't available on SQLite, which has simple and english; use one of them, or PostgreSQL", lang)
 		}
 	case "mysql":
 		if lang != "simple" {
-			return fmt.Errorf("db: SEARCH_LANGUAGE=%s isn't available on MySQL/MariaDB, which don't stem words; set SEARCH_LANGUAGE=simple, or use PostgreSQL or SQLite", lang)
+			return fmt.Errorf("db: DB_SEARCH_LANGUAGE=%s isn't available on MySQL/MariaDB, which don't stem words; set DB_SEARCH_LANGUAGE=simple, or use PostgreSQL or SQLite", lang)
 		}
 	case "postgres":
 		if lang != "simple" {
 			var n int64
 			if err := d.sql.QueryRowContext(ctx, "SELECT COUNT(*) FROM pg_ts_config WHERE cfgname = $1", lang).Scan(&n); err != nil {
-				return fmt.Errorf("db: check SEARCH_LANGUAGE: %w", err)
+				return fmt.Errorf("db: check DB_SEARCH_LANGUAGE: %w", err)
 			}
 			if n == 0 {
-				return fmt.Errorf("db: SEARCH_LANGUAGE=%s: this PostgreSQL server has no text search configuration of that name (SELECT cfgname FROM pg_ts_config lists them)", lang)
+				return fmt.Errorf("db: DB_SEARCH_LANGUAGE=%s: this PostgreSQL server has no text search configuration of that name (SELECT cfgname FROM pg_ts_config lists them)", lang)
 			}
 		}
 	}
 	if d.search.Ranking == "bm25" {
-		return d.checkRequirement(ctx, requirement{"SEARCH_RANKING=bm25", []Capability{BM25}})
+		return d.checkRequirement(ctx, requirement{"DB_SEARCH_RANKING=bm25", []Capability{BM25}})
 	}
 	return nil
 }
@@ -329,11 +329,11 @@ func (d *DB) checkSearchIndexes(ctx context.Context) error {
 	for _, ix := range idx {
 		// Only PostgreSQL builds something else for BM25 (a bm25 index).
 		if ix.Language != d.search.Language || d.dialect.Name() == "postgres" && ix.Ranking != d.search.Ranking {
-			stale = append(stale, fmt.Sprintf("%s (built for SEARCH_LANGUAGE=%s, SEARCH_RANKING=%s)", ix.Table, ix.Language, ix.Ranking))
+			stale = append(stale, fmt.Sprintf("%s (built for DB_SEARCH_LANGUAGE=%s, DB_SEARCH_RANKING=%s)", ix.Table, ix.Language, ix.Ranking))
 		}
 	}
 	if len(stale) > 0 {
-		return fmt.Errorf("db: the search indexes of %s don't match SEARCH_LANGUAGE=%s, SEARCH_RANKING=%s: rebuild them with the search:reindex command, or set the settings back",
+		return fmt.Errorf("db: the search indexes of %s don't match DB_SEARCH_LANGUAGE=%s, DB_SEARCH_RANKING=%s: rebuild them with the search:reindex command, or set the settings back",
 			strings.Join(stale, ", "), d.search.Language, d.search.Ranking)
 	}
 	return nil
@@ -391,7 +391,7 @@ type searchSpec struct {
 // The model's table needs a search index (migrate.Table.SearchIndex).
 // Every word of text must match in an indexed column: as a prefix for
 // words of three letters or more ("generic" finds "generics"), whole for
-// shorter ones; at most ten words count; with a SEARCH_LANGUAGE other than
+// shorter ones; at most ten words count; with a DB_SEARCH_LANGUAGE other than
 // simple, words are also stemmed. Punctuation is ignored, and text
 // without words leaves the query as it is. A second Search replaces the
 // first. Databases differ in which words they index: MySQL and MariaDB

@@ -146,6 +146,9 @@ func New(opts ...Option) (*App, error) {
 		}
 	}
 
+	tracked := newTrackedSource(src)
+	src = tracked
+
 	var cfg AppConfig
 	if o.cfg != nil {
 		cfg = *o.cfg
@@ -180,8 +183,10 @@ func New(opts ...Option) (*App, error) {
 	a.clock.loc = loc
 	a.AddContextValue(clockKey{}, &a.clock)
 	a.AddContextValue(loggerKey{}, log)
+	tracked.setLogger(log)
 	a.addBuiltins()
 	a.AddCheck(Check{Name: "app", Run: a.appChecks})
+	a.AddCheck(Check{Name: "settings", Run: tracked.settingsChecks})
 	return a, nil
 }
 

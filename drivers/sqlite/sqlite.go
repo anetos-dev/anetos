@@ -6,7 +6,7 @@
 //
 //	database, err := db.Connect(ctx, app, sqlite.Driver())
 //
-// DB_DATABASE is the database file (default database/app.db; its directory
+// DB_NAME is the database file (default database/app.db; its directory
 // is created if missing), or :memory: for a private in-memory database.
 // Connections use WAL journaling, a 5 second busy timeout, foreign keys,
 // and transactions that take the write lock when they begin, so concurrent
@@ -49,7 +49,7 @@ func cosine(_ *sqlite.FunctionContext, args []driver.Value) (driver.Value, error
 	return db.CosineDistanceBlobs(a, b)
 }
 
-// DefaultPath is the database file used when DB_DATABASE is empty.
+// DefaultPath is the database file used when DB_NAME is empty.
 const DefaultPath = "database/app.db"
 
 // params are the connection's settings. _dqs=0 turns off SQLite's
@@ -58,13 +58,13 @@ const DefaultPath = "database/app.db"
 // everything (a unique rule on "emial" would always pass).
 const params = "?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)&_time_format=sqlite&_txlock=immediate&_dqs=0"
 
-// Driver returns the SQLite driver, selected by DB_CONNECTION=sqlite.
+// Driver returns the SQLite driver, selected by DB_DRIVER=sqlite.
 func Driver() db.Driver {
 	return db.Driver{Name: "sqlite", Dialect: db.SQLite(), Tune: tune, Open: open}
 }
 
 func tune(cfg *db.Config) {
-	if cfg.URL == "" && cfg.Database == ":memory:" {
+	if cfg.URL == "" && cfg.Name == ":memory:" {
 		// Each connection to :memory: is a separate database, and closing
 		// the last one discards it: keep exactly one, forever.
 		cfg.MaxOpenConns, cfg.MaxIdleConns = 1, 1
@@ -81,7 +81,7 @@ func DSN(cfg db.Config) string {
 	if cfg.URL != "" {
 		return cfg.URL
 	}
-	path := cfg.Database
+	path := cfg.Name
 	switch path {
 	case ":memory:":
 		return "file::memory:" + params

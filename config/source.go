@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 )
 
 // Source provides raw configuration values by key.
@@ -27,6 +28,16 @@ func (m Map) Lookup(key string) (string, bool) {
 	return v, ok
 }
 
+// Names implements [Lister].
+func (m Map) Names() []string {
+	names := make([]string, 0, len(m))
+	for k := range m {
+		names = append(names, k)
+	}
+	slices.Sort(names)
+	return names
+}
+
 // Env returns a [Source] that reads the process environment.
 func Env() Source { return envSource{} }
 
@@ -34,11 +45,33 @@ type envSource struct{}
 
 func (envSource) Lookup(key string) (string, bool) { return os.LookupEnv(key) }
 
+// Lister is implemented by a [Source] that can list its keys: a [Map]
+// (and so a .env file) and [Layers] of them. The process environment
+// can't: doctor checks the .env files' keys, not every variable a shell
+// sets.
+type Lister interface {
+	// Names returns the source's keys, sorted.
+	Names() []string
+}
+
 // Layers returns a [Source] that consults sources in order and returns the
 // first value found. Put the highest-priority source first.
 func Layers(sources ...Source) Source { return layered(sources) }
 
 type layered []Source
+
+// Names returns the keys of the layers that can list theirs (the .env
+// files, a Map; not the process environment), sorted, once each.
+func (l layered) Names() []string {
+	var names []string
+	for _, s := range l {
+		if n, ok := s.(Lister); ok {
+			names = append(names, n.Names()...)
+		}
+	}
+	slices.Sort(names)
+	return slices.Compact(names)
+}
 
 func (l layered) Lookup(key string) (string, bool) {
 	for _, s := range l {

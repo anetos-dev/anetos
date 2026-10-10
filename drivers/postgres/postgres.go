@@ -6,7 +6,7 @@
 //	database, err := db.Connect(ctx, app, postgres.Driver())
 //
 // The connection is built from DB_HOST, DB_PORT (default 5432),
-// DB_DATABASE, DB_USERNAME and DB_PASSWORD, or taken whole from DB_URL
+// DB_NAME, DB_USER and DB_PASSWORD, or taken whole from DB_URL
 // (postgres://user:password@host:5432/app?sslmode=verify-full). Built
 // from DB_HOST, the connection uses TLS as DB_TLS says
 // (db.Config.TLSMode): verified (sslmode=verify-full, with DB_TLS_CA's
@@ -35,7 +35,7 @@ import (
 	"anetos.dev/anetos/db"
 )
 
-// Driver returns the PostgreSQL driver, selected by DB_CONNECTION=postgres.
+// Driver returns the PostgreSQL driver, selected by DB_DRIVER=postgres.
 func Driver() db.Driver {
 	return db.Driver{Name: "postgres", Dialect: db.Postgres(), Open: open, InspectURL: inspectURL}
 }
@@ -128,7 +128,7 @@ func DSN(cfg db.Config) string {
 	if port == 0 {
 		port = 5432
 	}
-	u := url.URL{Scheme: "postgres", Path: "/" + cfg.Database}
+	u := url.URL{Scheme: "postgres", Path: "/" + cfg.Name}
 	q := url.Values{}
 	if strings.HasPrefix(cfg.Host, "/") {
 		// A Unix socket directory goes in the host parameter.
@@ -137,10 +137,10 @@ func DSN(cfg db.Config) string {
 	} else {
 		u.Host = net.JoinHostPort(cfg.Host, strconv.Itoa(port))
 	}
-	if cfg.Username != "" {
-		u.User = url.UserPassword(cfg.Username, cfg.Password)
+	if cfg.User != "" {
+		u.User = url.UserPassword(cfg.User, cfg.Password)
 		if cfg.Password == "" {
-			u.User = url.User(cfg.Username)
+			u.User = url.User(cfg.User)
 		}
 	}
 	switch cfg.TLSMode() {

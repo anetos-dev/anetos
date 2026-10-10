@@ -105,8 +105,8 @@ victim's browser before they sign in would otherwise share their
 signed-in session. With the default cookie
 driver, `Invalidate` empties the session in this browser only: the session
 lives in the cookie, so a copy of an earlier cookie (stolen, or saved
-before logout) keeps working until it expires, after `SESSION_LIFETIME`
-without use and in any case `SESSION_MAX_LIFETIME` (7 days by default)
+before logout) keeps working until it expires, after `SESSION_TTL`
+without use and in any case `SESSION_MAX_TTL` (7 days by default)
 after it started or was last regenerated. With a server-side driver (next
 step), `Invalidate` and `Regenerate` remove the old session from the
 store, so every copy of the old cookie stops working, and a request that
@@ -150,7 +150,7 @@ Changing the driver ends every current session: visitors sign in again.
 Move the current key to `APP_PREVIOUS_KEYS` and set a new `APP_KEY`.
 Sessions encrypted with the old key keep working and are re-encrypted with
 the new one the next time their cookie is written; remove the old key after
-`SESSION_LIFETIME`.
+`SESSION_TTL`.
 
 ## How it works
 
@@ -160,8 +160,8 @@ nothing to store on the server and a visitor can neither read nor change
 it. The cookie is `HttpOnly`, `SameSite=Lax` and, outside development,
 `Secure`; a Secure cookie is named `__Host-anetos_session`, so no other
 site, subdomains included, can set it. The cookie holds the times the
-session started and was last used: after `SESSION_LIFETIME` without a
-request, or `SESSION_MAX_LIFETIME` in all, the session is empty, whatever
+session started and was last used: after `SESSION_TTL` without a
+request, or `SESSION_MAX_TTL` in all, the session is empty, whatever
 the browser sends. Responses to requests with a session get
 `Cache-Control: private` (unless the handler sets `Cache-Control`) and
 `Vary: Cookie`, so shared caches don't store them.
@@ -179,7 +179,7 @@ With a server-side driver, the cookie holds the session ID, encrypted
 like a cookie session. The store holds the session encrypted with
 `APP_KEY`, under a hash of the ID and without the ID itself, so reading
 the store (or a database backup) gives no one a usable session or its
-contents. It expires after `SESSION_LIFETIME` without use. Keys start
+contents. It expires after `SESSION_TTL` without use. Keys start
 with `SESSION_PREFIX` (default `APP_NAME:session:`), which `cache:clear`
 leaves alone unless `CACHE_PREFIX` is set to a start of it. A saved
 session is only replaced while it exists: a session ended meanwhile (by a

@@ -39,11 +39,11 @@ func newApp(t *testing.T, env config.Map, logs io.Writer) *anetos.App {
 func TestConnect(t *testing.T) {
 	var logs bytes.Buffer
 	app := newApp(t, config.Map{
-		"APP_ENV":       "development",
-		"LOG_LEVEL":     "debug",
-		"DB_CONNECTION": "sqlite",
-		"DB_DATABASE":   filepath.Join(t.TempDir(), "app.db"),
-		"HTTP_ADDR":     "127.0.0.1:0",
+		"APP_ENV":   "development",
+		"LOG_LEVEL": "debug",
+		"DB_DRIVER": "sqlite",
+		"DB_NAME":   filepath.Join(t.TempDir(), "app.db"),
+		"HTTP_ADDR": "127.0.0.1:0",
 	}, &logs)
 	d, err := db.Connect(t.Context(), app, sqlite.Driver())
 	if err != nil {
@@ -113,18 +113,18 @@ func TestConnect(t *testing.T) {
 }
 
 func TestConnectErrors(t *testing.T) {
-	app := newApp(t, config.Map{"DB_CONNECTION": "postgres"}, io.Discard)
+	app := newApp(t, config.Map{"DB_DRIVER": "postgres"}, io.Discard)
 	if _, err := db.Connect(t.Context(), app, sqlite.Driver()); err == nil || !strings.Contains(err.Error(), "import the driver module") {
 		t.Errorf("unknown driver: %v", err)
 	}
-	app = newApp(t, config.Map{"DB_DATABASE": t.TempDir()}, io.Discard) // a directory
+	app = newApp(t, config.Map{"DB_NAME": t.TempDir()}, io.Discard) // a directory
 	if _, err := db.Connect(t.Context(), app, sqlite.Driver()); err == nil {
 		if err := app.Boot(t.Context()); err == nil || !strings.Contains(err.Error(), "db: connect to sqlite") {
 			t.Errorf("unusable database accepted: %v", err)
 		}
 	}
 	// After boot, Connect checks right away.
-	app = newApp(t, config.Map{"DB_DATABASE": t.TempDir()}, io.Discard)
+	app = newApp(t, config.Map{"DB_NAME": t.TempDir()}, io.Discard)
 	if err := app.Boot(t.Context()); err != nil {
 		t.Fatal(err)
 	}
@@ -138,8 +138,8 @@ func TestConnectErrors(t *testing.T) {
 }
 
 func TestLoadConfigPrefix(t *testing.T) {
-	cfg, err := db.LoadConfig(config.Map{"ANALYTICS_DB_CONNECTION": "postgres", "ANALYTICS_DB_PORT": "6543", "DB_PORT": "1"}, "ANALYTICS_")
-	if err != nil || cfg.Connection != "postgres" || cfg.Port != 6543 || cfg.MaxOpenConns != 25 {
+	cfg, err := db.LoadConfig(config.Map{"ANALYTICS_DB_DRIVER": "postgres", "ANALYTICS_DB_PORT": "6543", "DB_PORT": "1"}, "ANALYTICS_")
+	if err != nil || cfg.Driver != "postgres" || cfg.Port != 6543 || cfg.MaxOpenConns != 25 {
 		t.Errorf("cfg = %+v, %v", cfg, err)
 	}
 }
@@ -175,9 +175,9 @@ func TestInsertDefaultValues(t *testing.T) {
 // error, not a second pool or runner.
 func TestConnectTwice(t *testing.T) {
 	app := newApp(t, config.Map{
-		"APP_ENV":       "testing",
-		"DB_CONNECTION": "sqlite",
-		"DB_DATABASE":   filepath.Join(t.TempDir(), "app.db"),
+		"APP_ENV":   "testing",
+		"DB_DRIVER": "sqlite",
+		"DB_NAME":   filepath.Join(t.TempDir(), "app.db"),
 	}, io.Discard)
 	defer app.Close()
 	if _, err := db.Connect(t.Context(), app, sqlite.Driver()); err != nil {

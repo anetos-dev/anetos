@@ -7,7 +7,7 @@
 // Set it up once, then use the package functions with any context the app
 // created:
 //
-//	cache.New(app, redis.CacheDriver()) // CACHE_STORE picks the store
+//	cache.New(app, redis.CacheDriver()) // CACHE_DRIVER picks the store
 //
 //	stats, err := cache.Remember(ctx, "stats", 10*time.Minute, computeStats)
 //	err = cache.Set(ctx, "profile:7", profile, time.Hour)

@@ -45,11 +45,11 @@ cookie name authenticated alongside. A cookie that doesn't decrypt, or has
 expired, starts an empty session.
 
 - **Lifetime.** Expiry is checked against the times inside the cookie, so
-  a replayed cookie can't outlive it: `SESSION_LIFETIME` (2h) idle, and
-  `SESSION_MAX_LIFETIME` (7 days) in all, restarted by `Regenerate` and
+  a replayed cookie can't outlive it: `SESSION_TTL` (2h) idle, and
+  `SESSION_MAX_TTL` (7 days) in all, restarted by `Regenerate` and
   `Invalidate`.
 - **Writes.** No cookie until something is stored; then a write when the
-  session changes, and at most every tenth of `SESSION_LIFETIME` to keep
+  session changes, and at most every tenth of `SESSION_TTL` to keep
   it alive.
 - **Attributes.** `HttpOnly`, `SameSite=Lax`, and `Secure` outside
   development and testing. A Secure cookie without `SESSION_DOMAIN` and

@@ -49,7 +49,7 @@ request a resolver that runs the first time something asks
 keeps its answer for the request. Resolving lazily means a route that
 never shows text never loads the user to find their language.
 
-With a URL strategy (`LOCALE_URL=prefix` or `subdomain`) the URL is
+With a URL strategy (`APP_LOCALE_STRATEGY=prefix` or `subdomain`) the URL is
 authoritative, so a page has one language per address, which search
 engines and shared links need: the locale is the URL's, or `APP_LOCALE`
 for an address without one. The cookie and the browser only decide where
