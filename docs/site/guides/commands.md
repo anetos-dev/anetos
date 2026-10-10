@@ -58,6 +58,14 @@ func main() {
 | `pubsub:publish` | `pubsub.New` ([Pub/sub listeners](pubsub.md)) |
 | `schedule:list`, `schedule:run`, `schedule:test`, `schedule:work` | `schedule.New` ([Scheduling](scheduling.md)) |
 
+A name may be shortened, each part between colons, while it stays
+unique among the commands with as many parts (v0.5): `./app r:l` is
+`route:list`, `./app mi` is `migrate`, `./app m:s` is
+`migrate:status`. An ambiguous one lists what it could be and exits
+with status 2. In scripts and deploy files, write the whole name: a
+command added later can make a short one ambiguous, or change what it
+runs.
+
 ### 3. Add your own
 
 ```go
@@ -137,6 +145,7 @@ app runs one command: create a new one per call.
 | Symptom | Cause | Fix |
 |---|---|---|
 | `unknown command "migrate"` | `migrate.New` wasn't called before `Execute` | Call it while setting up the app |
+| `"m:r" could be migrate:reset, migrate:rollback` | A short name that fits several commands | Write more of it, or the whole name |
 | `command "x" registered twice` | Two commands with one name (`app.Command` panics, `app.AddCommand`, `migrate.New` and `web.NewServer` return the error) | Register each once |
 | `unknown role "…"` | `--only` names a role no component has and no package declared (the error lists the known ones) | Check `help run` and the roles of your components |
 

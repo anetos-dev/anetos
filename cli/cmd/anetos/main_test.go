@@ -4,8 +4,14 @@ package main
 
 import (
 	"bytes"
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"go/types"
 	"os"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -34,7 +40,12 @@ func TestCommands(t *testing.T) {
 		{[]string{"key:generate", "-h"}, 0, "Usage: anetos key:generate"},
 		{[]string{"key:generate", "x"}, 2, "Usage: anetos key:generate"},
 		{[]string{"nope"}, 2, `unknown command "nope"`},
-		{[]string{"gen", "-h"}, 0, "gen is now generate"},
+		{[]string{"gen", "-h"}, 0, "Usage: anetos generate"},
+		{[]string{"g", "-h"}, 0, "Usage: anetos generate"},
+		{[]string{"k:g", "--show"}, 0, "APP_KEY=base64:"},
+		{[]string{"help", "m:admin"}, 0, "Usage: anetos make:admin"},
+		{[]string{"d"}, 2, `"d" could be dev, doctor`},
+		{[]string{"m:m"}, 2, `"m:m" could be make:middleware, make:migration, make:model`},
 		{[]string{"generate", "-h"}, 0, "Usage: anetos generate"},
 		{[]string{"lang:add", "-h"}, 0, "lang:add is now locale:add"},
 		{[]string{"add", "lang", "-h"}, 0, "add lang is now locale:add"},
@@ -105,5 +116,49 @@ func TestGenWritesAndChecks(t *testing.T) {
 	}
 	if code, _, errOut := runCmd(t, "generate"); code != 1 || !strings.Contains(errOut, `unknown db tag option "bad"`) {
 		t.Errorf("gen with a bad model: %d %q", code, errOut)
+	}
+}
+
+// commandNames, which short forms expand to, are exactly the commands
+// of run's switch: a command missing from the list would be reached by
+// its whole name no more (make:admin would be a short form of
+// make:admin-resource).
+func TestCommandNames(t *testing.T) {
+	f, err := parser.ParseFile(token.NewFileSet(), "main.go", nil, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cases []string
+	ast.Inspect(f, func(n ast.Node) bool {
+		fn, ok := n.(*ast.FuncDecl)
+		if !ok || fn.Name.Name != "run" {
+			return true
+		}
+		ast.Inspect(fn.Body, func(n ast.Node) bool {
+			sw, ok := n.(*ast.SwitchStmt)
+			if !ok || types.ExprString(sw.Tag) != "args[0]" {
+				return true
+			}
+			for _, st := range sw.Body.List {
+				for _, e := range st.(*ast.CaseClause).List {
+					if lit, ok := e.(*ast.BasicLit); ok && lit.Kind == token.STRING {
+						if v, _ := strconv.Unquote(lit.Value); !strings.HasPrefix(v, "-") {
+							cases = append(cases, v)
+						}
+					}
+				}
+			}
+			return false
+		})
+		return false
+	})
+	got, want := slices.Sorted(slices.Values(cases)), slices.Sorted(slices.Values(commandNames))
+	if !slices.Equal(got, want) || len(slices.Compact(slices.Clone(want))) != len(want) {
+		t.Errorf("run's switch has %v,\ncommandNames %v", got, want)
+	}
+	for _, name := range commandNames {
+		if code, out, errOut := runCmd(t, name, "-h"); code == 2 || strings.Contains(out+errOut, "unknown command") {
+			t.Errorf("%s -h = %d %q", name, code, errOut)
+		}
 	}
 }

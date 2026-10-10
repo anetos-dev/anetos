@@ -47,7 +47,10 @@ follow [Effective Go](https://go.dev/doc/effective_go) and
   Laravel's name where it has the command (`route:list`, `queue:work`,
   `key:generate`); flags are written `--flag` in help (a one-letter one
   `-o`). A renamed command keeps its old name in `cmd.Command.Former`
-  until the next minor (design D313).
+  until the next minor (design D313). Names can be typed shortened
+  (D314): a new command can make an existing short form ambiguous, or
+  change what it runs, so prefer a name whose first letters aren't
+  already taken in its group.
 - Users **log in** and **log out** ("login", "logout" as nouns and in
   identifiers: `Login`, `LogoutEverywhere`, `LoginResponse`), never
   "sign in"; "sign up" and "single sign-on" keep their names (design

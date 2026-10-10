@@ -268,13 +268,23 @@ the production settings too, on the server.
 | `anetos key:generate [--show] [--force]` | Sets `APP_KEY` in `.env` to a new key when it is missing or empty (v0.5; it used to print it); refuses when it is set, unless `--force`, which moves the old key to the front of `APP_PREVIOUS_KEYS`. `--show` prints `APP_KEY=base64:…` on stdout instead, for a server's environment; the other messages go to stderr |
 | `anetos version` | Prints the tool's version |
 
-Before v0.5, `generate` was `gen`, `locale:add` was `lang:add` (or
-`add lang`) and `make:admin-resource` was `make:admin:resource`: the old
-names still run, with a warning, until v0.6.
+A command's name may be shortened, each part between colons, while it
+stays unique, among the commands with as many parts (v0.5): `anetos
+g` is `generate`, `anetos k:g` `key:generate`, `anetos m:admin`
+`make:admin` (the part written whole wins over `make:admin-resource`);
+an ambiguous one (`anetos d`: `dev` or `doctor`) lists the candidates
+and exits with status 2. Before v0.5, `locale:add` was `lang:add` (or
+`add lang`) and `make:admin-resource` was `make:admin:resource`: the
+old names still run, with a warning, until v0.6. `generate` was `gen`,
+which is one of its short forms.
 
 ## App binary commands
 
-`app.Execute()` runs the command named by the first argument. Before
+`app.Execute()` runs the command named by the first argument, which may
+be shortened, each part between colons, while it stays unique among
+the commands with as many parts (v0.5): `./app r:l` is `route:list`,
+`./app mi` `migrate`. (`version` is handled before the app is set up
+only when written whole.) Before
 v0.5, `route:list` was `routes:list`, `plugin:list` and `plugin:env`
 were `plugins:list` and `plugins:env`, and `locale:check` was
 `lang:check`: the old names still run, with a warning, until v0.6

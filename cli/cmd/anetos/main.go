@@ -46,6 +46,7 @@ import (
 	"syscall"
 
 	"anetos.dev/anetos/cli/internal/modelgen"
+	"anetos.dev/anetos/internal/cmdname"
 )
 
 func main() {
@@ -78,12 +79,24 @@ Commands:
   version                   print the version
 
 Run "anetos help <command>" (or "anetos <command> -h") for a command's flags.
+A command's name may be shortened while it stays unique: "g" is generate,
+"k:g" key:generate.
 `
 
 func run(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, usage)
 		return 2
+	}
+	if _, former := formerNames[args[0]]; !former {
+		name, candidates := cmdname.Match(commandNames, args[0])
+		if len(candidates) > 0 {
+			fmt.Fprintf(stderr, "anetos: %q could be %s\n", args[0], strings.Join(candidates, ", "))
+			return 2
+		}
+		if name != "" {
+			args = append([]string{name}, args[1:]...) // g: generate, k:g: key:generate
+		}
 	}
 	if name, ok := formerNames[args[0]]; ok {
 		fmt.Fprintf(stderr, "anetos: %s is now %s; the old name will be removed in v0.6\n", args[0], name)
@@ -162,10 +175,19 @@ func run(args []string, stdout, stderr io.Writer) int {
 	return 2
 }
 
+// commandNames are the commands, which a shortened name may mean ("g"
+// is generate, "k:g" key:generate): run's switch must have exactly these
+// (TestCommandNames checks).
+var commandNames = []string{
+	"new", "dev", "build", "generate", "add", "remove", "doctor", "version", "help",
+	"make:handler", "make:model", "make:migration", "make:middleware", "make:agent",
+	"make:crud", "make:auth", "make:admin", "make:admin-resource",
+	"css:build", "css:use", "key:generate", "locale:add",
+}
+
 // formerNames are the commands' names before v0.5, still run (with a
-// warning) until v0.6.
+// warning) until v0.6. (gen, generate's, is now a short form of it.)
 var formerNames = map[string]string{
-	"gen":                 "generate",
 	"lang:add":            "locale:add",
 	"make:admin:resource": "make:admin-resource",
 }

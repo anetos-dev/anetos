@@ -20,6 +20,7 @@ import (
 	"text/tabwriter"
 
 	"anetos.dev/anetos/cmd"
+	"anetos.dev/anetos/internal/cmdname"
 )
 
 // AddCommand registers a command of the application binary (see
@@ -55,6 +56,29 @@ func (a *App) taken(name string) bool {
 	_, isCmd := a.commands[name]
 	_, former := a.former[name]
 	return isCmd || former
+}
+
+// expand returns the command name means: itself when it is a command, a
+// former name or a flag, else the only command whose parts each start
+// with name's ("r:l" for route:list), or the candidates when several do.
+func (a *App) expand(name string) (string, []string) {
+	if strings.HasPrefix(name, "-") {
+		return name, nil
+	}
+	a.cmdMu.Lock()
+	names := []string{"help"}
+	for n := range a.commands {
+		names = append(names, n)
+	}
+	_, former := a.former[name]
+	a.cmdMu.Unlock()
+	if former {
+		return name, nil
+	}
+	if full, candidates := cmdname.Match(names, name); full != "" || len(candidates) > 0 {
+		return full, candidates
+	}
+	return name, nil
 }
 
 // lookup returns the command name or a former name runs, and whether
@@ -171,10 +195,15 @@ func (a *App) ExecuteArgs(ctx context.Context, args []string, stdout, stderr io.
 	if len(args) == 0 || strings.HasPrefix(args[0], "-") && !isHelpFlag(args[0]) {
 		args = append([]string{"run"}, args...)
 	}
-	if args[0] == "help" || isHelpFlag(args[0]) {
+	name, candidates := a.expand(args[0])
+	if len(candidates) > 0 {
+		fmt.Fprintf(stderr, "%s: %q could be %s\n", bin, args[0], strings.Join(candidates, ", "))
+		return 2
+	}
+	if name == "help" || isHelpFlag(name) {
 		return a.help(bin, args[1:], stdout, stderr)
 	}
-	c, ok, former := a.lookup(args[0])
+	c, ok, former := a.lookup(name)
 	if !ok {
 		fmt.Fprintf(stderr, "%s: unknown command %q\n\n", bin, args[0])
 		a.printCommands(bin, stderr)
@@ -235,7 +264,12 @@ func (a *App) help(bin string, args []string, stdout, stderr io.Writer) int {
 		a.printCommands(bin, stdout)
 		return 0
 	}
-	c, ok, _ := a.lookup(args[0])
+	name, candidates := a.expand(args[0])
+	if len(candidates) > 0 {
+		fmt.Fprintf(stderr, "%s: %q could be %s\n", bin, args[0], strings.Join(candidates, ", "))
+		return 2
+	}
+	c, ok, _ := a.lookup(name)
 	if !ok {
 		fmt.Fprintf(stderr, "%s: unknown command %q\n", bin, args[0])
 		return 2
@@ -252,7 +286,7 @@ func (a *App) printCommands(bin string, w io.Writer) {
 		fmt.Fprintf(tw, "  %s\t%s\n", c.Name, c.Description)
 	}
 	_ = tw.Flush()
-	fmt.Fprintf(w, "\nRun %q for a command's arguments.\n", bin+" help <command>")
+	fmt.Fprintf(w, "\nRun %q for a command's arguments. A name may be shortened while it\nstays unique: r:l is route:list.\n", bin+" help <command>")
 }
 
 // buildVersion is the app's version given to anetos build --version

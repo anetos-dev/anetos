@@ -304,3 +304,34 @@ func TestFormerCommandNames(t *testing.T) {
 		}
 	}
 }
+
+func TestShortCommandNames(t *testing.T) {
+	app := newApp(t, config.Map{})
+	var ran []string
+	for _, name := range []string{"report:send", "report:list", "reindex"} {
+		if err := app.AddCommand(cmd.Command{Name: name, ManagesApp: true, Run: func(_ context.Context, args *cmd.Args) error {
+			ran = append(ran, args.Name)
+			return nil
+		}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for in, want := range map[string]string{"r:s": "report:send", "rep:l": "report:list", "rei": "reindex"} {
+		ran = nil
+		if code, _, errOut := execute(t, app, in); code != 0 || len(ran) != 1 || ran[0] != want || errOut != "" {
+			t.Errorf("%s = %d %v %q, want %s", in, code, ran, errOut, want)
+		}
+	}
+	if code, _, errOut := execute(t, app, "r"); code != 2 || !strings.Contains(errOut, `"r" could be reindex, run`) {
+		t.Errorf("r = %d %q", code, errOut)
+	}
+	if code, out, _ := execute(t, app, "he"); code != 0 || !strings.Contains(out, "Commands:") {
+		t.Errorf("he = %d %q", code, out)
+	}
+	if code, out, _ := execute(t, app, "help", "r:s"); code != 0 || !strings.Contains(out, "report:send") {
+		t.Errorf("help r:s = %d %q", code, out)
+	}
+	if code, _, errOut := execute(t, app, "zz"); code != 2 || !strings.Contains(errOut, `unknown command "zz"`) {
+		t.Errorf("zz = %d %q", code, errOut)
+	}
+}
