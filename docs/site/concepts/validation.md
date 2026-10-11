@@ -26,7 +26,7 @@ flowchart TB
 
 ## Rules are compiled once
 
-Rules use Laravel's syntax: `validate:"required|max:200|in:a,b"`. The first
+Rules are separated by `|`: `validate:"required|max:200|in:a,b"`. The first
 time a struct type is validated, its tags are parsed into a
 `validate.Plan` and cached for the life of the process. For `web.H`, that
 happens when the route is added, so tag mistakes are **startup errors**,
@@ -121,7 +121,7 @@ duplicate or built-in name panics, and so does a route that uses a rule
 before it is registered ("unknown rule"). The `db` package registers
 `unique` and `exists` this way.
 
-Messages are English, in Laravel's wording. The label comes from the key
+Messages are in English. The label comes from the key
 (`first_name` becomes "first name") or a `label` tag. A
 `ValidationMessages() map[string]string` method replaces templates by
 `key.rule` or `rule`; it is read once, when the plan compiles.
@@ -136,9 +136,11 @@ Messages are English, in Laravel's wording. The label comes from the key
   counts as empty but stays as sent.
 - **No translations yet.** Messages are English only.
 
-> **Coming from Laravel?** The input struct is your Form Request, and
-> `view.Errors` and `view.Old` are `$errors` and `old()`. Unlike Laravel,
-> a typo in a rule stops the app at startup instead of failing a request.
+> **Coming from another framework?** The input struct does the job of a
+> Django form, a Laravel form request, or Rails' strong parameters and
+> model validations, and `view.Errors` and `view.Old` give the errors
+> and the submitted values back to the form. A typo in a rule stops the
+> app at startup instead of failing a request.
 
 ## Related
 

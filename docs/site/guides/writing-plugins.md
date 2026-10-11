@@ -264,9 +264,9 @@ the app (`plugin:env`, `help`) still work.
   [Scheduling](scheduling.md), [Events](events.md),
   [Commands](commands.md): what plugins add.
 
-> **Coming from Laravel?** A plugin is a package with a service
-> provider: `Name` and the `Has…` interfaces replace `register()` and
-> `boot()`, `Config` replaces `mergeConfigFrom`, `Migrations` replaces
-> `loadMigrationsFrom`, and `Commands` replaces `commands()`. There is no
-> auto-discovery in `composer.json`: `anetos add` writes the app's
-> `plugins.go`, and the app calls `ext.Load`.
+> **Coming from another framework?** A plugin plays the part of a
+> Django app's `AppConfig`, a Laravel package's service provider or a
+> Rails engine: `Name` and the `Has…` interfaces say what it adds,
+> `Config` its settings, `Migrations` its tables and `Commands` its
+> commands. Nothing is discovered automatically: `anetos add` writes the
+> app's `plugins.go`, and the app calls `ext.Load`.

@@ -297,8 +297,8 @@ that delivery).
 - [Runtime supervisor](../concepts/runtime-supervisor.md): process types and
   shutdown stages.
 
-> **Coming from Laravel?** Laravel has no built-in pub/sub consumer: this
-> replaces a separate worker process or a package running
-> `XREADGROUP` loops. A listener is like a queued job handler that other
-> services dispatch to; `pubsub.Publish` is like broadcasting an event to
-> other services.
+> **Coming from another framework?** Django, Laravel and Rails have no
+> built-in consumer for a message broker: this replaces a separate
+> worker process or a library running a read loop. A listener is like a
+> queued job handler that other services dispatch to;
+> `pubsub.Publish` sends an event to other services.

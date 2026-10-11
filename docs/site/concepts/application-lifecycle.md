@@ -156,7 +156,6 @@ warning names it (`operation="request GET /posts"`).
 
 `app.AroundOperations(fn)` wraps every operation from then on;
 `db.Connect` uses it for [repeated queries](../guides/n-plus-one.md).
-Laravel says "per request or per job" for the same idea.
 
 ## Failures during startup
 
@@ -187,12 +186,13 @@ One-off programs (a migration, a report) can call `app.Boot(ctx)`, use the
 services, then `app.Close()` to run the shutdown hooks. `Close` refuses to run
 while `Run` is in progress; cancel `Run`'s context instead.
 
-> **Coming from Laravel?** `setup` is where Laravel's service providers and
-> `config/*.php` meet: each `New(app)` reads its `.env` keys and registers
-> the service. There are no facades or global container: the `App` is
+> **Coming from another framework?** `setup` is where Django's settings
+> and `AppConfig.ready()`, Laravel's service providers and config files,
+> or Rails' initializers would be: each `New(app)` reads its `.env` keys
+> and registers the service. There's no global container: the `App` is
 > passed explicitly, and a handler gets a service from its context
-> (`cache.From(c)`). Your own providers play the role of a service
-> provider's `register()` and `boot()`.
+> (`cache.From(c)`). Your own providers add a `Register` and a `Boot`
+> phase of their own.
 
 ## Related
 

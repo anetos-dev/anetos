@@ -82,10 +82,11 @@ the project's `web.MethodOverride` reads.
 
 Each route is named after its handler (`h.Create` is `posts.create`).
 
-> **Coming from Laravel?** Its resource routes call `create` the empty
-> form and `store` the post that saves it, and say `destroy` for delete.
-> Here the form is `new` and saving is `create`, as in Rails and
-> Phoenix, and deleting is `delete`, as in Phoenix.
+> **Coming from another framework?** Rails and Phoenix also call the
+> form `new` and saving it `create`, and Phoenix says `delete` where
+> Rails says `destroy`. Laravel's resource routes say `create` for the
+> form, `store` for saving it and `destroy` for deleting. Django's
+> generic views are classes (`CreateView`, `DeleteView`).
 
 ## Make it yours
 

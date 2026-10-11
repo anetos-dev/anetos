@@ -43,10 +43,8 @@ components, and use plain HTML elements, without classes, for the rest:
 headings, paragraphs, links, table rows. The
 [UI components reference](../reference/ui.md) lists every component.
 
-> **Coming from Laravel?** `--css` is Rails' flag (`rails new
-> --css=bootstrap`), and picks only the look. It isn't one of Laravel's
-> starter kits, which scaffold accounts: here that's `make:auth`, which
-> writes its pages with the same components.
+> **Note:** `--css` picks only the look. Accounts come from `make:auth`,
+> which writes its pages with the same components.
 
 ### 2. Build pages with the components
 

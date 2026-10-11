@@ -13,8 +13,8 @@ import (
 	"strings"
 )
 
-// Page is one page of results from [Q.Paginate]. Its JSON form follows
-// Laravel's paginator: data, current_page, per_page, total, last_page.
+// Page is one page of results from [Q.Paginate]. Its JSON form has data,
+// current_page, per_page, total and last_page.
 type Page[T any] struct {
 	Data        []T   `json:"data"`         // the page's rows; empty, not nil, past the end
 	CurrentPage int   `json:"current_page"` // 1-based

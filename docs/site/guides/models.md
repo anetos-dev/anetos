@@ -134,10 +134,12 @@ the result; later calls only copy values. Timestamps are set in UTC with
 microsecond precision, so what you get back from the database equals what
 you saved. See the [data layer concept](../concepts/data-layer.md).
 
-> **Coming from Laravel?** `db.Model` and `db.SoftDeletes` play the role of
-> Eloquent's base model and `SoftDeletes` trait. Models don't track dirty
-> attributes: `Update` writes every column, and mass updates set exactly
-> the columns you name.
+> **Coming from another framework?** `db.Model` and `db.SoftDeletes`
+> play the role of a base model class (Django's `Model`, Eloquent's
+> `Model`, Rails' `ApplicationRecord`) and a soft-delete mixin. Models
+> don't track dirty attributes: `Update` writes every column, as
+> Django's `save()` does, and mass updates set exactly the columns you
+> name.
 
 ## Testing it
 

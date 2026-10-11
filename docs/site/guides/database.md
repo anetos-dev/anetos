@@ -155,11 +155,9 @@ app asks of it (the `DB_SEARCH_*` settings, features' requirements), and
 stops with a clear message if it can't: see
 [Add full-text search](search.md#choose-the-settings).
 
-> **Coming from Laravel?** `DB_HOST`, `DB_PORT` and `DB_PASSWORD` are
-> Laravel's; `DB_DRIVER`, `DB_NAME` and `DB_USER` are its
-> `DB_CONNECTION`, `DB_DATABASE` and `DB_USERNAME` (those are read too,
-> with a warning, until v0.6). There is no `config/database.php`: extra
-> connections use prefixed keys.
+> **Note:** `DB_CONNECTION`, `DB_DATABASE` and `DB_USERNAME`, the names
+> before v0.5, are read too, with a warning, until v0.6. There is no
+> database config file: extra connections use prefixed keys.
 
 ## Testing it
 

@@ -187,8 +187,9 @@ func init() {
 	}
 }
 
-// laravelHints explain Laravel rules that have no equivalent here.
-var laravelHints = map[string]string{
+// ruleHints explain rule names the validator doesn't know: rules not
+// needed here, and rules another package registers.
+var ruleHints = map[string]string{
 	"nullable":               "not needed: rules other than required skip empty fields",
 	"sometimes":              "not needed: rules other than required skip empty fields",
 	"bail":                   "not needed: validation of a field always stops at its first failure",
@@ -215,7 +216,7 @@ func compileRule(name string, params []string, sf reflect.StructField, root refl
 	if !ok {
 		cr, ok := lookupCustom(name)
 		if !ok {
-			if hint, ok := laravelHints[name]; ok {
+			if hint, ok := ruleHints[name]; ok {
 				return check{}, fmt.Errorf("unknown rule %q: %s", name, hint)
 			}
 			return check{}, fmt.Errorf("unknown rule %q (register custom rules with validate.Register before routes are added)", name)

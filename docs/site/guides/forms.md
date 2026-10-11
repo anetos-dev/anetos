@@ -215,10 +215,12 @@ every time it is rendered, so compressed pages don't leak it. Checking
 cross-site posts even before the token is compared. `web.WithTrustedOrigins`
 allows other origins of yours.
 
-> **Coming from Laravel?** `@csrf` is `@view.CSRFField(ctx)`, `@method('PUT')`
-> is `@view.MethodField("PUT")`, `old('title', $post->title)` is
-> `view.Old(ctx, "title", post.Title)`, and `$errors` is `view.Errors(ctx)`.
-> A token mismatch is a 403 instead of 419.
+> **Coming from another framework?** `@view.CSRFField(ctx)` is the
+> field Django's `{% csrf_token %}`, Laravel's `@csrf` and Rails' form
+> helpers add; `@view.MethodField("PUT")` is the hidden `_method` field
+> Laravel and Rails use too; `view.Old(ctx, "title", post.Title)` and
+> `view.Errors(ctx)` give back the submitted values and the errors. A
+> token mismatch is a 403.
 
 ## Testing it
 

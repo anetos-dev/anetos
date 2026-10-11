@@ -89,9 +89,11 @@ Seeders run in the order they are listed, each in its own transaction:
 if one fails, its changes are rolled back and the ones before it stay.
 Order them so data exists before other data refers to it.
 
-> **Coming from Laravel?** A seeder is a `Seeder` class's `run` method,
-> and the list passed to the runner plays the role of `DatabaseSeeder`.
-> Factories are values made with `factory.New` instead of classes.
+> **Coming from another framework?** Seeders play the role of Django's
+> fixtures, Laravel's seeders or Rails' `db/seeds.rb`, and the list
+> passed to the runner is the order they run in. Factories are values
+> made with `factory.New`, as factory_boy, Laravel's factories and
+> FactoryBot make them.
 
 ## Testing it
 

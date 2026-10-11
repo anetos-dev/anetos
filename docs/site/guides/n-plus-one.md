@@ -186,8 +186,8 @@ queries skip counting.
 - [Configuration reference](../reference/configuration.md#database):
   `DB_REPEATED_QUERIES`.
 
-> **Coming from Laravel?** `Model::preventLazyLoading()` throws when a
-> relation is lazy-loaded; Anetos has no lazy loading, so an N+1 can
-> only be a query you wrote in a loop. Detection is like Laravel
-> Debugbar's count of duplicated queries, by the query's text, per
-> request, job or task, and logged rather than shown in the page.
+> **Coming from another framework?** Laravel's `preventLazyLoading()`
+> and Rails' `strict_loading` raise when a relation is lazy-loaded;
+> Anetos has no lazy loading, so an N+1 can only be a query you wrote in
+> a loop. Detection counts the same query's text per request, job or
+> task, and logs it rather than showing it in the page.

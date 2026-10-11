@@ -308,8 +308,8 @@ func WithStorage(ctx context.Context, s *Storage) context.Context {
 // no storage.
 var ErrNoStorage = errors.New("storage: no storage in the context: call storage.New at startup, or storage.WithStorage")
 
-// From returns the default disk of the storage in ctx (Laravel's
-// Storage::put); [DiskFrom] returns another:
+// From returns the default disk of the storage in ctx; [DiskFrom]
+// returns another:
 //
 //	disk, err := storage.From(ctx)
 //	avatars, err := storage.DiskFrom(ctx, "avatars")

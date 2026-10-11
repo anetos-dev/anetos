@@ -132,9 +132,11 @@ a fresh random pad at every render so compressed pages never repeat it
   any instance serves any request. Server-side stores, which can revoke
   sessions, are a setting away (`SESSION_DRIVER`).
 
-> **Coming from Laravel?** This is the `cookie` session driver, always
-> encrypted. `@csrf`, `old()` and `$errors` map to `view.CSRFField`,
-> `view.Old` and `view.Errors`, but a token mismatch is a 403, not a 419.
+> **Coming from another framework?** This is a cookie session, always
+> encrypted, like Rails' default. `view.CSRFField`, `view.Old` and
+> `view.Errors` do what Django's `{% csrf_token %}` and form errors,
+> Laravel's `@csrf`, `old()` and `$errors`, or Rails' form helpers do,
+> and a token mismatch is a 403.
 
 ## Related
 

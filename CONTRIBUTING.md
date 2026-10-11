@@ -70,8 +70,8 @@ the pull request template lists:
   identifier stays one minor version, marked `Deprecated:`.
 
 The words the docs and the API use are in the
-[glossary](docs/site/concepts/glossary.md): use the word Go, Laravel or
-Rails developers already know, and a new word only for a new idea.
+[glossary](docs/site/concepts/glossary.md): use the word developers
+already know, and a new word only for a new idea.
 
 ## Commits and pull requests
 

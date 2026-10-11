@@ -307,10 +307,9 @@ that no other call added messages since. A failed call stores nothing
 as JSON, with the reasoning some models need back. See
 [AI](../concepts/ai.md#conversations).
 
-> **Coming from Laravel?** Prism leaves storage and streaming to the
-> app; here conversations, budgets and queued replies are part of
-> package `ai`, and `ai.SSE` replaces a streamed response with
-> `echo`/`flush`.
+Conversations, budgets and queued replies are part of package `ai`, so
+the app doesn't build its own storage or streaming for them: `ai.SSE`
+streams a reply as server-sent events.
 
 ## Testing it
 

@@ -289,13 +289,13 @@ request logged in with an API token may use only the permissions among
 the token's abilities, so a token for reading can't delete, whatever
 its user's roles. See [Roles and permissions](../concepts/roles-and-permissions.md).
 
-> **Coming from Laravel?** This is spatie/laravel-permission's model:
-> `$user->assignRole('writer')` is `rbac.Assign(ctx, id, rbac.Global,
-> "writer")`, `$user->can('edit articles')` is `rbac.Can(ctx,
-> EditArticles)`, `role:`/`permission:` middleware is `rbac.Require`, and
-> teams are scopes. Permissions are constants in code rather than rows:
-> a misspelled constant doesn't compile, and checking a permission that
-> isn't declared is an error.
+> **Coming from another framework?** This is the model of Django's
+> groups and permissions, Laravel's spatie/laravel-permission, or
+> Rails' Rolify with CanCanCan or Pundit: `rbac.Assign(ctx, id, rbac.Global, "writer")` gives a role,
+> `rbac.Can(ctx, EditArticles)` checks a permission, `rbac.Require`
+> guards routes, and teams are scopes. Permissions are constants in code
+> rather than rows: a misspelled constant doesn't compile, and checking
+> a permission that isn't declared is an error.
 
 ## Testing it
 

@@ -19,7 +19,7 @@
 //
 // # Tags
 //
-// The syntax is Laravel's: rules are separated by "|", parameters follow
+// Rules are separated by "|", parameters follow
 // ":" and are separated by commas: `validate:"required|between:3,20|in:a,b,c"`.
 // Rules run in order and stop at the first failure, so each field gets at
 // most one message. `validate:"-"` skips a field and its nested fields.

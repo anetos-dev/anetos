@@ -123,9 +123,11 @@ the app's environment and logger, registers the `migrate*` and `db:seed`
 `*migrate.Runner` service, which `anetostest` uses to migrate test
 databases.
 
-> **Coming from Laravel?** Batches, `--step`, `--seed` and `--force` work
-> like Artisan's. The difference is discovery: migrations are added to a
-> set in code, not found in a directory at runtime.
+> **Coming from another framework?** `migrate:rollback` undoes the last
+> batch, or `--step` migrations, as Rails' `db:rollback STEP=n` does or
+> Django's `migrate` back to a named migration. The difference is
+> discovery: migrations are added to a set in code, not found in a
+> directory at runtime as Django, Laravel and Rails do.
 
 ## Related
 

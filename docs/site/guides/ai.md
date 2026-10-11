@@ -371,8 +371,3 @@ Providers differ, and the drivers smooth what they can:
 - [AI reference](../reference/ai.md): options, events, errors, schemas.
 - [Authorization](authorization.md) and [Roles and
   permissions](roles-and-permissions.md): what tools should check.
-
-> **Coming from Laravel?** This covers what Prism (and Laravel's AI
-> packages) do: text, structured output and tools, with a fake for
-> tests. Tools are plain Go functions with typed inputs, and they run as
-> the logged-in user.

@@ -250,8 +250,10 @@ Two edge cases:
    `validate.Fail(field, message)` (or a `*validate.Errors`) gives **422**,
    an `HTTPError` keeps its own status, and any other error is a **500**.
 
-> **Coming from Laravel?** The input struct plays the role of a Form Request:
-> it declares the input, its rules (`required|email`) and extra checks, and
+> **Coming from another framework?** The input struct plays the role of
+> a Django form, a Laravel form request, or Rails' strong parameters
+> and model validations: it
+> declares the input, its rules (`required|email`) and extra checks, and
 > is validated before your handler runs.
 
 ## Testing it

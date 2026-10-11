@@ -513,19 +513,24 @@ secret is stored, and the use is recorded at most once a minute.
 Password hashes are argon2id with OWASP's recommended parameters
 (19 MiB, 2 passes); at most a few run at once (as many as there are
 CPUs), so a burst of logins waits rather than exhausting memory. Existing
-bcrypt hashes (from Laravel, say) still work (bcrypt only checks a
+bcrypt hashes (from an existing app, say) still work (bcrypt only checks a
 password's first 72 bytes), and `Attempt` replaces them, and argon2id
 hashes weaker than the defaults, after the next login when you set
 `Users.SetPassword`. The new hash changes the password fingerprint, so
 the user's other sessions are logged out once.
 
-> **Coming from Laravel?** `Auth::attempt`, `Auth::login`, `Auth::logout`,
-> `auth()->user()` and the `auth`/`guest` middleware map to `a.Attempt`,
-> `a.Login`, `a.Logout`, `auth.User` and `a.Require`/`a.Guest`. Sanctum's
-> personal access tokens and `tokenCan` map to `a.CreateToken` and
-> `auth.TokenCan`. Breeze is `anetos make:auth`
-> ([Add accounts with make:auth](accounts.md)). Socialite is
-> [Social login](social-login.md).
+> **Coming from another framework?** `a.Attempt`, `a.Login`, `a.Logout`
+> and `auth.User` do what Django's `authenticate()`, `login()`,
+> `logout()` and `request.user`, Laravel's `Auth::attempt()`,
+> `Auth::login()`, `Auth::logout()` and `auth()->user()`, or the
+> `authenticate_by`, `start_new_session_for`, `terminate_session` and
+> `Current.user` of Rails' authentication generator do. `a.Require` and
+> `a.Guest` let only logged-in users, or only guests, through. API
+> tokens with abilities are built in (`a.CreateToken`,
+> `auth.TokenCan`). `anetos make:auth` writes the pages
+> ([Add accounts with make:auth](accounts.md)), and
+> [Social login](social-login.md) adds Google, GitHub and any OpenID
+> Connect provider.
 
 ## Common problems
 

@@ -11,10 +11,9 @@ Every key starts with its area's prefix (`DB_`, `CACHE_`, `QUEUE_`…). The
 key that picks a backend is `<AREA>_DRIVER` in every area (`DB_DRIVER`,
 `CACHE_DRIVER`, `MAIL_DRIVER`, `STORAGE_DRIVER`), except `AI_PROVIDER`.
 
-> **Coming from Laravel?** Laravel's keys for the backend vary by area
-> (`DB_CONNECTION`, `CACHE_STORE`, `QUEUE_CONNECTION`, `MAIL_MAILER`,
-> `FILESYSTEM_DISK`); here they all end in `_DRIVER`. `doctor` warns
-> about Laravel's names in your `.env`, and names the key to use.
+> **Note:** `doctor` warns about keys in your `.env` that look like
+> these settings but aren't read (`CACHE_STORE`, `QUEUE_CONNECTION`,
+> `MAIL_MAILER`, `FILESYSTEM_DISK`…), and names the key to use.
 
 ## Framework settings
 

@@ -261,10 +261,11 @@ Nothing else is wired in, and nothing runs until the app does.
 - [Configuration reference](../reference/configuration.md#plugins): the
   plugins' settings.
 
-> **Coming from Laravel?** `anetos add` is `composer require` plus
-> package discovery, done once as generated code (`plugins.go`) instead
-> of at every request. A plugin is a service provider whose
-> `register()`/`boot()` are split by what it adds, and its settings are
-> environment variables read into its own struct: there is no
-> `vendor:publish` of config files. Migrations aren't copied into your
-> app; they run from the plugin with yours.
+> **Coming from another framework?** `anetos add` does what
+> `pip install` plus `INSTALLED_APPS` (Django), `composer require` with
+> package discovery (Laravel) or `bundle add` (Rails) do: it adds the
+> module and writes it into the app's `plugins.go`, the list the app
+> loads. A plugin's
+> settings are environment variables read into its own struct, with no
+> config files to publish, and its migrations run from the plugin with
+> yours instead of being copied into your app.

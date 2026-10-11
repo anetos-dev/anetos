@@ -5,10 +5,11 @@
 > *Anetos* (Greek άνετος, "at ease, comfortable"; say **AH-neh-tos**).
 > Module `anetos.dev/anetos`, command `anetos`.
 
-A batteries-included Go web framework with the developer comfort of Laravel,
-built the Go way: typed, `net/http`-compatible, code generation instead of
-runtime magic, and a supervised runtime where HTTP, queue workers, pub/sub
-listeners and the scheduler run together in **one binary**.
+A new, batteries-included Go web framework: easy to start with, easy to
+extend, and easy to run. It's built the Go way: typed, `net/http`-compatible,
+code generation instead of runtime magic, and a supervised runtime where HTTP,
+queue workers, pub/sub listeners and the scheduler run together in **one
+binary**.
 
 **Status:** pre-alpha. v0.5.0-rc.1, the release candidate of the first
 public release, is out; v0.5.0 follows after a test with volunteers.

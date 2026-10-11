@@ -119,11 +119,12 @@ with `go get -tool`, it is pinned in `go.mod` and adds nothing to the app
 binary. `anetos dev` runs the app binary with `run`, or with the
 arguments you give after `--`.
 
-> **Coming from Laravel?** Artisan is split in two. `./blog migrate`
-> replaces `php artisan migrate` and runs in production;
-> `go tool anetos make:model` replaces `php artisan make:model` and runs
-> only on your machine. Custom commands are functions registered on the
-> app, not classes.
+> **Coming from another framework?** What Django's `manage.py`,
+> Laravel's `artisan` or Rails' `bin/rails` do is split in two here.
+> `./blog migrate` is built into your app's binary and runs in
+> production; `go tool anetos make:model` writes source, so it runs only
+> on your machine. Custom commands are functions registered on the app,
+> not classes.
 
 ## Related
 

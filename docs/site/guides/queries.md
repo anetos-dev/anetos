@@ -77,8 +77,8 @@ last (`PostCols.ID.Desc()` after `Latest()`), or rows created in the same
 instant can move between pages.
 
 A `db.Page[T]` has `Data`, `CurrentPage`, `PerPage`, `Total` and
-`LastPage`, with `HasPrev()` and `HasNext()`. It encodes like Laravel's
-paginator, so an API handler returns it as it is:
+`LastPage`, with `HasPrev()` and `HasNext()`. It encodes as JSON with
+those fields, so an API handler returns it as it is:
 `{"data": […], "current_page": 2, "per_page": 20, "total": 57, "last_page": 3}`.
 
 For an HTML list, pass the page to the view (`ListNotes` binds
@@ -220,10 +220,12 @@ SQL text. Soft-deleted rows are excluded unless you call `WithTrashed()`
 or `OnlyTrashed()`. Every method is listed in the
 [query builder reference](../reference/query-builder.md).
 
-> **Coming from Laravel?** `Where(PostCols.Title.Like(…))` is `where('title',
-> 'like', …)`, `Paginate` is `paginate`, and scopes are plain functions
-> instead of `scopeX` methods. There is no lazy loading: load relations
-> with `With` ([Relations and eager loading](relations.md)).
+> **Coming from another framework?** `Where(PostCols.Title.Like(…))` is
+> a condition on a typed column, where Django, Laravel and Rails take a
+> string or a keyword (`filter(title__contains=…)`,
+> `where('title', 'like', …)`). Scopes are plain functions instead of
+> methods. There is no lazy loading: load relations with `With`
+> ([Relations and eager loading](relations.md)).
 
 ## Testing it
 

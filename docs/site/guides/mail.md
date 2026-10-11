@@ -42,6 +42,8 @@ APP_URL=https://shop.example.com
 To see emails in development without sending them anywhere, run
 [Mailpit](https://mailpit.axllent.org) and set `MAIL_DRIVER=smtp`: the
 default `MAIL_SMTP_URL` is Mailpit's, `smtp://127.0.0.1:1025`.
+`MAIL_SMTP_URL` holds the host, port, user, password and TLS mode in
+one URL: there are no separate `MAIL_HOST` or `MAIL_PORT` keys.
 
 ## Steps
 
@@ -343,12 +345,10 @@ queue fails the job at once.
 - [Configuration reference](../reference/configuration.md#mail): the
   `MAIL_*` settings.
 
-> **Coming from Laravel?** A mailable is a `Mailable` class: `Build`
-> returns what `envelope()`, `content()` and `attachments()` do, and the
-> view is a templ component instead of a Blade template.
-> `mailer.Send(ctx, m)` is `Mail::to(...)->send(m)` (the recipients are
-> the mailable's), and `mailer.Queue` is `->queue()`, except that the
-> email is rendered when queued. `MAIL_DRIVER` is `MAIL_MAILER`, and
-> `MAIL_SMTP_URL` replaces `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`,
-> `MAIL_PASSWORD` and `MAIL_ENCRYPTION`. There are no Markdown mailables
+> **Coming from another framework?** A mailable is what Laravel calls a
+> mailable and Rails a mailer method, and what a Django app builds as an
+> `EmailMessage`: `Build` returns the subject, the content and the
+> attachments, and the view is a templ component. `mailer.Send(ctx, m)`
+> sends it to the mailable's recipients, and `mailer.Queue` sends it
+> from the queue, rendered when queued. There are no Markdown mailables
 > or notifications yet.

@@ -448,17 +448,18 @@ over `.env.testing`.
 | `Search` finds nothing on MySQL or MariaDB in a test | Their full-text indexes only see committed rows, and the test runs in a transaction | `anetostest.WithoutTransaction()` for that test, or test search on SQLite or PostgreSQL |
 | The app doesn't start: a search index doesn't match `DB_SEARCH_LANGUAGE` | The test database was migrated with other search settings | Run `search:reindex` (or `migrate:fresh`) on it with the test settings |
 
-> **Coming from Laravel?** `anetostest.New` is the `TestCase` with
-> `RefreshDatabase` (in-memory SQLite, or migrations plus a transaction per
-> test). `app.PostForm(…).AssertRedirect(…)` and friends are `$this->post()`
-> and `assertRedirect()`; factories are functions returning structs instead
-> of classes, and `Posts.With(…)` is a state. `anetostest.FakeQueue()`,
-> `FakeEvents(…)` and `FakePubSub()` are `Queue::fake()`, `Event::fake()`
-> and friends, with typed assertions (`AssertDispatched[ChargeOrder]` for
-> `assertPushed(ChargeOrder::class, …)`); mail needs no `Mail::fake()`,
-> since tests never send it. `app.Freeze`, `app.Travel` are
-> `freezeTime()` and `travel()`, and `anetos.Now(ctx)` is `now()`.
-> `app.Disk()` replaces `Storage::fake()`.
+> **Coming from another framework?** `anetostest.New` gives each test a
+> fresh database, like Django's `TestCase`, Laravel's `RefreshDatabase`
+> or Rails' transactional tests. `app.PostForm(…).AssertRedirect(…)`
+> and the other assertions work on whole requests; factories are
+> functions returning structs, and `Posts.With(…)` is a factory with
+> overrides.
+> `anetostest.FakeQueue()`, `FakeEvents(…)` and `FakePubSub()` record
+> instead of sending, with typed assertions
+> (`AssertDispatched[ChargeOrder]`); mail needs no fake, since tests
+> never send it. `app.Freeze` and `app.Travel` move the clock that
+> `anetos.Now(ctx)` reads, and `app.Disk()` gives each test its own
+> disk.
 
 ## Next steps
 

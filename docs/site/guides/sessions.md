@@ -195,10 +195,11 @@ removing a session at logout fails, it is logged, and copies of its cookie
 keep working until it expires. Two requests of one visitor running at the
 same time each save their own changes: the last one wins.
 
-> **Coming from Laravel?** `session()->put/get/flash/regenerate/invalidate`
-> map to `Put`, `Get`/`Value`, `Flash`, `Regenerate` and `Invalidate`;
-> The default is Laravel's `cookie` session driver with an encrypted
-> cookie; `database` and `redis` match Laravel's drivers of those names.
+> **Coming from another framework?** `Put`, `Get`/`Value`, `Flash`,
+> `Regenerate` and `Invalidate` are the session operations you know.
+> The default keeps the session in an encrypted cookie, like Rails'
+> default; `database` and `redis` keep it on the server, as Django's and
+> Laravel's database and Redis sessions do.
 
 ## Testing it
 

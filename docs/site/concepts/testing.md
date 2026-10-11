@@ -170,10 +170,11 @@ that reads it follows, the test client's cookies included. Time kept by
 database and Redis servers, timeouts and the loops of workers and the
 scheduler are real: a test can't fast-forward a server.
 
-> **Coming from Laravel?** `anetostest.New` is a `TestCase` using
-> `RefreshDatabase`: a fresh in-memory database, or migrations plus a
-> transaction per test. Unlike Laravel's tests, CSRF isn't disabled; the
-> client sends the token.
+> **Coming from another framework?** `anetostest.New` gives each test a
+> fresh in-memory database, or migrations plus a transaction per test,
+> like Django's `TestCase`, Laravel's `RefreshDatabase` or Rails'
+> transactional tests. Unlike in those, CSRF protection stays on in
+> tests: the client sends the token.
 
 ## Related
 

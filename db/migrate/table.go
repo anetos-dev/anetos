@@ -439,7 +439,8 @@ func (t *Table) DropForeign(columns ...string) {
 // maxIdent is the longest identifier every database keeps whole.
 const maxIdent = dbutil.MaxIdent
 
-// indexName follows Laravel: posts_author_id_created_at_index. Names too
+// indexName names an index <table>_<columns>_<suffix>:
+// posts_author_id_created_at_index. Names too
 // long for PostgreSQL are shortened with a hash of the full name, so
 // different long names stay different, and Drop* computes the same name.
 func indexName(table string, columns []string, suffix string) string {

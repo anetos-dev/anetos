@@ -163,10 +163,11 @@ gen. DO NOT EDIT.` header, and removes `models_gen.go` from a package that
 no longer has models. A stale `models_gen.go`, or code that uses a column
 you haven't generated yet, doesn't stop it.
 
-> **Coming from Laravel?** Eloquent resolves attributes by string at
-> runtime (`where('title', 'like', …)`). Here the names are generated Go
-> values, so a typo or a renamed column breaks the build, not a request.
-> Strings still work where you want them: `db.C("title")`.
+> **Coming from another framework?** Django's ORM, Eloquent and Active
+> Record resolve column names given as strings or keywords when the
+> query runs. Here the names are generated Go values, so a typo or a
+> renamed column breaks the build, not a request. Strings still work
+> where you want them: `db.C("title")`.
 
 ## Testing it
 

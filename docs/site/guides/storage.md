@@ -448,10 +448,11 @@ conformance suite each runs.
 - [Configuration reference](../reference/configuration.md#storage): the
   `STORAGE_*` settings.
 
-> **Coming from Laravel?** `storage.From(ctx)` is `Storage::disk()`, and
-> `STORAGE_DISKS` with `STORAGE_<NAME>_*` replaces `config/filesystems.php`.
-> `PutUpload` is `$file->storeAs()`, `TemporaryURL` is
-> `temporaryUrl()` (for local disks too), and `URL` is `url()`. There is
-> no `storage:link`: the disk's handler serves local files. Visibility is
-> per disk (`STORAGE_PUBLIC`), not per file, since S3 buckets now block
-> per-object ACLs by default.
+> **Coming from another framework?** A disk is what Django calls a
+> storage, Laravel a filesystem disk and Rails an Active Storage
+> service: `storage.From(ctx)` is the default one, and `STORAGE_DISKS`
+> with `STORAGE_<NAME>_*` replaces a config file. `PutUpload` stores an
+> upload, and `TemporaryURL` gives a signed URL (for local disks too).
+> No public directory or symlink is needed: the disk's handler serves
+> local files. Visibility is per disk (`STORAGE_PUBLIC`), not per file, since
+> S3 buckets now block per-object ACLs by default.

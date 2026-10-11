@@ -234,8 +234,10 @@ A user with [two-factor authentication](two-factor.md) on isn't logged in by
 the callback: it logs in with `a.Login`, which asks for the code, and sends them to
 `AUTH_CHALLENGE_URL` for their code.
 
-> **Coming from Laravel?** This is Socialite's `redirect()` and `user()`
-> as two handlers, with the find-or-create step as your function.
+> **Coming from another framework?** This does what django-allauth,
+> Laravel Socialite or OmniAuth in Rails do: the redirect and the
+> callback are two handlers, and finding or creating the user is your
+> function.
 
 ## Common problems
 

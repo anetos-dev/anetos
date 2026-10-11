@@ -135,11 +135,15 @@ immediately canceled.
   `starting`, `running`, `backoff`, `done`, `failed`, `stopped`), restart
   count and last error.
 
-> **Coming from Laravel?** This replaces running `php artisan queue:work`,
-> `schedule:work` and Supervisor (the process manager) as separate programs.
-> Everything runs in your app's own binary, and `--only` splits it apart
-> when you need to scale. `./app queue:work` and `./app schedule:work`
-> exist too: they are `run --only=worker` and `run --only=scheduler`.
+> **Coming from another framework?** This replaces running the queue
+> workers and the scheduler as separate programs under a process
+> manager: a Celery worker and Celery beat beside a Django app,
+> `queue:work` and `schedule:work` beside a Laravel one, or a Sidekiq or
+> Solid Queue process (or Solid Queue's Puma plugin) beside a Rails
+> one. Everything runs in your app's
+> own binary, and `--only` splits it apart when you need to scale.
+> `./app queue:work` and `./app schedule:work` exist too: they are
+> `run --only=worker` and `run --only=scheduler`.
 
 ## Related
 

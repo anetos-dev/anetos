@@ -180,7 +180,7 @@ func products() admin.Resource[Product, ProductForm] {
 (Copied from [`examples/admin/admin.go`](../../../examples/admin/admin.go), region `products`.)
 
 - `Columns` are the list's; `admin.TextColumn(column, label)` shows a
-  column of the model, sortable (Filament's `TextColumn`). A column with
+  column of the model, sortable. A column with
   `Value` shows what the function returns: text,
   a number, a time (in `APP_TIMEZONE`), or a `view.Component` or
   `template.HTML` for markup. `Details` are the lines of a record's page,

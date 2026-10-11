@@ -400,14 +400,12 @@ server's clock for delays and leases.
 - [Runtime supervisor](../concepts/runtime-supervisor.md): process types, stages
   and shutdown.
 
-> **Coming from Laravel?** A job is a `ShouldQueue` class, `Handle` is
-> `handle()`, and `queue.Dispatch(ctx, job, queue.OnQueue("x"),
-> queue.Delay(d))` is `Job::dispatch()->onQueue('x')->delay($d)`.
-> `queue.Tries`, `queue.Backoff` and `queue.Timeout` are the `$tries`,
-> `$backoff` and `$timeout` properties, `queue.Permanent(err)` is
-> `$this->fail()`, and `Failed` is `failed()`. Workers run inside the
-> app, supervised, and `queue:work` (`run --only=worker`) runs only
-> them; the queues and concurrency are the app's `Work` call's, not
-> flags. `queue:failed`, `queue:retry`,
-> `queue:forget`, `queue:flush` and `queue:clear` work as in Laravel.
-> Dependencies come from the context, not from `handle()`'s parameters.
+> **Coming from another framework?** A job is what a Django app runs as
+> a Celery task, Laravel as a queued job and Rails as an Active Job:
+> `queue.Dispatch(ctx, job, queue.OnQueue("x"), queue.Delay(d))` sends
+> it, `queue.Tries`, `queue.Backoff` and `queue.Timeout` set its
+> retries, and `queue.Permanent(err)` fails it at once. Workers run
+> inside the app, supervised, and `queue:work` (`run --only=worker`)
+> runs only them; the queues and concurrency are the app's `Work`
+> call's, not flags. Dependencies come from the context, not from the
+> job's parameters.

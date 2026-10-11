@@ -290,6 +290,10 @@ doesn't mix vectors that can't be compared; until `ai:embed` has run,
 searches find only what was embedded since. A model with another vector
 size needs a new migration (`DropEmbeddings`, then `CreateEmbeddings`).
 
+There is no search server to run: the migration declares the table,
+`Sync` keeps the vectors current, and the database (pgvector, MariaDB or
+SQLite) does the search.
+
 ## Common problems
 
 | Problem | Cause | Fix |
@@ -311,9 +315,3 @@ size needs a new migration (`DropEmbeddings`, then `CreateEmbeddings`).
 - [Add full-text search](search.md): the index a hybrid search uses.
 - [AI reference](../reference/ai.md#embeddings): every function and
   setting.
-
-> **Coming from Laravel?** Where a Laravel app pairs Prism's embeddings
-> with a vector store of its choosing, here the migration declares the
-> table, `Sync` plays the part of Scout's `searchable()`, and the
-> database (pgvector, MariaDB or SQLite) does the search, with no search
-> server to run.

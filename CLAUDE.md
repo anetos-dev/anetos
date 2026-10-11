@@ -5,8 +5,12 @@ Instructions for AI assistants working in this repository.
 ## Project
 
 Anetos (Greek άνετος, "at ease"; module `anetos.dev/anetos`, GitHub org
-`anetos-dev`) is an open-source, batteries-included Go web
-framework. Read these before making changes:
+`anetos-dev`) is a new, open-source, batteries-included Go web framework:
+easy to use and adopt, easy to extend, highly manageable, built the Go
+way to harness Go's power. It isn't a port of, or a competitor aimed at,
+any other framework: no text singles one out (Laravel included) as the
+model, the audience or the yardstick (documentation guide §8). Read
+these before making changes:
 
 - `docs/planning/roadmap.md`: milestones and work packages (WP IDs like F5, B7)
 - `docs/design/design.md`: principles, architecture, decision log

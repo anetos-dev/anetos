@@ -77,7 +77,7 @@ must be `Nullable()` or have a default: the builder reports both.
 | `t.SearchIndex(cols...)` | Create, Alter | Full-text search index over text columns, most important first ([search](#search-indexes)); one per table |
 | `t.DropSearchIndex()` | Alter | Removes the table's search index |
 
-Index names follow Laravel's: `posts_author_id_created_at_index`,
+Index names are `<table>_<columns>_<kind>`: `posts_author_id_created_at_index`,
 `posts_slug_unique`, `posts_author_id_foreign`. A name longer than 63
 bytes is shortened to 54 bytes plus a hash of the full name, the same way
 for create and drop. Renaming a table keeps its index names.

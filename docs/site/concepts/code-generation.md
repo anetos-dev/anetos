@@ -125,9 +125,10 @@ build.
   (`db.RelOf[Post, User]("Author")`); `With` and `db.Load` do the loading
   at runtime.
 
-> **Coming from Laravel?** Eloquent resolves `where('title', …)` by
-> string at runtime. Here the names are generated Go values, so a typo
-> breaks the build instead of a request.
+> **Coming from another framework?** Django's ORM, Eloquent and Active
+> Record resolve column names given as strings or keywords when the
+> query runs. Here the names are generated Go values, so a typo breaks
+> the build instead of a request.
 
 ## Related
 

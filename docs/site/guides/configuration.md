@@ -103,8 +103,10 @@ Missing files are fine. A file with a syntax error stops startup with the
 file name and line number. Binding runs once at startup, and the rest of your
 app only sees typed structs.
 
-> **Coming from Laravel?** This replaces `env()` plus `config/*.php`. The
-> struct is your config file, and there's no config cache to clear.
+> **Coming from another framework?** The struct takes the place of a
+> settings file (Django's `settings.py`, Laravel's `config/*.php`,
+> Rails' `config/`), read at startup, so there's no config cache to
+> clear.
 
 ## Testing it
 

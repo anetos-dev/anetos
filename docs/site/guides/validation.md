@@ -19,8 +19,8 @@ structs that `web.H` binds.
 
 ### 1. Add rules to the input
 
-Write rules in a `validate` tag, Laravel style: rules separated by `|`,
-parameters after `:` and separated by commas.
+Write rules in a `validate` tag: rules separated by `|`, parameters
+after `:` and separated by commas.
 
 ```go
 // SignUp is the input for POST /signup.
@@ -224,9 +224,9 @@ Per request only the plan runs. With the built-in rules, valid input is
 checked without allocating memory, except for maps of structs and file
 rules (which open the upload); messages are built only when a rule fails.
 
-> **Coming from Laravel?** Rule names and messages follow Laravel's, and the
-> input struct is your Form Request. Differences: rules live on the struct,
-> not in a `rules()` array; `nullable`, `bail` and `sometimes` aren't needed
+> **Coming from another framework?** The input struct does the job of a
+> Django form, a Laravel form request or Rails' model validations. Rules
+> live on the struct; `nullable`, `bail` and `sometimes` aren't needed
 > (the startup error says why); `min`/`max` on uploads count files, and
 > file size uses `max_size:2MB`; `unique` and `exists` come from the db
 > package (see the [rules reference](../reference/validation-rules.md#database-rules)).

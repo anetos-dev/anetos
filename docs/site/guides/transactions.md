@@ -134,9 +134,12 @@ pool. Nested calls issue `SAVEPOINT`, `ROLLBACK TO SAVEPOINT` and `RELEASE
 SAVEPOINT`, which PostgreSQL, MySQL and SQLite all support. See the
 [data layer concept](../concepts/data-layer.md).
 
-> **Coming from Laravel?** `db.Tx` is `DB::transaction`, nested
-> transactions use savepoints as Laravel's do, and `db.AfterCommit` is
-> `DB::afterCommit`.
+> **Coming from another framework?** `db.Tx` is Django's
+> `transaction.atomic()`, Laravel's `DB::transaction()` or Rails'
+> `transaction` block. A nested `db.Tx` uses a savepoint, as nested
+> `atomic()` and `DB::transaction()` do (Rails needs
+> `requires_new: true`). `db.AfterCommit` is `transaction.on_commit()`,
+> `DB::afterCommit()` or `ActiveRecord.after_all_transactions_commit`.
 
 ## Testing it
 

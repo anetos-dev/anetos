@@ -174,9 +174,10 @@ handles everything else:
   [Return errors](handlers.md#4-return-errors)); always JSON when
   `web.JSONErrors` is global middleware, as in an API project.
 
-> **Coming from Laravel?** `Route::get(...)->name('x')`, `Route::prefix()`
-> groups and `route('x', $id)` map to `r.Get(...).Name("x")`, `r.Group()`
-> and `c.URL("x", id)`.
+> **Coming from another framework?** `r.Get(...).Name("x")` and
+> `c.URL("x", id)` are named routes, like Django's `name=` with
+> `reverse()`, Laravel's `->name()` with `route()`, or Rails' `as:` with
+> its path helpers; `r.Group()` groups routes under a prefix.
 
 ## Testing it
 

@@ -214,12 +214,14 @@ Handles are typed: `PostRels.Author` is a `db.Rel[Post, Author]`, and
 hand (`db.RelOf[Post, Author]("Author")`) are checked when used: a wrong
 field or type is an error from the query.
 
-> **Coming from Laravel?** `rel:"has_many"` is `hasMany`, `With` is
-> `with()`, `WhereHas` is `whereHas()`, and `Attach`/`Detach`/`Sync` are
-> the `belongsToMany` methods. Nested loads chain handles
-> (`PostRels.Comments.With(CommentRels.Author)`) instead of dotted strings
-> (`'comments.author'`), and there are no dynamic properties: an unloaded
-> relation is `nil`, never a hidden query.
+> **Coming from another framework?** `rel:"has_many"`, `With` and
+> `WhereHas` do what Django's `ForeignKey` and `prefetch_related`,
+> Laravel's `hasMany`, `with()` and `whereHas()`, or Rails' `has_many`
+> and `includes` do, and `Attach`/`Detach`/`Sync` manage many-to-many
+> rows. Nested loads chain handles
+> (`PostRels.Comments.With(CommentRels.Author)`) instead of dotted
+> strings, and there are no dynamic properties: an unloaded relation is
+> `nil`, never a hidden query.
 
 ## Testing it
 

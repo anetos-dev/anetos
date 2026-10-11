@@ -26,8 +26,10 @@ follow [Effective Go](https://go.dev/doc/effective_go) and
 
 - **Use the word developers already know.** For Go-shaped things, the
   standard library's and the Go ecosystem's (`New`, `Open`, `Close`,
-  `ctx` first); for framework concepts, Laravel's, else Rails'
-  (`Paginate`, `WithTrashed`, `migrate:rollback`). A new word is only for
+  `ctx` first); for framework concepts, the word web frameworks share;
+  where they differ, the one a well-known existing API already uses,
+  recorded in the glossary (`Paginate`, `WithTrashed`,
+  `migrate:rollback`). A new word is only for
   a concept that has none, and it gets an entry in the docs' glossary.
   An invented synonym for a known idea (`SplitRecords` for pagination)
   is a defect, however tidy it looks (design D310).
@@ -43,9 +45,10 @@ follow [Effective Go](https://go.dev/doc/effective_go) and
   `Open` opens a connection pool from explicit settings (`db.Open`, as
   `sql.Open`), `LoadConfig` reads a package's settings, `Register` adds
   to a registry at startup.
-- **Commands** are `<group>:<action>` with a singular group, and
-  Laravel's name where it has the command (`route:list`, `queue:work`,
-  `key:generate`); flags are written `--flag` in help (a one-letter one
+- **Commands** are `<group>:<action>` with a singular group (the colon
+  form of Symfony Console tools and of Rails' `db:*` tasks); when an
+  existing tool has the command, reuse its name (`route:list`,
+  `queue:work`, `key:generate`, `db:seed`); flags are written `--flag` in help (a one-letter one
   `-o`). A renamed command keeps its old name in `cmd.Command.Former`
   until the next minor (design D313). Names can be typed shortened
   (D314): a new command can make an existing short form ambiguous, or

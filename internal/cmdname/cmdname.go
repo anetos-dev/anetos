@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package cmdname finds the command a shortened name means, much as
-// Laravel's artisan does: each part of the name, between colons, may be
+// Symfony Console does: each part of the name, between colons, may be
 // cut short while the name still means one command with as many parts
 // ("r:l" is route:list, "g" is generate). It is shared by the app binary
 // and the anetos tool.

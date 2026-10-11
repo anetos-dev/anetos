@@ -15,12 +15,17 @@
 
 ## 1. Vision
 
-Anetos is an open-source Go framework that gives developers the same comfort
-Laravel gives PHP developers: create a project with one command, build CRUD and
-complex applications quickly, add capabilities by installing packages, and
-deploy easily. Anetos does this **the Go way**. It uses static types instead of
+Anetos is a new, open-source Go web framework that is easy to use and adopt,
+easy to extend, highly manageable, and harnesses the power of Go: create a
+project with one command, build CRUD and complex applications quickly, add
+capabilities by installing packages, and deploy easily. It does this **the Go
+way**. It uses static types instead of
 runtime magic and code generation instead of reflection. It stays compatible
 with the standard library, and the whole application ships as a single binary.
+
+Anetos isn't a port of another framework, nor aimed at one framework's
+developers: it uses ideas and names that many frameworks share, so developers
+from anywhere feel at home, and makes its own decisions the Go way.
 
 What makes Anetos different from other Go frameworks is that **concurrency is a
 core feature, not something you add yourself**. HTTP, queue workers, pub/sub
@@ -37,8 +42,8 @@ gracefully.
    *choose*, not something you *need*: relationships, eager loading, scopes,
    soft deletes, pagination, transactions and migrations.
 3. **Swappable drivers.** The database, cache, queue, mail, storage, session
-   and pub/sub backends are each chosen through `.env`, like Laravel's
-   contracts.
+   and pub/sub backends are each chosen through `.env`, behind small
+   interfaces.
 4. **Go-native concurrency.** Workers, listeners, events and the scheduler are
    first-class, typed and supervised.
 5. **An open ecosystem.** Third-party packages register routes, migrations,
@@ -53,8 +58,9 @@ gracefully.
 
 ## 3. Non-goals
 
-- **Not a Laravel port.** No facades, no global state, no magic methods, and no
-  mirroring of Laravel's directory structure for its own sake.
+- **Not a port of another framework.** No facades, no global state, no magic
+  methods, and no copying of another framework's directory structure for its
+  own sake.
 - **No custom template language.** We use templ (Plush was a lesson learned).
 - **No per-request reflection** in hot paths. Reflection is allowed only at
   startup or registration time.
@@ -72,8 +78,8 @@ gracefully.
 ## 4. Target users
 
 - Go developers who want batteries included without assembling 15 libraries.
-- Developers moving from Laravel, Rails or Django who want Go's performance and
-  deployment model without giving up productivity.
+- Developers coming to Go from other languages and frameworks who want Go's
+  performance and deployment model without giving up productivity.
 - Small teams building CRUD-heavy products, internal tools and SaaS back ends,
   including ones that consume event streams (pub/sub, queues).
 
@@ -543,13 +549,14 @@ installed from the module proxy.
 | M8b-2 Settings | ✅ Done 2026-10-10 (design §7, D311): every key starts with its area; `DB_DRIVER`, `DB_NAME`, `DB_USER`, `DB_MIGRATE_ON_START`, `DB_MIGRATE_READINESS`, `DB_SEARCH_*`, `CACHE_DRIVER`, `SESSION_TTL`, `SESSION_MAX_TTL`, `AUTH_REMEMBER_TTL`, `QUEUE_POLL_INTERVAL`, `APP_LOCALE_STRATEGY`, the config fields with them (`db.Config.Driver`/`Name`/`User`…); the former names read until v0.6 through `config`'s new `was` tag, logged once and listed by doctor; doctor warns about `.env` keys of a known area that nothing reads, with a pointer for other frameworks' names; `PORT` and `DATABASE_URL` as fallbacks |
 | M8b-3 Logging in | ✅ Done 2026-10-10 (design §15, D312): "log in"/"log out" in the API, the pages, the messages and the docs; `Auth.Login` asks for the two-factor code (`SignIn` deprecated); `LogoutOthers`, `LogoutEverywhere`, `Supports…` feature checks, `WithUser` (was `ActAs`), `ErrNoPendingLogin`, `ErrUserNotFound`, `social.NoAccountError`, `anetostest.SocialLogin`; the admin's "Impersonate"; "two-factor authentication"; the locale keys `login_with`, `login_again`, `login_first` (and the bn, es, fr translations in anetos-dev/locales); old names deprecated until v0.6 |
 | M8b-4 Commands and the project | ✅ Done 2026-10-10 (design §12.2, §17, D313): CRUD route names = handler names (`create`, `delete`; the admin's `new`/`create`/`delete`); `route:list`, `plugin:list`, `plugin:env`, `locale:check`, `anetos generate`, `locale:add`, `make:admin-resource` (old names as `cmd.Command.Former`, warning until v0.6); `schedule:run` runs the due tasks (`Scheduler.RunDue`), `schedule:test`, `queue:work`, `schedule:work`; `key:generate` writes `.env` (`--force` keeps the old key in `APP_PREVIOUS_KEYS`, `--show`); `--flag` in help; `public/` at `/` with `web.Router.Static` and a `robots.txt`; `loggedIn` group in both stacks; "CSS framework" wording, `views/ui/css.json`, guides named after the frameworks |
-| M8b-4b Short command names | ✅ Done 2026-10-10 (design §17, D314): each part of a command's name may be cut short while it still means one command, as artisan's, in the app binary and the `anetos` tool (`./app r:l`, `anetos g`, `anetos m:c`); an ambiguous one lists the candidates |
-| M8b-5a The rest of the API: names | ✅ Done 2026-10-10 (design D315, `m8b5-api.md`): constructor options with `With`, `events.Option`/`ListenOption`, `audit.TrackOption`, no SDK types in the s3 and gcppubsub options; request values `web.CurrentRoute`, `web.ClientIP(ctx)`, `session.WithSession`, `storage.DiskFrom`; `anetos.Operation` (was `Unit`); process types `web`, `worker`, `scheduler`, `listener` (were roles `http`, `workers`, `listeners`); `db.AllowRepeatedQueries`, `TxWithOptions`, `Prunable`, `Page.HasNext`, `UniqueWithoutTrashed`; `pubsub.Tries`, `c.EventStream()`, `web.Render`, `web.WrapHandler`, `Session.GetString`, `ai.NewTool`, `cache.Delete`; `i18n.MailLocalePreference`, `storage.TemporaryURLBackend`; the admin's Filament names; `views/ui` variants and sizes. Old names deprecated until v0.6 |
+| M8b-4b Short command names | ✅ Done 2026-10-10 (design §17, D314): each part of a command's name may be cut short while it still means one command, in the app binary and the `anetos` tool (`./app r:l`, `anetos g`, `anetos m:c`); an ambiguous one lists the candidates |
+| M8b-5a The rest of the API: names | ✅ Done 2026-10-10 (design D315, `m8b5-api.md`): constructor options with `With`, `events.Option`/`ListenOption`, `audit.TrackOption`, no SDK types in the s3 and gcppubsub options; request values `web.CurrentRoute`, `web.ClientIP(ctx)`, `session.WithSession`, `storage.DiskFrom`; `anetos.Operation` (was `Unit`); process types `web`, `worker`, `scheduler`, `listener` (were roles `http`, `workers`, `listeners`); `db.AllowRepeatedQueries`, `TxWithOptions`, `Prunable`, `Page.HasNext`, `UniqueWithoutTrashed`; `pubsub.Tries`, `c.EventStream()`, `web.Render`, `web.WrapHandler`, `Session.GetString`, `ai.NewTool`, `cache.Delete`; `i18n.MailLocalePreference`, `storage.TemporaryURLBackend`; the admin's usual admin-panel names; `views/ui` variants and sizes. Old names deprecated until v0.6 |
 | M8b-5b The rest of the API: shapes and bugs | ✅ Done 2026-10-11 (design D316): `ai.Request.Options []any` and `ProviderOptions(v...)`, `ai.Embed(ctx, texts, opts...)` with `ai.Dimensions`, `ai.ConstraintKeywords()`, gemini `Params`, `db.Watch` options, sealed `db.Dialect`, `Router.As` derived, `HTTPError.Wrap` copies, `CSRFOption`, `ext.HasListeners.Listeners`, temporary URLs checked for attachments, the unused exports removed; the API review's bugs fixed (nil queue store, negative grace and tool limit, translated budget message, `openapi.Register` twice, `cache.Remember`, `auth.Config.Validate` order, `audit.History` cursor, `anetostest.App.Disk`, session log attribute) and its doc items |
-| M8b-6 What a newcomer reads | ✅ Done 2026-10-11 (design D317, `m8b6-newcomer.md`): the website, the docs home and the locales README say v0.5 is the first public release; the docs take v0.5 as their baseline (v0.1–v0.4 "Since" notes, columns and badges removed, old upgrade guides under "Before the first public release"); a glossary page, first in Concepts, with Laravel's and Rails' words; an "Operations" section; navigation renamed and Concepts in the top menu; the `anetos` package doc with a compiling `main.go` example; "typed columns", "process type", "background component", `web.H` and `StatusCoder` notes, new "Coming from Laravel?" notes |
+| M8b-6 What a newcomer reads | ✅ Done 2026-10-11 (design D317, `m8b6-newcomer.md`): the website, the docs home and the locales README say v0.5 is the first public release; the docs take v0.5 as their baseline (v0.1–v0.4 "Since" notes, columns and badges removed, old upgrade guides under "Before the first public release"); a glossary page, first in Concepts, with other frameworks' words; an "Operations" section; navigation renamed and Concepts in the top menu; the `anetos` package doc with a compiling `main.go` example; "typed columns", "process type", "background component", `web.H` and `StatusCoder` notes, new "Coming from another framework?" notes |
 | M8c Community files | ✅ Done 2026-10-11 (design D318, `m8c-community.md`): a new public `anetos-dev/.github` repository with the organization's defaults (the code of conduct, Contributor Covenant 3.0, reports to conduct@anetos.dev; a short CONTRIBUTING pointing to each repository; SUPPORT; SECURITY; default issue forms; the organization's profile); in anetos, CONTRIBUTING.md (designing first, the Definition of Done, Apache-2.0 §5 without CLA or sign-off, AI assistants), GOVERNANCE.md (the lead maintainer, decisions in public, becoming a maintainer, succession) and issue forms (bug, feature, docs; questions to Discussions); the locales README's commands renamed in M8b-4 |
 | M1b Release plumbing | ✅ Done 2026-10-11 (design §23, D319, `m1b-release.md`): every published module (core, cli, admin, drivers, plugins) is released with one version and requires the others at it (`make release VERSION=…` sets them and prints the tags); `cli` builds against the checkout through `cli/go.work` instead of a `replace`, so `go install …/cli/cmd/anetos@vX` works; v0.1.0–v0.4.0 retracted; `anetos new` and `anetos add` (first-party plugins) take the tool's own version; CI's release rehearsal installs the committed tree from a module proxy on disk and builds a new web and API project on every push; `docs/contributing/releasing.md`; `v0.5.0-rc.1` tagged for the volunteer test |
 | M2v Versioned docs | ✅ Done 2026-10-11 (design §23, D320, `m2v-versioned-docs.md`): docs.anetos.dev has one site per minor version from v0.5, each from its newest patch tag (the latest release at the root, `main` at `/main/` labeled unreleased, older ones at `/v0.N/`; `main` at the root until v0.5.0, with a banner pointing at the release candidate), found from the tags by `anetos-dev/docs`'s `versions` command; a version menu to the same page in another version, a banner on every version but the latest, search per version, only the latest indexed; the `Docs` workflow also runs on core tags, which `releasing.md` pushes on their own |
+| M8d Anetos on its own terms | ✅ Done 2026-10-11 (design §1, D321): every text (docs, READMEs, godoc, the website, the organization profile, design and planning docs, the whole CHANGELOG) describes Anetos as a new Go framework, not aimed at or modeled on another; "Coming from another framework?" notes and the glossary's "Elsewhere" column name several frameworks in alphabetical order; facts without names; the rule is in the documentation guide §8, both CLAUDE.md files and the handoff |
 
 ---
 
@@ -623,7 +630,8 @@ something, and we fix the API rather than add the hook.
 | API churn upsets early users | Medium | Medium | Public release only at v0.5; API stability pass (M8); upgrade guides |
 | Third-party dependency risk (templ, drivers) | Medium | Medium | Views behind a renderer interface; heavy dependencies isolated in modules |
 | Naming/trademark conflict found late | Low | Medium | Name settled at M1 (D185): no ANETOS mark found in the US or Australia, nothing in software by that name; a professional search (EUIPO, WIPO, national offices) before any trademark filing, where the Greek meaning ("comfortable") may count as descriptive |
-| Competing with Goravel for "Laravel-like Go" | Medium | Medium | Different positioning: Go-native, typed, concurrency-first, stdlib-compatible |
+| A crowded field of Go frameworks (Gin, Echo, Fiber, Buffalo, Goravel) | Medium | Medium | Different positioning: batteries included, typed, concurrency-first, stdlib-compatible |
+| Being seen as a copy of another framework | Medium | Medium | Anetos on its own terms in every text: Go-native, typed, concurrency-first, stdlib-compatible; other frameworks named only in neutral comparisons (documentation guide §8) |
 | AI provider APIs change fast; three provider drivers to maintain | High | Medium | A thin common contract with an escape hatch to each provider's own client; official SDKs in driver modules; recorded-response conformance tests; more providers as plugins |
 | Search and AI work delays the public release | Medium | High | Fixed MVP scope (S1, A1–A3, R1, S2, I1), everything else in the backlog; re-estimate after A1 |
 | Search behaves differently per database (stemming, stop words, scores) | High | Low | One API, documented differences, capability checks at boot, tests on the deployed database |
@@ -726,3 +734,4 @@ something, and we fix the API rather than add the hook.
 | 2026-10-11 | M8c (community files) done (design D318); M8 finished |
 | 2026-10-11 | M1b (release plumbing) done (design D319); v0.5.0-rc.1 tagged |
 | 2026-10-11 | M2v (versioned docs) done (design D320) |
+| 2026-10-11 | Vision and non-goals reworded: Anetos on its own terms, no framework as the model or the audience (M8d) |

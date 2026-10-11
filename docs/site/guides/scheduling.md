@@ -289,12 +289,11 @@ that never matches (`0 0 30 2 *`) is an error then.
 - [Runtime supervisor](../concepts/runtime-supervisor.md): process types and
   staged shutdown.
 
-> **Coming from Laravel?** `s.Add(schedule.DailyAt("02:00"), "prune",
-> prune)` is `Schedule::call(...)->dailyAt('02:00')` in
-> `routes/console.php`, and `WithoutOverlapping`, `OnOneServer` and
-> `schedule.Dispatch` are `withoutOverlapping()`, `onOneServer()` and
-> `Schedule::job(...)`. `schedule:work`, `schedule:run` (for a crontab
-> entry every minute) and `schedule:list` work as in Laravel, and
-> `schedule:test <task>` is `schedule:test --name=<task>`; `go run .`
-> also runs the scheduler, in your binary.
+> **Coming from another framework?** `s.Add(schedule.DailyAt("02:00"),
+> "prune", prune)` schedules what Celery beat (Django), Laravel's
+> scheduler or a recurring job (Rails) would run. `WithoutOverlapping`,
+> `OnOneServer` and `schedule.Dispatch` keep a task to one run at a
+> time, to one server, or send it to the queue. `schedule:work`,
+> `schedule:run` (for a crontab entry every minute) and `schedule:list`
+> are there too, and `go run .` also runs the scheduler, in your binary.
 > Every task needs a name.

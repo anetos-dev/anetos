@@ -90,9 +90,11 @@ Policies are plain Go functions: `Authorize[U, T]` infers the user type
 `auth.Current[U]`, and calls it. A policy for posts can't be called with
 a comment, and there are no ability names to misspell.
 
-> **Coming from Laravel?** Policies and `$this->authorize('update', $post)`
-> map to policy methods and `auth.Authorize(c, policies.Update, post)`;
-> `@can` maps to `auth.Allows`. There are no string gates.
+> **Coming from another framework?** Policy methods and
+> `auth.Authorize(c, policies.Update, post)` play the part of Django's
+> `has_perm` checks, Laravel's policies and `authorize()`, or Pundit's
+> policies in Rails; `auth.Allows` is the check in a template. There
+> are no permission checks by name string.
 
 ## Common problems
 

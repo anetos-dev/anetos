@@ -52,8 +52,8 @@ func TestHashAndVerify(t *testing.T) {
 
 func TestBcrypt(t *testing.T) {
 	b, _ := bcrypt.GenerateFromPassword([]byte("secret"), bcrypt.MinCost)
-	laravel := "$2y$" + string(b[4:]) // Laravel's prefix
-	for _, h := range []string{string(b), laravel} {
+	php := "$2y$" + string(b[4:]) // PHP's crypt prefix
+	for _, h := range []string{string(b), php} {
 		if !Verify("secret", h) || Verify("Secret", h) {
 			t.Errorf("bcrypt %q", h[:4])
 		}

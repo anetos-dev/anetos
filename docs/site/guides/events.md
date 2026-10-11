@@ -253,10 +253,10 @@ workers' app must add the same listeners, as with any job type.
   queued listeners use.
 - [Send email](mail.md): the receipt `emailReceipt` sends.
 
-> **Coming from Laravel?** An event is an event class, `events.Emit` is
-> `event(new OrderPlaced(...))`, and listeners are registered in code
-> instead of discovered. `On` is a plain listener, `OnQueued` a listener
-> that `implements ShouldQueue` (and, like `ShouldHandleEventsAfterCommit`,
-> waits for the commit), and `OnAsync` has no Laravel equivalent: work in
-> the background, in the same process, without a queue. Event
-> subscribers are functions that call `On` several times.
+> **Coming from another framework?** Events and listeners play the part
+> of Django's signals, Laravel's events and listeners, or Rails'
+> `ActiveSupport::Notifications` (or a gem such as Wisper), and they
+> are registered in code, never discovered. `On` is a plain listener, `OnQueued` a queued one that
+> waits for the commit, and `OnAsync` works in the background, in the
+> same process, without a queue. A subscriber is a function that calls
+> `On` several times.

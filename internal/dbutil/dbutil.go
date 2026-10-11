@@ -72,8 +72,8 @@ func Transient(err error) bool {
 // (PostgreSQL truncates at 63 bytes, MySQL refuses more than 64).
 const MaxIdent = 63
 
-// IndexName names an index the way migrations do, following Laravel:
-// posts_author_id_created_at_index, lower-case. Names longer than
+// IndexName names an index the way migrations do,
+// <table>_<columns>_<suffix>, lower-case: posts_author_id_created_at_index. Names longer than
 // MaxIdent are shortened with a hash of the full name, so different long
 // names stay different, and code that looks an index up by name (Drop*,
 // a search's BM25 index) computes the same name.

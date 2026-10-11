@@ -51,7 +51,7 @@ type Column[T any] struct {
 }
 
 // TextColumn returns a sortable column showing the model's field for
-// column, headed label (Filament's TextColumn::make('title')->label(…)).
+// column, headed label.
 func TextColumn[T any](column, label string) Column[T] {
 	return Column[T]{Label: label, Column: column, Sortable: true}
 }

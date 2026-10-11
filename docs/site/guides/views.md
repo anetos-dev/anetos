@@ -311,10 +311,11 @@ context and writes it with `Content-Type: text/html; charset=utf-8`.
 `c.IsHTMX()` adds `Vary: HX-Request`, so caches keep fragments and full
 pages apart.
 
-> **Coming from Laravel?** templ components play the role of Blade views
-> and components; `{ children... }` is `$slot`/`@yield`. `web.URL` is
-> `route()`, and `assets.URL` replaces `asset()`/`mix()` for files without
-> a build step (Vite arrives in v0.6).
+> **Coming from another framework?** templ components play the role of
+> Django templates, Laravel's Blade views and components, or Rails'
+> views and partials; `{ children... }` is where the content goes.
+> `web.URL` builds a route's URL, and `assets.URL` gives a static file's
+> URL without a build step (Vite arrives in v0.6).
 
 ## Testing it
 

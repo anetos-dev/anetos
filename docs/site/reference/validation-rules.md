@@ -26,9 +26,10 @@ Skip  Inner  `json:"skip" validate:"-"`
 - A rule that names another field (`required_if:plan,team`, `same:email`)
   accepts its Go name or its request key. It must be a field of the same
   struct (including fields promoted from embedded structs).
-- Rule names are letters, digits and underscores. A few Laravel rules that
-  aren't needed here (`nullable`, `sometimes`, `bail`, `string`, …) give a
-  startup error explaining what to do instead.
+- Rule names are letters, digits and underscores. A few rules other
+  validators have that aren't needed here (`nullable`, `sometimes`,
+  `bail`, `string`, …) give a startup error explaining what to do
+  instead.
 - `validate:"-"` skips the field and anything nested in it.
 - Other tags: `label:"web site"` sets the name used in messages. The
   request key comes from `json`, then `form`, `query`, `path`, `header`, then

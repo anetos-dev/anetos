@@ -329,8 +329,10 @@ roadmap behind the same `Search` method.
 - [Configuration reference](../reference/configuration.md#search):
   `DB_SEARCH_LANGUAGE`, `DB_SEARCH_RANKING`.
 
-> **Coming from Laravel?** This is Scout's database engine without the
-> `Searchable` trait: the migration declares what's searchable, and the
-> database's full-text index (not `LIKE`) does the matching and ranking.
-> Scout's search engines (Meilisearch, Algolia, Typesense) are on the
-> roadmap as drivers behind the same `Search`.
+> **Coming from another framework?** This is full-text search in the
+> database, as Django's `django.contrib.postgres.search`, Laravel
+> Scout's database engine or Rails' pg_search give: the migration
+> declares what's searchable, and the database's full-text index (not
+> `LIKE`) does the matching and ranking. Search engines (Meilisearch,
+> Algolia, Typesense) are on the roadmap as drivers behind the same
+> `Search`.

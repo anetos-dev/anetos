@@ -392,7 +392,7 @@ func TestEachSkipsEmptyElements(t *testing.T) {
 	wantError(t, &in{Emails: []string{"", "nope"}}, "Emails", "")
 }
 
-func TestLaravelHints(t *testing.T) {
+func TestRuleHints(t *testing.T) {
 	_, err := Compile(reflect.TypeFor[struct {
 		A *string `validate:"nullable|email"`
 	}]())

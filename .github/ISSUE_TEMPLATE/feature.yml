@@ -26,7 +26,7 @@ body:
     id: elsewhere
     attributes:
       label: How others do it
-      description: How Laravel, Rails, Django or a Go library does it, if they do.
+      description: How other frameworks or Go libraries do it, if they do.
     validations:
       required: false
   - type: checkboxes

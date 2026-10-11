@@ -128,10 +128,11 @@ run between `app.Boot` and `app.Close`, which also runs if the command
 panics. `help` doesn't boot the app, so it works without a database;
 commands that boot it (`route:list` too) need the database reachable.
 
-> **Coming from Laravel?** This is `artisan` built into your binary:
-> `./blog migrate` instead of `php artisan migrate`, and custom commands
-> are functions registered on the app instead of classes. Code generators
-> (`make:*`) live in the `anetos` tool instead, since they write source.
+> **Coming from another framework?** This is the job of Django's
+> `manage.py`, Laravel's `artisan` or Rails' `bin/rails`, built into your
+> binary: `./blog migrate`, and custom commands are functions registered
+> on the app instead of classes. Code generators (`make:*`) live in the
+> `anetos` tool instead, since they write source.
 
 ## Testing it
 

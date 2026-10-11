@@ -19,8 +19,8 @@ This applies to human contributors and AI assistants (Claude Code etc.) alike.
 
 ## 1. Why this matters
 
-Laravel became popular because of its documentation as much as its code. For
-Anetos, docs are also a **design tool**: if a feature is hard to explain in a
+Good documentation is a large part of what makes a framework easy to
+adopt. For Anetos, docs are also a **design tool**: if a feature is hard to explain in a
 short guide, the API is probably wrong. We fix the API rather than write
 longer docs.
 
@@ -28,7 +28,7 @@ longer docs.
 
 ## 2. Definition of Done
 
-Every PR that changes behaviour must tick all of these (the PR template
+Every PR that changes behavior must tick all of these (the PR template
 contains this list):
 
 - [ ] **Code** is complete and passes CI (`lint`, `test -race`, `govulncheck`).
@@ -193,18 +193,22 @@ reference pages from source where possible** (config structs, CLI command
 definitions) so they can't drift. Until a `docs:gen` task does, keep them
 in sync by hand as part of the Definition of Done.
 
-### 5.4 "Coming from Laravel?" boxes
+### 5.4 "Coming from another framework?" boxes
 
-Our audience includes many Laravel developers. Where it helps, add a short
-callout mapping the concept:
+Readers come from many frameworks. Where it helps, add a short callout
+mapping the concept to its name in several of them, in alphabetical
+order:
 
 ```markdown
-> **Coming from Laravel?** `app.Worker(...)` plays the role of
-> `php artisan queue:work`, but runs inside your app's own binary.
+> **Coming from another framework?** A job is what Django apps run as
+> a Celery task, Laravel as a queued job, and Rails as an Active Job.
+> Here the workers run inside your app's own binary.
 ```
 
-Use them sparingly (at most one per page). Never write "just like Laravel"
-when the behaviour differs.
+Use them sparingly (at most one per page). Name several frameworks or
+none, in alphabetical order unless the sentence contrasts them: a box
+never maps Anetos to one framework alone. Never write "just
+like X" when the behavior differs.
 
 ---
 
@@ -218,7 +222,7 @@ when the behaviour differs.
   its main types, a minimal usage snippet, and links to the user guide.
 - **Document the contract, not the implementation:** parameters, return
   values, **errors returned**, **concurrency safety** ("safe for concurrent
-  use"), zero-value behaviour, and context cancellation behaviour.
+  use"), zero-value behavior, and context cancellation behavior.
 - **Runnable examples:** key APIs get `Example…` functions in
   `example_test.go`. They are compiled and run by `go test` and appear on
   pkg.go.dev.
@@ -274,9 +278,19 @@ Broken examples are the fastest way to lose trust.
 
 ## 8. Writing style
 
-- **Audience:** Go developers, including those new to Go who come from
-  Laravel, Rails or Django. Assume programming experience; don't assume
-  Anetos knowledge.
+- **Audience:** developers building web applications in Go, including
+  those new to Go who come from another language or framework. Assume
+  programming experience; don't assume Anetos knowledge.
+- **Anetos on its own terms.** Anetos is a new framework: easy to adopt,
+  easy to extend, highly manageable, built the Go way. Describe what it
+  does as a fact ("rules are separated by `|`"), never as a copy of
+  another framework ("X's syntax", "the comfort of X"), and never write
+  as if aimed at one framework's developers. Other frameworks appear in
+  a neutral comparison that names several (the boxes of §5.4, the
+  glossary's "Elsewhere" column) and in benchmarks. A single tool may be
+  named for a fact: where a name comes from, a precedent in the decision
+  log, or a clash to avoid (`gin.H`), never as the model or the
+  audience.
 - **Voice:** second person ("you"), present tense, active voice. "Anetos
   starts the workers", not "the workers will be started".
 - **Short sentences, short paragraphs.** One idea per paragraph. Lead with
@@ -288,7 +302,7 @@ Broken examples are the fastest way to lose trust.
 - **Be honest about trade-offs.** If something is at-least-once, not
   crash-safe, or slower in some case, say so plainly, with a callout.
 - **Callouts:** `> **Note:**` (helpful context), `> **Warning:**` (data
-  loss, security, surprising behaviour), `> **Coming from Laravel?**` (§5.4).
+  loss, security, surprising behavior), `> **Coming from another framework?**` (§5.4).
 - **Link, don't duplicate.** Explain a concept once and link to it.
 - **Terminology:** use the glossary terms exactly (§11).
 
@@ -351,7 +365,7 @@ approach, serialization format).
 
 The words of the docs, the code and discussion are those of the user
 glossary, [`docs/site/concepts/glossary.md`](../site/concepts/glossary.md):
-use them, and add a word there (with Laravel's or Rails' word for it)
+use them, and add a word there (with other frameworks' words for it, when they differ)
 before using it anywhere else. The rule behind them is the API
 guidelines' first: use the word developers already know, and a new word
 only for a new idea.
@@ -403,3 +417,4 @@ sketches as illustrative; never invent APIs in docs that don't exist in code.
 | 2026-10-11 | §5.3, §9: v0.5 is the docs' baseline, later additions say "Since v0.N"; §11: the user glossary page is the glossary (M8b-6, D317) |
 | 2026-10-11 | §2: the first pages (README, the website's home page, the install page) in the Definition of Done (after rc.1) |
 | 2026-10-11 | §9: the docs site has one version per minor release; a fix to a released version's pages ships with a patch release (M2v, D320) |
+| 2026-10-11 | §1, §5.4, §8, §11: Anetos described on its own terms; "Coming from another framework?" boxes name several frameworks (M8d) |

@@ -132,9 +132,11 @@ setting gets the strictest behavior.
   used code path first reads it. The cost: one invalid setting stops the
   whole app, and a new value needs a restart.
 
-> **Coming from Laravel?** The struct replaces `env()` plus
-> `config/*.php`, and there's no config cache to clear. `APP_KEY` and
-> `APP_PREVIOUS_KEYS` play the same roles.
+> **Coming from another framework?** The struct takes the place of
+> Django's `settings.py`, Laravel's `config/*.php` files or Rails'
+> `config/`, and it's read at startup, so there's no config cache to
+> clear. `APP_KEY` is the
+> app's secret key, and `APP_PREVIOUS_KEYS` lets you rotate it.
 
 ## Related
 

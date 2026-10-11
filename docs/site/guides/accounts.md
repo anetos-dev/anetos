@@ -353,7 +353,9 @@ user has no other account of that provider linked.
 - [Send email](mail.md): send the emails with SMTP or Postmark.
 - [Authorization](authorization.md): policies.
 
-> **Coming from Laravel?** `anetos make:auth` is Breeze: the
-> controllers, views and routes are published into your app. Hashing,
-> remember-me, throttling and tokens (Fortify and Sanctum's parts) stay in
-> the library, and so does the OAuth flow (Socialite's part).
+> **Coming from another framework?** `anetos make:auth` writes the
+> handlers, views and routes into your app, as Laravel's starter kits
+> and Rails' authentication generator do, where Django's
+> `django.contrib.auth` keeps its views in the library. Hashing,
+> remember-me, throttling and tokens stay in the library here, and so
+> does the OAuth flow.

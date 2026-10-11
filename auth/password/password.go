@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package password hashes and checks passwords: argon2id for new hashes,
-// with bcrypt hashes (from another framework, say Laravel) still
-// accepted.
+// with bcrypt hashes (from an existing app, say) still accepted.
 //
 //	hash, err := password.Hash(in.Password)       // store hash
 //	ok := password.Verify(in.Password, user.Password)

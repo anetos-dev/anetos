@@ -203,11 +203,14 @@ Migrations are Go code compiled into the binary, so a deploy ships exactly
 the migrations its code expects, and no migration files need to be copied
 to the server.
 
-> **Coming from Laravel?** The commands, batches and `--step` work like
-> Artisan's. `s.Create`/`s.Alter` are `Schema::create`/`Schema::table`,
-> and `$table->foreignId('user_id')->constrained()` is
-> `t.ForeignID("user_id").Constrained()`. Migrations are registered in a
-> set instead of discovered from a directory.
+> **Coming from another framework?** `s.Create` and `s.Alter` are
+> Laravel's `Schema::create` and `Schema::table`, or Rails'
+> `create_table` and `change_table`, and
+> `t.ForeignID("user_id").Constrained()` adds a foreign key, as
+> `foreignId('user_id')->constrained()` and
+> `t.references :user, foreign_key: true` do. Django writes migrations
+> from the models instead. Migrations are registered in a set instead of
+> discovered from a directory.
 
 ## Testing it
 
