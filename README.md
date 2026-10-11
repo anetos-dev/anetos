@@ -10,8 +10,9 @@ built the Go way: typed, `net/http`-compatible, code generation instead of
 runtime magic, and a supervised runtime where HTTP, queue workers, pub/sub
 listeners and the scheduler run together in **one binary**.
 
-**Status:** pre-alpha. v0.4.0 is tagged; the first public release is
-v0.5. APIs will change.
+**Status:** pre-alpha. v0.5.0-rc.1, the release candidate of the first
+public release, is out; v0.5.0 follows after a test with volunteers.
+APIs can still change before v0.5.0, and will change before v1.
 
 - **v0.1, the foundation:** the app, configuration, runtime
   supervisor, HTTP layer, validation, data layer with relations,
@@ -48,6 +49,13 @@ v0.5. APIs will change.
   and filters; typed results with the route's status; an OpenAPI 3.1
   description generated from the handlers, served and checked in a
   test ([`examples/bookmarks`](examples/bookmarks)).
+- **v0.5, the first public release:** installs from the module proxy
+  with `go install`; interface components in every project
+  (`views/ui`) and a choice of CSS framework (Pico, Bootstrap, Bulma,
+  Tailwind CSS or none; `css:use` switches); one vocabulary across
+  settings, commands and the API, with a
+  [glossary](docs/site/concepts/glossary.md); contributor docs,
+  governance and a code of conduct ([Contributing](#contributing)).
 
 The [tutorial](docs/site/getting-started/tutorial/README.md) builds an
 issue tracker step by step, and [`examples/tracker`](examples/tracker),
@@ -68,6 +76,8 @@ the reference app, is a bigger one; the
 ## Developer experience
 
 ```bash
+go install anetos.dev/anetos/cli/cmd/anetos@v0.5.0-rc.1  # the anetos command (Go 1.26+)
+
 anetos new blog && cd blog # templ views in a starter theme (light/dark), sessions, CSRF, SQLite
 go tool anetos make:crud Post title:string body:text published:bool  # pages to list, show, create, edit, delete
 go tool anetos make:auth   # accounts: password, Google, GitHub, API tokens

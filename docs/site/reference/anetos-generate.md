@@ -15,7 +15,7 @@ weight: 101
 
 | Command | Does |
 |---|---|
-| `go get -tool anetos.dev/anetos/cli/cmd/anetos@latest` | Adds the tool to your module's `go.mod` |
+| `go get -tool anetos.dev/anetos/cli/cmd/anetos@v0.5.0-rc.1` | Adds the tool to your module's `go.mod` |
 | `go tool anetos generate [packages]` | Generates for the packages (default `./...`, relative to the current directory) |
 | `go tool anetos generate --check [packages]` | Writes nothing; exits with status 1 and lists the out-of-date files |
 | `go tool anetos version` | Prints the tool's version |

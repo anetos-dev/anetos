@@ -68,6 +68,10 @@ tag a new patch version instead.
      becomes `## [X.Y.Z] - date`, and so does each driver's and
      plugin's CHANGELOG. A module without changes says so.
    - The upgrade guide is complete.
+   - For v0.5.0 only: the install commands go back to `@latest`. Until
+     v0.5.0, `@latest` finds `cli` v0.4.0, which can't be installed, so
+     the README, the docs and the website name `@v0.5.0-rc.1`
+     (`grep -rn 'cmd/anetos@v0' README.md docs/site ../website/content`).
 2. **Prepare:** `make release VERSION=vX.Y.Z` (with the locales
    repository at `../locales`, or `LOCALES=…`).
    - It checks the CHANGELOG sections (not for a pre-release such as
@@ -97,13 +101,20 @@ tag a new patch version instead.
    ```
 
    The proxy fetches a new tag on the first request, within a minute.
-7. **After a release:** `develVersion` in `version.go` becomes the next
+   Don't ask it for a version before its tag is pushed: it remembers
+   the "not found" for a while.
+7. **GitHub Release:** on the core's tag (`vX.Y.Z`) alone, one per
+   version, titled with it. The notes: what the release is, the
+   install command, the highlights, and links to the CHANGELOG and the
+   upgrade guide at the tag. No files: `go install` builds the tool. A
+   pre-release is marked "pre-release" and not "latest".
+8. **After a release:** `develVersion` in `version.go` becomes the next
    `vX.Y+1.0-dev`, and the CHANGELOGs get a new `Unreleased` section.
    The published modules keep requiring the released version until the
    next release.
 
 A pre-release (`vX.Y.Z-rc.N`) goes the same way, without step 1's
-CHANGELOG change and step 7, both left for the release. `@latest` never picks a
+CHANGELOG change and step 8, both left for the release. `@latest` never picks a
 pre-release while there is a release, and the go command reads
 retractions from the latest release's `go.mod`, so a pre-release's
 retractions show only from the next release.

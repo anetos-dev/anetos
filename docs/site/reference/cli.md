@@ -17,8 +17,8 @@ commands. See [Commands](../guides/commands.md) and
 
 | Command | Use |
 |---|---|
-| `go install anetos.dev/anetos/cli/cmd/anetos@latest` | For `anetos new`, before you have a project |
-| `go get -tool anetos.dev/anetos/cli/cmd/anetos@latest` | In a project: pins the version in `go.mod`; run it as `go tool anetos` (projects made by `anetos new` have it) |
+| `go install anetos.dev/anetos/cli/cmd/anetos@v0.5.0-rc.1` | For `anetos new`, before you have a project |
+| `go get -tool anetos.dev/anetos/cli/cmd/anetos@v0.5.0-rc.1` | In a project: pins the version in `go.mod`; run it as `go tool anetos` (projects made by `anetos new` have it) |
 
 Flags may come before or after the other arguments. `anetos help
 <command>` (or `anetos <command> -h`) shows a command's usage. Exit

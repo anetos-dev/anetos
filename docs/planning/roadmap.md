@@ -511,7 +511,7 @@ it later; then the public release. **This is the first public release.**
 | M8 | API stability pass | From v0.3: review every exported identifier, add deprecations, CONTRIBUTING, CODE_OF_CONDUCT, issue templates, governance note. In three parts: **M8a** the API guidelines and the API files (`api/*.txt`, checked in CI); **M8b** the review against them and its fixes (renames shimmed with `//go:fix inline` until v0.6, findings agreed with the user first); **M8c** the community files |
 | M1b | Release plumbing | From v0.3: tag the modules, remove the `replace` directives from published `go.mod` files, the vanity import paths |
 | M2v | Versioned docs | From v0.3 (M2): docs per minor version from v0.5, `main` labeled "unreleased" |
-| M9 | Launch | From v0.3: announcement post, awesome-go submission, community channels |
+| M9 | Launch | From v0.3: announcement post, awesome-go submission, community channels; the v0.5.0 GitHub Release, and the install commands back to `@latest` (`releasing.md`) |
 
 **Exit criteria**
 
