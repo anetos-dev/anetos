@@ -48,6 +48,10 @@ contains this list):
       guide (§9).
 - [ ] **Design impact?** Decision log / ADR updated (§10).
 - [ ] **Roadmap impact?** WP status or scope updated in the roadmap.
+- [ ] **First pages**: the README (the first thing a developer sees),
+      the website's home page and the docs' install page still say
+      what is true: the status and latest version, the summary of each
+      release, and the commands they show.
 
 Docs-only PRs are welcome and follow the same review rules.
 

@@ -20,3 +20,4 @@ See `docs/contributing/documentation-guide.md` §2.
 - [ ] Breaking change? Migration notes in CHANGELOG + upgrade guide (or N/A)
 - [ ] Design impact? design.md decision log / ADR updated (or N/A)
 - [ ] Roadmap impact? WP status or scope updated (or N/A)
+- [ ] README, website home page and install page still true: status, version, release summary, commands (or N/A)
