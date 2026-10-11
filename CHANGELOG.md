@@ -109,6 +109,10 @@ All notable changes to this project are documented here. The format follows
   Anetos uses, and Laravel's or Rails' for the same thing; an "Operations"
   section in the application lifecycle page; the `anetos` package's
   documentation, with a compiling example of `main.go` (M8b-6, D317).
+- Docs per version: docs.anetos.dev shows the latest release, with
+  `main` at `/main/` (labeled unreleased) and older minor versions at
+  `/v0.N/`; a version menu goes to the same page in another version
+  (M2v, D320).
 - The exported API of each library module is listed in
   `api/<module>.txt`; `make api-check` (in `make check` and CI) fails
   when the list differs from the source, and `make api-update` writes

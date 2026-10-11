@@ -92,8 +92,21 @@ tag a new patch version instead.
 4. **Tag** the anetos commit with every tag `make release` printed
    (lightweight tags: `git tag v0.5.0`, `git tag cli/v0.5.0`…). Tag the
    locales commit with `vX.Y.Z` too.
-5. **Push** the anetos commit, then its tags (`git push origin
-   --tags`), then locales and its tag.
+5. **Push** the anetos commit, then the modules' tags, then the core's
+   tag on its own, then locales and its tag:
+
+   ```sh
+   git push origin main
+   git push origin $(git tag --points-at HEAD | grep / | sed 's#^#refs/tags/#')
+   git push origin vX.Y.Z
+   ```
+
+   The core's tag goes alone because GitHub creates no event for a
+   push of more than three tags, and its push is what rebuilds the
+   docs (the `Docs` workflow): docs.anetos.dev has one version per
+   minor release, found from the tags (design D320). If the docs don't
+   rebuild, run the `Docs` workflow by hand (Actions → Docs → Run
+   workflow).
 6. **Check** from a machine that reaches proxy.golang.org, in an empty
    directory:
 
@@ -106,11 +119,18 @@ tag a new patch version instead.
    The proxy fetches a new tag on the first request, within a minute.
    Don't ask it for a version before its tag is pushed: it remembers
    the "not found" for a while.
+
+   For a release (not a pre-release), docs.anetos.dev's root shows the
+   new version in its version menu, and `/main/` the main branch.
 7. **GitHub Release:** on the core's tag (`vX.Y.Z`) alone, one per
    version, titled with it. The notes: what the release is, the
    install command, the highlights, and links to the CHANGELOG and the
-   upgrade guide at the tag. No files: `go install` builds the tool. A
-   pre-release is marked "pre-release" and not "latest".
+   upgrade guide at the tag. No files: `go install` builds the tool.
+   GitHub's form: "Release label" is "Pre-release" for a pre-release,
+   which is then never the latest. A patch of an older minor version
+   (v0.5.3 after v0.6.0) mustn't become the latest: untick "Set as the
+   latest release" if the form offers it. Don't use "Generate release notes", and leave "Create a
+   discussion" off (the notes point at Issues and Discussions).
 8. **After a release:** `develVersion` in `version.go` becomes the next
    `vX.Y+1.0-dev`, and the CHANGELOGs get a new `Unreleased` section.
    The published modules keep requiring the released version until the
@@ -121,3 +141,27 @@ CHANGELOG change and step 8, both left for the release. `@latest` never picks a
 pre-release while there is a release, and the go command reads
 retractions from the latest release's `go.mod`, so a pre-release's
 retractions show only from the next release.
+
+## A patch release
+
+Once `main` has moved on to the next minor version, a patch release
+(v0.5.1, after v0.6 work has started) can't be cut from `main`: it
+would carry the unreleased changes. It's cut from the minor version's
+last tag instead, on a branch that only lives on your machine:
+
+```sh
+git switch -c patch-0.5 v0.5.0      # the minor version's newest tag
+git cherry-pick <commit>…           # the fixes, already on main
+```
+
+Then steps 1 to 7 as above, on that branch: the CHANGELOG sections
+`[0.5.1]`, `make release VERSION=v0.5.1`, the commit, the tags. Push
+the tags only (step 5 without `git push origin main`): a tag carries
+its commit, so the branch isn't needed on GitHub. Do the same in
+locales, from its `v0.5.0` tag. Then, on `main`, add the `[0.5.1]`
+sections to the CHANGELOGs too, and delete the branch (`git switch
+main && git branch -D patch-0.5`).
+
+The docs follow: docs.anetos.dev builds each minor version from its
+newest patch tag, so a fix to a released version's pages goes live with
+a patch release like this one, which may change nothing but the docs.

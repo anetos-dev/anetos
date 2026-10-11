@@ -313,8 +313,12 @@ Broken examples are the fastest way to lose trust.
   nothing about v0.1–v0.4 except where a former name is still read. What
   later versions add is marked with `since: v0.N.0` in front matter (the
   site shows it after v0.5.0) or an inline "Since v0.N" note.
-- **Versioned docs:** planned: the docs site publishing docs per minor
-  version, with `main` labeled "unreleased". Today it follows `main`.
+- **Versioned docs:** docs.anetos.dev shows the latest release at its
+  root, `main` at `/main/` (labeled unreleased) and older minor versions
+  at `/v0.N/`, each from its newest patch tag (D320). So a page on
+  `main` describes the next release: a fix to a released version's page
+  goes live with a patch release cut from that version's last tag
+  ([releasing](releasing.md#a-patch-release)).
 - Driver and plugin modules keep their own `CHANGELOG.md`.
 
 ---
@@ -397,3 +401,5 @@ sketches as illustrative; never invent APIs in docs that don't exist in code.
 | 2026-10-10 | §2, §6: the API guidelines, `api/*.txt` and deprecations in the Definition of Done; the `Deprecated:` form (M8a) |
 | 2026-10-10 | §5.1, §12: images in `docs/site/images`, WebP screenshots made by a script, alt text; `make docs-check` checks them (K5, D307) |
 | 2026-10-11 | §5.3, §9: v0.5 is the docs' baseline, later additions say "Since v0.N"; §11: the user glossary page is the glossary (M8b-6, D317) |
+| 2026-10-11 | §2: the first pages (README, the website's home page, the install page) in the Definition of Done (after rc.1) |
+| 2026-10-11 | §9: the docs site has one version per minor release; a fix to a released version's pages ships with a patch release (M2v, D320) |

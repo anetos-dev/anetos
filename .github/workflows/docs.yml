@@ -1,13 +1,18 @@
 # SPDX-License-Identifier: Apache-2.0
-# Rebuilds docs.anetos.dev when the pages change on main. The site is
-# built by anetos-dev/docs on Cloudflare Pages; DOCS_DEPLOY_HOOK is that
-# project's deploy hook URL (a repository secret). Without it, this does
-# nothing.
+# Rebuilds docs.anetos.dev when the pages change on main, and when a
+# release's core tag (vX.Y.Z) is pushed: the site has one version per
+# minor release, found from the tags (design D320). GitHub creates no
+# event for a push of more than three tags, so releasing.md pushes the
+# core tag on its own. The site is built by anetos-dev/docs on Cloudflare
+# Pages; DOCS_DEPLOY_HOOK is that project's deploy hook URL (a repository
+# secret). Without it, this does nothing.
 name: Docs
 
 on:
   push:
     branches: [main]
+    # GitHub doesn't apply path filters to tag pushes.
+    tags: ["v*.*.*"]
     paths: ["docs/site/**"]
   workflow_dispatch:
 
