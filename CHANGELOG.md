@@ -93,6 +93,14 @@ All notable changes to this project are documented here. The format follows
   `scripts/kit-screenshots/run.sh` makes the screenshots, and `make
   docs-check` checks a page's images: they exist, have alt text, and
   every image is shown.
+- Every published module installs from the module proxy, from
+  v0.5.0-rc.1 (`@latest` from v0.5.0): `go install
+  anetos.dev/anetos/cli/cmd/anetos@…`, and `anetos new` without
+  `--replace`. The modules are released together with one version and
+  require each other at it (`make release`); `cli` builds against the
+  checkout through `cli/go.work`; CI rehearses a release on every push
+  (`make release-rehearsal`); v0.1.0–v0.4.0 are retracted; see
+  `docs/contributing/releasing.md` (M1b, D319).
 - CONTRIBUTING.md, GOVERNANCE.md and issue forms for bugs, proposals and
   the docs (questions go to GitHub Discussions); the code of conduct,
   Contributor Covenant 3.0, is the organization's, in anetos-dev/.github
@@ -110,6 +118,10 @@ All notable changes to this project are documented here. The format follows
   D300).
 
 ### Changed
+- `anetos new` installs the core and the driver at the tool's own
+  version instead of the latest, and `anetos add` a first-party plugin
+  (`anetos.dev/anetos/plugins/…`) at it too: a tool makes projects of its
+  own release (M1b, D319).
 - The docs take v0.5, the first public release, as their baseline: the
   "Since" notes and columns for v0.1–v0.4 are gone, and the v0.3 and
   v0.4 upgrade guides are listed under "Before the first public

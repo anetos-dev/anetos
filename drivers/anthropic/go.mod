@@ -26,3 +26,6 @@ require (
 )
 
 replace anetos.dev/anetos => ../..
+
+// Unusable: they require versions of other modules that don't exist.
+retract [v0.1.0, v0.4.0]

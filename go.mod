@@ -10,3 +10,6 @@ require (
 )
 
 require golang.org/x/sys v0.48.0 // indirect
+
+// Pre-releases from before Anetos was announced: use v0.5.0 or later.
+retract [v0.1.0, v0.4.0]

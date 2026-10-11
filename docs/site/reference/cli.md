@@ -38,8 +38,9 @@ status: 0 on success, 1 on errors, 2 for bad usage.
 The directory must not exist or be empty; its name (letters, digits, `-`
 and `_`, starting with a letter) becomes the app's name. `anetos new .`
 uses the current directory. It writes the project, then runs `go get` for
-Anetos and the driver (latest) and the `anetos` tool (its own version),
-pinned as tools with templ, then `go tool templ generate` and
+Anetos, the driver and the `anetos` tool, all at the tool's own version
+(every Anetos module is released with the same version; a development
+build of the tool takes the latest), pinned as tools with templ, then `go tool templ generate` and
 `go mod tidy` (the api stack has no templ, and runs `go run . openapi`
 last, writing `openapi.json`). With `--db=postgres` or
 `mysql`, create the database before `migrate`.
@@ -175,7 +176,8 @@ Install and uninstall [plugins](../guides/plugins.md), from the project's
 directory or below. Both rewrite `plugins.go` (generated: `DO NOT EDIT`),
 which `setup` passes to `ext.Load`.
 
-`anetos add [--yes] <module>[@version]` (version default `latest`):
+`anetos add [--yes] <module>[@version]` (version default `latest`; for
+Anetos's own plugins, `anetos.dev/anetos/plugins/…`, the tool's version):
 
 1. Prints the module and the version, and that a plugin is code that
    runs with the app's privileges; runs `go get <module>@<version>`.

@@ -1,0 +1,13 @@
+// The cli module builds against the framework in this checkout: go.mod
+// requires a published version of the core, which go install and go mod
+// tidy use; this workspace's replace points it here instead, without a
+// replace directive in go.mod, which go install refuses. A replace rather
+// than "use ..": the core's go.mod is then read from the checkout, so the
+// build doesn't need the required version to be published yet (a release
+// commit requires the version it releases). See
+// docs/contributing/releasing.md.
+go 1.26.0
+
+use .
+
+replace anetos.dev/anetos => ..

@@ -3,7 +3,7 @@ module anetos.dev/anetos/examples/tracker
 go 1.26.0
 
 require (
-	anetos.dev/anetos v0.0.0-00010101000000-000000000000
+	anetos.dev/anetos v0.4.1-0.20261010215428-426a3a3dfbe9
 	anetos.dev/anetos/admin v0.0.0-00010101000000-000000000000
 	anetos.dev/anetos/drivers/mysql v0.0.0-00010101000000-000000000000
 	anetos.dev/anetos/drivers/postgres v0.0.0-00010101000000-000000000000

@@ -39,3 +39,6 @@ updates:
         versions: ["1.84.0"]
       - dependency-name: google.golang.org/api
         versions: [">= 0.299.0"]
+      # The repository's own modules require each other's release
+      # version, which make release sets (docs/contributing/releasing.md).
+      - dependency-name: anetos.dev/*

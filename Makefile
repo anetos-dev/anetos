@@ -8,7 +8,7 @@ MODULES  ?= $(patsubst %/go.mod,%,$(shell find . -name go.mod -not -path './.git
 EACH      = for m in $(MODULES); do echo "== $$m"; (cd $$m &&
 DONE      = ) || exit 1; done
 
-.PHONY: all check fmt fmt-check vet lint test test-short cover bench bench-check bench-compare vuln spdx docs-check api-docs api-check api-update gen-check tidy help
+.PHONY: all check fmt fmt-check vet lint test test-short cover bench bench-check bench-compare vuln spdx docs-check api-docs api-check api-update gen-check tidy release release-rehearsal help
 
 all: check ## Run every check CI runs
 
@@ -72,6 +72,16 @@ gen-check: ## Check generated model columns are up to date
 
 tidy: ## go mod tidy
 	@$(EACH) $(GO) mod tidy $(DONE)
+
+LOCALES ?= ../locales
+
+release: ## Prepare release VERSION (vX.Y.Z): CHANGELOGs checked, requirements set here and in LOCALES (LOCALES= for none), tags printed
+	@test -n "$(VERSION)" || { echo "usage: make release VERSION=vX.Y.Z [LOCALES=../locales]"; exit 2; }
+	@if [ -n "$(LOCALES)" ] && [ ! -f "$(abspath $(LOCALES))/go.mod" ]; then echo "make release: no go.mod in LOCALES=$(LOCALES) (LOCALES= to release without it)"; exit 2; fi
+	@cd cli && $(GO) run ./internal/cmd/release prepare -root .. $(if $(LOCALES),-locales "$(abspath $(LOCALES))") $(VERSION)
+
+release-rehearsal: ## Install the committed tree from a module proxy on disk, as a release; anetos new, build and test (web and api)
+	@cd cli && $(GO) run ./internal/cmd/release rehearse -root ..
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-12s %s\n", $$1, $$2}'

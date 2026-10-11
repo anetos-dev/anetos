@@ -27,3 +27,6 @@ replace (
 	anetos.dev/anetos => ../..
 	anetos.dev/anetos/drivers/sqlite => ../../drivers/sqlite
 )
+
+// Unusable: they require versions of other modules that don't exist.
+retract [v0.1.0, v0.4.0]

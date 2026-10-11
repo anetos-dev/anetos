@@ -52,12 +52,18 @@ make bench     # benchmarks (bench/ compares with net/http, chi, Gin, Echo; resu
 make bench-check    # allocation budgets of requests and queries (bench/budget_test.go)
 make bench-compare  # benchmarks vs main (BASE=…), run in turns; fails on a regression
 make vuln      # govulncheck
+make release-rehearsal       # install the committed tree as a release would be (CI runs it)
+make release VERSION=vX.Y.Z  # set the modules' versions for a release; prints the tags
 make help      # list targets
 ```
 
 The repository has several Go modules (the core, `drivers/*`, the `cli`
 developer tool, and examples that need drivers); make targets run in each. Driver modules
-depend on the core through a `replace ../..` directive. The PostgreSQL,
+depend on the core through a `replace ../..` directive; `cli` has none
+(`go install` refuses it) and uses the checkout's core through
+`cli/go.work`. The published modules are released together with one
+version: see `docs/contributing/releasing.md`, and never move or delete
+a pushed tag. The PostgreSQL,
 MySQL and Redis conformance tests run when `ANETOS_TEST_POSTGRES_URL`,
 `ANETOS_TEST_MYSQL_URL` and `ANETOS_TEST_REDIS_URL` are set (CI sets
 them); otherwise they skip.

@@ -13,6 +13,8 @@ import (
 	"strings"
 
 	"anetos.dev/anetos/cli/internal/scaffold"
+	"golang.org/x/mod/module"
+	"golang.org/x/mod/semver"
 )
 
 const newUsage = `Usage: anetos new <directory> [--module=path] [--db=sqlite|postgres|mysql] [--stack=web|api] [--css=anetos|none|pico|bootstrap|bulma|tailwind]
@@ -86,11 +88,12 @@ func newProject(ctx context.Context, args []string, stdout, stderr io.Writer) in
 func installSteps(db, stack string, replaced bool) [][]string {
 	var steps [][]string
 	if !replaced {
-		// The modules are versioned separately: the tool pins itself, the
-		// core and driver take their latest releases.
+		// Every module is released with the same version: a tool of one
+		// release makes projects of that release, whose code it wrote.
+		v := anetosVersion()
 		steps = append(steps,
-			[]string{"get", "anetos.dev/anetos@latest", "anetos.dev/anetos/drivers/" + db + "@latest"},
-			[]string{"get", "-tool", "anetos.dev/anetos/cli/cmd/anetos@" + anetosVersion()})
+			[]string{"get", "anetos.dev/anetos@" + v, "anetos.dev/anetos/drivers/" + db + "@" + v},
+			[]string{"get", "-tool", "anetos.dev/anetos/cli/cmd/anetos@" + v})
 	}
 	if stack != "api" {
 		steps = append(steps,
@@ -105,13 +108,23 @@ func installSteps(db, stack string, replaced bool) [][]string {
 	return steps
 }
 
+// toolVersion is this tool's version (a variable for tests).
+var toolVersion = version
+
 // anetosVersion is the version of Anetos to put in new projects: this
 // tool's, or latest when it isn't a release.
 func anetosVersion() string {
-	if v := version(); strings.HasPrefix(v, "v") && !strings.Contains(v, "-0.") && v != "v0.0.0" {
-		return v
+	return releaseVersion(toolVersion())
+}
+
+// releaseVersion is v when it's a release or a pre-release (v0.5.0,
+// v0.5.0-rc.1), else "latest": for "(devel)", v0.0.0 and the
+// pseudo-versions of builds from a commit or a checkout.
+func releaseVersion(v string) string {
+	if !semver.IsValid(v) || module.IsPseudoVersion(v) || v == "v0.0.0" {
+		return "latest"
 	}
-	return "latest"
+	return v
 }
 
 // goCmd runs the go command in dir, returning its combined output.

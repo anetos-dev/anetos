@@ -82,6 +82,13 @@ jobs:
       - run: make vet test
         env:
           ANETOS_TEST_TAILWIND: ${{ matrix.part == 'cli' && matrix.go.name == 'latest Go' && '1' || '' }}
+      # A release as users will get it (design D319): the committed tree,
+      # every published module at a made-up version in a module proxy on
+      # disk, go install of the tool, anetos new (web and api) without
+      # --replace, then build, vet and test the projects.
+      - name: release rehearsal
+        if: matrix.part == 'cli'
+        run: make release-rehearsal
       # The examples that run on every database, on PostgreSQL and MySQL
       # too (make test runs them on SQLite), each in a database of its own.
       - name: examples on PostgreSQL and MySQL

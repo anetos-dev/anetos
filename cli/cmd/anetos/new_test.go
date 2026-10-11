@@ -538,3 +538,43 @@ func TestMakeAuthServerDatabases(t *testing.T) {
 		})
 	}
 }
+
+// TestInstallStepsVersion checks that a project gets the core, its
+// driver and the tool at one version, the tool's own: every module is
+// released with the same version (design D319).
+func TestInstallStepsVersion(t *testing.T) {
+	for _, c := range []struct{ tool, want string }{
+		{"v0.5.0", "v0.5.0"},
+		{"v0.5.0-rc.1", "v0.5.0-rc.1"},
+		{"v0.5.0-rehearsal.20261011120000.5", "v0.5.0-rehearsal.20261011120000.5"},
+		{"(devel)", "latest"},
+		{"v0.0.0", "latest"},
+		{"v0.0.0-00010101000000-000000000000", "latest"},
+		{"v0.0.0-20261011120000-abcdefabcdef", "latest"},
+		{"v0.5.0-rc.1.0.20261011120000-abcdefabcdef", "latest"},
+		{"v0.4.1-0.20261011120000-abcdefabcdef", "latest"},
+	} {
+		if got := releaseVersion(c.tool); got != c.want {
+			t.Errorf("releaseVersion(%q) = %q, want %q", c.tool, got, c.want)
+		}
+	}
+	defer func(f func() string) { toolVersion = f }(toolVersion)
+	toolVersion = func() string { return "v0.5.0-rc.1" }
+	v := anetosVersion()
+	if v != "v0.5.0-rc.1" {
+		t.Fatalf("anetosVersion = %q", v)
+	}
+	steps := installSteps("postgres", "web", false)
+	want := [][]string{
+		{"get", "anetos.dev/anetos@" + v, "anetos.dev/anetos/drivers/postgres@" + v},
+		{"get", "-tool", "anetos.dev/anetos/cli/cmd/anetos@" + v},
+	}
+	if len(steps) < 2 || !slices.Equal(steps[0], want[0]) || !slices.Equal(steps[1], want[1]) {
+		t.Errorf("installSteps = %q, want it to start with %q", steps, want)
+	}
+	for _, s := range installSteps("sqlite", "api", true) {
+		if s[0] == "get" && strings.HasPrefix(s[len(s)-1], "anetos.dev/") {
+			t.Errorf("with --replace: %q", s)
+		}
+	}
+}

@@ -24,7 +24,8 @@ import (
 
 const addUsage = `Usage: anetos add [--yes] <module>[@version]
 
-Installs a plugin: go get the module (default @latest), list its
+Installs a plugin: go get the module (default @latest; for Anetos's own
+plugins, this tool's version), list its
 Plugin() in plugins.go, tidy go.mod, check that the app builds, and add
 its settings to .env.example. Plugins are Go code compiled into your app, with its
 privileges: add only code you trust. To read its settings, anetos add
@@ -55,6 +56,9 @@ func addPlugin(ctx context.Context, args []string, stdout, stderr io.Writer) int
 	mod, version, _ := strings.Cut(pos[0], "@")
 	if version == "" {
 		version = "latest"
+		if strings.HasPrefix(mod, "anetos.dev/anetos/") {
+			version = anetosVersion() // a first-party plugin of this release
+		}
 	}
 	if err := module.CheckPath(mod); err != nil {
 		fmt.Fprintln(stderr, "anetos add:", err)

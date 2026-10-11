@@ -65,6 +65,7 @@ the reference app, is a bigger one; the
 - [Design document](docs/design/design.md): architecture, principles and decisions
 - [Documentation guide](docs/contributing/documentation-guide.md): how docs are written alongside code
 - [API guidelines](docs/contributing/api-guidelines.md): how the public API is named, shaped and changed; `api/` lists it
+- [Releasing](docs/contributing/releasing.md): how the modules are versioned, tagged and published
 - [Benchmarks](docs/benchmarks/README.md): overhead compared with plain `net/http`
 
 ## Developer experience
