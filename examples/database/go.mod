@@ -3,12 +3,12 @@ module anetos.dev/anetos/examples/database
 go 1.26.0
 
 require (
-	anetos.dev/anetos v0.4.1-0.20261010215428-426a3a3dfbe9
-	anetos.dev/anetos/drivers/sqlite v0.0.0-00010101000000-000000000000
+	anetos.dev/anetos v0.5.0-rc.1
+	anetos.dev/anetos/drivers/sqlite v0.5.0-rc.1
 )
 
 require (
-	anetos.dev/anetos/cli v0.0.0-00010101000000-000000000000 // indirect
+	anetos.dev/anetos/cli v0.5.0-rc.1 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect

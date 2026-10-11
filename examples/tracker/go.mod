@@ -3,16 +3,16 @@ module anetos.dev/anetos/examples/tracker
 go 1.26.0
 
 require (
-	anetos.dev/anetos v0.4.1-0.20261010215428-426a3a3dfbe9
-	anetos.dev/anetos/admin v0.0.0-00010101000000-000000000000
-	anetos.dev/anetos/drivers/mysql v0.0.0-00010101000000-000000000000
-	anetos.dev/anetos/drivers/postgres v0.0.0-00010101000000-000000000000
-	anetos.dev/anetos/drivers/sqlite v0.0.0-00010101000000-000000000000
+	anetos.dev/anetos v0.5.0-rc.1
+	anetos.dev/anetos/admin v0.5.0-rc.1
+	anetos.dev/anetos/drivers/mysql v0.5.0-rc.1
+	anetos.dev/anetos/drivers/postgres v0.5.0-rc.1
+	anetos.dev/anetos/drivers/sqlite v0.5.0-rc.1
 	github.com/a-h/templ v0.3.1070
 )
 
 require (
-	anetos.dev/anetos/cli v0.0.0-00010101000000-000000000000 // indirect
+	anetos.dev/anetos/cli v0.5.0-rc.1 // indirect
 	filippo.io/edwards25519 v1.2.0 // indirect
 	github.com/a-h/parse v0.0.0-20250122154542-74294addb73e // indirect
 	github.com/andybalholm/brotli v1.2.6 // indirect

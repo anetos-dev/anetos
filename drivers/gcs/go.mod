@@ -3,7 +3,7 @@ module anetos.dev/anetos/drivers/gcs
 go 1.26.0
 
 require (
-	anetos.dev/anetos v0.0.0-00010101000000-000000000000
+	anetos.dev/anetos v0.5.0-rc.1
 	cloud.google.com/go/auth v0.24.0
 	cloud.google.com/go/compute/metadata v0.10.0
 	cloud.google.com/go/storage v1.69.0

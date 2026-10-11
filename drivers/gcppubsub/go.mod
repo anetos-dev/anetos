@@ -3,7 +3,7 @@ module anetos.dev/anetos/drivers/gcppubsub
 go 1.26.0
 
 require (
-	anetos.dev/anetos v0.0.0-00010101000000-000000000000
+	anetos.dev/anetos v0.5.0-rc.1
 	cloud.google.com/go/pubsub/v2 v2.7.0
 	google.golang.org/api v0.298.0
 	google.golang.org/grpc v1.83.2

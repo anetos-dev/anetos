@@ -3,10 +3,10 @@ module anetos.dev/anetos/examples/pubsub
 go 1.26.0
 
 require (
-	anetos.dev/anetos v0.0.0-00010101000000-000000000000
-	anetos.dev/anetos/drivers/gcppubsub v0.0.0-00010101000000-000000000000
-	anetos.dev/anetos/drivers/redis v0.0.0-00010101000000-000000000000
-	anetos.dev/anetos/drivers/sqlite v0.0.0-00010101000000-000000000000
+	anetos.dev/anetos v0.5.0-rc.1
+	anetos.dev/anetos/drivers/gcppubsub v0.5.0-rc.1
+	anetos.dev/anetos/drivers/redis v0.5.0-rc.1
+	anetos.dev/anetos/drivers/sqlite v0.5.0-rc.1
 )
 
 require (

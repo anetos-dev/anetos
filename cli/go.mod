@@ -3,7 +3,7 @@ module anetos.dev/anetos/cli
 go 1.26.0
 
 require (
-	anetos.dev/anetos v0.4.1-0.20261010215428-426a3a3dfbe9
+	anetos.dev/anetos v0.5.0-rc.1
 	go.yaml.in/yaml/v3 v3.0.5
 	golang.org/x/mod v0.41.0
 	golang.org/x/term v0.46.0

@@ -3,10 +3,10 @@ module anetos.dev/anetos/examples/ai
 go 1.26.0
 
 require (
-	anetos.dev/anetos v0.0.0-00010101000000-000000000000
-	anetos.dev/anetos/drivers/anthropic v0.0.0-00010101000000-000000000000
-	anetos.dev/anetos/drivers/gemini v0.0.0-00010101000000-000000000000
-	anetos.dev/anetos/drivers/openai v0.0.0-00010101000000-000000000000
+	anetos.dev/anetos v0.5.0-rc.1
+	anetos.dev/anetos/drivers/anthropic v0.5.0-rc.1
+	anetos.dev/anetos/drivers/gemini v0.5.0-rc.1
+	anetos.dev/anetos/drivers/openai v0.5.0-rc.1
 )
 
 require (
