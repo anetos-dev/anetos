@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	anetos.dev/anetos v0.5.0-rc.1
-	github.com/openai/openai-go/v3 v3.71.1
+	github.com/openai/openai-go/v3 v3.85.0
 )
 
 require (
