@@ -58,7 +58,8 @@ change before v1.
   settings, commands and the API, with a
   [glossary](docs/site/concepts/glossary.md); projects ready for
   coding agents (`AGENTS.md`, skills, the docs offline in the tool,
-  `anetos check`, the app describing itself as JSON, `llms.txt`;
+  `anetos check`, the app describing itself as JSON, an MCP server,
+  `llms.txt`;
   [guide](docs/site/getting-started/coding-agents.md));
   contributor docs, governance and a code of conduct
   ([Contributing](#contributing)).

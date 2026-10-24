@@ -171,6 +171,11 @@ func RenderAgentFiles(p AgentProject, agents []string) ([]AgentFile, error) {
 			files = append(files, AgentFile{dir + "/" + s.Name + "/SKILL.md", content})
 		}
 	}
+	for _, c := range mcpConfigs {
+		if c.wanted(agents) {
+			files = append(files, AgentFile{c.rel, c.fresh()})
+		}
+	}
 	return files, nil
 }
 
@@ -202,6 +207,7 @@ func InstallAgentFiles(root string, p AgentProject, agents []string, prune bool)
 		return nil, err
 	}
 	var changed []string
+	var mcpErrs []error // an MCP file that can't be merged doesn't stop the others
 	for _, f := range files {
 		file := filepath.Join(root, filepath.FromSlash(f.Rel))
 		old, err := os.ReadFile(file)
@@ -217,6 +223,13 @@ func InstallAgentFiles(root string, p AgentProject, agents []string, prune bool)
 				}
 			case "CLAUDE.md", "GEMINI.md":
 				content = addImport(old)
+			default:
+				if c, ok := mcpConfigFor(f.Rel); ok {
+					if content, err = c.merge(old); err != nil {
+						mcpErrs = append(mcpErrs, err)
+						continue
+					}
+				}
 			}
 			if bytes.Equal(lf(old), lf(content)) {
 				continue
@@ -245,8 +258,35 @@ func InstallAgentFiles(root string, p AgentProject, agents []string, prune bool)
 				changed = append(changed, rel+"/ (removed)")
 			}
 		}
+		for _, c := range mcpConfigs {
+			if c.wanted(agents) {
+				continue
+			}
+			file := filepath.Join(root, filepath.FromSlash(c.rel))
+			old, err := os.ReadFile(file)
+			if err != nil {
+				continue
+			}
+			out, had, empty, err := c.remove(old)
+			if err != nil {
+				mcpErrs = append(mcpErrs, err)
+				continue
+			}
+			switch {
+			case !had:
+				continue
+			case empty:
+				err = os.Remove(file)
+			default:
+				err = os.WriteFile(file, crlf(out, old), 0o644)
+			}
+			if err != nil {
+				return changed, err
+			}
+			changed = append(changed, c.rel+" (the anetos server removed)")
+		}
 	}
-	return changed, nil
+	return changed, errors.Join(mcpErrs...)
 }
 
 // anetosSkills are the anetos-* skill folders (with a SKILL.md) in dir.
@@ -312,10 +352,15 @@ func imports(b []byte) bool {
 
 // InstalledAgents returns the agents whose files are in the project in
 // root, as far as their skills tell: claude for .claude/skills/anetos-*;
-// codex for .agents/skills/anetos-*, the folder codex, copilot, cursor
-// and gemini share; gemini too when GEMINI.md imports AGENTS.md. Nil
-// without an AGENTS.md written by the tool. (Removing a skill folder
-// removes its agents: their files are no longer checked or updated.)
+// for .agents/skills/anetos-*, the folder codex, copilot, cursor and
+// gemini share, those of codex, copilot and cursor whose MCP
+// configuration has the anetos server (codex when none has: a project
+// from before the server); gemini when GEMINI.md imports AGENTS.md and
+// .gemini/settings.json has the server (or the project has no MCP
+// configuration at all).
+// Nil without an AGENTS.md written by the tool. (Removing a skill
+// folder removes its agents: their files are no longer checked or
+// updated.)
 func InstalledAgents(root string) []string {
 	b, err := os.ReadFile(filepath.Join(root, "AGENTS.md"))
 	if err != nil || !bytes.Contains(b, []byte(beginPrefix)) {
@@ -326,12 +371,37 @@ func InstalledAgents(root string) []string {
 		agents = append(agents, "claude")
 	}
 	if len(anetosSkills(root, sharedSkills)) > 0 {
-		agents = append(agents, "codex")
-		if b, err := os.ReadFile(filepath.Join(root, "GEMINI.md")); err == nil && imports(b) {
+		// The agents that share the folder, by their MCP configuration.
+		var shared []string
+		for _, a := range []string{"codex", "copilot", "cursor"} {
+			for _, c := range mcpConfigs {
+				if c.rel != ".mcp.json" && slices.Contains(c.agents, a) && mcpIn(root, c.rel) { // .mcp.json is claude's too
+					shared = append(shared, a)
+				}
+			}
+		}
+		shared = slices.Compact(shared)
+		hasGemini := mcpIn(root, ".gemini/settings.json")
+		// codex stands for them all, and GEMINI.md's import alone for
+		// gemini (GEMINI.md is the developer's too), only in a project
+		// without any MCP configuration: from before the server.
+		old := len(shared) == 0 && !hasGemini && !mcpIn(root, ".mcp.json")
+		if old {
+			shared = []string{"codex"}
+		}
+		agents = append(agents, shared...)
+		if b, err := os.ReadFile(filepath.Join(root, "GEMINI.md")); err == nil && imports(b) && (hasGemini || old) {
 			agents = append(agents, "gemini")
 		}
 	}
 	return agents
+}
+
+// mcpIn reports whether the configuration file rel has the server.
+func mcpIn(root, rel string) bool {
+	c, _ := mcpConfigFor(rel)
+	b, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
+	return err == nil && c.has(b)
 }
 
 // StaleAgentFiles returns the agent files of the project in root that
@@ -364,6 +434,10 @@ func StaleAgentFiles(root string) ([]string, error) {
 		want := f.Content
 		if f.Rel == "AGENTS.md" {
 			if want, err = mergeAgents(old, f.Content); err != nil {
+				return nil, err
+			}
+		} else if c, ok := mcpConfigFor(f.Rel); ok {
+			if want, err = c.merge(old); err != nil {
 				return nil, err
 			}
 		}

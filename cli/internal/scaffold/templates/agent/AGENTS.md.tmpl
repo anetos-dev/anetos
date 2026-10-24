@@ -32,7 +32,10 @@ go run . db:schema          # the tables as the database has them (or db:schema 
 go run . about              # versions, services, the settings read (secrets hidden)
 ```
 
-Add `--json` for JSON you can parse.
+Add `--json` for JSON you can parse. The project's MCP server
+(`go tool anetos mcp`, in your MCP settings) has these as tools too:
+`docs_search`, `docs_read`, `model_list`, `route_list`, `db_schema`,
+`app_about`, `check`.
 
 ## Before you call a change done
 

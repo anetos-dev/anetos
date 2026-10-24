@@ -206,6 +206,26 @@ func TestNewProject(t *testing.T) {
 	if b := read(t, filepath.Join(dir, "AGENTS.md")); !strings.Contains(b, "go tool anetos check") || !strings.Contains(b, "The database is SQLite.") {
 		t.Errorf("AGENTS.md:\n%s", b)
 	}
+	if b := read(t, filepath.Join(dir, ".mcp.json")); !strings.Contains(b, `"anetos"`) || !strings.Contains(b, `"mcp"`) {
+		t.Errorf(".mcp.json:\n%s", b)
+	}
+	// The MCP server's tools that ask the app.
+	cs := mcpSession(t, dir)
+	if out, isErr := callTool(t, cs, "route_list", nil); isErr || !strings.Contains(out, `"name": "articles.index"`) || !strings.Contains(out, `"web.CSRF"`) {
+		t.Errorf("route_list: %v\n%.500s", isErr, out)
+	}
+	if out, isErr := callTool(t, cs, "app_about", nil); isErr || !strings.Contains(out, `"APP_KEY": "(set)"`) {
+		t.Errorf("app_about: %v\n%.500s", isErr, out)
+	}
+	if out, isErr := callTool(t, cs, "db_schema", nil); isErr || !strings.HasPrefix(out, "[") { // not migrated yet
+		t.Errorf("db_schema: %v\n%.500s", isErr, out)
+	}
+	if out, isErr := callTool(t, cs, "model_list", nil); isErr || !strings.Contains(out, `"name": "Post"`) {
+		t.Errorf("model_list: %v\n%.500s", isErr, out)
+	}
+	if out, isErr := callTool(t, cs, "doctor", nil); isErr || !strings.Contains(out, "Checking the project") {
+		t.Errorf("doctor: %v\n%.500s", isErr, out)
+	}
 	// The production build: one static binary, at bin/blog by default.
 	if code, out, errOut := runCmd(t, "build", "--version=v9.9.9"); code != 0 || !strings.Contains(out, "built bin/blog (") {
 		t.Fatalf("build: %d\n%s\n%s", code, out, errOut)
@@ -338,7 +358,7 @@ func TestNewAPIProject(t *testing.T) {
 			t.Errorf("an API project has %s", no)
 		}
 	}
-	if mod := read(t, filepath.Join(dir, "go.mod")); strings.Contains(mod, "templ") {
+	if mod := read(t, filepath.Join(dir, "go.mod")); strings.Contains(mod, "github.com/a-h/templ") {
 		t.Errorf("go.mod:\n%s", mod)
 	}
 

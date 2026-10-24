@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -77,8 +78,14 @@ func check(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "anetos check:", err)
 		return 1
 	}
+	return runCheck(ctx, root, *short, *asJSON, stdout)
+}
+
+// runCheck checks the project in root (check's steps), printing the
+// result, as JSON or not, to stdout.
+func runCheck(ctx context.Context, root string, short, asJSON bool, stdout io.Writer) int {
 	testArgs := []string{"test", "./..."}
-	if *short {
+	if short {
 		testArgs = []string{"test", "-short", "./..."}
 	}
 	steps := []struct {
@@ -90,11 +97,8 @@ func check(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		{"vet", func(out io.Writer) error { return runGoOut(ctx, root, out, out, "vet", "./...") }},
 		{"test", func(out io.Writer) error { return runGoOut(ctx, root, out, out, testArgs...) }},
 		{"doctor", func(out io.Writer) error {
-			var o doctorOptions
-			if _, err := os.Stat(filepath.Join(root, ".env")); err != nil && os.Getenv("APP_KEY") == "" {
-				o.projectOnly = "note: the app's settings aren't checked: there's no .env (a fresh clone?). Write one: cp .env.example .env && go tool anetos key:generate"
-			}
-			if runDoctor(ctx, root, o, out, out) != 0 {
+			w := &syncWriter{w: out} // the app's stdout and stderr, written at once
+			if runDoctor(ctx, root, doctorOptionsFor(root), w, w) != 0 {
 				return errors.New("doctor found a problem")
 			}
 			return nil
@@ -103,7 +107,7 @@ func check(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	var report []checkStep
 	ok := true
 	for _, s := range steps {
-		if !*asJSON {
+		if !asJSON {
 			fmt.Fprintf(stdout, "%-9s", s.name)
 		}
 		var out bytes.Buffer
@@ -117,7 +121,7 @@ func check(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		text = tailText(text, maxStepOutput)
 		st.Output = text
 		report = append(report, st)
-		if !*asJSON {
+		if !asJSON {
 			if st.OK {
 				fmt.Fprintf(stdout, "ok (%.1fs)\n", st.Seconds)
 				if s.name == "doctor" {
@@ -135,7 +139,7 @@ func check(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		}
 	}
 	switch {
-	case *asJSON:
+	case asJSON:
 		writeCheckJSON(stdout, ok, "", report)
 	case ok:
 		fmt.Fprintln(stdout, "All checks passed.")
@@ -208,4 +212,45 @@ func warningLines(s string) string {
 		}
 	}
 	return strings.Join(out, "\n")
+}
+
+// doctorOptionsFor are check's options for doctor in the project in
+// root: without a .env, the project's files only.
+func doctorOptionsFor(root string) doctorOptions {
+	var o doctorOptions
+	if _, err := os.Stat(filepath.Join(root, ".env")); err != nil && os.Getenv("APP_KEY") == "" {
+		o.projectOnly = "note: the app's settings aren't checked: there's no .env (a fresh clone?). Write one: cp .env.example .env && go tool anetos key:generate"
+	}
+	return o
+}
+
+// syncWriter serializes writes to w: a command's stdout and stderr
+// written by two goroutines.
+type syncWriter struct {
+	mu sync.Mutex
+	w  io.Writer
+}
+
+func (s *syncWriter) Write(p []byte) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.w.Write(p)
+}
+
+// syncBuffer is a bytes.Buffer safe for concurrent writes.
+type syncBuffer struct {
+	mu sync.Mutex
+	b  bytes.Buffer
+}
+
+func (s *syncBuffer) Write(p []byte) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.b.Write(p)
+}
+
+func (s *syncBuffer) String() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.b.String()
 }

@@ -24,12 +24,16 @@ its docs say:
   CLAUDE.md, GEMINI.md   one line importing AGENTS.md (Claude Code, Gemini CLI)
   .agents/skills/anetos-*/SKILL.md   task guides (Codex, Copilot, Cursor, Gemini CLI)
   .claude/skills/anetos-*/SKILL.md   the same, for Claude Code
+  .mcp.json, .vscode/mcp.json, .cursor/mcp.json, .gemini/settings.json,
+  .codex/config.toml     the anetos MCP server (go tool anetos mcp), added
+                         to each agent's servers, the others kept
 
 anetos new writes them already (--no-agent skips them). Your own text in
 AGENTS.md goes outside its markers, and your own skills under other
 names: both are kept. Commit the files, so everyone's agent reads the
 same. The files are those of exactly the agents listed: Anetos's skills
-in a folder none of them reads are removed. (A coding agent works on
+in a folder none of them reads are removed, and the anetos server from
+the others' MCP configuration. (A coding agent works on
 your code; make:agent writes an AI agent that runs in your app: two
 different things.)
 `
@@ -37,8 +41,9 @@ different things.)
 const agentUpdateUsage = `Usage: anetos agent:update
 
 Rewrites the agent files that agent:install (or anetos new) wrote, for
-this version of Anetos: AGENTS.md's text between its markers, and the
-anetos-* skills, for the agents whose files are there. Run it after
+this version of Anetos: AGENTS.md's text between its markers, the
+anetos-* skills and the anetos MCP server's entries, for the agents
+whose files are there. Run it after
 upgrading Anetos; doctor says when the files are out of date. Your own
 text and skills are kept.
 `
@@ -104,6 +109,10 @@ func writeAgentFiles(name string, agents []string, prune bool, stdout, stderr io
 	for _, f := range changed {
 		if dir, ok := strings.CutSuffix(f, "/ (removed)"); ok {
 			fmt.Fprintf(stdout, "removed %s/\n", dir)
+			continue
+		}
+		if file, ok := strings.CutSuffix(f, " (the anetos server removed)"); ok {
+			fmt.Fprintf(stdout, "removed the anetos server from %s\n", file)
 			continue
 		}
 		fmt.Fprintf(stdout, "wrote %s\n", f)

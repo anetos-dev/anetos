@@ -312,10 +312,22 @@ agent](../getting-started/coding-agents.md).
 | `GEMINI.md` | `gemini` | `@AGENTS.md`: Gemini CLI imports it |
 | `.claude/skills/anetos-*/SKILL.md` | `claude` | The skills: `anetos-crud`, `-auth`, `-migration`, `-job`, `-page` (web) or `-api` (API), `-test`, `-deploy`, `-upgrade`, `-plugin` |
 | `.agents/skills/anetos-*/SKILL.md` | `codex`, `copilot`, `cursor`, `gemini` | The same skills |
+| `.mcp.json` | `claude`, `copilot` | The MCP server `anetos` (`go tool anetos mcp`) in `mcpServers`: Claude Code's project servers, and Copilot CLI's |
+| `.vscode/mcp.json` | `copilot` | The same in `servers`, with `"type": "stdio"` and `"cwd": "${workspaceFolder}"`: VS Code's |
+| `.cursor/mcp.json` | `cursor` | The same in `mcpServers`, as `go -C ${workspaceFolder} tool anetos mcp` |
+| `.gemini/settings.json` | `gemini` | The same in `mcpServers`, with a 15-minute `timeout` (`check` runs the tests) |
+| `.codex/config.toml` | `codex` | The table `[mcp_servers.anetos]`, with `startup_timeout_sec = 120` and `tool_timeout_sec = 900` (Codex reads a project's file once you trust the project) |
 
-The files are those of exactly the agents listed: Anetos's skills in a
+The MCP files are shared with your own servers and settings: the
+`anetos` entry is added when the file has none, and the rest kept. An
+entry named `anetos` is left as it is, the tool's (which you may have
+edited, adding an `env` or `--dir`) or your own. A JSON file is
+rewritten with its keys sorted (JSON doesn't keep their order), its
+numbers as written; one with comments is refused, with the entry to add
+yourself, and the other files are still written (exit 1). The files are those of exactly the agents listed: Anetos's skills in a
 folder none of them reads are removed (`--agent=claude` removes
-`.agents/skills/anetos-*`); `CLAUDE.md` and `GEMINI.md` stay, being
+`.agents/skills/anetos-*`), and so is the tool's `anetos` entry from the
+others' MCP files (with its subtables in TOML; a file left empty goes); `CLAUDE.md` and `GEMINI.md` stay, being
 partly yours. It keeps what you wrote: in `AGENTS.md`, the text outside the markers
 `<!-- anetos:begin … -->` and `<!-- anetos:end -->` (a file without
 them gets Anetos's text first, then its own); in `CLAUDE.md` and
@@ -323,13 +335,42 @@ them gets Anetos's text first, then its own); in `CLAUDE.md` and
 skills not named `anetos-*`. Running it again changes only what differs.
 
 `agent:update` rewrites them for this version of Anetos, for the agents
-whose files the project has (`.claude/skills/anetos-*` for `claude`,
-`.agents/skills/anetos-*` for the others, and `GEMINI.md`'s import for
-`gemini`), and removes nothing: run it after an upgrade (`doctor` warns
+whose files the project has (`.claude/skills/anetos-*` for `claude`;
+with `.agents/skills/anetos-*`, `codex`, `copilot` and `cursor` by
+their MCP files' `anetos` entry, or `codex` without any; `gemini` by
+`GEMINI.md`'s import and `.gemini/settings.json`'s entry), and removes nothing: run it after an upgrade (`doctor` warns
 when they differ, line endings aside). It fails in a project without
 agent files. The project's name in the files is its binary's
 (`deploy/<name>.service`, else the module's last part), not its
 folder's, so a clone or worktree under another name doesn't change them.
+
+## `anetos mcp [--dir=<project>]`
+
+An [MCP](https://modelcontextprotocol.io) server on the standard input
+and output, which coding agents start from the files `agent:install`
+writes (`go tool anetos mcp`, so it's the project's version of Anetos).
+Its tools read the project and the documentation, and check changes.
+None changes your code or data: `check` writes generated code, as
+`anetos dev` does, and the app's commands create what the app creates
+when it starts (`storage/`, an empty SQLite database):
+
+| Tool | Does |
+|---|---|
+| `docs_list`, `docs_read`, `docs_search` | `anetos docs`: the pages, one page, a search |
+| `model_list` | `model:list --json` |
+| `app_about`, `route_list`, `db_schema`, `migrate_status`, `command_list` | The app's `about`, `route:list`, `db:schema`, `migrate:status` and `help`, with `--json`: it builds the app (`go build`, cached) and runs the command in the project, which needs a `.env` |
+| `check` | `check --json`; an error result when a step fails |
+| `doctor` | `doctor`'s report; an error result on a problem |
+
+The project is `--dir`'s, else the one around the directory the agent
+starts it in. `go tool` itself needs to start in the project (outside
+it, `go tool anetos` isn't found): an agent that starts its servers
+elsewhere runs `go -C <project> tool anetos mcp`, as Cursor's entry
+does. One `check` runs at a time; the app is built into a temporary
+folder, removed when the server stops. Its instructions tell the agent to search the docs before
+guessing an API and to run `check` before calling a change done.
+[gopls](https://go.dev/gopls) has an MCP server of its own for Go
+itself (`gopls mcp`): add it to the same files if you have gopls.
 
 ## Other commands
 

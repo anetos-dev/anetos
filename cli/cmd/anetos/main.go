@@ -32,6 +32,7 @@
 //	check [--short] [--json]  generate, build, vet, test and doctor: does the change work?
 //	doctor                    check the project and the app's settings
 //	docs [<page>] [--search <words>]  print the documentation
+//	mcp                       run the MCP server coding agents start
 //	key:generate              set APP_KEY in .env
 //	version                   print the version
 package main
@@ -85,6 +86,7 @@ Commands:
   check [--short] [--json]  generate, build, vet, test and doctor: does the change work?
   doctor [--strict] [--vuln]  check the project and the app's settings for unsafe values
   docs [<page>] [--search <words>]  print the documentation, at the project's version
+  mcp [--dir=<project>]     run the MCP server coding agents start (agent:install configures it)
   key:generate [--show] [--force]  set APP_KEY in .env (--show prints a key instead)
   version                   print the version
 
@@ -177,6 +179,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return docsCmd(args[1:], stdout, stderr)
 	case "model:list":
 		return modelList(args[1:], stdout, stderr)
+	case "mcp":
+		return mcpCmd(args[1:], stderr)
 	case "agent:install":
 		return agentInstall(args[1:], stdout, stderr)
 	case "agent:update":
@@ -204,7 +208,7 @@ var commandNames = []string{
 	"new", "dev", "build", "generate", "add", "remove", "check", "doctor", "docs", "version", "help",
 	"make:handler", "make:model", "make:migration", "make:middleware", "make:agent",
 	"make:crud", "make:auth", "make:admin", "make:admin-resource",
-	"css:build", "css:use", "key:generate", "locale:add", "agent:install", "agent:update", "model:list",
+	"css:build", "css:use", "key:generate", "locale:add", "agent:install", "agent:update", "model:list", "mcp",
 }
 
 // formerNames are the commands' names before v0.5, still run (with a

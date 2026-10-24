@@ -34,6 +34,7 @@ rest:
 | `CLAUDE.md`, `GEMINI.md` | Claude Code, Gemini CLI | One line, `@AGENTS.md`, importing it |
 | `.agents/skills/anetos-*/SKILL.md` | Codex, Copilot, Cursor, Gemini CLI | Skills: step-by-step guides an agent loads only for a task that needs one |
 | `.claude/skills/anetos-*/SKILL.md` | Claude Code (and Copilot, Cursor) | The same skills |
+| `.mcp.json`, `.vscode/mcp.json`, `.cursor/mcp.json`, `.gemini/settings.json`, `.codex/config.toml` | Claude Code and Copilot; VS Code; Cursor; Gemini CLI; Codex | The project's MCP server, `go tool anetos mcp` (step 4) |
 
 The skills cover a resource (`anetos-crud`), accounts and access
 (`anetos-auth`), schema changes (`anetos-migration`), background work
@@ -83,7 +84,17 @@ go run . about                       # versions, services, settings (secrets hid
 `model:list` reads the code, so it works before the app does; the
 others are the app's own commands, which need a `.env`. Each takes
 `--json` (and `migrate:status`, `schedule:list`, `plugin:list` and
-`help` do too). `about` hides what looks like a secret (by the
+`help` do too).
+
+The agent can also call them as tools: the project's MCP server,
+`go tool anetos mcp`, is in each agent's MCP settings (the files in the
+table above), with `docs_search`, `docs_read`, `model_list`,
+`route_list`, `db_schema`, `app_about`, `check` and `doctor`. It only
+reads and checks. Agents decide differently when a project's server
+starts: Claude Code asks you first; VS Code, Copilot CLI and Codex
+start it in a folder you trust (Workspace Trust, folder trust, a trusted
+project); Gemini CLI starts it unless you turned folder trust on and
+haven't trusted the folder. `about` hides what looks like a secret (by the
 setting's name, and a connection string's password), but shows the
 other settings, and an agent sends what it reads to its model's
 provider: read it before pasting it anywhere public.
@@ -121,6 +132,8 @@ go tool anetos agent:update
   `GEMINI.md`, after the import.
 - **Your own skills** go next to Anetos's, under names that don't start
   with `anetos-`: `agent:update` leaves them alone.
+- **Your own MCP servers** go in the same files: `agent:update` changes
+  only the `anetos` entry. gopls has one for Go itself (`gopls mcp`).
 
 ## How it works
 
@@ -152,6 +165,8 @@ writes an AI agent that runs inside your app, for your users
 | Copilot or Cursor lists each skill twice | Both folders, `.agents/skills` and `.claude/skills`, are there, and they read both | Install for the agents you use only: `go tool anetos agent:install --agent=cursor` removes Anetos's skills from `.claude/skills` |
 | `doctor` warns that agent files differ | An Anetos upgrade, or an edit between `AGENTS.md`'s markers | `go tool anetos agent:update` (move your edits outside the markers first) |
 | Gemini CLI doesn't follow `AGENTS.md` | No `GEMINI.md` | `go tool anetos agent:install --agent=gemini` |
+| The agent has no `anetos` tools | It hasn't been allowed to start the project's MCP server, or its settings file isn't there | Approve the `anetos` server in the agent's MCP settings (Codex: trust the project); `go tool anetos agent:install --agent=<agent>` writes the file |
+| The `anetos` server doesn't start: `go: no such tool "anetos"` | The agent started it outside the project (Claude's desktop app starts servers in your home folder) | Start it as `go -C <the project's path> tool anetos mcp`: in your own (user) settings, not the committed file |
 
 ## Next steps
 

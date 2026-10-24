@@ -164,7 +164,7 @@ func TestInstallAgentFiles(t *testing.T) {
 	if got := readFile(t, root, ".agents/skills/our-skill/SKILL.md"); !strings.Contains(got, "ours") {
 		t.Error("the developer's skill changed")
 	}
-	if got := InstalledAgents(root); !slices.Equal(got, []string{"claude", "codex"}) {
+	if got := InstalledAgents(root); !slices.Equal(got, []string{"claude", "cursor"}) { // cursor: its .cursor/mcp.json
 		t.Errorf("InstalledAgents = %v", got)
 	}
 	if stale := mustStale(t, root); len(stale) != 0 {
@@ -291,9 +291,10 @@ func TestAgentFilesEdgeCases(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(root, ".claude", "skills", "anetos-crud")); !os.IsNotExist(err) {
 		t.Errorf("claude's skills weren't removed: %v", err)
 	}
-	// CLAUDE.md alone isn't claude; GEMINI.md, kept, still imports
-	// AGENTS.md, and Gemini CLI reads .agents/skills: gemini is there.
-	if got := InstalledAgents(root); !slices.Equal(got, []string{"codex", "gemini"}) {
+	// CLAUDE.md alone isn't claude, nor GEMINI.md alone gemini (its
+	// .gemini/settings.json lost the server): copilot, by its
+	// .vscode/mcp.json.
+	if got := InstalledAgents(root); !slices.Equal(got, []string{"copilot"}) {
 		t.Errorf("InstalledAgents after pruning = %v", got)
 	}
 	if a := readFile(t, root, "AGENTS.md"); !strings.Contains(a, "Task guides, in `.agents/skills/`, loaded") || strings.Contains(a, ".claude/skills") {

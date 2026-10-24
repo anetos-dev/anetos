@@ -35,6 +35,13 @@ All notable changes to this project are documented here. The format follows
   `Detail`; `Router.GlobalMiddleware()`; `config.DefaultReporter`.
 - docs.anetos.dev has `/llms.txt`, `/llms-full.txt` and every page as
   Markdown (`index.md`), per version (AX1b-1, D326).
+- `go tool anetos mcp`, an MCP server for coding agents (AX1b-2, D327):
+  the docs, the models, the app's `about`, routes, schema, migrations
+  and commands, `check` and `doctor` as tools, read and check only.
+  `anetos new` and `agent:install` add it to each agent's MCP settings
+  (`.mcp.json`, `.vscode/mcp.json`, `.cursor/mcp.json`,
+  `.gemini/settings.json`, `.codex/config.toml`), keeping your own
+  servers.
 - `ai.Dimensions(n)`; `db.WatchBulkValues(n)`; `HTTPError.Is`, so a
   wrapped sentinel still matches (`errors.Is(web.ErrCSRF.Wrap(err),
   web.ErrCSRF)`) (M8b-5, D316).
