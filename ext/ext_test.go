@@ -141,6 +141,11 @@ func TestLoad(t *testing.T) {
 		!strings.Contains(out, "config, commands, jobs, routes, schedule, listeners, boot") {
 		t.Errorf("plugin:list: %d\n%s", code, out)
 	}
+	out, code = run(t, app, "plugin:list", "--json")
+	if code != 0 || !strings.Contains(out, `"name": "greeter"`) || !strings.Contains(out, `"prefix": "/greet"`) ||
+		!strings.Contains(out, `"name": "GREETER_TOKEN"`) || !strings.Contains(out, `"required": true`) {
+		t.Errorf("plugin:list --json: %d\n%s", code, out)
+	}
 	out, code = run(t, app, "plugin:env")
 	if code != 0 || out != "# greeter\nGREETER_GREETING=Hello\nGREETER_TOKEN= # required\n" {
 		t.Errorf("plugin:env: %d %q", code, out)

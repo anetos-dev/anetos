@@ -85,6 +85,33 @@ func (l layered) Lookup(key string) (string, bool) {
 	return "", false
 }
 
+// ReportDefault passes Bind's report on to the layers that want it.
+func (l layered) ReportDefault(key, value string) {
+	for _, s := range l {
+		if r, ok := s.(DefaultReporter); ok {
+			r.ReportDefault(key, value)
+		}
+	}
+}
+
+// ReportFormer passes Bind's report on to the layers that want it.
+func (l layered) ReportFormer(old, current string) {
+	for _, s := range l {
+		if r, ok := s.(RenameReporter); ok {
+			r.ReportFormer(old, current)
+		}
+	}
+}
+
+// ReportRename passes Bind's report on to the layers that want it.
+func (l layered) ReportRename(old, current string) {
+	for _, s := range l {
+		if r, ok := s.(RenameReporter); ok {
+			r.ReportRename(old, current)
+		}
+	}
+}
+
 // LoadOptions controls [Load].
 type LoadOptions struct {
 	// Dir is the directory containing the .env files. Default ".".

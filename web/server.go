@@ -3,7 +3,9 @@
 package web
 
 import (
+	"cmp"
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -243,14 +245,19 @@ func (s *Server) commands(app *anetos.App) []cmd.Command {
 		{
 			Name:        "route:list",
 			Former:      []string{"routes:list"},
-			Description: "List the HTTP routes",
+			Usage:       "[--json]",
+			Description: "List the HTTP routes (--json: with their handlers, types and middleware)",
 			Run: func(ctx context.Context, args *cmd.Args) error {
 				fs := flag.NewFlagSet("route:list", flag.ContinueOnError)
+				asJSON := fs.Bool("json", false, "print the routes, their handlers, types and middleware, and the global middleware, as JSON")
 				if err := args.Parse(fs); err != nil {
 					return err
 				}
 				if fs.NArg() > 0 {
 					return cmd.Usagef("unexpected argument %q", fs.Arg(0))
+				}
+				if *asJSON {
+					return writeRoutesJSON(args.Stdout, s.router)
 				}
 				tw := tabwriter.NewWriter(args.Stdout, 0, 0, 2, ' ', 0)
 				fmt.Fprintln(tw, "METHOD\tPATH\tNAME")
@@ -265,6 +272,65 @@ func (s *Server) commands(app *anetos.App) []cmd.Command {
 			},
 		},
 	}
+}
+
+// routeJSON is a route as route:list --json prints it.
+type routeJSON struct {
+	Method     string           `json:"method"` // "ANY" for any method
+	Host       string           `json:"host,omitempty"`
+	Path       string           `json:"path"`
+	Name       string           `json:"name,omitempty"`
+	Handler    string           `json:"handler,omitempty"`
+	Input      string           `json:"input,omitempty"`
+	Output     string           `json:"output,omitempty"`
+	Status     int              `json:"status,omitempty"`
+	Middleware []middlewareJSON `json:"middleware"`
+}
+
+// middlewareJSON is a MiddlewareDoc as route:list --json prints it.
+type middlewareJSON struct {
+	Name      string            `json:"name"`
+	Detail    string            `json:"detail,omitempty"`
+	Security  string            `json:"security,omitempty"`
+	Scopes    []string          `json:"scopes,omitempty"`
+	Responses map[string]string `json:"responses,omitempty"`
+}
+
+func middlewareJSONs(docs []MiddlewareDoc) []middlewareJSON {
+	out := make([]middlewareJSON, len(docs))
+	for i, d := range docs {
+		out[i] = middlewareJSON{Name: d.Name, Detail: d.Detail, Security: d.Security, Scopes: d.Scopes}
+		if len(d.Responses) > 0 {
+			out[i].Responses = make(map[string]string, len(d.Responses))
+			for status, why := range d.Responses {
+				out[i].Responses[strconv.Itoa(status)] = why
+			}
+		}
+	}
+	return out
+}
+
+// writeRoutesJSON prints route:list --json: the global middleware, and
+// every route in registration order.
+func writeRoutesJSON(w io.Writer, r *Router) error {
+	out := struct {
+		Middleware []middlewareJSON `json:"middleware"`
+		Routes     []routeJSON      `json:"routes"`
+	}{Middleware: middlewareJSONs(r.GlobalMiddleware()), Routes: []routeJSON{}}
+	for _, rt := range r.Routes() {
+		j := routeJSON{Method: cmp.Or(rt.Method, "ANY"), Host: rt.Host, Path: rt.Pattern, Name: rt.Name,
+			Handler: rt.Handler, Status: rt.Status, Middleware: middlewareJSONs(rt.Middleware)}
+		if rt.Input != nil {
+			j.Input = rt.Input.String()
+		}
+		if rt.Output != nil {
+			j.Output = rt.Output.String()
+		}
+		out.Routes = append(out.Routes, j)
+	}
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	return enc.Encode(out)
 }
 
 // Router returns the server's router.

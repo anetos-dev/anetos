@@ -43,6 +43,7 @@ type walker struct {
 // relation is a relation field (rel tag), as the db package sees it.
 type relation struct {
 	goName  string
+	kind    string     // belongs_to, has_one, has_many, many_to_many
 	related types.Type // the model it holds (pointed-to or element type)
 	pos     token.Pos
 }
@@ -167,7 +168,7 @@ func (w *walker) fields(st *types.Struct, t types.Type, seen map[types.Type]bool
 					return w.errorf(f.Pos(), "two relation fields named %s", f.Name())
 				}
 			}
-			w.rels = append(w.rels, relation{goName: f.Name(), related: elem, pos: f.Pos()})
+			w.rels = append(w.rels, relation{goName: f.Name(), kind: kind, related: elem, pos: f.Pos()})
 			continue
 		}
 		if !hasTag && !isColumnType(ft) {

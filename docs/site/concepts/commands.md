@@ -32,10 +32,10 @@ code that wires the part they belong to:
 
 | Command | Registered by |
 |---|---|
-| `run [--only=type,…]` (the default), `help` | Every app |
+| `run [--only=type,…]` (the default), `help`, `version`, `doctor`, `about` | Every app |
 | `serve`, `route:list` | `web.NewServer` |
 | `openapi` | `openapi.Register` ([Describe an API with OpenAPI](../guides/openapi.md)) |
-| `migrate`, `migrate:rollback`, `migrate:reset`, `migrate:fresh`, `migrate:status`, `db:seed`, `search:reindex` | `migrate.New` ([Migrations](../guides/migrations.md), [Search](../guides/search.md)) |
+| `migrate`, `migrate:rollback`, `migrate:reset`, `migrate:fresh`, `migrate:status`, `db:seed`, `db:schema`, `search:reindex` | `migrate.New` ([Migrations](../guides/migrations.md), [Search](../guides/search.md)) |
 | `cache:clear` | `cache.New` ([Cache](../guides/cache.md)) |
 | `queue:work`, `queue:failed`, `queue:retry`, `queue:forget`, `queue:flush`, `queue:clear` | `queue.New` ([Queues](../guides/queues.md)) |
 | `pubsub:publish` | `pubsub.New` ([Pub/sub listeners](../guides/pubsub.md)) |

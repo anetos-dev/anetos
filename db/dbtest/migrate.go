@@ -32,7 +32,7 @@ func init() {
 	)
 }
 
-var migrationTables = []string{"st_migrations", "st_m_notes", "st_m_items", "st_m_owners", "st_m_sql", "st_m_renamed", "st_m_extra"}
+var migrationTables = []string{"st_migrations", "st_m_notes", "st_m_inspect", "st_m_items", "st_m_owners", "st_m_sql", "st_m_renamed", "st_m_extra"}
 
 // stItem exercises every column type of the schema builder.
 type stItem struct {

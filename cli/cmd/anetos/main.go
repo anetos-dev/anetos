@@ -21,6 +21,7 @@
 //	make:admin                add the admin interface (after make:auth)
 //	make:admin-resource <Model>  add a model to the admin
 //	generate [--check] [packages]  generate typed columns for models (default ./...)
+//	model:list [--json]       list the models: tables, columns, relations
 //	css:build [--check]       compile the Tailwind CSS stylesheet
 //	css:use [<framework>] [--force]  switch the project's CSS framework
 //	add <module>[@version]    install a plugin
@@ -73,6 +74,7 @@ Commands:
   make:admin                add the admin interface at /admin (after make:auth)
   make:admin-resource <Model>  add a model to the admin (app/admin)
   generate [--check] [packages]  generate typed columns for models (default ./...)
+  model:list [--json] [packages]  list the models: their tables, columns and relations
   css:build [--check]       compile views/ui/tailwind.css into public/static/app.css (Tailwind CSS)
   css:use [<framework>] [--force]  switch the project's CSS framework (anetos, none, pico, bootstrap, bulma, tailwind)
   add <module>[@version]    install a plugin (go get, plugins.go, .env.example)
@@ -173,6 +175,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return keyGenerate(args[1:], stdout, stderr)
 	case "docs":
 		return docsCmd(args[1:], stdout, stderr)
+	case "model:list":
+		return modelList(args[1:], stdout, stderr)
 	case "agent:install":
 		return agentInstall(args[1:], stdout, stderr)
 	case "agent:update":
@@ -200,7 +204,7 @@ var commandNames = []string{
 	"new", "dev", "build", "generate", "add", "remove", "check", "doctor", "docs", "version", "help",
 	"make:handler", "make:model", "make:migration", "make:middleware", "make:agent",
 	"make:crud", "make:auth", "make:admin", "make:admin-resource",
-	"css:build", "css:use", "key:generate", "locale:add", "agent:install", "agent:update",
+	"css:build", "css:use", "key:generate", "locale:add", "agent:install", "agent:update", "model:list",
 }
 
 // formerNames are the commands' names before v0.5, still run (with a

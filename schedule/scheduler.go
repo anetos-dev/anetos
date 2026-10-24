@@ -4,8 +4,11 @@ package schedule
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"regexp"
 	"runtime/debug"
@@ -687,12 +690,21 @@ var processStart = time.Now()
 func (s *Scheduler) commands() []cmd.Command {
 	return []cmd.Command{{
 		Name:        "schedule:list",
+		Usage:       "[--json]",
 		Description: "List the scheduled tasks and when they run next",
 		Run: func(ctx context.Context, args *cmd.Args) error {
-			if len(args.Args) > 0 {
+			fs := flag.NewFlagSet("schedule:list", flag.ContinueOnError)
+			asJSON := fs.Bool("json", false, "print the tasks as JSON")
+			if err := args.Parse(fs); err != nil {
+				return err
+			}
+			if fs.NArg() > 0 {
 				return cmd.Usagef("schedule:list takes no arguments")
 			}
 			tasks := s.Tasks()
+			if *asJSON {
+				return writeTasksJSON(args.Stdout, tasks, s.clock.Now())
+			}
 			if len(tasks) == 0 {
 				_, err := fmt.Fprintln(args.Stdout, "No scheduled tasks.")
 				return err
@@ -794,4 +806,26 @@ func short(d time.Duration) string {
 		s = strings.TrimSuffix(s, "0m")
 	}
 	return s
+}
+
+// writeTasksJSON prints schedule:list --json.
+func writeTasksJSON(w io.Writer, tasks []TaskInfo, now time.Time) error {
+	type task struct {
+		Name               string    `json:"name"`
+		Schedule           string    `json:"schedule"`
+		Next               time.Time `json:"next"`
+		WithoutOverlapping bool      `json:"without_overlapping,omitempty"`
+		OnOneServer        bool      `json:"on_one_server,omitempty"`
+		Timeout            string    `json:"timeout,omitempty"`
+	}
+	out := make([]task, len(tasks))
+	for i, t := range tasks {
+		out[i] = task{Name: t.Name, Schedule: t.Schedule.String(), Next: t.Next(now), WithoutOverlapping: t.WithoutOverlapping, OnOneServer: t.OnOneServer}
+		if t.Timeout > 0 {
+			out[i].Timeout = t.Timeout.String()
+		}
+	}
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	return enc.Encode(out)
 }

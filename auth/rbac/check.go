@@ -6,6 +6,8 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"slices"
+	"strings"
 
 	"anetos.dev/anetos/auth"
 	"anetos.dev/anetos/web"
@@ -190,7 +192,7 @@ func (g *Grants) mayGive(scope Scope, r Role) error {
 //
 //	admin := loggedIn.Group("/admin", rbac.Require(ManageUsers))
 func Require(perms ...Permission) web.Middleware {
-	return RequireIn(func(*http.Request) (Scope, error) { return Global, nil }, perms...)
+	return requireIn("rbac.Require", func(*http.Request) (Scope, error) { return Global, nil }, perms)
 }
 
 // RequireIn is [Require] in the scope that scope returns for the request,
@@ -198,9 +200,22 @@ func Require(perms ...Permission) web.Middleware {
 //
 //	team := r.Group("/teams/{team}", rbac.RequireIn(rbac.PathScope("team", "team"), ViewProjects))
 func RequireIn(scope func(*http.Request) (Scope, error), perms ...Permission) web.Middleware {
+	return requireIn("rbac.RequireIn", scope, perms)
+}
+
+// requireIn is Require and RequireIn, described as name with perms.
+func requireIn(name string, scope func(*http.Request) (Scope, error), perms []Permission) web.Middleware {
 	if len(perms) == 0 {
 		panic("rbac: Require needs permissions")
 	}
+	perms = slices.Clone(perms)
+	doc := requireDoc
+	doc.Name = name
+	names := make([]string, len(perms))
+	for i, p := range perms {
+		names[i] = string(p)
+	}
+	doc.Detail = strings.Join(names, ", ")
 	return func(next http.Handler) http.Handler {
 		return web.Documented(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			s, err := scope(r)
@@ -215,7 +230,7 @@ func RequireIn(scope func(*http.Request) (Scope, error), perms ...Permission) we
 				}
 			}
 			next.ServeHTTP(w, r)
-		}), requireDoc)
+		}), doc)
 	}
 }
 

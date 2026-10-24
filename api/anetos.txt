@@ -1098,6 +1098,8 @@ pkg anetos.dev/anetos/config, method (ByteSize) String() string
 pkg anetos.dev/anetos/config, method (Map) Lookup(string) (string, bool)
 pkg anetos.dev/anetos/config, method (Map) Names() []string
 pkg anetos.dev/anetos/config, type ByteSize int64
+pkg anetos.dev/anetos/config, type DefaultReporter interface
+pkg anetos.dev/anetos/config, type DefaultReporter interface, ReportDefault(string, string)
 pkg anetos.dev/anetos/config, type FieldError struct
 pkg anetos.dev/anetos/config, type FieldError struct, Err error
 pkg anetos.dev/anetos/config, type FieldError struct, Field string
@@ -1496,6 +1498,7 @@ pkg anetos.dev/anetos/db/migrate, method (*Foreign) References(string, ...string
 pkg anetos.dev/anetos/db/migrate, method (*Runner) Add(...*Set) error
 pkg anetos.dev/anetos/db/migrate, method (*Runner) AppCommands() []cmd.Command
 pkg anetos.dev/anetos/db/migrate, method (*Runner) Fresh(context.Context) ([]Result, error)
+pkg anetos.dev/anetos/db/migrate, method (*Runner) Inspect(context.Context, ...string) ([]TableInfo, error)
 pkg anetos.dev/anetos/db/migrate, method (*Runner) Reindex(context.Context, ...string) ([]string, error)
 pkg anetos.dev/anetos/db/migrate, method (*Runner) Reset(context.Context) ([]Result, error)
 pkg anetos.dev/anetos/db/migrate, method (*Runner) Rollback(context.Context, int) ([]Result, error)
@@ -1557,10 +1560,29 @@ pkg anetos.dev/anetos/db/migrate, method (*Table) UniqueWithoutTrashed(...string
 pkg anetos.dev/anetos/db/migrate, method (*Table) Vector(string, int) *Column
 pkg anetos.dev/anetos/db/migrate, type Action string
 pkg anetos.dev/anetos/db/migrate, type Column struct
+pkg anetos.dev/anetos/db/migrate, type ColumnInfo struct
+pkg anetos.dev/anetos/db/migrate, type ColumnInfo struct, Default string
+pkg anetos.dev/anetos/db/migrate, type ColumnInfo struct, Generated string
+pkg anetos.dev/anetos/db/migrate, type ColumnInfo struct, Identity bool
+pkg anetos.dev/anetos/db/migrate, type ColumnInfo struct, Name string
+pkg anetos.dev/anetos/db/migrate, type ColumnInfo struct, Nullable bool
+pkg anetos.dev/anetos/db/migrate, type ColumnInfo struct, PrimaryKey bool
+pkg anetos.dev/anetos/db/migrate, type ColumnInfo struct, Type string
 pkg anetos.dev/anetos/db/migrate, type Config struct
 pkg anetos.dev/anetos/db/migrate, type Config struct, OnStart bool
 pkg anetos.dev/anetos/db/migrate, type Config struct, Readiness bool
 pkg anetos.dev/anetos/db/migrate, type Foreign struct
+pkg anetos.dev/anetos/db/migrate, type ForeignKeyInfo struct
+pkg anetos.dev/anetos/db/migrate, type ForeignKeyInfo struct, Columns []string
+pkg anetos.dev/anetos/db/migrate, type ForeignKeyInfo struct, OnDelete string
+pkg anetos.dev/anetos/db/migrate, type ForeignKeyInfo struct, References []string
+pkg anetos.dev/anetos/db/migrate, type ForeignKeyInfo struct, Table string
+pkg anetos.dev/anetos/db/migrate, type IndexInfo struct
+pkg anetos.dev/anetos/db/migrate, type IndexInfo struct, Columns []string
+pkg anetos.dev/anetos/db/migrate, type IndexInfo struct, Name string
+pkg anetos.dev/anetos/db/migrate, type IndexInfo struct, Primary bool
+pkg anetos.dev/anetos/db/migrate, type IndexInfo struct, Unique bool
+pkg anetos.dev/anetos/db/migrate, type IndexInfo struct, Where string
 pkg anetos.dev/anetos/db/migrate, type Migration interface
 pkg anetos.dev/anetos/db/migrate, type Migration interface, Down(*Schema) error
 pkg anetos.dev/anetos/db/migrate, type Migration interface, Up(*Schema) error
@@ -1583,6 +1605,12 @@ pkg anetos.dev/anetos/db/migrate, type Status struct, ID string
 pkg anetos.dev/anetos/db/migrate, type Status struct, Missing bool
 pkg anetos.dev/anetos/db/migrate, type Status struct, Source string
 pkg anetos.dev/anetos/db/migrate, type Table struct
+pkg anetos.dev/anetos/db/migrate, type TableInfo struct
+pkg anetos.dev/anetos/db/migrate, type TableInfo struct, Columns []ColumnInfo
+pkg anetos.dev/anetos/db/migrate, type TableInfo struct, ForeignKeys []ForeignKeyInfo
+pkg anetos.dev/anetos/db/migrate, type TableInfo struct, Indexes []IndexInfo
+pkg anetos.dev/anetos/db/migrate, type TableInfo struct, Kind string
+pkg anetos.dev/anetos/db/migrate, type TableInfo struct, Name string
 pkg anetos.dev/anetos/db/migrate, type WithoutTransaction interface
 pkg anetos.dev/anetos/db/migrate, type WithoutTransaction interface, WithoutTransaction()
 pkg anetos.dev/anetos/db/migrate, var ErrIrreversible error
@@ -2509,6 +2537,7 @@ pkg anetos.dev/anetos/web, method (*Router) As(string) *Router
 pkg anetos.dev/anetos/web, method (*Router) Delete(string, HandlerFunc) *Route
 pkg anetos.dev/anetos/web, method (*Router) ErrorPages(func(*Ctx, ErrorPage) view.Component)
 pkg anetos.dev/anetos/web, method (*Router) Get(string, HandlerFunc) *Route
+pkg anetos.dev/anetos/web, method (*Router) GlobalMiddleware() []MiddlewareDoc
 pkg anetos.dev/anetos/web, method (*Router) Group(string, ...Middleware) *Router
 pkg anetos.dev/anetos/web, method (*Router) Handle(string, string, HandlerFunc) *Route
 pkg anetos.dev/anetos/web, method (*Router) HandleStd(string, string, http.Handler) *Route
@@ -2588,6 +2617,8 @@ pkg anetos.dev/anetos/web, type HTTPError struct, Status int
 pkg anetos.dev/anetos/web, type HandlerFunc func(*Ctx) error
 pkg anetos.dev/anetos/web, type Middleware = func(http.Handler) http.Handler
 pkg anetos.dev/anetos/web, type MiddlewareDoc struct
+pkg anetos.dev/anetos/web, type MiddlewareDoc struct, Detail string
+pkg anetos.dev/anetos/web, type MiddlewareDoc struct, Name string
 pkg anetos.dev/anetos/web, type MiddlewareDoc struct, Responses map[int]string
 pkg anetos.dev/anetos/web, type MiddlewareDoc struct, Scopes []string
 pkg anetos.dev/anetos/web, type MiddlewareDoc struct, Security string

@@ -155,10 +155,14 @@ handler.
 To limit how often clients call a group of routes, add
 `ratelimit.Middleware` to it: see [Rate limiting](rate-limiting.md).
 
-A middleware that asks for credentials or answers errors of its own can
-say so to the API's description: it returns its handler through
-`web.Documented(h, web.MiddlewareDoc{…})`, and `r.Routes()` reports the
-docs of each route's middleware. See [Describe an API with
+`r.Routes()` lists each route's middleware, outermost first, named as
+Go code names the function that makes it (`web.CSRF`,
+`auth.Auth.Require`, `routes.adminOnly`), and `r.GlobalMiddleware()`
+the global ones: `go run . route:list --json` prints them. A middleware
+that asks for credentials or answers errors of its own can say so to
+the API's description: it returns its handler through
+`web.Documented(h, web.MiddlewareDoc{…})`, with a `Name` and a `Detail`
+too if you like. See [Describe an API with
 OpenAPI](openapi.md#5-say-what-your-middleware-asks-for).
 
 ## How it works

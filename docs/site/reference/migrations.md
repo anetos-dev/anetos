@@ -157,16 +157,33 @@ Registered on the app by `migrate.New`, so the binary runs them
 | Command | Flags | Production |
 |---|---|---|
 | `migrate` | `--seed`, `--force` | Allowed; `--seed` needs `--force` |
-| `migrate:status` | | Allowed |
+| `migrate:status` | `--json`: each migration's `source`, `id`, `applied`, `batch`, `applied_at`, `missing` | Allowed |
 | `migrate:rollback` | `--step=N` (default 1) | Needs `--force` |
 | `migrate:reset` | | Needs `--force` |
 | `migrate:fresh` | `--seed` | Refused (also in staging) |
 | `db:seed` | `--seeder=NAME` | Needs `--force` |
+| `db:schema` | table names (default: all); `--json` | Allowed |
 | `search:reindex` | table names (default: all) | Allowed |
+
+`db:schema` describes the tables (and views) as the database has them,
+from its catalog: each column's name, the database's type, `null` and
+default, and the primary key; the indexes, the primary key's included;
+the foreign keys with their `on delete`. SQLite's search indexes are
+`(virtual)`, their internal tables left out. `--json` prints a list of
+`{"name", "kind", "columns": [{"name", "type", "nullable", "default",
+"primary_key", "generated", "identity"}], "indexes": [{"name", "columns", "unique", "primary", "where"}],
+"foreign_keys": [{"columns", "table", "references", "on_delete"}]}`;
+`Runner.Inspect(ctx, tables…)` returns the same as `[]TableInfo`.
+An index's `columns` are its key's columns or expressions
+(`lower(email)`; not the columns a PostgreSQL index `INCLUDE`s), and
+`where` a partial index's condition; a column has `generated` (its
+expression; `(generated)` on SQLite) and `identity` (an identity or
+`AUTO_INCREMENT` column). Flags may come after the table names.
 
 Every command but `db:seed` changes the schema (`cmd.Command.ChangesSchema`),
 so it runs even when the search indexes don't match `DB_SEARCH_LANGUAGE` and
-`DB_SEARCH_RANKING`, which stops the app and other commands at boot.
+`DB_SEARCH_RANKING`, which stops the app and other commands at boot
+(`db:schema` changes nothing, but runs then too, to describe them).
 
 On PostgreSQL and MySQL, runs are serialized with an advisory or named
 lock (per database) held on its own connection: the pool needs at least

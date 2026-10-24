@@ -118,8 +118,8 @@ type orders struct{}
 func (orders) Show(*Ctx, struct{}) (order, error)   { return order{}, nil }
 func (*orders) Store(*Ctx, struct{}) (order, error) { return order{}, nil }
 
-// Routes names a typed handler's function, and reports what the route's
-// documented middleware said, outermost first.
+// Routes names a typed handler's function, and reports the route's
+// middleware, outermost first, with what the documented ones said.
 func TestRouteHandlerAndMiddleware(t *testing.T) {
 	doc := func(scheme string, status int) Middleware {
 		return func(next http.Handler) http.Handler {
@@ -140,10 +140,10 @@ func TestRouteHandlerAndMiddleware(t *testing.T) {
 		handler string
 		docs    []string
 	}{
-		{"web.orders.Show", []string{"outer", "inner"}},
-		{"web.orders.Store", []string{"outer"}},
-		{"web.TestRouteHandlerAndMiddleware.func3", []string{"outer"}},
-		{"", []string{"outer"}},
+		{"web.orders.Show", []string{"outer", "", "inner"}}, // plain says nothing
+		{"web.orders.Store", []string{"outer", ""}},
+		{"web.TestRouteHandlerAndMiddleware.func3", []string{"outer", ""}},
+		{"", []string{"outer", ""}},
 	} {
 		var docs []string
 		for _, d := range routes[i].Middleware {
@@ -158,3 +158,35 @@ func TestRouteHandlerAndMiddleware(t *testing.T) {
 		t.Errorf("%d %s", res.status, res.body)
 	}
 }
+
+func timeout(next http.Handler) http.Handler { return next }
+
+var literal = func(next http.Handler) http.Handler { return next }
+
+// Every middleware is named as Go code names it, the function that
+// makes it, unless its Documented names it; the global middleware too.
+func TestMiddlewareNames(t *testing.T) {
+	r := newTestRouter()
+	r.UseGlobal(RequestIDs, BodyLimit(1<<20))
+	var a authLike
+	g := r.Group("/x", CSRF(), a.Require, timeout, Timeout(0), func(next http.Handler) http.Handler { return next }, literal)
+	g.Get("/", func(*Ctx) error { return nil })
+	var names, details []string
+	for _, d := range r.Routes()[0].Middleware {
+		names, details = append(names, d.Name), append(details, d.Detail)
+	}
+	if want := []string{"web.CSRF", "web.authLike.Require", "web.timeout", "web.Timeout", "web.TestMiddlewareNames", "web.(func literal)"}; !slices.Equal(names, want) {
+		t.Errorf("names = %q, want %q", names, want)
+	}
+	if details[3] != "off" {
+		t.Errorf("Timeout(0)'s detail = %q", details[3])
+	}
+	global := r.GlobalMiddleware()
+	if len(global) != 2 || global[0].Name != "web.RequestIDs" || global[1].Name != "web.BodyLimit" || global[1].Detail != "1048576 bytes" {
+		t.Errorf("global = %+v", global)
+	}
+}
+
+type authLike struct{}
+
+func (*authLike) Require(next http.Handler) http.Handler { return next }

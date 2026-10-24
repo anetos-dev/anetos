@@ -23,6 +23,17 @@ Pages link to each other as `../guides/mail.md`: that's
 `go tool anetos docs guides/mail`. Don't assume another framework's
 names or APIs: Anetos's are in the docs and in `go doc anetos.dev/anetos/<package>`.
 
+## Ask the app instead of reading all of it
+
+```sh
+go tool anetos model:list   # the models: tables, columns (PostCols…), relations
+go run . route:list --json  # every route: its handler, types and middleware
+go run . db:schema          # the tables as the database has them (or db:schema <table>)
+go run . about              # versions, services, the settings read (secrets hidden)
+```
+
+Add `--json` for JSON you can parse.
+
 ## Before you call a change done
 
 ```sh
@@ -30,8 +41,10 @@ go tool anetos check    # generate, build, vet, test, doctor; --json for one obj
 ```
 
 It must pass. Fix what it reports, then run it again. In a fresh clone
-there is no `.env` (it holds secrets, so it isn't committed): make it
-first with `cp .env.example .env && go tool anetos key:generate`.
+there is no `.env` (it holds secrets, so it isn't committed): `check`
+then checks the project's files without the app's settings, and the
+app's own commands (`go run . …`) refuse to start. Make one first with
+`cp .env.example .env && go tool anetos key:generate`.
 
 ## Commands
 

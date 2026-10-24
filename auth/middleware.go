@@ -121,7 +121,7 @@ func (st *state) set(u any, tok *Token) {
 // to a new session). The user is loaded when first asked for, so pages
 // that don't need one don't query for it.
 func (a *Auth[U]) Middleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return web.Documented(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if st := stateFrom(r.Context()); st != nil {
 			if st.loader != any(a) {
 				web.WriteError(w, r, errors.New("auth: two Auths on one route; an app has one"))
@@ -132,7 +132,7 @@ func (a *Auth[U]) Middleware(next http.Handler) http.Handler {
 		}
 		st := &state{loader: a, w: w, r: r, log: a.log}
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), stateKey{}, st)))
-	})
+	}), web.MiddlewareDoc{Name: "auth.Auth.Middleware"})
 }
 
 // load finds the user of the request's session or remember-me cookie.
@@ -364,20 +364,20 @@ func (a *Auth[U]) Require(next http.Handler) http.Handler {
 
 // requireDoc is what Require tells API descriptions (web.Documented):
 // on an API, a token.
-var requireDoc = web.MiddlewareDoc{Security: "bearer", Responses: map[int]string{
+var requireDoc = web.MiddlewareDoc{Name: "auth.Auth.Require", Detail: "a logged-in user: the session's, or an API token's (bearer, in API descriptions)", Security: "bearer", Responses: map[int]string{
 	http.StatusUnauthorized: "The request isn't logged in: it has no valid API token.",
 }}
 
 // Guest lets only guests through: logged-in users are redirected to
 // AUTH_HOME_URL. Use it on the login and registration pages.
 func (a *Auth[U]) Guest(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return web.Documented(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if Check(r.Context()) {
 			http.Redirect(w, r, web.LocalePath(r.Context(), a.cfg.HomeURL), http.StatusSeeOther)
 			return
 		}
 		next.ServeHTTP(w, r)
-	})
+	}), web.MiddlewareDoc{Name: "auth.Auth.Guest"})
 }
 
 // Intended returns the page a guest asked for before [Auth.Require] sent

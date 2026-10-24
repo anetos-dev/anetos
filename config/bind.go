@@ -34,6 +34,15 @@ type RenameReporter interface {
 	ReportRename(old, current string)
 }
 
+// DefaultReporter is implemented by a [Source] that wants to know the
+// defaults [Bind] applies: the app's source shows them in the about
+// command.
+type DefaultReporter interface {
+	// ReportDefault says key is unset, and Bind used its default tag's
+	// value.
+	ReportDefault(key, value string)
+}
+
 // FieldError describes a problem with a single configuration key.
 type FieldError struct {
 	Key   string // environment key, e.g. "DB_PORT"
@@ -173,6 +182,9 @@ func bindStruct(src Source, v reflect.Value, prefix, path string, errs *[]error,
 			anySet = true
 		} else if def, hasDef := sf.Tag.Lookup("default"); hasDef {
 			raw, ok = def, true
+			if r, isR := src.(DefaultReporter); isR {
+				r.ReportDefault(key, def)
+			}
 		}
 		if !ok {
 			if required {

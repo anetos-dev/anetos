@@ -442,6 +442,12 @@ func TestAppNew(t *testing.T) {
 	if strings.Contains(out, "m0s") {
 		t.Errorf("schedule:list shows seconds:\n%s", out)
 	}
+	out, err = run("schedule:list", "--json")
+	check(t, err)
+	if !strings.Contains(out, `"name": "daily-report"`) || !strings.Contains(out, `"schedule": "0 2 * * *"`) ||
+		!strings.Contains(out, `"on_one_server": true`) || !strings.Contains(out, `"timeout": "1m0s"`) || !strings.Contains(out, `"next": "`) {
+		t.Errorf("schedule:list --json:\n%s", out)
+	}
 	var (
 		unitsMu sync.Mutex // schedule:run runs due tasks side by side
 		units   []string

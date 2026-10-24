@@ -281,6 +281,9 @@ func New[U Authenticatable](app *anetos.App, users Users[U], opts ...Option) (*A
 	src := app.Source()
 	if v, _ := src.Lookup("AUTH_HOME_URL"); v == "" && o.home != "" { // AUTH_HOME_URL wins
 		src = config.Layers(config.Map{"AUTH_HOME_URL": o.home}, src)
+		if r, ok := app.Source().(config.DefaultReporter); ok {
+			r.ReportDefault("AUTH_HOME_URL", o.home) // the app's default, for about
+		}
 	}
 	cfg, err := LoadConfig(src)
 	if err != nil {

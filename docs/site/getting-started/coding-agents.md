@@ -17,7 +17,7 @@ change works.
 ## Before you start
 
 - An Anetos project ([Create a project](create-a-project.md)), or an
-  existing one (step 4).
+  existing one (step 5).
 - A coding agent that works in your project's folder.
 
 ## Steps
@@ -69,7 +69,26 @@ agent to run it before calling a change done. In a fresh clone, with no
 files only and says how to write one:
 `cp .env.example .env && go tool anetos key:generate`.
 
-### 4. Add the files to an existing project
+### 4. Let it ask the app
+
+Rather than reading every file to learn the app, an agent asks it:
+
+```sh
+go tool anetos model:list            # the models: tables, columns, relations
+go run . route:list --json           # every route: handler, types, middleware
+go run . db:schema posts             # a table as the database has it
+go run . about                       # versions, services, settings (secrets hidden)
+```
+
+`model:list` reads the code, so it works before the app does; the
+others are the app's own commands, which need a `.env`. Each takes
+`--json` (and `migrate:status`, `schedule:list`, `plugin:list` and
+`help` do too). `about` hides what looks like a secret (by the
+setting's name, and a connection string's password), but shows the
+other settings, and an agent sends what it reads to its model's
+provider: read it before pasting it anywhere public.
+
+### 5. Add the files to an existing project
 
 A project made before these files, or with `anetos new --no-agent`:
 
@@ -84,7 +103,7 @@ An existing `CLAUDE.md` or `GEMINI.md` keeps its text, with the import
 added first. The files are those of exactly the agents you list:
 `--agent=claude` also removes Anetos's skills from `.agents/skills`.
 
-### 5. Keep them current
+### 6. Keep them current
 
 After upgrading Anetos, refresh them:
 
@@ -116,6 +135,10 @@ they don't fill its context.
 the core module, which holds `docs/site`'s Markdown; the tool is built from the version your
 `go.mod` pins, so the pages match the code. Its search matches whole
 words and ranks pages by them, rare ones counting most.
+
+An agent that browses rather than runs commands can read the same
+pages on the site: `https://docs.anetos.dev/llms.txt` lists them, each
+with a link to its Markdown copy, and `llms-full.txt` holds them all.
 
 A coding agent works on your code. `make:agent` is something else: it
 writes an AI agent that runs inside your app, for your users

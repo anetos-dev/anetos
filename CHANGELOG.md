@@ -24,6 +24,17 @@ All notable changes to this project are documented here. The format follows
   doctor, stopping at the first failure; without a `.env` (a fresh
   clone), doctor checks the project's files only (AX1a, D324).
 - `anetos doctor` checks the coding agents' files too (AX1a).
+- The app describes itself, for coding agents (AX1b-1, D325): `./app
+  about [--json]` (versions, services, components and the settings read,
+  secrets hidden, defaults marked), `./app db:schema [--json] [table…]`
+  (columns, indexes and foreign keys as the database has them;
+  `migrate.Runner.Inspect`), `--json` on `route:list` (handlers, types
+  and every middleware, by name), `migrate:status`, `schedule:list`,
+  `plugin:list` and `help`; `go tool anetos model:list [--json]` reads
+  the models from the code. `web.MiddlewareDoc` has `Name` and
+  `Detail`; `Router.GlobalMiddleware()`; `config.DefaultReporter`.
+- docs.anetos.dev has `/llms.txt`, `/llms-full.txt` and every page as
+  Markdown (`index.md`), per version (AX1b-1, D326).
 - `ai.Dimensions(n)`; `db.WatchBulkValues(n)`; `HTTPError.Is`, so a
   wrapped sentinel still matches (`errors.Is(web.ErrCSRF.Wrap(err),
   web.ErrCSRF)`) (M8b-5, D316).
@@ -139,6 +150,9 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- `web.RouteInfo.Middleware` has an entry for every middleware of the
+  route, with its name, not only the documented ones; `about` and
+  `db:schema` are taken command names (AX1b-1, D325).
 - The docs, the READMEs, the website and the code's comments describe
   Anetos on its own terms: "Coming from another framework?" notes and
   the glossary name several frameworks, and no text treats one as the

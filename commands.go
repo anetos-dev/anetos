@@ -4,6 +4,7 @@ package anetos
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -124,6 +125,7 @@ func (a *App) Commands() []cmd.Command {
 
 func (a *App) addBuiltins() {
 	a.commands["doctor"] = a.doctorCommand()
+	a.commands["about"] = a.aboutCommand()
 	a.commands["version"] = cmd.Command{
 		Name:        "version",
 		Description: "Print the app's version, its commit, and the Anetos and Go versions it was built with",
@@ -259,6 +261,42 @@ func (a *App) runCommand(ctx context.Context, c cmd.Command, args *cmd.Args) err
 func isHelpFlag(s string) bool { return s == "-h" || s == "-help" || s == "--help" }
 
 func (a *App) help(bin string, args []string, stdout, stderr io.Writer) int {
+	asJSON := slices.Contains(args, "--json")
+	args = slices.DeleteFunc(slices.Clone(args), func(s string) bool { return s == "--json" })
+	if asJSON {
+		type command struct {
+			Name        string `json:"name"`
+			Usage       string `json:"usage,omitempty"`
+			Description string `json:"description"`
+		}
+		var out any
+		switch len(args) {
+		case 0:
+			list := []command{{Name: "help", Usage: "[--json] [command]", Description: "Show this list, or a command's usage"}}
+			for _, c := range a.Commands() {
+				list = append(list, command{Name: c.Name, Usage: c.Usage, Description: c.Description})
+			}
+			out = list
+		case 1:
+			name, candidates := a.expand(args[0])
+			c, ok, _ := a.lookup(name)
+			if len(candidates) > 0 || !ok {
+				fmt.Fprintf(stderr, "%s: unknown command %q\n", bin, args[0])
+				return 2
+			}
+			out = command{Name: c.Name, Usage: c.Usage, Description: c.Description}
+		default:
+			fmt.Fprintf(stderr, "%s help: one command at a time\n", bin)
+			return 2
+		}
+		enc := json.NewEncoder(stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(out); err != nil {
+			fmt.Fprintf(stderr, "%s help: %v\n", bin, err)
+			return 1
+		}
+		return 0
+	}
 	if len(args) == 0 {
 		fmt.Fprintf(stdout, "Usage: %s [command] [arguments]\n\n", bin)
 		a.printCommands(bin, stdout)
@@ -281,7 +319,7 @@ func (a *App) help(bin string, args []string, stdout, stderr io.Writer) int {
 func (a *App) printCommands(bin string, w io.Writer) {
 	fmt.Fprintln(w, "Commands:")
 	tw := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
-	fmt.Fprintf(tw, "  help\tShow this list, or a command's usage (help <command>)\n")
+	fmt.Fprintf(tw, "  help\tShow this list (--json: as JSON), or a command's usage (help <command>)\n")
 	for _, c := range a.Commands() {
 		fmt.Fprintf(tw, "  %s\t%s\n", c.Name, c.Description)
 	}

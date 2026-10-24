@@ -234,6 +234,8 @@ func Middleware(name string, limits ...Limit) web.Middleware {
 		order[i] = i
 	}
 	slices.SortStableFunc(order, func(a, b int) int { return cmp.Compare(limits[a].Window, limits[b].Window) })
+	doc := doc
+	doc.Detail = name
 	return func(next http.Handler) http.Handler {
 		return web.Documented(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			t := now(r.Context())
@@ -284,7 +286,8 @@ func Middleware(name string, limits ...Limit) web.Middleware {
 	}
 }
 
-// doc is what Middleware tells API descriptions (web.Documented).
-var doc = web.MiddlewareDoc{Responses: map[int]string{
+// doc is what Middleware tells API descriptions (web.Documented), its
+// Detail the limit's name.
+var doc = web.MiddlewareDoc{Name: "ratelimit.Middleware", Responses: map[int]string{
 	http.StatusTooManyRequests: "Too many requests: retry after the Retry-After header's seconds.",
 }}

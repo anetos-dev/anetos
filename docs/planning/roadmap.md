@@ -518,7 +518,8 @@ it later; then the public release. **This is the first public release.**
 | M1b | Release plumbing | From v0.3: tag the modules, remove the `replace` directives from published `go.mod` files, the vanity import paths |
 | M2v | Versioned docs | From v0.3 (M2): docs per minor version from v0.5, `main` labeled "unreleased" |
 | AX1a | Coding agents: files, docs, check | Added 2026-10-24 at the user's request (`v05-security-and-agents.md`): `AGENTS.md` and skills in every new project and `agent:install`/`agent:update` for Claude Code, Codex, Copilot, Cursor and Gemini CLI; the docs in the tool (`anetos docs`); `anetos check` |
-| AX1b | Coding agents: introspection and MCP | The app describing itself as JSON (`route:list --json`, `about`, `model:list`, `db:schema`), an MCP server (`anetos mcp`), `llms.txt` on docs.anetos.dev |
+| AX1b-1 | Coding agents: the app describes itself | The app describing itself as JSON (`route:list --json`, `about`, `db:schema`, `--json` on the list commands), the tool's `model:list`, `llms.txt` on docs.anetos.dev (design agreed 2026-10-24, `v05-security-and-agents.md` §9) |
+| AX1b-2 | Coding agents: the MCP server | `go tool anetos mcp`: docs, app info, routes, models, schema, migrations, check and doctor as MCP tools (read and check only), with the official Go SDK in `cli`; `agent:install` writes each agent's MCP config |
 | SC1a | Security check: settings and routes | `security:check` in the app: unsafe settings and routes (form posts without CSRF, admin routes without a login check, login routes without a rate limit…), reports as text, JSON, SARIF and Markdown, an ignore file with reasons, basic and advanced levels |
 | SC1b | Security check: source and dependencies | In the `anetos` tool: framework-aware rules on the project's code (SQL built from strings, unescaped HTML of input, open redirects…) and govulncheck, built in |
 | SC1c | Security check: live | `--url`: a running site's headers, cookies, TLS, exposed files and error pages |
@@ -537,7 +538,7 @@ it later; then the public release. **This is the first public release.**
 - No known P0/P1 bugs; every public API documented.
 
 **Order** (agreed 2026-10-09, changed 2026-10-24): CI1, K1–K5, M8, M1b,
-M2v, then AX1a, AX1b, SC1a, SC1b, SC1c, AX1c, M9. M1b is real work: the v0.4.0 tags' `go.mod` files
+M2v, then AX1a, AX1b-1, AX1b-2, SC1a, SC1b, SC1c, AX1c, M9. M1b is real work: the v0.4.0 tags' `go.mod` files
 require `anetos.dev/anetos v0.0.0-…` with `replace` directives, which
 builds outside the repository ignore, so the modules can't yet be
 installed from the module proxy.
@@ -566,6 +567,7 @@ installed from the module proxy.
 | M2v Versioned docs | ✅ Done 2026-10-11 (design §23, D320, `m2v-versioned-docs.md`): docs.anetos.dev has one site per minor version from v0.5, each from its newest patch tag (the latest release at the root, `main` at `/main/` labeled unreleased, older ones at `/v0.N/`; `main` at the root until v0.5.0, with a banner pointing at the release candidate), found from the tags by `anetos-dev/docs`'s `versions` command; a version menu to the same page in another version, a banner on every version but the latest, search per version, only the latest indexed; the `Docs` workflow also runs on core tags, which `releasing.md` pushes on their own |
 | M8d Anetos on its own terms | ✅ Done 2026-10-11 (design §1, D321): every text (docs, READMEs, godoc, the website, the organization profile, design and planning docs, the whole CHANGELOG) describes Anetos as a new Go framework, not aimed at or modeled on another; "Coming from another framework?" notes and the glossary's "Elsewhere" column name several frameworks in alphabetical order; facts without names; the rule is in the documentation guide §8, both CLAUDE.md files and the handoff |
 | AX1a Coding agents: files, docs, check | ✅ Done 2026-10-24 (design §17.1, D322–D324, `v05-security-and-agents.md`): `anetos new` writes `AGENTS.md` (the project, commands, layout, conventions, "run `anetos check`"), `CLAUDE.md` and `GEMINI.md` importing it, and nine `anetos-*` skills in `.agents/skills` and `.claude/skills` (`--no-agent` skips them); `agent:install [--agent=…]` and `agent:update` keep the developer's text and skills; `doctor` warns when they're stale; `anetos docs` prints and searches the docs at the project's version (package `anetos.dev/anetos/docs`); `anetos check` generates, builds, vets, tests and runs doctor (`--json`); the guide "Build with a coding agent". Review71's 20 findings fixed (a wrong `c.Render` and API auth middleware in the skills, check without `.env`, the name from the deploy unit, CRLF, pruning with `--agent=`, whole-word search, links as pages; a test that checks the functions and types the agent files name against `api/anetos.txt`) |
+| AX1b-1 Coding agents: the app describes itself | ✅ Done 2026-10-24 (design §17.1, D325, D326): `./app about [--json]` (versions, services, components, the settings read with their values, secrets hidden, defaults marked), `./app db:schema [--json] [table…]` (`migrate.Runner.Inspect`, on SQLite, PostgreSQL, MySQL and MariaDB), `--json` on `route:list` (handlers, types, every middleware by name: `MiddlewareDoc.Name`/`Detail`, `Router.GlobalMiddleware`), `migrate:status`, `schedule:list`, `plugin:list` and `help`; `go tool anetos model:list [--json]`; AGENTS.md's "Ask the app"; docs.anetos.dev's `llms.txt`, `llms-full.txt` and pages as Markdown (docs repo) |
 
 ---
 
@@ -745,3 +747,4 @@ something, and we fix the API rather than add the hook.
 | 2026-10-11 | M2v (versioned docs) done (design D320) |
 | 2026-10-11 | Vision and non-goals reworded: Anetos on its own terms, no framework as the model or the audience (M8d) |
 | 2026-10-24 | Before v0.5.0, at the user's request: coding agents (AX1a–AX1c) and a security check (SC1a–SC1c); the volunteer test no longer gates v0.5; AX1a done (design D322–D324) |
+| 2026-10-24 | AX1b split in AX1b-1 (the app describes itself, llms.txt) and AX1b-2 (the MCP server); AX1b-1 done (design D325, D326) |

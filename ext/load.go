@@ -4,8 +4,11 @@ package ext
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
+	"io"
 	"path"
 	"reflect"
 	"regexp"
@@ -317,11 +320,20 @@ func (reg *registry) commands() []cmd.Command {
 	return []cmd.Command{{
 		Name:        "plugin:list",
 		Former:      []string{"plugins:list"},
+		Usage:       "[--json]",
 		Description: "List the plugins and what they add",
 		ManagesApp:  true, // doesn't boot the app, so it works before the settings are set
 		Run: func(_ context.Context, args *cmd.Args) error {
-			if len(args.Args) > 0 {
+			fs := flag.NewFlagSet("plugin:list", flag.ContinueOnError)
+			asJSON := fs.Bool("json", false, "print the plugins, their settings included, as JSON")
+			if err := args.Parse(fs); err != nil {
+				return err
+			}
+			if fs.NArg() > 0 {
 				return cmd.Usagef("plugin:list takes no arguments")
+			}
+			if *asJSON {
+				return reg.writeJSON(args.Stdout)
 			}
 			if len(reg.plugins) == 0 {
 				_, err := fmt.Fprintln(args.Stdout, "No plugins.")
@@ -388,4 +400,30 @@ func dash(s string) string {
 		return "-"
 	}
 	return s
+}
+
+// writeJSON prints plugin:list --json.
+func (reg *registry) writeJSON(w io.Writer) error {
+	type key struct {
+		Name     string `json:"name"`
+		Default  string `json:"default,omitempty"`
+		Required bool   `json:"required,omitempty"`
+	}
+	type plugin struct {
+		Name     string   `json:"name"`
+		Requires string   `json:"requires,omitempty"`
+		Prefix   string   `json:"prefix,omitempty"`
+		Adds     []string `json:"adds"`
+		Settings []key    `json:"settings"`
+	}
+	out := make([]plugin, len(reg.plugins))
+	for i, p := range reg.plugins {
+		out[i] = plugin{Name: p.Name, Requires: p.Requires, Prefix: p.Prefix, Adds: append([]string{}, p.Adds...), Settings: []key{}}
+		for _, k := range p.Keys {
+			out[i].Settings = append(out[i].Settings, key{Name: k.Name, Default: k.Default, Required: k.Required})
+		}
+	}
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	return enc.Encode(out)
 }

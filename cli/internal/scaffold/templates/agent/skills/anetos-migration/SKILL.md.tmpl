@@ -21,7 +21,8 @@ description: Change this Anetos app's database schema - create a table, add or c
    (`t.ForeignID("author_id").Constrained()`). The second undoes the first.
 2. Update the model in `app/models/` (a field with a `db:"slug"` tag),
    then `go tool anetos generate` (the typed columns).
-3. `go run . migrate`; `go run . migrate:status` shows what ran;
+3. `go run . migrate`; `go run . migrate:status` shows what ran,
+   `go run . db:schema posts` the table as the database now has it;
    `go run . migrate:rollback` undoes the last batch.
 4. `go tool anetos check`
 

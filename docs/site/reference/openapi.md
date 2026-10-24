@@ -17,10 +17,11 @@ Package `web/openapi` and what it writes. How to use it:
 | `openapi.Spec(r, cfg)` | The OpenAPI 3.1.0 document of `r`'s typed routes, as indented JSON (the same routes and `Config` give the same bytes), and warnings about what it left out or couldn't describe |
 | `openapi.Check(r, cfg)` | An error unless `cfg.File` holds `Spec`'s document (Windows line ends allowed); the error names the first line that differs and says to run `go run . openapi`. Also an error when a route under `cfg.Prefix` is one the document leaves out (not a typed handler, or every method) |
 | `openapi.Register(app, srv, cfg)` | Adds the `openapi` command, and serves the document at `cfg.Path` if set (built on the first request). Call it after adding the routes. An error without `cfg.Title` |
-| `web.Documented(h, web.MiddlewareDoc{…})` | The handler a middleware returns, with what the middleware asks for and may answer, which the routes it wraps report |
+| `web.Documented(h, web.MiddlewareDoc{…})` | The handler a middleware returns, with what the middleware asks for and may answer (`Security`, `Scopes`, `Responses`), which the routes it wraps report; `Name` and `Detail` name it in `route:list --json` |
 | `web.RouteInfo.Input`, `.Output`, `.Status` | A typed route's input and result types and its `Status` (0 unless set) |
 | `web.RouteInfo.Handler` | A typed route's function, without its package path: `handlers.Bookmarks.Index` |
-| `web.RouteInfo.Middleware` | The `MiddlewareDoc`s of the route's middleware, outermost first (read-only) |
+| `web.RouteInfo.Middleware` | A `MiddlewareDoc` for each of the route's middleware, outermost first (read-only): its `Name` (the function that makes it, as Go code names it, unless `Documented` gives one) and, for the documented ones, what they said |
+| `r.GlobalMiddleware()` | The same for the router's global middleware (`UseGlobal`) |
 | `auth.RequireAbilities(abilities…)` | Middleware: a token needs the abilities (403), a guest is refused (401, `WWW-Authenticate: Bearer`); documents them as the bearer token's scopes. Put it after `Require` |
 
 ## Config

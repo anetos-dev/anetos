@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -294,6 +295,38 @@ func TestServerCommands(t *testing.T) {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("missing %q in:\n%s", want, out.String())
 		}
+	}
+	// --json, on an app of its own: a command runs once per app.
+	app = newApp(t, config.Map{"HTTP_ADDR": "127.0.0.1:0"})
+	if srv, err = web.NewServer(app); err != nil {
+		t.Fatal(err)
+	}
+	srv.Router().Get("/posts/{id}", func(c *web.Ctx) error { return nil }).Name("posts.show")
+	srv.Router().Handle("", "/any", func(c *web.Ctx) error { return nil })
+	out.Reset()
+	if code := app.ExecuteArgs(t.Context(), []string{"route:list", "--json"}, &out, &errOut); code != 0 {
+		t.Fatalf("route:list --json: exit %d: %s", code, errOut.String())
+	}
+	var list struct {
+		Middleware []struct{ Name, Detail string }
+		Routes     []struct {
+			Method, Path, Name, Handler string
+			Middleware                  []struct{ Name string }
+		}
+	}
+	if err := json.Unmarshal(out.Bytes(), &list); err != nil {
+		t.Fatalf("route:list --json: %v\n%s", err, out.String())
+	}
+	if !slices.ContainsFunc(list.Middleware, func(m struct{ Name, Detail string }) bool { return m.Name == "web.BodyLimit" && m.Detail != "" }) {
+		t.Errorf("global middleware: %+v", list.Middleware)
+	}
+	if !slices.ContainsFunc(list.Routes, func(r struct {
+		Method, Path, Name, Handler string
+		Middleware                  []struct{ Name string }
+	}) bool {
+		return r.Method == "GET" && r.Path == "/posts/{id}" && r.Name == "posts.show"
+	}) || !strings.Contains(out.String(), `"method": "ANY"`) {
+		t.Errorf("routes:\n%s", out.String())
 	}
 
 	// serve runs the web process type until the context ends.

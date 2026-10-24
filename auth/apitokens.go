@@ -218,7 +218,7 @@ func (a *Auth[U]) TokenMiddleware(next http.Handler) http.Handler {
 
 // tokenDoc is what TokenMiddleware tells API descriptions
 // (web.Documented): a token sent may be refused.
-var tokenDoc = web.MiddlewareDoc{Responses: map[int]string{
+var tokenDoc = web.MiddlewareDoc{Name: "auth.Auth.TokenMiddleware", Responses: map[int]string{
 	http.StatusUnauthorized: "The API token is invalid, expired or revoked.",
 }}
 
@@ -261,7 +261,7 @@ func RequireAbilities(abilities ...string) web.Middleware {
 	if len(abilities) == 0 {
 		panic("auth: RequireAbilities needs abilities")
 	}
-	doc := web.MiddlewareDoc{Security: "bearer", Scopes: slices.Clone(abilities), Responses: map[int]string{
+	doc := web.MiddlewareDoc{Name: "auth.RequireAbilities", Detail: strings.Join(abilities, ", "), Security: "bearer", Scopes: slices.Clone(abilities), Responses: map[int]string{
 		http.StatusUnauthorized: "The request isn't logged in: it has no valid API token.",
 		http.StatusForbidden:    "The token lacks an ability the operation needs: " + strings.Join(abilities, ", ") + ".",
 	}}

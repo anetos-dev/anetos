@@ -873,7 +873,7 @@ func (a *Auth[U]) PasswordConfirmed(ctx context.Context) bool {
 // form was on); API clients and htmx requests get
 // [ErrPasswordNotConfirmed]. Put it after [Auth.Require].
 func (a *Auth[U]) RequireConfirmed(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return web.Documented(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		if a.PasswordConfirmed(ctx) {
 			next.ServeHTTP(w, r)
@@ -894,7 +894,7 @@ func (a *Auth[U]) RequireConfirmed(next http.Handler) http.Handler {
 			s.Delete(keyIntended) // not an older page's
 		}
 		http.Redirect(w, r, web.LocalePath(ctx, a.cfg.ConfirmURL), http.StatusSeeOther)
-	})
+	}), web.MiddlewareDoc{Name: "auth.Auth.RequireConfirmed"})
 }
 
 // sameSitePath returns the path and query of ref if it is on r's host,

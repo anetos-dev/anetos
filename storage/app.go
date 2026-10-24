@@ -118,6 +118,18 @@ func (s diskSource) Lookup(k string) (string, bool) {
 	return "", false
 }
 
+// ReportDefault passes a default's report on, under the disk's key.
+func (s diskSource) ReportDefault(k, value string) {
+	r, ok := s.src.(config.DefaultReporter)
+	if !ok {
+		return
+	}
+	if suffix, isDisk := strings.CutPrefix(k, "STORAGE_"); isDisk && s.name != "" && suffix != "DRIVER" {
+		k = key(s.name, suffix)
+	}
+	r.ReportDefault(k, value)
+}
+
 // Driver opens a backend for [New]. The local and memory drivers are
 // built in; driver modules provide others (s3.Driver()).
 type Driver struct {

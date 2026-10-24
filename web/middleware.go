@@ -324,9 +324,9 @@ func ParsePrefixes(values []string) ([]netip.Prefix, error) {
 func Timeout(d time.Duration) Middleware {
 	return func(next http.Handler) http.Handler {
 		if d <= 0 {
-			return next
+			return Documented(next, MiddlewareDoc{Name: "web.Timeout", Detail: "off"})
 		}
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		return Documented(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			parent := r.Context()
 			if parent.Value(beforeTimeoutKey{}) == nil { // the outermost Timeout's, for WithoutTimeout
 				parent = context.WithValue(parent, beforeTimeoutKey{}, parent)
@@ -334,7 +334,7 @@ func Timeout(d time.Duration) Middleware {
 			ctx, cancel := context.WithTimeout(parent, d)
 			defer cancel()
 			next.ServeHTTP(w, r.WithContext(ctx))
-		})
+		}), MiddlewareDoc{Name: "web.Timeout", Detail: d.String()})
 	}
 }
 
@@ -343,9 +343,9 @@ func Timeout(d time.Duration) Middleware {
 func BodyLimit(n int64) Middleware {
 	return func(next http.Handler) http.Handler {
 		if n <= 0 {
-			return next
+			return Documented(next, MiddlewareDoc{Name: "web.BodyLimit", Detail: "off"})
 		}
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		return Documented(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.ContentLength > n {
 				w.Header().Set("Connection", "close")
 			}
@@ -353,7 +353,7 @@ func BodyLimit(n int64) Middleware {
 				r.Body = http.MaxBytesReader(w, r.Body, n)
 			}
 			next.ServeHTTP(w, r)
-		})
+		}), MiddlewareDoc{Name: "web.BodyLimit", Detail: strconv.FormatInt(n, 10) + " bytes"})
 	}
 }
 

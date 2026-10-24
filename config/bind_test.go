@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -397,5 +398,32 @@ func TestBindWas(t *testing.T) {
 	}
 	if names := Layers(Env(), Map{"B": ""}, Map{"A": "", "B": ""}).(Lister).Names(); len(names) != 2 || names[0] != "A" {
 		t.Errorf("Layers Names: %v", names)
+	}
+}
+
+// reporting records what Bind reports.
+type reporting struct {
+	Map
+	defaults, former, renamed []string
+}
+
+func (r *reporting) ReportDefault(key, value string)  { r.defaults = append(r.defaults, key+"="+value) }
+func (r *reporting) ReportFormer(old, current string) { r.former = append(r.former, old+">"+current) }
+func (r *reporting) ReportRename(old, current string) { r.renamed = append(r.renamed, old+">"+current) }
+
+// Layers passes Bind's reports on to the layers that want them.
+func TestLayersReport(t *testing.T) {
+	var cfg struct {
+		Home  string `env:"HOME_URL" default:"/home"`
+		Store string `env:"STORE" was:"OLD_STORE"`
+		Name  string `env:"NAME"`
+	}
+	r := &reporting{Map: Map{"OLD_STORE": "database"}}
+	if err := Bind(Layers(Map{"NAME": "x"}, r), &cfg); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(r.defaults, []string{"HOME_URL=/home"}) || !slices.Equal(r.former, []string{"OLD_STORE>STORE"}) ||
+		!slices.Equal(r.renamed, []string{"OLD_STORE>STORE"}) || cfg.Store != "database" {
+		t.Errorf("reports: %v %v %v, %+v", r.defaults, r.former, r.renamed, cfg)
 	}
 }

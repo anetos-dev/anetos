@@ -295,17 +295,16 @@ func (r *Router) register(rt *Route, h http.Handler) {
 	for p := r; p != nil; p = p.parent {
 		p.hasRoute = true
 	}
+	if len(r.mws) > 0 {
+		rt.docs = make([]MiddlewareDoc, len(r.mws))
+	}
 	var last *documented
-	for _, mw := range slices.Backward(r.mws) {
-		h = mw(h)
+	for i, mw := range slices.Backward(r.mws) {
 		// A middleware returning next as it is (a no-op) doesn't
 		// document it twice.
-		if d, ok := h.(*documented); ok && d != last {
-			rt.docs = append(rt.docs, d.doc)
-		}
+		rt.docs[i], h = describe(mw, h, last)
 		last, _ = h.(*documented)
 	}
-	slices.Reverse(rt.docs)
 	// Record the route for outer middleware (access log, CurrentRoute),
 	// for plain handlers too.
 	next := h
@@ -474,7 +473,7 @@ type Route struct {
 	name    atomic.Pointer[string]
 	status  atomic.Int32    // Status: a typed handler's result's; 0 for the default
 	types   handlerTypes    // a typed handler's (H), set at registration
-	docs    []MiddlewareDoc // the middleware's (Documented), outermost first
+	docs    []MiddlewareDoc // its middleware, outermost first
 }
 
 // Status sets the HTTP status of a typed handler's result on this route
@@ -561,10 +560,11 @@ type RouteInfo struct {
 	// Handler names a typed handler's function without its package
 	// path ("handlers.Posts.Create"); "" for other handlers.
 	Handler string
-	// Middleware describes what the route's middleware asks of requests
-	// and may answer, outermost first: what each middleware's handler
-	// said with [Documented]. Its maps are the middleware's own: read
-	// them, don't change them.
+	// Middleware describes the route's middleware, outermost first (not
+	// the router's global middleware: [Router.GlobalMiddleware]): each
+	// one's name, and what it asks of requests and may answer, as its
+	// handler said with [Documented]. Its maps are the middleware's own:
+	// read them, don't change them.
 	Middleware []MiddlewareDoc
 }
 

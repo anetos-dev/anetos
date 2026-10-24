@@ -22,7 +22,18 @@ type trackedSource struct {
 	read    map[string]bool
 	former  map[string]string // every former name → current
 	renamed map[string]string // the former names read → current
+	dflt    map[string]string // the defaults applied, for about
 	log     *slog.Logger
+}
+
+// ReportDefault implements config.DefaultReporter.
+func (s *trackedSource) ReportDefault(key, value string) {
+	s.mu.Lock()
+	if s.dflt == nil {
+		s.dflt = map[string]string{}
+	}
+	s.dflt[key] = value
+	s.mu.Unlock()
 }
 
 func newTrackedSource(src config.Source) *trackedSource {
