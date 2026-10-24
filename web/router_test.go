@@ -223,8 +223,12 @@ func TestRoutesListAndRouteContext(t *testing.T) {
 		t.Errorf("std any-method route = %d", got.status)
 	}
 	routes := r.Routes()
-	if len(routes) != 2 || !reflect.DeepEqual(routes[0], RouteInfo{Method: "GET", Pattern: "/a/{id}", Name: "a.show"}) || routes[1].Method != "" {
-		t.Errorf("Routes = %+v", routes)
+	if len(routes) != 2 || routes[1].Method != "" || !strings.HasSuffix(routes[0].File, "router_test.go") || routes[0].Line == 0 {
+		t.Errorf("Routes = %#v", routes)
+	}
+	routes[0].File, routes[0].Line = "", 0 // where it was registered: this file
+	if !reflect.DeepEqual(routes[0], RouteInfo{Method: "GET", Pattern: "/a/{id}", Name: "a.show"}) {
+		t.Errorf("Routes[0] = %#v", routes[0])
 	}
 }
 

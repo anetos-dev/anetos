@@ -262,6 +262,16 @@ gets the project's checks only, with a note. The app's checks use the settings
 of this machine (`.env` and the environment): run `./<app> doctor` with
 the production settings too, on the server.
 
+## `anetos security:check [flags]`
+
+Builds the app and runs its [`security:check` command](#the-security-check)
+in the project, with the same flags, and exits with its status: the
+app's settings and routes checked against security rules. `--out` and
+`--ignore` name files relative to the current folder. The settings are
+this machine's, as doctor's: without a `.env` (and no `APP_KEY` in the
+environment) it exits 1 saying how to write one; run `./<app>
+security:check` with the production settings too. See [Check your app's security](../guides/security-check.md).
+
 ## `anetos check [--short] [--json]`
 
 Checks that the project works, for you or a coding agent before calling
@@ -409,7 +419,7 @@ were `plugins:list` and `plugins:env`, and `locale:check` was
 |---|---|---|
 | (none), `run [--only=type,…]` | every app | Runs the background components (all, or those of the process types `web`, `worker`, `scheduler`, `listener`, plus those without one) until SIGINT/SIGTERM (exit 0) |
 | `serve` | `web.NewServer` | `run --only=web` |
-| `route:list [--json]` | `web.NewServer` | Method, path and name of every route. `--json`: `{"middleware": […], "routes": [{"method", "host", "path", "name", "handler", "input", "output", "status", "middleware": […]}]}`, the global middleware first; each middleware is `{"name", "detail", "security", "scopes", "responses"}`, named as Go code names it (`web.CSRF`, `session.Manager.Middleware`, `auth.Auth.Require`, `rbac.Require` with its permissions as `detail`, `ratelimit.Middleware` with its limit's name), what it said with `web.Documented` (`web.MiddlewareDoc`), outermost first. `security` is what an API description shows: `auth.Auth.Require` says `bearer` on pages too, where the user comes from the session. Login attempts are limited inside `auth`'s login (`AUTH_THROTTLE`), not by a middleware, so `POST /login` lists none |
+| `route:list [--json]` | `web.NewServer` | Method, path and name of every route. `--json`: `{"middleware": […], "routes": [{"method", "host", "path", "name", "handler", "input", "output", "status", "file", "line", "public", "middleware": […]}]}`, the global middleware first; `file` and `line` are where the route was registered (relative to the module's folder), `public` the reason given to `Public` (both omitted when empty); each middleware is `{"name", "detail", "security", "scopes", "responses"}`, named as Go code names it (`web.CSRF`, `session.Manager.Middleware`, `auth.Auth.Require`, `rbac.Require` with its permissions as `detail`, `ratelimit.Middleware` with its limit's name), what it said with `web.Documented` (`web.MiddlewareDoc`), outermost first. `security` is what an API description shows: `auth.Auth.Require` says `bearer` on pages too, where the user comes from the session. Login attempts are limited inside `auth`'s login (`AUTH_THROTTLE`), not by a middleware, so `POST /login` lists none |
 | `openapi [--check] [--out=FILE]` | `openapi.Register` | Writes the API's OpenAPI 3.1 description to `openapi.json` (`Config.File`; `--out=-`: the standard output), warning about routes it leaves out; `--check` exits 1 if the file differs. Doesn't boot the app. See [Describe an API with OpenAPI](../guides/openapi.md) |
 | `health:check [--live] [--timeout=5s]` | `web.NewServer` | Asks the server running on `HTTP_ADDR` (on `127.0.0.1` when its host is empty, `0.0.0.0` or `[::]`) for `/health/ready` (`--live`: `/health/live`), for container health checks: prints `ok`, or exits 1. An error with `HTTP_HEALTH_ROUTES=false` |
 | `migrate`, `migrate:rollback`, `migrate:reset`, `migrate:fresh`, `migrate:status [--json]`, `db:seed`, `db:schema [--json] [table…]` | `migrate.New` | See the [migrations reference](migrations.md#commands); `db:schema` describes the tables: columns, indexes, foreign keys |
@@ -432,6 +442,7 @@ were `plugins:list` and `plugins:env`, and `locale:check` was
 | `plugin:env [plugin]` | `ext.Load` | The plugins' settings as `.env` lines with their defaults (double-quoted when they need it; `# required` after required ones); doesn't boot the app, so it works before they are set |
 | `about [--json]` | every app | Describes the app: its name, environment, URL, time zone, module, the Anetos and Go versions, process types, the services provided (`*db.DB`, `*queue.Queue`…), its components, and the settings it read while booting with their values (`<value> (default)` for a default; `(not set)` without one, listed only by `--json`). A secret is `(set)` (a name with `KEY`, `SECRET`, `PASSWORD`, `PASS`, `TOKEN`, `CREDENTIAL`, `PRIVATE`, `DSN` or `WEBHOOK`), and in the other values a connection string's password and a URL's secret parameters and user are `xxxxx` (a URL that doesn't parse is `xxxxx` whole); a value read under its former name is `<value> (from <former>)`. It can't know every secret a value may hold: read it before you share it. It boots the app, as other commands do |
 | `doctor [--strict]` | every app | Runs the app's checks of its settings and prints what they find (see [below](#the-doctor-command)). Exit 1 on a problem (`--strict`: on a warning too) |
+| `security:check [--level=basic\|advanced] [--format=text\|json\|sarif\|markdown] [--out=FILE] [--ignore=FILE] [--strict]` | every app | Checks the app's settings and routes against security rules and reports what they find (see [below](#the-security-check)). Exit 1 on a problem (`--strict`: on a warning too) |
 | `version` | every app | The app's version (`--version` of `anetos build`, else the git tag Go recorded), commit, commit time and `modified` if the files differed from it; the Anetos version; the Go version and system. Doesn't boot the app; the `main.go` of `anetos new` prints it before `setup`, so it needs no settings (`anetos.VersionText`) |
 | `help [--json] [command]`, `-h`, `--help` | every app | The command list (`--json`: each command's `name`, `usage` and `description`), or a command's usage (`<command> -h` too, as the first argument); doesn't boot the app |
 
@@ -482,11 +493,47 @@ Checking blog (APP_ENV=production).
 
 | API | Does |
 |---|---|
-| `app.AddCheck(anetos.Check{Name, Booted, Run})` | Adds a check: `Run(ctx) []anetos.Finding`, nothing when all is well; `Booted` runs it after the app boots (for checks that need a service). Checks run in the order added, the booted ones last; a panic is reported as a problem. Panics without a name or `Run` |
-| `anetos.Finding{Severity, Message}` | What a check found; the message names the setting and says what to do |
+| `app.AddCheck(anetos.Check{Name, Booted, Security, Run})` | Adds a check: `Run(ctx) []anetos.Finding`, nothing when all is well; `Booted` runs it after the app boots (for checks that need a service); `Security` puts all its findings in [`security:check`](#the-security-check)'s report too. Checks run in the order added, the booted ones last; a panic is reported as a problem. Panics without a name or `Run` |
+| `anetos.Finding{Severity, Message, Rule}` | What a check found; the message names the setting and says what to do. `Rule`, for a finding about security, is its rule in `security:check`'s report (`setting.session-secure`) |
 | `anetos.Note`, `anetos.Warning`, `anetos.Problem` | The severities: information; often a mistake; unsafe or broken (exit 1) |
 | `env.Deployed()` | Whether an `anetos.Environment` is production or staging |
 | `db.Driver.InspectURL` | For drivers: reads a `DB_URL`'s host and TLS mode (`db.TLSVerify`, `TLSSkipVerify`, `TLSNone`), for the `db` check |
+
+### The security check
+
+`security:check` boots the app, runs the doctor's checks and keeps
+their findings about security (a finding with a `Rule`, or every
+finding of a check marked `Security`, as `check.<name>`), then runs the security rules
+the features and the app added, at the level asked for. It reads
+`security-ignore.yaml` at the project's root (`--ignore` names another
+file), and sorts the findings by severity. The rules and the ignore
+file: [Check your app's security](../guides/security-check.md#the-rules).
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `--level` | `basic` | `basic`: the rules with few false alarms; `advanced` adds those that find what may be on purpose |
+| `--format` | `text` | `text`; `json`, one object (`app`, `env`, `level`, `findings` and `ignored`, each with `rule`, `severity`, `where`, `file`, `line`, `message`, `owasp`, and `docs` or `reason`; `summary`; `limits`); `sarif`, SARIF 2.1.0 for GitHub's code scanning (a route's finding at the line that registered it, a setting's at its line in `.env.example`, else `go.mod`'s first); `markdown`, a table |
+| `--out` | the standard output | Writes the report to a file and prints the counts; `-` is the standard output |
+| `--ignore` | `security-ignore.yaml` | The file of ignored findings: a list of `rule`, `where` (every place when empty), `reason` (required), `expires` (`2027-03-31`, through the end of that day in `APP_TIMEZONE`); another key is an error. A file named here must exist |
+| `--strict` | off | Exit 1 on a warning too |
+
+A finding is ignored by the first entry that matches it and hasn't
+expired. An expired entry whose finding is reported is a warning
+(`ignore.expired`), and an entry that ignores nothing a note
+(`ignore.unused`). A check or rule that panics is a problem
+(`check.panic`). In SARIF, files are relative to the git repository's
+root (`%SRCROOT%`), each rule has a `security-severity` (the worst of
+its findings: 8.0, 5.0, 2.0), and each result a fingerprint of its
+rule, place and file.
+
+| API | Does |
+|---|---|
+| `app.AddSecurityRule(anetos.SecurityRule{ID, Level, Summary, OWASP, Docs, Run})` | Adds a rule: `Run(ctx, app) []anetos.SecurityFinding`, called after the app boots. `Level`: `anetos.SecurityBasic` (default) or `anetos.SecurityAdvanced`. Panics without a dotted lower-case ID (`billing.webhook-signature`; `route.`, `setting.`, `check.` and `ignore.` are the framework's) or `Run`, or with an ID already added |
+| `anetos.SecurityFinding{Rule, Severity, Where, File, Line, Message, OWASP}` | What a rule found: `Where` names the place (a route, a setting); `File` and `Line` the code; `Rule` and `OWASP` default to the rule's. Its JSON is the report's (`anetos.Severity` marshals as its name) |
+| `web.RouteRule(rule, func(web.RouteInfo) []anetos.SecurityFinding)` | A rule that checks each route of the app's server, its global middleware first; a finding's `Where` defaults to the route (`POST /posts`), its `File` and `Line` to where it was registered: the app's line that registered it, or that called the module that did (the admin's `Mount`) |
+| `RouteInfo.Uses(name)`, `RouteInfo.String()` | Whether a route has a middleware ([`MiddlewareDoc.Name`](../guides/routing.md)); the route as reports name it |
+| `route.Public(reason)` | Marks a route open to everyone on purpose: `route.login` and `route.api-auth` leave it out, and `route:list --json` shows the reason (`public`). Panics on an empty reason |
+| `anetos.OWASPAccessControl`, `OWASPMisconfiguration`, `OWASPCryptographic`, `OWASPAuthentication`, `OWASPLogging` | OWASP Top 10:2025 categories, for `OWASP` |
 
 A command other than `run` and `serve` runs after `app.Boot`, with a
 context from `app.Context`; `app.Close` follows, also after a panic. The

@@ -84,7 +84,7 @@ func TestCommands(t *testing.T) {
 		{[]string{"reports:send", "-h"}, 0, "Email the weekly report"},
 		{[]string{"reports:send", "--help"}, 0, "Usage: "},
 		{[]string{"nope"}, 2, `unknown command "nope"`},
-		{[]string{"help"}, 0, "reports:send   Email the weekly report"},
+		{[]string{"help"}, 0, "  reports:send "},
 		{[]string{"--help"}, 0, "Commands:"},
 		{[]string{"help", "run"}, 0, "[--only=type,…]"},
 		{[]string{"help", "nope"}, 2, "unknown command"},

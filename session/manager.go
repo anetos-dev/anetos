@@ -321,13 +321,13 @@ func ForApp(app *anetos.App, drivers ...Driver) (*Manager, error) {
 func checks(cfg Config, env anetos.Environment) []anetos.Finding {
 	var out []anetos.Finding
 	if env.Deployed() && cfg.Secure != nil && !*cfg.Secure {
-		out = append(out, anetos.Finding{Severity: anetos.Problem, Message: fmt.Sprintf("SESSION_SECURE=false in %s: browsers send the session cookie over plain HTTP too, where it can be stolen; remove the setting and serve the app over HTTPS", env)})
+		out = append(out, anetos.Finding{Rule: "setting.session-secure", Severity: anetos.Problem, Message: fmt.Sprintf("SESSION_SECURE=false in %s: browsers send the session cookie over plain HTTP too, where it can be stolen; remove the setting and serve the app over HTTPS", env)})
 	}
 	if strings.EqualFold(cfg.SameSite, "none") {
-		out = append(out, anetos.Finding{Severity: anetos.Warning, Message: "SESSION_SAME_SITE=none: other sites' pages send the session cookie too, and only the CSRF token stops their forms; use lax unless another site must embed the app"})
+		out = append(out, anetos.Finding{Rule: "setting.session-same-site", Severity: anetos.Warning, Message: "SESSION_SAME_SITE=none: other sites' pages send the session cookie too, and only the CSRF token stops their forms; use lax unless another site must embed the app"})
 	}
 	if cfg.Domain != "" {
-		out = append(out, anetos.Finding{Severity: anetos.Note, Message: fmt.Sprintf("SESSION_DOMAIN=%s: every subdomain gets the session cookie, so any of them can read or set it; leave it empty unless the app spans subdomains", cfg.Domain)})
+		out = append(out, anetos.Finding{Rule: "setting.session-domain", Severity: anetos.Note, Message: fmt.Sprintf("SESSION_DOMAIN=%s: every subdomain gets the session cookie, so any of them can read or set it; leave it empty unless the app spans subdomains", cfg.Domain)})
 	}
 	return out
 }

@@ -60,7 +60,10 @@ change before v1.
   coding agents (`AGENTS.md`, skills, the docs offline in the tool,
   `anetos check`, the app describing itself as JSON, an MCP server,
   `llms.txt`;
-  [guide](docs/site/getting-started/coding-agents.md));
+  [guide](docs/site/getting-started/coding-agents.md)); a security
+  check of the app's settings and routes (`security:check`, with
+  reports for GitHub's code scanning;
+  [guide](docs/site/guides/security-check.md));
   contributor docs, governance and a code of conduct
   ([Contributing](#contributing)).
 

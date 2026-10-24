@@ -495,7 +495,7 @@ func checks(cfg Config, d Driver, env anetos.Environment) []anetos.Finding {
 	}
 	var out []anetos.Finding
 	if cfg.LogQueries != nil && *cfg.LogQueries {
-		out = append(out, anetos.Finding{Severity: anetos.Warning, Message: fmt.Sprintf("DB_LOG_QUERIES=true in %s: the log gets every query with its values (emails, token hashes, personal data); turn it off", env)})
+		out = append(out, anetos.Finding{Rule: "setting.db-log-queries", Severity: anetos.Warning, Message: fmt.Sprintf("DB_LOG_QUERIES=true in %s: the log gets every query with its values (emails, token hashes, personal data); turn it off", env)})
 	}
 	if cfg.Driver == "sqlite" {
 		return out
@@ -507,7 +507,7 @@ func checks(cfg Config, d Driver, env anetos.Environment) []anetos.Finding {
 		}
 		var err error
 		if host, mode, err = d.InspectURL(cfg.URL); err != nil {
-			return append(out, anetos.Finding{Severity: anetos.Warning, Message: urlKey(cfg) + " can't be read to check its TLS settings: " + err.Error()})
+			return append(out, anetos.Finding{Rule: "setting.db-tls", Severity: anetos.Warning, Message: urlKey(cfg) + " can't be read to check its TLS settings: " + err.Error()})
 		}
 		setting = urlKey(cfg)
 	}
@@ -516,9 +516,9 @@ func checks(cfg Config, d Driver, env anetos.Environment) []anetos.Finding {
 	}
 	switch mode {
 	case TLSNone:
-		out = append(out, anetos.Finding{Severity: anetos.Warning, Message: fmt.Sprintf("%s for %s: connections may go in plain text, the password and data readable on the network; verify the server's certificate (DB_TLS=verify, sslmode=verify-full, tls=true) unless the network is private", setting, host)})
+		out = append(out, anetos.Finding{Rule: "setting.db-tls", Severity: anetos.Warning, Message: fmt.Sprintf("%s for %s: connections may go in plain text, the password and data readable on the network; verify the server's certificate (DB_TLS=verify, sslmode=verify-full, tls=true) unless the network is private", setting, host)})
 	case TLSSkipVerify:
-		out = append(out, anetos.Finding{Severity: anetos.Warning, Message: fmt.Sprintf("%s for %s: connections are encrypted, but the server's certificate isn't checked, so someone on the path can pose as it; verify it (DB_TLS=verify with DB_TLS_CA for a private CA)", setting, host)})
+		out = append(out, anetos.Finding{Rule: "setting.db-tls", Severity: anetos.Warning, Message: fmt.Sprintf("%s for %s: connections are encrypted, but the server's certificate isn't checked, so someone on the path can pose as it; verify it (DB_TLS=verify with DB_TLS_CA for a private CA)", setting, host)})
 	}
 	return out
 }

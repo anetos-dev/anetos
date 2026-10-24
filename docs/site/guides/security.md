@@ -68,6 +68,15 @@ sudo systemd-run --pipe --wait --collect --quiet \
 does). In a container, `docker compose run --rm web doctor`. The
 [reference](../reference/cli.md#the-doctor-command) lists every check.
 
+Then run the security check, which reads the routes too (a form's
+route without CSRF protection, an admin page without a login) and
+writes a report for CI's code scanning:
+[Check your app's security](security-check.md).
+
+```bash
+go tool anetos security:check
+```
+
 ### 2. Keep the secrets secret
 
 - Make a new `APP_KEY` for production (`go tool anetos key:generate --show`):
@@ -219,4 +228,5 @@ code := app.ExecuteArgs(ctx, []string{"doctor"}, &out, &out)
 
 - [Deploy](deployment.md)
 - [Add two-factor authentication](two-factor.md)
+- [Check your app's security](security-check.md): the security check and its rules.
 - [CLI reference: doctor](../reference/cli.md#anetos-doctor---strict---vuln)

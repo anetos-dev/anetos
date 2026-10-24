@@ -65,6 +65,7 @@ type App struct {
 	commands map[string]cmd.Command
 	former   map[string]string // a command's former name → its name
 	checks   []Check           // AddCheck, for doctor
+	rules    []SecurityRule    // AddSecurityRule, for security:check
 
 	clock clock // Now
 
@@ -189,6 +190,7 @@ func New(opts ...Option) (*App, error) {
 	a.addBuiltins()
 	a.AddCheck(Check{Name: "app", Run: a.appChecks})
 	a.AddCheck(Check{Name: "settings", Run: tracked.settingsChecks})
+	a.AddSecurityRule(a.logLevelRule())
 	return a, nil
 }
 

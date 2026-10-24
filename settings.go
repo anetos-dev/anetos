@@ -120,25 +120,25 @@ func (s *trackedSource) settingsChecks(context.Context) []Finding {
 	}
 	slices.Sort(olds)
 	for _, old := range olds {
-		out = append(out, Finding{Warning, fmt.Sprintf("%s is renamed %s: rename it in your settings (%s is read until v0.6)", old, s.renamed[old], old)})
+		out = append(out, Finding{Severity: Warning, Message: fmt.Sprintf("%s is renamed %s: rename it in your settings (%s is read until v0.6)", old, s.renamed[old], old)})
 	}
 	for _, name := range s.namesLocked() {
 		if _, ok := s.renamed[name]; ok {
 			continue
 		}
 		if cur, ok := s.former[name]; ok {
-			out = append(out, Finding{Warning, fmt.Sprintf("%s in your .env is the former name of %s, which is set: remove %s", name, cur, name)})
+			out = append(out, Finding{Severity: Warning, Message: fmt.Sprintf("%s in your .env is the former name of %s, which is set: remove %s", name, cur, name)})
 			continue
 		}
 		if s.read[name] {
 			continue
 		}
 		if to, ok := othersNames[name]; ok {
-			out = append(out, Finding{Warning, fmt.Sprintf("%s in your .env isn't a setting Anetos reads: use %s", name, to)})
+			out = append(out, Finding{Severity: Warning, Message: fmt.Sprintf("%s in your .env isn't a setting Anetos reads: use %s", name, to)})
 			continue
 		}
 		if near := s.nearest(name); near != "" {
-			out = append(out, Finding{Warning, fmt.Sprintf("%s in your .env isn't a setting Anetos reads: did you mean %s?", name, near)})
+			out = append(out, Finding{Severity: Warning, Message: fmt.Sprintf("%s in your .env isn't a setting Anetos reads: did you mean %s?", name, near)})
 		}
 	}
 	return out

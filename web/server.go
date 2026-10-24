@@ -23,6 +23,7 @@ import (
 	"anetos.dev/anetos"
 	"anetos.dev/anetos/cmd"
 	"anetos.dev/anetos/config"
+	"anetos.dev/anetos/internal/securitycheck"
 	"anetos.dev/anetos/supervisor"
 )
 
@@ -191,6 +192,9 @@ func NewServer(app *anetos.App, opts ...ServerOption) (*Server, error) {
 		}
 	}
 	s.addCheck(app)
+	for _, r := range securityRules() {
+		app.AddSecurityRule(r)
+	}
 	anetos.Provide(app, s) // for plugins' routes (ext.Load)
 	return s, nil
 }
@@ -284,6 +288,9 @@ type routeJSON struct {
 	Input      string           `json:"input,omitempty"`
 	Output     string           `json:"output,omitempty"`
 	Status     int              `json:"status,omitempty"`
+	File       string           `json:"file,omitempty"`
+	Line       int              `json:"line,omitempty"`
+	Public     string           `json:"public,omitempty"`
 	Middleware []middlewareJSON `json:"middleware"`
 }
 
@@ -319,7 +326,8 @@ func writeRoutesJSON(w io.Writer, r *Router) error {
 	}{Middleware: middlewareJSONs(r.GlobalMiddleware()), Routes: []routeJSON{}}
 	for _, rt := range r.Routes() {
 		j := routeJSON{Method: cmp.Or(rt.Method, "ANY"), Host: rt.Host, Path: rt.Pattern, Name: rt.Name,
-			Handler: rt.Handler, Status: rt.Status, Middleware: middlewareJSONs(rt.Middleware)}
+			Handler: rt.Handler, Status: rt.Status, File: securitycheck.Rel(rt.File), Line: rt.Line, Public: rt.Public,
+			Middleware: middlewareJSONs(rt.Middleware)}
 		if rt.Input != nil {
 			j.Input = rt.Input.String()
 		}

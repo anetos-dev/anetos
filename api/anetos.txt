@@ -2,8 +2,15 @@
 pkg anetos.dev/anetos, const DateLayout = time.DateOnly
 pkg anetos.dev/anetos, const Development Environment = "development"
 pkg anetos.dev/anetos, const Note Severity = 0
+pkg anetos.dev/anetos, const OWASPAccessControl = "A01:2025 Broken Access Control"
+pkg anetos.dev/anetos, const OWASPAuthentication = "A07:2025 Authentication Failures"
+pkg anetos.dev/anetos, const OWASPCryptographic = "A04:2025 Cryptographic Failures"
+pkg anetos.dev/anetos, const OWASPLogging = "A09:2025 Security Logging and Alerting Failures"
+pkg anetos.dev/anetos, const OWASPMisconfiguration = "A02:2025 Security Misconfiguration"
 pkg anetos.dev/anetos, const Problem Severity = 2
 pkg anetos.dev/anetos, const Production Environment = "production"
+pkg anetos.dev/anetos, const SecurityAdvanced SecurityLevel = 1
+pkg anetos.dev/anetos, const SecurityBasic SecurityLevel = 0
 pkg anetos.dev/anetos, const Staging Environment = "staging"
 pkg anetos.dev/anetos, const Testing Environment = "testing"
 pkg anetos.dev/anetos, const Warning Severity = 1
@@ -37,6 +44,7 @@ pkg anetos.dev/anetos, method (*App) AddCarrier(Carrier)
 pkg anetos.dev/anetos, method (*App) AddCheck(Check)
 pkg anetos.dev/anetos, method (*App) AddCommand(cmd.Command) error
 pkg anetos.dev/anetos, method (*App) AddContextValue(any, any)
+pkg anetos.dev/anetos, method (*App) AddSecurityRule(SecurityRule)
 pkg anetos.dev/anetos, method (*App) AroundOperations(OperationFunc)
 pkg anetos.dev/anetos, method (*App) AroundUnits(OperationFunc)
 pkg anetos.dev/anetos, method (*App) Boot(context.Context) error
@@ -67,6 +75,7 @@ pkg anetos.dev/anetos, method (*App) Use(...Provider)
 pkg anetos.dev/anetos, method (*App) WithCarried(context.Context, map[string]string) context.Context
 pkg anetos.dev/anetos, method (*Date) Scan(any) error
 pkg anetos.dev/anetos, method (*Date) UnmarshalText([]byte) error
+pkg anetos.dev/anetos, method (*Severity) UnmarshalText([]byte) error
 pkg anetos.dev/anetos, method (AppConfig) Validate() error
 pkg anetos.dev/anetos, method (Date) AddDate(int, int, int) Date
 pkg anetos.dev/anetos, method (Date) AddDays(int) Date
@@ -89,6 +98,8 @@ pkg anetos.dev/anetos, method (Secret) GoString() string
 pkg anetos.dev/anetos, method (Secret) LogValue() slog.Value
 pkg anetos.dev/anetos, method (Secret) MarshalJSON() ([]byte, error)
 pkg anetos.dev/anetos, method (Secret) String() string
+pkg anetos.dev/anetos, method (SecurityLevel) String() string
+pkg anetos.dev/anetos, method (Severity) MarshalText() ([]byte, error)
 pkg anetos.dev/anetos, method (Severity) String() string
 pkg anetos.dev/anetos, type App struct
 pkg anetos.dev/anetos, type App struct, embedded carriers
@@ -111,6 +122,7 @@ pkg anetos.dev/anetos, type Check struct
 pkg anetos.dev/anetos, type Check struct, Booted bool
 pkg anetos.dev/anetos, type Check struct, Name string
 pkg anetos.dev/anetos, type Check struct, Run func(context.Context) []Finding
+pkg anetos.dev/anetos, type Check struct, Security bool
 pkg anetos.dev/anetos, type ComponentOption func(*supervisor.Spec)
 pkg anetos.dev/anetos, type Date struct
 pkg anetos.dev/anetos, type Date struct, Day int
@@ -119,6 +131,7 @@ pkg anetos.dev/anetos, type Date struct, Year int
 pkg anetos.dev/anetos, type Environment string
 pkg anetos.dev/anetos, type Finding struct
 pkg anetos.dev/anetos, type Finding struct, Message string
+pkg anetos.dev/anetos, type Finding struct, Rule string
 pkg anetos.dev/anetos, type Finding struct, Severity Severity
 pkg anetos.dev/anetos, type LogConfig struct
 pkg anetos.dev/anetos, type LogConfig struct, Format string
@@ -133,6 +146,22 @@ pkg anetos.dev/anetos, type Provider interface, Boot(context.Context, *App) erro
 pkg anetos.dev/anetos, type Provider interface, Name() string
 pkg anetos.dev/anetos, type Provider interface, Register(*App) error
 pkg anetos.dev/anetos, type Secret string
+pkg anetos.dev/anetos, type SecurityFinding struct
+pkg anetos.dev/anetos, type SecurityFinding struct, File string
+pkg anetos.dev/anetos, type SecurityFinding struct, Line int
+pkg anetos.dev/anetos, type SecurityFinding struct, Message string
+pkg anetos.dev/anetos, type SecurityFinding struct, OWASP string
+pkg anetos.dev/anetos, type SecurityFinding struct, Rule string
+pkg anetos.dev/anetos, type SecurityFinding struct, Severity Severity
+pkg anetos.dev/anetos, type SecurityFinding struct, Where string
+pkg anetos.dev/anetos, type SecurityLevel int
+pkg anetos.dev/anetos, type SecurityRule struct
+pkg anetos.dev/anetos, type SecurityRule struct, Docs string
+pkg anetos.dev/anetos, type SecurityRule struct, ID string
+pkg anetos.dev/anetos, type SecurityRule struct, Level SecurityLevel
+pkg anetos.dev/anetos, type SecurityRule struct, OWASP string
+pkg anetos.dev/anetos, type SecurityRule struct, Run func(context.Context, *App) []SecurityFinding
+pkg anetos.dev/anetos, type SecurityRule struct, Summary string
 pkg anetos.dev/anetos, type Severity int
 pkg anetos.dev/anetos, type Unit = Operation
 pkg anetos.dev/anetos, type UnitFunc = OperationFunc
@@ -2467,6 +2496,7 @@ pkg anetos.dev/anetos/web, func RequestID(context.Context) string
 pkg anetos.dev/anetos/web, func RequestIDs(http.Handler) http.Handler
 pkg anetos.dev/anetos/web, func RouteFromContext(context.Context) *Route
 pkg anetos.dev/anetos/web, func RouteIs(context.Context, ...string) bool
+pkg anetos.dev/anetos/web, func RouteRule(anetos.SecurityRule, func(RouteInfo) []anetos.SecurityFinding) anetos.SecurityRule
 pkg anetos.dev/anetos/web, func SecureHeaders(bool) Middleware
 pkg anetos.dev/anetos/web, func StatusOf(error) int
 pkg anetos.dev/anetos/web, func Text(int, string) Responder
@@ -2530,6 +2560,7 @@ pkg anetos.dev/anetos/web, method (*Route) Host() string
 pkg anetos.dev/anetos/web, method (*Route) Method() string
 pkg anetos.dev/anetos/web, method (*Route) Name(string) *Route
 pkg anetos.dev/anetos/web, method (*Route) Pattern() string
+pkg anetos.dev/anetos/web, method (*Route) Public(string) *Route
 pkg anetos.dev/anetos/web, method (*Route) RouteName() string
 pkg anetos.dev/anetos/web, method (*Route) RouteStatus() int
 pkg anetos.dev/anetos/web, method (*Route) Status(int) *Route
@@ -2563,6 +2594,8 @@ pkg anetos.dev/anetos/web, method (*Server) Run(context.Context) error
 pkg anetos.dev/anetos/web, method (*Server) Stopping() <-chan struct{}
 pkg anetos.dev/anetos/web, method (Config) Validate() error
 pkg anetos.dev/anetos/web, method (ResponderFunc) Respond(*Ctx) error
+pkg anetos.dev/anetos/web, method (RouteInfo) String() string
+pkg anetos.dev/anetos/web, method (RouteInfo) Uses(string) bool
 pkg anetos.dev/anetos/web, type Alternate struct
 pkg anetos.dev/anetos/web, type Alternate struct, Locale string
 pkg anetos.dev/anetos/web, type Alternate struct, URL string
@@ -2630,14 +2663,17 @@ pkg anetos.dev/anetos/web, type Responder interface, Respond(*Ctx) error
 pkg anetos.dev/anetos/web, type ResponderFunc func(*Ctx) error
 pkg anetos.dev/anetos/web, type Route struct
 pkg anetos.dev/anetos/web, type RouteInfo struct
+pkg anetos.dev/anetos/web, type RouteInfo struct, File string
 pkg anetos.dev/anetos/web, type RouteInfo struct, Handler string
 pkg anetos.dev/anetos/web, type RouteInfo struct, Host string
 pkg anetos.dev/anetos/web, type RouteInfo struct, Input reflect.Type
+pkg anetos.dev/anetos/web, type RouteInfo struct, Line int
 pkg anetos.dev/anetos/web, type RouteInfo struct, Method string
 pkg anetos.dev/anetos/web, type RouteInfo struct, Middleware []MiddlewareDoc
 pkg anetos.dev/anetos/web, type RouteInfo struct, Name string
 pkg anetos.dev/anetos/web, type RouteInfo struct, Output reflect.Type
 pkg anetos.dev/anetos/web, type RouteInfo struct, Pattern string
+pkg anetos.dev/anetos/web, type RouteInfo struct, Public string
 pkg anetos.dev/anetos/web, type RouteInfo struct, Status int
 pkg anetos.dev/anetos/web, type Router struct
 pkg anetos.dev/anetos/web, type RouterOption func(*routerCore)

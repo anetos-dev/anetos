@@ -60,6 +60,7 @@ func TestCommands(t *testing.T) {
 		{[]string{"docs", "upgrade/README.md"}, 0, "# "},
 		{[]string{"check", "-h"}, 0, "Usage: anetos check"},
 		{[]string{"model:list", "-h"}, 0, "Usage: anetos model:list"},
+		{[]string{"security:check", "-h"}, 0, "Usage: anetos security:check"},
 		{[]string{"m:l", "-h"}, 0, "Usage: anetos model:list"},
 		{[]string{"check", "x"}, 2, "Usage: anetos check"},
 		{[]string{"agent:install", "-h"}, 0, "Usage: anetos agent:install"},

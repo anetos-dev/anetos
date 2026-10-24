@@ -42,6 +42,26 @@ func (s Severity) String() string {
 	return fmt.Sprintf("Severity(%d)", int(s))
 }
 
+// MarshalText returns its name ([Severity.String]), so JSON shows
+// "warning".
+func (s Severity) MarshalText() ([]byte, error) {
+	if s < Note || s > Problem {
+		return nil, fmt.Errorf("anetos: no severity %d", int(s))
+	}
+	return []byte(s.String()), nil
+}
+
+// UnmarshalText reads a name MarshalText wrote.
+func (s *Severity) UnmarshalText(b []byte) error {
+	for v := Note; v <= Problem; v++ {
+		if string(b) == v.String() {
+			*s = v
+			return nil
+		}
+	}
+	return fmt.Errorf("anetos: %q isn't a severity (note, warning or problem)", b)
+}
+
 // Finding is what a [Check] found.
 type Finding struct {
 	// Severity says how much it matters.
@@ -50,6 +70,10 @@ type Finding struct {
 	// "SESSION_SECURE=false in production: session cookies go over plain
 	// HTTP; remove the setting".
 	Message string
+	// Rule names a security finding, which the security:check command
+	// reports too: "setting.session-secure". "" for others, unless the
+	// check is a [Check.Security] one.
+	Rule string
 }
 
 // Check is a check of the app's settings that the doctor command runs
@@ -67,6 +91,10 @@ type Check struct {
 	// Run returns what it found: nothing when all is well. The context
 	// has the app's values (see [App.Context]).
 	Run func(ctx context.Context) []Finding
+	// Security says every finding of the check is about security: the
+	// security:check command reports them too, as rule
+	// "setting.<Name>" unless a finding has a Rule of its own.
+	Security bool
 }
 
 // AddCheck adds a check to the app's doctor command. Checks run in the
@@ -142,7 +170,7 @@ func (a *App) doctor(ctx context.Context, w io.Writer, strict bool) error {
 	run := func(ctx context.Context, c Check) {
 		defer func() {
 			if v := recover(); v != nil {
-				report(c.Name, []Finding{{Problem, fmt.Sprintf("the check panicked: %v", v)}})
+				report(c.Name, []Finding{{Severity: Problem, Message: fmt.Sprintf("the check panicked: %v", v)}})
 			}
 		}()
 		report(c.Name, c.Run(ctx))
@@ -163,9 +191,9 @@ func (a *App) doctor(ctx context.Context, w io.Writer, strict bool) error {
 	wasBooted := a.Booted()
 	if err := a.Boot(ctx); err != nil {
 		if len(booted) > 0 {
-			report("boot", []Finding{{Problem, fmt.Sprintf("the app doesn't boot, so %d check(s) didn't run: %v", len(booted), err)}})
+			report("boot", []Finding{{Severity: Problem, Message: fmt.Sprintf("the app doesn't boot, so %d check(s) didn't run: %v", len(booted), err)}})
 		} else {
-			report("boot", []Finding{{Problem, fmt.Sprintf("the app doesn't boot: %v", err)}})
+			report("boot", []Finding{{Severity: Problem, Message: fmt.Sprintf("the app doesn't boot: %v", err)}})
 		}
 	} else {
 		a.cmdMu.Lock()
@@ -208,22 +236,22 @@ func (a *App) appChecks(context.Context) []Finding {
 	}
 	var out []Finding
 	if c.Debug { // refused in production by Validate
-		out = append(out, Finding{Warning, "APP_DEBUG=true in staging: error pages show stack traces and settings to visitors; keep it off where others can reach the app"})
+		out = append(out, Finding{Rule: "setting.debug", Severity: Warning, Message: "APP_DEBUG=true in staging: error pages show stack traces and settings to visitors; keep it off where others can reach the app"})
 	}
 	if c.Key == "" {
-		out = append(out, Finding{Warning, "APP_KEY isn't set: sessions, encryption and signed URLs refuse to start without it; set one (anetos key:generate)"})
+		out = append(out, Finding{Rule: "setting.app-key", Severity: Warning, Message: "APP_KEY isn't set: sessions, encryption and signed URLs refuse to start without it; set one (anetos key:generate)"})
 	}
 	switch u, _ := url.Parse(c.URL); {
 	case c.URL == "":
-		out = append(out, Finding{Warning, "APP_URL isn't set: links in emails and OAuth callbacks need the app's public URL; set it (https://example.com)"})
+		out = append(out, Finding{Severity: Warning, Message: "APP_URL isn't set: links in emails and OAuth callbacks need the app's public URL; set it (https://example.com)"})
 	case u.Scheme == "http" && !netaddr.Local(u.Hostname()):
 		sev := Warning
 		if c.Env.IsProduction() {
 			sev = Problem
 		}
-		out = append(out, Finding{sev, fmt.Sprintf("APP_URL %s is http: links in emails and OAuth callbacks go over plain HTTP; serve the app over HTTPS and use https://", c.URL)})
+		out = append(out, Finding{Rule: "setting.app-url", Severity: sev, Message: fmt.Sprintf("APP_URL %s is http: links in emails and OAuth callbacks go over plain HTTP; serve the app over HTTPS and use https://", c.URL)})
 	case netaddr.Example(u.Hostname()):
-		out = append(out, Finding{Warning, fmt.Sprintf("APP_URL %s is an example's: links in emails and OAuth callbacks would point there; set the app's public URL", c.URL)})
+		out = append(out, Finding{Severity: Warning, Message: fmt.Sprintf("APP_URL %s is an example's: links in emails and OAuth callbacks would point there; set the app's public URL", c.URL)})
 	}
 	return out
 }

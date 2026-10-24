@@ -10,13 +10,16 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"reflect"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
 
 	"anetos.dev/anetos"
+	"anetos.dev/anetos/internal/securitycheck"
 	"anetos.dev/anetos/view"
 )
 
@@ -288,8 +291,39 @@ func (r *Router) newRoute(method, pattern string) *Route {
 	if full == "" {
 		full = "/"
 	}
-	return &Route{core: r.core, method: method, host: r.host, pattern: full, namePfx: r.namePfx}
+	rt := &Route{core: r.core, method: method, host: r.host, pattern: full, namePfx: r.namePfx}
+	rt.file, rt.line = caller()
+	return rt
 }
+
+// caller is the file and line of the code that registered a route: the
+// first caller in the app's module, else the first outside this package
+// (its tests are outside).
+func caller() (string, int) {
+	pcs := make([]uintptr, 32)
+	frames := runtime.CallersFrames(pcs[:runtime.Callers(3, pcs)])
+	file, line := "", 0
+	for {
+		f, more := frames.Next()
+		if filepath.Dir(f.File) != webDir || strings.HasSuffix(f.File, "_test.go") {
+			if securitycheck.InMainModule(f.Function) {
+				return f.File, f.Line // the app's own line, where its fix goes
+			}
+			if file == "" {
+				file, line = f.File, f.Line
+			}
+		}
+		if !more {
+			return file, line
+		}
+	}
+}
+
+// webDir is this package's directory, as the binary records it.
+var webDir = func() string {
+	_, file, _, _ := runtime.Caller(0)
+	return filepath.Dir(file)
+}()
 
 func (r *Router) register(rt *Route, h http.Handler) {
 	for p := r; p != nil; p = p.parent {
@@ -474,6 +508,21 @@ type Route struct {
 	status  atomic.Int32    // Status: a typed handler's result's; 0 for the default
 	types   handlerTypes    // a typed handler's (H), set at registration
 	docs    []MiddlewareDoc // its middleware, outermost first
+	file    string          // where it was registered
+	line    int
+	public  atomic.Pointer[string] // Public's reason
+}
+
+// Public says the route is open to everyone on purpose, and why: the
+// security check's rules about logins (security:check) leave it out.
+//
+//	r.Post("/webhooks/stripe", h.Stripe).Public("Stripe signs its webhooks: the handler checks the signature")
+func (rt *Route) Public(reason string) *Route {
+	if strings.TrimSpace(reason) == "" {
+		panic(fmt.Sprintf("web: route %s %s: Public needs a reason", rt.method, rt.pattern))
+	}
+	rt.public.Store(&reason)
+	return rt
 }
 
 // Status sets the HTTP status of a typed handler's result on this route
@@ -560,6 +609,17 @@ type RouteInfo struct {
 	// Handler names a typed handler's function without its package
 	// path ("handlers.Posts.Create"); "" for other handlers.
 	Handler string
+	// File is where the route was registered, as the binary recorded
+	// it ("" when unknown): the app's line that registered it, or that
+	// called the plugin or module that did (admin's Mount), else the
+	// first caller outside this package. route:list and security:check
+	// show it relative to the module's folder.
+	File string
+	// Line is File's line (0 when unknown).
+	Line int
+	// Public is the reason [Route.Public] gave, "" for a route that
+	// isn't public on purpose.
+	Public string
 	// Middleware describes the route's middleware, outermost first (not
 	// the router's global middleware: [Router.GlobalMiddleware]): each
 	// one's name, and what it asks of requests and may answer, as its
@@ -576,7 +636,10 @@ func (r *Router) Routes() []RouteInfo {
 	for i, rt := range r.core.routes {
 		out[i] = RouteInfo{Method: rt.method, Host: rt.host, Pattern: rt.pattern, Name: rt.RouteName(),
 			Input: rt.types.in, Output: rt.types.out, Status: rt.RouteStatus(), Handler: rt.types.name,
-			Middleware: slices.Clone(rt.docs)}
+			Middleware: slices.Clone(rt.docs), File: rt.file, Line: rt.line}
+		if p := rt.public.Load(); p != nil {
+			out[i].Public = *p
+		}
 	}
 	return out
 }

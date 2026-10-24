@@ -272,11 +272,13 @@ func (p *Panel) Mount(r *web.Router, mws ...web.Middleware) error {
 	}
 	p.assets = assets
 	// Assets need no session: they are the same for everyone.
-	r.Group(p.base, p.allowIPs).Get("/_assets/{file...}", web.WrapHandler(assets)).Name("admin.assets")
+	r.Group(p.base, p.allowIPs).Get("/_assets/{file...}", web.WrapHandler(assets)).Name("admin.assets").
+		Public("the admin's stylesheet and scripts, the same for everyone")
 	// Stopping impersonating a user needs no admin permission: the user
 	// impersonated may have none.
 	r.Group(p.base, append([]web.Middleware{p.allowIPs}, append(slices.Clip(mws), secureHeaders)...)...).
-		Post(stopPath, p.stop).Name("admin.impersonation.stop")
+		Post(stopPath, p.stop).Name("admin.impersonation.stop").
+		Public("it ends the impersonation the session holds, for whoever is impersonated")
 	loggedIn := r.Group(p.base, append([]web.Middleware{p.allowIPs}, append(slices.Clip(mws), secureHeaders, p.require, rbac.Require(Access))...)...)
 	if p.cfg.TwoFactor == "required" {
 		loggedIn.Get(twoFactorPath, p.twoFactorRequired).Name("admin.two-factor")

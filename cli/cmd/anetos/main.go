@@ -31,6 +31,7 @@
 //	agent:update              refresh them for this version of Anetos
 //	check [--short] [--json]  generate, build, vet, test and doctor: does the change work?
 //	doctor                    check the project and the app's settings
+//	security:check            check the app's settings and routes against security rules
 //	docs [<page>] [--search <words>]  print the documentation
 //	mcp                       run the MCP server coding agents start
 //	key:generate              set APP_KEY in .env
@@ -85,6 +86,7 @@ Commands:
   agent:update              refresh the agent files for this version of Anetos
   check [--short] [--json]  generate, build, vet, test and doctor: does the change work?
   doctor [--strict] [--vuln]  check the project and the app's settings for unsafe values
+  security:check [--level=…] [--format=…]  check the app's settings and routes against security rules
   docs [<page>] [--search <words>]  print the documentation, at the project's version
   mcp [--dir=<project>]     run the MCP server coding agents start (agent:install configures it)
   key:generate [--show] [--force]  set APP_KEY in .env (--show prints a key instead)
@@ -161,6 +163,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 		return check(ctx, args[1:], stdout, stderr)
+	case "security:check":
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		return securityCheck(ctx, args[1:], stdout, stderr)
 	case "css:build":
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
@@ -208,7 +214,7 @@ var commandNames = []string{
 	"new", "dev", "build", "generate", "add", "remove", "check", "doctor", "docs", "version", "help",
 	"make:handler", "make:model", "make:migration", "make:middleware", "make:agent",
 	"make:crud", "make:auth", "make:admin", "make:admin-resource",
-	"css:build", "css:use", "key:generate", "locale:add", "agent:install", "agent:update", "model:list", "mcp",
+	"css:build", "css:use", "key:generate", "locale:add", "agent:install", "agent:update", "model:list", "mcp", "security:check",
 }
 
 // formerNames are the commands' names before v0.5, still run (with a

@@ -194,7 +194,7 @@ func checks(cfg Config, env anetos.Environment) []anetos.Finding {
 	}
 	if cfg.Driver == "smtp" {
 		if u, err := url.Parse(string(cfg.SMTPURL)); err == nil && u.Query().Get("tls") == "none" && !isLocal(u.Hostname()) {
-			out = append(out, anetos.Finding{Severity: anetos.Warning, Message: fmt.Sprintf("MAIL_SMTP_URL has tls=none for %s: emails, with their reset and login links, cross the network in plain text; drop tls=none unless the relay is on a private network", u.Hostname())})
+			out = append(out, anetos.Finding{Rule: "setting.mail-tls", Severity: anetos.Warning, Message: fmt.Sprintf("MAIL_SMTP_URL has tls=none for %s: emails, with their reset and login links, cross the network in plain text; drop tls=none unless the relay is on a private network", u.Hostname())})
 		}
 		if u, err := url.Parse(string(cfg.SMTPURL)); err == nil && env.Deployed() && netaddr.Example(u.Hostname()) {
 			out = append(out, anetos.Finding{Severity: anetos.Warning, Message: fmt.Sprintf("MAIL_SMTP_URL's server %s is an example's: emails can't be sent; set your mail server's URL", u.Hostname())})

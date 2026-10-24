@@ -42,6 +42,22 @@ All notable changes to this project are documented here. The format follows
   (`.mcp.json`, `.vscode/mcp.json`, `.cursor/mcp.json`,
   `.gemini/settings.json`, `.codex/config.toml`), keeping your own
   servers.
+- `./app security:check` and `go tool anetos security:check` (SC1a,
+  D328): the app's settings and routes checked against security rules
+  (CSRF on forms' routes, logins on admin routes and debug endpoints,
+  rate limits on account routes, cookies, TLS, proxies, CORS, limits;
+  `--level=advanced` adds API routes without a login and debug logs),
+  each finding with its place (the line that registered the route),
+  fix and OWASP Top 10:2025 category; reports as text, JSON, SARIF
+  2.1.0 (GitHub's code scanning) or Markdown; `security-ignore.yaml`
+  for findings kept on purpose, with a reason and an expiry date.
+  `app.AddSecurityRule`, `anetos.SecurityRule`, `SecurityFinding`,
+  `SecurityBasic`, `SecurityAdvanced`, `web.RouteRule` and
+  `RouteInfo.Uses` add rules; `route.Public(reason)` marks a route open
+  on purpose; `anetos.Finding.Rule` and `Check.Security` put a doctor
+  check's findings in the report; `web.RouteInfo` has the route's
+  `File`, `Line` (the app's line that registered it) and `Public`, and
+  `route:list --json` too; `anetos.Severity` marshals as its name.
 - `ai.Dimensions(n)`; `db.WatchBulkValues(n)`; `HTTPError.Is`, so a
   wrapped sentinel still matches (`errors.Is(web.ErrCSRF.Wrap(err),
   web.ErrCSRF)`) (M8b-5, D316).
@@ -160,6 +176,8 @@ All notable changes to this project are documented here. The format follows
 - `web.RouteInfo.Middleware` has an entry for every middleware of the
   route, with its name, not only the documented ones; `about` and
   `db:schema` are taken command names (AX1b-1, D325).
+- `security:check` is a taken command name; the admin's stylesheet route
+  and its impersonation's stop route are marked `Public` (SC1a, D328).
 - The docs, the READMEs, the website and the code's comments describe
   Anetos on its own terms: "Coming from another framework?" notes and
   the glossary name several frameworks, and no text treats one as the
