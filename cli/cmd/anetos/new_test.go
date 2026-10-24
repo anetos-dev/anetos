@@ -4,6 +4,7 @@ package main
 
 import (
 	"debug/elf"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -189,8 +190,22 @@ func TestNewProject(t *testing.T) {
 		t.Errorf("go.mod after dropping the replace:\n%s", got)
 	}
 
-	goRun("vet", "./...")
-	goRun("test", "./...")
+	// check: generate, build, vet, test (every generator's tests pass)
+	// and doctor, as JSON.
+	code, out, errOut = runCmd(t, "check", "--json")
+	var report struct {
+		OK    bool
+		Steps []checkStep
+	}
+	if err := json.Unmarshal([]byte(out), &report); err != nil || code != 0 || !report.OK || len(report.Steps) != 5 {
+		t.Fatalf("check --json: %d %v\n%s\n%s", code, err, out, errOut)
+	}
+	if doc := report.Steps[4]; doc.Step != "doctor" || !regexp.MustCompile(`ok\s+agents`).MatchString(doc.Output) {
+		t.Errorf("check's doctor step: %+v", doc)
+	}
+	if b := read(t, filepath.Join(dir, "AGENTS.md")); !strings.Contains(b, "go tool anetos check") || !strings.Contains(b, "The database is SQLite.") {
+		t.Errorf("AGENTS.md:\n%s", b)
+	}
 	// The production build: one static binary, at bin/blog by default.
 	if code, out, errOut := runCmd(t, "build", "--version=v9.9.9"); code != 0 || !strings.Contains(out, "built bin/blog (") {
 		t.Fatalf("build: %d\n%s\n%s", code, out, errOut)

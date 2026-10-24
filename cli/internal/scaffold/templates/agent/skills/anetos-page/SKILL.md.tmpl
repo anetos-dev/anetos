@@ -1,0 +1,35 @@
+---
+name: anetos-page
+description: Add or change a page, a form or a component in this Anetos web app - templ views[[if .HasUI]] built from the views/ui components[[end]], forms with validation and CSRF, htmx updates. Use for any change to what users see in the browser.
+---
+
+# Pages, forms and components
+
+1. **The handler** (`go tool anetos make:handler Reports`, or a method
+   on an existing one) renders a templ component:
+   `return c.Render(http.StatusOK, views.Report(data))`, or, in a typed handler
+   (`web.H`), `return web.Render(views.Report(data)), nil`.
+[[- if .HasUI]]
+2. **The view** (`views/report.templ`): call the layout and the
+   components of `views/ui` (`@ui.PageHeader`, `@ui.Card`, `@ui.Button`,
+   `@ui.Form`, `@ui.Field`, `@ui.Table`…). **No CSS classes outside `views/ui`**: to
+   change the look, change a component there (or `go tool anetos css:use`
+   to switch frameworks).
+[[- else]]
+2. **The view** (`views/report.templ`): call the layout, and follow the
+   markup and classes of the existing pages and `public/static/app.css`.
+[[- end]] Text comes from `locales/en/*.yaml`
+   (`i18n.T(ctx, "reports.title")`).
+3. **The route** in `routes/web.go` (or the resource's file):
+   `pages.Get("/reports", h.Index).Name("reports.index")`, in the page
+   group, which has sessions and CSRF protection.
+4. **A form:** `@view.CSRFField(ctx)` inside it; the handler takes an
+   input struct with `validate` tags; on a validation error the form
+   comes back with the errors (`view.Errors(ctx)`) and the input
+   (`view.Old(ctx, …)`). PUT and DELETE: `@view.MethodField("PUT")`.
+5. `go tool templ generate` runs in `go tool anetos dev` and `check`.
+   Then `go tool anetos check`.
+
+Docs: `go tool anetos docs guides/views`, `go tool anetos docs guides/forms`,
+`go tool anetos docs reference/ui` (every component),
+`go tool anetos docs guides/styling`.

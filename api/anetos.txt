@@ -1587,6 +1587,7 @@ pkg anetos.dev/anetos/db/migrate, type WithoutTransaction interface
 pkg anetos.dev/anetos/db/migrate, type WithoutTransaction interface, WithoutTransaction()
 pkg anetos.dev/anetos/db/migrate, var ErrIrreversible error
 pkg anetos.dev/anetos/db/migrate, var ErrNotAllowed error
+pkg anetos.dev/anetos/docs, var Site fs.FS
 pkg anetos.dev/anetos/encryption, const KeySize = appkey.Size
 pkg anetos.dev/anetos/encryption, func ForApp(*anetos.App) (*Encrypter, error)
 pkg anetos.dev/anetos/encryption, func GenerateKey() string

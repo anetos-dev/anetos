@@ -1,0 +1,34 @@
+---
+name: anetos-job
+description: Run work in the background in this Anetos app - queued jobs, events and listeners, scheduled tasks, emails sent from a queue. Use for slow or failure-prone work (emails, payments, reports, calls to other services), for reacting to something that happened, or for anything that runs on a schedule.
+---
+
+# Background work
+
+**A queued job** is a struct with `Handle(ctx context.Context) error`
+(fields are its payload: IDs, not whole records; it may run more than
+once, so make it idempotent):
+
+1. Write it (in `app/jobs/`, say), and register it in `setup` in
+   `main.go`, after `queue.New`: `queue.Register[jobs.SendInvoice](q)`
+   (options: `queue.Tries(5)`, `queue.Timeout(30*time.Second)`).
+2. Dispatch it: `queue.Dispatch(ctx, jobs.SendInvoice{OrderID: id})`.
+   `queue.Permanent(err)` fails it at once; another error retries it.
+3. `go run .` runs the workers with the server; `QUEUE_DRIVER` picks the
+   backend (`database` in production, or `redis`).
+
+**Events:** `events.Emit(ctx, OrderPlaced{…})`, and listeners
+registered in `setup` on the bus `events.New` returns
+(`events.On(bus, fn)`, `events.OnQueued`, `events.OnAsync`).
+
+**Scheduled tasks:** in `setup`, `s.Add(schedule.DailyAt("02:00"), "prune", prune)`
+on the scheduler `schedule.New` returns; every task has a name;
+`go run . schedule:list`.
+
+**Email:** `mailer.Queue(ctx, m)` sends from a queue.
+
+Test with the `anetostest.FakeQueue()` option and
+`anetostest.AssertDispatched[jobs.SendInvoice](app, …)`.
+Then `go tool anetos check`. Docs: `go tool anetos docs guides/queues`,
+`go tool anetos docs guides/events`, `go tool anetos docs guides/scheduling`,
+`go tool anetos docs guides/mail`.

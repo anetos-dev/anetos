@@ -35,7 +35,9 @@ blog/
 ├── deploy/               a systemd unit and the production settings
 ├── Dockerfile            a container image
 ├── .env                  settings for your machine (not in git)
-└── .env.example          the settings, without secrets (in git)
+├── .env.example          the settings, without secrets (in git)
+├── AGENTS.md             instructions for coding agents (CLAUDE.md and GEMINI.md import it)
+└── .agents/, .claude/    skills: coding agents' guides to common tasks
 ```
 
 An API project (`anetos new --stack=api`) has `routes/api.go` instead

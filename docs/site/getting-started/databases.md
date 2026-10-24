@@ -69,4 +69,5 @@ tells you at startup when the database lacks it.
 To switch an existing project, see [Connect to a
 database](../guides/database.md#5-switch-a-project-to-postgresql-or-mysql).
 
-Next: [Create a project](create-a-project.md).
+Next: [Create a project](create-a-project.md); then, if you work with
+a coding agent, [Build with a coding agent](coding-agents.md).

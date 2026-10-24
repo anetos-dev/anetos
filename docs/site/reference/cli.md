@@ -32,6 +32,7 @@ status: 0 on success, 1 on errors, 2 for bad usage.
 | `--db` | `sqlite` | `sqlite`, `postgres` or `mysql`: the driver in `main.go` and the `DB_*` settings in `.env` |
 | `--stack` | `web` | `web`: pages rendered on the server, with sessions and CSRF protection; `api`: JSON only, no views, static files or sessions ([the API project](#the-api-project)) |
 | `--css` | `anetos` | The web stack's CSS framework: the components of `views/ui` and the stylesheet, `public/static/app.css`. `anetos`: the starter theme (light and dark, no build step) and components writing its classes; `none`: components writing plain HTML without classes, and a stylesheet holding only a comment, for your own CSS or a CSS framework; `pico`, `bootstrap`, `bulma`: components writing Pico 2.1.1's, Bootstrap 5.3.8's or Bulma 1.0.4's markup, with the framework's files as released in `public/static/` (and its license), and an `app.css` for the rest; `tailwind`: components with Tailwind CSS 4.3.3's classes, `views/ui/tailwind.css` and the `app.css` Tailwind compiles from it (`css:build`). See [Style your app](../guides/styling.md). Refused with `--stack=api` |
+| `--no-agent` | `false` | Don't write the files coding agents read (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, the skills); see [`agent:install`](#anetos-agentinstall-and-agentupdate) |
 | `--skip-install` | `false` | Only write the files |
 | `--replace` | | A local Anetos checkout, used through `replace` directives (framework development): the core, the tool, and every driver and plugin module of the checkout, so `go get` and `anetos add` take them from it too |
 
@@ -66,6 +67,7 @@ The web stack's files:
 | `public/public.go`, `public/robots.txt`, `public/static/app.css`, `public/static/favicon.svg` | `public.Files`, the web root, served at `/` by `r.Static` (`robots.txt`, allowing every page); `public.Assets`: the static files and htmx under `/assets`; the stylesheet (`--css`; a CSS framework adds the framework's files); the icon browsers show |
 | `Dockerfile`, `.dockerignore` | A container image: `anetos build` in `golang:<go version>`, the binary alone in `gcr.io/distroless/static-debian12:nonroot` (user 65532), `/data` for the files (and the SQLite database, migrated when the server starts: `DB_MIGRATE_ON_START=true`), `HEALTHCHECK` with `health:check`. See [Deploy](../guides/deployment.md#run-it-in-a-container) |
 | `deploy/<name>.service`, `deploy/production.env.example` | A systemd unit (migrations before start, restart on failure, sandboxed) and the production settings to fill in. See [Deploy](../guides/deployment.md#run-it-on-a-server-with-systemd) |
+| `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.agents/skills/anetos-*/SKILL.md`, `.claude/skills/anetos-*/SKILL.md` | The files coding agents read: instructions and task guides (skills), as [`agent:install`](#anetos-agentinstall-and-agentupdate) writes them for every agent; not with `--no-agent` |
 
 ### The API project
 
@@ -248,6 +250,7 @@ The project's checks:
 | Check | Finds |
 |---|---|
 | `.env` | a warning when the file is readable by other users of the machine (`chmod 600 .env`; Unix) |
+| `agents` | with agent files: a warning when they differ from this tool's (an older Anetos's, or edited between `AGENTS.md`'s markers): `anetos agent:update` |
 | `git` | a problem for each tracked file of settings with secrets (`.env`, `.env.*`, `*.env`, not `*.example`, `*.sample`, `*.dist`, nor the `.env.testing` that `anetos new` writes to be committed); a warning when an untracked `.env` isn't ignored. Skipped outside a git repository |
 
 `--vuln` also runs `govulncheck ./...` (install it with `go install
@@ -258,6 +261,75 @@ build, or the app's `doctor` fails. A project that doesn't use Anetos
 gets the project's checks only, with a note. The app's checks use the settings
 of this machine (`.env` and the environment): run `./<app> doctor` with
 the production settings too, on the server.
+
+## `anetos check [--short] [--json]`
+
+Checks that the project works, for you or a coding agent before calling
+a change done. In order, stopping at the first failure:
+
+| Step | Runs |
+|---|---|
+| `generate` | templ's views (`go tool templ generate`, when the project has `.templ` files), the models' typed columns (`anetos generate`), and in a project with Tailwind CSS its stylesheet (downloading the `tailwindcss` binary on first use, as [`css:build`](#other-commands) does; offline, a note) |
+| `build` | `go build ./...` |
+| `vet` | `go vet ./...` |
+| `test` | `go test ./...` (`--short`: `go test -short ./...`) |
+| `doctor` | [`anetos doctor`](#anetos-doctor---strict---vuln): the project's checks and the app's; without a `.env` (a fresh clone, an agent's sandbox, CI) the project's only, with a note saying how to write one (`cp .env.example .env && go tool anetos key:generate`) |
+
+It writes generated code, as `anetos dev` does, and nothing else. It
+prints one line per step, a failed step's output, and doctor's warnings;
+`--json` prints one object, `{"ok": …, "steps": [{"step", "ok",
+"seconds", "output"}…]}` (each step's output, its last 16 KB), with an
+`error` when check can't start (outside a project). Exit 1 when a step
+fails.
+
+## `anetos docs [<page>] [--search <words>]`
+
+Prints Anetos's documentation as Markdown, at the version of Anetos the
+project uses: the pages (`docs/site`) are built into the tool, which the
+project's `go.mod` pins.
+
+| Form | Prints |
+|---|---|
+| `anetos docs` | Every page: its name and title, by section |
+| `anetos docs <page>` | One page. `<page>` is its path without `.md` (`guides/queues`), the end of it (`queues`) or a word of its title; when several match, it lists them and exits 2 |
+| `anetos docs --search <words> [-n 5]` | The pages that best match the words, each with its lines that match: whole words, plurals aside (`ai` isn't in `email`); rare words count most, the title more than the text, and the words in a row (`log in`) more than apart. `-n` is 1 or more |
+
+A page's relative links name pages this command prints:
+`anetos docs ../guides/mail.md` is `anetos docs guides/mail`, and
+`upgrade/README.md` is `upgrade`.
+
+## `anetos agent:install` and `agent:update`
+
+`agent:install [--agent=claude,codex,copilot,cursor,gemini]` writes the
+files coding agents read, for the agents listed (all by default), as
+`anetos new` does unless `--no-agent`. See [Build with a coding
+agent](../getting-started/coding-agents.md).
+
+| File | For | Holds |
+|---|---|---|
+| `AGENTS.md` | every agent | The project (stack, database, CSS framework), the commands, where things go, the conventions, the skills, and "run `go tool anetos check`" |
+| `CLAUDE.md` | `claude` | `@AGENTS.md`: Claude Code imports it |
+| `GEMINI.md` | `gemini` | `@AGENTS.md`: Gemini CLI imports it |
+| `.claude/skills/anetos-*/SKILL.md` | `claude` | The skills: `anetos-crud`, `-auth`, `-migration`, `-job`, `-page` (web) or `-api` (API), `-test`, `-deploy`, `-upgrade`, `-plugin` |
+| `.agents/skills/anetos-*/SKILL.md` | `codex`, `copilot`, `cursor`, `gemini` | The same skills |
+
+The files are those of exactly the agents listed: Anetos's skills in a
+folder none of them reads are removed (`--agent=claude` removes
+`.agents/skills/anetos-*`); `CLAUDE.md` and `GEMINI.md` stay, being
+partly yours. It keeps what you wrote: in `AGENTS.md`, the text outside the markers
+`<!-- anetos:begin … -->` and `<!-- anetos:end -->` (a file without
+them gets Anetos's text first, then its own); in `CLAUDE.md` and
+`GEMINI.md`, everything, with the import added first when missing;
+skills not named `anetos-*`. Running it again changes only what differs.
+
+`agent:update` rewrites them for this version of Anetos, for the agents
+whose files the project has (`.claude/skills/anetos-*` for `claude`,
+`.agents/skills/anetos-*` for the others, and `GEMINI.md`'s import for
+`gemini`), and removes nothing: run it after an upgrade (`doctor` warns
+when they differ, line endings aside). It fails in a project without
+agent files. The project's name in the files is its binary's
+(`deploy/<name>.service`, else the module's last part), not its
+folder's, so a clone or worktree under another name doesn't change them.
 
 ## Other commands
 
@@ -273,7 +345,7 @@ A command's name may be shortened, each part between colons, while it
 stays unique, among the commands with as many parts: `anetos
 g` is `generate`, `anetos k:g` `key:generate`, `anetos m:admin`
 `make:admin` (the part written whole wins over `make:admin-resource`);
-an ambiguous one (`anetos d`: `dev` or `doctor`) lists the candidates
+an ambiguous one (`anetos d`: `dev`, `docs` or `doctor`) lists the candidates
 and exits with status 2. Before v0.5, `locale:add` was `lang:add` (or
 `add lang`) and `make:admin-resource` was `make:admin:resource`: the
 old names still run, with a warning, until v0.6. `generate` was `gen`,

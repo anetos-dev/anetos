@@ -15,14 +15,16 @@ app in an hour.
 2. [Set up your editor](editor.md) for Go and templ.
 3. [Choose a database](databases.md): SQLite to start, PostgreSQL or
    MySQL when you like.
+4. [Build with a coding agent](coding-agents.md) (optional): Claude
+   Code, Codex, Cursor, Gemini CLI or GitHub Copilot.
 
 **Your first app**
 
-4. [Create a project](create-a-project.md) and run it with live reload.
-5. [Project structure](project-structure.md): what each folder holds.
-6. [Add pages for a model](crud.md) with `make:crud`.
-7. [Add accounts](add-accounts.md) with `make:auth`.
-8. [Test and build](test-and-build.md) for production.
+5. [Create a project](create-a-project.md) and run it with live reload.
+6. [Project structure](project-structure.md): what each folder holds.
+7. [Add pages for a model](crud.md) with `make:crud`.
+8. [Add accounts](add-accounts.md) with `make:auth`.
+9. [Test and build](test-and-build.md) for production.
 
 **[Tutorial: build an issue tracker](tutorial/README.md)**: accounts,
 pages by hand, htmx, search, events, a queue and email, step by step.

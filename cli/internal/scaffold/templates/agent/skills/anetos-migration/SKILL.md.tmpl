@@ -1,0 +1,32 @@
+---
+name: anetos-migration
+description: Change this Anetos app's database schema - create a table, add or change columns and indexes, foreign keys, seed data. Use when a change needs a new table or column, or when asked about migrations or seeders.
+---
+
+# Change the schema
+
+1. Make the migration (its name says what it does):
+
+   ```sh
+   go tool anetos make:migration create_tags_table      # a new table
+   go tool anetos make:migration add_slug_to_posts_table # changes to posts
+   ```
+
+   It writes `database/migrations/<timestamp>_<name>.go`, which adds
+   itself to the `All` set. Fill in its two functions, the change and
+   its undo:
+   `s.Create("tags", func(t *migrate.Table) { t.ID(); t.String("name", 100).Unique(); t.Timestamps() })`,
+   `s.Alter("posts", …)` with `t.String("slug", 200).Nullable()`, an
+   index (`t.Index("slug")`), a foreign key
+   (`t.ForeignID("author_id").Constrained()`). The second undoes the first.
+2. Update the model in `app/models/` (a field with a `db:"slug"` tag),
+   then `go tool anetos generate` (the typed columns).
+3. `go run . migrate`; `go run . migrate:status` shows what ran;
+   `go run . migrate:rollback` undoes the last batch.
+4. `go tool anetos check`
+
+Never edit a migration that has run in production: add a new one.
+Seeders (`database/migrations/migrations.go`'s `Seeders`) fill data:
+`go run . db:seed`. Docs: `go tool anetos docs guides/migrations`,
+`go tool anetos docs reference/migrations` (every column type),
+`go tool anetos docs seeders`.

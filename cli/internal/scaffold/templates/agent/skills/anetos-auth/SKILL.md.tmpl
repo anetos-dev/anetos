@@ -1,0 +1,42 @@
+---
+name: anetos-auth
+description: Add user accounts to this Anetos app (registration, login, email verification, password reset[[if .API]], API tokens, two-factor login[[else]], login with Google or GitHub, settings, API tokens[[end]]), protect routes for logged-in users, or add roles and permissions. Use for anything about users, login, sessions of users or access control.
+---
+
+# Accounts, login and access
+
+**Add accounts** (once per project):
+
+```sh
+go tool anetos make:auth
+go run . migrate
+```
+
+It writes the `User` model, the handlers, [[if .API]]the JSON endpoints under
+`/api/v1`[[else]]the pages[[end]], the emails, the routes (`routes/auth.go`), a
+migration and tests, and `setupAuth` (in `auth.go`), which `setup` in
+`main.go` calls: it returns the `*auth.Auth[*models.User]`, which your
+own routes need (keep the value instead of discarding it). Emails go to the
+log in development (`MAIL_DRIVER=log`).
+
+**Protect your routes:** put them in a group with the auth middleware
+and the login check, as `routes/auth.go` does ([[if .API]]`a.TokenMiddleware`, for
+the bearer tokens, then `a.Require`[[else]]`a.Middleware`, after the
+session middleware, then `a.Require`[[end]]). In a handler,
+`u, ok := auth.User[*models.User](ctx)` is the logged-in user.
+[[- if .Web]]
+
+**Login with Google or GitHub:** set `SOCIAL_GOOGLE_CLIENT_ID` and
+`SOCIAL_GOOGLE_CLIENT_SECRET` (or `SOCIAL_GITHUB_…`) in `.env` (see `go tool anetos docs social-login`).
+[[- end]]
+
+**Roles and permissions:** declare permissions as constants and check
+them with `rbac.Can(ctx, perm)` or guard routes with `rbac.Require`
+(`go tool anetos docs guides/roles-and-permissions`). **Policies** for one
+record (may this user edit this post?):
+`auth.Authorize(ctx, policies.Update, post)`
+(`go tool anetos docs authorization`).
+
+Users "log in" and "log out" in code, routes and text. Docs:
+`go tool anetos docs [[if .API]]api-accounts[[else]]guides/accounts[[end]]`, `go tool anetos docs guides/authentication`.
+Then `go tool anetos check`.

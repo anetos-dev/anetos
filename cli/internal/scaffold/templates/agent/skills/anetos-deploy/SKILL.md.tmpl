@@ -1,0 +1,25 @@
+---
+name: anetos-deploy
+description: Build and deploy this Anetos app to production - the single binary, its settings, migrations on deploy, Docker or systemd, HTTPS, running workers apart. Use when asked to deploy, containerize, configure production or check production settings.
+---
+
+# Deploy
+
+1. **Build:** `go tool anetos build` writes `bin/[[.Bin]]`, one binary with
+   the views, static files, translations and migrations in it
+   (`--target=linux/arm64` for another system). Or `docker build -t [[.Image]] .`
+   (the `Dockerfile`).
+2. **Settings:** the production environment, from
+   `deploy/production.env.example`: `APP_ENV=production`, a fresh
+   `APP_KEY` (`go tool anetos key:generate --show`), `APP_URL`, the
+   database, mail and storage drivers. Never deploy the development `.env`.
+3. **Check them on the server:** `./[[.Bin]] doctor --strict`.
+4. **Migrate, then run:** `./[[.Bin]] migrate`, then `./[[.Bin]] run`
+   (`deploy/[[.Name]].service` does both with systemd).
+5. **HTTPS** in front (a proxy or the platform's), with
+   `HTTP_TRUSTED_PROXIES` set to it.
+6. **Scale:** the same binary runs one process type:
+   `./[[.Bin]] serve`, `./[[.Bin]] queue:work`, `./[[.Bin]] schedule:work`.
+
+Docs: `go tool anetos docs guides/deployment`,
+`go tool anetos docs reference/configuration`.

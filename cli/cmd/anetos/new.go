@@ -32,7 +32,10 @@ downloaded on first use). The api stack (--stack=api) serves JSON only:
 routes under /api/v1, errors as JSON problem details, CORS settings,
 an OpenAPI description (openapi.json); no views or sessions. Then it
 downloads the dependencies and generates the views (web) or
-openapi.json (api); skip with --skip-install.
+openapi.json (api); skip with --skip-install. It also writes the files
+coding agents read (AGENTS.md, CLAUDE.md, GEMINI.md, and the skills in
+.agents/skills and .claude/skills; see anetos agent:install), unless
+--no-agent.
 `
 
 func newProject(ctx context.Context, args []string, stdout, stderr io.Writer) int {
@@ -43,6 +46,7 @@ func newProject(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	stack := fs.String("stack", "web", "kind of app: web (pages, sessions) or api (JSON only)")
 	replace := fs.String("replace", "", "use a local Anetos checkout at this path (for framework development)")
 	skip := fs.Bool("skip-install", false, "don't download dependencies or generate code")
+	noAgent := fs.Bool("no-agent", false, "don't write the files coding agents read (AGENTS.md, CLAUDE.md, GEMINI.md, the skills)")
 	pos, code := parse(fs, args, stderr, newUsage)
 	if code >= 0 {
 		return code
@@ -52,7 +56,11 @@ func newProject(ctx context.Context, args []string, stdout, stderr io.Writer) in
 		return 2
 	}
 	dir := pos[0]
-	files, err := scaffold.Create(scaffold.Project{Dir: dir, Module: *module, DB: *dbName, Replace: *replace, CSS: *css, Stack: *stack})
+	agents := scaffold.Agents
+	if *noAgent {
+		agents = nil
+	}
+	files, err := scaffold.Create(scaffold.Project{Dir: dir, Module: *module, DB: *dbName, Replace: *replace, CSS: *css, Stack: *stack, Agents: agents})
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1

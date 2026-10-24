@@ -1,0 +1,28 @@
+---
+name: anetos-upgrade
+description: Upgrade this app to a newer Anetos release - the modules, the tool, deprecated names, the upgrade guide, the agent files. Use when asked to update or upgrade Anetos or its drivers, or when a deprecation warning appears.
+---
+
+# Upgrade Anetos
+
+All of Anetos's modules are released together, with one version:
+
+1. Read the upgrade guide of each minor version you move past:
+   `go tool anetos docs upgrade` lists them (after the upgrade, they're
+   at the new version; read the new release's notes too).
+2. Raise every Anetos module to the same version, the tool included:
+
+   ```sh
+   go get anetos.dev/anetos@vX.Y.Z anetos.dev/anetos/drivers/[[.DB]]@vX.Y.Z
+   go get -tool anetos.dev/anetos/cli/cmd/anetos@vX.Y.Z
+   go mod tidy
+   ```
+
+   (and any other `anetos.dev/anetos/...` module in `go.mod`: admin,
+   plugins, other drivers).
+3. `go fix ./...` rewrites calls to renamed APIs (they stay, deprecated,
+   for one minor version); fix what the compiler still reports, as the
+   upgrade guide says.
+4. `go tool anetos agent:update` refreshes these agent files, and
+   `go tool anetos doctor` reports renamed settings.
+5. `go tool anetos check`

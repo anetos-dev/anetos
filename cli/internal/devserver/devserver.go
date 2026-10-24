@@ -168,8 +168,26 @@ func (d *dev) fail(title, detail string) {
 
 func (d *dev) build() error {
 	dir := d.opts.Dir
+	if err := Generate(d.ctx, dir); err != nil {
+		return err
+	}
+	if err := d.buildCSS(); err != nil {
+		return err
+	}
+	if out, err := d.run(dir, "go", "build", "-o", d.bin, "."); err != nil {
+		return fmt.Errorf("%s", bytes.TrimSpace(out))
+	}
+	return nil
+}
+
+// Generate brings the project's generated code up to date, as anetos dev
+// does before each build: templ's views (when the project has .templ
+// files) and the models' typed columns (anetos generate).
+func Generate(ctx context.Context, dir string) error {
 	if hasFiles(dir, ".templ") {
-		if out, err := d.run(dir, "go", "tool", "templ", "generate"); err != nil {
+		c := exec.CommandContext(ctx, "go", "tool", "templ", "generate")
+		c.Dir = dir
+		if out, err := c.CombinedOutput(); err != nil {
 			return fmt.Errorf("templ generate: %w\n%s", err, out)
 		}
 	}
@@ -179,12 +197,6 @@ func (d *dev) build() error {
 	}
 	if err != nil {
 		return fmt.Errorf("anetos generate: %w", err)
-	}
-	if err := d.buildCSS(); err != nil {
-		return err
-	}
-	if out, err := d.run(dir, "go", "build", "-o", d.bin, "."); err != nil {
-		return fmt.Errorf("%s", bytes.TrimSpace(out))
 	}
 	return nil
 }

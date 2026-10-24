@@ -27,6 +27,9 @@ a new idea, and is listed here.
 | **Process type** | `web`, `worker`, `scheduler` or `listener`: which background components a process runs (`./app run --only=worker`). A process runs all of them by default. See [Runtime supervisor](runtime-supervisor.md#process-types-one-binary-many-shapes) | Heroku's process types (a Procfile's `web` and `worker`) |
 | **Carrier** | A context value that moves with a queued job or an async event listener, such as the audit log's actor (who asked for the work): an `anetos.Carrier` with `Capture` and `Restore`. See [Write a plugin](../guides/writing-plugins.md#4-add-jobs-tasks-listeners-and-commands) | Context propagated into jobs; OpenTelemetry calls it a propagator |
 | **Doctor, finding** | `doctor` checks the settings and the project. Each result is a finding with a severity: note, warning or problem. See [the doctor command](../reference/cli.md#the-doctor-command) | |
+| **Coding agent** | A tool that writes code in your project with you: Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot. Not an AI agent of your app (see Agent, under AI). See [Build with a coding agent](../getting-started/coding-agents.md) | |
+| **Agent files, skill** | What coding agents read in a project: `AGENTS.md`, the instructions, and skills, task guides (`SKILL.md`) an agent loads only when a task needs one. `anetos new` and `agent:install` write them | AGENTS.md and Agent Skills are open formats many agents share |
+| **Check** | `go tool anetos check`: generate, build, vet, test and doctor, stopping at the first failure; what you or an agent runs before calling a change done. See the [reference](../reference/cli.md#anetos-check---short---json) | |
 | **Provider** | A piece of your own functionality with a `Register` and a `Boot` phase (`anetos.Provider`), added with `app.Use`. The framework's services don't need one: `setup` builds them. See [Providers](application-lifecycle.md#providers) | Django's `AppConfig`, Laravel's service provider, Rails' initializers |
 
 ## Web
@@ -100,5 +103,5 @@ a new idea, and is listed here.
 |---|---|---|
 | **Provider** (AI) | The AI service a client calls: Anthropic, OpenAI or Gemini, picked with `AI_PROVIDER` | The AI SDKs' word |
 | **Tool** | A function the model may ask the app to run (`ai.NewTool`), which runs as the user who asked. See [Give the model tools](../guides/ai.md#4-give-the-model-tools) | The AI SDKs' word |
-| **Agent** | Instructions, a model and tools kept together (`ai.Agent`), for an assistant. See [Build an AI assistant](../guides/ai-assistant.md) | The AI SDKs' word |
+| **Agent** | Instructions, a model and tools kept together (`ai.Agent`), for an assistant in your app (`make:agent`); not a coding agent. See [Build an AI assistant](../guides/ai-assistant.md) | The AI SDKs' word |
 | **Embedding** | A vector of numbers that stands for a text's meaning (`ai.Embed`), stored with the rows to search by meaning. See [Search by meaning](../guides/semantic-search.md) | The same in every RAG library |

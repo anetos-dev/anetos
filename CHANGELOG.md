@@ -7,6 +7,23 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Coding agents (AX1a, D322–D324): `anetos new` writes `AGENTS.md`
+  (the project, its commands, where things go, the conventions, and
+  "run `go tool anetos check` before calling a change done"), `CLAUDE.md`
+  and `GEMINI.md` importing it, and skills for the common tasks in
+  `.agents/skills` and `.claude/skills`, for Claude Code, Codex, GitHub
+  Copilot, Cursor and Gemini CLI (`--no-agent` skips them).
+  `anetos agent:install [--agent=…]` writes them into an existing
+  project and `anetos agent:update` refreshes them after an upgrade,
+  keeping your own text and skills; `doctor` warns when they're out of
+  date. Guide: Build with a coding agent.
+- `anetos docs [<page>] [--search <words>]` prints the documentation as
+  Markdown, at the project's Anetos version, without a network; the
+  pages are in the new package `anetos.dev/anetos/docs` (AX1a, D323).
+- `anetos check [--short] [--json]`: generate, build, vet, test and
+  doctor, stopping at the first failure; without a `.env` (a fresh
+  clone), doctor checks the project's files only (AX1a, D324).
+- `anetos doctor` checks the coding agents' files too (AX1a).
 - `ai.Dimensions(n)`; `db.WatchBulkValues(n)`; `HTTPError.Is`, so a
   wrapped sentinel still matches (`errors.Is(web.ErrCSRF.Wrap(err),
   web.ErrCSRF)`) (M8b-5, D316).

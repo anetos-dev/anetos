@@ -15,15 +15,18 @@ import (
 	"runtime"
 	"strings"
 	"text/tabwriter"
+
+	"anetos.dev/anetos/cli/internal/scaffold"
 )
 
 const doctorUsage = `Usage: anetos doctor [--strict] [--vuln]
 
 Checks the project, then builds the app and runs its doctor command,
 which checks its settings (.env and the environment). The project's
-checks: .env's permissions, and that no file of settings with secrets
-(.env, production.env…) is in git; --vuln runs govulncheck too. Exits 1
-on problems.
+checks: .env's permissions, that no file of settings with secrets
+(.env, production.env…) is in git, and that the coding agents' files
+(AGENTS.md, the skills) are this version's; --vuln runs govulncheck
+too. Exits 1 on problems.
 
 The settings checked are this machine's, usually development ones: run
 the app's doctor where the production settings are too
@@ -48,6 +51,19 @@ func doctor(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "anetos doctor:", err)
 		return 1
 	}
+	return runDoctor(ctx, root, doctorOptions{strict: *strict, vuln: *vuln}, stdout, stderr)
+}
+
+// doctorOptions are anetos doctor's flags, and check's choice.
+type doctorOptions struct {
+	strict, vuln bool
+	// projectOnly, when set, says why the app's settings aren't checked:
+	// only the project's files are, and it's printed instead.
+	projectOnly string
+}
+
+// runDoctor checks the project in root, then the app's settings.
+func runDoctor(ctx context.Context, root string, o doctorOptions, stdout, stderr io.Writer) int {
 	found := projectChecks(ctx, root)
 	core := moduleVersion(ctx, root, corePath)
 	if core == "" {
@@ -70,9 +86,9 @@ func doctor(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(tw, "  %s\t%s: %s\n", f.severity, f.name, f.message)
 	}
 	_ = tw.Flush()
-	fail := problems > 0 || *strict && warnings > 0
+	fail := problems > 0 || o.strict && warnings > 0
 
-	if *vuln {
+	if o.vuln {
 		fmt.Fprintln(stdout, "\nRunning govulncheck ./...")
 		if err := govulncheck(ctx, root, stdout, stderr); err != nil {
 			fmt.Fprintln(stderr, "anetos doctor:", err)
@@ -81,6 +97,13 @@ func doctor(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	}
 
 	fmt.Fprintln(stdout)
+	if o.projectOnly != "" {
+		fmt.Fprintln(stdout, o.projectOnly)
+		if fail {
+			return 1
+		}
+		return 0
+	}
 	if core == "not a dependency" {
 		fmt.Fprintln(stdout, "The app's settings aren't checked: it doesn't use Anetos.")
 		if fail {
@@ -100,7 +123,7 @@ func doctor(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	appArgs := []string{"doctor"}
-	if *strict {
+	if o.strict {
 		appArgs = append(appArgs, "--strict")
 	}
 	var appErr bytes.Buffer
@@ -119,8 +142,9 @@ func doctor(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 
 type projectFinding struct{ severity, name, message string }
 
-// projectChecks checks the project's files: .env's permissions, and
-// files of secrets in git.
+// projectChecks checks the project's files: .env's permissions, the
+// agent files (written by this version of Anetos), and files of secrets
+// in git.
 func projectChecks(ctx context.Context, root string) []projectFinding {
 	var out []projectFinding
 	ok := func(name string) { out = append(out, projectFinding{"ok", name, ""}) }
@@ -136,6 +160,15 @@ func projectChecks(ctx context.Context, root string) []projectFinding {
 		add("warning", ".env", fmt.Sprintf("other users of this machine can read it (%v): chmod 600 .env", info.Mode().Perm()))
 	default:
 		ok(".env")
+	}
+
+	switch stale, err := scaffold.StaleAgentFiles(root); {
+	case err != nil:
+		add("warning", "agents", err.Error())
+	case len(stale) > 0:
+		add("warning", "agents", fmt.Sprintf("%d agent file(s) differ from this Anetos's (%s): go tool anetos agent:update", len(stale), strings.Join(stale[:min(3, len(stale))], ", ")))
+	case scaffold.InstalledAgents(root) != nil:
+		ok("agents")
 	}
 
 	if _, err := exec.LookPath("git"); err != nil {

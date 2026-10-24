@@ -54,6 +54,9 @@ type Project struct {
 	// rendered on the server with sessions and CSRF protection, or "api",
 	// JSON only.
 	Stack string
+	// Agents are the coding agents to write the agent files for (AGENTS.md,
+	// the skills…; see [Agents]): none when empty.
+	Agents []string
 }
 
 // Kits are the design kits: the values of [Project.CSS]. A kit is the
@@ -297,6 +300,15 @@ func Create(p Project) ([]string, error) {
 		}
 		rec := newKitRecord(p.CSS, kit).file()
 		files = append(files, file{rec.Rel, rec.Content, 0o644})
+	}
+	if len(p.Agents) > 0 {
+		agentFiles, err := RenderAgentFiles(AgentProject{Name: name, Module: p.Module, Stack: p.Stack, DB: p.DB, Kit: p.CSS, HasUI: p.Stack == "web"}, p.Agents)
+		if err != nil {
+			return nil, err
+		}
+		for _, f := range agentFiles {
+			files = append(files, file{f.Rel, f.Content, 0o644})
+		}
 	}
 	slices.SortFunc(files, func(a, b file) int { return strings.Compare(a.rel, b.rel) })
 	_, statErr := os.Stat(abs)

@@ -12,8 +12,9 @@ queue workers, pub/sub listeners and the scheduler run together in **one
 binary**.
 
 **Status:** pre-alpha. v0.5.0-rc.1, the release candidate of the first
-public release, is out; v0.5.0 follows after a test with volunteers.
-APIs can still change before v0.5.0, and will change before v1.
+public release, is out; v0.5.0 follows, with tools for coding agents
+and a security check. APIs can still change before v0.5.0, and will
+change before v1.
 
 - **v0.1, the foundation:** the app, configuration, runtime
   supervisor, HTTP layer, validation, data layer with relations,
@@ -55,8 +56,11 @@ APIs can still change before v0.5.0, and will change before v1.
   (`views/ui`) and a choice of CSS framework (Pico, Bootstrap, Bulma,
   Tailwind CSS or none; `css:use` switches); one vocabulary across
   settings, commands and the API, with a
-  [glossary](docs/site/concepts/glossary.md); contributor docs,
-  governance and a code of conduct ([Contributing](#contributing)).
+  [glossary](docs/site/concepts/glossary.md); projects ready for
+  coding agents (`AGENTS.md`, skills, the docs offline in the tool,
+  `anetos check`; [guide](docs/site/getting-started/coding-agents.md));
+  contributor docs, governance and a code of conduct
+  ([Contributing](#contributing)).
 
 The [tutorial](docs/site/getting-started/tutorial/README.md) builds an
 issue tracker step by step, and [`examples/tracker`](examples/tracker),
@@ -86,6 +90,8 @@ go tool anetos make:admin  # an admin at /admin; make:admin-resource Post adds p
 go run . migrate
 go tool anetos css:use pico # restyle the app's pages: Pico, Bootstrap, Bulma, Tailwind CSS or none
 go tool anetos dev         # rebuild and reload on every change
+go tool anetos check       # generate, build, vet, test, doctor: does it work?
+go tool anetos docs queues # the docs at your Anetos version, offline
 
 go tool anetos build       # bin/blog: one static binary, everything in it
 ./bin/blog                 # everything: web, queue workers and the scheduler

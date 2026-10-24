@@ -1,0 +1,35 @@
+---
+name: anetos-crud
+description: Add a resource to this Anetos app - a model, its table, and [[if .API]]JSON endpoints[[else]]pages[[end]] to list, show, create, edit and delete it. Use when asked for a new kind of record, entity, CRUD screen or endpoints.
+---
+
+# Add a resource
+
+1. Generate it, with its fields (`name:type`, types `string`, `text`,
+   `email`, `int`, `float`, `bool`, `date`; add `:optional` or
+   `:unique`):
+
+   ```sh
+   go tool anetos make:crud Article title:string body:text published:bool
+   ```
+
+   It writes the model (`app/models/`), its migration, the handlers
+   (`app/handlers/<table>.go`, with the input struct and its `validate`
+   tags), [[if .API]]the routes under `/api/v1` (`routes/<table>.go`, added to
+   `routes/api.go`), a test, and updates `openapi.json`[[else]]the pages (`views/<table>.templ`[[if .HasUI]], built from `views/ui`'s
+   components[[end]]), the routes (`routes/<table>.go`, added to `routes/web.go`),
+   a link in the layout's nav, the pages' text (`locales/en/<table>.yaml`)
+   and a test[[end]].
+2. `go run . migrate`
+3. Adjust what it wrote: validation rules in the input struct's
+   `validate` tags (`required|max:200`), [[if .API]]the response struct, the
+   list's filters and sorts[[else]]the form's fields, the list's columns[[end]], queries with the typed columns
+   (`models.ArticleCols.Title`). After changing a model: `go tool anetos generate`.
+4. To limit it to logged-in users, register its routes in a group with
+   the login check (after `make:auth`; see `go tool anetos docs [[if .API]]api-accounts[[else]]accounts[[end]]`).
+5. `go tool anetos check`
+
+It refuses when a file or the migration exists: pick another name, or
+write the parts by hand. Docs: `go tool anetos docs crud`,
+`go tool anetos docs guides/models`, `go tool anetos docs guides/queries`,
+`go tool anetos docs guides/validation`.

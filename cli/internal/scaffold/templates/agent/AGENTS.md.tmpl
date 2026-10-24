@@ -1,0 +1,126 @@
+# [[.Title]]
+
+[[.Title]] is an [Anetos](https://anetos.dev) application[[if .API]]: a JSON
+API under `/api/v1`, with no pages or sessions[[else]]: pages rendered on the
+server with templ, sessions and CSRF protection[[end]]. Anetos is a
+batteries-included Go web framework: typed, `net/http` underneath, and one
+binary that runs the web server, the queue workers, the scheduler and the
+listeners. Its version is the one `go.mod` requires (`anetos.dev/anetos`).
+[[- if .Web]] [[.KitSentence]][[end]] The database is [[.DBLabel]].
+
+## Read the docs from here
+
+The documentation, at this project's Anetos version, is built into the
+tool. Read it before guessing an API:
+
+```sh
+go tool anetos docs                        # list the pages
+go tool anetos docs queues                 # print one (guides/queues)
+go tool anetos docs --search "retry a job" # find pages
+```
+
+Pages link to each other as `../guides/mail.md`: that's
+`go tool anetos docs guides/mail`. Don't assume another framework's
+names or APIs: Anetos's are in the docs and in `go doc anetos.dev/anetos/<package>`.
+
+## Before you call a change done
+
+```sh
+go tool anetos check    # generate, build, vet, test, doctor; --json for one object
+```
+
+It must pass. Fix what it reports, then run it again. In a fresh clone
+there is no `.env` (it holds secrets, so it isn't committed): make it
+first with `cp .env.example .env && go tool anetos key:generate`.
+
+## Commands
+
+| Command | Does |
+|---|---|
+| `go tool anetos dev` | Runs the app with live reload on http://localhost:8080[[if .API]]/api/v1[[end]], regenerating code as files change |
+| `go run . migrate` | Runs the migrations (`migrate:rollback`, `migrate:status`, `migrate:fresh`, `db:seed` too) |
+| `go test ./...` | The tests (`anetostest`: each test gets the app with a migrated database) |
+| `go tool anetos generate` | The models' typed columns (`models_gen.go`), after changing a model |
+[[- if .API]]
+| `go run . openapi` | Updates `openapi.json`, the API's description, after changing a route or its types (a test checks it) |
+[[- end]]
+[[- if .Web]]
+| `go tool templ generate` | The views' Go code (`*_templ.go`), after changing a `.templ` file |
+[[- end]]
+| `go tool anetos make:crud <Model> <field:type>...` | A model, its migration, [[if .API]]JSON endpoints[[else]]pages[[end]] to list, show, create, edit and delete it, routes and tests (types: `string`, `text`, `email`, `int`, `float`, `bool`, `date`; add `:optional` or `:unique`) |
+| `go tool anetos make:model <Name> --migration` | A model and its table's migration |
+| `go tool anetos make:migration <name>` | A migration (`create_posts_table`, `add_slug_to_posts`) |
+| `go tool anetos make:handler <Name>` | A handler |
+| `go tool anetos make:middleware <Name>` | A middleware |
+| `go tool anetos make:auth` | Accounts: registration, login, email verification, password reset[[if .API]], API tokens, two-factor login[[else]], login with Google or GitHub, account settings, API tokens[[end]] |
+[[- if .Web]]
+| `go tool anetos make:admin` | The admin interface at `/admin` (after `make:auth`) |
+[[- end]]
+| `go tool anetos make:agent <Name>` | An AI agent (`ai.Agent`) in the app, with a typed tool |
+| `go tool anetos add <module>` | Installs a plugin (`plugins.go` lists them) |
+| `go tool anetos doctor` | Checks the project and the app's settings |
+| `go run . route:list` | Every route: method, path, name |
+| `go run . help` | The app's commands |
+| `go tool anetos build` | One production binary, `bin/[[.Bin]]` |
+
+## Where things go
+
+| Path | Holds |
+|---|---|
+| `main.go` | `setup`: builds the app's services from the settings (`db.Connect`, `cache.New`…) and registers the routes; `main` runs a command |
+| `routes/` | The routes[[if .API]] (`api.go`, under `/api/v1`)[[else]] (`web.go`: the page group with sessions and CSRF)[[end]] |
+| `app/handlers/` | Handlers |
+| `app/models/` | Models (structs embedding `db.Model`) and their generated `models_gen.go` |
+| `database/migrations/` | Migrations (one file each, which adds itself to `All` in `migrations.go`) and seeders |
+| `database/factories/` | Model factories, for tests and seeders |
+[[- if .Web]]
+| `views/` | templ pages and the layout |
+[[- if .HasUI]]
+| `views/ui/` | The CSS framework's components (`@ui.Button`, `@ui.Field`…): the only place with CSS classes |
+[[- end]]
+| `public/`, `public/static/` | The web root, and static files served under `/assets` |
+[[- end]]
+| `locales/` | The messages' translations (`locales/en/app.yaml`) |
+| `plugins.go` | The plugins, written by `anetos add` and `anetos remove` |
+| `.env` | Settings and secrets (never committed); `.env.example` lists them |
+
+## Conventions
+
+- **Generators first.** Use `make:*` for a new model, resource, migration,
+  handler or accounts, then edit what they write: the result builds,
+  is tested and follows the conventions below.
+- **Handlers are typed.** `web.H(func(c *web.Ctx, in CreatePost) (Post, error))`
+  binds and validates the input struct (`validate:"required|max:200"`),
+  and returns the output; a plain `func(c *web.Ctx) error` works too.
+- **Queries are typed.** Conditions use the generated columns
+  (`db.Query[models.Post](ctx).Where(models.PostCols.Title.Eq(t))`), so a
+  wrong name doesn't compile. Raw SQL takes `?` placeholders, never
+  values built into the string.
+- **Services come from the context**: `cache.From(ctx)`, `storage.From(ctx)`,
+  `queue.Dispatch(ctx, job)`. `setup` builds them with `New`; a server
+  connection is `Connect`.
+- **Settings** go in `.env`, named after their area (`DB_`, `CACHE_`,
+  `MAIL_`…); the one that picks a backend is `<AREA>_DRIVER`.
+- **CRUD names** are `index`, `new`, `create`, `show`, `edit`, `update`,
+  `delete`, for route names and handler methods alike.
+[[- if and .Web .HasUI]]
+- **Pages are built from `views/ui`'s components**: no CSS classes in
+  `views/` outside `views/ui`. Forms carry `@view.CSRFField(ctx)`.
+[[- else if .Web]]
+- **Pages** follow the markup of the existing views. Forms carry
+  `@view.CSRFField(ctx)`.
+[[- end]]
+- **Dependencies:** don't add a router, ORM, validator, session, queue,
+  mail or cache library: Anetos has them. Check the docs first.
+- **Generated files** (`*_templ.go`, `models_gen.go`, `plugins.go`) are
+  never edited by hand: change the source and regenerate.
+- **Words**: users log in and log out. Use the names the docs use.
+- **Tests** use `anetostest.New(t, setup)` and its request helpers
+  ([[if .API]]`app.GetJSON("/api/v1").AssertOK()`[[else]]`app.Get("/").AssertOK()`[[end]]); every change comes with its test.
+
+## Skills
+
+Task guides, in [[range $i, $d := .SkillDirs]][[if $i]] and [[end]]`[[$d]]/`[[end]], loaded when a task
+needs one:
+[[range .Skills]]
+- `[[.Name]]`: [[.Summary]][[end]]

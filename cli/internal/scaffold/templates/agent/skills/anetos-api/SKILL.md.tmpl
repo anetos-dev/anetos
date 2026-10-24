@@ -1,0 +1,27 @@
+---
+name: anetos-api
+description: Add or change a JSON endpoint in this Anetos API - typed handlers, input validation, problem-details errors, pagination, the OpenAPI description. Use for any change to the API's routes, requests or responses.
+---
+
+# JSON endpoints
+
+1. **The handler** is typed: it takes an input struct (bound from the
+   JSON body, query and path, checked by its `validate` tags) and
+   returns an output struct, which is the response:
+   `web.H(func(c *web.Ctx, in CreateNote) (NoteResponse, error) {…})`.
+   Errors become JSON problem details; a validation error is a 422
+   listing the fields.
+2. **The route** in `routes/api.go` (or the resource's file), under
+   `/api/v1`, with a name (the group adds `api.`):
+   `api.Post("/notes", web.H(h.Create)).Name("notes.create").Status(201)`.
+3. **Lists** return `db.Page[NoteResponse]` (`?page=`, `?per_page=`):
+   `db.MapPage(page, toResponse)`.
+4. **The description:** `go run . openapi` updates `openapi.json`; a
+   test fails when it's out of date.
+5. Protect endpoints with API tokens after `make:auth`
+   (`go tool anetos docs api-accounts`).
+6. `go tool anetos check`
+
+For a whole resource, `go tool anetos make:crud` writes all of this.
+Docs: `go tool anetos docs build-an-api`, `go tool anetos docs guides/handlers`,
+`go tool anetos docs guides/openapi`.

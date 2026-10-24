@@ -44,7 +44,27 @@ func TestCommands(t *testing.T) {
 		{[]string{"g", "-h"}, 0, "Usage: anetos generate"},
 		{[]string{"k:g", "--show"}, 0, "APP_KEY=base64:"},
 		{[]string{"help", "m:admin"}, 0, "Usage: anetos make:admin"},
-		{[]string{"d"}, 2, `"d" could be dev, doctor`},
+		{[]string{"d"}, 2, `"d" could be dev, docs, doctor`},
+		{[]string{"docs"}, 0, "guides/queues"},
+		{[]string{"docs", "guides/queues"}, 0, "# Queues"},
+		{[]string{"docs", "tutorial"}, 0, "# Tutorial"},
+		{[]string{"docs", "guides/nope"}, 1, "no page"},
+		{[]string{"docs", "a", "b"}, 2, "one page at a time"},
+		{[]string{"docs", "--search", "retry", "a", "failed", "job"}, 0, "anetos docs guides/queues"},
+		{[]string{"docs", "--search", "zzqqxx"}, 1, "No page mentions"},
+		{[]string{"docs", "--search"}, 2, "needs words"},
+		{[]string{"docs", "--search", "-n", "0", "queue"}, 2, "1 or more"},
+		{[]string{"docs", "--search", "-n=-1", "queue"}, 2, "1 or more"},
+		{[]string{"docs", "testing"}, 2, "could be"},
+		{[]string{"docs", "../guides/mail.md"}, 0, "# Send email"},
+		{[]string{"docs", "upgrade/README.md"}, 0, "# "},
+		{[]string{"check", "-h"}, 0, "Usage: anetos check"},
+		{[]string{"check", "x"}, 2, "Usage: anetos check"},
+		{[]string{"agent:install", "-h"}, 0, "Usage: anetos agent:install"},
+		{[]string{"agent:install", "--agent=vim"}, 2, `unknown agent "vim"`},
+		{[]string{"agent:install", "--agent="}, 2, "no agent given"},
+		{[]string{"agent:update", "-h"}, 0, "Usage: anetos agent:update"},
+		{[]string{"a:u", "x"}, 2, "Usage: anetos agent:update"},
 		{[]string{"m:m"}, 2, `"m:m" could be make:middleware, make:migration, make:model`},
 		{[]string{"generate", "-h"}, 0, "Usage: anetos generate"},
 		{[]string{"lang:add", "-h"}, 0, "lang:add is now locale:add"},
@@ -161,4 +181,54 @@ func TestCommandNames(t *testing.T) {
 			t.Errorf("%s -h = %d %q", name, code, errOut)
 		}
 	}
+}
+
+// TestAgentCommands runs agent:install and agent:update in a project.
+func TestAgentCommands(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "shop")
+	if err := os.MkdirAll(filepath.Join(root, "app"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module example.com/shop\n\ngo 1.26\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(filepath.Join(root, "app"))
+	if code, _, errOut := runCmd(t, "agent:update"); code != 1 || !strings.Contains(errOut, "agent:install") {
+		t.Errorf("agent:update without files: %d %s", code, errOut)
+	}
+	code, out, errOut := runCmd(t, "agent:install", "--agent=gemini,codex")
+	if code != 0 || !strings.Contains(out, "wrote AGENTS.md") || !strings.Contains(out, "wrote GEMINI.md") || strings.Contains(out, "CLAUDE.md") {
+		t.Fatalf("agent:install: %d\n%s\n%s", code, out, errOut)
+	}
+	if code, out, _ := runCmd(t, "agent:update"); code != 0 || !strings.Contains(out, "up to date") {
+		t.Errorf("agent:update right after: %d %s", code, out)
+	}
+	skill := filepath.Join(root, ".agents", "skills", "anetos-crud", "SKILL.md")
+	if err := os.WriteFile(skill, []byte("old"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if f := agentFinding(t, root); f.severity != "warning" || !strings.Contains(f.message, ".agents/skills/anetos-crud/SKILL.md") || !strings.Contains(f.message, "agent:update") {
+		t.Errorf("doctor's agents finding for an old skill: %+v", f)
+	}
+	if code, out, _ := runCmd(t, "agent:update"); code != 0 || out != "wrote .agents/skills/anetos-crud/SKILL.md\n" {
+		t.Errorf("agent:update of an old skill: %d %q", code, out)
+	}
+	if f := agentFinding(t, root); f.severity != "ok" {
+		t.Errorf("doctor's agents finding after the update: %+v", f)
+	}
+	// Exactly the agents listed: codex and gemini's folder goes.
+	if code, out, _ := runCmd(t, "agent:install", "--agent=claude"); code != 0 || !strings.Contains(out, "removed .agents/skills/anetos-crud/") || !strings.Contains(out, "wrote CLAUDE.md") {
+		t.Errorf("agent:install --agent=claude: %d\n%s", code, out)
+	}
+}
+
+// agentFinding is doctor's agents finding for the project in root.
+func agentFinding(t *testing.T, root string) projectFinding {
+	t.Helper()
+	for _, f := range projectChecks(t.Context(), root) {
+		if f.name == "agents" {
+			return f
+		}
+	}
+	return projectFinding{}
 }

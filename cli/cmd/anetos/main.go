@@ -26,7 +26,11 @@
 //	add <module>[@version]    install a plugin
 //	remove <module>           uninstall a plugin
 //	locale:add <locale>...    add translations of the framework's messages
+//	agent:install [--agent=…]  write the files coding agents read (AGENTS.md, skills)
+//	agent:update              refresh them for this version of Anetos
+//	check [--short] [--json]  generate, build, vet, test and doctor: does the change work?
 //	doctor                    check the project and the app's settings
+//	docs [<page>] [--search <words>]  print the documentation
 //	key:generate              set APP_KEY in .env
 //	version                   print the version
 package main
@@ -74,7 +78,11 @@ Commands:
   add <module>[@version]    install a plugin (go get, plugins.go, .env.example)
   remove <module>           uninstall a plugin
   locale:add <locale>...    add translations of the framework's messages to locales/
+  agent:install [--agent=claude,codex,copilot,cursor,gemini]  write the files coding agents read (AGENTS.md, skills)
+  agent:update              refresh the agent files for this version of Anetos
+  check [--short] [--json]  generate, build, vet, test and doctor: does the change work?
   doctor [--strict] [--vuln]  check the project and the app's settings for unsafe values
+  docs [<page>] [--search <words>]  print the documentation, at the project's version
   key:generate [--show] [--force]  set APP_KEY in .env (--show prints a key instead)
   version                   print the version
 
@@ -145,6 +153,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 		return doctor(ctx, args[1:], stdout, stderr)
+	case "check":
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		return check(ctx, args[1:], stdout, stderr)
 	case "css:build":
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
@@ -159,6 +171,12 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return makeCmd(args[0], args[1:], stdout, stderr)
 	case "key:generate":
 		return keyGenerate(args[1:], stdout, stderr)
+	case "docs":
+		return docsCmd(args[1:], stdout, stderr)
+	case "agent:install":
+		return agentInstall(args[1:], stdout, stderr)
+	case "agent:update":
+		return agentUpdate(args[1:], stdout, stderr)
 	case "version":
 		fmt.Fprintln(stdout, "anetos", version())
 		return 0
@@ -179,10 +197,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 // is generate, "k:g" key:generate): run's switch must have exactly these
 // (TestCommandNames checks).
 var commandNames = []string{
-	"new", "dev", "build", "generate", "add", "remove", "doctor", "version", "help",
+	"new", "dev", "build", "generate", "add", "remove", "check", "doctor", "docs", "version", "help",
 	"make:handler", "make:model", "make:migration", "make:middleware", "make:agent",
 	"make:crud", "make:auth", "make:admin", "make:admin-resource",
-	"css:build", "css:use", "key:generate", "locale:add",
+	"css:build", "css:use", "key:generate", "locale:add", "agent:install", "agent:update",
 }
 
 // formerNames are the commands' names before v0.5, still run (with a

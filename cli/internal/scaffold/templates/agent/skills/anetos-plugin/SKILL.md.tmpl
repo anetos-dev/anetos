@@ -1,0 +1,21 @@
+---
+name: anetos-plugin
+description: Install, configure or remove an Anetos plugin in this app, or write the app's own plugin-like package. Use when asked to add a capability that a plugin provides, or about plugins.go.
+---
+
+# Plugins
+
+1. **Add:** `go tool anetos add <module>` (a first-party one:
+   `anetos.dev/anetos/plugins/postmark`). It runs `go get`, adds the
+   plugin to `plugins.go` (never edit that file by hand) and its
+   settings to `.env.example`.
+2. **Configure:** `go run . plugin:env` prints its settings with their
+   defaults; put the values in `.env`. `go run . migrate` runs its
+   migrations with yours.
+3. **Check:** `go run . plugin:list` shows each plugin and what it adds
+   (routes, commands, jobs, settings missing).
+4. **Remove:** `go tool anetos remove <module>`.
+5. `go tool anetos check`
+
+Docs: `go tool anetos docs guides/plugins`, and
+`go tool anetos docs writing-plugins` to write one.

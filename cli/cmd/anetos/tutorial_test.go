@@ -68,6 +68,8 @@ func compareExample(t *testing.T, dir, example string, anchors map[string][]stri
 		switch {
 		case rel == ".env", rel == "go.mod", rel == "go.sum", strings.HasSuffix(rel, "_templ.go"), strings.HasSuffix(rel, ".db"):
 			return nil // a fresh key; replace directives; generated; a database
+		case rel == "AGENTS.md", rel == "CLAUDE.md", rel == "GEMINI.md", strings.HasPrefix(rel, ".agents/"), strings.HasPrefix(rel, ".claude/"):
+			return nil // the agent files: the scaffold's tests check them, and the examples leave them out
 		}
 		got := read(t, p)
 		if lines, ok := anchors[rel]; ok {
