@@ -1,10 +1,7 @@
 # The exported API of anetos.dev/anetos/plugins/postmark: make api-update writes it, make api-check (CI) compares it with the source.
-pkg anetos.dev/anetos/plugins/postmark, func BaseURL(string) Option
 pkg anetos.dev/anetos/plugins/postmark, func Driver(...Option) mailer.Driver
-pkg anetos.dev/anetos/plugins/postmark, func HTTPClient(*http.Client) Option
 pkg anetos.dev/anetos/plugins/postmark, func NewTransport(string, ...Option) *Transport
 pkg anetos.dev/anetos/plugins/postmark, func Plugin() ext.Plugin
-pkg anetos.dev/anetos/plugins/postmark, func Stream(string) Option
 pkg anetos.dev/anetos/plugins/postmark, func Suppressed(context.Context, string) (bool, error)
 pkg anetos.dev/anetos/plugins/postmark, func WithBaseURL(string) Option
 pkg anetos.dev/anetos/plugins/postmark, func WithHTTPClient(*http.Client) Option

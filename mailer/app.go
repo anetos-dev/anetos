@@ -159,15 +159,6 @@ func New(app *anetos.App, drivers ...Driver) (*Mailer, error) {
 	return m, nil
 }
 
-// ForApp is [New].
-//
-// Deprecated: Use New; ForApp is removed in v0.6.
-//
-//go:fix inline
-func ForApp(app *anetos.App, drivers ...Driver) (*Mailer, error) {
-	return New(app, drivers...)
-}
-
 // registrar registers the job of queued emails when the app boots, if
 // queue.New came after mailer.New.
 type registrar struct{ m *Mailer }

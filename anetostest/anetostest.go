@@ -164,12 +164,14 @@ func New(t testing.TB, setup func(app *anetos.App) (*web.Server, error), opts ..
 		t.Fatalf("anetostest: %v", err)
 	}
 	explicit := config.Layers(o.env, config.Env(), file)
-	conn := lookupEither(explicit, "DB_DRIVER", "DB_CONNECTION")
-	database := lookupEither(explicit, "DB_NAME", "DB_DATABASE")
+	conn := setting(explicit, "DB_DRIVER")
+	database := setting(explicit, "DB_NAME")
 	dbURL, _ := explicit.Lookup("DB_URL")
 	checkConnection(t, conn, database, dbURL)
 	memory := config.Map{}
-	if (conn == "" || conn == "sqlite") && database == "" && dbURL == "" {
+	// DB_DATABASE, DB_NAME's name before v0.5, is left for the app to
+	// refuse, naming DB_NAME (D339), rather than hidden by :memory:.
+	if (conn == "" || conn == "sqlite") && database == "" && dbURL == "" && setting(explicit, "DB_DATABASE") == "" {
 		// Not the default database/app.db, even when DB_NAME is set
 		// to "".
 		memory["DB_NAME"] = ":memory:"
@@ -366,7 +368,7 @@ func checkConnection(t testing.TB, conn, database, dbURL string) {
 	if err != nil {
 		return // .env is the app's business; it isn't used here
 	}
-	devConn := lookupEither(dev, "DB_DRIVER", "DB_CONNECTION")
+	devConn := setting(dev, "DB_DRIVER")
 	if devConn == "" || devConn == "sqlite" {
 		return
 	}
@@ -429,12 +431,8 @@ func (l *testLog) stop() {
 
 var _ io.Writer = (*testLog)(nil)
 
-// lookupEither returns key's value, or its former name's (read until
-// v0.6, as the app does).
-func lookupEither(src config.Source, key, former string) string {
-	if v, ok := src.Lookup(key); ok && v != "" {
-		return v
-	}
-	v, _ := src.Lookup(former)
+// setting returns key's value, "" when it isn't set.
+func setting(src config.Source, key string) string {
+	v, _ := src.Lookup(key)
 	return v
 }

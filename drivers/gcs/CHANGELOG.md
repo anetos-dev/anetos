@@ -7,6 +7,10 @@ tagged `drivers/gcs/vX.Y.Z`. The framework's own changes are in the
 
 ## [Unreleased]
 
+### Removed
+- **BREAKING:** `ClientOptions` and `Backend.SignedURL`, deprecated in
+  v0.5: use `WithClientOptions` and `Backend.TemporaryURL` (DR1).
+
 ## [0.5.0] - 2026-10-25
 
 ### Changed

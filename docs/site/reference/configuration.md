@@ -12,8 +12,9 @@ key that picks a backend is `<AREA>_DRIVER` in every area (`DB_DRIVER`,
 `CACHE_DRIVER`, `MAIL_DRIVER`, `STORAGE_DRIVER`), except `AI_PROVIDER`.
 
 > **Note:** `doctor` warns about keys in your `.env` that look like
-> these settings but aren't read (`CACHE_STORE`, `QUEUE_CONNECTION`,
-> `MAIL_MAILER`, `FILESYSTEM_DISK`…), and names the key to use.
+> these settings but aren't read (`QUEUE_CONNECTION`, `MAIL_MAILER`,
+> `FILESYSTEM_DISK`…), and names the key to use. A setting's name
+> before v0.5 stops the app instead ([Former names](#former-names)).
 
 ## Framework settings
 
@@ -52,6 +53,7 @@ Used by `config.Bind` and `config.Get`.
 | `default:"value"` | `default:"5432"` | Used when the key is missing or empty |
 | `prefix:"P_"` | `prefix:"DB_"` | On a nested struct (or pointer to struct) without `env`: prepend `P_` to its keys |
 | `was:"OLD"` | `was:"DB_USERNAME"` | The key's former name (with the same prefix), read when the key is unset; the app logs a warning and `doctor` lists it |
+| `was:"OLD,removed"` | `was:"DB_CONNECTION,removed"` | A former name no longer read: when it is set and the key isn't, binding fails with a `*config.RenamedError` naming the key (since v0.6) |
 
 Untagged nested structs are bound recursively, without a prefix unless one is
 given. Unexported fields are ignored.
@@ -117,8 +119,11 @@ beside its new one, or a typo of a setting.
 
 ### Former names
 
-Projects made before v0.5 used other names for these settings. The former
-names are still read, with a warning, until v0.6.
+Projects made before v0.5 used other names for these settings. Since
+v0.6 the former names are no longer read: when one is set and its new
+name isn't, the service that reads it doesn't start, and the error names
+the setting to use (`DB_CONNECTION (Config.Driver): renamed DB_DRIVER`).
+With both set, `doctor` says to remove the former one.
 
 | Former name | Name |
 |---|---|

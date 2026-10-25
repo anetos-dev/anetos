@@ -1,7 +1,6 @@
 # The exported API of anetos.dev/anetos/drivers/s3: make api-update writes it, make api-check (CI) compares it with the source.
 pkg anetos.dev/anetos/drivers/s3, func Driver(...Option) storage.Driver
 pkg anetos.dev/anetos/drivers/s3, func New(Config, ...Option) (*Backend, error)
-pkg anetos.dev/anetos/drivers/s3, func Transport(http.RoundTripper) Option
 pkg anetos.dev/anetos/drivers/s3, func WithTransport(http.RoundTripper) Option
 pkg anetos.dev/anetos/drivers/s3, method (*Backend) Client() *minio.Client
 pkg anetos.dev/anetos/drivers/s3, method (*Backend) Copy(context.Context, string, string) error
@@ -9,7 +8,6 @@ pkg anetos.dev/anetos/drivers/s3, method (*Backend) Delete(context.Context, stri
 pkg anetos.dev/anetos/drivers/s3, method (*Backend) List(context.Context, string) iter.Seq2[storage.FileInfo, error]
 pkg anetos.dev/anetos/drivers/s3, method (*Backend) Open(context.Context, string) (storage.File, error)
 pkg anetos.dev/anetos/drivers/s3, method (*Backend) Put(context.Context, string, io.Reader, storage.PutOptions) error
-pkg anetos.dev/anetos/drivers/s3, method (*Backend) SignedURL(context.Context, string, time.Time) (string, error)
 pkg anetos.dev/anetos/drivers/s3, method (*Backend) Stat(context.Context, string) (storage.FileInfo, error)
 pkg anetos.dev/anetos/drivers/s3, method (*Backend) TemporaryURL(context.Context, string, time.Time) (string, error)
 pkg anetos.dev/anetos/drivers/s3, type Backend struct

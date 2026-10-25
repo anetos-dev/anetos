@@ -189,13 +189,6 @@ func ClientIP(ctx context.Context) string {
 	return ""
 }
 
-// ClientIPFrom is [ClientIP].
-//
-// Deprecated: Use ClientIP; ClientIPFrom is removed in v0.6.
-//
-//go:fix inline
-func ClientIPFrom(ctx context.Context) string { return ClientIP(ctx) }
-
 // clientIPOf is [ClientIP] for r, falling back to r.RemoteAddr outside
 // a router.
 func clientIPOf(r *http.Request) string {

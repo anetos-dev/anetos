@@ -157,13 +157,6 @@ type NoAccountError struct {
 // Error implements error.
 func (e *NoAccountError) Error() string { return "social: " + e.Message }
 
-// ErrNoAccount is [NoAccountError].
-//
-// Deprecated: Use NoAccountError; ErrNoAccount is removed in v0.6.
-//
-//go:fix inline
-type ErrNoAccount = NoAccountError
-
 // Social runs the login flow for an app's providers.
 type Social[U auth.Authenticatable] struct {
 	auth      *auth.Auth[U]
@@ -327,15 +320,6 @@ func New[U auth.Authenticatable](app *anetos.App, a *auth.Auth[U], resolve Resol
 	s.now = app.Now // tests can freeze it
 	anetos.Provide(app, s)
 	return s, nil
-}
-
-// ForApp is [New].
-//
-// Deprecated: Use New; ForApp is removed in v0.6.
-//
-//go:fix inline
-func ForApp[U auth.Authenticatable](app *anetos.App, a *auth.Auth[U], resolve Resolver[U], providers []Provider, opts ...Option) (*Social[U], error) {
-	return New[U](app, a, resolve, providers, opts...)
 }
 
 // Configured returns the providers whose SOCIAL_<NAME>_CLIENT_ID and

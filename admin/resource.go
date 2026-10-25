@@ -56,13 +56,6 @@ func TextColumn[T any](column, label string) Column[T] {
 	return Column[T]{Label: label, Column: column, Sortable: true}
 }
 
-// Field is [TextColumn], with its arguments the other way round.
-//
-// Deprecated: Use TextColumn(column, label); Field is removed in v0.6.
-//
-//go:fix inline
-func Field[T any](title, column string) Column[T] { return TextColumn[T](column, title) }
-
 // Filter narrows a resource's list to the records matching a choice.
 type Filter[T any] struct {
 	// Name is the filter's query parameter (?status=draft), unique in

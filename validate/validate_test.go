@@ -543,6 +543,9 @@ func TestCompileErrors(t *testing.T) {
 			A string `validate:"nope"`
 		}{}, `unknown rule "nope"`},
 		{struct {
+			A string `validate:"unique_live:users,email"`
+		}{}, `unknown rule "unique_live": renamed unique_without_trashed in v0.5, and the former name is no longer accepted`},
+		{struct {
 			A int `validate:"email"`
 		}{}, `does not apply to int`},
 		{struct {

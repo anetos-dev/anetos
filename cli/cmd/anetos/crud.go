@@ -67,9 +67,6 @@ func makeCrud(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 		fmt.Fprintln(stderr, "anetos make:crud:", err)
 		return 1
 	}
-	if res.Kit != "" {
-		fmt.Fprintf(stdout, "views/ui has the components for %s, which the new pages call: the project had none (made before v0.5).\nThe layout keeps its markup; the upgrade guide shows how to use them there too.\n", scaffold.CSSName(res.Kit))
-	}
 	file, group := "routes/web.go", "pages"
 	if res.API {
 		file, group = "routes/api.go", "api"
@@ -173,8 +170,7 @@ func testFile(created []string) string {
 // written.
 func updateOpenAPI(ctx context.Context, root string, stdout, stderr io.Writer) {
 	main, err := os.ReadFile(filepath.Join(root, "main.go"))
-	// openapi.ForApp: a project made before v0.5.
-	if err != nil || !bytes.Contains(main, []byte("openapi.Register(")) && !bytes.Contains(main, []byte("openapi.ForApp(")) {
+	if err != nil || !bytes.Contains(main, []byte("openapi.Register(")) {
 		return
 	}
 	var out bytes.Buffer

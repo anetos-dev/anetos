@@ -55,9 +55,7 @@ theirs with `anetos.ProcessTypes("worker")`.
 
 `run` is the binary's default command (`app.Execute`; see
 [Commands](../guides/commands.md)); in code, pass process types to
-`app.Run(ctx, "web")`. Before v0.5 they were "roles" named `http`,
-`workers` and `listeners`; those names still work, with a warning,
-until v0.6.
+`app.Run(ctx, "web")`.
 
 - Components **without** process types run in every process.
 - Asking for a process type nothing declares is an error, so typos in `--only`

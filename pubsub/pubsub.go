@@ -184,15 +184,6 @@ func New(app *anetos.App, drivers ...Driver) (*PubSub, error) {
 	return p, nil
 }
 
-// ForApp is [New].
-//
-// Deprecated: Use New; ForApp is removed in v0.6.
-//
-//go:fix inline
-func ForApp(app *anetos.App, drivers ...Driver) (*PubSub, error) {
-	return New(app, drivers...)
-}
-
 // preparer prepares the listeners' subscriptions when the app boots.
 type preparer struct{ p *PubSub }
 
@@ -379,13 +370,6 @@ func Tries(n int) ListenOption {
 		return nil
 	}
 }
-
-// MaxAttempts is [Tries].
-//
-// Deprecated: Use Tries; MaxAttempts is removed in v0.6.
-//
-//go:fix inline
-func MaxAttempts(n int) ListenOption { return Tries(n) }
 
 // Backoff sets the waits before deliveries after failures: the first
 // before the second delivery, and so on; the last is used for the rest.

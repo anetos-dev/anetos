@@ -478,15 +478,15 @@ func TestAppNew(t *testing.T) {
 	if _, err := run("schedule:test", "nope"); err == nil {
 		t.Error("schedule:test nope = nil")
 	}
-	// v0.4's schedule:run <task> runs the task, with a warning.
-	if out, err := run("schedule:run", "daily-report"); err != nil || !strings.Contains(out, "schedule:test daily-report") || !strings.Contains(out, "Ran daily-report in") || reports.Load() != before+2 {
-		t.Errorf("schedule:run daily-report = %q, %v", out, err)
+	// schedule:run <task> before v0.5: refused, naming schedule:test.
+	if _, err := run("schedule:run", "daily-report"); !errors.Is(err, cmd.ErrUsage) || !strings.Contains(err.Error(), "schedule:test daily-report runs one task") || reports.Load() != before+1 {
+		t.Errorf("schedule:run daily-report = %v", err)
 	}
 	// Without a task, schedule:run runs those due this minute: 02:00 in
 	// Dhaka is 20:00 UTC, when the hourly task runs too.
 	clock := newClock(time.Date(2026, 1, 1, 20, 0, 40, 0, time.UTC))
 	schedule.SetClock(s, clock)
-	if out, err := run("schedule:run"); err != nil || !strings.HasPrefix(out, "Ran daily-report, hourly in") || reports.Load() != before+3 {
+	if out, err := run("schedule:run"); err != nil || !strings.HasPrefix(out, "Ran daily-report, hourly in") || reports.Load() != before+2 {
 		t.Errorf("schedule:run at 20:00 UTC = %q, %v; %d reports", out, err, reports.Load()-before)
 	}
 	clock.now = clock.now.Add(time.Minute)

@@ -272,16 +272,6 @@ func WrapHandler(h http.Handler) HandlerFunc {
 // [funcKey], for the router to serve them directly.
 var wrappedHandlers sync.Map // unsafe.Pointer → http.Handler
 
-// HandleStd is [Router.Handle] with [WrapHandler].
-//
-// Deprecated: Use r.Handle(method, pattern, web.WrapHandler(h)), or
-// r.Get…; HandleStd is removed in v0.6.
-//
-//go:fix inline
-func (r *Router) HandleStd(method, pattern string, h http.Handler) *Route {
-	return r.Handle(method, pattern, WrapHandler(h))
-}
-
 func (r *Router) newRoute(method, pattern string) *Route {
 	checkPattern(pattern)
 	if r.prefix != "" && pattern == "/" {
@@ -808,10 +798,3 @@ func CurrentRoute(ctx context.Context) *Route {
 	}
 	return nil
 }
-
-// RouteFromContext is [CurrentRoute].
-//
-// Deprecated: Use CurrentRoute; RouteFromContext is removed in v0.6.
-//
-//go:fix inline
-func RouteFromContext(ctx context.Context) *Route { return CurrentRoute(ctx) }

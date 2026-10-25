@@ -281,10 +281,6 @@ type CrudResult struct {
 	// API says the project is an API project ([IsAPI]): JSON endpoints,
 	// routed in routes/api.go's api group.
 	API bool
-	// Kit is the design kit whose views/ui MakeCrud wrote first, in a
-	// project made before v0.5, which had none (the pages call it); ""
-	// when the project had views/ui. Its files are in Created.
-	Kit string
 }
 
 var fieldRe = regexp.MustCompile(`^[a-z][a-z0-9]*(_[a-z0-9]+)*$`)
@@ -545,18 +541,10 @@ func MakeCrud(root, name string, args []string, now time.Time) (CrudResult, erro
 		for _, c := range res.Created {
 			_ = os.Remove(filepath.Join(root, filepath.FromSlash(c)))
 		}
-		if res.Kit != "" {
-			_ = os.Remove(filepath.Join(root, "views", "ui"))
-		}
 		return CrudResult{}, fmt.Errorf("%w (the files written were removed)", err)
 	}
 	if !res.API && !HasUI(root) {
-		res.Kit = GuessKit(root)
-		written, err := WriteUI(root, mod, res.Kit)
-		res.Created = append(res.Created, written...)
-		if err != nil {
-			return undo(err)
-		}
+		return res, ErrNoUI
 	}
 	for i, f := range files {
 		if err := writeNew(filepath.Join(root, filepath.FromSlash(f[1])), out[i], 0o644); err != nil {

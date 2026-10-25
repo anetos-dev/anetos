@@ -93,10 +93,6 @@ type AuthResult struct {
 	// API says the project is an API project ([IsAPI]): the accounts are
 	// JSON endpoints logging in with API tokens.
 	API bool
-	// Kit is the design kit whose views/ui MakeAuth wrote first, in a
-	// project made before v0.5, which had none (the pages call it); ""
-	// when the project had views/ui. Its files are in Created.
-	Kit string
 }
 
 // MakeAuth writes the account scaffolding into the project at root:
@@ -193,21 +189,13 @@ func MakeAuth(root string, now time.Time) (AuthResult, error) {
 			_ = os.Remove(filepath.Join(root, filepath.FromSlash(c)))
 		}
 		_ = os.Remove(filepath.Join(root, "app", "mailers")) // if make:auth created it, it's empty
-		if res.Kit != "" {
-			_ = os.Remove(filepath.Join(root, "views", "ui"))
-		}
 		for _, name := range res.Env {
 			_ = os.WriteFile(filepath.Join(root, name), envBefore[name], 0o600)
 		}
 		return AuthResult{}, fmt.Errorf("%w (the files written were removed)", err)
 	}
 	if !res.API && !HasUI(root) {
-		res.Kit = GuessKit(root)
-		written, err := WriteUI(root, mod, res.Kit)
-		res.Created = append(res.Created, written...)
-		if err != nil {
-			return undo(err)
-		}
+		return res, ErrNoUI
 	}
 	for i, f := range files {
 		if err := writeNew(filepath.Join(root, filepath.FromSlash(f[1])), out[i], 0o644); err != nil {

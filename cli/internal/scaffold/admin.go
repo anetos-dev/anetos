@@ -146,7 +146,7 @@ func MakeAdmin(root string) (AdminResult, error) {
 		return res, err
 	}
 	// The activity, with an audit log; AI usage, with tracked usage.
-	if res.Audit, err = projectCalls(root, "audit.New(", "audit.ForApp("); err != nil {
+	if res.Audit, err = projectCalls(root, "audit.New("); err != nil {
 		return res, err
 	}
 	if res.AI, err = projectCalls(root, "TrackUsage("); err != nil {
@@ -258,12 +258,12 @@ func addBanner(src []byte) ([]byte, bool) {
 
 // noRBAC reports whether no Go file of the project calls rbac.New.
 func noRBAC(root string) (bool, error) {
-	found, err := projectCalls(root, "rbac.New(", "rbac.ForApp(")
+	found, err := projectCalls(root, "rbac.New(")
 	return !found, err
 }
 
 // projectCalls reports whether a Go file of the project contains one of
-// the calls (a name and the one it replaced, ForApp before v0.5).
+// the calls.
 func projectCalls(root string, calls ...string) (bool, error) {
 	found := false
 	err := filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {

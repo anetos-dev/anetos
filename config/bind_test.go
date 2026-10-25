@@ -401,6 +401,58 @@ func TestBindWas(t *testing.T) {
 	}
 }
 
+// TestBindWasRemoved: a former name no longer read (was:"OLD,removed")
+// fails Bind when it is set and the key isn't, with a *RenamedError
+// naming the key; with both set, the key's value is used; unset, the
+// default. It is still reported as a former name, for doctor.
+func TestBindWasRemoved(t *testing.T) {
+	type cfg struct {
+		Driver string `env:"DRIVER" was:"CONNECTION,removed" default:"sqlite"`
+	}
+	var w struct {
+		DB cfg `prefix:"DB_"`
+	}
+	r := &reporting{Map: Map{"DB_CONNECTION": "postgres"}}
+	err := Bind(r, &w)
+	var re *RenamedError
+	var fe *FieldError
+	if !errors.As(err, &re) || re.Current != "DB_DRIVER" || !errors.As(err, &fe) || fe.Key != "DB_CONNECTION" ||
+		err.Error() != "config: DB_CONNECTION (DB.Driver): renamed DB_DRIVER, and the former name is no longer read: rename it in your settings" {
+		t.Errorf("former name set: %v", err)
+	}
+	if len(r.renamed) != 0 || !slices.Equal(r.former, []string{"DB_CONNECTION>DB_DRIVER"}) {
+		t.Errorf("reports: %v %v", r.former, r.renamed)
+	}
+	if err := Bind(Map{"DB_CONNECTION": "postgres", "DB_DRIVER": "mysql"}, &w); err != nil || w.DB.Driver != "mysql" {
+		t.Errorf("both set: %+v, %v", w.DB, err)
+	}
+	if err := Bind(Map{"DB_CONNECTION": ""}, &w); err != nil || w.DB.Driver != "sqlite" {
+		t.Errorf("unset: %+v, %v", w.DB, err)
+	}
+	keys, err := Keys(&w)
+	if err != nil || keys[0].Was != "" || keys[0].Removed != "DB_CONNECTION" {
+		t.Errorf("Keys: %+v %v", keys, err)
+	}
+	// An unknown option is an error, not a rename still read.
+	var typo struct {
+		Driver string `env:"DB_DRIVER" was:"DB_CONNECTION,remove"`
+	}
+	if err := Bind(Map{"DB_CONNECTION": "postgres"}, &typo); err == nil || !strings.Contains(err.Error(), `unknown was tag option "remove"`) {
+		t.Errorf("typo: %v", err)
+	}
+	if _, err := Keys(&typo); err == nil {
+		t.Error("Keys of a typo: no error")
+	}
+	// Under an optional section, the former name still fails binding
+	// rather than leaving the section nil.
+	var opt struct {
+		DB *cfg `prefix:"DB_"`
+	}
+	if err := Bind(Map{"DB_CONNECTION": "postgres"}, &opt); !errors.As(err, &re) {
+		t.Errorf("optional section: %v, %+v", err, opt.DB)
+	}
+}
+
 // reporting records what Bind reports.
 type reporting struct {
 	Map

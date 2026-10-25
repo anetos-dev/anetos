@@ -18,14 +18,6 @@ func (a *Auth[U]) Disabled(u U) bool { return a.disabled(u) }
 // available: Users has SessionKey and SetSessionKey.
 func (a *Auth[U]) SupportsLogoutEverywhere() bool { return a.users.SetSessionKey != nil }
 
-// CanSignOutEverywhere is [Auth.SupportsLogoutEverywhere].
-//
-// Deprecated: Use SupportsLogoutEverywhere; CanSignOutEverywhere is
-// removed in v0.6.
-//
-//go:fix inline
-func (a *Auth[U]) CanSignOutEverywhere() bool { return a.SupportsLogoutEverywhere() }
-
 var errNoSessionKey = errors.New("auth: LogoutEverywhere needs Users.SessionKey and Users.SetSessionKey")
 
 var errNoSetPassword = errors.New("auth: ChangePassword needs Users.SetPassword")
@@ -100,15 +92,6 @@ func (a *Auth[U]) LogoutEverywhere(ctx context.Context, u U) error {
 		return a.users.SetRememberToken(ctx, u, randomToken())
 	}
 	return nil
-}
-
-// SignOutEverywhere is [Auth.LogoutEverywhere].
-//
-// Deprecated: Use LogoutEverywhere; SignOutEverywhere is removed in v0.6.
-//
-//go:fix inline
-func (a *Auth[U]) SignOutEverywhere(ctx context.Context, u U) error {
-	return a.LogoutEverywhere(ctx, u)
 }
 
 var (

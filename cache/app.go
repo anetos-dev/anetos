@@ -18,7 +18,7 @@ import (
 type Config struct {
 	// Driver is the store's driver: memory, database, or one passed to
 	// New (redis). CACHE_DRIVER, default memory.
-	Driver string `env:"CACHE_DRIVER" was:"CACHE_STORE" default:"memory"`
+	Driver string `env:"CACHE_DRIVER" was:"CACHE_STORE,removed" default:"memory"`
 	// Prefix starts every key, so apps (and, in Redis, sessions and
 	// queues) can share a store: cache:clear removes only its keys.
 	// CACHE_PREFIX, default APP_NAME followed by ":cache:" ("blog:cache:").
@@ -118,13 +118,4 @@ func New(app *anetos.App, drivers ...Driver) (*Cache, error) {
 	anetos.Provide(app, c)
 	app.OnShutdown("cache", func(context.Context) error { return store.Close() })
 	return c, nil
-}
-
-// ForApp is [New].
-//
-// Deprecated: Use New; ForApp is removed in v0.6.
-//
-//go:fix inline
-func ForApp(app *anetos.App, drivers ...Driver) (*Cache, error) {
-	return New(app, drivers...)
 }

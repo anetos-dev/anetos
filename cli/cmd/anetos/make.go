@@ -98,7 +98,7 @@ func makeCmd(kind string, args []string, stdout, stderr io.Writer) int {
 // agentHint tells how to set up AI calls when the app doesn't yet.
 func agentHint(root string, w io.Writer) {
 	b, err := os.ReadFile(filepath.Join(root, "main.go"))
-	if err == nil && (strings.Contains(string(b), "ai.New(") || strings.Contains(string(b), "ai.ForApp(")) { // ForApp: before v0.5
+	if err == nil && strings.Contains(string(b), "ai.New(") {
 		return
 	}
 	fmt.Fprint(w, `

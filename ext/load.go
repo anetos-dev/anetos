@@ -154,6 +154,11 @@ func load(app *anetos.App, reg *registry, p Plugin, o options) (pluginInfo, erro
 			}
 		}
 	}
+	if _, isFormer := p.(formerListeners); isFormer {
+		if _, ok := p.(HasListeners); !ok { // before anything is registered
+			return info, errors.New("it has Listen, renamed Listeners in v0.5 and no longer called since v0.6: rename the method")
+		}
+	}
 	if c, ok := p.(Compat); ok && c.Requires() != "" {
 		info.Requires = c.Requires()
 		ok, err := Satisfies(anetos.Version(), info.Requires)
@@ -260,21 +265,13 @@ func load(app *anetos.App, reg *registry, p Plugin, o options) (pluginInfo, erro
 			return info, err
 		}
 	}
-	var listen func(*events.Bus) error
-	switch l := p.(type) {
-	case HasListeners:
-		listen = l.Listeners
-	case formerListeners:
-		app.Logger().Warn(fmt.Sprintf("ext: plugin %s has Listen, which is Listeners since v0.5; the old name is removed in v0.6", name))
-		listen = l.Listen
-	}
-	if listen != nil {
+	if l, ok := p.(HasListeners); ok {
 		info.Adds = append(info.Adds, "listeners")
 		bus, err := anetos.Resolve[*events.Bus](app)
 		if err != nil {
 			return info, errors.New("it has listeners: call events.New before ext.Load")
 		}
-		if err := listen(bus); err != nil {
+		if err := l.Listeners(bus); err != nil {
 			return info, err
 		}
 	}
@@ -319,7 +316,6 @@ func (b booter) Boot(ctx context.Context, app *anetos.App) error {
 func (reg *registry) commands() []cmd.Command {
 	return []cmd.Command{{
 		Name:        "plugin:list",
-		Former:      []string{"plugins:list"},
 		Usage:       "[--json]",
 		Description: "List the plugins and what they add",
 		ManagesApp:  true, // doesn't boot the app, so it works before the settings are set
@@ -348,7 +344,6 @@ func (reg *registry) commands() []cmd.Command {
 		},
 	}, {
 		Name:        "plugin:env",
-		Former:      []string{"plugins:env"},
 		Usage:       "[plugin]",
 		Description: "Print the plugins' settings, as .env lines with their defaults",
 		ManagesApp:  true, // doesn't boot the app, so it works before the settings are

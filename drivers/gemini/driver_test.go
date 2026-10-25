@@ -73,9 +73,9 @@ func TestRequests(t *testing.T) {
 	budget := int32(0)
 	req := &ai.Request{Model: "gemini-x", Messages: []ai.Message{ai.UserMessage("Look up a and b.")},
 		// Another driver's options are ignored; each of the driver's own
-		// applies, the deprecated Config too.
+		// applies, by value or by pointer.
 		Options: []any{struct{ Other bool }{true}, gemini.Options{ThinkingBudget: &budget},
-			&gemini.Options{Config: func(c *genai.GenerateContentConfig) { c.CandidateCount = 1 }}, //nolint:staticcheck // the deprecated field still applies
+			&gemini.Options{Params: func(c *genai.GenerateContentConfig) { c.CandidateCount = 1 }},
 			gemini.Options{Params: func(c *genai.GenerateContentConfig) { c.MaxOutputTokens = 99 }}}}
 	resp, err := p.Generate(context.Background(), req)
 	if err != nil {

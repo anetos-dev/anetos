@@ -198,6 +198,9 @@ func (a *App) ExecuteArgs(ctx context.Context, args []string, stdout, stderr io.
 	if len(args) == 0 || strings.HasPrefix(args[0], "-") && !isHelpFlag(args[0]) {
 		args = append([]string{"run"}, args...)
 	}
+	if a.refuseRemoved(bin, args[0], stderr) {
+		return 2
+	}
 	name, candidates := a.expand(args[0])
 	if len(candidates) > 0 {
 		fmt.Fprintf(stderr, "%s: %q could be %s\n", bin, args[0], strings.Join(candidates, ", "))
@@ -233,6 +236,30 @@ func (a *App) ExecuteArgs(ctx context.Context, args []string, stdout, stderr io.
 	}
 	fmt.Fprintf(stderr, "%s %s: %v\n", bin, c.Name, err)
 	return 1
+}
+
+// removedCommands are the built-in commands' names before v0.5, which
+// v0.6 no longer runs: they are refused with the new name (D340).
+var removedCommands = map[string]string{
+	"routes:list":  "route:list",
+	"plugins:list": "plugin:list",
+	"plugins:env":  "plugin:env",
+	"lang:check":   "locale:check",
+}
+
+// refuseRemoved reports, naming the new name, a removed command name
+// that no command of the app has taken; checked before short names
+// expand, so lang:check isn't read as the start of another command.
+func (a *App) refuseRemoved(bin, name string, stderr io.Writer) bool {
+	now, removed := removedCommands[name]
+	if !removed {
+		return false
+	}
+	if _, ok, _ := a.lookup(name); ok {
+		return false
+	}
+	fmt.Fprintf(stderr, "%s: %s was renamed %s in v0.5, and the former name is no longer accepted\n", bin, name, now)
+	return true
 }
 
 func printUsage(w io.Writer, bin string, c cmd.Command) {
@@ -279,6 +306,9 @@ func (a *App) help(bin string, args []string, stdout, stderr io.Writer) int {
 			}
 			out = list
 		case 1:
+			if a.refuseRemoved(bin, args[0], stderr) {
+				return 2
+			}
 			name, candidates := a.expand(args[0])
 			c, ok, _ := a.lookup(name)
 			if len(candidates) > 0 || !ok {
@@ -302,6 +332,9 @@ func (a *App) help(bin string, args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "Usage: %s [command] [arguments]\n\n", bin)
 		a.printCommands(bin, stdout)
 		return 0
+	}
+	if a.refuseRemoved(bin, args[0], stderr) {
+		return 2
 	}
 	name, candidates := a.expand(args[0])
 	if len(candidates) > 0 {

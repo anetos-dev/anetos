@@ -90,8 +90,8 @@ type HasListeners interface {
 	Listeners(bus *events.Bus) error
 }
 
-// formerListeners is HasListeners before v0.5, which Load still calls,
-// with a warning, until v0.6.
+// formerListeners is HasListeners before v0.5: Load refuses a plugin
+// that has only its method, naming the new one.
 type formerListeners interface {
 	Listen(bus *events.Bus) error
 }

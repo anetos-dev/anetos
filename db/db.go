@@ -26,15 +26,15 @@ import (
 // connections.
 type Config struct {
 	// Driver selects the driver: sqlite, postgres or mysql.
-	Driver string `env:"DB_DRIVER" was:"DB_CONNECTION" default:"sqlite"`
+	Driver string `env:"DB_DRIVER" was:"DB_CONNECTION,removed" default:"sqlite"`
 	// URL is a complete connection string in the driver's format. When set,
 	// Host, Port, Name, User and Password are ignored.
 	URL      string `env:"DB_URL"`
-	Host     string `env:"DB_HOST" default:"127.0.0.1"` // server host (PostgreSQL, MySQL)
-	Port     int    `env:"DB_PORT"`                     // 0: the driver's default port
-	Name     string `env:"DB_NAME" was:"DB_DATABASE"`   // database name; for SQLite, the file (default database/app.db)
-	User     string `env:"DB_USER" was:"DB_USERNAME"`   // user to connect as
-	Password string `env:"DB_PASSWORD"`                 // that user's password
+	Host     string `env:"DB_HOST" default:"127.0.0.1"`       // server host (PostgreSQL, MySQL)
+	Port     int    `env:"DB_PORT"`                           // 0: the driver's default port
+	Name     string `env:"DB_NAME" was:"DB_DATABASE,removed"` // database name; for SQLite, the file (default database/app.db)
+	User     string `env:"DB_USER" was:"DB_USERNAME,removed"` // user to connect as
+	Password string `env:"DB_PASSWORD"`                       // that user's password
 	// TLS secures connections built from DB_HOST (PostgreSQL, MySQL):
 	// "verify" (encrypt, and check the server's certificate and name),
 	// "skip-verify" (encrypt only), or "none". Empty: "none" for a local
@@ -202,7 +202,7 @@ func platformURL(src config.Source, c *Config) bool {
 	if !strings.HasPrefix(u, "postgres://") && !strings.HasPrefix(u, "postgresql://") {
 		return false
 	}
-	if set("DB_URL", "DB_HOST", "DB_NAME", "DB_DATABASE") || set("DB_DRIVER", "DB_CONNECTION") && c.Driver != "postgres" {
+	if set("DB_URL", "DB_HOST", "DB_NAME") || set("DB_DRIVER") && c.Driver != "postgres" {
 		return false
 	}
 	c.URL, c.Driver, c.urlKey = u, "postgres", "DATABASE_URL"
@@ -231,6 +231,9 @@ func withPrefix(err error, prefix string) error {
 	if fe, ok := err.(*config.FieldError); ok { //nolint:errorlint // Bind joins FieldErrors directly; only those are renamed
 		c := *fe
 		c.Key = prefix + c.Key
+		if re, ok := c.Err.(*config.RenamedError); ok { //nolint:errorlint // Bind sets it directly
+			c.Err = &config.RenamedError{Current: prefix + re.Current}
+		}
 		return &c
 	}
 	return prefixedError{err, prefix}

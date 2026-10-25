@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -269,6 +270,26 @@ func TestVersionCommand(t *testing.T) {
 	}
 	if code, _, _ := execute(t, app, "version", "extra"); code != 2 {
 		t.Errorf("an argument: %d", code)
+	}
+}
+
+// The built-in commands' names before v0.5 are refused, naming the new
+// ones, also by help, and before short names expand: lang:check isn't
+// lang:checker (D340). A command the app names so keeps the name.
+func TestRemovedCommandNames(t *testing.T) {
+	app := newApp(t, config.Map{})
+	app.Command("lang:checker", "Check the language", func(context.Context, *cmd.Args) error { return nil })
+	for _, args := range [][]string{{"routes:list"}, {"plugins:env"}, {"lang:check"}, {"help", "routes:list"}, {"help", "--json", "lang:check"}} {
+		code, _, errOut := execute(t, app, args...)
+		old := args[len(args)-1]
+		if code != 2 || !strings.Contains(errOut, old+" was renamed ") || !strings.Contains(errOut, "in v0.5, and the former name is no longer accepted") {
+			t.Errorf("%v: %d %q", args, code, errOut)
+		}
+	}
+	other := newApp(t, config.Map{})
+	other.Command("routes:list", "The app's own", func(_ context.Context, a *cmd.Args) error { _, err := fmt.Fprint(a.Stdout, "own"); return err })
+	if code, out, errOut := execute(t, other, "routes:list"); code != 0 || out != "own" {
+		t.Errorf("an app's routes:list: %d %q %q", code, out, errOut)
 	}
 }
 

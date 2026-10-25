@@ -180,22 +180,20 @@ func (f *formerListener) Listen(bus *events.Bus) error {
 	return events.On(bus, func(context.Context, greeted) error { f.heard.Add(1); return nil })
 }
 
-// A plugin's Listen is still called, with a warning, until v0.6.
+// A plugin with only Listen, HasListeners' method before v0.5, is
+// refused, naming the new one (D340).
 func TestFormerListeners(t *testing.T) {
-	var logs bytes.Buffer
-	app, err := anetos.New(anetos.WithSource(config.Map{"APP_ENV": "testing"}), anetos.WithLogOutput(&logs))
+	app, err := anetos.New(anetos.WithSource(config.Map{"APP_ENV": "testing"}))
 	check(t, err)
 	t.Cleanup(func() { _ = app.Close() })
 	_, err = events.New(app)
 	check(t, err)
 	p := &formerListener{}
-	check(t, ext.Load(app, []ext.Plugin{p}))
-	check(t, events.Emit(app.Context(context.Background()), greeted{"ada"}))
-	if p.heard.Load() != 1 {
-		t.Errorf("heard %d events, want 1", p.heard.Load())
+	if err := ext.Load(app, []ext.Plugin{p}); err == nil || !strings.Contains(err.Error(), "plugin former: it has Listen, renamed Listeners in v0.5") {
+		t.Errorf("Load: %v", err)
 	}
-	if !strings.Contains(logs.String(), "plugin former has Listen, which is Listeners since v0.5") {
-		t.Errorf("no warning:\n%s", logs.String())
+	if p.heard.Load() != 0 {
+		t.Errorf("heard %d events", p.heard.Load())
 	}
 }
 

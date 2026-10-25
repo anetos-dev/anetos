@@ -7,6 +7,10 @@ tagged `drivers/gemini/vX.Y.Z`. The framework's own changes are in the
 
 ## [Unreleased]
 
+### Removed
+- **BREAKING:** `Options.Config`, deprecated in v0.5: use
+  `Options.Params` (DR1).
+
 ## [0.5.0] - 2026-10-25
 
 ### Changed

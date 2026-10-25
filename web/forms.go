@@ -199,13 +199,6 @@ func WithTrustedOrigins(origins ...string) CSRFOption {
 	}
 }
 
-// TrustedOrigins is [WithTrustedOrigins].
-//
-// Deprecated: Use WithTrustedOrigins; TrustedOrigins is removed in v0.6.
-//
-//go:fix inline
-func TrustedOrigins(origins ...string) CSRFOption { return WithTrustedOrigins(origins...) }
-
 // CSRF protects the routes it wraps from cross-site request forgery. For
 // every request that may change something (any method but GET, HEAD,
 // OPTIONS and TRACE: POST, PUT, PATCH, DELETE, …) it

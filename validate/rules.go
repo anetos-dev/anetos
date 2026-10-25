@@ -202,7 +202,7 @@ var ruleHints = map[string]string{
 	"regex":                  "tag parameters can't hold arbitrary patterns; register a custom rule with validate.Register",
 	"unique":                 "the db package registers it: import anetos.dev/anetos/db",
 	"unique_without_trashed": "the db package registers it: import anetos.dev/anetos/db",
-	"unique_live":            "the db package registers it: import anetos.dev/anetos/db",
+	"unique_live":            "renamed unique_without_trashed in v0.5, and the former name is no longer accepted",
 	"exists":                 "the db package registers it: import anetos.dev/anetos/db",
 	"gt":                     "use min or after with a field, or a Validate method",
 	"lt":                     "use max or before with a field, or a Validate method",

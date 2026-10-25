@@ -292,15 +292,6 @@ func New(app *anetos.App, drivers ...Driver) (*Storage, error) {
 	return s, nil
 }
 
-// ForApp is [New].
-//
-// Deprecated: Use New; ForApp is removed in v0.6.
-//
-//go:fix inline
-func ForApp(app *anetos.App, drivers ...Driver) (*Storage, error) {
-	return New(app, drivers...)
-}
-
 func displayName(name string) string {
 	if name == "" {
 		return "default"

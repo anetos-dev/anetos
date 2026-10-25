@@ -95,13 +95,6 @@ type options struct{ transport http.RoundTripper }
 // WithTransport sets the HTTP transport (proxies, custom TLS roots).
 func WithTransport(rt http.RoundTripper) Option { return func(o *options) { o.transport = rt } }
 
-// Transport is [WithTransport].
-//
-// Deprecated: Use WithTransport; Transport is removed in v0.6.
-//
-//go:fix inline
-func Transport(rt http.RoundTripper) Option { return WithTransport(rt) }
-
 // New returns a backend for c. It doesn't contact the server.
 func New(c Config, opts ...Option) (*Backend, error) {
 	if c.Bucket == "" {
@@ -427,13 +420,4 @@ func (b *Backend) TemporaryURL(ctx context.Context, p string, expires time.Time)
 		return "", err
 	}
 	return u.String(), nil
-}
-
-// SignedURL is [Backend.TemporaryURL].
-//
-// Deprecated: Use TemporaryURL; SignedURL is removed in v0.6.
-//
-//go:fix inline
-func (b *Backend) SignedURL(ctx context.Context, p string, expires time.Time) (string, error) {
-	return b.TemporaryURL(ctx, p, expires)
 }

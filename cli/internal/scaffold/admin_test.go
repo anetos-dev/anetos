@@ -253,17 +253,16 @@ func TestAdminReplace(t *testing.T) {
 	}
 }
 
-// TestProjectCallsForApp: a project made before v0.5 calls rbac.ForApp,
-// which make:admin recognizes like rbac.New.
-func TestProjectCallsForApp(t *testing.T) {
+// TestProjectCalls: make:admin finds a call in the project's Go files.
+func TestProjectCalls(t *testing.T) {
 	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "main.go"), []byte("package main\n\nfunc setup() { rbac.ForApp(app, nil) }\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "main.go"), []byte("package main\n\nfunc setup() { rbac.New(app, nil) }\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if none, err := noRBAC(root); err != nil || none {
 		t.Errorf("noRBAC = %v, %v", none, err)
 	}
-	if found, err := projectCalls(root, "audit.New(", "audit.ForApp("); err != nil || found {
+	if found, err := projectCalls(root, "audit.New("); err != nil || found {
 		t.Errorf("audit: %v, %v", found, err)
 	}
 }

@@ -62,29 +62,37 @@ func TestNewTwice(t *testing.T) {
 }
 
 // TestSettingsCheck: doctor names the settings read under their former
-// names, and .env keys of the framework's areas that nothing reads.
+// names, and .env keys of the framework's areas that nothing reads; a
+// former name no longer read stops the service that reads it (D339).
 func TestSettingsCheck(t *testing.T) {
 	var logs strings.Builder
 	app, err := anetos.New(anetos.WithSource(config.Map{"APP_ENV": "testing", "APP_KEY": encryption.GenerateKey(),
 		"CACHE_STORE": "memory", "QUEUE_CONNECTION": "redis", "QUEUE_DRIVR": "sync", "MYAPP_THING": "x",
-		"QUEUE_POLL": "2s", "QUEUE_POLL_INTERVAL": "3s", "MAIL_POSTMARK_TOKEN": "unused"}),
+		"QUEUE_POLL": "2s", "QUEUE_POLL_INTERVAL": "3s", "MAIL_POSTMARK_TOKEN": "unused", "MYAPP_OLD": "y"}),
 		anetos.WithLogOutput(&logs))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer app.Close()
-	if _, err := cache.New(app); err != nil {
-		t.Fatal(err)
+	if _, err := cache.New(app); err == nil || !strings.Contains(err.Error(), "CACHE_STORE (Config.Driver): renamed CACHE_DRIVER, and the former name is no longer read") {
+		t.Errorf("cache.New with CACHE_STORE: %v", err)
 	}
 	if _, err := queue.New(app); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(logs.String(), "CACHE_STORE is renamed CACHE_DRIVER") {
+	// A rename of the app's own, still read: logged, and in doctor.
+	type own struct {
+		New string `env:"MYAPP_NEW" was:"MYAPP_OLD"`
+	}
+	if c, err := config.Get[own](app.Source()); err != nil || c.New != "y" {
+		t.Fatalf("own: %+v, %v", c, err)
+	}
+	if !strings.Contains(logs.String(), "MYAPP_OLD is renamed MYAPP_NEW") {
 		t.Errorf("log: %s", logs.String())
 	}
 	_, out := doctor(t, app)
 	for _, want := range []string{
-		"CACHE_STORE is renamed CACHE_DRIVER",
+		"MYAPP_OLD is renamed MYAPP_NEW",
 		"QUEUE_CONNECTION in your .env isn't a setting Anetos reads: use QUEUE_DRIVER",
 		"QUEUE_DRIVR in your .env isn't a setting Anetos reads: did you mean QUEUE_DRIVER?",
 		"QUEUE_POLL in your .env is the former name of QUEUE_POLL_INTERVAL, which is set: remove QUEUE_POLL",

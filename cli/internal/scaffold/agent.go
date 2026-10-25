@@ -71,7 +71,7 @@ type AgentProject struct {
 	DB     string // "sqlite", "postgres" or "mysql"
 	Kit    string // the web stack's CSS framework (Kits)
 	// HasUI is set when the web project has views/ui's components
-	// (projects made before v0.5 don't).
+	// (every new one does).
 	HasUI bool
 }
 
@@ -92,6 +92,10 @@ var kitSentences = map[string]string{
 	"tailwind":  "The pages use Tailwind CSS, through the components in `views/ui` (`views/ui/tailwind.css` is compiled into `public/static/app.css`).",
 }
 
+// unknownKitSentence is a web project's whose CSS framework isn't
+// recorded.
+const unknownKitSentence = "The pages call the components in `views/ui`."
+
 // noUISentence is a web project's without views/ui.
 const noUISentence = "The pages are templ views with their own markup and `public/static/app.css`."
 
@@ -106,6 +110,8 @@ func (p AgentProject) data(agents []string) agentData {
 	}
 	if d.Web && !d.HasUI {
 		d.KitSentence = noUISentence
+	} else if d.Web && d.KitSentence == "" {
+		d.KitSentence = unknownKitSentence // no usable views/ui/css.json
 	}
 	stack := "web"
 	if d.API {
@@ -454,7 +460,8 @@ func StaleAgentFiles(root string) ([]string, error) {
 // new names after the project, else its binary's; not the directory's,
 // which a clone or a worktree may change), its stack (api with
 // routes/api.go and no views/), its database (the driver go.mod
-// requires), its CSS framework (GuessKit) and whether it has views/ui.
+// requires), its CSS framework (views/ui/css.json's) and whether it has
+// views/ui.
 func ReadAgentProject(root string) (AgentProject, error) {
 	abs, err := filepath.Abs(root)
 	if err != nil {
@@ -500,7 +507,9 @@ func ReadAgentProject(root string) (AgentProject, error) {
 		p.Name = filepath.Base(abs)
 	}
 	if p.Stack == "web" {
-		p.Kit = GuessKit(root)
+		if r, err := ReadKitRecord(root); err == nil {
+			p.Kit = r.Kit
+		}
 		p.HasUI = HasUI(root)
 	}
 	return p, nil

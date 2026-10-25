@@ -175,17 +175,17 @@ func (formerURLBackend) SignedURL(_ context.Context, p string, _ time.Time) (str
 	return "https://former.example/" + p, nil
 }
 
-// A backend's own temporary URLs win over the disk's signed ones; the
-// interface before v0.5 is still used, until v0.6.
+// A backend's own temporary URLs win over the disk's signed ones; a
+// backend with only SignedURL, the method before v0.5, is refused,
+// naming the new one (D340).
 func TestBackendTemporaryURLs(t *testing.T) {
-	for b, want := range map[storage.Backend]string{
-		urlBackend{storage.NewMemoryBackend()}:       "https://store.example/a.txt",
-		formerURLBackend{storage.NewMemoryBackend()}: "https://former.example/a.txt",
-	} {
-		u, err := storage.NewDisk("files", b).TemporaryURL(ctx, "a.txt", time.Minute)
-		if err != nil || u != want {
-			t.Errorf("TemporaryURL = %q, %v; want %q", u, err, want)
-		}
+	u, err := storage.NewDisk("files", urlBackend{storage.NewMemoryBackend()}).TemporaryURL(ctx, "a.txt", time.Minute)
+	if err != nil || u != "https://store.example/a.txt" {
+		t.Errorf("TemporaryURL = %q, %v", u, err)
+	}
+	u, err = storage.NewDisk("files", formerURLBackend{storage.NewMemoryBackend()}).TemporaryURL(ctx, "a.txt", time.Minute)
+	if err == nil || !strings.Contains(err.Error(), "has SignedURL, renamed TemporaryURL in v0.5") {
+		t.Errorf("TemporaryURL of a SignedURL backend = %q, %v", u, err)
 	}
 }
 

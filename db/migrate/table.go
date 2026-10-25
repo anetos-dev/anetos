@@ -88,13 +88,6 @@ func (c *Column) UniqueWithoutTrashed() *Column {
 	return c
 }
 
-// UniqueLive is [Column.UniqueWithoutTrashed].
-//
-// Deprecated: Use UniqueWithoutTrashed; UniqueLive is removed in v0.6.
-//
-//go:fix inline
-func (c *Column) UniqueLive() *Column { return c.UniqueWithoutTrashed() }
-
 // Index adds an index on the column, named table_column_index.
 func (c *Column) Index() *Column {
 	c.t.Index(c.name)
@@ -341,13 +334,6 @@ func (t *Table) Unique(columns ...string) {
 func (t *Table) UniqueWithoutTrashed(columns ...string) {
 	t.indexes = append(t.indexes, index{name: indexName(t.name, columns, "unique"), columns: columns, unique: true, live: true})
 }
-
-// UniqueLive is [Table.UniqueWithoutTrashed].
-//
-// Deprecated: Use UniqueWithoutTrashed; UniqueLive is removed in v0.6.
-//
-//go:fix inline
-func (t *Table) UniqueLive(columns ...string) { t.UniqueWithoutTrashed(columns...) }
 
 // IndexNamed adds an index with a name of your choosing.
 func (t *Table) IndexNamed(name string, columns ...string) {

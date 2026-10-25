@@ -146,10 +146,6 @@ type Options struct {
 	// what the common request doesn't have (as the anthropic and openai
 	// drivers' Params).
 	Params func(*genai.GenerateContentConfig)
-	// Config is Params.
-	//
-	// Deprecated: Use Params; Config is removed in v0.6.
-	Config func(*genai.GenerateContentConfig)
 }
 
 // schemaOptions is Gemini's dialect of JSON Schema.
@@ -207,9 +203,6 @@ func (p *Provider) request(req *ai.Request) ([]*genai.Content, *genai.GenerateCo
 		}
 		if o.ThinkingBudget != nil {
 			cfg.ThinkingConfig = &genai.ThinkingConfig{ThinkingBudget: o.ThinkingBudget}
-		}
-		if o.Config != nil {
-			o.Config(cfg)
 		}
 		if o.Params != nil {
 			o.Params(cfg)

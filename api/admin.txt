@@ -8,7 +8,6 @@ pkg anetos.dev/anetos/admin, func Add[T, F any](*Panel, Resource[T, F]) error
 pkg anetos.dev/anetos/admin, func Banner() view.Component
 pkg anetos.dev/anetos/admin, func Choices(...string) []Choice
 pkg anetos.dev/anetos/admin, func Equals[T any](string, string, ...Choice) Filter[T]
-pkg anetos.dev/anetos/admin, func Field[T any](string, string) Column[T]
 pkg anetos.dev/anetos/admin, func Jobs(*Panel, *queue.Queue, ...string) error
 pkg anetos.dev/anetos/admin, func New[U auth.Authenticatable](*anetos.App, *auth.Auth[U], ...Option) (*Panel, error)
 pkg anetos.dev/anetos/admin, func PermissionsOf(string, ...string) []rbac.Permission
@@ -18,8 +17,6 @@ pkg anetos.dev/anetos/admin, func Roles(*Panel) error
 pkg anetos.dev/anetos/admin, func Schedule(*Panel, *schedule.Scheduler) error
 pkg anetos.dev/anetos/admin, func SignUps[T any](string, string) Widget
 pkg anetos.dev/anetos/admin, func TextColumn[T any](string, string) Column[T]
-pkg anetos.dev/anetos/admin, func Title(string) Option
-pkg anetos.dev/anetos/admin, func UserName[U auth.Authenticatable](func(U) string) Option
 pkg anetos.dev/anetos/admin, func Users[T any, U interface{*T; auth.Authenticatable}, F any](*Panel, Resource[T, F], Accounts[U]) error
 pkg anetos.dev/anetos/admin, func WithDefaultTitle(string) Option
 pkg anetos.dev/anetos/admin, func WithUserName[U auth.Authenticatable](func(U) string) Option

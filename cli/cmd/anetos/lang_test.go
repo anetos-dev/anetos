@@ -85,9 +85,9 @@ func TestLangAdd(t *testing.T) {
 		t.Errorf("framework.yaml:\n%s", b)
 	}
 
-	// The alias, and an unknown locale (nothing written for the others).
+	// An unknown locale (nothing written for the others).
 	var o, e bytes.Buffer
-	if code := run([]string{"add", "lang", "-from", src, "es", "de"}, &o, &e); code != 1 || !strings.Contains(e.String(), `no translations for "de": available: bn, es, fr`) {
+	if code := run([]string{"locale:add", "-from", src, "es", "de"}, &o, &e); code != 1 || !strings.Contains(e.String(), `no translations for "de": available: bn, es, fr`) {
 		t.Errorf("unknown locale: %d %s", code, e.String())
 	}
 	if _, err := os.Stat(filepath.Join(app, "locales/es")); err == nil {

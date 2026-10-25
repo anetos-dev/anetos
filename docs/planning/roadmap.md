@@ -6,9 +6,9 @@
 
 | | |
 |---|---|
-| **Status** | v0.5.0 released (the first public release); v0.6 next |
+| **Status** | v0.5.0 released (the first public release); v0.6 in progress |
 | **Owner** | Samiul Hoque |
-| **Last updated** | 2026-10-25 |
+| **Last updated** | 2026-10-26 |
 | **Related** | [Design document](../design/design.md) · [Documentation guide](../contributing/documentation-guide.md) |
 
 ---
@@ -118,7 +118,7 @@ gracefully.
 | **v0.3** | Search, AI & starter experience | Us + early testers | Full-text search, AI-capable apps (typed LLM calls, tools, streaming), roles and permissions, an admin, a deploy story, and a new app that looks finished (theme, `make:crud`) |
 | **v0.4** | API stack | Us + early testers | API-only apps: `anetos new --stack=api`, token auth endpoints, JSON CRUD, an OpenAPI spec generated from typed handlers |
 | **v0.5** | Design kits & public release | **Public release** | Bootstrap, Bulma, Pico and Tailwind as kits a developer picks or switches to; API stability pass, release plumbing, versioned docs, launch |
-| **v0.6** | Frontend | Public | Vite + Inertia starter kits (Vue, React, Svelte) on top of the API stack |
+| **v0.6** | Frontends | Public | Vue, React and Svelte two ways: separate frontends on the API (login, types, serving them), and stacks tied to the Go app on Inertia |
 | **v1.0** | Stable | Public | API stability promise |
 
 The plan changed on 2026-10-07 (design D243): the public release moved from
@@ -576,27 +576,69 @@ installed from the module proxy.
 | AX1c-1 Coding agents: the security check | ✅ Done 2026-10-25 (design §17.1, D331): `check`'s `security` step (basic rules; the code only without a `.env`), the MCP server's `security_check` tool, the `anetos-security` skill |
 | AX1c-2 Coding agents: lessons from real apps | Moved after the release (2026-10-25): see v0.6 |
 | M9a Launch: the release | ✅ Done 2026-10-25: v0.5.0 (the CHANGELOGs' `[0.5.0]` sections, the install commands back to `@latest`, the README's and the website's status, `make release`), the GitHub Release's notes, a News section on anetos.dev with the announcement, drafts for Show HN, r/golang and the Gophers Slack (posted by Samiul); questions go to GitHub Discussions |
-| M9b Launch: awesome-go | Coverage done in the repository 2026-10-25 (design D332): `make cover` merges the published modules' coverage (87.4%), CI's `coverage` job sends it to Codecov on main, badges in the README; the badge works once Samiul enables the repository on Codecov. The submission waits for March 2027: awesome-go takes a project five months after its first commit (2026-09-29), with an open-source license, a SemVer release, docs in English, a coverage report of 80% or more (90% for data packages: `db` is 87%, should a reviewer count it as one) and links to pkg.go.dev and the coverage report |
+| M9b Launch: awesome-go | Coverage done 2026-10-25 (design D332): `make cover` merges the published modules' coverage (87.4%), CI's `coverage` job sends it to Codecov on main (enabled; the first upload went through), badges in the README. The submission waits for March 2027: awesome-go takes a project five months after its first commit (2026-09-29), with an open-source license, a SemVer release, docs in English, a coverage report of 80% or more (90% for data packages: `db` is 87%, should a reviewer count it as one) and links to pkg.go.dev and the coverage report |
 
 ---
 
-### v0.6 — Frontend
+### v0.6 — Frontends
 
-Goal: modern SPA-style frontends without giving up server-side routing.
+Goal: Vue, React and Svelte work with Anetos two ways (design §12.2,
+D333–D337; `docs/planning/v06-plan.md`, agreed with Samiul 2026-10-25):
+
+1. **The app as an API with a separate frontend** (a Vite SPA, Next.js,
+   Nuxt, SvelteKit, a mobile app): Anetos supplies what the integration needs:
+   login from the browser, TypeScript types from the Go code, one origin
+   in development, and optionally one binary in production. v0.6 has one
+   complete example frontend (React) and a guide; scaffolds per framework
+   (`--frontend=`) come in v0.7.
+2. **A frontend tied to the Go app**, on the Inertia protocol: routes,
+   handlers, login and validation stay in Go, and the pages are Vue,
+   React or Svelte components, scaffolded by `anetos new
+   --stack=vue|react|svelte`, `make:auth` and `make:crud`.
+
+The frontend stacks need Node and npm; the web and API stacks stay
+Node-free (D337).
 
 | WP | Work package | Notes |
 |---|---|---|
-| V1 | Vite integration | Dev-server proxy, manifest reading, assets embedded in the production binary |
-| V2 | Inertia adapter | Server-side protocol: shared props, partial reloads, validation errors, redirects (SSR later) |
-| V3 | Starter kits | `anetos new --stack=vue\|react\|svelte`, each with auth UI on v0.4's API pieces, and login by session cookie for single-page apps on the app's own domain |
-| V4 | Docs | A guide per stack, plus a migration guide from htmx to an SPA stack |
+| DR1 | Remove v0.5's deprecations | The names v0.5 deprecated (D309), its former settings, command names, process types and `unique_live`, and the tool's support for projects made before v0.5; settings, commands and the rule refused with the new name (D338–D340); the upgrade guide `docs/site/upgrade/v0.6.md` |
+| V1 | Vite | A view helper that reads Vite's manifest (or the dev server's hot file) and writes the tags; the build output embedded in the binary; `anetos dev` runs Vite beside the app, `anetos build` and the Dockerfile run `vite build`; a check for dev mode left on in production; usable from the web stack too |
+| V2 | Inertia adapter | The server side of Inertia v3's protocol: pages, asset versioning, partial reloads, shared, optional, deferred and merged props, the validation-error bag through the session, 303 and external redirects, CSRF by cookie and header (SSR later) |
+| TS1 | TypeScript types | `.ts` types from the typed handlers' inputs and results and from Inertia props, generated in Go; a typed fetch client; `--check` (D336) |
+| SP1 | Login for SPAs | Session cookies on the API stack for listed first-party origins, CSRF by cookie and header, CORS credentials for them; tokens unchanged (D334) |
+| SP2 | Serving an SPA | The built SPA embedded and served by the binary with the client-route fallback; the dev proxy; the React example frontend with login, registration and reset pages; the guide, also for a separate repository, a CDN, Next.js, Nuxt and SvelteKit (D335) |
+| V3 | Inertia stacks | `anetos new --stack=vue\|react\|svelte`: layout and pages, `make:auth`'s and `make:crud`'s pages per framework, the coding agents' files and skills |
+| V4 | Docs and exit check | A guide per stack, the htmx-to-SPA migration guide, the concept page; a docs-only walkthrough and an audit |
 | AX1c-2 | Coding agents: lessons from real apps | From v0.5 (2026-10-25): as Samiul builds his apps with coding agents (a dogfooding log as a project doc), the fixes they call for, in v0.5.x patches or here |
+
+**Order** (agreed 2026-10-25): DR1, then the shared and API pieces
+before the stacks: V1, V2, TS1, SP1, SP2, V3, V4; AX1c-2 when Samiul's
+apps start. Estimate: 5–7 weeks part-time; V3 (three frameworks' pages,
+each tested by building a generated project with `npm install` in CI)
+is the largest and least predictable.
+
+**Exit criteria**
+
+- `anetos new shop --stack=vue` (and `react`, `svelte`), `make:auth`,
+  `make:crud Product …` give a tested app whose pages are the
+  framework's components, on SQLite, PostgreSQL and MySQL, built into
+  one binary.
+- An API project and the React example frontend log in with a cookie
+  from the browser and share TypeScript types generated from the Go
+  code, served from one binary.
+- No known P0/P1 bugs; every public API documented.
+
+**Progress**
+
+| WP | Status |
+|---|---|
+| DR1 Remove v0.5's deprecations | ✅ Done 2026-10-26 (design §7, §23, D338–D340): 81 identifiers removed from the core, `admin`, the drivers and postmark (`api/*.txt`); the 13 settings renamed in v0.5 refused when set without their new names (`was:"OLD,removed"`, `config.RenamedError`); the old command names, `schedule:run <task>`, process types, `unique_live`, a plugin's `Listen` and a backend's `SignedURL` refused with the new name; the tool's support for projects made before v0.5 removed (`make:crud` and `make:auth` name `css:use --force` without `views/ui`); the upgrade guide `upgrade/v0.6.md`; also `releasing.md`'s pkg.go.dev check |
 
 ---
 
 ### Backlog (after v0.6, unordered)
 
-OpenAPI client code generation · WebSockets/broadcasting · debug dashboard (Telescope-like) · notifications (mail, SMS, Slack channels) · multi-tenancy · feature
+separate frontends: `anetos new --frontend=vue\|react\|svelte` scaffolds (v0.7, D333) · OpenAPI client code generation for languages other than TypeScript · WebSockets/broadcasting · debug dashboard (requests, queries, jobs and mail of a running app) · notifications (mail, SMS, Slack channels) · multi-tenancy · feature
 flags · search engine drivers behind `Search` (Meilisearch, Typesense, OpenSearch) · Inertia SSR · read/write DB splitting ·
 roles and permissions: scope hierarchies, roles a team defines for itself, `make:auth` with roles ·
 teams (a teams module extending auth, managed in the admin) · content review workflow (drafts, reviewers, a review queue in the admin) · soft deletes that cascade to related rows · audit log: tamper evidence (hash chain), database triggers for raw SQL on PostgreSQL, pivot writes ·
@@ -765,3 +807,4 @@ something, and we fix the API rather than add the hook.
 | 2026-10-25 | AX1c split in AX1c-1 (the security check for agents) and AX1c-2 (lessons from Samiul's apps, after them); AX1c-1 done (design D331) |
 | 2026-10-25 | AX1c-2 moved after the release (v0.6), at the user's request; M9 split in M9a (the v0.5.0 release, done) and M9b (awesome-go, March 2027) |
 | 2026-10-25 | M9b's coverage done (design D332); the submission stays in March 2027 |
+| 2026-10-26 | v0.6 planned with Samiul (`v06-plan.md`, design D333–D337): frontends two ways, the work packages DR1, V1, V2, TS1, SP1, SP2, V3, V4 in that order, exit criteria; DR1 done (D338–D340) |

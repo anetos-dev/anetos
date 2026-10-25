@@ -224,12 +224,3 @@ func InTx(ctx context.Context) bool {
 	d, err := From(ctx)
 	return err == nil && d.txIn(ctx) != nil
 }
-
-// TxWith is [TxWithOptions].
-//
-// Deprecated: Use TxWithOptions; TxWith is removed in v0.6.
-//
-//go:fix inline
-func TxWith(ctx context.Context, opts *sql.TxOptions, fn func(ctx context.Context) error) error {
-	return TxWithOptions(ctx, opts, fn)
-}

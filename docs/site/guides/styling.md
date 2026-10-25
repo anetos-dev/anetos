@@ -15,8 +15,7 @@ without styles.
 
 ## Before you start
 
-A project made with `anetos new` v0.5 or later. (A project made before
-v0.5 has no `views/ui` yet: see [below](#projects-made-before-v05).)
+A web project made with `anetos new`, which has `views/ui`.
 There is no CDN and no build step, except with Tailwind CSS, whose build
 `anetos dev` runs for you ([Tailwind CSS](tailwind.md)). `anetos dev`
 reloads the page when you save a file.
@@ -295,31 +294,6 @@ components: `css:use` restyles the components, not your pages' classes, and
 says which of your own files in `views/ui` keep theirs. When the markup
 repeats, make it a component (step 5).
 
-## Projects made before v0.5
-
-A project made before v0.5 has no `views/ui`: its layout and pages
-carry the starter theme's classes themselves. Nothing changes until
-you run a generator. The first `make:crud` or `make:auth` writes
-`views/ui` before the pages that call it, and says so:
-
-```text
-views/ui has the components for the starter theme, which the new pages call: the project had none (made before v0.5).
-The layout keeps its markup; the upgrade guide shows how to use them there too.
-```
-
-It picks the CSS framework from your stylesheet: `anetos` when
-`public/static/app.css` has the starter theme's `.card` rule, else
-`none` (classless markup, for a stylesheet of your own). It doesn't
-change `app.css`, the layout or your other pages. Both kinds of layout
-work with the generators: `make:crud` adds its link at the end of the
-header's nav, and `make:auth` adds `@AccountMenu()` after it, whether
-the nav is a `<nav>` or a `@ui.Nav` block.
-
-To build the layout from the components too, compare it with the
-`views/layout.templ` of a new project (`anetos new` in another folder):
-`@ui.Head()` in `<head>`, then `ui.Header`, `ui.Nav`, `ui.Main`,
-`ui.Footer` and `ui.Flash` in place of the markup with classes.
-
 ## How it works
 
 `views/ui` is an ordinary package of your app. Nothing in the framework
@@ -347,7 +321,7 @@ is.
 | `undefined: ui.Stat` (or another component) | `views/ui` has no such component: it was renamed, deleted, or never there | Add it to `views/ui`, or copy it from a new project's |
 | A generated page doesn't build after you changed a component | The pages of `make:crud` and `make:auth` call the component's old arguments | Keep the signature; add a new component for the new arguments |
 | A 500 page and `web: unknown route name` in the log | `web.MustURL` was given a route name that doesn't exist | Fix the name; `go run . route:list` lists them |
-| The new pages of a project made before v0.5 have no style | `app.css` has no `.card` rule, so the classless components (`none`) were written | Style the elements, or give the components your classes |
+| `make:crud` or `make:auth` stops: `the project has no views/ui` | `views/ui` was deleted or never committed | Restore it from version control, or run `go tool anetos css:use <css framework> --force` |
 
 ## Next steps
 

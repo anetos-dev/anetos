@@ -118,6 +118,12 @@ tag a new patch version instead.
 
    For a release (not a pre-release), docs.anetos.dev's root shows the
    new version in its version menu, and `/main/` the main branch.
+
+   pkg.go.dev doesn't pick up every module on its own: after v0.5.0, the
+   core, `cli` and seven drivers still showed the release candidate hours
+   later. Open `https://pkg.go.dev/<module>@vX.Y.Z` for each published
+   module (the tags `make release` printed) and press "Request" where it
+   says the version isn't there yet; it appears within minutes.
 7. **GitHub Release:** on the core's tag (`vX.Y.Z`) alone, one per
    version, titled with it. The notes: what the release is, the
    install command, the highlights, and links to the CHANGELOG and the

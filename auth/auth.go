@@ -113,7 +113,7 @@ type Config struct {
 	HomeURL string `env:"AUTH_HOME_URL" default:"/"`
 	// RememberTTL is how long "remember me" lasts.
 	// AUTH_REMEMBER_TTL, default 720h (30 days).
-	RememberTTL time.Duration `env:"AUTH_REMEMBER_TTL" was:"AUTH_REMEMBER_LIFETIME" default:"720h"`
+	RememberTTL time.Duration `env:"AUTH_REMEMBER_TTL" was:"AUTH_REMEMBER_LIFETIME,removed" default:"720h"`
 	// Throttle is the number of failed logins allowed per minute for one
 	// login from one IP address. AUTH_THROTTLE, default 5.
 	Throttle int `env:"AUTH_THROTTLE" default:"5"`
@@ -220,13 +220,6 @@ func WithIssuer(name string) Option { return func(o *options) { o.issuer = name 
 // ignores it.
 func WithDefaultHomeURL(path string) Option { return func(o *options) { o.home = path } }
 
-// DefaultHomeURL is [WithDefaultHomeURL].
-//
-// Deprecated: Use WithDefaultHomeURL; DefaultHomeURL is removed in v0.6.
-//
-//go:fix inline
-func DefaultHomeURL(path string) Option { return WithDefaultHomeURL(path) }
-
 // WithInsecureCookies lets the remember-me cookie travel over plain HTTP,
 // for development and tests. New uses it outside production-like
 // environments, like the session cookie.
@@ -325,15 +318,6 @@ func New[U Authenticatable](app *anetos.App, users Users[U], opts ...Option) (*A
 	return a, nil
 }
 
-// ForApp is [New].
-//
-// Deprecated: Use New; ForApp is removed in v0.6.
-//
-//go:fix inline
-func ForApp[U Authenticatable](app *anetos.App, users Users[U], opts ...Option) (*Auth[U], error) {
-	return New[U](app, users, opts...)
-}
-
 // appAuth marks an app whose Auth is set up.
 type appAuth struct{}
 
@@ -365,22 +349,11 @@ func (a *Auth[U]) RememberCookie() string { return a.cookie }
 // RememberToken and SetRememberToken.
 func (a *Auth[U]) SupportsRemember() bool { return a.users.RememberToken != nil }
 
-// CanRemember is [Auth.SupportsRemember].
-//
-// Deprecated: Use SupportsRemember; CanRemember is removed in v0.6.
-//
-//go:fix inline
-func (a *Auth[U]) CanRemember() bool { return a.SupportsRemember() }
-
 // Errors. Each has an HTTP status, so a handler can return it.
 var (
 	// ErrUserNotFound is what Users functions return when there is no
 	// such user (db.ErrNotFound works too).
 	ErrUserNotFound = errors.New("auth: user not found")
-	// ErrNoUser is ErrUserNotFound.
-	//
-	// Deprecated: Use ErrUserNotFound; ErrNoUser is removed in v0.6.
-	ErrNoUser error = ErrUserNotFound
 	// ErrInvalidCredentials is returned by Attempt for an unknown login
 	// or a wrong password (which of the two isn't said). 401.
 	ErrInvalidCredentials error = &statusError{http.StatusUnauthorized, "auth: invalid credentials"}

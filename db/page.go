@@ -26,13 +26,6 @@ type Page[T any] struct {
 // HasNext reports whether there are pages after this one.
 func (p Page[T]) HasNext() bool { return p.CurrentPage < p.LastPage }
 
-// HasMore is [Page.HasNext].
-//
-// Deprecated: Use HasNext; HasMore is removed in v0.6.
-//
-//go:fix inline
-func (p Page[T]) HasMore() bool { return p.HasNext() }
-
 // HasPrev reports whether there are pages before this one.
 func (p Page[T]) HasPrev() bool { return p.CurrentPage > 1 }
 

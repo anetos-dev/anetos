@@ -803,15 +803,6 @@ func Register(app *anetos.App, srv *web.Server, cfg Config) error {
 	})
 }
 
-// ForApp is [Register].
-//
-// Deprecated: Use Register; ForApp is removed in v0.6.
-//
-//go:fix inline
-func ForApp(app *anetos.App, srv *web.Server, cfg Config) error {
-	return Register(app, srv, cfg)
-}
-
 func run(_ context.Context, args *cmd.Args, r *web.Router, cfg Config) error {
 	fs := flag.NewFlagSet("openapi", flag.ContinueOnError)
 	check := fs.Bool("check", false, "fail if the file isn't the document of the routes, instead of writing it")

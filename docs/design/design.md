@@ -10,9 +10,9 @@
 
 | | |
 |---|---|
-| **Status** | Living document: the decisions up to v0.5.0, the first public release |
+| **Status** | Living document: the decisions up to v0.5.0, the first public release, and v0.6's |
 | **Owner** | Samiul Hoque |
-| **Last updated** | 2026-10-25 |
+| **Last updated** | 2026-10-26 |
 | **Related** | [Roadmap](../planning/roadmap.md) · [Documentation guide](../contributing/documentation-guide.md) · [ADRs](adr/) |
 
 ## Contents
@@ -81,7 +81,7 @@ response:
 | Plush templates | templ: compiled, type-checked, IDE support | §12 |
 | Features outside the core (e.g. Google login) were a lot of work | Social login built in; plugin system for everything else | §15, §16 |
 | Goroutines and channels not used at the core; pub/sub needed a separate app | Supervised runtime with workers, listeners, events and scheduler | §13 |
-| Vue integration was difficult | Vite + Inertia starter kits (v0.6) | §12 |
+| Vue integration was difficult | Vue, React and Svelte two ways: stacks on Inertia, and separate frontends on the API (v0.6, D333) | §12 |
 
 ---
 
@@ -372,7 +372,11 @@ header.
   on nested structs. Rules tags can't express go in a `Validate() error`
   method. A key set to the empty string counts as unset (D20). A
   `was:"OLD"` tag reads a renamed key's former name when it's unset; the
-  app's source logs it once and `doctor` lists it (D311).
+  app's source logs it once and `doctor` lists it (D311). After the
+  minor release that keeps it, the tag becomes `was:"OLD,removed"`: the
+  former name is no longer read, and when it is set without the new one
+  binding fails with a `*config.RenamedError` naming the new key, so the
+  app stops instead of using a default (D339).
 - Names (D311): every key starts with its area (`DB_`, `CACHE_`…); the
   backend is `<AREA>_DRIVER`; a driver's keys are `<AREA>_<DRIVER>_*`;
   validity is `_TTL`; names an ecosystem already uses stay
@@ -1438,18 +1442,37 @@ comment routes it in `api` too; `make:auth` writes the API's accounts
 (AP2, above) and `make:crud` its JSON endpoints (AP3); `make:admin`
 refuses (the admin is HTML pages).
 
-SPA-style (v0.6):
+**Frontends, two ways (v0.6, D333–D337;
+`docs/planning/v06-plan.md`).** Vue, React and Svelte work with Anetos in
+two ways, and v0.6 builds both:
 
-- **Vite integration**: in dev, proxy to the Vite server with HMR; in
-  production, read the Vite manifest and serve hashed assets **embedded in
-  the binary**.
-- **Inertia protocol adapter** (server side): `c.Inertia("Posts/Index",
-  props)`, shared props, partial reloads, validation errors mapped to Inertia's
-  error bag, redirect semantics. Inertia's own client adapters cover Vue,
-  React and Svelte.
-- `anetos new --stack=vue|react|svelte` (v0.6), on the API stack's
-  pieces, with session-cookie login for single-page apps on the app's
-  own domain.
+1. **The app as an API, with a separate frontend** (a Vite SPA, Next.js,
+   Nuxt, SvelteKit, a mobile app). The API stack (v0.4) is the server;
+   Anetos supplies what the integration needs: a first-party SPA in the browser
+   logs in with an HttpOnly session cookie and CSRF by cookie and header,
+   for origins listed in a setting, while mobile apps, third parties and
+   other domains keep API tokens (D334); the frontend lives in the
+   project (`frontend/`), proxied by Vite in development and optionally
+   embedded and served by the binary with a fallback to `index.html`, or
+   anywhere else (D335). v0.6 ships one complete example (React) and a
+   guide; scaffolds per framework (`--frontend=`) follow in v0.7.
+2. **A frontend tied to the Go app**, on the Inertia protocol (v3):
+   routes, handlers, login, validation and redirects stay in Go, and the
+   pages are components rendered by Inertia's own client adapters.
+   `anetos new --stack=vue|react|svelte` writes such a project, with
+   `make:auth`'s and `make:crud`'s pages for each framework. These pages
+   use the web stack's sessions, not the JSON API.
+
+Shared by both: **Vite** (in development its dev server beside the app;
+in production the manifest read and hashed assets embedded in the
+binary), and **TypeScript types generated in Go** from the schemas the
+OpenAPI document uses, for API inputs and results and for Inertia page
+props, with `--check` for CI (D336). The frontend stacks need Node (20
+or later) and npm, which `anetos new` runs; an existing frontend's
+lockfile (pnpm, yarn, bun) is respected; the web and API stacks stay
+Node-free (D337). Each part is designed in its work package (V1 Vite,
+V2 the Inertia adapter, TS1 the types, SP1 SPA login, SP2 serving an
+SPA, V3 the stacks).
 
 ### 12.3 Admin interface (v0.3: AD1, AD2)
 
@@ -2795,7 +2818,7 @@ func TestCreatePost(t *testing.T) {
   and service checks.
 - `pprof` available in dev, or behind an explicit flag and auth in
   production.
-- A debug dashboard (Telescope-like) is in the backlog.
+- A debug dashboard (requests, queries, jobs and mail of a running app) is in the backlog.
 
 ---
 
@@ -2956,7 +2979,9 @@ Reviewed in M6 (v0.3; D251–D253). Numbers, method and code:
   be written with the new one, so `go fix ./...` rewrites callers),
   listed in the CHANGELOG and the upgrade guide, and is removed in the
   next minor. A change no shim can express is described in the upgrade
-  guide. From v1.0, removal waits for the next major (D309).
+  guide. From v1.0, removal waits for the next major (D309). After
+  removal, a former setting, command name, process type or validation
+  rule is refused with the name to use, until v1.0 (D339, D340).
 - **Multi-module tags:** core `vX.Y.Z`; modules `drivers/redis/vX.Y.Z` and so
   on. Every published module (the core, `cli`, `admin`, `drivers/*`,
   `plugins/*`) is released with one version, and requires the others at
@@ -3322,6 +3347,14 @@ unless new information arrives), **Open**, **Superseded**.
 | D330 | `security:check --url=URL` (the tool) checks the running site from outside (`cli/internal/secscan/live.go`): at most 24 requests (`GET`, a TLS 1.0–1.1-only handshake, advanced one `TRACE`), no payloads, a User-Agent naming the tool, 10 seconds each and a minute in all; logged-out pages only, a URL with credentials refused; same-host redirects followed (three at most, `http` to `https` included) and the scan goes on from the page reached; a redirect to another host stops it with the address to scan. A finding's `where` is stable (a header, a cookie, a path, `404 page`), for SARIF fingerprints and the ignore file. Basic: `live.headers` (HSTS on https, `nosniff`, framing protection: warnings; `Referrer-Policy`, a CSP on HTML: notes), `live.cookie`, `live.tls` (a certificate that doesn't verify, or only TLS < 1.2, stops the scan; a handshake offering only TLS 1.0–1.1 that succeeds), `live.https` (plain http, or `http://` not redirecting to https; localhost exempt; a custom port skips the redirect check), `live.exposed` (`/.env`, `/.env.production`, `/.git/config`, `/.git/HEAD`, `/debug/pprof/`, `/debug/vars`, recognized by content), `live.debug` (a Go stack trace in a 404 or a malformed path's page); advanced: `live.cors` (a foreign `Origin` echoed; with credentials a problem), `live.trace`, `live.version`, `live.cert-expiry` (30 days). The host must be `APP_URL`'s (environment, else `.env` read with `config.ParseDotenv`), localhost (`*.localhost`, loopback) or `--allow-host`'s, else a usage error, checked before the build. In a project a site that doesn't answer is a `live.unchecked` warning, the rest of the report kept. In a project the findings join the tool's others; `--live-only` or no project: the tool writes the report itself with the shared report code (`internal/securitycheck`: the ignore file, the four formats, the exit status), so the core's `security:check` and the tool's live-only mode report alike | Accepted | User's choices (2026-10-25, `v05-security-and-agents.md` §16): `--url` on the tool, one report; only `APP_URL`'s host unless allowed, so the tool isn't a scanner of other people's sites; basic and advanced checks; logged-out pages only, so no credential is handled. Content checks keep a site that answers every path (a single-page app) from looking exposed. The report code moved from the core's `security.go` to `internal/securitycheck` (no API change) so the live-only mode, which has no app to run, writes the same reports. Review76 |
 | D331 | AX1c-1: `go tool anetos check` gets a sixth step, `security`: `security:check --no-vuln` at the basic level in the project (a problem fails it, its warnings are listed as doctor's are); without a `.env` (and `APP_KEY`), only the code's rules (`secscan.Scan`), reported with the project's ignore file as the app would (the shared report code), its limits saying what wasn't checked. The MCP server gets `security_check` (`level`, `url`, `vuln` off by default; the JSON report, the code's alone without a `.env`; an error result on a problem; read-only), and its `check` tool has the step. rbac's checks are its `Can…`, `Authorize…`, `Has…` and `Require…` (its package path is `anetos.dev/anetos/auth/rbac`, which SC1b's rule had wrong). The agent files get a tenth skill, `anetos-security` (both stacks): running the check, reading a finding, the usual fix per rule, `Public(reason)` and the ignore file only with a reason, never to silence a problem, and the "Secure your app" checklist; `AGENTS.md` names the step, the tool and the command. AX1c-2 (fixes from building Samiul's apps with coding agents) comes after his apps, before M9 | Accepted | User's choices (2026-10-25, `v05-security-and-agents.md` §18): split, a step that fails on problems, a tool of its own, run-read-fix. govulncheck stays out of `check` (network, minutes) and off in the tool unless asked; an agent that calls `check` before calling a change done then can't leave SQL built from request data behind. Review77 |
 | D332 | M9b: test coverage is measured across the published modules (`make cover`): each module's tests run with `-coverpkg` over its own packages and those of the Anetos modules it uses, so the drivers' conformance tests count the core's `db`, `db/migrate`, cache, queue and pub/sub code they exercise; `internal/cmd/covermerge` merges the profiles (a block is covered when any test covered it), makes the paths relative to the repository, leaves out the repository's tooling (`internal/cmd`, `cli/internal/cmd`, the release tool's `cli/internal/release`) and the core module's doc examples, and fails when the profiles disagree on a file's blocks or are empty. CI's `coverage` job runs it on pushes to main, with the databases, and uploads to Codecov with GitHub's OIDC token (no secret), failing when the upload fails; Codecov's status is informational and it doesn't comment; the README shows CI, pkg.go.dev and coverage badges | Accepted | awesome-go asks for a Codecov or Coveralls report of 80% or more. Measured per module, the core alone is about 60%: its database code is tested by the drivers, against real servers. Merged, the published code is 87.4% covered (2026-10-25). Codecov was Samiul's choice; with OIDC the repository holds no token. Main only, so pull requests don't wait on a long job that gates nothing; Samiul's answers, 2026-10-25 |
+| D333 | Frontends come two ways, both in v0.6 (Samiul, 2026-10-25): the app as an API with a separate frontend, and a frontend tied to the Go app on the Inertia protocol. v0.6 builds the pieces both share and the API mode's framework-agnostic ones, and fully scaffolds the Inertia stacks (`anetos new --stack=vue\|react\|svelte` with `make:auth` and `make:crud` pages); API mode gets one complete example frontend (React) and a guide, and its per-framework scaffolds move to v0.7. The roadmap's earlier V3 text, Inertia stacks "on the API stack's pieces", is superseded: Inertia pages use the web stack's sessions | Accepted | Developers use these frameworks both ways, and each needs Anetos's help in different places. Pages in three frameworks are the expensive part, twice over if both ways are scaffolded (about 8–10 weeks): scaffolding one way and making the other real with server pieces and an example keeps v0.6 at about 5–7 weeks without leaving either way out. Inertia is the established protocol with official clients for all three; one of our own would be reinventing it |
+| D334 | A separate SPA in the browser logs in with an HttpOnly session cookie and CSRF by cookie and header when its origin is listed as first-party, with CORS credentials for those origins only; mobile apps, third parties and other domains keep API tokens (v0.4) | Accepted | A token an SPA keeps in JavaScript is readable by any XSS; a cookie it can't read isn't. A cookie only works when the SPA and the API are the same site (Safari and Firefox block cross-site cookies), so tokens stay for the rest |
+| D335 | A separate frontend may live in the project (`frontend/`), proxied by its dev server in development and optionally embedded and served by the binary, with a fallback to `index.html` for client-side routes; or in its own repository or on a CDN, with the same pieces | Accepted | Serving it from the binary gives one origin (cookies and CORS stay simple) and one deployable file (principle 8); teams with their own frontend pipeline keep it |
+| D336 | TypeScript types are generated in Go (`anetos generate`), from the same schemas as the OpenAPI document: the typed handlers' inputs and results, and Inertia page props; a small typed fetch client; `--check` for CI | Accepted | One generator for both ways, no Node on Anetos's side, and the types come from the code as the OpenAPI document does (principle 3). An npm generator would cover API responses only, not Inertia props |
+| D337 | The frontend stacks require Node (20 or later) and use npm, which `anetos new` runs; `anetos dev` and `anetos build` respect an existing frontend's lockfile (pnpm, yarn, bun); the web and API stacks stay Node-free | Accepted | Vite, Vue's and Svelte's compilers and Inertia's clients are npm packages; one package manager keeps the generated projects and CI to one install path. Projects that don't use these stacks keep the one-command, Node-free start |
+| D338 | DR1 removes what v0.5 deprecated: 81 identifiers of the core, `admin`, the drivers and postmark, gemini's `Options.Config` and storagetest's `Features.SignedURLs`; and the tool's support for projects made before v0.5 (writing `views/ui` into a web project without one, `views/ui/kit.json`, the generated files' header before v0.5, `ForApp` calls in a project's code). The upgrade path: `go fix ./...` on v0.5 (it inlines only while the shims exist), then the guide's list of what it can't rewrite; no rewrite tool of our own. The mechanisms for future renames stay: the `was` tag, `cmd.Command.Former`, doctor's settings check | Accepted | Samiul's choices (2026-10-25). D309 keeps a deprecated name one minor; v0.1–v0.4 were never public and are retracted, so no user has a project without `views/ui`; the compiler names every leftover name, which makes a rewrite tool code to keep for one upgrade |
+| D339 | A setting's former name that is no longer read (`was:"OLD,removed"`) stops the app when it is set and the new name isn't (`*config.RenamedError`, naming the new key); with both set, the new one is used and doctor says to remove the former. The 13 settings renamed in v0.5 get this in v0.6, kept until v1.0 | Accepted | Samiul's choice (2026-10-25). Silently ignored, `DB_CONNECTION=postgres` would boot the app on an empty SQLite file, and `MIGRATE_ON_RUN` would stop migrating; an error naming the new key costs one rename |
+| D340 | The names before v0.5 of the app's commands (`routes:list`, `plugins:list`, `plugins:env`, `lang:check`) and the tool's (`lang:add`, `add lang`, `make:admin:resource`), `schedule:run <task>`, the process types `http`, `workers` and `listeners`, the validation rule `unique_live`, and the interface methods a type of the app implements (a plugin's `Listen`, a backend's `SignedURL`) are refused with an error naming the new one, kept until v1.0; a user's `CommunicationLocale`, which has no caller to refuse, logs an error once | Accepted | Samiul's choice (2026-10-25). A deploy file or cron line naming an old command fails loudly with the fix, rather than as an unknown name; a method no longer called would otherwise change behavior silently |
 
 ---
 
@@ -3437,3 +3470,5 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-25 | SC1b (the security check: code and dependencies): §17.1 and §20 updated; D329 added |
 | 2026-10-25 | SC1c (the security check: the running site): §17.1 and §20 updated; D330 added |
 | 2026-10-25 | AX1c-1 (the security check for coding agents): §17.1 updated; D331 added |
+| 2026-10-25 | M9b (test coverage across the published modules): D332 added |
+| 2026-10-26 | v0.6 planned with Samiul (`docs/planning/v06-plan.md`): §12.2's SPA-style part rewritten as frontends two ways; D333–D337 added. DR1 (removing v0.5's deprecations): §7, §23 updated; D338–D340 added |

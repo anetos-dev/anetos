@@ -264,12 +264,3 @@ func New(app *anetos.App, drivers ...Driver) (*Client, error) {
 	anetos.Provide(app, c)
 	return c, nil
 }
-
-// ForApp is [New].
-//
-// Deprecated: Use New; ForApp is removed in v0.6.
-//
-//go:fix inline
-func ForApp(app *anetos.App, drivers ...Driver) (*Client, error) {
-	return New(app, drivers...)
-}

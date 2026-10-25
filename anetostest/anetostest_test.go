@@ -18,6 +18,7 @@ import (
 	"anetos.dev/anetos"
 	"anetos.dev/anetos/anetostest"
 	"anetos.dev/anetos/cache"
+	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/session"
 	"anetos.dev/anetos/web"
 )
@@ -339,6 +340,23 @@ func TestHalfSwitchedDatabase(t *testing.T) {
 	msg = fatalOf(func() { anetostest.New(&fakeT{TB: t}, nil) })
 	if !strings.Contains(msg, "in-memory SQLite database, while .env uses postgres") || !strings.Contains(msg, "Add .env.testing") {
 		t.Errorf("no .env.testing: %q", msg)
+	}
+}
+
+// DB_DATABASE, DB_NAME's name before v0.5, isn't hidden by the
+// in-memory database: the app refuses it, naming DB_NAME (D339).
+func TestFormerDatabaseName(t *testing.T) {
+	withDB := func(app *anetos.App) (*web.Server, error) {
+		if _, err := db.LoadConfig(app.Source(), ""); err != nil {
+			return nil, err
+		}
+		return web.NewServer(app)
+	}
+	msg := fatalOf(func() {
+		anetostest.New(&fakeT{TB: t}, withDB, anetostest.Env(map[string]string{"DB_DATABASE": "test.db"}))
+	})
+	if !strings.Contains(msg, "DB_DATABASE (Config.Name): renamed DB_NAME") {
+		t.Errorf("message = %q", msg)
 	}
 }
 

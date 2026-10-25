@@ -194,7 +194,7 @@ func RunApp(t *testing.T, drv db.Driver, env map[string]string) {
 		check(t, app.Go("server", func(ctx context.Context) error { <-ctx.Done(); return nil }, anetos.ProcessTypes("web")))
 		runCtx, cancel := context.WithCancel(context.Background())
 		done := make(chan error, 1)
-		go func() { done <- app.Run(runCtx, "http") }()
+		go func() { done <- app.Run(runCtx, "web") }()
 		defer func() { cancel(); <-done }()
 		state := func() supervisor.State {
 			for _, c := range app.Supervisor().Status() {

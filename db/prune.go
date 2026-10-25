@@ -191,10 +191,3 @@ func pruneCommand() cmd.Command {
 		},
 	}
 }
-
-// PruneTrashed is [Prunable].
-//
-// Deprecated: Use Prunable; PruneTrashed is removed in v0.6.
-//
-//go:fix inline
-func PruneTrashed[T any](app *anetos.App, after time.Duration) error { return Prunable[T](app, after) }

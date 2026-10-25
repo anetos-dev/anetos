@@ -3,6 +3,7 @@
 One page per minor version before 1.0 (`v0.N.md`), listing every breaking
 change with migration steps, newest first.
 
+- [v0.6](v0.6.md)
 - [v0.5](v0.5.md), the first public release
 
 ## Before the first public release

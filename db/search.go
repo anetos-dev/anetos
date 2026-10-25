@@ -28,12 +28,12 @@ type SearchConfig struct {
 	// "simple". Search indexes are built for it, and the app refuses to
 	// start when an index was built for another one (run search:reindex).
 	// DB_SEARCH_LANGUAGE.
-	Language string `env:"DB_SEARCH_LANGUAGE" was:"SEARCH_LANGUAGE" default:"simple"`
+	Language string `env:"DB_SEARCH_LANGUAGE" was:"SEARCH_LANGUAGE,removed" default:"simple"`
 	// Ranking orders results: "default", the database's own ranking, or
 	// "bm25", which the database must provide (SQLite; PostgreSQL 17+
 	// with the pg_textsearch extension), or the app refuses to start.
 	// DB_SEARCH_RANKING.
-	Ranking string `env:"DB_SEARCH_RANKING" was:"SEARCH_RANKING" default:"default"`
+	Ranking string `env:"DB_SEARCH_RANKING" was:"SEARCH_RANKING,removed" default:"default"`
 }
 
 var languageRe = regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`)

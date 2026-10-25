@@ -155,15 +155,6 @@ func New(app *anetos.App) (*Encrypter, error) {
 	return e, nil
 }
 
-// ForApp is [New].
-//
-// Deprecated: Use New; ForApp is removed in v0.6.
-//
-//go:fix inline
-func ForApp(app *anetos.App) (*Encrypter, error) {
-	return New(app)
-}
-
 // ParseKey decodes a key written as "base64:…", the form of APP_KEY.
 func ParseKey(s string) ([]byte, error) {
 	k, err := appkey.Parse(s)

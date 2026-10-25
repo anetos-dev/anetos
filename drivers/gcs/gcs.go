@@ -109,13 +109,6 @@ func WithClientOptions(opts ...option.ClientOption) Option {
 	return func(o *options) { o.client = append(o.client, opts...) }
 }
 
-// ClientOptions is [WithClientOptions].
-//
-// Deprecated: Use WithClientOptions; ClientOptions is removed in v0.6.
-//
-//go:fix inline
-func ClientOptions(opts ...option.ClientOption) Option { return WithClientOptions(opts...) }
-
 // serviceAccountKey is what the backend reads of a key's JSON.
 type serviceAccountKey struct {
 	Type        string `json:"type"`
@@ -515,15 +508,6 @@ func (b *Backend) TemporaryURL(ctx context.Context, p string, expires time.Time)
 		return "", fmt.Errorf("gcs: signing a URL as %s: %w (the account needs the Service Account Token Creator role, and the IAM Service Account Credentials API must be enabled)", s.email, err)
 	}
 	return u, nil
-}
-
-// SignedURL is [Backend.TemporaryURL].
-//
-// Deprecated: Use TemporaryURL; SignedURL is removed in v0.6.
-//
-//go:fix inline
-func (b *Backend) SignedURL(ctx context.Context, p string, expires time.Time) (string, error) {
-	return b.TemporaryURL(ctx, p, expires)
 }
 
 // signerFor returns how URLs are signed, found once (again after a

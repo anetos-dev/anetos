@@ -252,9 +252,19 @@ func TestPreferences(t *testing.T) {
 	if i18n.Locale(u) != "bn" || i18n.TimeZone(u).String() != "UTC" {
 		t.Errorf("ForUser without mail locale or zone = %s, %v", i18n.Locale(u), i18n.TimeZone(u))
 	}
-	// The interface before v0.5, until v0.6.
-	if u := i18n.ForUser(ctx, formerUser{locale: "bn", mail: "en"}); i18n.Locale(u) != "en" {
-		t.Errorf("ForUser of a CommunicationPreference = %s", i18n.Locale(u))
+	// The method before v0.5 is no longer read: an error is logged,
+	// once.
+	var logged bytes.Buffer
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logged, nil)))
+	for range 2 {
+		if u := i18n.ForUser(ctx, formerUser{locale: "bn", mail: "en"}); i18n.Locale(u) != "bn" {
+			t.Errorf("ForUser of a user with CommunicationLocale = %s", i18n.Locale(u))
+		}
+	}
+	slog.SetDefault(prev)
+	if n := strings.Count(logged.String(), "has CommunicationLocale, renamed PreferredMailLocale in v0.5"); n != 1 || !strings.Contains(logged.String(), "level=ERROR") {
+		t.Errorf("logged %d times:\n%s", n, logged.String())
 	}
 	if u := i18n.ForUser(ctx, struct{}{}); i18n.Locale(u) != "en" {
 		t.Error("ForUser of a user without preferences changed the locale")

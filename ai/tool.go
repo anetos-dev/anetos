@@ -100,15 +100,6 @@ func NewTool[In, Out any](name, description string, fn func(ctx context.Context,
 	return &funcTool[In, Out]{spec: ToolSpec{Name: name, Description: description, Input: s}, plan: plan, fn: fn}
 }
 
-// Func is [NewTool].
-//
-// Deprecated: Use NewTool; Func is removed in v0.6.
-//
-//go:fix inline
-func Func[In, Out any](name, description string, fn func(ctx context.Context, in In) (Out, error)) Tool {
-	return NewTool(name, description, fn)
-}
-
 func (t *funcTool[In, Out]) Definition() ToolSpec { return t.spec }
 
 func (t *funcTool[In, Out]) Call(ctx context.Context, input json.RawMessage) (string, error) {

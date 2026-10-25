@@ -148,13 +148,6 @@ func WithDefaultTitle(title string) Option {
 	}
 }
 
-// Title is [WithDefaultTitle].
-//
-// Deprecated: Use WithDefaultTitle; Title is removed in v0.6.
-//
-//go:fix inline
-func Title(title string) Option { return WithDefaultTitle(title) }
-
 // WithUserName sets how the admin names the logged-in user in its pages;
 // by default, their AdminName or String method, else "User <id>".
 func WithUserName[U auth.Authenticatable](name func(u U) string) Option {
@@ -167,13 +160,6 @@ func WithUserName[U auth.Authenticatable](name func(u U) string) Option {
 		}
 	}
 }
-
-// UserName is [WithUserName].
-//
-// Deprecated: Use WithUserName; UserName is removed in v0.6.
-//
-//go:fix inline
-func UserName[U auth.Authenticatable](name func(u U) string) Option { return WithUserName[U](name) }
 
 var nameRe = regexp.MustCompile(`^[a-z][a-z0-9-]{0,49}$`)
 

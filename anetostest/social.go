@@ -145,12 +145,3 @@ func (a *App) SocialLogin(redirect string, acct SocialAccount) *Response {
 	a.idp.mu.Unlock()
 	return a.Get(callback.EscapedPath() + "?" + url.Values{"code": {code}, "state": {q.Get("state")}}.Encode())
 }
-
-// SocialSignIn is [App.SocialLogin].
-//
-// Deprecated: Use SocialLogin; SocialSignIn is removed in v0.6.
-//
-//go:fix inline
-func (a *App) SocialSignIn(redirect string, acct SocialAccount) *Response {
-	return a.SocialLogin(redirect, acct)
-}

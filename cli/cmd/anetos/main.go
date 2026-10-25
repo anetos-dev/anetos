@@ -102,23 +102,21 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprint(stderr, usage)
 		return 2
 	}
-	if _, former := formerNames[args[0]]; !former {
-		name, candidates := cmdname.Match(commandNames, args[0])
-		if len(candidates) > 0 {
-			fmt.Fprintf(stderr, "anetos: %q could be %s\n", args[0], strings.Join(candidates, ", "))
-			return 2
-		}
-		if name != "" {
-			args = append([]string{name}, args[1:]...) // g: generate, k:g: key:generate
-		}
-	}
-	if name, ok := formerNames[args[0]]; ok {
-		fmt.Fprintf(stderr, "anetos: %s is now %s; the old name will be removed in v0.6\n", args[0], name)
-		args = append([]string{name}, args[1:]...)
+	if now, former := formerNames[args[0]]; former {
+		fmt.Fprintf(stderr, "anetos: %s was renamed %s in v0.5, and the former name is no longer accepted\n", args[0], now)
+		return 2
 	}
 	if len(args) > 1 && args[0] == "add" && args[1] == "lang" {
-		fmt.Fprintln(stderr, "anetos: add lang is now locale:add; the old name will be removed in v0.6")
-		args = append([]string{"locale:add"}, args[2:]...)
+		fmt.Fprintln(stderr, "anetos: add lang was renamed locale:add in v0.5, and the former name is no longer accepted")
+		return 2
+	}
+	name, candidates := cmdname.Match(commandNames, args[0])
+	if len(candidates) > 0 {
+		fmt.Fprintf(stderr, "anetos: %q could be %s\n", args[0], strings.Join(candidates, ", "))
+		return 2
+	}
+	if name != "" {
+		args = append([]string{name}, args[1:]...) // g: generate, k:g: key:generate
 	}
 	switch args[0] {
 	case "generate":
@@ -196,8 +194,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 0
 	case "help", "-h", "-help", "--help":
 		if len(args) > 1 && args[0] == "help" && !strings.HasPrefix(args[1], "-") && args[1] != "help" {
-			// anetos help make:crud is anetos make:crud -h, on stdout
-			// (help add lang: add lang -h).
+			// anetos help make:crud is anetos make:crud -h, on stdout.
 			return run(append(slices.Clone(args[1:]), "-h"), stdout, stdout)
 		}
 		fmt.Fprint(stdout, usage)
@@ -217,8 +214,9 @@ var commandNames = []string{
 	"css:build", "css:use", "key:generate", "locale:add", "agent:install", "agent:update", "model:list", "mcp", "security:check",
 }
 
-// formerNames are the commands' names before v0.5, still run (with a
-// warning) until v0.6. (gen, generate's, is now a short form of it.)
+// formerNames are the commands' names before v0.5, which v0.6 refuses,
+// naming the new one (D340). (gen, generate's, is now a short form of
+// it.)
 var formerNames = map[string]string{
 	"lang:add":            "locale:add",
 	"make:admin:resource": "make:admin-resource",

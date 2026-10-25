@@ -63,9 +63,6 @@ For `Post`:
 It also adds `Posts(pages)` to `routes/web.go` (the page group, with
 sessions and CSRF protection) and a link to the list in the layout's
 header. It never overwrites a file: if one exists, it writes nothing.
-In a project made before v0.5, which has no `views/ui`, it writes the
-components first, and says so ([Style your
-app](../guides/styling.md#projects-made-before-v05)).
 
 | Route | URL | Does |
 |---|---|---|

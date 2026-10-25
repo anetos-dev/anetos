@@ -147,15 +147,6 @@ func New(app *anetos.App, sets []*Set, opts ...Option) (*Runner, error) {
 	return r, nil
 }
 
-// ForApp is [New].
-//
-// Deprecated: Use New; ForApp is removed in v0.6.
-//
-//go:fix inline
-func ForApp(app *anetos.App, sets []*Set, opts ...Option) (*Runner, error) {
-	return New(app, sets, opts...)
-}
-
 // check is the doctor's check of the migrations: pending ones, and
 // applied ones the app no longer has.
 func (r *Runner) check(ctx context.Context) []anetos.Finding {
@@ -747,12 +738,12 @@ type Config struct {
 	// command (the default) or serve, before its components: for one
 	// instance on SQLite in a container, where no step runs before the
 	// server (design D255). DB_MIGRATE_ON_START, default false.
-	OnStart bool `env:"DB_MIGRATE_ON_START" was:"MIGRATE_ON_RUN" default:"false"`
+	OnStart bool `env:"DB_MIGRATE_ON_START" was:"MIGRATE_ON_RUN,removed" default:"false"`
 	// Readiness keeps the server unready while migrations are pending.
 	// Turn it off where the migrations run after the new version starts
 	// and the platform waits for it to be ready. DB_MIGRATE_READINESS,
 	// default true.
-	Readiness bool `env:"DB_MIGRATE_READINESS" was:"MIGRATE_READINESS" default:"true"`
+	Readiness bool `env:"DB_MIGRATE_READINESS" was:"MIGRATE_READINESS,removed" default:"true"`
 }
 
 // onRun is the provider that migrates when the app boots to run (or

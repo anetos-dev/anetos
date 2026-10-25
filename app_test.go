@@ -13,7 +13,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -366,30 +365,17 @@ func TestRunProcessTypesAndOptions(t *testing.T) {
 	}
 }
 
-// The process types' names before v0.5 still select theirs, with a
-// warning, until v0.6.
+// The process types' names before v0.5 are refused, naming the new
+// ones (D340).
 func TestRunFormerProcessTypes(t *testing.T) {
-	var logs bytes.Buffer
-	app := newApp(t, config.Map{}, anetos.WithLogger(slog.New(slog.NewTextHandler(&logs, nil))))
-	ran := make(chan string, 2)
-	task := func(name string) func(context.Context) error {
-		return func(ctx context.Context) error { ran <- name; <-ctx.Done(); return nil }
+	app := newApp(t, config.Map{})
+	task := func(ctx context.Context) error { <-ctx.Done(); return nil }
+	if err := app.Go("more", task, anetos.ProcessTypes("workers")); err == nil || !strings.Contains(err.Error(), "the process type workers was renamed worker in v0.5") {
+		t.Errorf("Go with workers: %v", err)
 	}
-	must(t, app.Go("web", task("web"), anetos.ProcessTypes("web")))
-	must(t, app.Go("jobs", task("jobs"), anetos.ProcessTypes("worker")))
-	must(t, app.Go("more", task("more"), anetos.ProcessTypes("workers")))
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan error, 1)
-	go func() { done <- app.Run(ctx, "workers") }()
-	if got := []string{<-ran, <-ran}; !slices.Contains(got, "jobs") || !slices.Contains(got, "more") {
-		t.Errorf("started %v, want jobs and more", got)
-	}
-	cancel()
-	if err := <-done; err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(logs.String(), "the process type workers is worker; the old name is removed in v0.6") {
-		t.Errorf("no warning in the log:\n%s", logs.String())
+	must(t, app.Go("web", task, anetos.ProcessTypes("web")))
+	if err := app.Run(context.Background(), "http"); err == nil || !strings.Contains(err.Error(), "the process type http was renamed web in v0.5") {
+		t.Errorf("Run(http): %v", err)
 	}
 }
 

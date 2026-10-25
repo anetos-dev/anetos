@@ -7,6 +7,10 @@ tagged `drivers/s3/vX.Y.Z`. The framework's own changes are in the
 
 ## [Unreleased]
 
+### Removed
+- **BREAKING:** `Transport` and `Backend.SignedURL`, deprecated in v0.5:
+  use `WithTransport` and `Backend.TemporaryURL` (DR1).
+
 ## [0.5.0] - 2026-10-25
 
 ### Changed

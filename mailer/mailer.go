@@ -77,22 +77,8 @@ type Option func(*Mailer)
 // WithDefaultFrom sets the sender of messages without one.
 func WithDefaultFrom(a Address) Option { return func(m *Mailer) { m.from = a } }
 
-// DefaultFrom is [WithDefaultFrom].
-//
-// Deprecated: Use WithDefaultFrom; DefaultFrom is removed in v0.6.
-//
-//go:fix inline
-func DefaultFrom(a Address) Option { return WithDefaultFrom(a) }
-
 // WithAppURL sets the app's public URL, for [URL].
 func WithAppURL(url string) Option { return func(m *Mailer) { m.url = strings.TrimSuffix(url, "/") } }
-
-// BaseURL is [WithAppURL].
-//
-// Deprecated: Use WithAppURL; BaseURL is removed in v0.6.
-//
-//go:fix inline
-func BaseURL(url string) Option { return WithAppURL(url) }
 
 // WithLogger sets the mailer's logger. Default slog.Default().
 func WithLogger(l *slog.Logger) Option { return func(m *Mailer) { m.log = l } }

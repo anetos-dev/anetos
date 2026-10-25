@@ -42,11 +42,6 @@ var (
 	// waits for a code: there was none, it expired (after 10 minutes),
 	// or the user's password changed meanwhile. 401.
 	ErrNoPendingLogin error = &statusError{http.StatusUnauthorized, "auth: no login waits for a code"}
-	// ErrNoPendingSignIn is ErrNoPendingLogin.
-	//
-	// Deprecated: Use ErrNoPendingLogin; ErrNoPendingSignIn is removed in
-	// v0.6.
-	ErrNoPendingSignIn error = ErrNoPendingLogin
 	// ErrInvalidCode is returned for a wrong, expired or used two-factor
 	// or recovery code. 422.
 	ErrInvalidCode error = &statusError{http.StatusUnprocessableEntity, "auth: invalid code"}
@@ -165,13 +160,6 @@ func (a *Auth[U]) TwoFactor(u U) (TwoFactorStatus, error) {
 // SupportsTwoFactor reports whether two-factor authentication is
 // available: Users has TwoFactor and SetTwoFactor.
 func (a *Auth[U]) SupportsTwoFactor() bool { return a.users.TwoFactor != nil }
-
-// CanTwoFactor is [Auth.SupportsTwoFactor].
-//
-// Deprecated: Use SupportsTwoFactor; CanTwoFactor is removed in v0.6.
-//
-//go:fix inline
-func (a *Auth[U]) CanTwoFactor() bool { return a.SupportsTwoFactor() }
 
 // TwoFactorSetup is a started two-factor setup: what the user's
 // authenticator app needs.
@@ -410,15 +398,6 @@ func (a *Auth[U]) lockedTwoFactor(ctx context.Context, u U, fn func(ctx context.
 		}
 		return fn(ctx, st)
 	})
-}
-
-// SignIn is [Auth.Login], which now asks for the two-factor code too.
-//
-// Deprecated: Use Login; SignIn is removed in v0.6.
-//
-//go:fix inline
-func (a *Auth[U]) SignIn(ctx context.Context, u U, remember bool) error {
-	return a.Login(ctx, u, remember)
 }
 
 // login is Login with hash, the password hash the session checks.
@@ -910,10 +889,3 @@ func sameSitePath(r *http.Request, ref string) string {
 	}
 	return p
 }
-
-// SignOutOthers is [Auth.LogoutOthers].
-//
-// Deprecated: Use LogoutOthers; SignOutOthers is removed in v0.6.
-//
-//go:fix inline
-func (a *Auth[U]) SignOutOthers(ctx context.Context, u U) error { return a.LogoutOthers(ctx, u) }

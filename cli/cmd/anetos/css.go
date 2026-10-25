@@ -146,11 +146,8 @@ func cssUse(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		return fail(err)
 	}
-	if !scaffold.HasUI(root) {
-		if _, err := os.Stat(filepath.Join(root, "views")); err != nil {
-			return fail(errors.New("the project has no views/: an api project has no pages to style"))
-		}
-		return fail(errors.New("the project has no views/ui (made before v0.5): its pages carry the starter theme's classes, which another CSS framework doesn't change. The upgrade guide (docs/site/upgrade/v0.5.md) shows how to move the layout to the components first"))
+	if _, err := os.Stat(filepath.Join(root, "views")); err != nil {
+		return fail(errors.New("the project has no views/: an api project has no pages to style"))
 	}
 	rec, recErr := scaffold.ReadKitRecord(root)
 	if len(pos) == 0 {
@@ -167,9 +164,9 @@ func cssUse(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		case recErr == nil:
 			fmt.Fprintln(stdout, rec.Kit)
 		case errors.Is(recErr, scaffold.ErrBadKitRecord):
-			fmt.Fprintf(stdout, "%s, by its files: %v\n", scaffold.GuessKit(root), recErr)
+			fmt.Fprintf(stdout, "unknown: %v\n", recErr)
 		default:
-			fmt.Fprintf(stdout, "%s, by its files: the project has no %s\n", scaffold.GuessKit(root), scaffold.KitRecordFile)
+			fmt.Fprintf(stdout, "unknown: the project has no %s\n", scaffold.KitRecordFile)
 		}
 		return 0
 	}

@@ -208,15 +208,6 @@ func New(app *anetos.App, permissions []Permission, roles ...Role) (*Registry, e
 	return r, nil
 }
 
-// ForApp is [New].
-//
-// Deprecated: Use New; ForApp is removed in v0.6.
-//
-//go:fix inline
-func ForApp(app *anetos.App, permissions []Permission, roles ...Role) (*Registry, error) {
-	return New(app, permissions, roles...)
-}
-
 type registryKey struct{}
 
 // WithRegistry returns ctx carrying r, for code that uses a registry

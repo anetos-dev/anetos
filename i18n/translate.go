@@ -287,20 +287,14 @@ type MailLocalePreference interface {
 	PreferredMailLocale() string
 }
 
-// warnCommunication warns once about a CommunicationPreference.
-var warnCommunication sync.Once
-
-// CommunicationPreference is the interface [MailLocalePreference]
-// replaces: [ForUser] still reads it until v0.6.
-//
-// Deprecated: Implement MailLocalePreference (rename the method
-// CommunicationLocale to PreferredMailLocale); CommunicationPreference is
-// removed in v0.6.
-type CommunicationPreference interface {
-	// CommunicationLocale returns a locale ("en"), or "" for the
-	// display one.
+// formerMailLocale is MailLocalePreference before v0.5. Its method is
+// no longer read: ForUser logs an error naming the new one, once.
+type formerMailLocale interface {
 	CommunicationLocale() string
 }
+
+// warnCommunication logs the error about a formerMailLocale once.
+var warnCommunication sync.Once
 
 // TimeZonePreference is implemented by user models with a time zone (an
 // IANA name) to show times in.
@@ -329,13 +323,10 @@ func ForUser(ctx context.Context, user any) context.Context {
 		if l := p.PreferredMailLocale(); l != "" {
 			locale = l
 		}
-	} else if p, ok := user.(CommunicationPreference); ok {
+	} else if _, ok := user.(formerMailLocale); ok {
 		warnCommunication.Do(func() {
-			slog.Default().Warn(fmt.Sprintf("i18n: %T has CommunicationLocale, which is PreferredMailLocale since v0.5; the old name is removed in v0.6", user))
+			slog.Default().Error(fmt.Sprintf("i18n: %T has CommunicationLocale, renamed PreferredMailLocale in v0.5 and no longer read since v0.6: rename the method", user))
 		})
-		if l := p.CommunicationLocale(); l != "" {
-			locale = l
-		}
 	}
 	if locale != "" {
 		if l, ok := From(ctx).Match(locale); ok {

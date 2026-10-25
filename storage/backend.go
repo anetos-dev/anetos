@@ -58,14 +58,9 @@ type TemporaryURLBackend interface {
 	TemporaryURL(ctx context.Context, path string, expires time.Time) (string, error)
 }
 
-// URLSigner is the interface [TemporaryURLBackend] replaces: disks still
-// use it until v0.6.
-//
-// Deprecated: Implement TemporaryURLBackend (rename the method SignedURL
-// to TemporaryURL); URLSigner is removed in v0.6.
-type URLSigner interface {
-	// SignedURL returns a URL that reads the file at path until
-	// expires.
+// formerURLSigner is TemporaryURLBackend before v0.5: TemporaryURL
+// refuses a backend that has only its method, naming the new one.
+type formerURLSigner interface {
 	SignedURL(ctx context.Context, path string, expires time.Time) (string, error)
 }
 

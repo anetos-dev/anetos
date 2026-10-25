@@ -42,12 +42,12 @@ type Config struct {
 
 	// TTL is how long a session lasts without a request.
 	// SESSION_TTL, default 2h.
-	TTL time.Duration `env:"TTL" was:"LIFETIME" default:"2h"`
+	TTL time.Duration `env:"TTL" was:"LIFETIME,removed" default:"2h"`
 
 	// MaxTTL is how long a session lasts in all, however active: a
 	// copied cookie can't be used forever. Regenerate (at login) restarts
 	// it. SESSION_MAX_TTL, default 168h (7 days); 0 disables.
-	MaxTTL time.Duration `env:"MAX_TTL" was:"MAX_LIFETIME" default:"168h"`
+	MaxTTL time.Duration `env:"MAX_TTL" was:"MAX_LIFETIME,removed" default:"168h"`
 
 	// ExpireOnClose makes the cookie a browser-session cookie, dropped
 	// when the browser closes (TTL still applies). SESSION_EXPIRE_ON_CLOSE.
@@ -306,15 +306,6 @@ func New(app *anetos.App, drivers ...Driver) (*Manager, error) {
 	app.AddCheck(anetos.Check{Name: "session", Run: func(context.Context) []anetos.Finding { return checks(cfg, env) }})
 	anetos.Provide(app, m) // for anetostest, and code that needs it
 	return m, nil
-}
-
-// ForApp is [New].
-//
-// Deprecated: Use New; ForApp is removed in v0.6.
-//
-//go:fix inline
-func ForApp(app *anetos.App, drivers ...Driver) (*Manager, error) {
-	return New(app, drivers...)
 }
 
 // checks are the doctor's checks of the SESSION_* settings.

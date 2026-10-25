@@ -75,6 +75,7 @@ func Get[T any](src Source) (T, error) {
 //	Hosts   []string      `env:"DB_HOSTS"`            // comma-separated
 //	Mail    MailConfig    `prefix:"MAIL_"`            // nested struct, keys prefixed
 //	User    string        `env:"DB_USER" was:"DB_USERNAME"` // renamed key
+//	Name    string        `env:"DB_NAME" was:"DB_DATABASE,removed"` // no longer read
 //
 // Rules:
 //   - Only exported fields are considered. `env:"-"` skips a field.
@@ -88,6 +89,9 @@ func Get[T any](src Source) (T, error) {
 //   - A `was` tag names the key's former name (with the same prefix): it
 //     is read when the key itself is unset, and a src that implements
 //     [RenameReporter] is told, so the app can warn that it's renamed.
+//     `was:"OLD,removed"` names a former name no longer read: when it is
+//     set and the key isn't, Bind fails with a [*RenamedError] naming the
+//     key, rather than silently using the default.
 //   - Supported types: string, bool, all int, uint and float kinds,
 //     time.Duration, slices of those (comma-separated), pointers to them, and
 //     any type whose pointer implements encoding.TextUnmarshaler (e.g.
@@ -163,11 +167,22 @@ func bindStruct(src Source, v reflect.Value, prefix, path string, errs *[]error,
 		if ok && raw == "" {
 			ok = false
 		}
-		if was := sf.Tag.Get("was"); was != "" {
+		was, removed, err := parseWasTag(sf.Tag.Get("was"))
+		if err != nil {
+			*errs = append(*errs, &FieldError{Key: key, Field: fieldPath, Err: err})
+			continue
+		}
+		if was != "" {
 			if r, isR := src.(RenameReporter); isR {
 				r.ReportFormer(prefix+was, key)
 			}
-			if !ok {
+			if removed {
+				if old, set := src.Lookup(prefix + was); !ok && set && old != "" {
+					*errs = append(*errs, &FieldError{Key: prefix + was, Field: fieldPath, Err: &RenamedError{Current: key}})
+					anySet = true // the section is configured, under a name no longer read
+					continue
+				}
+			} else if !ok {
 				if raw, ok = src.Lookup(prefix + was); ok && raw != "" {
 					if r, isR := src.(RenameReporter); isR {
 						r.ReportRename(prefix+was, key)
@@ -212,6 +227,29 @@ func parseEnvTag(tag string) (name string, required bool, err error) {
 		required = true
 	}
 	return name, required, nil
+}
+
+// parseWasTag splits a was tag: the former name, and whether it is
+// no longer read (",removed"). Another option is an error.
+func parseWasTag(tag string) (name string, removed bool, err error) {
+	name, opt, hasOpt := strings.Cut(tag, ",")
+	if hasOpt && opt != "removed" {
+		return name, false, fmt.Errorf("unknown was tag option %q (supported: removed)", opt)
+	}
+	return name, hasOpt, nil
+}
+
+// RenamedError is the error of a [FieldError] for a setting set under a
+// former name that is no longer read (`was:"OLD,removed"`): its Key is
+// the former name.
+type RenamedError struct {
+	// Current is the setting's name now.
+	Current string
+}
+
+// Error says the setting's name now.
+func (e *RenamedError) Error() string {
+	return "renamed " + e.Current + ", and the former name is no longer read: rename it in your settings"
 }
 
 // bindNested recurses into untagged struct and *struct fields. A nil

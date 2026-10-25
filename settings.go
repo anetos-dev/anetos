@@ -63,7 +63,7 @@ func (s *trackedSource) ReportRename(old, current string) {
 	log := s.log
 	s.mu.Unlock()
 	if !seen && log != nil {
-		log.Warn(old+" is renamed "+current+": rename it in your settings (the old name is read until v0.6)", "setting", current)
+		log.Warn(old+" is renamed "+current+": rename it in your settings (the old name stops being read in the next minor version)", "setting", current)
 	}
 }
 
@@ -78,7 +78,7 @@ func (s *trackedSource) setLogger(log *slog.Logger) {
 	s.mu.Unlock()
 	slices.SortFunc(pending, func(a, b [2]string) int { return strings.Compare(a[0], b[0]) })
 	for _, p := range pending {
-		log.Warn(p[0]+" is renamed "+p[1]+": rename it in your settings (the old name is read until v0.6)", "setting", p[1])
+		log.Warn(p[0]+" is renamed "+p[1]+": rename it in your settings (the old name stops being read in the next minor version)", "setting", p[1])
 	}
 }
 
@@ -120,7 +120,7 @@ func (s *trackedSource) settingsChecks(context.Context) []Finding {
 	}
 	slices.Sort(olds)
 	for _, old := range olds {
-		out = append(out, Finding{Severity: Warning, Message: fmt.Sprintf("%s is renamed %s: rename it in your settings (%s is read until v0.6)", old, s.renamed[old], old)})
+		out = append(out, Finding{Severity: Warning, Message: fmt.Sprintf("%s is renamed %s: rename it in your settings (%s stops being read in the next minor version)", old, s.renamed[old], old)})
 	}
 	for _, name := range s.namesLocked() {
 		if _, ok := s.renamed[name]; ok {

@@ -145,13 +145,6 @@ func NewBus(opts ...Option) *Bus {
 	return b
 }
 
-// BusOption is [Option].
-//
-// Deprecated: Use Option; BusOption is removed in v0.6.
-//
-//go:fix inline
-type BusOption = Option
-
 // New returns the app's bus: it is available in every context the app
 // creates (for [Emit]) and to [anetos.Resolve], and closed at shutdown
 // (async listeners finish the events they have, within the shutdown
@@ -168,15 +161,6 @@ func New(app *anetos.App) (*Bus, error) {
 	anetos.Provide(app, b)
 	app.OnShutdown("events", b.Close)
 	return b, nil
-}
-
-// ForApp is [New].
-//
-// Deprecated: Use New; ForApp is removed in v0.6.
-//
-//go:fix inline
-func ForApp(app *anetos.App) (*Bus, error) {
-	return New(app)
 }
 
 // context returns a new context for an async listener: the app's values

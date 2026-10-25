@@ -123,15 +123,6 @@ func New(app *anetos.App) (*Trail, error) {
 	return t, nil
 }
 
-// ForApp is [New].
-//
-// Deprecated: Use New; ForApp is removed in v0.6.
-//
-//go:fix inline
-func ForApp(app *anetos.App) (*Trail, error) {
-	return New(app)
-}
-
 // Config returns the log's settings.
 func (t *Trail) Config() Config { return t.cfg }
 
@@ -166,13 +157,6 @@ func trailFrom(ctx context.Context) (*Trail, error) {
 
 // TrackOption changes how a model is tracked ([Track]).
 type TrackOption func(*tracking)
-
-// Option is [TrackOption].
-//
-// Deprecated: Use TrackOption; Option is removed in v0.6.
-//
-//go:fix inline
-type Option = TrackOption
 
 // Except leaves columns out of the log entirely: their changes aren't
 // recorded, and an update changing only them isn't logged.

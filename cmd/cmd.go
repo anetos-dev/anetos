@@ -47,8 +47,8 @@ type Command struct {
 	// search:reindex): checks that the schema matches the settings,
 	// which would stop the app at boot, don't stop it.
 	ChangesSchema bool
-	// Former are names the command had before ("routes:list" for
-	// route:list), still accepted until they are removed: they aren't
+	// Former are names the command had before ("reports:mail" for
+	// reports:send), still accepted until they are removed: they aren't
 	// listed, and running the command by one prints a warning naming
 	// the command.
 	Former []string

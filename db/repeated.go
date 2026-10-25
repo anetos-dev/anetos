@@ -128,13 +128,6 @@ func AllowRepeatedQueries(ctx context.Context) context.Context {
 	return context.WithValue(ctx, allowedKey{}, true)
 }
 
-// Untracked is [AllowRepeatedQueries].
-//
-// Deprecated: Use AllowRepeatedQueries; Untracked is removed in v0.6.
-//
-//go:fix inline
-func Untracked(ctx context.Context) context.Context { return AllowRepeatedQueries(ctx) }
-
 // count counts a query made with ctx, if an operation tracks them.
 func (d *DB) count(ctx context.Context, query string) {
 	if d.repeated < 2 {

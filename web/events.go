@@ -124,10 +124,3 @@ func (s *EventStream) write(text string) error {
 	}
 	return s.rc.Flush()
 }
-
-// Events is [Ctx.EventStream].
-//
-// Deprecated: Use EventStream; Events is removed in v0.6.
-//
-//go:fix inline
-func (c *Ctx) Events() (*EventStream, error) { return c.EventStream() }

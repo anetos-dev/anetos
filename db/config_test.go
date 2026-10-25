@@ -3,6 +3,7 @@
 package db_test
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -24,6 +25,16 @@ func TestLoadConfigPrefixedErrors(t *testing.T) {
 	_, err = db.LoadConfig(config.Map{"DB_PORT": "x"}, "")
 	if err == nil || !strings.Contains(err.Error(), "config: DB_PORT") {
 		t.Errorf("unprefixed = %v", err)
+	}
+	// A former name no longer read names the new one, with the prefix
+	// (D339).
+	_, err = db.LoadConfig(config.Map{"ANALYTICS_DB_CONNECTION": "postgres"}, "ANALYTICS_")
+	var re *config.RenamedError
+	if !errors.As(err, &re) || re.Current != "ANALYTICS_DB_DRIVER" || !strings.Contains(err.Error(), "config: ANALYTICS_DB_CONNECTION (Config.Driver): renamed ANALYTICS_DB_DRIVER") {
+		t.Errorf("former name = %v", err)
+	}
+	if cfg, err := db.LoadConfig(config.Map{"ANALYTICS_DB_CONNECTION": "postgres", "ANALYTICS_DB_DRIVER": "mysql"}, "ANALYTICS_"); err != nil || cfg.Driver != "mysql" {
+		t.Errorf("both set = %+v, %v", cfg, err)
 	}
 }
 

@@ -46,7 +46,7 @@ type Config struct {
 	// user's preference or the browser),
 	// prefix (/bn/about; the default locale has none) or subdomain
 	// (bn.example.com; APP_URL's host is the default locale's). APP_LOCALE_STRATEGY.
-	Strategy string `env:"APP_LOCALE_STRATEGY" was:"LOCALE_URL" default:"none"`
+	Strategy string `env:"APP_LOCALE_STRATEGY" was:"LOCALE_URL,removed" default:"none"`
 }
 
 // The locale strategies ([Config.Strategy]): where a request's locale
@@ -55,19 +55,6 @@ const (
 	StrategyNone      = "none"
 	StrategyPrefix    = "prefix"
 	StrategySubdomain = "subdomain"
-)
-
-// The former names of the strategies.
-//
-// Deprecated: Use StrategyNone, StrategyPrefix and StrategySubdomain; these
-// are removed in v0.6.
-const (
-	//go:fix inline
-	URLNone = StrategyNone
-	//go:fix inline
-	URLPrefix = StrategyPrefix
-	//go:fix inline
-	URLSubdomain = StrategySubdomain
 )
 
 // Validate implements config.Validator.
@@ -140,13 +127,6 @@ func WithLogger(l *slog.Logger) Option { return func(o *options) { o.log = l } }
 // WithWarnMissing logs keys missing from every catalog, once per locale and
 // key. New turns it on in development.
 func WithWarnMissing() Option { return func(o *options) { o.warn = true } }
-
-// WarnMissing is [WithWarnMissing].
-//
-// Deprecated: Use WithWarnMissing; WarnMissing is removed in v0.6.
-//
-//go:fix inline
-func WarnMissing() Option { return WithWarnMissing() }
 
 // NewTranslator returns a translator for cfg with the catalogs of [WithLocales]
 // and the framework's English catalog.
@@ -249,15 +229,6 @@ func New(app *anetos.App, locales fs.FS) (*Translator, error) {
 		return nil, err
 	}
 	return tr, nil
-}
-
-// ForApp is [New].
-//
-// Deprecated: Use New; ForApp is removed in v0.6.
-//
-//go:fix inline
-func ForApp(app *anetos.App, locales fs.FS) (*Translator, error) {
-	return New(app, locales)
 }
 
 // WithTranslator returns ctx with tr as its translator, for code outside

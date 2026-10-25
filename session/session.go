@@ -83,13 +83,6 @@ func WithSession(ctx context.Context, s *Session) context.Context {
 	return context.WithValue(ctx, ctxKey{}, s)
 }
 
-// NewContext is [WithSession].
-//
-// Deprecated: Use WithSession; NewContext is removed in v0.6.
-//
-//go:fix inline
-func NewContext(ctx context.Context, s *Session) context.Context { return WithSession(ctx, s) }
-
 // NewSession returns an empty session, for tests. Requests get theirs from the
 // middleware.
 func NewSession() *Session {
@@ -151,14 +144,6 @@ func (s *Session) GetString(key string) string {
 	v, _ := Value[string](s, key)
 	return v
 }
-
-// String is [Session.GetString].
-//
-// Deprecated: Use GetString (String reads as fmt.Stringer's); String is
-// removed in v0.6.
-//
-//go:fix inline
-func (s *Session) String(key string) string { return s.GetString(key) }
 
 // Has reports whether key is set.
 func (s *Session) Has(key string) bool {

@@ -155,9 +155,8 @@ app asks of it (the `DB_SEARCH_*` settings, features' requirements), and
 stops with a clear message if it can't: see
 [Add full-text search](search.md#choose-the-settings).
 
-> **Note:** `DB_CONNECTION`, `DB_DATABASE` and `DB_USERNAME`, the names
-> before v0.5, are read too, with a warning, until v0.6. There is no
-> database config file: extra connections use prefixed keys.
+> **Note:** There is no database config file: extra connections use
+> prefixed keys.
 
 ## Testing it
 

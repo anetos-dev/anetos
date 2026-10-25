@@ -9,6 +9,7 @@ import (
 	"io"
 	"maps"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -598,8 +599,8 @@ func testUniqueWithoutTrashedAndPrune(t *testing.T, ctx context.Context) {
 	type former struct {
 		Email string `json:"email" validate:"unique_live:st_trashables,email"`
 	}
-	if err := validate.Struct(ctx, &former{"a@example.com"}); err != nil {
-		t.Errorf("unique_live (until v0.6) counted a deleted row: %v", err)
+	if err := validate.Struct(ctx, &former{"a@example.com"}); err == nil || !strings.Contains(err.Error(), "renamed unique_without_trashed") {
+		t.Errorf("unique_live (renamed in v0.5, refused since v0.6): %v", err)
 	}
 	b := stTrashable{Email: "a@example.com"}
 	check(t, db.Create(ctx, &b))

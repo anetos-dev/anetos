@@ -10,6 +10,10 @@ tagged `plugins/postmark/vX.Y.Z`. The framework's own changes are in the
 ### Changed
 - Works with Anetos v0.6 too (`Requires`: `>= v0.2.0, < v0.7.0`).
 
+### Removed
+- **BREAKING:** `BaseURL`, `HTTPClient` and `Stream`, deprecated in
+  v0.5: use `WithBaseURL`, `WithHTTPClient` and `WithStream` (DR1).
+
 ## [0.5.0] - 2026-10-25
 
 ### Changed

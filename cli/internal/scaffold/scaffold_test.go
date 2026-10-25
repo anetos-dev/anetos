@@ -292,42 +292,6 @@ func classless(t *testing.T, root string, all bool) {
 	}
 }
 
-// A project made before v0.5 has no views/ui: WriteUI writes the kit its
-// stylesheet looks like, without touching the stylesheet.
-func TestWriteUI(t *testing.T) {
-	for kit, css := range map[string]string{"anetos": ".card { padding: 1rem }", "none": "body { margin: 0 }"} {
-		dir := t.TempDir()
-		if err := os.MkdirAll(filepath.Join(dir, "public", "static"), 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(dir, "public", "static", "app.css"), []byte(css), 0o644); err != nil {
-			t.Fatal(err)
-		}
-		if HasUI(dir) || GuessKit(dir) != kit {
-			t.Fatalf("%s: HasUI %v, GuessKit %q", kit, HasUI(dir), GuessKit(dir))
-		}
-		written, err := WriteUI(dir, "example.com/blog", kit)
-		if err != nil || len(written) < 5 || !HasUI(dir) {
-			t.Fatalf("%s: %v %v", kit, written, err)
-		}
-		if got := read(t, filepath.Join(dir, "public", "static", "app.css")); got != css {
-			t.Errorf("%s: the stylesheet changed: %s", kit, got)
-		}
-		if r, err := ReadKitRecord(dir); err != nil || r.Kit != kit || r.Files["views/ui/shell.templ"] == "" || r.Files["public/static/app.css"] != "" {
-			t.Errorf("%s: record %+v, %v", kit, r, err)
-		}
-		if ui := read(t, filepath.Join(dir, "views", "ui", "shell.templ")); !strings.Contains(ui, `"example.com/blog/public"`) {
-			t.Errorf("%s: shell.templ:\n%s", kit, ui)
-		}
-		if _, err := WriteUI(dir, "example.com/blog", kit); err == nil {
-			t.Errorf("%s: WriteUI wrote over views/ui", kit)
-		}
-	}
-	if _, err := WriteUI(t.TempDir(), "m", "nope"); err == nil {
-		t.Error("WriteUI of a kit that doesn't exist")
-	}
-}
-
 // No two layers of a stack write the same file: a layer never overrides
 // another's (design D259).
 func TestStackLayersDisjoint(t *testing.T) {
@@ -667,9 +631,6 @@ func TestMakeAuth(t *testing.T) {
 		}
 	}
 	classless(t, dir, false)
-	if res.Kit != "" {
-		t.Errorf("wrote views/ui (%s) in a project that has it", res.Kit)
-	}
 	if !res.Wired || !strings.Contains(read(t, filepath.Join(dir, "main.go")), "routes.Register(srv.Router(), sessions)\n"+authCall) {
 		t.Errorf("main.go not wired:\n%s", read(t, filepath.Join(dir, "main.go")))
 	}

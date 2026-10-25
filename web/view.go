@@ -42,13 +42,6 @@ func Render(comp view.Component) Responder {
 	return ResponderFunc(func(c *Ctx) error { return c.Render(http.StatusOK, comp) })
 }
 
-// View is [Render].
-//
-// Deprecated: Use Render; View is removed in v0.6.
-//
-//go:fix inline
-func View(comp view.Component) Responder { return Render(comp) }
-
 // HTMX describes an htmx request (https://htmx.org/reference/#request_headers).
 type HTMX struct {
 	Request        bool   // HX-Request: sent by htmx

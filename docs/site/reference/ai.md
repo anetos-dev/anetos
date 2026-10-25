@@ -210,7 +210,7 @@ See [Search by meaning](../guides/semantic-search.md).
 | `drivers/anthropic` | `anthropic` | `anthropic.Driver()`, `anthropic.New(key, opts...)` | `ThinkingBudget` (extended thinking), `Params func(*anthropic.MessageNewParams)` | `*anthropic.Message` |
 | `drivers/openai` | `openai` | `openai.Driver()`, `openai.New(key, opts...)` | `ReasoningEffort`, `Params func(*openai.ChatCompletionNewParams)` | `*openai.ChatCompletion` (streams: `[]openai.ChatCompletionChunk`) |
 | `drivers/openai` | `openai-compatible` | `openai.CompatibleDriver()`, `openai.NewCompatible(url, key, opts...)` | the same | the same |
-| `drivers/gemini` | `gemini` | `gemini.Driver()`, `gemini.New(ctx, genai.ClientConfig{APIKey: key, …})` | `ThinkingBudget *int32`, `Params func(*genai.GenerateContentConfig)` (was `Config`, deprecated until v0.6) | `*genai.GenerateContentResponse` (streams: a slice of them) |
+| `drivers/gemini` | `gemini` | `gemini.Driver()`, `gemini.New(ctx, genai.ClientConfig{APIKey: key, …})` | `ThinkingBudget *int32`, `Params func(*genai.GenerateContentConfig)` | `*genai.GenerateContentResponse` (streams: a slice of them) |
 
 Each provider's `Client()` returns its SDK client. All use their API's
 chat endpoint (OpenAI's: Chat Completions, which compatible servers

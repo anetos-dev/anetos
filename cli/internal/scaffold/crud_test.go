@@ -3,6 +3,7 @@
 package scaffold
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -28,7 +29,7 @@ func TestMakeCrud(t *testing.T) {
 			t.Errorf("missing %s in %v", want, res.Created)
 		}
 	}
-	if !res.Routed || !res.Linked || res.Plural != "BlogPosts" || res.Path != "/blog-posts" || res.Kit != "" {
+	if !res.Routed || !res.Linked || res.Plural != "BlogPosts" || res.Path != "/blog-posts" {
 		t.Errorf("result %+v", res)
 	}
 	classless(t, dir, false)
@@ -160,9 +161,9 @@ func TestCrudPatches(t *testing.T) {
 	}
 }
 
-// A project made before v0.5 has no views/ui: make:crud writes the kit
-// its stylesheet looks like first, and the pages that call it.
-func TestCrudWritesUI(t *testing.T) {
+// A web project without views/ui: make:crud refuses, writing nothing,
+// and says how to get one (css:use --force).
+func TestCrudWithoutUI(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "shop")
 	if _, err := Create(Project{Dir: dir, Module: "example.com/shop", DB: "sqlite", Replace: "../../.."}); err != nil {
 		t.Fatal(err)
@@ -171,25 +172,20 @@ func TestCrudWritesUI(t *testing.T) {
 		t.Fatal(err)
 	}
 	res, err := MakeCrud(dir, "Post", []string{"title:string"}, time.Date(2030, 1, 2, 3, 4, 5, 0, time.UTC))
-	if err != nil {
-		t.Fatal(err)
+	if !errors.Is(err, ErrNoUI) || len(res.Created) > 0 || !strings.Contains(err.Error(), "css:use <css framework> --force") {
+		t.Fatalf("make:crud without views/ui: %+v, %v", res, err)
 	}
-	if res.Kit != "anetos" || !slices.Contains(res.Created, "views/ui/form.templ") || !HasUI(dir) {
-		t.Errorf("result %+v", res)
+	if _, err := os.Stat(filepath.Join(dir, "app", "models", "post.go")); err == nil {
+		t.Error("the model was written")
 	}
-	// A write failing after views/ui (locales/en/tags.yaml is a
-	// directory): nothing is left, views/ui included.
-	if err := os.RemoveAll(filepath.Join(dir, "views", "ui")); err != nil {
-		t.Fatal(err)
+	if _, err := MakeAuth(dir, time.Now()); !errors.Is(err, ErrNoUI) {
+		t.Errorf("make:auth without views/ui: %v", err)
 	}
-	if err := os.MkdirAll(filepath.Join(dir, "locales", "en", "tags.yaml", "x"), 0o755); err != nil {
-		t.Fatal(err)
+	if _, err := UseKit(dir, "example.com/shop", "anetos", true); err != nil || !HasUI(dir) {
+		t.Fatalf("css:use --force: %v", err)
 	}
-	if _, err := MakeCrud(dir, "Tag", []string{"name:string"}, time.Now()); err == nil || HasUI(dir) {
-		t.Errorf("a failed make:crud: %v, views/ui %v", err, HasUI(dir))
-	}
-	if _, err := os.Stat(filepath.Join(dir, "views", "ui")); err == nil {
-		t.Error("views/ui left behind")
+	if _, err := MakeCrud(dir, "Post", []string{"title:string"}, time.Now()); err != nil {
+		t.Errorf("make:crud after css:use: %v", err)
 	}
 }
 

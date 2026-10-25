@@ -63,8 +63,7 @@ func TestPlatformURL(t *testing.T) {
 		{config.Map{}, false, "", "sqlite"},
 		{config.Map{"DATABASE_URL": "postgres://u@h/db"}, true, "postgres://u@h/db", "postgres"},
 		{config.Map{"DATABASE_URL": "postgresql://u@h/db", "DB_DRIVER": "postgres"}, true, "postgresql://u@h/db", "postgres"},
-		{config.Map{"DATABASE_URL": "postgres://u@h/db", "DB_DRIVER": "sqlite"}, false, "", "sqlite"},   // a dev shell's
-		{config.Map{"DATABASE_URL": "postgres://u@h/db", "DB_CONNECTION": "mysql"}, false, "", "mysql"}, // the former name counts
+		{config.Map{"DATABASE_URL": "postgres://u@h/db", "DB_DRIVER": "sqlite"}, false, "", "sqlite"}, // a dev shell's
 		{config.Map{"DATABASE_URL": "postgres://u@h/db", "DB_URL": "file.db"}, false, "file.db", "sqlite"},
 		{config.Map{"DATABASE_URL": "postgres://u@h/db", "DB_HOST": "db"}, false, "", "sqlite"},
 		{config.Map{"DATABASE_URL": "postgres://u@h/db", "DB_NAME": "app"}, false, "", "sqlite"},

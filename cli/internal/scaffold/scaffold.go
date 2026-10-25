@@ -370,62 +370,16 @@ func renderKit(kit string, data projectData) ([]KitFile, error) {
 }
 
 // HasUI reports whether the project in root has a views/ui package (a
-// design kit's components, ui.go among them), which the pages make:auth
-// and make:crud write call; projects made before v0.5 have none.
+// CSS framework's components, ui.go among them), which the pages
+// make:auth and make:crud write call.
 func HasUI(root string) bool {
 	_, err := os.Stat(filepath.Join(root, "views", "ui", "ui.go"))
 	return err == nil
 }
 
-// GuessKit is the project's CSS framework: the one views/ui/css.json
-// records, else, for a project made before v0.5 (without views/ui), the
-// one closest to its stylesheet: "anetos" when public/static/app.css has
-// the starter theme's cards, else "none".
-func GuessKit(root string) string {
-	if r, err := ReadKitRecord(root); err == nil && slices.Contains(Kits, r.Kit) {
-		return r.Kit
-	}
-	b, err := os.ReadFile(filepath.Join(root, "public", "static", "app.css"))
-	if err == nil && bytes.Contains(b, []byte(".card")) {
-		return "anetos"
-	}
-	return "none"
-}
-
-// WriteUI writes a design kit's views/ui package into the project in
-// root (module is its module path), for a project without one, and
-// views/ui/css.json recording them; the stylesheet is left as it is. It
-// returns the files written.
-func WriteUI(root, module, kit string) ([]string, error) {
-	if HasUI(root) {
-		return nil, fmt.Errorf("%s already exists", filepath.Join(root, "views", "ui", "ui.go"))
-	}
-	files, err := renderKit(kit, projectData{Module: module, Kit: kit})
-	if err != nil {
-		return nil, err
-	}
-	var written []string
-	for _, f := range files {
-		if !strings.HasPrefix(f.Rel, "views/ui/") {
-			continue
-		}
-		if err := writeNew(filepath.Join(root, filepath.FromSlash(f.Rel)), f.Content, 0o644); err != nil {
-			return written, err
-		}
-		written = append(written, f.Rel)
-	}
-	var ui []KitFile
-	for _, f := range files {
-		if strings.HasPrefix(f.Rel, "views/ui/") {
-			ui = append(ui, f)
-		}
-	}
-	rec := newKitRecord(kit, ui).file()
-	if err := writeNew(filepath.Join(root, filepath.FromSlash(rec.Rel)), rec.Content, 0o644); err != nil {
-		return written, err
-	}
-	return append(written, rec.Rel), nil
-}
+// ErrNoUI is make:crud's and make:auth's error in a web project without
+// views/ui, whose components their pages call.
+var ErrNoUI = errors.New("the project has no views/ui, whose components the pages call: go tool anetos css:use <css framework> --force writes one")
 
 // walkStack calls fn for each template of a stack's layers, with its
 // path in the embedded files and the path it writes (relative to the

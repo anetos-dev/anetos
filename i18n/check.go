@@ -26,7 +26,6 @@ import (
 func (tr *Translator) checkCommand(fs.FS) cmd.Command {
 	return cmd.Command{
 		Name:        "locale:check",
-		Former:      []string{"lang:check"},
 		Usage:       "[dir]",
 		Description: "Check the translations: missing keys, placeholders, plural forms, and keys the source in dir (default .) uses",
 		ManagesApp:  true, // reads files only: no database needed

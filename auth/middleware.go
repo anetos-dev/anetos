@@ -405,13 +405,6 @@ type actor interface {
 // UserOption configures [Auth.WithUser].
 type UserOption func(*state)
 
-// ActOption is [UserOption].
-//
-// Deprecated: Use UserOption; ActOption is removed in v0.6.
-//
-//go:fix inline
-type ActOption = UserOption
-
 // WithAbilities limits the context to abilities, as an API token with
 // them would ([TokenCan], and packages that read [CurrentToken], such as
 // auth/rbac): for work done for a request that was logged in with a
@@ -462,15 +455,6 @@ func (a *Auth[U]) WithUser(ctx context.Context, userID string, opts ...UserOptio
 	return context.WithValue(ctx, stateKey{}, st)
 }
 
-// ActAs is [Auth.WithUser].
-//
-// Deprecated: Use WithUser; ActAs is removed in v0.6.
-//
-//go:fix inline
-func (a *Auth[U]) ActAs(ctx context.Context, userID string, opts ...UserOption) context.Context {
-	return a.WithUser(ctx, userID, opts...)
-}
-
 // WithUser is [Auth.WithUser] with the app's Auth (auth.New), from ctx:
 // for packages that don't know the app's user type, such as package ai's
 // queued replies.
@@ -480,13 +464,4 @@ func WithUser(ctx context.Context, userID string, opts ...UserOption) (context.C
 		return nil, errors.New("auth: WithUser needs the app's Auth in the context (auth.New)")
 	}
 	return a.WithUser(ctx, userID, opts...), nil
-}
-
-// ActAs is [WithUser].
-//
-// Deprecated: Use WithUser; ActAs is removed in v0.6.
-//
-//go:fix inline
-func ActAs(ctx context.Context, userID string, opts ...UserOption) (context.Context, error) {
-	return WithUser(ctx, userID, opts...)
 }

@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- `config`: a `was:"OLD,removed"` tag names a setting's former name that
+  is no longer read; when it is set and the setting isn't, binding fails
+  with a `*config.RenamedError` naming the setting (`config.Key.Removed`)
+  (DR1, D339).
+
 ### Changed
 - An Anetos built from this source reports `v0.6.0-dev`, and
   `plugins/postmark` works with Anetos v0.6 too (`Requires`:
@@ -14,6 +20,45 @@ All notable changes to this project are documented here. The format follows
   each module's tests counting the code of the Anetos modules they use,
   into one `coverage.out`; CI's new `coverage` job runs it on the main branch
   and sends it to Codecov, and the README shows its badge (M9b, D332).
+
+### Removed
+- **BREAKING:** the names v0.5 deprecated (DR1, D338): every `ForApp`
+  (use `New`, or `openapi.Register`), the renamed options (`mailer.BaseURL`,
+  `storage.Public`, `web.TrustedOrigins`, `postmark.Stream`…), methods
+  (`Auth.SignIn`, `ActAs`, `CanTwoFactor`, `Page.HasMore`,
+  `Table.UniqueLive`, `Router.HandleStd`, `Ctx.Events`,
+  `Session.String`…), functions (`ai.Func`, `admin.Field`,
+  `db.PruneTrashed`, `web.View`…), types (`anetos.Unit`,
+  `social.ErrNoAccount`, `events.BusOption`…), the interfaces
+  `storage.URLSigner` and `i18n.CommunicationPreference`, gemini's
+  `Options.Config` and storagetest's `Features.SignedURLs`. Run `go fix
+  ./...` on v0.5 before upgrading; [the upgrade guide](docs/site/upgrade/v0.6.md)
+  lists every name and what `go fix` can't rewrite:
+
+  ```go
+  // v0.5 (deprecated)
+  c, err := cache.ForApp(app)
+  // v0.6
+  c, err := cache.New(app)
+  ```
+- **BREAKING:** the settings renamed in v0.5 (`DB_CONNECTION`,
+  `CACHE_STORE`, `SESSION_LIFETIME`, `MIGRATE_ON_RUN`…) are no longer
+  read: a service whose former setting is set, without the new one,
+  refuses to start, naming the new one, instead of using a default
+  (DR1, D339).
+- **BREAKING:** the command names before v0.5 (`routes:list`,
+  `plugins:list`, `plugins:env`, `lang:check`, the tool's `lang:add`,
+  `add lang` and `make:admin:resource`), `schedule:run <task>`, the
+  process types `http`, `workers` and `listeners`, and the validation
+  rule `unique_live` are refused, each naming the one to use; a plugin
+  with `Listen` but not `Listeners` and a storage backend with
+  `SignedURL` but not `TemporaryURL` are refused too, and a user's
+  `CommunicationLocale` is ignored with an error logged once (use
+  `PreferredMailLocale`) (DR1, D340).
+- **BREAKING:** the tool no longer writes `views/ui` into a web project
+  without one (`make:crud` and `make:auth` stop, naming `css:use
+  --force`), nor reads `views/ui/kit.json` or the generated files'
+  header before v0.5 (DR1, D338).
 
 ## [0.5.0] - 2026-10-25
 

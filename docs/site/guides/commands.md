@@ -148,7 +148,8 @@ app runs one command: create a new one per call.
 | `unknown command "migrate"` | `migrate.New` wasn't called before `Execute` | Call it while setting up the app |
 | `"m:r" could be migrate:reset, migrate:rollback` | A short name that fits several commands | Write more of it, or the whole name |
 | `command "x" registered twice` | Two commands with one name (`app.Command` panics, `app.AddCommand`, `migrate.New` and `web.NewServer` return the error) | Register each once |
-| `unknown process type "…"` | `--only` names a process type no background component has and no package declared (the error lists the known ones) | Check `help run` and the process types of your background components (`web`, `worker`, `scheduler`, `listener`; before v0.5, `http`, `workers`, `listeners`) |
+| `unknown process type "…"` | `--only` names a process type no background component has and no package declared (the error lists the known ones) | Check `help run` and the process types of your background components (`web`, `worker`, `scheduler`, `listener`) |
+| `the process type workers was renamed worker in v0.5` | A deploy file, Procfile or cron line still names a process type's name before v0.5 (`http`, `workers`, `listeners`) | Use `web`, `worker` or `listener` |
 
 ## Next steps
 

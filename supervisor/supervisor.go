@@ -165,13 +165,6 @@ func (s *Supervisor) ProcessTypes() []string {
 	return s.typesLocked()
 }
 
-// Roles is [Supervisor.ProcessTypes].
-//
-// Deprecated: Use ProcessTypes; Roles is removed in v0.6.
-//
-//go:fix inline
-func (s *Supervisor) Roles() []string { return s.ProcessTypes() }
-
 func (s *Supervisor) typesLocked() []string {
 	set := maps.Clone(s.declared)
 	if set == nil {

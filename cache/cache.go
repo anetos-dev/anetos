@@ -231,13 +231,6 @@ func Delete(ctx context.Context, key string) error {
 	return c.store.Delete(ctx, k)
 }
 
-// Forget is [Delete].
-//
-// Deprecated: Use Delete; Forget is removed in v0.6.
-//
-//go:fix inline
-func Forget(ctx context.Context, key string) error { return Delete(ctx, key) }
-
 // Increment adds delta (negative to decrement) to the counter under key
 // and returns its new value. A new counter starts at 0 and expires after
 // ttl ([Forever]: never); incrementing doesn't extend it, which makes

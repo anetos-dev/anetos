@@ -248,7 +248,6 @@ func (s *Server) commands(app *anetos.App) []cmd.Command {
 		},
 		{
 			Name:        "route:list",
-			Former:      []string{"routes:list"},
 			Usage:       "[--json]",
 			Description: "List the HTTP routes (--json: with their handlers, types and middleware)",
 			Run: func(ctx context.Context, args *cmd.Args) error {

@@ -10,7 +10,11 @@ All of Anetos's modules are released together, with one version:
 1. Read the upgrade guide of each minor version you move past:
    `go tool anetos docs upgrade` lists them (after the upgrade, they're
    at the new version; read the new release's notes too).
-2. Raise every Anetos module to the same version, the tool included:
+2. On the version the app has now, run `go fix ./...` first: it
+   rewrites calls to names that release deprecated, and those names are
+   removed in the next minor version, so `go fix` can't rewrite them
+   after the upgrade.
+3. Raise every Anetos module to the same version, the tool included:
 
    ```sh
    go get anetos.dev/anetos@vX.Y.Z anetos.dev/anetos/drivers/[[.DB]]@vX.Y.Z
@@ -20,9 +24,11 @@ All of Anetos's modules are released together, with one version:
 
    (and any other `anetos.dev/anetos/...` module in `go.mod`: admin,
    plugins, other drivers).
-3. `go fix ./...` rewrites calls to renamed APIs (they stay, deprecated,
-   for one minor version); fix what the compiler still reports, as the
-   upgrade guide says.
-4. `go tool anetos agent:update` refreshes these agent files, and
-   `go tool anetos doctor` reports renamed settings.
-5. `go tool anetos check`
+4. Run `go fix ./...` again for the names the new version deprecates,
+   and fix what the compiler still reports, as the upgrade guide says.
+   Rename the settings, commands and process types it lists, in the
+   `.env` files and the deploy files: the app refuses the old names,
+   naming the new ones.
+5. `go tool anetos agent:update` refreshes these agent files, and
+   `go tool anetos doctor` reports settings to rename.
+6. `go tool anetos check`

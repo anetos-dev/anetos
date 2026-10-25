@@ -152,15 +152,6 @@ func New(app *anetos.App) (*Scheduler, error) {
 	return s, nil
 }
 
-// ForApp is [New].
-//
-// Deprecated: Use New; ForApp is removed in v0.6.
-//
-//go:fix inline
-func ForApp(app *anetos.App) (*Scheduler, error) {
-	return New(app)
-}
-
 // booter checks the tasks and adds the scheduler's component when the app
 // boots.
 type booter struct{ s *Scheduler }
@@ -733,13 +724,8 @@ func (s *Scheduler) commands() []cmd.Command {
 		Name:        "schedule:run",
 		Description: "Run the tasks due this minute, once (for cron: * * * * * ./app schedule:run)",
 		Run: func(ctx context.Context, args *cmd.Args) error {
-			switch len(args.Args) {
-			case 0:
-			case 1: // v0.4's schedule:run <task>, until v0.6
-				fmt.Fprintf(args.Stderr, "schedule:run %s runs one task as schedule:test %s; with a task, schedule:run stops working in v0.6\n", args.Args[0], args.Args[0])
-				return runOne(ctx, s, args)
-			default:
-				return cmd.Usagef("schedule:run takes no arguments (schedule:test <task> runs one task)")
+			if len(args.Args) > 0 { // schedule:run <task> before v0.5 (D340)
+				return cmd.Usagef("schedule:run takes no arguments: schedule:test %s runs one task (schedule:run <task> was renamed in v0.5)", args.Args[0])
 			}
 			start, at := time.Now(), s.clock.Now()
 			if _, real := s.clock.(realClock); real {

@@ -39,7 +39,7 @@ type Config struct {
 	MaxBackoff time.Duration `env:"QUEUE_BACKOFF_MAX" default:"10m"`
 	// PollInterval is how long an idle worker waits before looking for jobs
 	// again. QUEUE_POLL_INTERVAL, default 1s.
-	PollInterval time.Duration `env:"QUEUE_POLL_INTERVAL" was:"QUEUE_POLL" default:"1s"`
+	PollInterval time.Duration `env:"QUEUE_POLL_INTERVAL" was:"QUEUE_POLL,removed" default:"1s"`
 	// Table is the database driver's table of jobs. QUEUE_TABLE, default
 	// jobs.
 	Table string `env:"QUEUE_TABLE" default:"jobs"`
@@ -197,15 +197,6 @@ func New(app *anetos.App, drivers ...Driver) (*Queue, error) {
 		app.OnShutdown("queue", func(context.Context) error { return store.Close() })
 	}
 	return q, nil
-}
-
-// ForApp is [New].
-//
-// Deprecated: Use New; ForApp is removed in v0.6.
-//
-//go:fix inline
-func ForApp(app *anetos.App, drivers ...Driver) (*Queue, error) {
-	return New(app, drivers...)
 }
 
 // addCommands adds the queue:* commands.

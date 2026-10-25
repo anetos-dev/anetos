@@ -1,5 +1,4 @@
 # The exported API of anetos.dev/anetos/drivers/gcs: make api-update writes it, make api-check (CI) compares it with the source.
-pkg anetos.dev/anetos/drivers/gcs, func ClientOptions(...option.ClientOption) Option
 pkg anetos.dev/anetos/drivers/gcs, func Driver(...Option) storage.Driver
 pkg anetos.dev/anetos/drivers/gcs, func New(context.Context, Config, ...Option) (*Backend, error)
 pkg anetos.dev/anetos/drivers/gcs, func WithClientOptions(...option.ClientOption) Option
@@ -11,7 +10,6 @@ pkg anetos.dev/anetos/drivers/gcs, method (*Backend) Delete(context.Context, str
 pkg anetos.dev/anetos/drivers/gcs, method (*Backend) List(context.Context, string) iter.Seq2[storage.FileInfo, error]
 pkg anetos.dev/anetos/drivers/gcs, method (*Backend) Open(context.Context, string) (storage.File, error)
 pkg anetos.dev/anetos/drivers/gcs, method (*Backend) Put(context.Context, string, io.Reader, storage.PutOptions) error
-pkg anetos.dev/anetos/drivers/gcs, method (*Backend) SignedURL(context.Context, string, time.Time) (string, error)
 pkg anetos.dev/anetos/drivers/gcs, method (*Backend) Stat(context.Context, string) (storage.FileInfo, error)
 pkg anetos.dev/anetos/drivers/gcs, method (*Backend) TemporaryURL(context.Context, string, time.Time) (string, error)
 pkg anetos.dev/anetos/drivers/gcs, type Backend struct

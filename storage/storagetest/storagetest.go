@@ -35,10 +35,6 @@ type Features struct {
 	// with URLs the test can fetch, which serve HTML, SVG and JavaScript
 	// as attachments.
 	TemporaryURLs bool
-	// SignedURLs is TemporaryURLs.
-	//
-	// Deprecated: Use TemporaryURLs; SignedURLs is removed in v0.6.
-	SignedURLs bool
 	// Client fetches temporary URLs. Default http.DefaultClient.
 	Client *http.Client
 }
@@ -66,7 +62,7 @@ func Run(t *testing.T, b storage.Backend, f Features) {
 		})
 	}
 	t.Run("ContentTypes", func(t *testing.T) { testContentTypes(t, context.Background(), b, prefix(), f) })
-	if f.TemporaryURLs || f.SignedURLs {
+	if f.TemporaryURLs {
 		client := f.Client
 		if client == nil {
 			client = http.DefaultClient
@@ -443,11 +439,8 @@ func testContentTypes(t *testing.T, ctx context.Context, b storage.Backend, p st
 
 func testTemporaryURLs(t *testing.T, ctx context.Context, b storage.Backend, p string, client *http.Client) {
 	urlOf := func(path string, expires time.Time) (string, error) {
-		switch s := b.(type) {
-		case storage.TemporaryURLBackend:
+		if s, ok := b.(storage.TemporaryURLBackend); ok {
 			return s.TemporaryURL(ctx, path, expires)
-		case storage.URLSigner: //nolint:staticcheck // the interface before v0.5, until v0.6
-			return s.SignedURL(ctx, path, expires)
 		}
 		t.Fatal("the backend isn't a storage.TemporaryURLBackend")
 		return "", nil

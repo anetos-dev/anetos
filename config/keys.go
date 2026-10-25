@@ -23,6 +23,9 @@ type Key struct {
 	// Was is the key's former name (a was tag), still read when the key
 	// is unset: "DB_USER".
 	Was string
+	// Removed is the key's former name when it is no longer read (a
+	// `was:"OLD,removed"` tag): Bind refuses it when the key is unset.
+	Removed string
 }
 
 // Keys lists the keys [Bind] would read into the struct dst points to
@@ -71,10 +74,18 @@ func keysOf(t reflect.Type, prefix, path string, keys *[]Key, errs *[]error, vis
 			continue
 		}
 		def, hasDef := sf.Tag.Lookup("default")
-		was := sf.Tag.Get("was")
+		was, removed, err := parseWasTag(sf.Tag.Get("was"))
+		if err != nil {
+			*errs = append(*errs, &FieldError{Key: prefix + name, Field: fieldPath, Err: err})
+			continue
+		}
 		if was != "" {
 			was = prefix + was
 		}
-		*keys = append(*keys, Key{Name: prefix + name, Field: fieldPath, Default: def, HasDefault: hasDef, Required: required, Was: was})
+		k := Key{Name: prefix + name, Field: fieldPath, Default: def, HasDefault: hasDef, Required: required, Was: was}
+		if removed {
+			k.Was, k.Removed = "", was
+		}
+		*keys = append(*keys, k)
 	}
 }

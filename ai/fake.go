@@ -95,13 +95,6 @@ func (f *Fake) EmbedRequests() []EmbedRequest {
 	return slices.Clone(f.embeds)
 }
 
-// Embeddings is [Fake.EmbedRequests].
-//
-// Deprecated: Use EmbedRequests; Embeddings is removed in v0.6.
-//
-//go:fix inline
-func (f *Fake) Embeddings() []EmbedRequest { return f.EmbedRequests() }
-
 // Remaining returns the number of replies not used yet.
 func (f *Fake) Remaining() int {
 	f.mu.Lock()
