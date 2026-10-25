@@ -11,8 +11,9 @@ weight: 804
 (SQL built from request data, a redirect to a URL from the request, a
 secret written in a file), its dependencies (known vulnerabilities, with
 govulncheck), its routes (a form's route without CSRF protection, an
-admin page anyone can open) and its settings (session cookies sent over
-plain HTTP, mail in plain text). Each finding says where it is (a line
+admin page anyone can open), its settings (session cookies sent over
+plain HTTP, mail in plain text) and, with `--url`, the running site
+(missing security headers, a `.env` served to anyone). Each finding says where it is (a line
 of your code, or a setting), why it matters and how to fix it. The
 report comes as text, JSON, SARIF (for GitHub's code scanning) or
 Markdown.
@@ -153,6 +154,42 @@ Files in the report are relative to the repository's root, also when
 `go.mod` is in a folder of it. `--format=json` gives one object to read
 in a script, and `--format=markdown` a table for an issue or a review.
 `--out=FILE` writes the report to a file (`-`: the standard output).
+
+### 6. Check the running site
+
+`--url` adds checks of the deployed site, from outside: the headers and
+cookies of its page, its certificate, the redirect from `http://`,
+files it mustn't serve (`/.env`, `/.git/`, `/debug/pprof/`) and stack
+traces in its error pages; at the advanced level, CORS, `TRACE`, version
+headers and a certificate about to expire. It sends 24 requests at
+most (usually about 15): `GET`, a TLS handshake offering only old
+versions and, at the advanced level, one `TRACE`, with no attack in them
+and a User-Agent that names it, within a minute. It reads logged-out
+pages only, and refuses a URL with a user or password. It follows
+redirects on the same host (`http://` to `https://`, `/` to `/en/`) and
+scans from the page it lands on; a redirect to another host (the apex to
+`www.`) stops it, saying which address to scan.
+
+```bash
+go tool anetos security:check --url=https://blog.example.com
+```
+
+It scans only the project's own site: `APP_URL`'s host (from the
+environment, else `.env`) or localhost; `--allow-host=HOST` adds one
+(a staging host, say). Scan only sites that are yours. `.env` on your
+machine has `APP_URL=http://localhost:8080`: set the production
+`APP_URL` in the environment for the command, or add the host with
+`--allow-host`. In a project, the
+other checks run too; `--live-only`, or a folder outside a project, runs
+the site's checks alone, without `.env` or a build, as a CI job after a
+deploy:
+
+```yaml
+# illustrative: a step after the deploy
+- run: go tool anetos security:check --url=https://blog.example.com --live-only --strict
+  env:
+    APP_URL: https://blog.example.com
+```
 
 ## The rules
 
@@ -398,6 +435,82 @@ says which), or build with the Go release that fixed it. When
 govulncheck can't reach the database, or doesn't finish in 5 minutes,
 a note says so; when it fails otherwise, a warning. A03:2025 Software Supply Chain Failures.
 
+### `live.headers`
+
+The site's page (after its redirects on the same host; a redirect's
+own headers aren't judged) without
+`Strict-Transport-Security` (on https), `X-Content-Type-Options:
+nosniff` or protection from framing (`X-Frame-Options`, or a CSP's
+`frame-ancestors`), warnings; without `Referrer-Policy` or a
+`Content-Security-Policy`, notes. `web.SecureHeaders` sends all but the
+CSP: a header missing usually means a proxy or another server answers.
+**Fix:** send them ([Secure your app](security.md#5-add-a-content-security-policy) for a CSP). A02:2025.
+
+### `live.cookie`
+
+A cookie without `Secure` on an https site (a problem for a session or
+login cookie, else a warning), a session cookie without `HttpOnly`
+(warning), `SameSite=None` without `Secure` (problem; not on
+localhost). A session cookie is told by its name (`session`, `sid`,
+`auth`, `token`, `remember`…; not `XSRF-TOKEN` or `csrftoken`, which
+scripts read on purpose). **Fix:**
+`SESSION_SECURE=true`, and the flags on your own cookies. A07:2025.
+
+### `live.tls`
+
+A certificate that doesn't verify, or a site that offers only TLS older
+than 1.2 (the scan stops there), or one that completes a handshake with
+TLS 1.0 or 1.1 besides newer versions. Problem; A04:2025.
+
+### `live.https`
+
+The site served over plain `http://`, or its `http://` address serving
+pages instead of redirecting to `https://` (a redirect elsewhere is a
+warning). Localhost is left alone. Problem; A04:2025.
+
+### `live.exposed`
+
+The site serves `/.env`, `/.env.production`, `/.git/config`,
+`/.git/HEAD`, `/debug/pprof/` or `/debug/vars`, recognized by their
+content (a page that answers every path isn't a finding). **Fix:** stop
+serving them, block dotfiles and `/debug/` at the proxy, and change the
+secrets they held. Problem; A02:2025.
+
+### `live.debug`
+
+An error page with a Go stack trace: `where` is `404 page` (a path that
+doesn't exist) or `malformed path`. **Fix:** turn `APP_DEBUG` off where others reach the app.
+Problem; A02:2025.
+
+### `live.unchecked`
+
+In a project, `--url`'s site didn't answer, or sent its page to another
+host: the rest of the report stands, and this warning says the site
+wasn't checked. (With `--live-only`, the command fails instead.)
+A02:2025.
+
+### `live.cors`
+
+Advanced. The site echoes a foreign `Origin` in
+`Access-Control-Allow-Origin`: with `Access-Control-Allow-Credentials:
+true`, a problem (any site can act as the logged-in user); without, a
+warning. **Fix:** `HTTP_CORS_ORIGINS` with your own origins. A02:2025.
+
+### `live.trace`
+
+Advanced. The site answers `TRACE`, echoing the request's headers.
+**Fix:** turn it off at the proxy. Warning; A02:2025.
+
+### `live.version`
+
+Advanced. `Server`, `X-Powered-By` or `X-AspNet-Version` with a
+version (`nginx/1.18.0`). **Fix:** hide it at the proxy. Note; A02:2025.
+
+### `live.cert-expiry`
+
+Advanced. The certificate expires within 30 days. **Fix:** renew it,
+and make renewing automatic. Warning; A04:2025.
+
 ### Other findings
 
 - `check.<name>`: a finding of a doctor check marked `Security: true`
@@ -431,7 +544,7 @@ and a doctor check marked `Security: true` has its findings in the
 report too (as `check.<name>`). A rule's `Level` is
 `anetos.SecurityBasic` (the default) or `anetos.SecurityAdvanced`. Name
 your rules after your app or plugin (`billing.…`): `route.`, `setting.`,
-`source.`, `dependency.`, `check.` and `ignore.` are the framework's.
+`source.`, `dependency.`, `live.`, `check.` and `ignore.` are the framework's.
 See the [CLI reference](../reference/cli.md#app-binary-commands).
 
 ## How it works
@@ -467,6 +580,8 @@ and review.
 | `the project doesn't build` | The code rules need the project's packages to type-check | Fix the build (`go build ./...`) |
 | `the known vulnerabilities weren't checked` | govulncheck couldn't reach vuln.go.dev | Run it where it has the network; `--no-vuln` to skip it |
 | A finding on code that is safe | The rule can't see the check: it's in another function, or not one of the forms it knows | Check in the same function (a `switch` or `slices.Contains` against constants, a map of allowed values), or ignore it in `security-ignore.yaml` with the reason |
+| `not a host this project serves` | `--url`'s host isn't `APP_URL`'s (on your machine, `.env`'s is localhost's) | Set `APP_URL` for the command (in CI, in the step's environment), or add the host with `--allow-host` if it's yours |
+| `redirects to www.…: scan that address` | The address you gave sends its pages to another host | Scan that address, with `--allow-host` for its host |
 | `there's no .env` | The tool needs the app's settings to boot it | `cp .env.example .env && go tool anetos key:generate`, or set `APP_ENV` and `APP_KEY` |
 | `field wher not found` | A key of `security-ignore.yaml` misspelled | Use `rule`, `where`, `reason` and `expires` |
 | `has no reason` | An entry of `security-ignore.yaml` without `reason:` | Say why the finding is safe to leave |

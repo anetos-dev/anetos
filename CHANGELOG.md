@@ -66,6 +66,13 @@ All notable changes to this project are documented here. The format follows
   records loaded by ID without an access check, and SQL built from
   non-constant strings; and govulncheck, built in (`--no-vuln` skips
   it). Its findings join the app's report (the app's `--findings`).
+- `go tool anetos security:check --url=URL` checks the running site too
+  (SC1c, D330): security headers, cookie flags, TLS, the redirect to
+  HTTPS, `/.env`, `/.git/` and `/debug/` served, stack traces in error
+  pages; advanced: CORS echoing any origin, `TRACE`, version headers,
+  certificates about to expire. Only `APP_URL`'s host or localhost,
+  unless `--allow-host`; `--live-only` (or outside a project) scans the
+  site alone, without `.env` or a build, for CI after a deploy.
 - `ai.Dimensions(n)`; `db.WatchBulkValues(n)`; `HTTPError.Is`, so a
   wrapped sentinel still matches (`errors.Is(web.ErrCSRF.Wrap(err),
   web.ErrCSRF)`) (M8b-5, D316).

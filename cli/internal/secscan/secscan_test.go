@@ -138,8 +138,8 @@ func TestRulesDocumented(t *testing.T) {
 			t.Errorf("rule %+v", r)
 		}
 	}
-	if n := len(ruleList(Basic)); n != 8 {
-		t.Errorf("%d basic rules, want 8", n)
+	if n := len(ruleList(Basic)); n != 15 {
+		t.Errorf("%d basic rules, want 15", n)
 	}
 }
 

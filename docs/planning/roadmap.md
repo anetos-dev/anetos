@@ -571,6 +571,7 @@ installed from the module proxy.
 | AX1b-2 Coding agents: the MCP server | ✅ Done 2026-10-24 (design §17.1, D327): `go tool anetos mcp` (stdio, the official Go SDK in `cli`): `docs_list`, `docs_read`, `docs_search`, `model_list`, `app_about`, `route_list`, `db_schema`, `migrate_status`, `command_list`, `check`, `doctor`, read and check only; `anetos new` and `agent:install` add it to `.mcp.json`, `.vscode/mcp.json`, `.cursor/mcp.json`, `.gemini/settings.json` and `.codex/config.toml`, keeping other servers |
 | SC1a Security check: settings and routes | ✅ Done 2026-10-25 (design §20, D328): `./app security:check` and `go tool anetos security:check`: the doctor's security findings (`Finding.Rule`, `Check.Security`) and the route rules (`route.csrf`, `route.login`, `route.debug`, `route.rate-limit`, advanced `route.api-auth`) and `setting.log-level`, each finding with its place (routes record their file and line), fix and OWASP category; text, JSON, SARIF and Markdown; `security-ignore.yaml`; `route.Public(reason)`; `App.AddSecurityRule` and `web.RouteRule` for apps' and plugins' rules |
 | SC1b Security check: code and dependencies | ✅ Done 2026-10-25 (design §20, D329): the tool's `security:check` checks the code (a go/analysis analyzer: request data to SQL, HTML, redirects, commands; `InsecureSkipVerify`, `math/rand` for secrets; advanced: paths, outgoing URLs, models bound from requests, records loaded without an access check, built SQL), secrets in the files, and govulncheck built in, and passes them to the app's report (`--findings`); `doctor --vuln` uses the built-in govulncheck |
+| SC1c Security check: the running site | ✅ Done 2026-10-25 (design §20, D330): `security:check --url=URL` checks the deployed site from outside (headers, cookies, TLS, HTTPS, exposed files, stack traces; advanced: CORS, TRACE, versions, certificate expiry), on `APP_URL`'s host or localhost unless `--allow-host`; `--live-only` for CI after a deploy |
 
 ---
 
@@ -754,3 +755,4 @@ something, and we fix the API rather than add the hook.
 | 2026-10-24 | AX1b-2 done (design D327) |
 | 2026-10-25 | SC1a done (design D328) |
 | 2026-10-25 | SC1b done (design D329) |
+| 2026-10-25 | SC1c done (design D330) |

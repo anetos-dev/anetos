@@ -6,22 +6,14 @@ import (
 	"bytes"
 	"cmp"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"regexp"
 	"slices"
-	"strings"
 	"time"
-
-	"go.yaml.in/yaml/v3"
 
 	"anetos.dev/anetos/cmd"
 	"anetos.dev/anetos/internal/securitycheck"
@@ -122,8 +114,6 @@ var settingRules = map[string]SecurityRule{
 	"setting.log-level":         {Summary: "Debug logs where the app is deployed", OWASP: OWASPLogging},
 }
 
-var ruleID = regexp.MustCompile(`^[a-z][a-z0-9-]*(\.[a-z0-9][a-z0-9-]*)+$`)
-
 // AddSecurityRule adds a rule to the app's security:check command:
 //
 //	app.AddSecurityRule(anetos.SecurityRule{ID: "billing.test-mode", Summary: "Billing in test mode in production",
@@ -140,7 +130,7 @@ var ruleID = regexp.MustCompile(`^[a-z][a-z0-9-]*(\.[a-z0-9][a-z0-9-]*)+$`)
 // case, dotted) or a Run function, or with an ID already added, which
 // is a programming error.
 func (a *App) AddSecurityRule(r SecurityRule) {
-	if !ruleID.MatchString(r.ID) || r.Run == nil {
+	if !securitycheck.RuleID.MatchString(r.ID) || r.Run == nil {
 		panic(fmt.Sprintf("anetos: AddSecurityRule needs an ID such as \"billing.test-mode\" and a Run function (got %q)", r.ID))
 	}
 	a.cmdMu.Lock()
@@ -151,151 +141,24 @@ func (a *App) AddSecurityRule(r SecurityRule) {
 	a.rules = append(a.rules, r)
 }
 
-// ignoreEntry is an entry of security-ignore.yaml.
-type ignoreEntry struct {
-	Rule    string `yaml:"rule"`
-	Where   string `yaml:"where,omitempty"`
-	Reason  string `yaml:"reason"`
-	Expires string `yaml:"expires,omitempty"`
-
-	line    int       // the entry's line in the file
-	expires time.Time // the end of its last day, in the app's time zone
-	used    int       // findings it ignored
-	expired int       // findings it matched after it expired
-}
-
-// matches reports whether the entry ignores f.
-func (e *ignoreEntry) matches(f SecurityFinding) bool {
-	return e.Rule == f.Rule && (e.Where == "" || e.Where == f.Where)
-}
-
-// over reports whether the entry has expired at now.
-func (e *ignoreEntry) over(now time.Time) bool {
-	return !e.expires.IsZero() && !now.Before(e.expires)
-}
-
-// describe names the entry's findings: "route.csrf at POST /import".
-func (e *ignoreEntry) describe() string {
-	if e.Where != "" {
-		return e.Rule + " at " + e.Where
-	}
-	return e.Rule
-}
-
-// ignoreFile is the default file of ignored findings.
-const ignoreFile = "security-ignore.yaml"
-
-// readIgnores reads the ignore file: a missing file is none, unless it
-// was named. A key it doesn't know (a typo of where or expires, which
-// would ignore more, for longer) is an error. An entry expires at the
-// end of its day in loc.
-func readIgnores(path string, named bool, loc *time.Location) ([]*ignoreEntry, error) {
-	b, err := os.ReadFile(path)
-	if errors.Is(err, os.ErrNotExist) && !named {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	var entries []*ignoreEntry
-	dec := yaml.NewDecoder(bytes.NewReader(b))
-	dec.KnownFields(true)
-	if err := dec.Decode(&entries); err != nil && !errors.Is(err, io.EOF) {
-		return nil, fmt.Errorf("%s: %w (a list of entries with rule, where, reason and expires)", path, err)
-	}
-	var doc yaml.Node // the entries' lines, for SARIF
-	_ = yaml.Unmarshal(b, &doc)
-	for i, e := range entries {
-		switch {
-		case e == nil || e.Rule == "":
-			return nil, fmt.Errorf("%s: entry %d has no rule", path, i+1)
-		case strings.TrimSpace(e.Reason) == "":
-			return nil, fmt.Errorf("%s: entry %d (%s) has no reason: say why the finding is safe to ignore", path, i+1, e.Rule)
-		case e.Expires != "":
-			t, err := time.ParseInLocation(time.DateOnly, e.Expires, loc)
-			if err != nil {
-				return nil, fmt.Errorf("%s: entry %d (%s): expires %q isn't a date (2027-01-31)", path, i+1, e.Rule, e.Expires)
-			}
-			e.expires = t.AddDate(0, 0, 1)
-		}
-		e.line = 1
-		if len(doc.Content) == 1 && i < len(doc.Content[0].Content) {
-			e.line = doc.Content[0].Content[i].Line
-		}
-	}
-	return entries, nil
-}
-
-// toolFindings are findings the anetos tool adds (--findings): its rules
-// about the project's code and dependencies, which it checks itself.
-type toolFindings struct {
-	Rules []struct {
-		ID      string `json:"id"`
-		Summary string `json:"summary"`
-		OWASP   string `json:"owasp"`
-		Docs    string `json:"docs"`
-	} `json:"rules"`
-	Findings []SecurityFinding `json:"findings"`
-}
-
-// readToolFindings reads a --findings file.
-func readToolFindings(path string) (toolFindings, error) {
-	var t toolFindings
-	b, err := os.ReadFile(path)
-	if err != nil {
-		return t, err
-	}
-	if err := json.Unmarshal(b, &t); err != nil {
-		return t, fmt.Errorf("%s: %w", path, err)
-	}
-	for _, f := range t.Findings {
-		if !ruleID.MatchString(f.Rule) {
-			return t, fmt.Errorf("%s: a finding's rule %q isn't a rule's name", path, f.Rule)
-		}
-	}
-	return t, nil
-}
-
-// securityReport is the result of a security check.
-type securityReport struct {
-	App      string            `json:"app"`
-	Env      string            `json:"env"`
-	Level    string            `json:"level"`
-	Findings []SecurityFinding `json:"findings"`
-	Ignored  []ignoredFinding  `json:"ignored"`
-	Summary  map[string]int    `json:"summary"`
-	Limits   string            `json:"limits"`
-
-	rules      map[string]SecurityRule
-	ignoreFile string         // the file of ignored findings, as named
-	ignoreLine map[string]int // ignore.* findings' lines in it, by Where+Message
-}
-
-type ignoredFinding struct {
-	SecurityFinding
-	Reason string `json:"reason"`
-}
-
-// securityLimits says what a clean report means.
-const securityLimits = "None of these rules finding anything doesn't make the app secure: who may read or change whose records, business logic and the code itself need tests and review."
-
-// securityCheck runs the security checks and rules of the booted app.
-func (a *App) securityCheck(ctx context.Context, level SecurityLevel, ignorePath string, ignores []*ignoreEntry, extra toolFindings, now time.Time) securityReport {
+// securityCheck runs the security checks and rules of the booted app,
+// adds the tool's findings (extra), and applies the ignore entries.
+func (a *App) securityCheck(ctx context.Context, level SecurityLevel, ignorePath string, ignores []*securitycheck.IgnoreEntry,
+	extra securitycheck.ToolFindings, now time.Time) securitycheck.Report {
 	a.cmdMu.Lock()
 	checks := slices.Clone(a.checks)
 	rules := slices.Clone(a.rules)
 	a.cmdMu.Unlock()
-	rep := securityReport{App: a.cfg.Name, Env: string(a.cfg.Env), Level: level.String(), Findings: []SecurityFinding{}, Ignored: []ignoredFinding{},
-		Summary: map[string]int{}, Limits: securityLimits, rules: map[string]SecurityRule{}, ignoreFile: ignorePath, ignoreLine: map[string]int{}}
-	ruleFor := func(id string) SecurityRule {
-		if r, ok := rep.rules[id]; ok {
+	rep := securitycheck.Report{App: a.cfg.Name, Env: string(a.cfg.Env), Level: level.String(), Limits: securitycheck.Limits,
+		Rules: map[string]securitycheck.Rule{}, IgnoreFile: ignorePath, Version: Version()}
+	ruleFor := func(id string) securitycheck.Rule {
+		if r, ok := rep.Rules[id]; ok {
 			return r
 		}
 		if r, ok := settingRules[id]; ok {
-			r.ID, r.Docs = id, securitycheck.RuleDocs(id)
-			return r
+			return securitycheck.Rule{ID: id, Summary: r.Summary, OWASP: r.OWASP, Docs: securitycheck.RuleDocs(id)}
 		}
-		return SecurityRule{ID: id, OWASP: OWASPMisconfiguration} // check.<name>, check.panic
+		return securitycheck.Rule{ID: id, OWASP: OWASPMisconfiguration} // check.<name>, check.panic
 	}
 	var found []SecurityFinding
 	safely := func(name string, run func() []SecurityFinding) {
@@ -327,7 +190,7 @@ func (a *App) securityCheck(ctx context.Context, level SecurityLevel, ignorePath
 		if r.Level > level {
 			continue
 		}
-		rep.rules[r.ID] = r
+		rep.Rules[r.ID] = securitycheck.Rule{ID: r.ID, Summary: r.Summary, OWASP: r.OWASP, Docs: r.Docs}
 		safely(r.ID, func() []SecurityFinding {
 			out := r.Run(base, a)
 			for i := range out {
@@ -337,69 +200,21 @@ func (a *App) securityCheck(ctx context.Context, level SecurityLevel, ignorePath
 		})
 	}
 	for _, r := range extra.Rules {
-		rep.rules[r.ID] = SecurityRule{ID: r.ID, Summary: r.Summary, OWASP: r.OWASP, Docs: r.Docs}
+		rep.Rules[r.ID] = r
 	}
-	found = append(found, extra.Findings...)
-	for i := range found {
-		r := ruleFor(found[i].Rule)
-		rep.rules[r.ID] = r
-		found[i].OWASP = cmp.Or(found[i].OWASP, r.OWASP)
-		found[i].File = securitycheck.Rel(found[i].File)
-	}
+	all := make([]securitycheck.Finding, 0, len(found)+len(extra.Findings))
 	for _, f := range found {
-		// The first entry that matches and hasn't expired; when there's
-		// none, the expired ones that match say so.
-		var by *ignoreEntry
-		var expired []*ignoreEntry
-		for _, e := range ignores {
-			if !e.matches(f) {
-				continue
-			}
-			if !e.over(now) {
-				by = e
-				break
-			}
-			expired = append(expired, e)
-		}
-		if by != nil {
-			by.used++
-			rep.Ignored = append(rep.Ignored, ignoredFinding{f, by.Reason})
-			continue
-		}
-		for _, e := range expired {
-			e.expired++
-		}
-		rep.Findings = append(rep.Findings, f)
+		all = append(all, securitycheck.Finding{Rule: f.Rule, Severity: securitycheck.Severity(f.Severity), Where: f.Where, File: f.File,
+			Line: f.Line, Message: f.Message, OWASP: f.OWASP})
 	}
-	for _, e := range ignores {
-		var f SecurityFinding
-		switch {
-		case e.used > 0:
-			continue
-		case e.expired > 0:
-			f = SecurityFinding{Rule: "ignore.expired", Severity: Warning,
-				Message: fmt.Sprintf("the entry for %s expired on %s: its finding is reported again; fix it, or renew the entry with a reason", e.describe(), e.Expires)}
-		case e.over(now):
-			f = SecurityFinding{Rule: "ignore.unused", Severity: Note,
-				Message: fmt.Sprintf("the entry for %s expired on %s and matches no finding (at this level): remove it", e.describe(), e.Expires)}
-		default:
-			f = SecurityFinding{Rule: "ignore.unused", Severity: Note,
-				Message: fmt.Sprintf("the entry for %s matches no finding (at this level): remove it if it's fixed", e.describe())}
-		}
-		f.Where = ignorePath
-		rep.ignoreLine[f.Where+f.Message] = e.line
-		rep.Findings = append(rep.Findings, f)
+	all = append(all, extra.Findings...)
+	for i := range all {
+		r := ruleFor(all[i].Rule)
+		rep.Rules[r.ID] = r
+		all[i].OWASP = cmp.Or(all[i].OWASP, r.OWASP)
+		all[i].File = securitycheck.Rel(all[i].File)
 	}
-	slices.SortStableFunc(rep.Findings, func(x, y SecurityFinding) int {
-		return cmp.Or(cmp.Compare(y.Severity, x.Severity), cmp.Compare(x.Rule, y.Rule), cmp.Compare(x.Where, y.Where))
-	})
-	for _, f := range rep.Findings {
-		rep.Summary[f.Severity.String()+"s"]++
-	}
-	for _, k := range []string{"problems", "warnings", "notes"} {
-		rep.Summary[k] += 0
-	}
-	rep.Summary["ignored"] = len(rep.Ignored)
+	rep.Finish(all, ignores, now)
 	return rep
 }
 
@@ -424,7 +239,7 @@ func (a *App) securityCommand() cmd.Command {
 			levelName := fs.String("level", "basic", "basic (high confidence) or advanced (adds rules that need a look)")
 			format := fs.String("format", "text", "text, json, sarif (GitHub code scanning) or markdown")
 			out := fs.String("out", "", "write the report to this file instead of the standard output (-: the standard output)")
-			ignore := fs.String("ignore", "", "the file of ignored findings (default "+ignoreFile+")")
+			ignore := fs.String("ignore", "", "the file of ignored findings (default "+securitycheck.DefaultIgnoreFile+")")
 			strict := fs.Bool("strict", false, "exit 1 on warnings too")
 			findings := fs.String("findings", "", "a file of findings to add to the report (the anetos tool's, about the code)")
 			if err := args.Parse(fs); err != nil {
@@ -441,20 +256,19 @@ func (a *App) securityCommand() cmd.Command {
 			default:
 				return cmd.Usagef("--level is basic or advanced, not %q", *levelName)
 			}
-			write := map[string]func(io.Writer, securityReport) error{"text": writeSecurityText, "json": writeSecurityJSON,
-				"sarif": writeSecuritySARIF, "markdown": writeSecurityMarkdown}[*format]
+			write := securitycheck.Formats[*format]
 			if write == nil {
 				return cmd.Usagef("--format is text, json, sarif or markdown, not %q", *format)
 			}
 			now := a.Now()
-			ignorePath := cmp.Or(*ignore, ignoreFile)
-			ignores, err := readIgnores(ignorePath, *ignore != "", now.Location())
+			ignorePath := cmp.Or(*ignore, securitycheck.DefaultIgnoreFile)
+			ignores, err := securitycheck.ReadIgnores(ignorePath, *ignore != "", now.Location())
 			if err != nil {
 				return err
 			}
-			var extra toolFindings
+			var extra securitycheck.ToolFindings
 			if *findings != "" {
-				if extra, err = readToolFindings(*findings); err != nil {
+				if extra, err = securitycheck.ReadToolFindings(*findings); err != nil {
 					return err
 				}
 			}
@@ -467,239 +281,16 @@ func (a *App) securityCommand() cmd.Command {
 				if err := os.WriteFile(*out, buf.Bytes(), 0o644); err != nil {
 					return err
 				}
-				fmt.Fprintf(args.Stdout, "Wrote %s: %s.\n", *out, summaryLine(rep))
+				fmt.Fprintf(args.Stdout, "Wrote %s: %s.\n", *out, rep.SummaryLine())
 			} else if _, err := args.Stdout.Write(buf.Bytes()); err != nil {
 				return err
 			}
 			if rep.Summary["problems"] > 0 || *strict && rep.Summary["warnings"] > 0 {
-				return errors.New(summaryLine(rep))
+				return errors.New(rep.SummaryLine())
 			}
 			return nil
 		},
 	}
-}
-
-func summaryLine(rep securityReport) string {
-	s := fmt.Sprintf("%s, %s, %s", plural(rep.Summary["problems"], "problem"), plural(rep.Summary["warnings"], "warning"), plural(rep.Summary["notes"], "note"))
-	if n := rep.Summary["ignored"]; n > 0 {
-		s += fmt.Sprintf("; %d ignored (%s)", n, rep.ignoreFile)
-	}
-	return s
-}
-
-func place(f SecurityFinding) string {
-	p := f.Where
-	if f.File != "" {
-		p += fmt.Sprintf("  %s:%d", f.File, f.Line)
-	}
-	return p
-}
-
-func writeSecurityText(w io.Writer, rep securityReport) error {
-	fmt.Fprintf(w, "Security check of %s (APP_ENV=%s, level %s).\n", rep.App, rep.Env, rep.Level)
-	if env := Environment(rep.Env); !env.Deployed() {
-		fmt.Fprintln(w, "The settings' rules apply to production and staging: run it with those settings too (on the server, or APP_ENV=production with them).")
-	}
-	for _, f := range rep.Findings {
-		fmt.Fprintf(w, "\n%-8s %s  %s\n", f.Severity, f.Rule, place(f))
-		fmt.Fprintf(w, "         %s\n", f.Message)
-		info := []string{}
-		if f.OWASP != "" {
-			info = append(info, f.OWASP)
-		}
-		if d := rep.rules[f.Rule].Docs; d != "" {
-			info = append(info, d)
-		}
-		if len(info) > 0 {
-			fmt.Fprintf(w, "         %s\n", strings.Join(info, " · "))
-		}
-	}
-	if len(rep.Ignored) > 0 {
-		fmt.Fprintf(w, "\nIgnored (%s):\n", rep.ignoreFile)
-		for _, f := range rep.Ignored {
-			fmt.Fprintf(w, "  %s  %s: %s\n", f.Rule, place(f.SecurityFinding), f.Reason)
-		}
-	}
-	fmt.Fprintf(w, "\n%s.\n%s\n", summaryLine(rep), rep.Limits)
-	return nil
-}
-
-func writeSecurityJSON(w io.Writer, rep securityReport) error {
-	type finding struct {
-		SecurityFinding
-		Docs string `json:"docs,omitempty"`
-	}
-	out := struct {
-		securityReport
-		Findings []finding `json:"findings"`
-	}{securityReport: rep, Findings: []finding{}}
-	for _, f := range rep.Findings {
-		out.Findings = append(out.Findings, finding{f, rep.rules[f.Rule].Docs})
-	}
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
-	return enc.Encode(out)
-}
-
-func writeSecurityMarkdown(w io.Writer, rep securityReport) error {
-	fmt.Fprintf(w, "## Security check of %s\n\n`APP_ENV=%s`, level %s: %s.\n\n", rep.App, rep.Env, rep.Level, summaryLine(rep))
-	md := strings.NewReplacer("|", `\|`, "\n", " ")
-	if len(rep.Findings) > 0 {
-		fmt.Fprintln(w, "| Severity | Rule | Where | Finding |")
-		fmt.Fprintln(w, "|---|---|---|---|")
-		for _, f := range rep.Findings {
-			rule := "`" + f.Rule + "`"
-			if d := rep.rules[f.Rule].Docs; d != "" {
-				rule = "[" + rule + "](" + d + ")"
-			}
-			fmt.Fprintf(w, "| %s | %s | %s | %s |\n", f.Severity, rule, md.Replace(place(f)), md.Replace(f.Message+cond(f.OWASP != "", " ("+f.OWASP+")", "")))
-		}
-		fmt.Fprintln(w)
-	}
-	if len(rep.Ignored) > 0 {
-		fmt.Fprintf(w, "Ignored (`%s`):\n\n", rep.ignoreFile)
-		for _, f := range rep.Ignored {
-			fmt.Fprintf(w, "- `%s` at %s: %s\n", f.Rule, md.Replace(place(f.SecurityFinding)), md.Replace(f.Reason))
-		}
-		fmt.Fprintln(w)
-	}
-	fmt.Fprintf(w, "_%s_\n", rep.Limits)
-	return nil
-}
-
-func cond(c bool, a, b string) string {
-	if c {
-		return a
-	}
-	return b
-}
-
-// writeSecuritySARIF writes the report as SARIF 2.1.0, for GitHub's
-// code scanning: a route's finding at the line that registered it, a
-// setting's at its line in .env.example (else go.mod's first line), an
-// ignore entry's at its line. Files are relative to the repository's
-// root (%SRCROOT%) when the module is in a git repository.
-func writeSecuritySARIF(w io.Writer, rep securityReport) error {
-	type region struct {
-		StartLine int `json:"startLine"`
-	}
-	type artifact struct {
-		URI       string `json:"uri"`
-		URIBaseID string `json:"uriBaseId,omitempty"`
-	}
-	type location struct {
-		Physical struct {
-			Artifact artifact `json:"artifactLocation"`
-			Region   region   `json:"region"`
-		} `json:"physicalLocation"`
-	}
-	type text struct {
-		Text string `json:"text"`
-	}
-	type rule struct {
-		ID         string         `json:"id"`
-		Short      text           `json:"shortDescription"`
-		HelpURI    string         `json:"helpUri,omitempty"`
-		Properties map[string]any `json:"properties"`
-	}
-	type result struct {
-		RuleID       string            `json:"ruleId"`
-		RuleIndex    int               `json:"ruleIndex"`
-		Level        string            `json:"level"`
-		Message      text              `json:"message"`
-		Locations    []location        `json:"locations"`
-		Fingerprints map[string]string `json:"partialFingerprints"`
-	}
-	levels := map[Severity]string{Problem: "error", Warning: "warning", Note: "note"}
-	// GitHub ranks security alerts by the rule's security-severity: the
-	// worst of its findings here.
-	scores := map[Severity]string{Problem: "8.0", Warning: "5.0", Note: "2.0"}
-	root := securitycheck.ModuleRoot()
-	prefix := securitycheck.RepoPrefix()
-	env, _ := os.ReadFile(filepath.Join(root, ".env.example"))
-	at := func(file string, line int) location {
-		var loc location
-		switch {
-		case filepath.IsAbs(file): // outside the module (the module cache)
-			uri := filepath.ToSlash(file)
-			if !strings.HasPrefix(uri, "/") {
-				uri = "/" + uri // C:/…
-			}
-			loc.Physical.Artifact = artifact{URI: "file://" + uri}
-		default:
-			loc.Physical.Artifact = artifact{URI: prefix + file, URIBaseID: "%SRCROOT%"}
-		}
-		loc.Physical.Region.StartLine = max(line, 1)
-		return loc
-	}
-	rules := []rule{}
-	index := map[string]int{}
-	worst := map[string]Severity{}
-	results := []result{}
-	for _, f := range rep.Findings {
-		if _, ok := index[f.Rule]; !ok {
-			index[f.Rule] = len(rules)
-			r := rep.rules[f.Rule]
-			tags := []string{"security"}
-			if owasp := cmp.Or(r.OWASP, f.OWASP); owasp != "" {
-				tags = append(tags, owasp)
-			}
-			rules = append(rules, rule{ID: f.Rule, Short: text{cmp.Or(r.Summary, f.Rule)}, HelpURI: r.Docs, Properties: map[string]any{"tags": tags}})
-			worst[f.Rule] = f.Severity
-		}
-		worst[f.Rule] = max(worst[f.Rule], f.Severity)
-		var loc location
-		switch {
-		case f.File != "":
-			loc = at(f.File, f.Line)
-		case strings.HasPrefix(f.Rule, "ignore."):
-			file := f.Where
-			if abs, err := filepath.Abs(file); err == nil {
-				file = securitycheck.Rel(abs)
-			}
-			loc = at(file, rep.ignoreLine[f.Where+f.Message])
-		case len(env) > 0 && lineOf(env, f.Where+"=") > 0:
-			loc = at(".env.example", lineOf(env, f.Where+"="))
-		default:
-			loc = at("go.mod", 1)
-		}
-		msg := f.Message
-		if !strings.Contains(msg, f.Where) {
-			msg = f.Where + ": " + msg
-		}
-		sum := sha256.Sum256([]byte(f.Rule + "\x00" + f.Where + "\x00" + f.File))
-		results = append(results, result{RuleID: f.Rule, RuleIndex: index[f.Rule], Level: cmp.Or(levels[f.Severity], "warning"), Message: text{msg},
-			Locations: []location{loc}, Fingerprints: map[string]string{"anetosFinding/v1": hex.EncodeToString(sum[:16])}})
-	}
-	for i := range rules {
-		rules[i].Properties["security-severity"] = cmp.Or(scores[worst[rules[i].ID]], "5.0")
-	}
-	doc := map[string]any{
-		"$schema": "https://json.schemastore.org/sarif-2.1.0.json",
-		"version": "2.1.0",
-		"runs": []any{map[string]any{
-			"tool": map[string]any{"driver": map[string]any{
-				"name": "anetos security:check", "informationUri": securitycheck.Docs, "version": Version(),
-				"rules": rules,
-			}},
-			"results": results,
-		}},
-	}
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
-	return enc.Encode(doc)
-}
-
-// lineOf is the line of b that starts with prefix (a comment's # aside:
-// "# SESSION_DOMAIN="), or 0.
-func lineOf(b []byte, prefix string) int {
-	for i, line := range strings.Split(string(b), "\n") {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, prefix) || strings.HasPrefix(strings.TrimSpace(strings.TrimPrefix(line, "#")), prefix) {
-			return i + 1
-		}
-	}
-	return 0
 }
 
 // logLevelRule finds debug logs where the app is deployed (advanced:

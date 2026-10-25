@@ -5,6 +5,8 @@ package main
 import (
 	"debug/elf"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -273,6 +275,14 @@ func TestNewProject(t *testing.T) {
 	// security check's basic rules find.
 	if code, out, errOut := runCmd(t, "security:check", "--no-vuln"); code != 0 || !strings.Contains(out, "0 problems, 0 warnings") {
 		t.Errorf("security:check: %d\n%s\n%s", code, out, errOut)
+	}
+	// With --url, the running site's checks join the report (a stand-in
+	// site, without the security headers).
+	site := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte("<h1>Blog</h1>")) }))
+	defer site.Close()
+	if code, out, errOut := runCmd(t, "security:check", "--no-vuln", "--url="+site.URL+"/", "--format=json"); code != 0 ||
+		!strings.Contains(out, `"where": "X-Content-Type-Options"`) || !strings.Contains(out, `"rule": "live.headers"`) {
+		t.Errorf("security:check --url: %d\n%s\n%s", code, out, errOut)
 	}
 	if code, out, errOut := runCmd(t, "doctor"); code != 0 || !strings.Contains(out, "Checking the project (Anetos ") ||
 		!regexp.MustCompile(`ok\s+\.env`).MatchString(out) || !strings.Contains(out, "Checking blog (APP_ENV=development).") {

@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package secscan has the anetos tool's layers of the security check
-// (design D329): rules over the project's source code, a search for
-// secrets written in its files, and govulncheck. The tool passes what
+// (design D329, D330): rules over the project's source code, a search
+// for secrets written in its files, govulncheck, and checks of the
+// running site. The tool passes what
 // they find to the app's security:check command, which reports it with
 // the app's own findings.
 package secscan
@@ -44,9 +45,11 @@ type Finding struct {
 // The OWASP Top 10:2025 categories the rules use.
 const (
 	owaspAccess    = "A01:2025 Broken Access Control"
+	owaspConfig    = "A02:2025 Security Misconfiguration"
 	owaspSupply    = "A03:2025 Software Supply Chain Failures"
 	owaspCrypto    = "A04:2025 Cryptographic Failures"
 	owaspInjection = "A05:2025 Injection"
+	owaspAuth      = "A07:2025 Authentication Failures"
 	owaspIntegrity = "A08:2025 Software or Data Integrity Failures"
 )
 
@@ -69,7 +72,22 @@ var rules = map[string]Rule{
 	"source.mass-assign": {Summary: "Requests bound into a model", OWASP: owaspIntegrity, level: Advanced},
 	"source.owner":       {Summary: "Records loaded by ID without an access check", OWASP: owaspAccess, level: Advanced},
 	"dependency.vuln":    {Summary: "Known vulnerabilities in the code the app uses", OWASP: owaspSupply},
+	"live.headers":       {Summary: "Security headers the site doesn't send", OWASP: owaspConfig},
+	"live.cookie":        {Summary: "Cookies without Secure, HttpOnly or SameSite", OWASP: owaspAuth},
+	"live.tls":           {Summary: "Certificates that don't verify, old TLS versions", OWASP: owaspCrypto},
+	"live.https":         {Summary: "The site served over plain HTTP", OWASP: owaspCrypto},
+	"live.exposed":       {Summary: "Settings, the git repository or debug endpoints served", OWASP: owaspConfig},
+	"live.debug":         {Summary: "Stack traces in error pages", OWASP: owaspConfig},
+	"live.unchecked":     {Summary: "The running site couldn't be checked", OWASP: owaspConfig},
+	"live.cors":          {Summary: "CORS that allows any origin", OWASP: owaspConfig, level: Advanced},
+	"live.trace":         {Summary: "TRACE answered", OWASP: owaspConfig, level: Advanced},
+	"live.version":       {Summary: "Server versions in headers", OWASP: owaspConfig, level: Advanced},
+	"live.cert-expiry":   {Summary: "Certificates about to expire", OWASP: owaspCrypto, level: Advanced},
 }
+
+// RuleList is the rules that run at level, with their IDs and docs, as
+// the app's --findings file has them.
+func RuleList(level Level) []Rule { return ruleList(level) }
 
 // ruleList is the rules that run at level, with their IDs and docs.
 func ruleList(level Level) []Rule {

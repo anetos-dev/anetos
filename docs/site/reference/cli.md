@@ -262,7 +262,7 @@ gets the project's checks only, with a note. The app's checks use the settings
 of this machine (`.env` and the environment): run `./<app> doctor` with
 the production settings too, on the server.
 
-## `anetos security:check [flags] [--no-vuln]`
+## `anetos security:check [flags] [--no-vuln] [--url=URL [--live-only] [--allow-host=HOST]]`
 
 Checks the project's code and dependencies, then builds the app and
 runs its [`security:check` command](#the-security-check) in the
@@ -274,6 +274,7 @@ the routes and the settings. The tool's part:
 |---|---|
 | Code | The project's packages (not their tests), type-checked, one function at a time: request data (`c.Param`, `c.Query`, `c.Header`, `http.Request`'s form, URL, headers and body, a typed handler's input) reaching SQL (`source.sql`), unescaped HTML (`source.xss`, at the `.templ` line for views), a redirect (`source.redirect`), a command (`source.exec`); `InsecureSkipVerify` (`source.tls`); `math/rand` for secrets (`source.rand`); advanced: file paths (`source.path`) and URLs requested (`source.ssrf`) from the request, `web.H` with a model as input (`source.mass-assign`), records loaded by an ID from the request without an access check (`source.owner`), SQL built from non-constant strings (`source.sql`, warning) |
 | Files | Secrets written in the project's files (`source.secret`): keys recognized by their form (problem), random-looking values given to secret names (warning); not `.env` and other files of settings, tests, generated code, `node_modules`, `vendor` |
+| Site (with `--url`) | At most 24 requests (`GET`, a TLS handshake offering only TLS 1.0 and 1.1, a `TRACE` at the advanced level) to the running site, logged out, within a minute; same-host redirects followed, another host's refused; a URL with credentials refused: security headers (`live.headers`), cookie flags (`live.cookie`), TLS (`live.tls`), plain HTTP and the redirect to HTTPS (`live.https`), `/.env`, `/.git/`, `/debug/pprof/`, `/debug/vars` served (`live.exposed`), stack traces in error pages (`live.debug`); advanced: CORS echoing a foreign origin (`live.cors`), `TRACE` (`live.trace`), version headers (`live.version`), a certificate expiring within 30 days (`live.cert-expiry`). The host must be `APP_URL`'s (the environment's, else `.env`'s) or localhost, or one given with `--allow-host` (repeatable, or comma-separated); another is a usage error (exit 2). `--live-only`, or running outside a project, checks the site alone: no `.env`, no build; the tool writes the report itself, with the same flags, ignore file (the project's, from a folder of it too) and exit status. In a project, a site that doesn't answer is a warning (`live.unchecked`) and the rest of the report stands; with `--live-only`, an error |
 | Dependencies | `govulncheck ./...`, built in (`dependency.vuln`): a vulnerable function the app calls (problem, at the app's line nearest the call), a vulnerable package it imports without calling it (note, at its `go.mod` line); without the network or after 5 minutes, a note; another failure, a warning. `--no-vuln` skips it (`--no-vuln=false` doesn't) |
 
 A finding of the code names its function with its package's path in
