@@ -10,9 +10,9 @@
 
 | | |
 |---|---|
-| **Status** | Draft v0.1 (design phase) |
+| **Status** | Living document: the decisions up to v0.5.0, the first public release |
 | **Owner** | Samiul Hoque |
-| **Last updated** | 2026-10-03 |
+| **Last updated** | 2026-10-25 |
 | **Related** | [Roadmap](../planning/roadmap.md) · [Documentation guide](../contributing/documentation-guide.md) · [ADRs](adr/) |
 
 ## Contents

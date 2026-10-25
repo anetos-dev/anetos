@@ -3,12 +3,12 @@ module bookmarks
 go 1.26.0
 
 require (
-	anetos.dev/anetos v0.5.0-rc.1
-	anetos.dev/anetos/drivers/sqlite v0.5.0-rc.1
+	anetos.dev/anetos v0.5.0
+	anetos.dev/anetos/drivers/sqlite v0.5.0
 )
 
 require (
-	anetos.dev/anetos/cli v0.5.0-rc.1 // indirect
+	anetos.dev/anetos/cli v0.5.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/google/jsonschema-go v0.4.3 // indirect
 	github.com/google/uuid v1.6.0 // indirect

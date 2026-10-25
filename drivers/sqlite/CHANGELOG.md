@@ -5,10 +5,10 @@ Changes to the `drivers/sqlite` module. The format follows
 tagged `drivers/sqlite/vX.Y.Z`. The framework's own changes are in the
 [root CHANGELOG](../../CHANGELOG.md).
 
-## [Unreleased]
+## [0.5.0] - 2026-10-25
 
 ### Removed
-- `DSN`, which no app used (M8b-5).
+- **BREAKING:** `DSN`, which no app used (M8b-5).
 
 ## [0.4.0] - 2026-10-08
 

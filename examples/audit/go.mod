@@ -3,8 +3,8 @@ module anetos.dev/anetos/examples/audit
 go 1.26.0
 
 require (
-	anetos.dev/anetos v0.5.0-rc.1
-	anetos.dev/anetos/drivers/sqlite v0.5.0-rc.1
+	anetos.dev/anetos v0.5.0
+	anetos.dev/anetos/drivers/sqlite v0.5.0
 )
 
 require (

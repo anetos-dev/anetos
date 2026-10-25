@@ -18,7 +18,7 @@ Set `APP_KEY`: sessions are encrypted with it.
 go tool anetos key:generate
 ```
 
-(`go get -tool anetos.dev/anetos/cli/cmd/anetos@v0.5.0-rc.1` adds
+(`go get -tool anetos.dev/anetos/cli/cmd/anetos@latest` adds
 the tool.) Keep the key secret and the same across instances and
 restarts; see [Rotate the key](#rotate-the-key).
 

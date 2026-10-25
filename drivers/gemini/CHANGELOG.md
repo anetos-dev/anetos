@@ -5,9 +5,10 @@ Changes to the `drivers/gemini` module. The format follows
 tagged `drivers/gemini/vX.Y.Z`. The framework's own changes are in the
 [root CHANGELOG](../../CHANGELOG.md).
 
-## [Unreleased]
+## [0.5.0] - 2026-10-25
 
 ### Changed
+- The SDK at `google.golang.org/genai` v1.76.0 (was v1.72.0).
 - `Options.Params` changes the request's configuration, as the
   anthropic and openai drivers' `Params` (`Config`, the same, is
   deprecated until v0.6); the driver reads every `Options` value of

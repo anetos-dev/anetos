@@ -5,9 +5,10 @@ Changes to the `drivers/openai` module. The format follows
 tagged `drivers/openai/vX.Y.Z`. The framework's own changes are in the
 [root CHANGELOG](../../CHANGELOG.md).
 
-## [Unreleased]
+## [0.5.0] - 2026-10-25
 
 ### Changed
+- The SDK at `github.com/openai/openai-go/v3` v3.86.0 (was v3.71.1).
 - The driver reads every `Options` value of `ai.Request.Options`, now a
   list, and ignores other drivers' (M8b-5).
 

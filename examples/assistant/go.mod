@@ -3,12 +3,12 @@ module anetos.dev/anetos/examples/assistant
 go 1.26.0
 
 require (
-	anetos.dev/anetos v0.5.0-rc.1
-	anetos.dev/anetos/drivers/anthropic v0.5.0-rc.1
-	anetos.dev/anetos/drivers/mysql v0.5.0-rc.1
-	anetos.dev/anetos/drivers/openai v0.5.0-rc.1
-	anetos.dev/anetos/drivers/postgres v0.5.0-rc.1
-	anetos.dev/anetos/drivers/sqlite v0.5.0-rc.1
+	anetos.dev/anetos v0.5.0
+	anetos.dev/anetos/drivers/anthropic v0.5.0
+	anetos.dev/anetos/drivers/mysql v0.5.0
+	anetos.dev/anetos/drivers/openai v0.5.0
+	anetos.dev/anetos/drivers/postgres v0.5.0
+	anetos.dev/anetos/drivers/sqlite v0.5.0
 )
 
 require (

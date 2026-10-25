@@ -5,7 +5,7 @@ Changes to the `plugins/postmark` module. The format follows
 tagged `plugins/postmark/vX.Y.Z`. The framework's own changes are in the
 [root CHANGELOG](../../CHANGELOG.md).
 
-## [Unreleased]
+## [0.5.0] - 2026-10-25
 
 ### Changed
 - `WithBaseURL`, `WithHTTPClient` and `WithStream` (were `BaseURL`,

@@ -6,9 +6,9 @@
 
 | | |
 |---|---|
-| **Status** | Pre-alpha: planning and design |
+| **Status** | v0.5.0 released (the first public release); v0.6 next |
 | **Owner** | Samiul Hoque |
-| **Last updated** | 2026-10-03 |
+| **Last updated** | 2026-10-25 |
 | **Related** | [Design document](../design/design.md) · [Documentation guide](../contributing/documentation-guide.md) |
 
 ---
@@ -523,14 +523,15 @@ it later; then the public release. **This is the first public release.**
 | SC1a | Security check: settings and routes | `security:check` in the app: unsafe settings and routes (form posts without CSRF, admin routes without a login check, login routes without a rate limit…), reports as text, JSON, SARIF and Markdown, an ignore file with reasons, basic and advanced levels |
 | SC1b | Security check: source and dependencies | In the `anetos` tool: framework-aware rules on the project's code (SQL built from strings, unescaped HTML of input, open redirects…) and govulncheck, built in |
 | SC1c | Security check: live | `--url`: a running site's headers, cookies, TLS, exposed files and error pages |
-| AX1c | Coding agents: the security skill and what dogfooding taught | The security check in `check`, a skill for its findings, and the fixes Samiul's Claude-built apps call for |
+| AX1c | Coding agents: the security skill and what dogfooding taught | The security check in `check`, a skill for its findings (AX1c-1); the fixes Samiul's Claude-built apps call for (AX1c-2, moved after the release) |
 | M9 | Launch | From v0.3: announcement post, awesome-go submission, community channels; the v0.5.0 GitHub Release, and the install commands back to `@latest` (`releasing.md`) |
 
 **Exit criteria**
 
 - A coding agent builds an app with accounts and a resource in a new
-  project, following its `AGENTS.md`, with `anetos check` passing; Samiul
-  builds two or three apps this way (the dogfooding of AX1c). The
+  project, following its `AGENTS.md`, with `anetos check` passing.
+  Samiul's apps built this way (the dogfooding of AX1c-2) no longer gate
+  the release (2026-10-25): they take months to start. The
   volunteer test is no longer a gate (2026-10-24): `v05-try-it.md` is a
   guide anyone can follow, and what testers find goes into a patch.
 - Each kit's generated pages pass the generated tests and look right in
@@ -538,7 +539,7 @@ it later; then the public release. **This is the first public release.**
 - No known P0/P1 bugs; every public API documented.
 
 **Order** (agreed 2026-10-09, changed 2026-10-24): CI1, K1–K5, M8, M1b,
-M2v, then AX1a, AX1b-1, AX1b-2, SC1a, SC1b, SC1c, AX1c, M9. M1b is real work: the v0.4.0 tags' `go.mod` files
+M2v, then AX1a, AX1b-1, AX1b-2, SC1a, SC1b, SC1c, AX1c-1, M9. M1b is real work: the v0.4.0 tags' `go.mod` files
 require `anetos.dev/anetos v0.0.0-…` with `replace` directives, which
 builds outside the repository ignore, so the modules can't yet be
 installed from the module proxy.
@@ -573,7 +574,9 @@ installed from the module proxy.
 | SC1b Security check: code and dependencies | ✅ Done 2026-10-25 (design §20, D329): the tool's `security:check` checks the code (a go/analysis analyzer: request data to SQL, HTML, redirects, commands; `InsecureSkipVerify`, `math/rand` for secrets; advanced: paths, outgoing URLs, models bound from requests, records loaded without an access check, built SQL), secrets in the files, and govulncheck built in, and passes them to the app's report (`--findings`); `doctor --vuln` uses the built-in govulncheck |
 | SC1c Security check: the running site | ✅ Done 2026-10-25 (design §20, D330): `security:check --url=URL` checks the deployed site from outside (headers, cookies, TLS, HTTPS, exposed files, stack traces; advanced: CORS, TRACE, versions, certificate expiry), on `APP_URL`'s host or localhost unless `--allow-host`; `--live-only` for CI after a deploy |
 | AX1c-1 Coding agents: the security check | ✅ Done 2026-10-25 (design §17.1, D331): `check`'s `security` step (basic rules; the code only without a `.env`), the MCP server's `security_check` tool, the `anetos-security` skill |
-| AX1c-2 Coding agents: lessons from real apps | After Samiul builds his apps with coding agents (a dogfooding log as a project doc): the fixes they call for, before M9 |
+| AX1c-2 Coding agents: lessons from real apps | Moved after the release (2026-10-25): see v0.6 |
+| M9a Launch: the release | ✅ Done 2026-10-25: v0.5.0 (the CHANGELOGs' `[0.5.0]` sections, the install commands back to `@latest`, the README's and the website's status, `make release`), the GitHub Release's notes, a News section on anetos.dev with the announcement, drafts for Show HN, r/golang and the Gophers Slack (posted by Samiul); questions go to GitHub Discussions |
+| M9b Launch: awesome-go | In March 2027: awesome-go takes a project five months after its first commit (2026-09-29), with a coverage report (Codecov or Coveralls) of 80% or more, Go Report Card A and a SemVer release |
 
 ---
 
@@ -587,6 +590,7 @@ Goal: modern SPA-style frontends without giving up server-side routing.
 | V2 | Inertia adapter | Server-side protocol: shared props, partial reloads, validation errors, redirects (SSR later) |
 | V3 | Starter kits | `anetos new --stack=vue\|react\|svelte`, each with auth UI on v0.4's API pieces, and login by session cookie for single-page apps on the app's own domain |
 | V4 | Docs | A guide per stack, plus a migration guide from htmx to an SPA stack |
+| AX1c-2 | Coding agents: lessons from real apps | From v0.5 (2026-10-25): as Samiul builds his apps with coding agents (a dogfooding log as a project doc), the fixes they call for, in v0.5.x patches or here |
 
 ---
 
@@ -759,3 +763,4 @@ something, and we fix the API rather than add the hook.
 | 2026-10-25 | SC1b done (design D329) |
 | 2026-10-25 | SC1c done (design D330) |
 | 2026-10-25 | AX1c split in AX1c-1 (the security check for agents) and AX1c-2 (lessons from Samiul's apps, after them); AX1c-1 done (design D331) |
+| 2026-10-25 | AX1c-2 moved after the release (v0.6), at the user's request; M9 split in M9a (the v0.5.0 release, done) and M9b (awesome-go, March 2027) |

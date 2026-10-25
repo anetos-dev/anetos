@@ -11,10 +11,9 @@ code generation instead of runtime magic, and a supervised runtime where HTTP,
 queue workers, pub/sub listeners and the scheduler run together in **one
 binary**.
 
-**Status:** pre-alpha. v0.5.0-rc.1, the release candidate of the first
-public release, is out; v0.5.0 follows, with tools for coding agents
-and a security check. APIs can still change before v0.5.0, and will
-change before v1.
+**Status:** early. v0.5.0 is the first public release: it installs with
+`go install`, and the [upgrade guides](docs/site/upgrade/) say what
+changes between releases. APIs will still change before v1.
 
 - **v0.1, the foundation:** the app, configuration, runtime
   supervisor, HTTP layer, validation, data layer with relations,
@@ -52,7 +51,7 @@ change before v1.
   description generated from the handlers, served and checked in a
   test ([`examples/bookmarks`](examples/bookmarks)).
 - **v0.5, the first public release:** installs from the module proxy
-  with `go install`; interface components in every project
+  with `go install`; interface components in every web project
   (`views/ui`) and a choice of CSS framework (Pico, Bootstrap, Bulma,
   Tailwind CSS or none; `css:use` switches); one vocabulary across
   settings, commands and the API, with a
@@ -88,7 +87,7 @@ the reference app, is a bigger one; the
 ## Developer experience
 
 ```bash
-go install anetos.dev/anetos/cli/cmd/anetos@v0.5.0-rc.1  # the anetos command (Go 1.26+)
+go install anetos.dev/anetos/cli/cmd/anetos@latest  # the anetos command (Go 1.26+)
 
 anetos new blog && cd blog # templ views in a starter theme (light/dark), sessions, CSRF, SQLite
 go tool anetos make:crud Post title:string body:text published:bool  # pages to list, show, create, edit, delete

@@ -21,7 +21,7 @@ checks the column name, the value's type and the relation's model.
 ### 1. Add the anetos tool to your module
 
 ```sh
-go get -tool anetos.dev/anetos/cli/cmd/anetos@v0.5.0-rc.1
+go get -tool anetos.dev/anetos/cli/cmd/anetos@latest
 ```
 
 This records the tool in `go.mod` (a `tool` line), so everyone on the

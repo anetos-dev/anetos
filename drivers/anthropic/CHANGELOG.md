@@ -5,9 +5,10 @@ Changes to the `drivers/anthropic` module. The format follows
 tagged `drivers/anthropic/vX.Y.Z`. The framework's own changes are in the
 [root CHANGELOG](../../CHANGELOG.md).
 
-## [Unreleased]
+## [0.5.0] - 2026-10-25
 
 ### Changed
+- The SDK at `github.com/anthropics/anthropic-sdk-go` v1.84.0 (was v1.78.0).
 - The driver reads every `Options` value of `ai.Request.Options`, now a
   list, and ignores other drivers' (M8b-5).
 

@@ -3,7 +3,7 @@ module anetos.dev/anetos/drivers/s3
 go 1.26.0
 
 require (
-	anetos.dev/anetos v0.5.0-rc.1
+	anetos.dev/anetos v0.5.0
 	github.com/johannesboyne/gofakes3 v1.2.0
 	github.com/minio/minio-go/v7 v7.3.0
 )

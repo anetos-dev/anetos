@@ -3,7 +3,7 @@ module anetos.dev/anetos/drivers/gemini
 go 1.26.0
 
 require (
-	anetos.dev/anetos v0.5.0-rc.1
+	anetos.dev/anetos v0.5.0
 	google.golang.org/genai v1.76.0
 )
 

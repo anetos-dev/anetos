@@ -5,10 +5,10 @@ Changes to the `drivers/postgres` module. The format follows
 tagged `drivers/postgres/vX.Y.Z`. The framework's own changes are in the
 [root CHANGELOG](../../CHANGELOG.md).
 
-## [Unreleased]
+## [0.5.0] - 2026-10-25
 
 ### Removed
-- `DSN`, which no app used (and which returned the password in plain
+- **BREAKING:** `DSN`, which no app used (and which returned the password in plain
   text) (M8b-5).
 
 ## [0.4.0] - 2026-10-08

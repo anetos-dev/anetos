@@ -5,7 +5,7 @@ Changes to the `drivers/gcppubsub` module. The format follows
 tagged `drivers/gcppubsub/vX.Y.Z`. The framework's own changes are in the
 [root CHANGELOG](../../CHANGELOG.md).
 
-## [Unreleased]
+## [0.5.0] - 2026-10-25
 
 ### Changed
 - `Driver` takes the module's own options: `Driver(WithClientOptions(opts...))`

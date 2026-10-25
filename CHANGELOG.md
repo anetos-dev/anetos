@@ -4,7 +4,19 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/) (see the roadmap's versioning rules).
 
-## [Unreleased]
+## [0.5.0] - 2026-10-25
+
+The first public release: it installs from the module proxy with `go
+install`. Interface components in every web project (`views/ui`) and a
+choice of CSS framework (Pico, Bootstrap, Bulma, Tailwind CSS or none;
+`css:use` switches); one vocabulary across settings, commands and the
+API, with a glossary; projects ready for coding agents (`AGENTS.md`,
+skills, the docs offline in the tool, `anetos check`, the app
+describing itself as JSON, an MCP server, `llms.txt`); a security check
+of the code, dependencies, routes, settings and running site
+(`security:check`, with reports for GitHub's code scanning); versioned
+docs; contributor docs, governance and a code of conduct. Upgrading
+from v0.4: [the upgrade guide](docs/site/upgrade/v0.5.md).
 
 ### Added
 - Coding agents (AX1a, D322–D324): `anetos new` writes `AGENTS.md`
@@ -217,7 +229,7 @@ All notable changes to this project are documented here. The format follows
   binary", "How testing works", "Translation file formats"; the
   reference's "Commands and settings" and "Packages" groups (M8b-6,
   D317).
-- The API's shapes that couldn't change after v0.5 (M8b-5, D316; see
+- **BREAKING:** The API's shapes that couldn't change after v0.5 (M8b-5, D316; see
   the [upgrade guide](docs/site/upgrade/v0.5.md)):
   - `ai.Request.Options` is a `[]any`, and `ai.ProviderOptions(v...)`
     adds to it: each provider uses its own options and ignores the
@@ -323,7 +335,7 @@ All notable changes to this project are documented here. The format follows
   confirmation posts to `admin.confirm.check` (was `.store`). `make:auth`'s group
   of logged-in routes is `loggedIn` in both stacks (was `members` and
   `me`) (M8b-4, D313).
-- Logging in has one vocabulary, "log in" and "log out" (M8b-3, D312):
+- **BREAKING:** Logging in has one vocabulary, "log in" and "log out" (M8b-3, D312):
   `auth.Auth.Login` asks for the two-factor code of a user who has it
   on (it logged them in without one; `SignIn` did), and a user without a
   password it logs in counts as having confirmed it lately, and
@@ -355,7 +367,7 @@ All notable changes to this project are documented here. The format follows
   `queue.Config.PollInterval`; `migrate.Config.OnStart`;
   `i18n.Config.Strategy` and `i18n.StrategyNone`…). See the
   [upgrade guide](docs/site/upgrade/v0.5.md).
-- Services are built from the app's settings by their package's `New`:
+- **BREAKING:** Services are built from the app's settings by their package's `New`:
   `cache.New(app)`, `queue.New(app)`, `session.New(app)`… (16 packages)
   instead of `ForApp`; `openapi.ForApp` is `openapi.Register`;
   `db.Connect` and `redis.Connect` keep their names (M8b-1, D310). The
@@ -366,7 +378,7 @@ All notable changes to this project are documented here. The format follows
   `i18n.NewTranslator`, `rbac.NewRegistry`, `encryption.NewEncrypter`,
   `auth.NewWithConfig`, `social.NewWithConfig`, `session.NewSession`.
   See the [upgrade guide](docs/site/upgrade/v0.5.md).
-- A second `New` (or `db.Connect`, `admin.New`) for one app returns an
+- **BREAKING:** A second `New` (or `db.Connect`, `admin.New`) for one app returns an
   error in every package; cache, queue, pub/sub and migrate used to open
   a second store first, and sessions, social login and the database
   replaced the first silently. `encryption.New(app)` returns the same

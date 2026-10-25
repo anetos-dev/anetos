@@ -4,7 +4,7 @@
 // data, accounts, queues, mail, storage, search, AI and translations, built
 // on net/http, in one binary.
 //
-// Anetos is pre-release; APIs may change until 1.0. The documentation is
+// Anetos is early: APIs may change until 1.0. The documentation is
 // at https://docs.anetos.dev, and [Getting started] builds a small app in
 // about fifteen minutes. The [glossary] lists the words these packages use.
 //

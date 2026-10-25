@@ -33,7 +33,7 @@ issues, ready to deploy.
 - The `anetos` tool:
 
   ```sh
-  go install anetos.dev/anetos/cli/cmd/anetos@v0.5.0-rc.1
+  go install anetos.dev/anetos/cli/cmd/anetos@latest
   ```
 
 - Some Go: structs, methods, errors. You don't need to know Anetos.

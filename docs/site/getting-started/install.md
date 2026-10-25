@@ -26,16 +26,12 @@ templ, comes with each project.
 ## The `anetos` tool
 
 ```sh
-go install anetos.dev/anetos/cli/cmd/anetos@v0.5.0-rc.1
+go install anetos.dev/anetos/cli/cmd/anetos@latest
 anetos version
 ```
 
 `go install` puts it in `$(go env GOPATH)/bin` (usually `~/go/bin`):
 add that folder to your `PATH` if `anetos` isn't found.
-
-v0.5.0-rc.1 is the release candidate of v0.5.0, the first public
-release. Until v0.5.0 is out, name it as above: `@latest` still finds
-an earlier version that can't be installed.
 
 You use this copy once per project, for `anetos new`. Each project then
 pins its own version of the tool in `go.mod`, and you run it there as

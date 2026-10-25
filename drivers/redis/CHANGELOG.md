@@ -5,7 +5,10 @@ Changes to the `drivers/redis` module. The format follows
 tagged `drivers/redis/vX.Y.Z`. The framework's own changes are in the
 [root CHANGELOG](../../CHANGELOG.md).
 
-## [Unreleased]
+## [0.5.0] - 2026-10-25
+
+### Changed
+- The SDK at `github.com/redis/go-redis/v9` v9.23.0 (was v9.22.0).
 
 ## [0.4.0] - 2026-10-08
 
