@@ -271,7 +271,7 @@ func TestNewProject(t *testing.T) {
 	}
 	// A new project with accounts, an admin and pages has nothing the
 	// security check's basic rules find.
-	if code, out, errOut := runCmd(t, "security:check"); code != 0 || !strings.Contains(out, "0 problems, 0 warnings") {
+	if code, out, errOut := runCmd(t, "security:check", "--no-vuln"); code != 0 || !strings.Contains(out, "0 problems, 0 warnings") {
 		t.Errorf("security:check: %d\n%s\n%s", code, out, errOut)
 	}
 	if code, out, errOut := runCmd(t, "doctor"); code != 0 || !strings.Contains(out, "Checking the project (Anetos ") ||
@@ -387,14 +387,16 @@ func TestNewAPIProject(t *testing.T) {
 		!strings.Contains(out, "updated .env: AUTH_CLIENT_URL") || strings.Contains(out, "templ") || !strings.Contains(out, "Updated openapi.json") {
 		t.Fatalf("make:auth: %d\n%s\n%s", code, out, errOut)
 	}
-	// The API's routes pass the basic rules; at the advanced level,
-	// make:crud's endpoints, which don't ask for a login, are pointed
-	// out (route.api-auth), and make:auth's aren't.
-	if code, out, errOut := runCmd(t, "security:check"); code != 0 || !strings.Contains(out, "0 problems, 0 warnings") {
+	// The API's routes and code pass the basic rules; at the advanced
+	// level, make:crud's endpoints, which don't ask for a login, are
+	// pointed out (route.api-auth), and make:auth's aren't; so are its
+	// handlers that load a product by ID without an access check
+	// (source.owner, from the tool's rules about the code).
+	if code, out, errOut := runCmd(t, "security:check", "--no-vuln"); code != 0 || !strings.Contains(out, "0 problems, 0 warnings") {
 		t.Errorf("security:check: %d\n%s\n%s", code, out, errOut)
 	}
-	if code, out, errOut := runCmd(t, "security:check", "--level=advanced", "--format=json"); code != 0 || !strings.Contains(out, `"where": "POST /api/v1/products"`) ||
-		strings.Contains(out, "/api/v1/register") {
+	if code, out, errOut := runCmd(t, "security:check", "--no-vuln", "--level=advanced", "--format=json"); code != 0 || !strings.Contains(out, `"where": "POST /api/v1/products"`) ||
+		strings.Contains(out, "/api/v1/register") || !strings.Contains(out, `"where": "app/handlers.Products.Show"`) {
 		t.Errorf("security:check --level=advanced: %d\n%s\n%s", code, out, errOut)
 	}
 	goRun := func(args ...string) string {

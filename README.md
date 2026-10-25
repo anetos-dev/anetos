@@ -61,7 +61,8 @@ change before v1.
   `anetos check`, the app describing itself as JSON, an MCP server,
   `llms.txt`;
   [guide](docs/site/getting-started/coding-agents.md)); a security
-  check of the app's settings and routes (`security:check`, with
+  check of the app's code, dependencies, routes and settings
+  (`security:check`, with
   reports for GitHub's code scanning;
   [guide](docs/site/guides/security-check.md));
   contributor docs, governance and a code of conduct

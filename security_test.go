@@ -339,3 +339,43 @@ func TestSecurityRulesDocumented(t *testing.T) {
 		t.Errorf("found %d rule names in the code, want the framework's (20 or more)", found)
 	}
 }
+
+// TestSecurityToolFindings checks that the anetos tool's findings join
+// the report, with their rules, and that the ignore file applies to them.
+func TestSecurityToolFindings(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	tool := `{"rules":[{"id":"source.sql","summary":"SQL built from request data","owasp":"A05:2025 Injection","docs":"https://docs.anetos.dev/guides/security-check/#sourcesql"}],
+"findings":[{"rule":"source.sql","severity":"problem","where":"handlers.Posts.Search","file":"app/handlers/posts.go","line":42,"message":"Raw gets SQL built from request data"},
+{"rule":"source.secret","severity":"warning","where":"config/keys.go","file":"config/keys.go","line":3,"message":"a secret"}]}`
+	if err := os.WriteFile(filepath.Join(dir, "tool.json"), []byte(tool), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "security-ignore.yaml"), []byte("- rule: source.secret\n  where: config/keys.go\n  reason: a public test key\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, out, errOut := execute(t, securityApp(t), "security:check", "--findings=tool.json", "--format=json")
+	var rep securityJSON
+	if err := json.Unmarshal([]byte(out), &rep); err != nil {
+		t.Fatalf("%v\n%s%s", err, out, errOut)
+	}
+	var sql *struct {
+		Severity, Rule, Where, File, Message, OWASP, Docs string
+		Line                                              int
+	}
+	for i := range rep.Findings {
+		if rep.Findings[i].Rule == "source.sql" {
+			sql = &rep.Findings[i]
+		}
+	}
+	if code != 1 || sql == nil || sql.File != "app/handlers/posts.go" || sql.Line != 42 || sql.OWASP != "A05:2025 Injection" ||
+		!strings.HasSuffix(sql.Docs, "#sourcesql") || len(rep.Ignored) != 1 || rep.Ignored[0].Rule != "source.secret" {
+		t.Errorf("exit %d: %+v", code, rep)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "bad.json"), []byte(`{"findings":[{"rule":"NoDots","severity":"note"}]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if code, _, errOut := execute(t, securityApp(t), "security:check", "--findings=bad.json"); code != 1 || !strings.Contains(errOut, "NoDots") {
+		t.Errorf("a bad file: %d %s", code, errOut)
+	}
+}

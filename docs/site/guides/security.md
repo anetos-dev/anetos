@@ -68,9 +68,10 @@ sudo systemd-run --pipe --wait --collect --quiet \
 does). In a container, `docker compose run --rm web doctor`. The
 [reference](../reference/cli.md#the-doctor-command) lists every check.
 
-Then run the security check, which reads the routes too (a form's
-route without CSRF protection, an admin page without a login) and
-writes a report for CI's code scanning:
+Then run the security check, which reads the routes and the code too
+(a form's route without CSRF protection, SQL built from request data, a
+key written in a file), runs govulncheck, and writes a report for CI's
+code scanning:
 [Check your app's security](security-check.md).
 
 ```bash
@@ -156,7 +157,8 @@ With [`make:auth`](accounts.md):
 
 ### 7. Keep up to date
 
-- Run `govulncheck ./...` (or `go tool anetos doctor --vuln`) in CI: it
+- Run `govulncheck ./...` (or `go tool anetos doctor --vuln`, or the
+  security check, which runs it) in CI: it
   reports the known vulnerabilities in the code your app calls, Go's
   standard library included. Run it with the Go you build with: CI that
   installs go.mod's `go` line exactly (`go 1.26.0`, as `setup-go`'s

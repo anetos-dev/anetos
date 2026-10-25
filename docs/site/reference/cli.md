@@ -253,8 +253,8 @@ The project's checks:
 | `agents` | with agent files: a warning when they differ from this tool's (an older Anetos's, or edited between `AGENTS.md`'s markers): `anetos agent:update` |
 | `git` | a problem for each tracked file of settings with secrets (`.env`, `.env.*`, `*.env`, not `*.example`, `*.sample`, `*.dist`, nor the `.env.testing` that `anetos new` writes to be committed); a warning when an untracked `.env` isn't ignored. Skipped outside a git repository |
 
-`--vuln` also runs `govulncheck ./...` (install it with `go install
-golang.org/x/vuln/cmd/govulncheck@latest`); its findings fail the
+`--vuln` also runs `govulncheck ./...` (built in, from
+`golang.org/x/vuln`; it needs the network for vuln.go.dev); its findings fail the
 command. `--strict` makes warnings fail it too, and is passed to the
 app's `doctor`. Exit 1 when a check finds a problem, the app doesn't
 build, or the app's `doctor` fails. A project that doesn't use Anetos
@@ -262,12 +262,25 @@ gets the project's checks only, with a note. The app's checks use the settings
 of this machine (`.env` and the environment): run `./<app> doctor` with
 the production settings too, on the server.
 
-## `anetos security:check [flags]`
+## `anetos security:check [flags] [--no-vuln]`
 
-Builds the app and runs its [`security:check` command](#the-security-check)
-in the project, with the same flags, and exits with its status: the
-app's settings and routes checked against security rules. `--out` and
-`--ignore` name files relative to the current folder. The settings are
+Checks the project's code and dependencies, then builds the app and
+runs its [`security:check` command](#the-security-check) in the
+project, with the same flags and what the tool found (`--findings`),
+and exits with its status: one report of the code, the dependencies,
+the routes and the settings. The tool's part:
+
+| Layer | Checks |
+|---|---|
+| Code | The project's packages (not their tests), type-checked, one function at a time: request data (`c.Param`, `c.Query`, `c.Header`, `http.Request`'s form, URL, headers and body, a typed handler's input) reaching SQL (`source.sql`), unescaped HTML (`source.xss`, at the `.templ` line for views), a redirect (`source.redirect`), a command (`source.exec`); `InsecureSkipVerify` (`source.tls`); `math/rand` for secrets (`source.rand`); advanced: file paths (`source.path`) and URLs requested (`source.ssrf`) from the request, `web.H` with a model as input (`source.mass-assign`), records loaded by an ID from the request without an access check (`source.owner`), SQL built from non-constant strings (`source.sql`, warning) |
+| Files | Secrets written in the project's files (`source.secret`): keys recognized by their form (problem), random-looking values given to secret names (warning); not `.env` and other files of settings, tests, generated code, `node_modules`, `vendor` |
+| Dependencies | `govulncheck ./...`, built in (`dependency.vuln`): a vulnerable function the app calls (problem, at the app's line nearest the call), a vulnerable package it imports without calling it (note, at its `go.mod` line); without the network or after 5 minutes, a note; another failure, a warning. `--no-vuln` skips it (`--no-vuln=false` doesn't) |
+
+A finding of the code names its function with its package's path in
+the module (`app/handlers.Posts.Search`), as `where` in the ignore
+file. A project that doesn't build is an error (exit 1); so is
+`--findings`, which is the tool's. `--out` and `--ignore` name files
+relative to the current folder. The settings are
 this machine's, as doctor's: without a `.env` (and no `APP_KEY` in the
 environment) it exits 1 saying how to write one; run `./<app>
 security:check` with the production settings too. See [Check your app's security](../guides/security-check.md).
@@ -442,7 +455,7 @@ were `plugins:list` and `plugins:env`, and `locale:check` was
 | `plugin:env [plugin]` | `ext.Load` | The plugins' settings as `.env` lines with their defaults (double-quoted when they need it; `# required` after required ones); doesn't boot the app, so it works before they are set |
 | `about [--json]` | every app | Describes the app: its name, environment, URL, time zone, module, the Anetos and Go versions, process types, the services provided (`*db.DB`, `*queue.Queue`…), its components, and the settings it read while booting with their values (`<value> (default)` for a default; `(not set)` without one, listed only by `--json`). A secret is `(set)` (a name with `KEY`, `SECRET`, `PASSWORD`, `PASS`, `TOKEN`, `CREDENTIAL`, `PRIVATE`, `DSN` or `WEBHOOK`), and in the other values a connection string's password and a URL's secret parameters and user are `xxxxx` (a URL that doesn't parse is `xxxxx` whole); a value read under its former name is `<value> (from <former>)`. It can't know every secret a value may hold: read it before you share it. It boots the app, as other commands do |
 | `doctor [--strict]` | every app | Runs the app's checks of its settings and prints what they find (see [below](#the-doctor-command)). Exit 1 on a problem (`--strict`: on a warning too) |
-| `security:check [--level=basic\|advanced] [--format=text\|json\|sarif\|markdown] [--out=FILE] [--ignore=FILE] [--strict]` | every app | Checks the app's settings and routes against security rules and reports what they find (see [below](#the-security-check)). Exit 1 on a problem (`--strict`: on a warning too) |
+| `security:check [--level=basic\|advanced] [--format=text\|json\|sarif\|markdown] [--out=FILE] [--ignore=FILE] [--strict] [--findings=FILE]` | every app | Checks the app's settings and routes against security rules and reports what they find, with the `anetos` tool's findings about the code (see [below](#the-security-check)). Exit 1 on a problem (`--strict`: on a warning too) |
 | `version` | every app | The app's version (`--version` of `anetos build`, else the git tag Go recorded), commit, commit time and `modified` if the files differed from it; the Anetos version; the Go version and system. Doesn't boot the app; the `main.go` of `anetos new` prints it before `setup`, so it needs no settings (`anetos.VersionText`) |
 | `help [--json] [command]`, `-h`, `--help` | every app | The command list (`--json`: each command's `name`, `usage` and `description`), or a command's usage (`<command> -h` too, as the first argument); doesn't boot the app |
 
@@ -516,6 +529,7 @@ file: [Check your app's security](../guides/security-check.md#the-rules).
 | `--out` | the standard output | Writes the report to a file and prints the counts; `-` is the standard output |
 | `--ignore` | `security-ignore.yaml` | The file of ignored findings: a list of `rule`, `where` (every place when empty), `reason` (required), `expires` (`2027-03-31`, through the end of that day in `APP_TIMEZONE`); another key is an error. A file named here must exist |
 | `--strict` | off | Exit 1 on a warning too |
+| `--findings` | none | A file of findings to add, as JSON: `{"rules": [{"id", "summary", "owasp", "docs"}], "findings": [{"rule", "severity", "where", "file", "line", "message"}]}`; the `anetos` tool writes it with its findings about the code |
 
 A finding is ignored by the first entry that matches it and hasn't
 expired. An expired entry whose finding is reported is a warning

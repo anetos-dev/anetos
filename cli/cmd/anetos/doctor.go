@@ -17,6 +17,7 @@ import (
 	"text/tabwriter"
 
 	"anetos.dev/anetos/cli/internal/scaffold"
+	"anetos.dev/anetos/cli/internal/secscan"
 )
 
 const doctorUsage = `Usage: anetos doctor [--strict] [--vuln]
@@ -37,7 +38,7 @@ the app's doctor where the production settings are too
 func doctor(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("anetos doctor", flag.ContinueOnError)
 	strict := fs.Bool("strict", false, "exit 1 on warnings too")
-	vuln := fs.Bool("vuln", false, "run govulncheck ./... (it must be installed)")
+	vuln := fs.Bool("vuln", false, "run govulncheck ./... (built in; it needs the network)")
 	pos, code := parse(fs, args, stderr, doctorUsage)
 	if code >= 0 {
 		return code
@@ -227,18 +228,11 @@ func goVersion(ctx context.Context, root string) string {
 	return strings.TrimSpace(out.String())
 }
 
-// govulncheck runs govulncheck ./... in dir: the known vulnerabilities
-// of the code the app calls, in its modules and in Go's standard
-// library.
+// govulncheck runs govulncheck ./... in dir (built in: golang.org/x/vuln):
+// the known vulnerabilities of the code the app calls, in its modules and
+// in Go's standard library. It needs the network for vuln.go.dev.
 func govulncheck(ctx context.Context, dir string, stdout, stderr io.Writer) error {
-	path, err := exec.LookPath("govulncheck")
-	if err != nil {
-		return errors.New("govulncheck isn't installed: go install golang.org/x/vuln/cmd/govulncheck@latest")
-	}
-	c := exec.CommandContext(ctx, path, "./...")
-	c.Dir = dir
-	c.Stdout, c.Stderr = stdout, stderr
-	if err := c.Run(); err != nil {
+	if err := secscan.Govulncheck(ctx, dir, stdout, stderr, "./..."); err != nil {
 		return fmt.Errorf("govulncheck: %w", err)
 	}
 	return nil

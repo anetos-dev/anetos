@@ -226,6 +226,36 @@ func readIgnores(path string, named bool, loc *time.Location) ([]*ignoreEntry, e
 	return entries, nil
 }
 
+// toolFindings are findings the anetos tool adds (--findings): its rules
+// about the project's code and dependencies, which it checks itself.
+type toolFindings struct {
+	Rules []struct {
+		ID      string `json:"id"`
+		Summary string `json:"summary"`
+		OWASP   string `json:"owasp"`
+		Docs    string `json:"docs"`
+	} `json:"rules"`
+	Findings []SecurityFinding `json:"findings"`
+}
+
+// readToolFindings reads a --findings file.
+func readToolFindings(path string) (toolFindings, error) {
+	var t toolFindings
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return t, err
+	}
+	if err := json.Unmarshal(b, &t); err != nil {
+		return t, fmt.Errorf("%s: %w", path, err)
+	}
+	for _, f := range t.Findings {
+		if !ruleID.MatchString(f.Rule) {
+			return t, fmt.Errorf("%s: a finding's rule %q isn't a rule's name", path, f.Rule)
+		}
+	}
+	return t, nil
+}
+
 // securityReport is the result of a security check.
 type securityReport struct {
 	App      string            `json:"app"`
@@ -250,7 +280,7 @@ type ignoredFinding struct {
 const securityLimits = "None of these rules finding anything doesn't make the app secure: who may read or change whose records, business logic and the code itself need tests and review."
 
 // securityCheck runs the security checks and rules of the booted app.
-func (a *App) securityCheck(ctx context.Context, level SecurityLevel, ignorePath string, ignores []*ignoreEntry, now time.Time) securityReport {
+func (a *App) securityCheck(ctx context.Context, level SecurityLevel, ignorePath string, ignores []*ignoreEntry, extra toolFindings, now time.Time) securityReport {
 	a.cmdMu.Lock()
 	checks := slices.Clone(a.checks)
 	rules := slices.Clone(a.rules)
@@ -306,6 +336,10 @@ func (a *App) securityCheck(ctx context.Context, level SecurityLevel, ignorePath
 			return out
 		})
 	}
+	for _, r := range extra.Rules {
+		rep.rules[r.ID] = SecurityRule{ID: r.ID, Summary: r.Summary, OWASP: r.OWASP, Docs: r.Docs}
+	}
+	found = append(found, extra.Findings...)
 	for i := range found {
 		r := ruleFor(found[i].Rule)
 		rep.rules[r.ID] = r
@@ -383,7 +417,7 @@ var settingInMessage = regexp.MustCompile(`\b[A-Z][A-Z0-9]*_[A-Z0-9_]+\b`)
 func (a *App) securityCommand() cmd.Command {
 	return cmd.Command{
 		Name:        "security:check",
-		Usage:       "[--level=basic|advanced] [--format=text|json|sarif|markdown] [--out=FILE] [--ignore=FILE] [--strict]",
+		Usage:       "[--level=basic|advanced] [--format=text|json|sarif|markdown] [--out=FILE] [--ignore=FILE] [--strict] [--findings=FILE]",
 		Description: "Check the app's settings and routes against security rules (CSRF, logins, limits, cookies, TLS…); exits 1 on problems",
 		Run: func(ctx context.Context, args *cmd.Args) error {
 			fs := flag.NewFlagSet("security:check", flag.ContinueOnError)
@@ -392,6 +426,7 @@ func (a *App) securityCommand() cmd.Command {
 			out := fs.String("out", "", "write the report to this file instead of the standard output (-: the standard output)")
 			ignore := fs.String("ignore", "", "the file of ignored findings (default "+ignoreFile+")")
 			strict := fs.Bool("strict", false, "exit 1 on warnings too")
+			findings := fs.String("findings", "", "a file of findings to add to the report (the anetos tool's, about the code)")
 			if err := args.Parse(fs); err != nil {
 				return err
 			}
@@ -417,7 +452,13 @@ func (a *App) securityCommand() cmd.Command {
 			if err != nil {
 				return err
 			}
-			rep := a.securityCheck(ctx, level, ignorePath, ignores, now)
+			var extra toolFindings
+			if *findings != "" {
+				if extra, err = readToolFindings(*findings); err != nil {
+					return err
+				}
+			}
+			rep := a.securityCheck(ctx, level, ignorePath, ignores, extra, now)
 			var buf bytes.Buffer
 			if err := write(&buf, rep); err != nil {
 				return err
