@@ -71,10 +71,6 @@ tag a new patch version instead.
    - The README's status names the version, and its list of releases
      has the new one; so do the website's home page and the docs'
      install page where they name a version.
-   - For v0.5.0 only: the install commands go back to `@latest`. Until
-     v0.5.0, `@latest` finds `cli` v0.4.0, which can't be installed, so
-     the README, the docs and the website name `@v0.5.0-rc.1`
-     (`grep -rn 'cmd/anetos@v0' README.md docs/site ../website/content`).
 2. **Prepare:** `make release VERSION=vX.Y.Z` (with the locales
    repository at `../locales`, or `LOCALES=…`).
    - It checks the CHANGELOG sections (not for a pre-release such as

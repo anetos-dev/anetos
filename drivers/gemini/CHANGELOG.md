@@ -5,6 +5,8 @@ Changes to the `drivers/gemini` module. The format follows
 tagged `drivers/gemini/vX.Y.Z`. The framework's own changes are in the
 [root CHANGELOG](../../CHANGELOG.md).
 
+## [Unreleased]
+
 ## [0.5.0] - 2026-10-25
 
 ### Changed

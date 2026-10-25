@@ -5,6 +5,8 @@ Changes to the `drivers/s3` module. The format follows
 tagged `drivers/s3/vX.Y.Z`. The framework's own changes are in the
 [root CHANGELOG](../../CHANGELOG.md).
 
+## [Unreleased]
+
 ## [0.5.0] - 2026-10-25
 
 ### Changed

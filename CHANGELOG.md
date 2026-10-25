@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/) (see the roadmap's versioning rules).
 
+## [Unreleased]
+
+### Changed
+- An Anetos built from this source reports `v0.6.0-dev`, and
+  `plugins/postmark` works with Anetos v0.6 too (`Requires`:
+  `>= v0.2.0, < v0.7.0`) (after v0.5.0).
+
 ## [0.5.0] - 2026-10-25
 
 The first public release: it installs from the module proxy with `go
