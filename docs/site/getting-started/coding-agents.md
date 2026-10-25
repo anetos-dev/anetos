@@ -40,7 +40,8 @@ The skills cover a resource (`anetos-crud`), accounts and access
 (`anetos-auth`), schema changes (`anetos-migration`), background work
 (`anetos-job`), pages and forms (`anetos-page`; in an API project,
 `anetos-api` for endpoints), tests (`anetos-test`), deploying
-(`anetos-deploy`), upgrading (`anetos-upgrade`) and plugins
+(`anetos-deploy`), checking security and fixing its findings
+(`anetos-security`), upgrading (`anetos-upgrade`) and plugins
 (`anetos-plugin`).
 
 ### 2. Ask for a feature
@@ -58,16 +59,19 @@ Two commands do most of the work for an agent, and are as useful to you:
 ```sh
 go tool anetos docs --search "comments on a post"   # which pages to read
 go tool anetos docs guides/relations                # print one, as Markdown
-go tool anetos check                                # generate, build, vet, test, doctor
+go tool anetos check                                # generate, build, vet, test, doctor, security
 ```
 
 The pages `docs` prints are those of the Anetos version in your
 `go.mod`, built into the tool: no network, and never another version's.
 `check` stops at the first failing step and prints its output; with
 `--json` it prints one object an agent can read. `AGENTS.md` asks the
-agent to run it before calling a change done. In a fresh clone, with no
-`.env` (an agent's sandbox, CI), its doctor step checks the project's
-files only and says how to write one:
+agent to run it before calling a change done. Its last step runs the
+security check's basic rules ([Check your app's
+security](../guides/security-check.md)): a problem, such as SQL built
+from request data, fails it. In a fresh clone, with no `.env` (an
+agent's sandbox, CI), its doctor step checks the project's files only,
+its security step the code only, and they say how to write one:
 `cp .env.example .env && go tool anetos key:generate`.
 
 ### 4. Let it ask the app
@@ -89,8 +93,8 @@ others are the app's own commands, which need a `.env`. Each takes
 The agent can also call them as tools: the project's MCP server,
 `go tool anetos mcp`, is in each agent's MCP settings (the files in the
 table above), with `docs_search`, `docs_read`, `model_list`,
-`route_list`, `db_schema`, `app_about`, `check` and `doctor`. It only
-reads and checks. Agents decide differently when a project's server
+`route_list`, `db_schema`, `app_about`, `check`, `doctor` and
+`security_check`. It only reads and checks. Agents decide differently when a project's server
 starts: Claude Code asks you first; VS Code, Copilot CLI and Codex
 start it in a folder you trust (Workspace Trust, folder trust, a trusted
 project); Gemini CLI starts it unless you turned folder trust on and

@@ -155,6 +155,12 @@ Files in the report are relative to the repository's root, also when
 in a script, and `--format=markdown` a table for an issue or a review.
 `--out=FILE` writes the report to a file (`-`: the standard output).
 
+`go tool anetos check`, which you and coding agents run before calling
+a change done, ends with the basic rules (without govulncheck): a
+problem fails it. Coding agents also have the MCP server's
+`security_check` tool and the `anetos-security` skill, which says how to
+fix each finding ([Build with a coding agent](../getting-started/coding-agents.md)).
+
 ### 6. Check the running site
 
 `--url` adds checks of the deployed site, from outside: the headers and

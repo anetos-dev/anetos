@@ -192,18 +192,21 @@ func TestNewProject(t *testing.T) {
 		t.Errorf("go.mod after dropping the replace:\n%s", got)
 	}
 
-	// check: generate, build, vet, test (every generator's tests pass)
-	// and doctor, as JSON.
+	// check: generate, build, vet, test (every generator's tests pass),
+	// doctor and the security check, as JSON.
 	code, out, errOut = runCmd(t, "check", "--json")
 	var report struct {
 		OK    bool
 		Steps []checkStep
 	}
-	if err := json.Unmarshal([]byte(out), &report); err != nil || code != 0 || !report.OK || len(report.Steps) != 5 {
+	if err := json.Unmarshal([]byte(out), &report); err != nil || code != 0 || !report.OK || len(report.Steps) != 6 {
 		t.Fatalf("check --json: %d %v\n%s\n%s", code, err, out, errOut)
 	}
 	if doc := report.Steps[4]; doc.Step != "doctor" || !regexp.MustCompile(`ok\s+agents`).MatchString(doc.Output) {
 		t.Errorf("check's doctor step: %+v", doc)
+	}
+	if sec := report.Steps[5]; sec.Step != "security" || !sec.OK || !strings.Contains(sec.Output, "0 problems, 0 warnings") {
+		t.Errorf("check's security step: %+v", sec)
 	}
 	if b := read(t, filepath.Join(dir, "AGENTS.md")); !strings.Contains(b, "go tool anetos check") || !strings.Contains(b, "The database is SQLite.") {
 		t.Errorf("AGENTS.md:\n%s", b)
@@ -227,6 +230,9 @@ func TestNewProject(t *testing.T) {
 	}
 	if out, isErr := callTool(t, cs, "doctor", nil); isErr || !strings.Contains(out, "Checking the project") {
 		t.Errorf("doctor: %v\n%.500s", isErr, out)
+	}
+	if out, isErr := callTool(t, cs, "security_check", map[string]any{"level": "advanced"}); isErr || !strings.Contains(out, `"level": "advanced"`) {
+		t.Errorf("security_check: %v\n%.500s", isErr, out)
 	}
 	// The production build: one static binary, at bin/blog by default.
 	if code, out, errOut := runCmd(t, "build", "--version=v9.9.9"); code != 0 || !strings.Contains(out, "built bin/blog (") {

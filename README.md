@@ -97,7 +97,7 @@ go tool anetos make:admin  # an admin at /admin; make:admin-resource Post adds p
 go run . migrate
 go tool anetos css:use pico # restyle the app's pages: Pico, Bootstrap, Bulma, Tailwind CSS or none
 go tool anetos dev         # rebuild and reload on every change
-go tool anetos check       # generate, build, vet, test, doctor: does it work?
+go tool anetos check       # generate, build, vet, test, doctor, security: does it work?
 go tool anetos docs queues # the docs at your Anetos version, offline
 
 go tool anetos build       # bin/blog: one static binary, everything in it

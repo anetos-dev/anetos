@@ -4,6 +4,7 @@ package main
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -37,7 +38,7 @@ Tools:
   model_list                          the models, read from the code
   app_about, route_list, db_schema,   the app's own commands, with --json
   migrate_status, command_list        (it builds the app; they need a .env)
-  check, doctor                       does the change work?
+  check, doctor, security_check       does the change work, is it safe?
 
 The project is --dir's, else the one around the current directory.
 The tools that ask the app run its commands, which create what the app
@@ -128,6 +129,11 @@ type (
 	}
 	checkInput struct {
 		Short bool `json:"short,omitempty" jsonschema:"run go test -short"`
+	}
+	securityInput struct {
+		Level string `json:"level,omitempty" jsonschema:"basic (the default: few false alarms) or advanced (adds what needs a look)"`
+		URL   string `json:"url,omitempty" jsonschema:"the running site to check too (APP_URL's host or localhost)"`
+		Vuln  bool   `json:"vuln,omitempty" jsonschema:"run govulncheck too (needs the network; takes a while)"`
 	}
 )
 
@@ -255,7 +261,7 @@ func newMCPServer(dir string) (*mcp.Server, func()) {
 			return text(out), nil, nil
 		})
 
-	mcp.AddTool(s, &mcp.Tool{Name: "check", Description: "Check that the project works: generate code, go build, go vet, go test, then doctor, stopping at the first failure; the result as JSON, each step's output included. Run it before calling a change done. Slow: it runs the tests.",
+	mcp.AddTool(s, &mcp.Tool{Name: "check", Description: "Check that the project works: generate code, go build, go vet, go test, then doctor and the security check's basic rules, stopping at the first failure; the result as JSON, each step's output included. Run it before calling a change done. Slow: it runs the tests.",
 		Annotations: &mcp.ToolAnnotations{IdempotentHint: true}},
 		func(ctx context.Context, req *mcp.CallToolRequest, in checkInput) (*mcp.CallToolResult, any, error) {
 			root, err := project.find()
@@ -266,6 +272,46 @@ func newMCPServer(dir string) (*mcp.Server, func()) {
 			defer checking.Unlock()
 			var out bytes.Buffer
 			code := runCheck(ctx, root, in.Short, true, &out)
+			r := text(out.String())
+			r.IsError = code != 0
+			return r, nil, nil
+		})
+	mcp.AddTool(s, &mcp.Tool{Name: "security_check", Description: "Check the project against security rules (anetos security:check --format=json): the code (SQL, HTML, redirects and commands built from request data, secrets), the routes (CSRF, logins, rate limits), the settings, and optionally the running site and known vulnerabilities. Each finding has its rule, place, fix and docs link; an error result on a problem. Builds and runs the app; without a .env, the code's rules only. To fix findings, read the anetos-security skill or the guide (docs_read guides/security-check).",
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true}},
+		func(ctx context.Context, req *mcp.CallToolRequest, in securityInput) (*mcp.CallToolResult, any, error) {
+			root, err := project.find()
+			if err != nil {
+				return toolError(err), nil, nil
+			}
+			level := cmp.Or(in.Level, "basic")
+			if level != "basic" && level != "advanced" {
+				return toolError(fmt.Errorf("level is basic or advanced, not %q", in.Level)), nil, nil
+			}
+			args := []string{"--format=json", "--level=" + level}
+			if !in.Vuln {
+				args = append(args, "--no-vuln")
+			}
+			if in.URL != "" {
+				args = append(args, "--url="+in.URL)
+			}
+			checking.Lock()
+			defer checking.Unlock()
+			var out, errOut syncBuffer
+			if doctorOptionsFor(root).projectOnly != "" && in.URL == "" {
+				// No .env: the app can't boot; the code's rules run alone
+				// (the report's limits say so).
+				ok, err := codeReport(ctx, root, "json", &out)
+				if err != nil {
+					return toolError(err), nil, nil
+				}
+				r := text(out.String())
+				r.IsError = !ok
+				return r, nil, nil
+			}
+			code := securityCheckAt(ctx, root, nil, args, &out, &errOut)
+			if code == 2 || strings.TrimSpace(out.String()) == "" {
+				return toolError(errors.New(strings.TrimSpace(errOut.String()))), nil, nil
+			}
 			r := text(out.String())
 			r.IsError = code != 0
 			return r, nil, nil

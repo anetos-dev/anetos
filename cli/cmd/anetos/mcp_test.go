@@ -63,7 +63,7 @@ func TestMCPServer(t *testing.T) {
 			t.Errorf("%s: no description or input schema", tool.Name)
 		}
 	}
-	want := []string{"app_about", "check", "command_list", "db_schema", "docs_list", "docs_read", "docs_search", "doctor", "migrate_status", "model_list", "route_list"}
+	want := []string{"app_about", "check", "command_list", "db_schema", "docs_list", "docs_read", "docs_search", "doctor", "migrate_status", "model_list", "route_list", "security_check"}
 	if slices.Sort(names); !slices.Equal(names, want) {
 		t.Errorf("tools = %v", names)
 	}

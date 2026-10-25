@@ -298,9 +298,10 @@ a change done. In order, stopping at the first failure:
 | `vet` | `go vet ./...` |
 | `test` | `go test ./...` (`--short`: `go test -short ./...`) |
 | `doctor` | [`anetos doctor`](#anetos-doctor---strict---vuln): the project's checks and the app's; without a `.env` (a fresh clone, an agent's sandbox, CI) the project's only, with a note saying how to write one (`cp .env.example .env && go tool anetos key:generate`) |
+| `security` | [`anetos security:check --no-vuln`](#anetos-securitycheck-flags---no-vuln---urlurl---live-only---allow-hosthost) at the basic level: a problem fails the step, its warnings are listed; without a `.env`, the code's rules only (`source.*`), with the same note |
 
 It writes generated code, as `anetos dev` does, and nothing else. It
-prints one line per step, a failed step's output, and doctor's warnings;
+prints one line per step, a failed step's output, and doctor's and the security check's warnings;
 `--json` prints one object, `{"ok": …, "steps": [{"step", "ok",
 "seconds", "output"}…]}` (each step's output, its last 16 KB), with an
 `error` when check can't start (outside a project). Exit 1 when a step
@@ -334,7 +335,7 @@ agent](../getting-started/coding-agents.md).
 | `AGENTS.md` | every agent | The project (stack, database, CSS framework), the commands, where things go, the conventions, the skills, and "run `go tool anetos check`" |
 | `CLAUDE.md` | `claude` | `@AGENTS.md`: Claude Code imports it |
 | `GEMINI.md` | `gemini` | `@AGENTS.md`: Gemini CLI imports it |
-| `.claude/skills/anetos-*/SKILL.md` | `claude` | The skills: `anetos-crud`, `-auth`, `-migration`, `-job`, `-page` (web) or `-api` (API), `-test`, `-deploy`, `-upgrade`, `-plugin` |
+| `.claude/skills/anetos-*/SKILL.md` | `claude` | The skills: `anetos-crud`, `-auth`, `-migration`, `-job`, `-page` (web) or `-api` (API), `-test`, `-deploy`, `-security`, `-upgrade`, `-plugin` |
 | `.agents/skills/anetos-*/SKILL.md` | `codex`, `copilot`, `cursor`, `gemini` | The same skills |
 | `.mcp.json` | `claude`, `copilot` | The MCP server `anetos` (`go tool anetos mcp`) in `mcpServers`: Claude Code's project servers, and Copilot CLI's |
 | `.vscode/mcp.json` | `copilot` | The same in `servers`, with `"type": "stdio"` and `"cwd": "${workspaceFolder}"`: VS Code's |
@@ -385,6 +386,7 @@ when it starts (`storage/`, an empty SQLite database):
 | `app_about`, `route_list`, `db_schema`, `migrate_status`, `command_list` | The app's `about`, `route:list`, `db:schema`, `migrate:status` and `help`, with `--json`: it builds the app (`go build`, cached) and runs the command in the project, which needs a `.env` |
 | `check` | `check --json`; an error result when a step fails |
 | `doctor` | `doctor`'s report; an error result on a problem |
+| `security_check` | `security:check --format=json` (`level`: `basic` or `advanced`; `url`: the running site too; `vuln`: govulncheck too, off by default); an error result on a problem, a usage error's message when it can't run |
 
 The project is `--dir`'s, else the one around the directory the agent
 starts it in. `go tool` itself needs to start in the project (outside

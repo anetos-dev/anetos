@@ -66,6 +66,12 @@ All notable changes to this project are documented here. The format follows
   records loaded by ID without an access check, and SQL built from
   non-constant strings; and govulncheck, built in (`--no-vuln` skips
   it). Its findings join the app's report (the app's `--findings`).
+- Coding agents and the security check (AX1c-1, D331): `go tool anetos
+  check` runs the security check's basic rules as its last step
+  (`security`; a problem fails it; without a `.env`, the code's rules
+  only); the MCP server has a `security_check` tool; new projects (and
+  `agent:update`) get the `anetos-security` skill: run the check, read a
+  finding, fix it, and when `Public` or the ignore file is right.
 - `go tool anetos security:check --url=URL` checks the running site too
   (SC1c, D330): security headers, cookie flags, TLS, the redirect to
   HTTPS, `/.env`, `/.git/` and `/debug/` served, stack traces in error

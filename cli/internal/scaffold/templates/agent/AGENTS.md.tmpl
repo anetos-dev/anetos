@@ -35,15 +35,17 @@ go run . about              # versions, services, the settings read (secrets hid
 Add `--json` for JSON you can parse. The project's MCP server
 (`go tool anetos mcp`, in your MCP settings) has these as tools too:
 `docs_search`, `docs_read`, `model_list`, `route_list`, `db_schema`,
-`app_about`, `check`.
+`app_about`, `check`, `security_check`.
 
 ## Before you call a change done
 
 ```sh
-go tool anetos check    # generate, build, vet, test, doctor; --json for one object
+go tool anetos check    # generate, build, vet, test, doctor, security; --json for one object
 ```
 
-It must pass. Fix what it reports, then run it again. In a fresh clone
+It must pass. Fix what it reports, then run it again. Its security step
+runs the security check's basic rules: fix a finding as the
+`anetos-security` skill says, never by ignoring a problem. In a fresh clone
 there is no `.env` (it holds secrets, so it isn't committed): `check`
 then checks the project's files without the app's settings, and the
 app's own commands (`go run . …`) refuse to start. Make one first with
@@ -75,6 +77,7 @@ app's own commands (`go run . …`) refuse to start. Make one first with
 | `go tool anetos make:agent <Name>` | An AI agent (`ai.Agent`) in the app, with a typed tool |
 | `go tool anetos add <module>` | Installs a plugin (`plugins.go` lists them) |
 | `go tool anetos doctor` | Checks the project and the app's settings |
+| `go tool anetos security:check` | Checks the code, routes, settings and dependencies against security rules (`--level=advanced`, `--format=json`) |
 | `go run . route:list` | Every route: method, path, name |
 | `go run . help` | The app's commands |
 | `go tool anetos build` | One production binary, `bin/[[.Bin]]` |

@@ -174,13 +174,20 @@ func (s *scan) decl(decl ast.Decl) {
 }
 
 // checksAccess reports whether a call looks like an access check:
-// rbac's functions, auth's Authorize… and Allows… and a token's Can, or
+// rbac's checks, auth's Authorize… and Allows… and a token's Can, or
 // a function named so (CanEdit, AuthorizeOwner, postPolicy, ownsPost…).
 func checksAccess(fn *types.Func) bool {
 	if fn.Pkg() != nil {
 		switch fn.Pkg().Path() {
-		case "anetos.dev/anetos/rbac":
-			return true
+		case "anetos.dev/anetos/auth/rbac":
+			// Its checks: Can, CanIn, Authorize…, HasRole…, Require… (not
+			// Current or Of, which read the grants).
+			for _, p := range []string{"Can", "Authorize", "Has", "Require"} {
+				if strings.HasPrefix(fn.Name(), p) {
+					return true
+				}
+			}
+			return false
 		case "anetos.dev/anetos/auth":
 			return strings.HasPrefix(fn.Name(), "Authorize") || strings.HasPrefix(fn.Name(), "Allows") || strings.HasSuffix(fn.Name(), "Can")
 		}

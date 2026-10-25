@@ -56,6 +56,13 @@ the current folder. Exits 1 on a problem (--strict: on a warning too).
 
 // securityCheck runs anetos security:check.
 func securityCheck(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	root, err := projectRoot()
+	return securityCheckAt(ctx, root, err, args, stdout, stderr)
+}
+
+// securityCheckAt runs security:check in the project at root (rootErr
+// when there's none).
+func securityCheckAt(ctx context.Context, root string, rootErr error, args []string, stdout, stderr io.Writer) int {
 	if slices.ContainsFunc(args, isHelp) {
 		fmt.Fprint(stdout, securityUsage)
 		return 0
@@ -88,17 +95,16 @@ func securityCheck(ctx context.Context, args []string, stdout, stderr io.Writer)
 		return strings.HasPrefix(a, "-") && name == "no-vuln"
 	})
 	if lo.url != "" {
-		if root, err := projectRoot(); lo.only || err != nil {
-			if err == nil {
+		if lo.only || rootErr != nil {
+			if rootErr == nil {
 				lo.root = root
 			}
 			return liveOnly(ctx, lo, args, stdout, stderr)
 		}
 	}
-	root, err := projectRoot()
 	lo.root = root
-	if err != nil {
-		fmt.Fprintln(stderr, "anetos security:check:", err)
+	if rootErr != nil {
+		fmt.Fprintln(stderr, "anetos security:check:", rootErr)
 		return 1
 	}
 	if lo.url != "" {
@@ -351,19 +357,7 @@ func liveOnly(ctx context.Context, lo liveOpts, args []string, stdout, stderr io
 	if u, err := url.Parse(lo.url); err == nil {
 		host = u.Host
 	}
-	rep := securitycheck.Report{App: host, Level: *levelName, Limits: liveLimits, Rules: map[string]securitycheck.Rule{},
-		IgnoreFile: ignorePath, Version: version()}
-	for _, r := range secscan.RuleList(level) {
-		rep.Rules[r.ID] = securitycheck.Rule{ID: r.ID, Summary: r.Summary, OWASP: r.OWASP, Docs: r.Docs}
-	}
-	all := make([]securitycheck.Finding, 0, len(found))
-	for _, f := range found {
-		var sev securitycheck.Severity
-		_ = sev.UnmarshalText([]byte(f.Severity))
-		all = append(all, securitycheck.Finding{Rule: f.Rule, Severity: sev, Where: f.Where, File: f.File, Line: f.Line, Message: f.Message,
-			OWASP: rep.Rules[f.Rule].OWASP})
-	}
-	rep.Finish(all, ignores, now)
+	rep := toolReport(host, *levelName, liveLimits, level, ignorePath, ignores, found, now)
 	var buf bytes.Buffer
 	if err := write(&buf, rep); err != nil {
 		fmt.Fprintln(stderr, "anetos security:check:", err)
@@ -382,6 +376,49 @@ func liveOnly(ctx context.Context, lo liveOpts, args []string, stdout, stderr io
 		return 1
 	}
 	return 0
+}
+
+// toolReport makes the tool's findings a report, as the app's
+// security:check makes its own: the rules' docs, the ignore entries.
+func toolReport(app, levelName, limits string, level secscan.Level, ignorePath string, ignores []*securitycheck.IgnoreEntry,
+	found []secscan.Finding, now time.Time) securitycheck.Report {
+	rep := securitycheck.Report{App: app, Level: levelName, Limits: limits, Rules: map[string]securitycheck.Rule{},
+		IgnoreFile: ignorePath, Version: version()}
+	for _, r := range secscan.RuleList(level) {
+		rep.Rules[r.ID] = securitycheck.Rule{ID: r.ID, Summary: r.Summary, OWASP: r.OWASP, Docs: r.Docs}
+	}
+	all := make([]securitycheck.Finding, 0, len(found))
+	for _, f := range found {
+		var sev securitycheck.Severity
+		_ = sev.UnmarshalText([]byte(f.Severity))
+		all = append(all, securitycheck.Finding{Rule: f.Rule, Severity: sev, Where: f.Where, File: f.File, Line: f.Line, Message: f.Message,
+			OWASP: rep.Rules[f.Rule].OWASP})
+	}
+	rep.Finish(all, ignores, now)
+	return rep
+}
+
+// codeLimits says what a clean check of the code alone means.
+const codeLimits = "The code was checked, not the app's routes and settings: there's no .env (cp .env.example .env && go tool anetos key:generate). None of these rules finding anything doesn't make the app secure: who may read or change whose records and business logic need tests and review."
+
+// codeReport runs the code's rules alone (no .env, so the app can't
+// boot) and writes their report in format, with the project's ignore
+// file; ok is false on a problem.
+func codeReport(ctx context.Context, root, format string, w io.Writer) (ok bool, err error) {
+	now := time.Now()
+	ignores, err := securitycheck.ReadIgnores(filepath.Join(root, securitycheck.DefaultIgnoreFile), false, now.Location())
+	if err != nil {
+		return false, err
+	}
+	scan, err := secscan.Scan(ctx, secscan.Options{Dir: root})
+	if err != nil {
+		return false, err
+	}
+	rep := toolReport(filepath.Base(root)+" (the code)", "basic", codeLimits, secscan.Basic, securitycheck.DefaultIgnoreFile, ignores, scan.Findings, now)
+	if err := securitycheck.Formats[format](w, rep); err != nil {
+		return false, err
+	}
+	return rep.Summary["problems"] == 0, nil
 }
 
 // liveLimits says what a clean live scan means.

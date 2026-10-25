@@ -34,6 +34,9 @@ before calling a change done. In order, stopping at the first failure:
   vet       go vet ./...
   test      go test ./... (--short: go test -short ./...)
   doctor    anetos doctor: the project's files and the app's settings
+  security  anetos security:check --no-vuln, at the basic level: the
+            code, the routes and the settings; a problem fails it, its
+            warnings are listed (without a .env, the code only)
 
 It writes generated code, as anetos dev does; it changes nothing else.
 Exits 1 when a step fails. --json prints one object: {"ok": …, "steps":
@@ -41,8 +44,9 @@ Exits 1 when a step fails. --json prints one object: {"ok": …, "steps":
 "error" when check couldn't start).
 
 Without a .env (a fresh clone, an agent's sandbox, CI), the doctor step
-checks the project's files only, and says how to write one:
-cp .env.example .env && go tool anetos key:generate.
+checks the project's files only, the security step the code only, and
+they say how to write one: cp .env.example .env && go tool anetos
+key:generate.
 `
 
 // checkStep is one step of anetos check, as --json prints it.
@@ -103,6 +107,7 @@ func runCheck(ctx context.Context, root string, short, asJSON bool, stdout io.Wr
 			}
 			return nil
 		}},
+		{"security", func(out io.Writer) error { return checkSecurity(ctx, root, out) }},
 	}
 	var report []checkStep
 	ok := true
@@ -124,7 +129,7 @@ func runCheck(ctx context.Context, root string, short, asJSON bool, stdout io.Wr
 		if !asJSON {
 			if st.OK {
 				fmt.Fprintf(stdout, "ok (%.1fs)\n", st.Seconds)
-				if s.name == "doctor" {
+				if s.name == "doctor" || s.name == "security" {
 					if w := warningLines(text); w != "" {
 						fmt.Fprintln(stdout, indent(w))
 					}
@@ -150,6 +155,27 @@ func runCheck(ctx context.Context, root string, short, asJSON bool, stdout io.Wr
 		return 1
 	}
 	return 0
+}
+
+// checkSecurity runs security:check --no-vuln at the basic level (the
+// code, the routes, the settings). Without a .env, the app can't boot:
+// the code's checks run alone.
+func checkSecurity(ctx context.Context, root string, out io.Writer) error {
+	w := &syncWriter{w: out}
+	if doctorOptionsFor(root).projectOnly == "" {
+		if securityCheckAt(ctx, root, nil, []string{"--no-vuln"}, w, w) != 0 {
+			return errors.New("the security check found a problem")
+		}
+		return nil
+	}
+	ok, err := codeReport(ctx, root, "text", w) // its limits say what wasn't checked
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return errors.New("the security check found a problem")
+	}
+	return nil
 }
 
 // checkGenerate brings the generated code up to date, as anetos dev
@@ -203,12 +229,18 @@ func indent(s string) string {
 	return "  " + strings.ReplaceAll(s, "\n", "\n  ")
 }
 
-// warningLines are doctor's warning and note lines in its output.
+// warningLines are doctor's and security:check's warning and note
+// lines in their output.
 func warningLines(s string) string {
 	var out []string
-	for line := range strings.SplitSeq(s, "\n") {
-		if t := strings.TrimSpace(line); strings.HasPrefix(t, "warning") || strings.HasPrefix(t, "note:") {
-			out = append(out, strings.TrimSpace(line))
+	lines := strings.Split(s, "\n")
+	for i, line := range lines {
+		if t := strings.TrimSpace(line); strings.HasPrefix(t, "warning") || strings.HasPrefix(t, "note") {
+			out = append(out, t)
+			// security:check's finding: its message is on the next line.
+			if (strings.HasPrefix(t, "warning ") || strings.HasPrefix(t, "note ")) && i+1 < len(lines) && strings.HasPrefix(lines[i+1], "         ") {
+				out = append(out, "  "+strings.TrimSpace(lines[i+1]))
+			}
 		}
 	}
 	return strings.Join(out, "\n")

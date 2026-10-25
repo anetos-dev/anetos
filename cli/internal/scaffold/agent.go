@@ -58,6 +58,7 @@ var skills = []skill{
 	{"anetos-api", "JSON endpoints", "api"},
 	{"anetos-test", "tests", ""},
 	{"anetos-deploy", "building and deploying", ""},
+	{"anetos-security", "checking security and fixing findings", ""},
 	{"anetos-upgrade", "upgrading Anetos", ""},
 	{"anetos-plugin", "plugins", ""},
 }

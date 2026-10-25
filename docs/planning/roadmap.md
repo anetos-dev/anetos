@@ -572,6 +572,8 @@ installed from the module proxy.
 | SC1a Security check: settings and routes | ✅ Done 2026-10-25 (design §20, D328): `./app security:check` and `go tool anetos security:check`: the doctor's security findings (`Finding.Rule`, `Check.Security`) and the route rules (`route.csrf`, `route.login`, `route.debug`, `route.rate-limit`, advanced `route.api-auth`) and `setting.log-level`, each finding with its place (routes record their file and line), fix and OWASP category; text, JSON, SARIF and Markdown; `security-ignore.yaml`; `route.Public(reason)`; `App.AddSecurityRule` and `web.RouteRule` for apps' and plugins' rules |
 | SC1b Security check: code and dependencies | ✅ Done 2026-10-25 (design §20, D329): the tool's `security:check` checks the code (a go/analysis analyzer: request data to SQL, HTML, redirects, commands; `InsecureSkipVerify`, `math/rand` for secrets; advanced: paths, outgoing URLs, models bound from requests, records loaded without an access check, built SQL), secrets in the files, and govulncheck built in, and passes them to the app's report (`--findings`); `doctor --vuln` uses the built-in govulncheck |
 | SC1c Security check: the running site | ✅ Done 2026-10-25 (design §20, D330): `security:check --url=URL` checks the deployed site from outside (headers, cookies, TLS, HTTPS, exposed files, stack traces; advanced: CORS, TRACE, versions, certificate expiry), on `APP_URL`'s host or localhost unless `--allow-host`; `--live-only` for CI after a deploy |
+| AX1c-1 Coding agents: the security check | ✅ Done 2026-10-25 (design §17.1, D331): `check`'s `security` step (basic rules; the code only without a `.env`), the MCP server's `security_check` tool, the `anetos-security` skill |
+| AX1c-2 Coding agents: lessons from real apps | After Samiul builds his apps with coding agents (a dogfooding log as a project doc): the fixes they call for, before M9 |
 
 ---
 
@@ -756,3 +758,4 @@ something, and we fix the API rather than add the hook.
 | 2026-10-25 | SC1a done (design D328) |
 | 2026-10-25 | SC1b done (design D329) |
 | 2026-10-25 | SC1c done (design D330) |
+| 2026-10-25 | AX1c split in AX1c-1 (the security check for agents) and AX1c-2 (lessons from Samiul's apps, after them); AX1c-1 done (design D331) |

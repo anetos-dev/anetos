@@ -1,0 +1,59 @@
+---
+name: anetos-security
+description: Check this Anetos app's security and fix what the check finds - SQL, HTML, redirects or commands built from request data, routes without CSRF or a login, unsafe settings, secrets in files, vulnerable dependencies, the running site. Use when asked about security, before a release or deploy, or when a check reports a security finding.
+---
+
+# Check and fix security
+
+**Run the check** (in the project; `check` runs its basic level too):
+
+```sh
+go tool anetos security:check                    # the code, the routes, the settings, govulncheck
+go tool anetos security:check --level=advanced   # adds what needs a look (may be on purpose)
+go tool anetos security:check --format=json      # one object to read (MCP: security_check)
+```
+
+It exits 1 on a problem. On the server, `./[[.Bin]] security:check` checks
+the production settings (the app's own command: the routes and the
+settings only). In the project, `go tool anetos security:check
+--url=https://…` checks the running site too (`APP_URL`'s host).
+
+**Read a finding:** its rule (`source.sql`), its severity (a problem is
+almost always a hole; a warning often a mistake), where it is (a route,
+a setting, a function with its package, `file:line`), what to do, and
+the guide's section for the rule. Read the section before fixing:
+`go tool anetos docs guides/security-check`.
+
+**Fix it in the code** - the usual fixes:
+
+- `source.sql`: pass values as arguments (`db.Raw[T](ctx, "… WHERE title = ?", t)`);
+  a column or sort order from the request: check it against constants
+  (`switch` with a `default` that resets it, `slices.Contains`, a map).
+- `source.xss`: let templ escape (`{ value }`), never `templ.Raw` of
+  request data; sanitize HTML you must keep.
+- `source.redirect`: redirect to your own paths (starts with `/`, not
+  `//`) or to a route by name (`web.RedirectRoute`).
+- `source.exec`, `source.path`, `source.ssrf`: choose from a list;
+  `filepath.Base` in a known folder; allow only the expected hosts.
+- `source.secret`: move it to `.env` (and `.env.example` without the
+  value), and tell the user to revoke the leaked one.
+- `source.owner`: check access (`rbac.Authorize`, `auth.Authorize` with a
+  policy) or scope the query to the user (`Where`).
+- `route.csrf`: put the route in the group with `web.CSRF()` after the
+  session middleware. `route.login`: in a group with `a.Require`
+  (and `rbac.Require`). `route.rate-limit`: `ratelimit.Middleware`.
+- `setting.*`: change the setting where the app is deployed (`.env` on
+  the server, the service's environment), not the code.
+- `dependency.vuln`: `go get module@version` (the finding says which),
+  then `go mod tidy` and `go tool anetos check`.
+
+**When it's fine on purpose:** a route open to everyone says so in the
+code, `.Public("why")`; that excuses `route.login` and `route.api-auth`
+only. Any other finding kept goes in `security-ignore.yaml`, a list of
+entries with `rule`, `where` (as the report shows it; empty: every
+place), `reason` (required) and `expires` (a date); no other key. Never
+ignore a problem to make the check pass: fix it, or ask the user.
+
+**Before a release:** walk through `go tool anetos docs guides/security`
+(HTTPS, secrets, the database's TLS, a Content-Security-Policy, accounts,
+updates). Docs: `go tool anetos docs guides/security-check`.

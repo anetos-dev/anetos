@@ -13,8 +13,8 @@ import (
 	"strings"
 
 	"anetos.dev/anetos/auth"
+	"anetos.dev/anetos/auth/rbac"
 	"anetos.dev/anetos/db"
-	"anetos.dev/anetos/rbac"
 	"anetos.dev/anetos/web"
 )
 
@@ -26,8 +26,8 @@ type Post struct {
 type Posts struct{}
 
 func (h *Posts) Show(c *web.Ctx) error {
-	if err := rbac.Authorize(c.Request().Context(), "posts.view"); err != nil {
-		return err
+	if !rbac.HasRole(c.Request().Context(), "editor") { // only rbac's package says it's a check
+		return nil
 	}
 	_, _ = db.Find[Post](c.Request().Context(), c.Param("id"))
 	return nil

@@ -29,7 +29,7 @@
 //	locale:add <locale>...    add translations of the framework's messages
 //	agent:install [--agent=…]  write the files coding agents read (AGENTS.md, skills)
 //	agent:update              refresh them for this version of Anetos
-//	check [--short] [--json]  generate, build, vet, test and doctor: does the change work?
+//	check [--short] [--json]  generate, build, vet, test, doctor and security: does the change work?
 //	doctor                    check the project and the app's settings
 //	security:check            check the app's settings and routes against security rules
 //	docs [<page>] [--search <words>]  print the documentation
@@ -84,7 +84,7 @@ Commands:
   locale:add <locale>...    add translations of the framework's messages to locales/
   agent:install [--agent=claude,codex,copilot,cursor,gemini]  write the files coding agents read (AGENTS.md, skills)
   agent:update              refresh the agent files for this version of Anetos
-  check [--short] [--json]  generate, build, vet, test and doctor: does the change work?
+  check [--short] [--json]  generate, build, vet, test, doctor and security: does the change work?
   doctor [--strict] [--vuln]  check the project and the app's settings for unsafe values
   security:check [--level=…] [--format=…]  check the app's settings and routes against security rules
   docs [<page>] [--search <words>]  print the documentation, at the project's version

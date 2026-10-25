@@ -6,3 +6,5 @@ package rbac
 import "context"
 
 func Authorize(ctx context.Context, permission string) error { return nil }
+
+func HasRole(ctx context.Context, role string) bool { return false }
