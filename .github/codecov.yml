@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+# Codecov's settings (design D332). CI's coverage job uploads the merged
+# profile of make cover on pushes to main; the number is for the README's
+# badge, not a gate.
+coverage:
+  precision: 1
+  round: down
+  status:
+    project:
+      default:
+        informational: true
+    patch: false
+comment: false
+github_checks:
+  annotations: false

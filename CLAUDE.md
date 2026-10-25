@@ -51,7 +51,7 @@ make docs-check  # doc code blocks match examples/ regions; pages have a sidebar
 make api-docs  # every exported identifier (fields, interface methods too) has a doc comment
 make test      # go test -race ./...
 make lint      # golangci-lint (v2 config in .golangci.yml)
-make cover     # coverage summary
+make cover     # the published modules' coverage, merged (coverage.out; CI sends it to Codecov)
 make bench     # benchmarks (bench/ compares with net/http, chi, Gin, Echo; results in docs/benchmarks/)
 make bench-check    # allocation budgets of requests and queries (bench/budget_test.go)
 make bench-compare  # benchmarks vs main (BASE=…), run in turns; fails on a regression

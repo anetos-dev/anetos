@@ -576,7 +576,7 @@ installed from the module proxy.
 | AX1c-1 Coding agents: the security check | ✅ Done 2026-10-25 (design §17.1, D331): `check`'s `security` step (basic rules; the code only without a `.env`), the MCP server's `security_check` tool, the `anetos-security` skill |
 | AX1c-2 Coding agents: lessons from real apps | Moved after the release (2026-10-25): see v0.6 |
 | M9a Launch: the release | ✅ Done 2026-10-25: v0.5.0 (the CHANGELOGs' `[0.5.0]` sections, the install commands back to `@latest`, the README's and the website's status, `make release`), the GitHub Release's notes, a News section on anetos.dev with the announcement, drafts for Show HN, r/golang and the Gophers Slack (posted by Samiul); questions go to GitHub Discussions |
-| M9b Launch: awesome-go | In March 2027: awesome-go takes a project five months after its first commit (2026-09-29), with a coverage report (Codecov or Coveralls) of 80% or more, Go Report Card A and a SemVer release |
+| M9b Launch: awesome-go | Coverage done in the repository 2026-10-25 (design D332): `make cover` merges the published modules' coverage (87.4%), CI's `coverage` job sends it to Codecov on main, badges in the README; the badge works once Samiul enables the repository on Codecov. The submission waits for March 2027: awesome-go takes a project five months after its first commit (2026-09-29), with an open-source license, a SemVer release, docs in English, a coverage report of 80% or more (90% for data packages: `db` is 87%, should a reviewer count it as one) and links to pkg.go.dev and the coverage report |
 
 ---
 
@@ -764,3 +764,4 @@ something, and we fix the API rather than add the hook.
 | 2026-10-25 | SC1c done (design D330) |
 | 2026-10-25 | AX1c split in AX1c-1 (the security check for agents) and AX1c-2 (lessons from Samiul's apps, after them); AX1c-1 done (design D331) |
 | 2026-10-25 | AX1c-2 moved after the release (v0.6), at the user's request; M9 split in M9a (the v0.5.0 release, done) and M9b (awesome-go, March 2027) |
+| 2026-10-25 | M9b's coverage done (design D332); the submission stays in March 2027 |

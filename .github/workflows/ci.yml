@@ -5,6 +5,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -122,6 +123,58 @@ jobs:
         run: |
           echo "The tests' parts: $RESULT"
           test "$RESULT" = success
+
+  # The published modules' test coverage, merged (make cover, design
+  # D332), uploaded to Codecov for the README's badge. On main only, and
+  # not a required check: it doesn't hold up pull requests. The upload
+  # signs in with GitHub's OIDC token, so the repository needs no secret.
+  coverage:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_PASSWORD: secret
+          POSTGRES_DB: anetos_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: secret
+          MYSQL_DATABASE: anetos_test
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd "mysqladmin ping -psecret" --health-interval 5s --health-timeout 5s --health-retries 20
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      ANETOS_TEST_POSTGRES_URL: postgres://postgres:secret@127.0.0.1:5432/anetos_test
+      ANETOS_TEST_MYSQL_URL: root:secret@tcp(127.0.0.1:3306)/anetos_test
+      ANETOS_TEST_REDIS_URL: redis://127.0.0.1:6379/0
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+      - run: make cover COVER_VERBOSE=1
+      - uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          files: coverage.out
+          disable_search: true
+          use_oidc: true
+          fail_ci_if_error: true
 
   lint:
     runs-on: ubuntu-latest

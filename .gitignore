@@ -4,6 +4,7 @@
 *.test
 *.out
 coverage.*
+/.cover/
 # Binaries `go build` leaves in example modules (exact paths: a pattern
 # like /examples/*/database would also hide examples/saas/database/)
 /examples/auth/auth

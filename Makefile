@@ -35,8 +35,22 @@ test: ## Tests with the race detector (set ANETOS_TEST_POSTGRES_URL / ANETOS_TES
 test-short: ## Fast tests, no race detector
 	@$(EACH) $(GO) test -short -count=1 -timeout=5m ./... $(DONE)
 
-cover: ## Coverage summary per module (driver modules report db package coverage)
-	@$(EACH) $(GO) test -count=1 -coverpkg=./...,anetos.dev/anetos/db/... -coverprofile=$(COVEROUT) ./... >/dev/null && $(GO) tool cover -func=$(COVEROUT) | tail -n 1 $(DONE)
+# The modules a release publishes (docs/contributing/releasing.md).
+PUBLISHED = . admin cli $(patsubst %/go.mod,%,$(sort $(wildcard drivers/*/go.mod plugins/*/go.mod)))
+
+# Each published module's tests count every module's code they run, so the
+# drivers' tests count the core's db packages; covermerge merges them
+# (design D332). The database drivers' tests need ANETOS_TEST_*_URL, as for
+# make test, or they skip and their code counts as not covered. The merged
+# profile's paths are relative to the repository, which go tool cover
+# doesn't read: use a module's own profile from inside it
+# (cd admin && go tool cover -func=../.cover/admin.out).
+cover: ## Coverage of the published modules, merged into coverage.out (CI sends it to Codecov; paths relative to the repository); COVER_VERBOSE=1 lists each package
+	@rm -rf .cover && mkdir .cover
+	@for m in $(PUBLISHED); do echo "== $$m"; n=$$(echo "$$m" | tr ./ __); \
+		(cd $$m && $(GO) test -count=1 -timeout=45m -coverpkg=./...,anetos.dev/anetos/... -coverprofile=$(CURDIR)/.cover/$$n.out ./... >$(CURDIR)/.cover/$$n.log 2>&1) \
+		|| { grep -vE '^(ok|\?) ' .cover/$$n.log | tail -n 200; exit 1; }; done
+	@$(GO) run ./internal/cmd/covermerge -o $(COVEROUT) $(if $(COVER_VERBOSE),-v) .cover/*.out
 
 bench: ## Benchmarks
 	@$(EACH) $(GO) test -run='^$$' -bench=. -benchmem ./... $(DONE)

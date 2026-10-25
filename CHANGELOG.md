@@ -10,6 +10,10 @@ All notable changes to this project are documented here. The format follows
 - An Anetos built from this source reports `v0.6.0-dev`, and
   `plugins/postmark` works with Anetos v0.6 too (`Requires`:
   `>= v0.2.0, < v0.7.0`) (after v0.5.0).
+- `make cover` measures the published modules' test coverage together,
+  each module's tests counting the code of the Anetos modules they use,
+  into one `coverage.out`; CI's new `coverage` job runs it on the main branch
+  and sends it to Codecov, and the README shows its badge (M9b, D332).
 
 ## [0.5.0] - 2026-10-25
 

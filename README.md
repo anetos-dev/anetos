@@ -2,6 +2,12 @@
   <img alt="Anetos" src=".github/assets/anetos-logo-neutral.svg" width="320">
 </p>
 
+<p align="center">
+  <a href="https://github.com/anetos-dev/anetos/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/anetos-dev/anetos/actions/workflows/ci.yml/badge.svg?branch=main"></a>
+  <a href="https://pkg.go.dev/anetos.dev/anetos"><img alt="Go Reference" src="https://pkg.go.dev/badge/anetos.dev/anetos.svg"></a>
+  <a href="https://codecov.io/gh/anetos-dev/anetos"><img alt="Coverage" src="https://codecov.io/gh/anetos-dev/anetos/graph/badge.svg?branch=main"></a>
+</p>
+
 > *Anetos* (Greek άνετος, "at ease, comfortable"; say **AH-neh-tos**).
 > Module `anetos.dev/anetos`, command `anetos`.
 

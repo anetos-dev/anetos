@@ -37,7 +37,9 @@ make help        # the other targets
 `make check` also needs [golangci-lint](https://golangci-lint.run) v2.
 The race detector needs cgo (a C compiler) on Linux and Windows, and
 the Makefile a Unix shell: on Windows, use WSL. CI also runs
-`make vuln` (govulncheck).
+`make vuln` (govulncheck) and, on the main branch, `make cover`, which
+sends the published modules' merged test coverage to
+[Codecov](https://app.codecov.io/gh/anetos-dev/anetos).
 
 The PostgreSQL, MySQL and Redis tests run when
 `ANETOS_TEST_POSTGRES_URL`, `ANETOS_TEST_MYSQL_URL` and
