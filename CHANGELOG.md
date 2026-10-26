@@ -7,12 +7,33 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- A frontend that Vite builds, in a web project (V1, D341–D345): `anetos
+  new --vite` (TypeScript; `--vite=js` for JavaScript) and `anetos
+  vite:install [--js]` write `frontend/` (`package.json`, `vite.config`,
+  `src/main.ts`, a `go.mod` that keeps the go command out of
+  `node_modules`) and connect the app: `vite.New(app, public.Files)` in
+  setup, the `/build/` route, `@vite.Tags("src/main.ts")` in the layout,
+  a Node stage in the Dockerfile. New package `view/vite`: the tags of an
+  entry from the build's manifest (its stylesheets, its module script,
+  `modulepreload` links), `vite.URL`, and `vite.Handler`, which serves
+  the build with year-long caching of hashed files. `anetos dev` runs
+  Vite and forwards `/build/` to it, hot reload included
+  (`VITE_DEV_URL=/build/`); `anetos build` builds the frontend into
+  `public/build`, which the binary embeds (`--no-frontend` when it's
+  built already); `anetos check` has a `frontend` step. `VITE_DEV_URL`,
+  or a missing build, stops the app where it's deployed. Node.js 20.19
+  or 22.12 or later is needed for the frontend only. Guide "Bundle
+  JavaScript and CSS with Vite".
 - `config`: a `was:"OLD,removed"` tag names a setting's former name that
   is no longer read; when it is set and the setting isn't, binding fails
   with a `*config.RenamedError` naming the setting (`config.Key.Removed`)
   (DR1, D339).
 
 ### Changed
+- In a web project with `frontend/package.json`, `anetos dev` now runs
+  its Vite, and `anetos build` and `anetos check` install its packages
+  and run its `build` script (V1, D342, D343). A web project with a
+  `frontend/` of another kind: see the upgrade guide.
 - An Anetos built from this source reports `v0.6.0-dev`, and
   `plugins/postmark` works with Anetos v0.6 too (`Requires`:
   `>= v0.2.0, < v0.7.0`) (after v0.5.0).

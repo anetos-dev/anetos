@@ -1,0 +1,19 @@
+{
+  "name": "[[.Image]]-frontend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+[[- if .TS]]
+    "build": "tsc --noEmit && vite build"
+[[- else]]
+    "build": "vite build"
+[[- end]]
+  },
+  "devDependencies": {
+[[- if .TS]]
+    "typescript": "^[[.TypeScriptVersion]]",
+[[- end]]
+    "vite": "^[[.ViteVersion]]"
+  }
+}

@@ -77,12 +77,20 @@ jobs:
             modules) modules=$(find . -name go.mod -not -path './.git/*' | sed 's|/go.mod$||' | grep -vx -e . -e ./cli | sort | tr '\n' ' ') ;;
           esac
           echo "MODULES=$modules" >>"$GITHUB_ENV"
+      # Latest Go's cli part builds a frontend with Vite too (anetos new
+      # --vite, vite:install, anetos build; design D345): Node.js and npm.
+      - if: matrix.part == 'cli' && matrix.go.name == 'latest Go'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
       # Latest Go's cli part also downloads Tailwind CSS's standalone CLI
       # (checking its pinned digest) and compiles the tailwind kit with it
-      # (design D301); the other parts don't need it.
+      # (design D301), and installs a frontend's packages from npm; the
+      # other parts don't need them.
       - run: make vet test
         env:
           ANETOS_TEST_TAILWIND: ${{ matrix.part == 'cli' && matrix.go.name == 'latest Go' && '1' || '' }}
+          ANETOS_TEST_NODE: ${{ matrix.part == 'cli' && matrix.go.name == 'latest Go' && '1' || '' }}
       # A release as users will get it (design D319): the committed tree,
       # every published module at a made-up version in a module proxy on
       # disk, go install of the tool, anetos new (web and api) without

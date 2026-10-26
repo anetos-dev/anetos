@@ -24,6 +24,7 @@
 //	model:list [--json]       list the models: tables, columns, relations
 //	css:build [--check]       compile the Tailwind CSS stylesheet
 //	css:use [<framework>] [--force]  switch the project's CSS framework
+//	vite:install [--js]       add a frontend that Vite builds (frontend/)
 //	add <module>[@version]    install a plugin
 //	remove <module>           uninstall a plugin
 //	locale:add <locale>...    add translations of the framework's messages
@@ -79,6 +80,7 @@ Commands:
   model:list [--json] [packages]  list the models: their tables, columns and relations
   css:build [--check]       compile views/ui/tailwind.css into public/static/app.css (Tailwind CSS)
   css:use [<framework>] [--force]  switch the project's CSS framework (anetos, none, pico, bootstrap, bulma, tailwind)
+  vite:install [--js]       add a frontend that Vite builds (frontend/; needs Node.js)
   add <module>[@version]    install a plugin (go get, plugins.go, .env.example)
   remove <module>           uninstall a plugin
   locale:add <locale>...    add translations of the framework's messages to locales/
@@ -185,6 +187,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return modelList(args[1:], stdout, stderr)
 	case "mcp":
 		return mcpCmd(args[1:], stderr)
+	case "vite:install":
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		return viteInstall(ctx, args[1:], stdout, stderr)
 	case "agent:install":
 		return agentInstall(args[1:], stdout, stderr)
 	case "agent:update":
@@ -211,7 +217,7 @@ var commandNames = []string{
 	"new", "dev", "build", "generate", "add", "remove", "check", "doctor", "docs", "version", "help",
 	"make:handler", "make:model", "make:migration", "make:middleware", "make:agent",
 	"make:crud", "make:auth", "make:admin", "make:admin-resource",
-	"css:build", "css:use", "key:generate", "locale:add", "agent:install", "agent:update", "model:list", "mcp", "security:check",
+	"css:build", "css:use", "vite:install", "key:generate", "locale:add", "agent:install", "agent:update", "model:list", "mcp", "security:check",
 }
 
 // formerNames are the commands' names before v0.5, which v0.6 refuses,

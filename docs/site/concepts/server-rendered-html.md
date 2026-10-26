@@ -117,6 +117,27 @@ a fresh random pad at every render so compressed pages never repeat it
   `c.IsHTMX()` adds `Vary: HX-Request`, and a layout sends the token with
   `hx-headers` and `view.CSRFToken`.
 
+## A frontend built by Vite
+
+Since v0.6, a web project can also have a frontend that Vite builds
+(`frontend/`, `anetos new --vite` or `vite:install`): modules, CSS and npm
+packages, for the parts of a page that need more than htmx. The pages
+stay templ components, rendered on the server; `@vite.Tags` adds the
+entry's scripts and stylesheets to them.
+
+- **Built once, embedded:** `vite build` writes hashed files and a
+  manifest into `public/build`, which the binary embeds. `vite.New` reads
+  the manifest at startup; per request, `@vite.Tags` only writes the tags
+  it already knows.
+- **Development through one address:** `anetos dev` runs Vite and
+  forwards `/build/` to it, so the page, its modules and the hot
+  reload's WebSocket share the app's origin: no CORS, and cookies work
+  as they do in production.
+- **Node at build time only:** the server runs the binary; the tests run
+  without a build. Where the app is deployed, a missing build or
+  `VITE_DEV_URL` stops it at startup rather than serving pages without
+  their scripts.
+
 ## Guarantees and trade-offs
 
 - **Unreadable and unforgeable**, as long as every instance shares `APP_KEY`.
@@ -141,6 +162,7 @@ a fresh random pad at every render so compressed pages never repeat it
 ## Related
 
 - [Render HTML with templ](../guides/views.md)
+- [Bundle JavaScript and CSS with Vite](../guides/vite.md)
 - [Sessions and flash messages](../guides/sessions.md), [Handle HTML forms](../guides/forms.md)
 - [HTTP request lifecycle](http-request-lifecycle.md)
 - [Views, sessions and forms reference](../reference/views.md), [Session settings](../reference/configuration.md#sessions)

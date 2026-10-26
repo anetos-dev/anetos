@@ -99,6 +99,9 @@ app's own commands (`go run . …`) refuse to start. Make one first with
 [[- end]]
 | `public/`, `public/static/` | The web root, and static files served under `/assets` |
 [[- end]]
+[[- if .Frontend]]
+| `frontend/` | The frontend Vite builds: `package.json`, `vite.config`, `src/` (the entries `@vite.Tags` loads in the layout). `go tool anetos dev` runs Vite; `go tool anetos build` builds it into `public/build` (Node.js needed) |
+[[- end]]
 | `locales/` | The messages' translations (`locales/en/app.yaml`) |
 | `plugins.go` | The plugins, written by `anetos add` and `anetos remove` |
 | `.env` | Settings and secrets (never committed); `.env.example` lists them |
@@ -128,6 +131,14 @@ app's own commands (`go run . …`) refuse to start. Make one first with
 [[- else if .Web]]
 - **Pages** follow the markup of the existing views. Forms carry
   `@view.CSRFField(ctx)`.
+[[- end]]
+[[- if .Frontend]]
+- **Scripts and styles that need a build** go in `frontend/src`, imported
+  by an entry that `@vite.Tags(...)` loads (`vite.config`'s inputs list
+  the entries); files served as they are go in `public/static`. Add npm
+  packages in `frontend/` with the package manager its lockfile belongs
+  to (`npm install <package>` beside `package-lock.json`), never to the
+  Go module.
 [[- end]]
 - **Dependencies:** don't add a router, ORM, validator, session, queue,
   mail or cache library: Anetos has them. Check the docs first.

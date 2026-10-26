@@ -32,7 +32,7 @@ a new idea, and is listed here.
 | **Agent files, skill** | What coding agents read in a project: `AGENTS.md`, the instructions, and skills, task guides (`SKILL.md`) an agent loads only when a task needs one. `anetos new` and `agent:install` write them | AGENTS.md and Agent Skills are open formats many agents share |
 | **MCP server** | A program a coding agent starts to call its tools, through the Model Context Protocol. `go tool anetos mcp` is the project's: the docs, the app's routes, models and schema, and `check`, as tools. See the [reference](../reference/cli.md#anetos-mcp---dirproject) | An open protocol most coding agents speak |
 | **llms.txt** | A site's list of its pages for language models and coding agents, linking to each page's Markdown. docs.anetos.dev has one per version, and `llms-full.txt` with every page. See [Build with a coding agent](../getting-started/coding-agents.md#how-it-works) | An open proposal many documentation sites follow |
-| **Check** | `go tool anetos check`: generate, build, vet, test, doctor and the security check's basic rules, stopping at the first failure; what you or an agent runs before calling a change done. See the [reference](../reference/cli.md#anetos-check---short---json) | |
+| **Check** | `go tool anetos check`: generate, the frontend's build (with a `frontend/`), build, vet, test, doctor and the security check's basic rules, stopping at the first failure; what you or an agent runs before calling a change done. See the [reference](../reference/cli.md#anetos-check---short---json) | |
 | **Provider** | A piece of your own functionality with a `Register` and a `Boot` phase (`anetos.Provider`), added with `app.Use`. The framework's services don't need one: `setup` builds them. See [Providers](application-lifecycle.md#providers) | Django's `AppConfig`, Laravel's service provider, Rails' initializers |
 
 ## Web
@@ -92,6 +92,9 @@ a new idea, and is listed here.
 | **CSS framework** | What `--css` picks: the starter theme, `none`, Pico, Bootstrap, Bulma or Tailwind CSS, with the matching `views/ui` components. `css:use` switches. See [Style your app](../guides/styling.md) | A `--css` option when creating a project; not a starter kit, which scaffolds accounts |
 | **Starter theme** | The default CSS framework (`--css=anetos`): light and dark, no build step. See [The starter theme](../guides/starter-theme.md) | |
 | **Variant, size, tone** | A component's options: a variant is its kind (`ui.Primary`, `ui.Secondary`), a size changes it (`ui.Small`, `ui.FullWidth`), and a tone is the color meaning of a badge or a message (`ui.Success`, `ui.Error`) | Bootstrap's and shadcn's variant and size; Polaris' tone |
+| **Frontend** | The project's `frontend/` folder (since v0.6): scripts and styles that Vite builds into `public/build`, which the binary embeds. See [Bundle JavaScript and CSS with Vite](../guides/vite.md) | Django's static files with a bundler, Laravel's `resources/js` with Vite, Rails' `app/javascript` with jsbundling or vite_ruby |
+| **Entry** | A file of the frontend that a page loads (`src/main.ts`), listed in `vite.config`'s inputs and loaded with `@vite.Tags`; Vite bundles what it imports | Vite's and webpack's entry point |
+| **Hot reload** | In development, Vite replacing a changed module or stylesheet in the open page without reloading it (hot module replacement, HMR); `anetos dev` reloads the page for Go and templ changes | HMR |
 | **Catalog** | One locale's translations, in YAML files under `locales/`. See [Translations](../guides/translations.md) | Message files: Django's `.po` files, Laravel's `lang/`, Rails' `config/locales` |
 
 ## Plugins

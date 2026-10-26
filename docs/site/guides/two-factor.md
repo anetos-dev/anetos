@@ -232,7 +232,7 @@ An API without sessions gets the code in a second request:
 `a.AttemptCredentials` answers a `*auth.TwoFactorChallenge`, whose
 `Token` the client sends back with the code to
 `a.AttemptTwoFactorChallenge`, under the same limits
-([Add accounts to an API](api-accounts.md#4-two-factor-login)).
+([Add accounts to an API](api-accounts.md#4-two-factor-authentication)).
 
 ### 4. Ask for the password again
 

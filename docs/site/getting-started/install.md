@@ -21,7 +21,8 @@ go version   # go version go1.26.x …
 
 Nothing else is required: the default database, SQLite, is built into
 the app (in pure Go, so no C compiler either), and the views' compiler,
-templ, comes with each project.
+templ, comes with each project. Only a frontend that Vite builds needs
+Node.js ([Bundle JavaScript and CSS with Vite](../guides/vite.md)).
 
 ## The `anetos` tool
 

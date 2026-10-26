@@ -2395,6 +2395,26 @@ pkg anetos.dev/anetos/view, var ErrNoSession error
 pkg anetos.dev/anetos/view/htmx, const SSEVersion = "2.2.4"
 pkg anetos.dev/anetos/view/htmx, const Version = "2.0.11"
 pkg anetos.dev/anetos/view/htmx, var FS embed.FS
+pkg anetos.dev/anetos/view/vite, const Base = "/build/"
+pkg anetos.dev/anetos/view/vite, func From(context.Context) (*Vite, error)
+pkg anetos.dev/anetos/view/vite, func Handler() http.Handler
+pkg anetos.dev/anetos/view/vite, func LoadConfig(config.Source) (Config, error)
+pkg anetos.dev/anetos/view/vite, func New(*anetos.App, fs.FS, ...Option) (*Vite, error)
+pkg anetos.dev/anetos/view/vite, func NewWithFiles(fs.FS, string, ...Option) (*Vite, error)
+pkg anetos.dev/anetos/view/vite, func Tags(...string) view.Component
+pkg anetos.dev/anetos/view/vite, func URL(context.Context, string) string
+pkg anetos.dev/anetos/view/vite, func WithReactRefresh() Option
+pkg anetos.dev/anetos/view/vite, func WithVite(context.Context, *Vite) context.Context
+pkg anetos.dev/anetos/view/vite, method (*Vite) Dev() bool
+pkg anetos.dev/anetos/view/vite, method (*Vite) ServeHTTP(http.ResponseWriter, *http.Request)
+pkg anetos.dev/anetos/view/vite, method (*Vite) Tags(...string) view.Component
+pkg anetos.dev/anetos/view/vite, method (*Vite) URL(string) string
+pkg anetos.dev/anetos/view/vite, method (Config) Validate() error
+pkg anetos.dev/anetos/view/vite, type Config struct
+pkg anetos.dev/anetos/view/vite, type Config struct, DevURL string
+pkg anetos.dev/anetos/view/vite, type Option func(*Vite)
+pkg anetos.dev/anetos/view/vite, type Vite struct
+pkg anetos.dev/anetos/view/vite, var ErrNoVite error
 pkg anetos.dev/anetos/web, const LocaleCookie = "locale"
 pkg anetos.dev/anetos/web, const MaxMultipartMemory = 32 << 20
 pkg anetos.dev/anetos/web, const RequestIDHeader = "X-Request-ID"

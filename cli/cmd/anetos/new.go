@@ -5,19 +5,23 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"slices"
 	"strings"
 
+	"anetos.dev/anetos/cli/internal/frontend"
 	"anetos.dev/anetos/cli/internal/scaffold"
 	"golang.org/x/mod/module"
 	"golang.org/x/mod/semver"
 )
 
-const newUsage = `Usage: anetos new <directory> [--module=path] [--db=sqlite|postgres|mysql] [--stack=web|api] [--css=anetos|none|pico|bootstrap|bulma|tailwind]
+const newUsage = `Usage: anetos new <directory> [--module=path] [--db=sqlite|postgres|mysql] [--stack=web|api] [--css=anetos|none|pico|bootstrap|bulma|tailwind] [--vite[=ts|js]]
 
 Creates an Anetos project: routes, handlers, migrations, a test, the
 files to deploy it, and a .env with a fresh APP_KEY. The web stack (the
@@ -30,7 +34,10 @@ build step), or Tailwind CSS (components with its classes; anetos dev
 and anetos build compile views/ui/tailwind.css with its standalone CLI,
 downloaded on first use). The api stack (--stack=api) serves JSON only:
 routes under /api/v1, errors as JSON problem details, CORS settings,
-an OpenAPI description (openapi.json); no views or sessions. Then it
+an OpenAPI description (openapi.json); no views or sessions. --vite
+adds a frontend that Vite builds (frontend/, in TypeScript, or
+JavaScript with --vite=js), loaded by the layout; it needs Node.js
+20.19 or 22.12 or later (see anetos vite:install). Then it
 downloads the dependencies and generates the views (web) or
 openapi.json (api); skip with --skip-install. It also writes the files
 coding agents read (AGENTS.md, CLAUDE.md, GEMINI.md, and the skills in
@@ -47,6 +54,14 @@ func newProject(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	replace := fs.String("replace", "", "use a local Anetos checkout at this path (for framework development)")
 	skip := fs.Bool("skip-install", false, "don't download dependencies or generate code")
 	noAgent := fs.Bool("no-agent", false, "don't write the files coding agents read (AGENTS.md, CLAUDE.md, GEMINI.md, the skills)")
+	var lang viteFlag
+	fs.Var(&lang, "vite", "add a frontend that Vite builds (frontend/): --vite for TypeScript, --vite=js for JavaScript (web stack; needs Node.js)")
+	args = slices.Clone(args)
+	for i, a := range args {
+		if a == "--vite" || a == "-vite" { // alone: TypeScript
+			args[i] = "--vite=ts"
+		}
+	}
 	pos, code := parse(fs, args, stderr, newUsage)
 	if code >= 0 {
 		return code
@@ -60,7 +75,7 @@ func newProject(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	if *noAgent {
 		agents = nil
 	}
-	files, err := scaffold.Create(scaffold.Project{Dir: dir, Module: *module, DB: *dbName, Replace: *replace, CSS: *css, Stack: *stack, Agents: agents})
+	files, err := scaffold.Create(scaffold.Project{Dir: dir, Module: *module, DB: *dbName, Replace: *replace, CSS: *css, Stack: *stack, Agents: agents, Vite: string(lang)})
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1
@@ -71,6 +86,14 @@ func newProject(ctx context.Context, args []string, stdout, stderr io.Writer) in
 			fmt.Fprintf(stdout, "  go %s\n", strings.Join(step, " "))
 			if out, err := goCmd(ctx, dir, step...); err != nil {
 				fmt.Fprintf(stderr, "anetos new: go %s failed: %v\n%s\nFix the problem, then run the remaining steps in %s yourself.\n", strings.Join(step, " "), err, out, dir)
+				return 1
+			}
+		}
+		if lang != "" {
+			if err := frontend.CheckNode(ctx); err != nil {
+				fmt.Fprintf(stdout, "  Not installing the frontend's packages: %v.\n  Once Node.js is installed, anetos dev installs them.\n", err)
+			} else if err := installFrontend(ctx, dir, stdout); err != nil {
+				fmt.Fprintf(stderr, "anetos new: %v\nFix the problem, then run npm install in %s.\n", err, filepath.Join(dir, frontend.Dir))
 				return 1
 			}
 		}
@@ -144,4 +167,30 @@ func goCmd(ctx context.Context, dir string, args ...string) ([]byte, error) {
 	c.Stdout, c.Stderr = &out, &out
 	err := c.Run()
 	return out.Bytes(), err
+}
+
+// viteFlag is --vite's language: "ts" (--vite alone, which newProject
+// rewrites as --vite=ts) or "js".
+type viteFlag string
+
+func (f *viteFlag) String() string { return string(*f) }
+
+func (f *viteFlag) Set(v string) error {
+	if v != "ts" && v != "js" {
+		return errors.New("want ts or js")
+	}
+	*f = viteFlag(v)
+	return nil
+}
+
+// installFrontend installs the packages of the frontend of the project in
+// dir, saying so; their installer's output only on failure.
+func installFrontend(ctx context.Context, dir string, stdout io.Writer) error {
+	fdir := filepath.Join(dir, frontend.Dir)
+	fmt.Fprintf(stdout, "  %s install (frontend/)\n", frontend.ManagerOf(fdir).Name)
+	var out bytes.Buffer
+	if err := frontend.Install(ctx, fdir, &out, true); err != nil {
+		return fmt.Errorf("installing the frontend's packages failed: %w\n%s", err, out.String())
+	}
+	return nil
 }

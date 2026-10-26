@@ -633,6 +633,7 @@ is the largest and least predictable.
 | WP | Status |
 |---|---|
 | DR1 Remove v0.5's deprecations | ✅ Done 2026-10-26 (design §7, §23, D338–D340): 81 identifiers removed from the core, `admin`, the drivers and postmark (`api/*.txt`); the 13 settings renamed in v0.5 refused when set without their new names (`was:"OLD,removed"`, `config.RenamedError`); the old command names, `schedule:run <task>`, process types, `unique_live`, a plugin's `Listen` and a backend's `SignedURL` refused with the new name; the tool's support for projects made before v0.5 removed (`make:crud` and `make:auth` name `css:use --force` without `views/ui`); the upgrade guide `upgrade/v0.6.md`; also `releasing.md`'s pkg.go.dev check |
+| V1 Vite | ✅ Done 2026-10-26 (design §12.2, D341–D345): package `view/vite` (`vite.New`, `@vite.Tags` from the build's manifest, `vite.Handler` for `/build/`, `vite.URL`, `VITE_DEV_URL`); `anetos new --vite[=ts\|js]` and `anetos vite:install [--js]` (`frontend/` with a `go.mod` guard, the app wired, a Node stage in the Dockerfile); `anetos dev` runs Vite and forwards `/build/` (hot reload through its address); `anetos build` builds the frontend (`--no-frontend`), `anetos check`'s `frontend` step; refused where deployed: `VITE_DEV_URL`, a missing build; guide "Bundle JavaScript and CSS with Vite"; CI's latest Go cli part builds a frontend with Node and checks the binary embeds all of it; only web projects (an API project's `frontend/` is SP2's). Review81's findings fixed (files named `_…` left out of the binary, Vite on `::1`, terminal clearing, `vite:install` without `templ generate`, CRLF files). Not run here: the Docker image (no Docker daemon), macOS and Windows, pnpm/yarn/bun |
 
 ---
 
@@ -808,3 +809,4 @@ something, and we fix the API rather than add the hook.
 | 2026-10-25 | AX1c-2 moved after the release (v0.6), at the user's request; M9 split in M9a (the v0.5.0 release, done) and M9b (awesome-go, March 2027) |
 | 2026-10-25 | M9b's coverage done (design D332); the submission stays in March 2027 |
 | 2026-10-26 | v0.6 planned with Samiul (`v06-plan.md`, design D333–D337): frontends two ways, the work packages DR1, V1, V2, TS1, SP1, SP2, V3, V4 in that order, exit criteria; DR1 done (D338–D340) |
+| 2026-10-26 | V1 (Vite) done (design D341–D345) |

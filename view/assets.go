@@ -4,7 +4,6 @@ package view
 
 import (
 	"bytes"
-	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -14,10 +13,11 @@ import (
 	"net/http"
 	"net/url"
 	"path"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"anetos.dev/anetos/internal/gzipfile"
 )
 
 // Assets serves static files (CSS, JavaScript, images) and builds their
@@ -60,7 +60,7 @@ func (f *assetFile) gzipped(name string) []byte {
 	}
 	f.gzOnce.Do(func() {
 		if b, err := fs.ReadFile(f.fsys, name); err == nil {
-			f.gz = compress(b)
+			f.gz = gzipfile.Compress(b)
 		}
 	})
 	return f.gz
@@ -96,7 +96,7 @@ func NewAssets(prefix string, fsys ...fs.FS) (*Assets, error) {
 				return err
 			}
 			sum := sha256.Sum256(b)
-			a.files[name] = &assetFile{fsys: f, hash: hex.EncodeToString(sum[:5]), text: len(b) >= 1024 && compressible(name)}
+			a.files[name] = &assetFile{fsys: f, hash: hex.EncodeToString(sum[:5]), text: len(b) >= 1024 && gzipfile.Compressible(name)}
 			return nil
 		})
 		if err != nil {
@@ -105,68 +105,6 @@ func NewAssets(prefix string, fsys ...fs.FS) (*Assets, error) {
 	}
 	return a, nil
 }
-
-// compress returns b gzipped, or nil when that doesn't shrink it by a
-// tenth.
-func compress(b []byte) []byte {
-	var out bytes.Buffer
-	w, _ := gzip.NewWriterLevel(&out, gzip.BestCompression) // a valid level: no error
-	if _, err := w.Write(b); err != nil {
-		return nil
-	}
-	if err := w.Close(); err != nil || out.Len() > len(b)*9/10 {
-		return nil
-	}
-	return bytes.Clone(out.Bytes())
-}
-
-// compressible reports whether a file's type is text, which gzip shrinks.
-func compressible(name string) bool {
-	t, _, _ := strings.Cut(mime.TypeByExtension(path.Ext(name)), ";")
-	switch t {
-	case "application/javascript", "text/javascript", "application/json", "application/manifest+json",
-		"image/svg+xml", "application/xml", "application/wasm":
-		return true
-	}
-	return strings.HasPrefix(t, "text/")
-}
-
-// acceptsGzip reports whether a request's Accept-Encoding takes gzip:
-// it names gzip with a weight above 0 (a "*" alone doesn't count).
-func acceptsGzip(r *http.Request) bool {
-	for _, v := range r.Header.Values("Accept-Encoding") {
-		for part := range strings.SplitSeq(v, ",") {
-			coding, params, _ := strings.Cut(part, ";")
-			if !strings.EqualFold(strings.TrimSpace(coding), "gzip") {
-				continue
-			}
-			for param := range strings.SplitSeq(params, ";") {
-				name, value, _ := strings.Cut(param, "=")
-				if strings.EqualFold(strings.TrimSpace(name), "q") {
-					q, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
-					return err == nil && q > 0
-				}
-			}
-			return true
-		}
-	}
-	return false
-}
-
-// gzipWriter marks a response gzipped when it has content (200, 206):
-// http.ServeContent sets the length of the gzipped bytes only while the
-// header has no Content-Encoding, and a 304 or an error isn't gzipped.
-type gzipWriter struct{ http.ResponseWriter }
-
-func (w gzipWriter) WriteHeader(code int) {
-	if code == http.StatusOK || code == http.StatusPartialContent {
-		w.Header().Set("Content-Encoding", "gzip")
-	}
-	w.ResponseWriter.WriteHeader(code)
-}
-
-// Unwrap returns the response writer, for http.ResponseController.
-func (w gzipWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 
 func hidden(name string) bool {
 	for p := range strings.SplitSeq(name, "/") {
@@ -225,12 +163,12 @@ func (a *Assets) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.Set("X-Content-Type-Options", "nosniff")
 	if gz := f.gzipped(name); gz != nil {
 		h.Add("Vary", "Accept-Encoding")
-		if acceptsGzip(r) {
+		if gzipfile.AcceptsGzip(r) {
 			h.Set("ETag", `"`+f.hash+`-gz"`) // another representation
 			if t := mime.TypeByExtension(path.Ext(name)); t != "" {
 				h.Set("Content-Type", t)
 			}
-			http.ServeContent(gzipWriter{w}, r, name, time.Time{}, bytes.NewReader(gz))
+			http.ServeContent(gzipfile.Writer{ResponseWriter: w}, r, name, time.Time{}, bytes.NewReader(gz))
 			return
 		}
 	}

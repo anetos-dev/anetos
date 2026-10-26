@@ -17,17 +17,21 @@ import (
 
 	"golang.org/x/mod/modfile"
 
+	"anetos.dev/anetos/cli/internal/frontend"
 	"anetos.dev/anetos/cli/internal/modelgen"
 	"anetos.dev/anetos/cli/internal/scaffold"
 	"anetos.dev/anetos/cli/internal/tailwind"
 )
 
-const buildUsage = `Usage: anetos build [-o file] [--target=os/arch] [--version=v1.2.0] [--cgo] [-- go build flags]
+const buildUsage = `Usage: anetos build [-o file] [--target=os/arch] [--version=v1.2.0] [--cgo] [--no-frontend] [-- go build flags]
 
 Builds the app for production: one binary with everything in it (the
 migrations, the templ views, the files in public/ and locales/). It runs
 templ generate and anetos generate first (and, in a project that uses
-Tailwind CSS, anetos css:build), then go build with -trimpath and
+Tailwind CSS, anetos css:build; in a project with a frontend/, its
+packages' install if they need it and its build script, vite build,
+into public/build: Node.js is needed, unless --no-frontend says the
+build is there already), then go build with -trimpath and
 -ldflags=-s -w, and CGO_ENABLED=0 (a static binary; SQLite works without
 cgo) unless --cgo. --target builds for another system (linux/amd64,
 linux/arm64, windows/amd64…); GOOS and GOARCH work too when the tool
@@ -43,6 +47,7 @@ func build(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	out := fs.String("o", "", "the binary to write (default bin/<module name>)")
 	target := fs.String("target", "", "the system to build for, os/arch (default: this one, or GOOS and GOARCH)")
 	cgo := fs.Bool("cgo", false, "build with cgo (CGO_ENABLED=1)")
+	noFrontend := fs.Bool("no-frontend", false, "don't build frontend/: public/build has its build already (a Dockerfile's Node stage made it)")
 	ver := fs.String("version", "", "the app's version, for its version command (default: from git)")
 	var extra []string
 	if i := indexOf(args, "--"); i >= 0 {
@@ -74,7 +79,7 @@ func build(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "anetos build:", err)
 		return 1
 	}
-	b := appBuild{root: root, out: *out, goos: goos, goarch: goarch, cgo: *cgo, version: *ver, extra: extra}
+	b := appBuild{root: root, out: *out, goos: goos, goarch: goarch, cgo: *cgo, version: *ver, extra: extra, noFrontend: *noFrontend}
 	bin, err := b.run(ctx, stderr)
 	if err != nil {
 		fmt.Fprintln(stderr, "anetos build:", err)
@@ -113,6 +118,7 @@ type appBuild struct {
 	cgo          bool
 	version      string
 	extra        []string // go build flags
+	noFrontend   bool     // public/build is built already
 }
 
 // run generates the code and builds the binary, returning its path. It
@@ -164,6 +170,11 @@ func (b *appBuild) run(ctx context.Context, stderr io.Writer) (string, error) {
 	}
 	if tailwind.Uses(b.root) {
 		if err := buildCSS(ctx, b.root, stderr, "anetos build"); err != nil {
+			return "", err
+		}
+	}
+	if frontend.Uses(b.root) && !b.noFrontend {
+		if err := frontend.Build(ctx, filepath.Join(b.root, frontend.Dir), stderr); err != nil {
 			return "", err
 		}
 	}

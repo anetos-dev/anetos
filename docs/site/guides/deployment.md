@@ -35,8 +35,10 @@ $ go tool anetos build
 built bin/blog (linux/amd64, 18.3 MB)
 ```
 
-`anetos build` generates the templ views and typed columns, then builds
-a static binary (`CGO_ENABLED=0`, `-trimpath`, without debug symbols).
+`anetos build` generates the templ views and typed columns, builds the
+frontend if the project has one ([Vite](vite.md), with Node.js), then
+builds a static binary (`CGO_ENABLED=0`, `-trimpath`, without debug
+symbols).
 `--target` builds for another system, a Linux server from a Mac say:
 
 ```sh
@@ -167,7 +169,10 @@ the binary alone into a distroless image (about 25 MB), run as user
 65532. In a project that uses Tailwind CSS, `anetos build` compiles the
 stylesheet first, with Tailwind CSS downloaded once into BuildKit's
 cache, so the build needs to reach GitHub's releases the first time
-([Tailwind CSS](tailwind.md)). The image sets
+([Tailwind CSS](tailwind.md)). A project with a frontend
+([Vite](vite.md)) builds it first in a `node:22-alpine` stage (`npm ci`,
+`npm run build`) and copies `public/build` into the Go stage, which runs
+`anetos build --no-frontend`; the final image has no Node. The image sets
 `APP_ENV=production` and `STORAGE_ROOT=/data/storage` (and
 `DB_NAME=/data/app.db` and `DB_MIGRATE_ON_START=true` for SQLite), and
 listens on port 8080, or a platform's `PORT`: mount a volume on `/data`. Its `HEALTHCHECK` runs

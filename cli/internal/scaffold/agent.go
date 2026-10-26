@@ -73,12 +73,15 @@ type AgentProject struct {
 	// HasUI is set when the web project has views/ui's components
 	// (every new one does).
 	HasUI bool
+	// Frontend is set when the project has a frontend that Vite builds
+	// (frontend/package.json).
+	Frontend bool
 }
 
 // agentData is what the agent templates see.
 type agentData struct {
 	Title, Name, Bin, Image, DB, DBLabel, KitSentence string
-	Web, API, HasUI                                   bool
+	Web, API, HasUI, Frontend                         bool
 	Skills                                            []skill
 	SkillDirs                                         []string
 }
@@ -105,7 +108,7 @@ func (p AgentProject) data(agents []string) agentData {
 	d := agentData{
 		Title: title(p.Name), Name: p.Name, Bin: BinaryName(cmp.Or(p.Module, p.Name)), Image: strings.ToLower(p.Name),
 		DB: p.DB, DBLabel: dbLabels[p.DB], KitSentence: kitSentences[p.Kit],
-		Web: p.Stack != "api", API: p.Stack == "api", HasUI: p.HasUI && p.Stack != "api",
+		Web: p.Stack != "api", API: p.Stack == "api", HasUI: p.HasUI && p.Stack != "api", Frontend: p.Frontend,
 		SkillDirs: skillDirs(agents),
 	}
 	if d.Web && !d.HasUI {
@@ -499,6 +502,9 @@ func ReadAgentProject(root string) (AgentProject, error) {
 	}
 	if len(units) == 1 {
 		p.Name = units[0]
+	}
+	if _, err := os.Stat(filepath.Join(root, "frontend", "package.json")); err == nil {
+		p.Frontend = true
 	}
 	if p.Name == "" && p.Module != "" {
 		p.Name = BinaryName(p.Module)

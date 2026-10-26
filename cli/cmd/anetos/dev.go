@@ -15,6 +15,7 @@ import (
 	"syscall"
 
 	"anetos.dev/anetos/cli/internal/devserver"
+	"anetos.dev/anetos/cli/internal/frontend"
 	"anetos.dev/anetos/cli/internal/scaffold"
 	"anetos.dev/anetos/config"
 )
@@ -25,7 +26,11 @@ Runs the app with live reload. On every change to Go files, templ files,
 .env or public/ (or views/ui/tailwind.css), it runs templ generate,
 anetos generate and, in a project that uses Tailwind CSS, anetos
 css:build, rebuilds, restarts the app and reloads the open
-pages. Build errors show in the browser.
+pages. Build errors show in the browser. In a project with a frontend
+(frontend/, see vite:install), it also runs Vite's development server,
+installing the packages first if they need it (Node.js 20.19 or 22.12 or
+later), and forwards /build/ to it: the pages load the sources from
+Vite (VITE_DEV_URL=/build/), which updates them as they change.
 Browse the address given by --addr (default: HTTP_ADDR from .env, or
 :8080, on 127.0.0.1 only); the app itself listens on a free local port.
 Browsers reach it as localhost, a name under .localhost, an IP address,
@@ -89,7 +94,11 @@ func dev(args []string, stdout, stderr io.Writer) int {
 	}
 	if host, _, err := net.SplitHostPort(*addr); err == nil {
 		if ip, err := netip.ParseAddr(host); host != "localhost" && (err != nil || !ip.IsLoopback()) {
-			fmt.Fprintf(stderr, "anetos dev: serving on %s, reachable from other machines: it shows build errors, logs and debug pages\n", *addr)
+			also := ""
+			if frontend.Uses(root) {
+				also = ", and the frontend's sources under /build/"
+			}
+			fmt.Fprintf(stderr, "anetos dev: serving on %s, reachable from other machines: it shows build errors, logs and debug pages%s\n", *addr, also)
 		}
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

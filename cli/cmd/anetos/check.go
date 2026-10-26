@@ -13,12 +13,14 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
 	"unicode/utf8"
 
 	"anetos.dev/anetos/cli/internal/devserver"
+	"anetos.dev/anetos/cli/internal/frontend"
 	"anetos.dev/anetos/cli/internal/tailwind"
 )
 
@@ -30,6 +32,9 @@ before calling a change done. In order, stopping at the first failure:
   generate  templ's views, the models' typed columns (anetos generate),
             and a Tailwind CSS project's stylesheet (downloading the
             tailwindcss binary on first use; offline, a note)
+  frontend  in a project with frontend/: its packages' install if they
+            need it, and its build script (TypeScript's checks, vite
+            build into public/build); it needs Node.js
   build     go build ./...
   vet       go vet ./...
   test      go test ./... (--short: go test -short ./...)
@@ -38,7 +43,8 @@ before calling a change done. In order, stopping at the first failure:
             code, the routes and the settings; a problem fails it, its
             warnings are listed (without a .env, the code only)
 
-It writes generated code, as anetos dev does; it changes nothing else.
+It writes generated code, as anetos dev does, and the frontend's build;
+it changes nothing else.
 Exits 1 when a step fails. --json prints one object: {"ok": …, "steps":
 [{"step", "ok", "seconds", "output"}…]}, with each step's output (and
 "error" when check couldn't start).
@@ -108,6 +114,12 @@ func runCheck(ctx context.Context, root string, short, asJSON bool, stdout io.Wr
 			return nil
 		}},
 		{"security", func(out io.Writer) error { return checkSecurity(ctx, root, out) }},
+	}
+	if frontend.Uses(root) { // before the Go build, which embeds it
+		steps = slices.Insert(steps, 1, struct {
+			name string
+			run  func(out io.Writer) error
+		}{"frontend", func(out io.Writer) error { return frontend.Build(ctx, filepath.Join(root, frontend.Dir), out) }})
 	}
 	var report []checkStep
 	ok := true

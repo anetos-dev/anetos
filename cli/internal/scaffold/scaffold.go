@@ -57,6 +57,9 @@ type Project struct {
 	// Agents are the coding agents to write the agent files for (AGENTS.md,
 	// the skills…; see [Agents]): none when empty.
 	Agents []string
+	// Vite adds a frontend that Vite builds (see [AddVite]) in the
+	// language ("ts" or "js"); "" for none. Web stack only.
+	Vite string
 }
 
 // Kits are the design kits: the values of [Project.CSS]. A kit is the
@@ -218,6 +221,13 @@ func Create(p Project) ([]string, error) {
 	default:
 		return nil, fmt.Errorf("anetos new: --css must be one of %s", strings.Join(Kits, ", "))
 	}
+	switch {
+	case p.Vite == "":
+	case p.Stack == "api":
+		return nil, errors.New("anetos new: --vite is for the web stack: an api project's frontend is a separate app")
+	case !slices.Contains(Languages, p.Vite):
+		return nil, fmt.Errorf("anetos new: --vite must be one of %s", strings.Join(Languages, ", "))
+	}
 	if entries, err := os.ReadDir(p.Dir); err == nil && len(entries) > 0 {
 		return nil, fmt.Errorf("anetos new: %s exists and isn't empty", p.Dir)
 	}
@@ -302,7 +312,7 @@ func Create(p Project) ([]string, error) {
 		files = append(files, file{rec.Rel, rec.Content, 0o644})
 	}
 	if len(p.Agents) > 0 {
-		agentFiles, err := RenderAgentFiles(AgentProject{Name: name, Module: p.Module, Stack: p.Stack, DB: p.DB, Kit: p.CSS, HasUI: p.Stack == "web"}, p.Agents)
+		agentFiles, err := RenderAgentFiles(AgentProject{Name: name, Module: p.Module, Stack: p.Stack, DB: p.DB, Kit: p.CSS, HasUI: p.Stack == "web", Frontend: p.Vite != ""}, p.Agents)
 		if err != nil {
 			return nil, err
 		}
@@ -322,6 +332,20 @@ func Create(p Project) ([]string, error) {
 			return nil, err
 		}
 		written = append(written, f.rel)
+	}
+	if p.Vite != "" {
+		res, err := AddVite(abs, p.Vite)
+		if err == nil && len(res.Manual) > 0 {
+			err = fmt.Errorf("anetos new: the frontend's wiring failed: %s", strings.Join(res.Manual, "; "))
+		}
+		if err != nil {
+			if created {
+				_ = os.RemoveAll(abs)
+			}
+			return nil, err
+		}
+		written = append(written, res.Created...)
+		slices.Sort(written)
 	}
 	return written, nil
 }

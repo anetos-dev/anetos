@@ -1474,6 +1474,65 @@ Node-free (D337). Each part is designed in its work package (V1 Vite,
 V2 the Inertia adapter, TS1 the types, SP1 SPA login, SP2 serving an
 SPA, V3 the stacks).
 
+**Vite (V1, D341–D345).** A web project can have a frontend that Vite
+builds:
+
+- **The package** `view/vite` (core, no dependencies): `vite.New(app,
+  public.Files)` reads `public/build/manifest.json` from the embedded web
+  root at startup, joins the app's contexts (`vite.From`) and container,
+  and adds a doctor check. `@vite.Tags("src/main.ts")` writes an entry's
+  tags as Vite's backend integration guide says: the stylesheets of the
+  entry and of the chunks it imports (recursively, each once), its
+  `<script type="module">` (a stylesheet link for a CSS entry), then
+  `modulepreload` links for the imported chunks; `vite.URL` gives a
+  built file's URL by its source path. `vite.Handler()` serves the build
+  under `/build/` (`vite.Base`): `assets/`' hashed files cached for a
+  year, others `no-cache` with an ETag, text gzipped (with the code
+  `view.Assets` uses, now shared in `internal/gzipfile`), the manifest
+  and dot files not served (D341).
+- **The manifest is `build/manifest.json`** (`build.manifest:
+  'manifest.json'` in `vite.config`): Vite's default, `.vite/manifest.json`,
+  is in a dot folder, which `//go:embed` leaves out (D341).
+- **Development** (D343): `VITE_DEV_URL` makes the tags load Vite's
+  `@vite/client` and the entries' sources from there (and React's
+  refresh preamble with `vite.WithReactRefresh()`). `anetos dev`, in a
+  web project with `frontend/package.json` (an API project's
+  `frontend/` is an app of its own: dev, build and check leave it
+  alone), installs the packages when `node_modules` is missing or older
+  than `package.json` or the lockfile (updating the lockfile), runs
+  `node frontend/node_modules/vite/bin/vite.js --host 127.0.0.1 --port
+  <free> --strictPort --clearScreen false` before it serves (flags win
+  over `vite.config`, so it needs no settings there; node itself, so
+  stopping it stops Vite on Windows too), forwards `/build/` to it
+  (WebSocket upgrades too, with Vite's host name), and gives the app
+  `VITE_DEV_URL=/build/`: one origin for the page, its modules and the
+  hot reload, whose client uses the page's port. Frontend changes don't
+  rebuild the app.
+- **Where the app is deployed** (APP_ENV production or staging),
+  `vite.New` refuses `VITE_DEV_URL` and a missing manifest; elsewhere a
+  missing manifest makes the tags an HTML comment (tests need no build),
+  and doctor warns in development (D344).
+- **The project** (D342, D345): `frontend/` holds `package.json` (Vite;
+  TypeScript with its type check in the `build` script),
+  `vite.config.ts` or `.js` (`base: '/build/'`, `outDir:
+  '../public/build'`, the inputs, and output names stripped of a
+  leading `_` or `.`, which `//go:embed` would leave out), `src/main.ts` importing
+  `src/main.css`, `tsconfig.json` (TypeScript), and a `go.mod` that keeps
+  `go build ./...` and `go vet ./...` out of `node_modules`. `anetos new
+  --vite[=ts|js]` and `anetos vite:install [--js]` write it with
+  `scaffold.AddVite`, which also wires `vite.New` into setup (before
+  `web.NewServer`), the `/build/` route (after `/assets/`),
+  `@vite.Tags` after `@ui.Head()` in the layout (only once `main.go` has
+  `vite.New`: the tags fail without it), `.gitignore` and
+  `.dockerignore`, and the Dockerfile's `node:22-alpine` stage (`npm ci`,
+  `npm run build`, `public/build` copied into the Go stage, `anetos build
+  --no-frontend`); a file whose anchor it can't find is left alone and
+  named with what to add; CRLF files keep their line endings. Then
+  `vite:install` runs `templ generate`, and both install the packages
+  with npm (the lockfile's manager later: pnpm, yarn, bun). `anetos build` builds the
+  frontend before the binary, and `anetos check` has a `frontend` step.
+  AGENTS.md describes `frontend/` when the project has one.
+
 ### 12.3 Admin interface (v0.3: AD1, AD2)
 
 An admin for the people who run a site: its records, its users and their
@@ -3355,6 +3414,11 @@ unless new information arrives), **Open**, **Superseded**.
 | D338 | DR1 removes what v0.5 deprecated: 81 identifiers of the core, `admin`, the drivers and postmark, gemini's `Options.Config` and storagetest's `Features.SignedURLs`; and the tool's support for projects made before v0.5 (writing `views/ui` into a web project without one, `views/ui/kit.json`, the generated files' header before v0.5, `ForApp` calls in a project's code). The upgrade path: `go fix ./...` on v0.5 (it inlines only while the shims exist), then the guide's list of what it can't rewrite; no rewrite tool of our own. The mechanisms for future renames stay: the `was` tag, `cmd.Command.Former`, doctor's settings check | Accepted | Samiul's choices (2026-10-25). D309 keeps a deprecated name one minor; v0.1–v0.4 were never public and are retracted, so no user has a project without `views/ui`; the compiler names every leftover name, which makes a rewrite tool code to keep for one upgrade |
 | D339 | A setting's former name that is no longer read (`was:"OLD,removed"`) stops the app when it is set and the new name isn't (`*config.RenamedError`, naming the new key); with both set, the new one is used and doctor says to remove the former. The 13 settings renamed in v0.5 get this in v0.6, kept until v1.0 | Accepted | Samiul's choice (2026-10-25). Silently ignored, `DB_CONNECTION=postgres` would boot the app on an empty SQLite file, and `MIGRATE_ON_RUN` would stop migrating; an error naming the new key costs one rename |
 | D340 | The names before v0.5 of the app's commands (`routes:list`, `plugins:list`, `plugins:env`, `lang:check`) and the tool's (`lang:add`, `add lang`, `make:admin:resource`), `schedule:run <task>`, the process types `http`, `workers` and `listeners`, the validation rule `unique_live`, and the interface methods a type of the app implements (a plugin's `Listen`, a backend's `SignedURL`) are refused with an error naming the new one, kept until v1.0; a user's `CommunicationLocale`, which has no caller to refuse, logs an error once | Accepted | Samiul's choice (2026-10-25). A deploy file or cron line naming an old command fails loudly with the fix, rather than as an unknown name; a method no longer called would otherwise change behavior silently |
+| D341 | `view/vite` in the core: `vite.New(app, files)` reads the build's manifest (`public/build/manifest.json`, named so because `//go:embed` leaves out Vite's default dot folder) at startup and joins the app's contexts; `vite.Tags(entries...)` writes, from the build, the entries' stylesheets and those of their imports, their module scripts and `modulepreload` links for their imports, as Vite's backend integration guide describes; `vite.Handler()` serves the build under `/build/`, hashed files cached for a year; `vite.URL` for a built file | Accepted | The tags are computed from data read once, so nothing per request but writing them (principle 4); no dependency in the core; the handler reaches the Vite through the request's context, so `routes.Register` keeps its signature. Vite's own guide is the algorithm, so behavior follows Vite's releases |
+| D342 | The frontend lives in `frontend/` (package.json, vite.config, src/, node_modules) and builds into `public/build/`, embedded by the web root's existing `//go:embed` (the build names no file with a leading `_` or `.`, which it would leave out); `frontend/go.mod` keeps the go command out of `node_modules`; in an API project, `frontend/` is the separate app's (D335), which the tool leaves to SP2 | Accepted | Samiul's choice (2026-10-26): the name D335 uses for a separate SPA; Node's files stay out of the Go root; some npm packages ship Go files, which `go build ./...` and `go vet ./...` would otherwise compile |
+| D343 | In development the pages load Vite's modules through `anetos dev`'s proxy: Vite on a free port, `/build/` forwarded to it (the hot reload's WebSocket too), `VITE_DEV_URL=/build/` for the app | Accepted | Samiul's choice (2026-10-26): one origin, so no CORS, no Vite address in the page, cookies as in production; Vite on 127.0.0.1 by flag, since `localhost` may be `::1`; without `anetos dev`, `VITE_DEV_URL` set to Vite's own address works with `server.origin` set in `vite.config` |
+| D344 | `VITE_DEV_URL` and a missing manifest stop the app where it's deployed (production, staging); elsewhere a missing manifest renders an HTML comment, and doctor warns in development | Accepted | A deployed page must not load scripts from a development server or none at all, and failing at startup says so at once; tests and CI shouldn't need Node to run the Go tests |
+| D345 | `anetos new --vite[=ts\|js]` and `anetos vite:install [--js]` write the frontend and wire the app with one function (`scaffold.AddVite`), leaving a file it can't patch safely to the developer with what to add; npm installs the packages (Node.js 20.19 or 22.12 or later, Vite 8's minimum); `anetos build` builds the frontend first (`--no-frontend` for the Dockerfile's Node stage), and `anetos check` has a `frontend` step; CI's latest Go cli part runs the end-to-end test with Node (`ANETOS_TEST_NODE=1`) | Accepted | Samiul's choices (2026-10-26): both ways in, and the language a flag (TypeScript by default, which TS1's generated types will need); one function keeps `new` and `install` identical. Node only where a frontend is, as D337 decided |
 
 ---
 
@@ -3472,3 +3536,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-25 | AX1c-1 (the security check for coding agents): §17.1 updated; D331 added |
 | 2026-10-25 | M9b (test coverage across the published modules): D332 added |
 | 2026-10-26 | v0.6 planned with Samiul (`docs/planning/v06-plan.md`): §12.2's SPA-style part rewritten as frontends two ways; D333–D337 added. DR1 (removing v0.5's deprecations): §7, §23 updated; D338–D340 added |
+| 2026-10-26 | V1 (Vite): §12.2 updated; D341–D345 added |

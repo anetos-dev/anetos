@@ -315,7 +315,8 @@ pages apart.
 > Django templates, Laravel's Blade views and components, or Rails'
 > views and partials; `{ children... }` is where the content goes.
 > `web.URL` builds a route's URL, and `assets.URL` gives a static file's
-> URL without a build step (Vite arrives in v0.6).
+> URL without a build step; [Vite](vite.md) bundles the scripts that
+> need one.
 
 ## Testing it
 

@@ -4,7 +4,8 @@
 // regenerates code (templ, anetos generate), rebuilds and restarts the app on
 // every change, and serves it through a reverse proxy on a stable address
 // that reloads open pages when the new version is up, or shows the build
-// error.
+// error. In a project with a frontend (frontend/), it also runs Vite's
+// development server and forwards /build/ to it (D343).
 package devserver
 
 import (
@@ -28,10 +29,13 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
+	"anetos.dev/anetos/cli/internal/frontend"
 	"anetos.dev/anetos/cli/internal/modelgen"
 	"anetos.dev/anetos/cli/internal/tailwind"
+	"anetos.dev/anetos/view/vite"
 )
 
 // Options configures [Run].
@@ -70,6 +74,15 @@ func Run(ctx context.Context, o Options) error {
 	ln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", o.Addr)
 	if err != nil {
 		return fmt.Errorf("anetos dev: %w", err)
+	}
+	// Vite first: requests under /build/ go to it from the start (d.vite
+	// doesn't change while serving).
+	if frontend.Uses(o.Dir) {
+		if err := d.startVite(); err != nil {
+			_ = ln.Close()
+			return fmt.Errorf("anetos dev: %w", err)
+		}
+		defer d.stopVite()
 	}
 	srv := &http.Server{Handler: d, ReadHeaderTimeout: 10 * time.Second}
 	go func() { _ = srv.Serve(ln) }()
@@ -127,6 +140,10 @@ type dev struct {
 
 	tailwind       string // the tailwindcss binary, once found
 	tailwindFailed bool   // it couldn't be had: not tried again
+
+	vite       *url.URL  // Vite's development server, when the project has a frontend; set before serving
+	viteProc   *exec.Cmd // it
+	viteExited chan struct{}
 }
 
 func (d *dev) logf(format string, args ...any) {
@@ -248,6 +265,9 @@ func (d *dev) start() error {
 	c.SysProcAttr = sysProcAttr() // Linux: the app dies with anetos dev
 	c.Dir = d.opts.Dir
 	c.Env = append(os.Environ(), "HTTP_ADDR="+addr)
+	if d.vite != nil {
+		c.Env = append(c.Env, "VITE_DEV_URL="+viteBase) // through the proxy
+	}
 	tail := &tailBuffer{max: 8 << 10}
 	c.Stdout = io.MultiWriter(d.opts.Out, tail)
 	c.Stderr = io.MultiWriter(d.opts.Out, tail)
@@ -345,6 +365,10 @@ func (d *dev) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		d.events(w, r)
 		return
 	}
+	if d.vite != nil && strings.HasPrefix(r.URL.Path, viteBase) {
+		d.proxyVite(w, r)
+		return
+	}
 	var target *url.URL
 	var failure string
 	timeout := time.After(60 * time.Second)
@@ -381,6 +405,121 @@ func (d *dev) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ModifyResponse: injectReload,
 		ErrorHandler: func(w http.ResponseWriter, _ *http.Request, err error) {
 			http.Error(w, "anetos dev: "+err.Error(), http.StatusBadGateway)
+		},
+	}
+	p.ServeHTTP(w, r)
+}
+
+// ---- Vite ----
+
+// viteBase is where the frontend's vite.config serves (base) and the
+// proxy forwards to Vite; the app's tags load from there
+// (VITE_DEV_URL).
+const viteBase = vite.Base
+
+// startVite installs the frontend's packages if they need it, and starts
+// Vite's development server on 127.0.0.1 and a free port (command-line
+// flags, which win over vite.config), returning once it listens.
+func (d *dev) startVite() error {
+	dir := filepath.Join(d.opts.Dir, frontend.Dir)
+	if err := frontend.CheckNode(d.ctx); err != nil {
+		return err
+	}
+	if frontend.NeedsInstall(dir) {
+		d.logf("installing the frontend's packages (%s)", frontend.ManagerOf(dir).Name)
+		if err := frontend.Install(d.ctx, dir, d.opts.Out, true); err != nil {
+			return err
+		}
+	}
+	script, err := frontend.ViteScript(dir)
+	if err != nil {
+		return err
+	}
+	port, err := freePort(d.ctx)
+	if err != nil {
+		return err
+	}
+	// node itself, not a shell shim: stopping it stops Vite.
+	c := exec.CommandContext(d.ctx, "node", frontend.DevArgs(script, port)...)
+	if runtime.GOOS != "windows" {
+		c.Cancel = func() error { return c.Process.Signal(os.Interrupt) }
+	}
+	c.WaitDelay = 5 * time.Second
+	c.SysProcAttr = sysProcAttr()
+	c.Dir = dir
+	c.Stdout, c.Stderr = d.opts.Out, d.opts.Out
+	if err := c.Start(); err != nil {
+		return fmt.Errorf("start Vite: %w", err)
+	}
+	var started atomic.Bool
+	exited := make(chan struct{})
+	go func() {
+		_ = c.Wait()
+		close(exited)
+		if started.Load() && d.ctx.Err() == nil {
+			d.logf("Vite stopped (%s): /build/ answers 502 until anetos dev restarts", c.ProcessState)
+		}
+	}()
+	addr := "127.0.0.1:" + strconv.Itoa(port)
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		select {
+		case <-exited:
+			return fmt.Errorf("the frontend's Vite stopped before it served (%s); its output is above", c.ProcessState)
+		default:
+		}
+		if conn, err := (&net.Dialer{Timeout: 200 * time.Millisecond}).DialContext(d.ctx, "tcp", addr); err == nil {
+			_ = conn.Close()
+			break
+		}
+		if time.Now().After(deadline) {
+			_ = c.Process.Kill()
+			<-exited
+			return fmt.Errorf("the frontend's Vite didn't listen on %s within 30s; its output is above", addr)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	started.Store(true)
+	d.mu.Lock()
+	d.vite, d.viteProc, d.viteExited = &url.URL{Scheme: "http", Host: addr}, c, exited
+	d.mu.Unlock()
+	d.logf("Vite serves the frontend under %s", viteBase)
+	return nil
+}
+
+func (d *dev) stopVite() {
+	d.mu.Lock()
+	c, exited := d.viteProc, d.viteExited
+	d.mu.Unlock()
+	if c == nil {
+		return
+	}
+	if runtime.GOOS == "windows" {
+		_ = c.Process.Kill()
+	} else {
+		_ = c.Process.Signal(os.Interrupt)
+	}
+	select {
+	case <-exited:
+	case <-time.After(5 * time.Second):
+		_ = c.Process.Kill()
+		<-exited
+	}
+}
+
+// proxyVite forwards a request under /build/ to Vite, its hot reload's
+// WebSocket included, with Vite's own host name (Vite answers only
+// names it knows).
+func (d *dev) proxyVite(w http.ResponseWriter, r *http.Request) {
+	target := d.vite
+	p := &httputil.ReverseProxy{
+		Rewrite: func(pr *httputil.ProxyRequest) {
+			pr.SetURL(target)
+			pr.Out.Host = target.Host
+		},
+		FlushInterval: -1,
+		ErrorHandler: func(w http.ResponseWriter, _ *http.Request, err error) {
+			http.Error(w, "anetos dev: Vite: "+err.Error(), http.StatusBadGateway)
 		},
 	}
 	p.ServeHTTP(w, r)

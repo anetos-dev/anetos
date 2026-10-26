@@ -141,6 +141,15 @@ With both set, `doctor` says to remove the former one.
 | `QUEUE_POLL` | `QUEUE_POLL_INTERVAL` |
 | `LOCALE_URL` | `APP_LOCALE_STRATEGY` |
 
+## Vite
+
+Read by `vite.New` into `vite.Config` (since v0.6; see [Bundle
+JavaScript and CSS with Vite](../guides/vite.md)).
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `VITE_DEV_URL` | path or URL ending with `/`, without a query | empty | When set, `@vite.Tags` loads the entries from Vite's development server there instead of the build: `/build/`, which `anetos dev` sets and forwards to Vite, or, running Vite yourself, its own address with its base (`http://localhost:5173/build/`), with `server.origin` set to that address without the base (`http://localhost:5173`) in `vite.config`, for the URLs in the frontend's CSS. **Rejected when `APP_ENV` is `production` or `staging`** |
+
 ## HTTP server
 
 Read by `web.NewServer` (or `web.LoadConfig`) into `web.Config`.

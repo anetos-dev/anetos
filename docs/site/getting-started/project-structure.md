@@ -46,6 +46,11 @@ of `routes/web.go`, `app/handlers/welcome.go` (the answer to
 `locales/en/app.yaml` holds its messages, and `main_test.go` tests the
 welcome and a 404's JSON.
 
+A web project made with `--vite` (or `go tool anetos vite:install`) also
+has `frontend/`: the scripts and styles Vite builds into `public/build`,
+which the layout loads with `@vite.Tags`. See [Bundle JavaScript and CSS
+with Vite](../guides/vite.md).
+
 ## How a request flows
 
 1. `routes/web.go` matches the URL to a handler and runs the route's

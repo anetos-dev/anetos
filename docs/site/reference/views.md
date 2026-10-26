@@ -7,7 +7,7 @@ weight: 201
 
 # Views, sessions and forms reference
 
-The APIs of packages `view`, `session` and `encryption`, and the HTML
+The APIs of packages `view`, `view/vite`, `session` and `encryption`, and the HTML
 helpers of package `web`. See [Render HTML with templ](../guides/views.md),
 [Sessions and flash messages](../guides/sessions.md) and
 [Handle HTML forms](../guides/forms.md) for walkthroughs. The components
@@ -67,6 +67,21 @@ Form posts key errors by `form` name where it differs from the `json` name.
 | `a.Has(name)` | Whether the file exists |
 | `a` as `http.Handler` | GET/HEAD; `Cache-Control: public, max-age=31536000, immutable` with the current hash, else `no-cache`; `ETag`. A text file of 1 KiB or more (`text/*` such as CSS, JavaScript, JSON, SVG, XML, wasm) is gzipped once, the first time it's requested, and served gzipped to a client that accepts it (`Content-Encoding: gzip`, `Vary: Accept-Encoding`, its own `ETag`), unless gzip saves less than a tenth |
 | `htmx.FS`, `htmx.Version` | The bundled `htmx.min.js` (package `view/htmx`) |
+
+## Frontend build (`view/vite`)
+
+Since v0.6. See [Bundle JavaScript and CSS with Vite](../guides/vite.md).
+
+| API | Does |
+|---|---|
+| `vite.New(app, files, opts...)` | `(*Vite, error)`: reads `build/manifest.json` from the web root (`public.Files`) and puts the Vite in the app's contexts and container. Errors: nil files, a second call for the app, a manifest that isn't JSON, and, where the app is deployed, a missing manifest or `VITE_DEV_URL` (see [configuration](configuration.md#vite)) |
+| `vite.WithReactRefresh()` | `New` option: in development, the tags start with the preamble `@vitejs/plugin-react` needs for a React frontend's hot reload |
+| `vite.Tags(entries...)` | Component: from the build, the entries' stylesheets and those of the chunks they import, their module scripts (a stylesheet link for a CSS entry) and `modulepreload` links for the chunks they import, each once; with `VITE_DEV_URL`, `@vite/client` and the entries' sources there; without either, an HTML comment. Render error for an entry the manifest lacks, and `vite.ErrNoVite` without a Vite in the context |
+| `vite.URL(ctx, src)` | A frontend file's URL by its source path (`src/logo.svg`): the built file's, or the development server's; `""` when the build has no such file |
+| `vite.Handler()` | Serves the build under `/build/` (`vite.Base`): GET and HEAD; files under `assets/` (named by their content's hash) `Cache-Control: public, max-age=31536000, immutable`, others `no-cache`; `ETag`; text of 1 KiB or more gzipped as `view.Assets` does. Not the manifest or dot files; 404 without a Vite in the request's context |
+| `vite.From(ctx)`, `vite.WithVite(ctx, v)` | The context's Vite (or `vite.ErrNoVite`); a context carrying v |
+| `vite.NewWithFiles(files, devURL, opts...)` | A Vite without an app, for tests and tools; `v.Tags`, `v.URL`, `v.Dev()` and `v` as an `http.Handler` are the package's functions with it |
+| `vite.LoadConfig(src)`, `vite.Config` | The `VITE_*` settings |
 
 ## Sessions (`session`)
 

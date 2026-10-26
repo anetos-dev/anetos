@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -257,5 +258,147 @@ func TestBuildCSS(t *testing.T) {
 	}
 	if b, _ := os.ReadFile(filepath.Join(dir, "public", "static", "app.css")); string(b) != "a{}\n" {
 		t.Errorf("app.css = %q", b)
+	}
+}
+
+// fakeVite stands in for frontend/node_modules/.bin/vite: it listens on
+// ANETOS_VITE_PORT, answers with what it got, and accepts a WebSocket
+// upgrade (Vite's hot reload).
+const fakeVite = `const http = require('http')
+const arg = (name) => process.argv[process.argv.indexOf(name) + 1]
+const s = http.createServer((req, res) => {
+  res.end('vite ' + req.url + ' host=' + req.headers.host + ' args=' + process.argv.slice(2).join(' '))
+})
+s.on('upgrade', (req, sock) => {
+  sock.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\nhello ' + req.url)
+})
+s.listen(Number(arg('--port')), arg('--host'))
+`
+
+const viteApp = `package main
+
+import (
+	"fmt"
+	"net/http"
+	"os"
+)
+
+func main() {
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "app "+r.URL.Path+" VITE_DEV_URL="+os.Getenv("VITE_DEV_URL"))
+	})
+	if err := http.ListenAndServe(os.Getenv("HTTP_ADDR"), nil); err != nil {
+		panic(err)
+	}
+}
+`
+
+// In a project with frontend/, anetos dev starts its Vite with node (on
+// 127.0.0.1 and a port of its own, given as flags), forwards /build/ to
+// it, WebSocket upgrades included, with Vite's host name, and tells the
+// app VITE_DEV_URL=/build/; other paths go to the app.
+func TestDevVite(t *testing.T) {
+	if testing.Short() {
+		t.Skip("builds programs")
+	}
+	if _, err := exec.LookPath("node"); err != nil {
+		t.Skip("no node command")
+	}
+	dir := t.TempDir()
+	write(t, filepath.Join(dir, "go.mod"), "module devtest\n\ngo 1.26\n")
+	write(t, filepath.Join(dir, "main.go"), viteApp)
+	write(t, filepath.Join(dir, "frontend", "package.json"), `{"private": true}`)
+	write(t, filepath.Join(dir, "frontend", "node_modules", "vite", "bin", "vite.js"), fakeVite)
+	later := time.Now().Add(time.Minute) // installed after package.json
+	if err := os.Chtimes(filepath.Join(dir, "frontend", "node_modules"), later, later); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	addrCh := make(chan string, 1)
+	done := make(chan error, 1)
+	go func() {
+		done <- Run(ctx, Options{Dir: dir, Addr: "127.0.0.1:0", Poll: 100 * time.Millisecond, Out: io.Discard,
+			OnListen: func(a string) { addrCh <- a }})
+	}()
+	addr := <-addrCh
+	t.Cleanup(func() {
+		cancel()
+		select {
+		case <-done:
+		case <-time.After(20 * time.Second):
+			t.Error("Run didn't stop")
+		}
+	})
+	get := func(p string) string {
+		deadline := time.Now().Add(3 * time.Minute)
+		for {
+			res, err := http.Get("http://" + addr + p)
+			if err == nil {
+				b, _ := io.ReadAll(res.Body)
+				res.Body.Close()
+				if res.StatusCode == 200 {
+					return string(b)
+				}
+			}
+			if time.Now().After(deadline) {
+				t.Fatalf("GET %s: %v", p, err)
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+	_, port, _ := strings.Cut(addr, ":")
+	if got := get("/build/src/main.ts"); !strings.HasPrefix(got, "vite /build/src/main.ts host=127.0.0.1:") ||
+		!strings.Contains(got, " args=--host 127.0.0.1 --port ") || !strings.HasSuffix(got, " --strictPort --clearScreen false") {
+		t.Errorf("/build/src/main.ts: %q", got)
+	}
+	if got := get("/posts"); got != "app /posts VITE_DEV_URL=/build/" {
+		t.Errorf("/posts: %q", got)
+	}
+	// The hot reload's WebSocket.
+	conn, err := (&net.Dialer{Timeout: 5 * time.Second}).DialContext(ctx, "tcp", addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	_ = conn.SetDeadline(time.Now().Add(10 * time.Second))
+	_, _ = io.WriteString(conn, "GET /build/?token=x HTTP/1.1\r\nHost: localhost:"+port+"\r\nConnection: Upgrade\r\nUpgrade: websocket\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n\r\n")
+	var b []byte
+	buf := make([]byte, 512)
+	for !strings.HasSuffix(string(b), "hello /build/?token=x") {
+		n, err := conn.Read(buf)
+		b = append(b, buf[:n]...)
+		if err != nil {
+			break
+		}
+	}
+	if !strings.HasPrefix(string(b), "HTTP/1.1 101") || !strings.HasSuffix(string(b), "hello /build/?token=x") {
+		t.Errorf("upgrade: %q", b)
+	}
+}
+
+// A Vite that stops before it serves stops anetos dev, saying so once.
+func TestDevViteFails(t *testing.T) {
+	if testing.Short() {
+		t.Skip("runs node")
+	}
+	if _, err := exec.LookPath("node"); err != nil {
+		t.Skip("no node command")
+	}
+	dir := t.TempDir()
+	write(t, filepath.Join(dir, "go.mod"), "module devtest\n\ngo 1.26\n")
+	write(t, filepath.Join(dir, "frontend", "package.json"), `{"private": true}`)
+	write(t, filepath.Join(dir, "frontend", "node_modules", "vite", "bin", "vite.js"), "console.log('port taken'); process.exit(3)\n")
+	later := time.Now().Add(time.Minute)
+	if err := os.Chtimes(filepath.Join(dir, "frontend", "node_modules"), later, later); err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	err := Run(context.Background(), Options{Dir: dir, Addr: "127.0.0.1:0", Out: &out})
+	if err == nil || err.Error() != "anetos dev: the frontend's Vite stopped before it served (exit status 3); its output is above" {
+		t.Errorf("Run: %v", err)
+	}
+	if got := out.String(); got != "port taken\n" {
+		t.Errorf("output: %q", got)
 	}
 }
