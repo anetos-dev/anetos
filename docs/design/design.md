@@ -1533,6 +1533,82 @@ builds:
   frontend before the binary, and `anetos check` has a `frontend` step.
   AGENTS.md describes `frontend/` when the project has one.
 
+**Inertia (V2, D346–D351).** Package `web/inertia` (core, no
+dependencies) is the server side of Inertia's protocol, v3:
+
+- **Pages are typed** (D346): `var postsIndex =
+  inertia.NewPage[PostsIndex]("Posts/Index")` at package level reads the
+  props struct once (the fields `encoding/json` writes: names, embedded
+  structs, depth precedence, `omitempty`/`omitzero`; two fields tagged
+  with one name at one depth or a prop named `errors` panic there) into a plan; per request only the plan runs
+  (`reflect.Value.FieldByIndex`, principle 4). `postsIndex.Render(c,
+  props)` answers a visit of the client (`X-Inertia: true`) with the page
+  object as JSON (`X-Inertia: true`), and a first visit with the root
+  view, a templ component given to `inertia.New(app, root, opts...)`
+  that places `@inertia.App()` (`<script data-page="app"
+  type="application/json">` with `/` escaped, and `<div id="app">`).
+  `inertia.Render(c, component, inertia.Props{…})` is the untyped escape
+  hatch. TS1 generates the pages' TypeScript types from the props types.
+- **Props** (D346, D347): a plain field is a regular prop;
+  `inertia.Prop[T]` fields are set by `Value`, `Func` (computed only
+  when included), `Always`, `Optional`, `Defer` (`.Group`, `.Rescue`),
+  `Merge` and `Once`, refined by `.Append(paths...)`, `.Prepend`,
+  `.DeepMerge`, `.MatchOn`, `.Once`, `.OnceAs`, `.ExpiresIn`, `.Until`,
+  `.Fresh`; an unset one is left out. Resolution follows the protocol's
+  table for full visits and partial reloads (`X-Inertia-Partial-*`,
+  `X-Inertia-Reset`, `X-Inertia-Except-Once-Props`), top-level props
+  only (asking for a nested path sends its top-level prop, leaving one
+  out leaves the prop in; once keys are matched whole). A deep merge is
+  listed in `deepMergeProps` only (the client would append twice).
+  An unset `Prop` field leaves a shared prop of its name in place. `WithShared(fn)` adds
+  shared props (a struct or `Props`; a page's prop wins), listed in
+  `sharedProps`. `errors` is always there: the session's flashed field
+  errors, one message per field, under the error bag the failed post
+  named (`X-Inertia-Error-Bag`, kept in the session across the redirect
+  back).
+- **The middleware** (D350): `inertia.Middleware` answers a GET visit
+  with an old asset version 409 (`X-Inertia-Location`, `X-Inertia-Version`)
+  after reflashing the session; turns a 302 after PUT, PATCH or DELETE
+  into 303, and a redirect to a URL with a fragment into 409 with
+  `X-Inertia-Redirect` (not for prefetches); adds `Vary: X-Inertia`; and
+  reads what the previous request left for this page before the handler
+  runs. The asset version is the Vite build's (`vite.Vite.Version`, a
+  hash of the manifest, "" in development; `vite.New` first) unless
+  `WithVersion` sets one. `Flash`, `ClearHistory` and `PreserveFragment` (which need the
+  middleware's state, and do nothing without it) keep their data in
+  the session's flash for the next page Inertia renders (and drop it when
+  this response is that page); `EncryptHistory` and `WithEncryptHistory`
+  set the page's flag; `Location` is the 409 for a full page load.
+- **CSRF** (D348): `web.CSRF(web.WithXSRFCookie())` sets an `XSRF-TOKEN`
+  cookie holding the session's masked token, with the session cookie's
+  attributes (`session.ManagerFrom(ctx)`, `Manager.NewCookie`) but readable
+  by scripts, when the response starts (so a login's response carries
+  the regenerated token) and only if the request's cookie doesn't hold
+  that token; `web.CSRF`
+  accepts `X-XSRF-TOKEN` beside `X-CSRF-Token` and `_token`. These are
+  the names Inertia's client, Axios and Angular use without setup; SP1
+  reuses them for SPAs.
+- **Error pages** (D349): a component that `Router.ErrorPages`' function
+  returns and that is also a `web.Responder` responds itself, with the
+  error's status. `inertia.ErrorPages("Error")` returns such components:
+  the page `Error` with `inertia.ErrorProps` (status, title, detail,
+  request ID) and the error's field errors in `errors`, as JSON for the
+  client's visits and in the root view otherwise, so the client renders
+  errors as pages, not in its dialog. Debug mode's 5xx page is unchanged.
+- **Tests** (D351): `anetostest`'s `app.AsInertia()` (the client's
+  headers and the app's version), `AssertInertia`, `AssertInertiaProp`
+  and `InertiaPage`, on `inertia.ReadPage`; an Inertia page response
+  counts as a page for the next request's `Referer`, as in a browser.
+  `examples/inertia` is a React app over the package, its Go tests
+  without Node; its frontend was checked with Inertia's React client
+  3.9.1 in Chromium (navigation, deferred and merged props, validation
+  errors, flash, 303 after DELETE, error pages, the 409 after a new
+  build, React's hot reload through `anetos dev`). A frontend's
+  `go.mod` has no Go: the Makefile and CI leave `examples/*/frontend`
+  out of their module loops.
+  Server-side rendering, infinite scroll (`scrollProps`) and
+  Precognition are left for later.
+
 ### 12.3 Admin interface (v0.3: AD1, AD2)
 
 An admin for the people who run a site: its records, its users and their
@@ -3419,6 +3495,12 @@ unless new information arrives), **Open**, **Superseded**.
 | D343 | In development the pages load Vite's modules through `anetos dev`'s proxy: Vite on a free port, `/build/` forwarded to it (the hot reload's WebSocket too), `VITE_DEV_URL=/build/` for the app | Accepted | Samiul's choice (2026-10-26): one origin, so no CORS, no Vite address in the page, cookies as in production; Vite on 127.0.0.1 by flag, since `localhost` may be `::1`; without `anetos dev`, `VITE_DEV_URL` set to Vite's own address works with `server.origin` set in `vite.config` |
 | D344 | `VITE_DEV_URL` and a missing manifest stop the app where it's deployed (production, staging); elsewhere a missing manifest renders an HTML comment, and doctor warns in development | Accepted | A deployed page must not load scripts from a development server or none at all, and failing at startup says so at once; tests and CI shouldn't need Node to run the Go tests |
 | D345 | `anetos new --vite[=ts\|js]` and `anetos vite:install [--js]` write the frontend and wire the app with one function (`scaffold.AddVite`), leaving a file it can't patch safely to the developer with what to add; npm installs the packages (Node.js 20.19 or 22.12 or later, Vite 8's minimum); `anetos build` builds the frontend first (`--no-frontend` for the Dockerfile's Node stage), and `anetos check` has a `frontend` step; CI's latest Go cli part runs the end-to-end test with Node (`ANETOS_TEST_NODE=1`) | Accepted | Samiul's choices (2026-10-26): both ways in, and the language a flag (TypeScript by default, which TS1's generated types will need); one function keeps `new` and `install` identical. Node only where a frontend is, as D337 decided |
+| D346 | Inertia's pages are typed: `inertia.NewPage[P](component)`, declared once at package level, reads the props struct's fields into a plan; special props are `inertia.Prop[T]` fields; `inertia.Render` with `inertia.Props` is the untyped escape hatch. The package is `web/inertia`, in the core | Accepted | Samiul's choice (2026-10-26): a struct per page lets TS1 generate the frontend's types from Go (D336), and the plan keeps type inspection at startup (principle 4). Panicking in `NewPage` is for a mistake in the program, as a duplicate route name is |
+| D347 | V2 covers the roadmap's protocol pieces and v3's core additions: always and once props, prepend and deep merge with `matchOn`, rescued deferred props, flash data, history encryption and clearing, fragment redirects; server-side rendering, infinite scroll and Precognition are left for later | Accepted | Samiul's choice (2026-10-26): what Inertia's clients rely on for ordinary pages, without the pieces that need a Node server (SSR) or new server features (Precognition's validation-only requests, pagination cursors) |
+| D348 | `web.WithXSRFCookie()` gives scripts the session's masked CSRF token in an `XSRF-TOKEN` cookie (the session cookie's attributes, not HttpOnly, set when the request's doesn't verify), and `web.CSRF` accepts `X-XSRF-TOKEN` | Accepted | Samiul's choice (2026-10-26): Inertia's client, Axios and Angular use these names without setup; SP1's SPA login reuses them. The token is the one forms already carry, masked per response |
+| D349 | An error page component that is also a `web.Responder` responds itself with the error's status; `inertia.ErrorPages(component)` renders the frontend's error component through Inertia | Accepted | Samiul's choice (2026-10-26): Inertia's client shows a non-Inertia response in a dialog; an error page in the page is what visitors should see. The router's other error behavior (JSON clients, the redirect back, debug pages) stays |
+| D350 | The asset version is the Vite build's manifest hash by default; a GET visit with another one gets 409 after the session is reflashed; what a request leaves for the next page (flash data, the error bag, history flags) is kept in the session's flash and read by the middleware before the handler | Accepted | The build changes exactly when the assets do; reflashing keeps messages across the reload the 409 causes; reading before the handler separates the previous request's data from this one's |
+| D351 | Tests of Inertia apps run in Go: `anetostest`'s `AsInertia`, `AssertInertia`, `AssertInertiaProp`, `InertiaPage`; `examples/inertia` (React) runs its Go tests without Node and was checked with the real client; frontend modules' `go.mod` files are left out of the repository's module loops | Accepted | The protocol is tested where the handlers are; the real client is the check that the protocol is right: done by hand for V2, and V3's generated stacks are to be built in CI |
 
 ---
 
@@ -3537,3 +3619,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-25 | M9b (test coverage across the published modules): D332 added |
 | 2026-10-26 | v0.6 planned with Samiul (`docs/planning/v06-plan.md`): §12.2's SPA-style part rewritten as frontends two ways; D333–D337 added. DR1 (removing v0.5's deprecations): §7, §23 updated; D338–D340 added |
 | 2026-10-26 | V1 (Vite): §12.2 updated; D341–D345 added |
+| 2026-10-26 | V2 (Inertia adapter): §12.2 updated; D346–D351 added |

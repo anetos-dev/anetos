@@ -61,8 +61,9 @@ an URL on another site fails the test. Requests go to the router as
 - the jar's cookies (Path and expiry honored; Secure and Domain ignored);
 - the headers set with `WithHeader`, which replace the method's `Accept`
   and `Content-Type`;
-- as `Referer`, the last HTML page: a `GET` answered 200 with
-  `text/html`, not an htmx fragment (`HX-Request` without `HX-Boosted`);
+- as `Referer`, the last page: a `GET` answered 200 with `text/html`,
+  not an htmx fragment (`HX-Request` without `HX-Boosted`), or with an
+  Inertia page (`X-Inertia: true`);
 - for methods other than GET, HEAD, OPTIONS and TRACE, the session's
   CSRF token in `X-CSRF-Token`, unless the request has the header or
   (forms) a `_token` field.
@@ -77,6 +78,7 @@ an URL on another site fails the test. Requests go to the router as
 | `app.Do(req)` | req (from `httptest.NewRequest` with a path), adding the jar's cookies it doesn't have, headers it doesn't have, `Referer` and token | req's |
 | `res.Follow()` | GET to the redirect's `Location`; fails the test for another site | the request's |
 | `app.WithHeader(name, value)` | Sets a header on every later request; returns app | |
+| `app.AsInertia()` | Makes later requests visits of Inertia's client (`web/inertia`, since v0.6): `X-Inertia: true`, the app's asset version and the client's `Accept`, so they get the page object as JSON, and a failed `PostJSON` is redirected back with its errors; returns app. Needs `inertia.New` in setup | `text/html, application/xhtml+xml` |
 | `app.WithSession(func(*session.Session))` | Changes the session later requests carry; returns app. Needs `session.New` in setup | |
 | `anetostest.ActingAs(app, u)` | Logs u in for later requests, as a password login without remember-me would, without asking for a two-factor code (`auth.Auth.LoginSession`), replacing whoever was logged in (and dropping a remember-me cookie); returns app. U is the type given to `auth.New` (`*models.User`); needs `session.New` and `auth.New` in setup; a disabled user fails the test | |
 | `app.Session()` | The `*session.Session` the next request will carry (flash values and errors from the last response included), to read | |
@@ -103,6 +105,9 @@ body) and return the response.
 | `AssertNoValidationErrors()` | Not a 422, not a 400 with field errors, no errors flashed |
 | `AssertSessionHas(key, value?)` | The next request's session has key (holding value, compared as JSON) |
 | `AssertSessionMissing(key)` | It doesn't |
+| `AssertInertia(component)` | An Inertia page of component: a visit's JSON, or a first visit's HTML holding the page object (since v0.6) |
+| `AssertInertiaProp(name, v)` | The Inertia page's prop equals v, compared as JSON (`"errors"` for the validation errors) |
+| `InertiaPage()` | The Inertia page object (`*inertia.PageObject`: component, props, URL, version, and the protocol's lists); fails the test without one |
 | `JSON(&v)` | Decodes the body; fails the test if it can't |
 | `Text()` | The body as a string |
 

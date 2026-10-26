@@ -74,7 +74,7 @@ jobs:
           case "$PART" in
             core) modules=. ;;
             cli) modules=./cli ;;
-            modules) modules=$(find . -name go.mod -not -path './.git/*' | sed 's|/go.mod$||' | grep -vx -e . -e ./cli | sort | tr '\n' ' ') ;;
+            modules) modules=$(find . -name go.mod -not -path './.git/*' -not -path '*/node_modules/*' -not -path './examples/*/frontend/*' | sed 's|/go.mod$||' | grep -vx -e . -e ./cli | sort | tr '\n' ' ') ;;
           esac
           echo "MODULES=$modules" >>"$GITHUB_ENV"
       # Latest Go's cli part builds a frontend with Vite too (anetos new

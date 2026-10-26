@@ -723,3 +723,21 @@ func TestNewLogsAsSession(t *testing.T) {
 		t.Errorf("log: %s", logs.String())
 	}
 }
+
+// ManagerFrom and NewCookie: a cookie that goes with the session's, for the
+// request's middleware.
+func TestManagerFromAndNewCookie(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Path, cfg.Domain, cfg.SameSite = "/app", "example.com", "strict"
+	c := newClient(t, cfg)
+	var got *Manager
+	c.do(httptest.NewRequest(http.MethodGet, "/", nil), func(_ http.ResponseWriter, r *http.Request) { got = ManagerFrom(r.Context()) })
+	if got != c.m || ManagerFrom(t.Context()) != nil {
+		t.Fatalf("ManagerFrom: %p, want %p", got, c.m)
+	}
+	ck := got.NewCookie("XSRF-TOKEN", "v")
+	if ck.Name != "XSRF-TOKEN" || ck.Value != "v" || ck.Path != "/app" || ck.Domain != "example.com" || !ck.Secure ||
+		ck.HttpOnly || ck.SameSite != http.SameSiteStrictMode || ck.MaxAge != 0 {
+		t.Errorf("Cookie: %+v", ck)
+	}
+}

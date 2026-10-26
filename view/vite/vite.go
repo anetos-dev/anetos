@@ -4,6 +4,8 @@ package vite
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -86,6 +88,7 @@ type Vite struct {
 	manifest map[string]chunk
 	missing  error // why there is no manifest, outside deployed environments
 	devURL   string
+	version  string // a hash of the manifest
 	react    bool
 	cache    fileCache
 }
@@ -184,6 +187,8 @@ func (v *Vite) readManifest() error {
 	if err := json.Unmarshal(b, &v.manifest); err != nil {
 		return fmt.Errorf("vite: read %s: %w", manifestFile, err)
 	}
+	sum := sha256.Sum256(b)
+	v.version = hex.EncodeToString(sum[:8])
 	return nil
 }
 
@@ -214,6 +219,11 @@ func From(ctx context.Context) (*Vite, error) {
 // Dev reports whether the tags load Vite's development server
 // (VITE_DEV_URL is set).
 func (v *Vite) Dev() bool { return v.devURL != "" }
+
+// Version identifies the build: a hash of its manifest, which changes
+// whenever a built file does. It is "" in development and without a
+// build. Inertia's asset versioning uses it (web/inertia).
+func (v *Vite) Version() string { return v.version }
 
 // Tags returns the tags that load the entries, the paths of vite.config's
 // inputs relative to the frontend folder ("src/main.ts", "src/app.css"):

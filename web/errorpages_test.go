@@ -78,3 +78,49 @@ func TestErrorPages(t *testing.T) {
 		t.Errorf("debug 404: %q", rec.Body)
 	}
 }
+
+// respondingPage is an error page that responds itself, as Inertia's
+// does.
+type respondingPage struct {
+	view.Component
+	e    ErrorPage
+	fail string // "before" or "after" writing
+}
+
+func (p respondingPage) Respond(c *Ctx) error {
+	switch p.fail {
+	case "before":
+		return errors.New("no page object")
+	case "after":
+		_ = c.Text(p.e.Status, "half")
+		return errors.New("broken after writing")
+	}
+	c.SetHeader("X-Page", "responder")
+	return c.JSON(p.e.Status, map[string]any{"status": p.e.Status, "title": p.e.Title})
+}
+
+// An error page that is a Responder responds with the error's status;
+// if it fails before writing, the built-in page is sent.
+func TestErrorPagesResponder(t *testing.T) {
+	r := NewRouter()
+	r.ErrorPages(func(c *Ctx, e ErrorPage) view.Component {
+		return respondingPage{Component: view.ComponentFunc(func(context.Context, io.Writer) error {
+			t.Error("rendered as HTML")
+			return nil
+		}), e: e, fail: c.Query("fail")}
+	})
+	get := func(path string) *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+		return rec
+	}
+	if rec := get("/nowhere"); rec.Code != 404 || rec.Header().Get("X-Page") != "responder" || rec.Body.String() != "{\"status\":404,\"title\":\"Not Found\"}\n" {
+		t.Errorf("responder: %d %v %q", rec.Code, rec.Header(), rec.Body)
+	}
+	if rec := get("/nowhere?fail=before"); rec.Code != 404 || !strings.Contains(rec.Body.String(), "<!doctype html>") {
+		t.Errorf("failing before writing: %d %q", rec.Code, rec.Body)
+	}
+	if rec := get("/nowhere?fail=after"); rec.Code != 404 || rec.Body.String() != "half" {
+		t.Errorf("failing after writing: %d %q", rec.Code, rec.Body)
+	}
+}

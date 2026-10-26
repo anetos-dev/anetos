@@ -184,7 +184,28 @@ var ErrCrossOrigin = &HTTPError{Status: http.StatusForbidden, Message: "Cross-or
 // CSRFOption configures [CSRF].
 type CSRFOption func(*csrfOptions) error
 
-type csrfOptions struct{ cop *http.CrossOriginProtection }
+type csrfOptions struct {
+	cop  *http.CrossOriginProtection
+	xsrf bool
+}
+
+// WithXSRFCookie gives the page's scripts the session's CSRF token in an
+// XSRF-TOKEN cookie, which they send back in the X-XSRF-TOKEN header:
+// what Inertia's client (web/inertia), Axios and Angular do without
+// setup. The cookie goes with the session cookie (its Path, Domain,
+// Secure and SameSite) and isn't HttpOnly. It is set when the response
+// starts, if the request's doesn't hold the session's token then: on the
+// first page, and on the response of a request that changed the token (a
+// login).
+func WithXSRFCookie() CSRFOption {
+	return func(o *csrfOptions) error {
+		o.xsrf = true
+		return nil
+	}
+}
+
+// xsrfCookie is the cookie of [WithXSRFCookie].
+const xsrfCookie = "XSRF-TOKEN"
 
 // WithTrustedOrigins lets pages on the given origins
 // ("https://admin.example.com") send cross-origin requests.
@@ -207,21 +228,28 @@ func WithTrustedOrigins(origins ...string) CSRFOption {
 //     (Sec-Fetch-Site, or an Origin that isn't this host), with
 //     [ErrCrossOrigin], and
 //   - requires the session's token, from the "_token" form field
-//     (view.CSRFField) or the X-CSRF-Token header (view.CSRFToken), with
+//     (view.CSRFField), the X-CSRF-Token header (view.CSRFToken) or the
+//     X-XSRF-TOKEN header (the cookie of [WithXSRFCookie]), with
 //     [ErrCSRF].
 //
 // It needs the session middleware to run first. Use it for routes that
 // serve browsers; APIs authenticated by tokens in headers don't need it.
 // CSRF panics if an option is invalid.
 func CSRF(opts ...CSRFOption) Middleware {
-	cop := http.NewCrossOriginProtection()
+	o := csrfOptions{cop: http.NewCrossOriginProtection()}
 	for _, opt := range opts {
-		if err := opt(&csrfOptions{cop: cop}); err != nil {
+		if err := opt(&o); err != nil {
 			panic(fmt.Sprintf("web: CSRF: %v", err))
 		}
 	}
+	cop := o.cop
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if o.xsrf {
+				xw := &xsrfWriter{ResponseWriter: w, r: r}
+				defer xw.set() // a response the handler didn't start
+				w = xw
+			}
 			switch r.Method {
 			case http.MethodGet, http.MethodHead, http.MethodOptions, http.MethodTrace:
 				next.ServeHTTP(w, r)
@@ -237,6 +265,9 @@ func CSRF(opts ...CSRFOption) Middleware {
 				return
 			}
 			token := r.Header.Get("X-CSRF-Token")
+			if token == "" {
+				token = r.Header.Get("X-XSRF-TOKEN")
+			}
 			if token == "" && isForm(r) {
 				var err error
 				if token, err = formToken(r); err != nil {
@@ -252,6 +283,51 @@ func CSRF(opts ...CSRFOption) Middleware {
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// xsrfWriter sets the XSRF-TOKEN cookie when the response starts, to the
+// session's token as it is then (a login regenerates it), unless the
+// request's cookie holds it already.
+type xsrfWriter struct {
+	http.ResponseWriter
+	r    *http.Request
+	done bool
+}
+
+func (w *xsrfWriter) set() {
+	if w.done {
+		return
+	}
+	w.done = true
+	s, m := session.From(w.r.Context()), session.ManagerFrom(w.r.Context())
+	if s == nil || m == nil {
+		return
+	}
+	if c, err := w.r.Cookie(xsrfCookie); err == nil && s.VerifyToken(c.Value) {
+		return
+	}
+	http.SetCookie(w.ResponseWriter, m.NewCookie(xsrfCookie, s.Token()))
+}
+
+func (w *xsrfWriter) WriteHeader(code int) {
+	if code >= 200 || code == http.StatusSwitchingProtocols {
+		w.set()
+	}
+	w.ResponseWriter.WriteHeader(code)
+}
+
+func (w *xsrfWriter) Write(b []byte) (int, error) {
+	w.set()
+	return w.ResponseWriter.Write(b)
+}
+
+// Unwrap gives http.ResponseController the writer underneath.
+func (w *xsrfWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+
+// Flush sends what is buffered.
+func (w *xsrfWriter) Flush() {
+	w.set()
+	_ = http.NewResponseController(w.ResponseWriter).Flush()
 }
 
 // MethodOverride lets HTML forms send PUT, PATCH and DELETE: a POST whose

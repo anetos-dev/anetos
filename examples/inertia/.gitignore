@@ -1,0 +1,5 @@
+# The frontend's packages and build (npm run build in frontend/)
+/frontend/node_modules/
+/public/build/
+# anetos dev's build of the app
+/tmp/

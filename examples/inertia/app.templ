@@ -1,0 +1,28 @@
+// SPDX-License-Identifier: Apache-2.0
+
+package main
+
+import (
+	"anetos.dev/anetos/view/vite"
+	"anetos.dev/anetos/web/inertia"
+)
+
+// region: root
+// root is the root view: the HTML of a first visit, which loads the
+// frontend and holds the page for Inertia's client.
+templ root() {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>Notes</title>
+			@vite.Tags("src/app.tsx")
+		</head>
+		<body>
+			@inertia.App()
+		</body>
+	</html>
+}
+
+// endregion: root

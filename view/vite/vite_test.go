@@ -107,6 +107,9 @@ func TestBuildTags(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if len(v.Version()) != 16 || v.Version() == "" {
+		t.Errorf("Version %q", v.Version())
+	}
 	got := render(t, context.Background(), v.Tags("views/foo.js"))
 	want := `<link rel="stylesheet" href="/build/assets/foo-5UjPuW-k.css">
 <link rel="stylesheet" href="/build/assets/shared-ChJ_j-JJ.css">
@@ -178,7 +181,7 @@ func TestDevTags(t *testing.T) {
 <script type="module" src="/build/src/main.ts"></script>
 <link rel="stylesheet" href="/build/src/app.css">
 `
-	if got != want || !v.Dev() || v.URL("/src/logo.svg") != "/build/src/logo.svg" {
+	if got != want || !v.Dev() || v.Version() != "" || v.URL("/src/logo.svg") != "/build/src/logo.svg" {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
 	}
 	v, err = vite.NewWithFiles(nil, "http://localhost:5173/build/", vite.WithReactRefresh())

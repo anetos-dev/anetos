@@ -95,6 +95,10 @@ a new idea, and is listed here.
 | **Frontend** | The project's `frontend/` folder (since v0.6): scripts and styles that Vite builds into `public/build`, which the binary embeds. See [Bundle JavaScript and CSS with Vite](../guides/vite.md) | Django's static files with a bundler, Laravel's `resources/js` with Vite, Rails' `app/javascript` with jsbundling or vite_ruby |
 | **Entry** | A file of the frontend that a page loads (`src/main.ts`), listed in `vite.config`'s inputs and loaded with `@vite.Tags`; Vite bundles what it imports | Vite's and webpack's entry point |
 | **Hot reload** | In development, Vite replacing a changed module or stylesheet in the open page without reloading it (hot module replacement, HMR); `anetos dev` reloads the page for Go and templ changes | HMR |
+| **Inertia page** | A page written as a Vue, React or Svelte component, which Inertia's client renders from the props a Go handler sends (`inertia.NewPage`, since v0.6); links and forms visit the server without reloading the page. See [Pages in Vue, React or Svelte with Inertia](../guides/inertia.md) | Inertia's pages, with the adapters for Django, Laravel or Rails |
+| **Prop** | A value an Inertia page's component gets: a field of the page's props struct, named by its `json` tag. An `inertia.Prop[T]` field is loaded as it says: computed only when sent, after the page shows (deferred), only when asked for (optional), merged into the value the page holds, or once | A component's props (React, Svelte, Vue) |
+| **Shared props** | Props every Inertia page gets (`inertia.WithShared`), such as the app's name or the logged-in user | Inertia's shared data |
+| **Root view** | The templ component of an Inertia app's first visit: it loads the frontend and places `@inertia.App()`, which holds the page | Inertia's root template |
 | **Catalog** | One locale's translations, in YAML files under `locales/`. See [Translations](../guides/translations.md) | Message files: Django's `.po` files, Laravel's `lang/`, Rails' `config/locales` |
 
 ## Plugins

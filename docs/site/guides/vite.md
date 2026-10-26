@@ -244,3 +244,5 @@ before the Go build, so a type error in `frontend/src` fails it.
 - [Style your app](styling.md): the CSS frameworks, which work beside
   the frontend.
 - [Deploy](deployment.md): the Docker image with the frontend's stage.
+- [Pages in Vue, React or Svelte with Inertia](inertia.md): whole pages
+  written in a JavaScript framework.

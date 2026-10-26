@@ -33,7 +33,11 @@ type ErrorPage struct {
 // details, failed form posts are still redirected back, errors are logged
 // as before, and in debug mode (APP_DEBUG) a 5xx still shows the error
 // chain and stack. If page's component fails to render, the built-in page
-// is sent and the failure logged. Call it before the router serves.
+// is sent and the failure logged. A component that is also a [Responder]
+// responds itself, with e.Status, instead of being rendered as HTML: an
+// Inertia app's error page (web/inertia's ErrorPages) answers its
+// client's requests with a page object. Call it before the router
+// serves.
 func (r *Router) ErrorPages(page func(c *Ctx, e ErrorPage) view.Component) {
 	r.core.mu.Lock()
 	defer r.core.mu.Unlock()
@@ -107,12 +111,18 @@ func renderErrorPage(c *Ctx, p *problem) {
 	if page != nil && (!c.router.core.debug || p.Status < 500) {
 		b, err := appErrorPage(c, page, p)
 		if err == nil {
-			writeErrorPage(c, p.Status, b)
+			if b != nil {
+				writeErrorPage(c, p.Status, b)
+			}
 			return
 		}
 		attrs := []any{"error", err, "status", p.Status}
 		if pe, ok := errors.AsType[*PanicError](err); ok {
 			attrs = append(attrs, "stack", string(pe.Stack))
+		}
+		if c.w.started() {
+			c.Logger().Error("the app's error page failed while responding", attrs...)
+			return
 		}
 		c.Logger().Error("rendering the app's error page failed: sent the built-in one", attrs...)
 	}
@@ -155,8 +165,18 @@ func appErrorPage(c *Ctx, page func(*Ctx, ErrorPage) view.Component, p *problem)
 			b, err = nil, newPanicError(v)
 		}
 	}()
+	comp := page(c, ErrorPage{Status: p.Status, Title: p.Title, Detail: p.Detail, Errors: p.Errors, RequestID: p.RequestID})
+	if rs, ok := comp.(Responder); ok {
+		if err := rs.Respond(c); err != nil {
+			if !c.w.started() {
+				return nil, err
+			}
+			c.Logger().Error("the app's error page failed while responding", "error", err, "status", p.Status)
+		}
+		return nil, nil
+	}
 	var buf bytes.Buffer
-	if err := page(c, ErrorPage{Status: p.Status, Title: p.Title, Detail: p.Detail, Errors: p.Errors, RequestID: p.RequestID}).Render(c, &buf); err != nil {
+	if err := comp.Render(c, &buf); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil

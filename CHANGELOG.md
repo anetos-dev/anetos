@@ -7,6 +7,26 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Pages in Vue, React or Svelte with Inertia (V2, D346–D351): new package
+  `web/inertia`, the server side of Inertia's protocol (v3). Pages are
+  declared with their props' Go type (`inertia.NewPage[P]("Posts/Index")`)
+  and rendered by handlers (`page.Render(c, props)`): the root view's
+  HTML on a first visit, the page object as JSON for the client's
+  visits. Optional, deferred (grouped, rescued), merged (appended,
+  prepended, deep, matched on a key), once and always props
+  (`inertia.Prop[T]`); shared props (`inertia.WithShared`); the
+  validation errors of the redirect back in the `errors` prop, with
+  error bags; flash data, history encryption, `inertia.Location`;
+  `inertia.Middleware` for asset versions (409 after a new build), 303
+  after PUT, PATCH and DELETE and redirects to fragments;
+  `inertia.ErrorPages` for error pages in the frontend. `web.CSRF`
+  accepts `X-XSRF-TOKEN`, and `web.WithXSRFCookie()` sets the
+  `XSRF-TOKEN` cookie Inertia's client reads; `session.ManagerFrom` and
+  `Manager.NewCookie`. An error page component that is a `web.Responder`
+  responds itself. `vite.Vite.Version`. `anetostest`: `AsInertia`,
+  `AssertInertia`, `AssertInertiaProp`, `InertiaPage`. Example
+  `examples/inertia` (React); guide "Pages in Vue, React or Svelte with
+  Inertia".
 - A frontend that Vite builds, in a web project (V1, D341–D345): `anetos
   new --vite` (TypeScript; `--vite=js` for JavaScript) and `anetos
   vite:install [--js]` write `frontend/` (`package.json`, `vite.config`,

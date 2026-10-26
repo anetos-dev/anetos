@@ -240,6 +240,83 @@ func TestCSRF(t *testing.T) {
 	mustPanic(t, "bad trusted origin", func() { CSRF(WithTrustedOrigins("not a url")) })
 }
 
+// WithXSRFCookie: the session's token in a cookie scripts read, sent
+// back in X-XSRF-TOKEN, as Inertia's client does.
+func TestXSRFCookie(t *testing.T) {
+	r := newTestRouter()
+	g := r.Group("", sessions(t).Middleware, CSRF(WithXSRFCookie()))
+	g.Get("/", text("home"))
+	g.Post("/save", text("saved"))
+	b := newBrowser(t, r)
+	first := b.get("/")
+	var xsrf string
+	for _, c := range first.header.Values("Set-Cookie") {
+		if strings.HasPrefix(c, "XSRF-TOKEN=") {
+			xsrf = c
+		}
+	}
+	if strings.Contains(xsrf, "HttpOnly") || !strings.Contains(xsrf, "Path=/") || !strings.Contains(xsrf, "SameSite=Lax") || strings.Contains(xsrf, "Max-Age") {
+		t.Errorf("cookie %q", xsrf)
+	}
+	// Set once: the browser's cookie holds a valid token.
+	for _, c := range b.get("/").header.Values("Set-Cookie") {
+		if strings.HasPrefix(c, "XSRF-TOKEN=") {
+			t.Errorf("set again: %q", c)
+		}
+	}
+	u, _ := url.Parse(b.srv.URL)
+	var token string
+	for _, c := range b.client.Jar.Cookies(u) {
+		if c.Name == "XSRF-TOKEN" {
+			token = c.Value
+		}
+	}
+	body := `{"title":"Hi"}`
+	if res := b.send(http.MethodPost, "/save", strings.NewReader(body), "Content-Type", "application/json", "X-XSRF-TOKEN", token); res.status != 200 || res.body != "saved" {
+		t.Errorf("X-XSRF-TOKEN: %d %q", res.status, res.body)
+	}
+	if res := b.send(http.MethodPost, "/save", strings.NewReader(body), "Content-Type", "application/json"); res.status != http.StatusForbidden {
+		t.Errorf("no header: %d", res.status)
+	}
+	// Another session's token isn't valid here: the cookie is set again.
+	other := newBrowser(t, r)
+	other.srv = b.srv
+	other.client.Jar.SetCookies(u, []*http.Cookie{{Name: "XSRF-TOKEN", Value: token}})
+	if res := other.send(http.MethodPost, "/save", strings.NewReader(body), "Content-Type", "application/json", "X-XSRF-TOKEN", token); res.status != http.StatusForbidden ||
+		!strings.Contains(strings.Join(res.header.Values("Set-Cookie"), "|"), "XSRF-TOKEN=") {
+		t.Errorf("another session's token: %d %q", res.status, res.header.Values("Set-Cookie"))
+	}
+	// A request that changes the token gets the new one in its response.
+	g.Post("/login", func(c *Ctx) error {
+		c.Session().Regenerate()
+		return c.JSON(http.StatusOK, map[string]bool{"ok": true})
+	})
+	g.Get("/quiet", func(*Ctx) error { return nil }) // writes nothing
+	if res := b.send(http.MethodPost, "/login", strings.NewReader(body), "Content-Type", "application/json", "X-XSRF-TOKEN", token); res.status != 200 ||
+		!strings.Contains(strings.Join(res.header.Values("Set-Cookie"), "|"), "XSRF-TOKEN=") {
+		t.Fatalf("login: %d %q", res.status, res.header.Values("Set-Cookie"))
+	}
+	for _, c := range b.client.Jar.Cookies(u) {
+		if c.Name == "XSRF-TOKEN" {
+			token = c.Value
+		}
+	}
+	if res := b.send(http.MethodPost, "/save", strings.NewReader(body), "Content-Type", "application/json", "X-XSRF-TOKEN", token); res.status != 200 {
+		t.Errorf("after the token changed: %d %q", res.status, res.body)
+	}
+	fresh := newBrowser(t, r)
+	fresh.srv = b.srv
+	if res := fresh.get("/quiet"); !strings.Contains(strings.Join(res.header.Values("Set-Cookie"), "|"), "XSRF-TOKEN=") {
+		t.Errorf("a response the handler didn't write: %q", res.header.Values("Set-Cookie"))
+	}
+
+	// Without the option, no cookie; the header is read all the same.
+	b2 := newBrowser(t, formRouter(t))
+	if res := b2.get("/posts/new"); strings.Contains(strings.Join(res.header.Values("Set-Cookie"), "|"), "XSRF-TOKEN") {
+		t.Errorf("cookie without the option: %q", res.header.Values("Set-Cookie"))
+	}
+}
+
 func TestMethodOverride(t *testing.T) {
 	b := newBrowser(t, formRouter(t))
 	tok := b.get("/posts/new").token(t)

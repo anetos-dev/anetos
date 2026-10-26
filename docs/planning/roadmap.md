@@ -634,13 +634,14 @@ is the largest and least predictable.
 |---|---|
 | DR1 Remove v0.5's deprecations | ✅ Done 2026-10-26 (design §7, §23, D338–D340): 81 identifiers removed from the core, `admin`, the drivers and postmark (`api/*.txt`); the 13 settings renamed in v0.5 refused when set without their new names (`was:"OLD,removed"`, `config.RenamedError`); the old command names, `schedule:run <task>`, process types, `unique_live`, a plugin's `Listen` and a backend's `SignedURL` refused with the new name; the tool's support for projects made before v0.5 removed (`make:crud` and `make:auth` name `css:use --force` without `views/ui`); the upgrade guide `upgrade/v0.6.md`; also `releasing.md`'s pkg.go.dev check |
 | V1 Vite | ✅ Done 2026-10-26 (design §12.2, D341–D345): package `view/vite` (`vite.New`, `@vite.Tags` from the build's manifest, `vite.Handler` for `/build/`, `vite.URL`, `VITE_DEV_URL`); `anetos new --vite[=ts\|js]` and `anetos vite:install [--js]` (`frontend/` with a `go.mod` guard, the app wired, a Node stage in the Dockerfile); `anetos dev` runs Vite and forwards `/build/` (hot reload through its address); `anetos build` builds the frontend (`--no-frontend`), `anetos check`'s `frontend` step; refused where deployed: `VITE_DEV_URL`, a missing build; guide "Bundle JavaScript and CSS with Vite"; CI's latest Go cli part builds a frontend with Node and checks the binary embeds all of it; only web projects (an API project's `frontend/` is SP2's). Review81's findings fixed (files named `_…` left out of the binary, Vite on `::1`, terminal clearing, `vite:install` without `templ generate`, CRLF files). Not run here: the Docker image (no Docker daemon), macOS and Windows, pnpm/yarn/bun |
+| V2 Inertia adapter | ✅ Done 2026-10-26 (design §12.2, D346–D351): package `web/inertia` (typed pages `inertia.NewPage[P]`, `inertia.Prop[T]` for optional, deferred, merged, once and always props, shared props, errors and error bags, flash, history encryption, `Location`, the middleware's 409 for asset versions, 303 and fragment redirects, `ErrorPages`); `web.WithXSRFCookie` and `X-XSRF-TOKEN`; error pages that respond themselves; `vite.Vite.Version`; `anetostest`'s Inertia assertions; `examples/inertia` (React) checked with the real client in Chromium; guide and reference. Not here: SSR, infinite scroll, Precognition (backlog) |
 
 ---
 
 ### Backlog (after v0.6, unordered)
 
 separate frontends: `anetos new --frontend=vue\|react\|svelte` scaffolds (v0.7, D333) · OpenAPI client code generation for languages other than TypeScript · WebSockets/broadcasting · debug dashboard (requests, queries, jobs and mail of a running app) · notifications (mail, SMS, Slack channels) · multi-tenancy · feature
-flags · search engine drivers behind `Search` (Meilisearch, Typesense, OpenSearch) · Inertia SSR · read/write DB splitting ·
+flags · search engine drivers behind `Search` (Meilisearch, Typesense, OpenSearch) · Inertia SSR, infinite scroll and Precognition · read/write DB splitting ·
 roles and permissions: scope hierarchies, roles a team defines for itself, `make:auth` with roles ·
 teams (a teams module extending auth, managed in the admin) · content review workflow (drafts, reviewers, a review queue in the admin) · soft deletes that cascade to related rows · audit log: tamper evidence (hash chain), database triggers for raw SQL on PostgreSQL, pivot writes ·
 AI: MCP server (the app's tools to MCP clients) and client (remote tools for agents), provider failover, images and files as model inputs, speech and transcription, providers' own tools (web search, code execution), more providers (as plugins), Vertex AI, Bedrock and Azure OpenAI authentication for the drivers ·
@@ -810,3 +811,4 @@ something, and we fix the API rather than add the hook.
 | 2026-10-25 | M9b's coverage done (design D332); the submission stays in March 2027 |
 | 2026-10-26 | v0.6 planned with Samiul (`v06-plan.md`, design D333–D337): frontends two ways, the work packages DR1, V1, V2, TS1, SP1, SP2, V3, V4 in that order, exit criteria; DR1 done (D338–D340) |
 | 2026-10-26 | V1 (Vite) done (design D341–D345) |
+| 2026-10-26 | V2 (Inertia adapter) done (design D346–D351) |

@@ -3,8 +3,9 @@
 GO       ?= go
 COVEROUT ?= coverage.out
 # Every module in the repository: the core, driver modules, and examples
-# that need drivers. Targets run in each one.
-MODULES  ?= $(patsubst %/go.mod,%,$(shell find . -name go.mod -not -path './.git/*' | sort))
+# that need drivers. Targets run in each one. A frontend's go.mod only
+# keeps the go command out of its node_modules: it has no Go.
+MODULES  ?= $(patsubst %/go.mod,%,$(shell find . -name go.mod -not -path './.git/*' -not -path '*/node_modules/*' -not -path './examples/*/frontend/*' | sort))
 EACH      = for m in $(MODULES); do echo "== $$m"; (cd $$m &&
 DONE      = ) || exit 1; done
 
@@ -30,7 +31,7 @@ lint: ## golangci-lint (install: https://golangci-lint.run)
 # make:auth…): with the race detector and the other packages beside them,
 # they need more than go test's usual budget.
 test: ## Tests with the race detector (set ANETOS_TEST_POSTGRES_URL / ANETOS_TEST_MYSQL_URL / ANETOS_TEST_REDIS_URL for those drivers)
-	@$(EACH) $(GO) test -race -count=1 -timeout=10m ./... $(DONE)
+	@$(EACH) $(GO) test -race -count=1 -timeout=15m ./... $(DONE)
 
 test-short: ## Fast tests, no race detector
 	@$(EACH) $(GO) test -short -count=1 -timeout=5m ./... $(DONE)

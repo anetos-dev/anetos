@@ -273,11 +273,11 @@ func (a *App) do(req *http.Request, hasToken, defaults bool) *Response {
 
 // isPage reports whether a response is a page the browser shows (so the
 // Referer of later requests): a successful GET of HTML, not an htmx
-// fragment.
+// fragment, or of an Inertia page (whose URL the client shows).
 func isPage(req *http.Request, res *http.Response) bool {
 	ct := res.Header.Get("Content-Type")
 	return req.Method == http.MethodGet && res.StatusCode == http.StatusOK &&
-		(ct == "" || strings.HasPrefix(ct, "text/html")) &&
+		(ct == "" || strings.HasPrefix(ct, "text/html") || res.Header.Get("X-Inertia") == "true") &&
 		(req.Header.Get("HX-Request") != "true" || req.Header.Get("HX-Boosted") == "true")
 }
 

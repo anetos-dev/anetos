@@ -786,6 +786,27 @@ func (m *Manager) setCookie(w http.ResponseWriter, value string, maxAge int) {
 	w.Header().Add("Set-Cookie", m.cookie(value, maxAge).String())
 }
 
+// ManagerFrom returns the Manager whose middleware runs for the request
+// of ctx, or nil outside one.
+func ManagerFrom(ctx context.Context) *Manager {
+	m, _ := ctx.Value(managerKey{}).(*Manager)
+	return m
+}
+
+// NewCookie returns a cookie that goes with the session's: its Path, Domain,
+// Secure and SameSite, without an expiry, and readable by the page's
+// scripts (not HttpOnly). web.CSRF's XSRF-TOKEN cookie is one.
+func (m *Manager) NewCookie(name, value string) *http.Cookie {
+	return &http.Cookie{
+		Name:     name,
+		Value:    value,
+		Path:     m.cfg.Path,
+		Domain:   m.cfg.Domain,
+		Secure:   m.secure,
+		SameSite: m.sameSite,
+	}
+}
+
 func (m *Manager) cookie(value string, maxAge int) *http.Cookie {
 	return &http.Cookie{
 		Name:     m.name,

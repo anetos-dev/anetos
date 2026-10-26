@@ -23,6 +23,7 @@ coverage.*
 /examples/ai/ai
 /examples/audit/audit
 /examples/admin/admin
+/examples/inertia/inertia
 /examples/tracker/tracker
 /examples/tutorial/tracker
 /cli/cmd/anetos/anetos

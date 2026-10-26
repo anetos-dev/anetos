@@ -506,6 +506,7 @@ pkg anetos.dev/anetos/anetostest, func New(testing.TB, func(*anetos.App) (*web.S
 pkg anetos.dev/anetos/anetostest, func WithoutMigrations() Option
 pkg anetos.dev/anetos/anetostest, func WithoutTransaction() Option
 pkg anetos.dev/anetos/anetostest, method (*App) AI() *ai.Fake
+pkg anetos.dev/anetos/anetostest, method (*App) AsInertia() *App
 pkg anetos.dev/anetos/anetostest, method (*App) AssertNoMail() *App
 pkg anetos.dev/anetos/anetostest, method (*App) AssertNoRepeatedQueries() *App
 pkg anetos.dev/anetos/anetostest, method (*App) AssertNotPrompted() *App
@@ -550,6 +551,8 @@ pkg anetos.dev/anetos/anetostest, method (*Response) AssertCreated() *Response
 pkg anetos.dev/anetos/anetostest, method (*Response) AssertDontSee(...string) *Response
 pkg anetos.dev/anetos/anetostest, method (*Response) AssertForbidden() *Response
 pkg anetos.dev/anetos/anetostest, method (*Response) AssertHeader(string, string) *Response
+pkg anetos.dev/anetos/anetostest, method (*Response) AssertInertia(string) *Response
+pkg anetos.dev/anetos/anetostest, method (*Response) AssertInertiaProp(string, any) *Response
 pkg anetos.dev/anetos/anetostest, method (*Response) AssertJSON(any) *Response
 pkg anetos.dev/anetos/anetostest, method (*Response) AssertJSONPath(string, any) *Response
 pkg anetos.dev/anetos/anetostest, method (*Response) AssertNoContent() *Response
@@ -565,6 +568,7 @@ pkg anetos.dev/anetos/anetostest, method (*Response) AssertStatus(int) *Response
 pkg anetos.dev/anetos/anetostest, method (*Response) AssertUnprocessable() *Response
 pkg anetos.dev/anetos/anetostest, method (*Response) AssertValidationErrors(...string) *Response
 pkg anetos.dev/anetos/anetostest, method (*Response) Follow() *Response
+pkg anetos.dev/anetos/anetostest, method (*Response) InertiaPage() *inertia.PageObject
 pkg anetos.dev/anetos/anetostest, method (*Response) JSON(any) *Response
 pkg anetos.dev/anetos/anetostest, method (*Response) Text() string
 pkg anetos.dev/anetos/anetostest, type App struct
@@ -2124,6 +2128,7 @@ pkg anetos.dev/anetos/session, func DatabaseDriver() Driver
 pkg anetos.dev/anetos/session, func DefaultConfig() Config
 pkg anetos.dev/anetos/session, func From(context.Context) *Session
 pkg anetos.dev/anetos/session, func LoadConfig(config.Source) (Config, error)
+pkg anetos.dev/anetos/session, func ManagerFrom(context.Context) *Manager
 pkg anetos.dev/anetos/session, func Migrations(string) *migrate.Set
 pkg anetos.dev/anetos/session, func New(*anetos.App, ...Driver) (*Manager, error)
 pkg anetos.dev/anetos/session, func NewManager(Config, *encryption.Encrypter, ...Option) (*Manager, error)
@@ -2137,6 +2142,7 @@ pkg anetos.dev/anetos/session, method (*Manager) CookieName() string
 pkg anetos.dev/anetos/session, method (*Manager) Edit(*http.Request, func(*Session)) (*http.Cookie, error)
 pkg anetos.dev/anetos/session, method (*Manager) Load(*http.Request) *Session
 pkg anetos.dev/anetos/session, method (*Manager) Middleware(http.Handler) http.Handler
+pkg anetos.dev/anetos/session, method (*Manager) NewCookie(string, string) *http.Cookie
 pkg anetos.dev/anetos/session, method (*Manager) Store() (cache.Store, string)
 pkg anetos.dev/anetos/session, method (*Manager) Use(...func(http.Handler) http.Handler)
 pkg anetos.dev/anetos/session, method (*Session) Clear()
@@ -2409,6 +2415,7 @@ pkg anetos.dev/anetos/view/vite, method (*Vite) Dev() bool
 pkg anetos.dev/anetos/view/vite, method (*Vite) ServeHTTP(http.ResponseWriter, *http.Request)
 pkg anetos.dev/anetos/view/vite, method (*Vite) Tags(...string) view.Component
 pkg anetos.dev/anetos/view/vite, method (*Vite) URL(string) string
+pkg anetos.dev/anetos/view/vite, method (*Vite) Version() string
 pkg anetos.dev/anetos/view/vite, method (Config) Validate() error
 pkg anetos.dev/anetos/view/vite, type Config struct
 pkg anetos.dev/anetos/view/vite, type Config struct, DevURL string
@@ -2466,6 +2473,7 @@ pkg anetos.dev/anetos/web, func WithDebug(bool) RouterOption
 pkg anetos.dev/anetos/web, func WithErrorHandler(ErrorHandler) RouterOption
 pkg anetos.dev/anetos/web, func WithLogger(*slog.Logger) RouterOption
 pkg anetos.dev/anetos/web, func WithTrustedOrigins(...string) CSRFOption
+pkg anetos.dev/anetos/web, func WithXSRFCookie() CSRFOption
 pkg anetos.dev/anetos/web, func WithoutTimeout(context.Context) context.Context
 pkg anetos.dev/anetos/web, func WrapHandler(http.Handler) HandlerFunc
 pkg anetos.dev/anetos/web, func WriteError(http.ResponseWriter, *http.Request, error)
@@ -2640,6 +2648,77 @@ pkg anetos.dev/anetos/web, var ErrCSRF *HTTPError
 pkg anetos.dev/anetos/web, var ErrCrossOrigin *HTTPError
 pkg anetos.dev/anetos/web, var ErrUnknownRoute error
 pkg anetos.dev/anetos/web, var ErrUnsupportedLocale *HTTPError
+pkg anetos.dev/anetos/web/inertia, func Always[T any](T) Prop[T]
+pkg anetos.dev/anetos/web/inertia, func App() view.Component
+pkg anetos.dev/anetos/web/inertia, func ClearHistory(context.Context)
+pkg anetos.dev/anetos/web/inertia, func Component(context.Context) string
+pkg anetos.dev/anetos/web/inertia, func Defer[T any](func(context.Context) (T, error)) Prop[T]
+pkg anetos.dev/anetos/web/inertia, func EncryptHistory(context.Context)
+pkg anetos.dev/anetos/web/inertia, func ErrorPages(string) func(*web.Ctx, web.ErrorPage) view.Component
+pkg anetos.dev/anetos/web/inertia, func Flash(context.Context, string, any)
+pkg anetos.dev/anetos/web/inertia, func From(context.Context) (*Inertia, error)
+pkg anetos.dev/anetos/web/inertia, func Func[T any](func(context.Context) (T, error)) Prop[T]
+pkg anetos.dev/anetos/web/inertia, func Location(*web.Ctx, string) error
+pkg anetos.dev/anetos/web/inertia, func Merge[T any](T) Prop[T]
+pkg anetos.dev/anetos/web/inertia, func Middleware(http.Handler) http.Handler
+pkg anetos.dev/anetos/web/inertia, func New(*anetos.App, view.Component, ...Option) (*Inertia, error)
+pkg anetos.dev/anetos/web/inertia, func NewPage[P any](string) *Page[P]
+pkg anetos.dev/anetos/web/inertia, func NewWithRoot(view.Component, ...Option) (*Inertia, error)
+pkg anetos.dev/anetos/web/inertia, func Once[T any](func(context.Context) (T, error)) Prop[T]
+pkg anetos.dev/anetos/web/inertia, func Optional[T any](func(context.Context) (T, error)) Prop[T]
+pkg anetos.dev/anetos/web/inertia, func PreserveFragment(context.Context)
+pkg anetos.dev/anetos/web/inertia, func ReadPage([]byte) (*PageObject, error)
+pkg anetos.dev/anetos/web/inertia, func Render(*web.Ctx, string, Props) error
+pkg anetos.dev/anetos/web/inertia, func Value[T any](T) Prop[T]
+pkg anetos.dev/anetos/web/inertia, func WithEncryptHistory() Option
+pkg anetos.dev/anetos/web/inertia, func WithInertia(context.Context, *Inertia) context.Context
+pkg anetos.dev/anetos/web/inertia, func WithShared[S any](func(*web.Ctx) (S, error)) Option
+pkg anetos.dev/anetos/web/inertia, func WithVersion(string) Option
+pkg anetos.dev/anetos/web/inertia, method (*Inertia) Version() string
+pkg anetos.dev/anetos/web/inertia, method (*Page[P]) Component() string
+pkg anetos.dev/anetos/web/inertia, method (*Page[P]) Render(*web.Ctx, P) error
+pkg anetos.dev/anetos/web/inertia, method (Prop[T]) Append(...string) Prop[T]
+pkg anetos.dev/anetos/web/inertia, method (Prop[T]) DeepMerge() Prop[T]
+pkg anetos.dev/anetos/web/inertia, method (Prop[T]) ExpiresIn(time.Duration) Prop[T]
+pkg anetos.dev/anetos/web/inertia, method (Prop[T]) Fresh() Prop[T]
+pkg anetos.dev/anetos/web/inertia, method (Prop[T]) Group(string) Prop[T]
+pkg anetos.dev/anetos/web/inertia, method (Prop[T]) MatchOn(...string) Prop[T]
+pkg anetos.dev/anetos/web/inertia, method (Prop[T]) Once() Prop[T]
+pkg anetos.dev/anetos/web/inertia, method (Prop[T]) OnceAs(string) Prop[T]
+pkg anetos.dev/anetos/web/inertia, method (Prop[T]) Prepend(...string) Prop[T]
+pkg anetos.dev/anetos/web/inertia, method (Prop[T]) Rescue() Prop[T]
+pkg anetos.dev/anetos/web/inertia, method (Prop[T]) Until(time.Time) Prop[T]
+pkg anetos.dev/anetos/web/inertia, type ErrorProps struct
+pkg anetos.dev/anetos/web/inertia, type ErrorProps struct, Detail string
+pkg anetos.dev/anetos/web/inertia, type ErrorProps struct, RequestID string
+pkg anetos.dev/anetos/web/inertia, type ErrorProps struct, Status int
+pkg anetos.dev/anetos/web/inertia, type ErrorProps struct, Title string
+pkg anetos.dev/anetos/web/inertia, type Inertia struct
+pkg anetos.dev/anetos/web/inertia, type OnceProp struct
+pkg anetos.dev/anetos/web/inertia, type OnceProp struct, ExpiresAt *int64
+pkg anetos.dev/anetos/web/inertia, type OnceProp struct, Prop string
+pkg anetos.dev/anetos/web/inertia, type Option func(*Inertia) error
+pkg anetos.dev/anetos/web/inertia, type PageObject struct
+pkg anetos.dev/anetos/web/inertia, type PageObject struct, ClearHistory bool
+pkg anetos.dev/anetos/web/inertia, type PageObject struct, Component string
+pkg anetos.dev/anetos/web/inertia, type PageObject struct, DeepMergeProps []string
+pkg anetos.dev/anetos/web/inertia, type PageObject struct, DeferredProps map[string][]string
+pkg anetos.dev/anetos/web/inertia, type PageObject struct, EncryptHistory bool
+pkg anetos.dev/anetos/web/inertia, type PageObject struct, Flash map[string]json.RawMessage
+pkg anetos.dev/anetos/web/inertia, type PageObject struct, MatchPropsOn []string
+pkg anetos.dev/anetos/web/inertia, type PageObject struct, MergeProps []string
+pkg anetos.dev/anetos/web/inertia, type PageObject struct, OnceProps map[string]OnceProp
+pkg anetos.dev/anetos/web/inertia, type PageObject struct, PrependProps []string
+pkg anetos.dev/anetos/web/inertia, type PageObject struct, PreserveFragment bool
+pkg anetos.dev/anetos/web/inertia, type PageObject struct, Props map[string]json.RawMessage
+pkg anetos.dev/anetos/web/inertia, type PageObject struct, RescuedProps []string
+pkg anetos.dev/anetos/web/inertia, type PageObject struct, SharedProps []string
+pkg anetos.dev/anetos/web/inertia, type PageObject struct, URL string
+pkg anetos.dev/anetos/web/inertia, type PageObject struct, Version string
+pkg anetos.dev/anetos/web/inertia, type Page[P any] struct
+pkg anetos.dev/anetos/web/inertia, type Prop[T any] struct
+pkg anetos.dev/anetos/web/inertia, type Props map[string]any
+pkg anetos.dev/anetos/web/inertia, var ErrNoInertia error
 pkg anetos.dev/anetos/web/openapi, func Check(*web.Router, Config) error
 pkg anetos.dev/anetos/web/openapi, func Register(*anetos.App, *web.Server, Config) error
 pkg anetos.dev/anetos/web/openapi, func Spec(*web.Router, Config) ([]byte, []string, error)

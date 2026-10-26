@@ -1,0 +1,8 @@
+body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 2rem auto; padding: 0 1rem; color: #222; }
+nav { display: flex; gap: 1rem; align-items: baseline; margin-bottom: 1.5rem; }
+nav strong { margin-right: auto; }
+.toast { background: #e6f4ea; border: 1px solid #b7dfc3; padding: .5rem .75rem; border-radius: .25rem; }
+.error { color: #b00020; }
+li { margin: .25rem 0; }
+label { display: block; margin: .75rem 0 .25rem; }
+input, textarea { width: 100%; padding: .4rem; box-sizing: border-box; }

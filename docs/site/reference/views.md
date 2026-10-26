@@ -7,7 +7,7 @@ weight: 201
 
 # Views, sessions and forms reference
 
-The APIs of packages `view`, `view/vite`, `session` and `encryption`, and the HTML
+The APIs of packages `view`, `view/vite`, `web/inertia`, `session` and `encryption`, and the HTML
 helpers of package `web`. See [Render HTML with templ](../guides/views.md),
 [Sessions and flash messages](../guides/sessions.md) and
 [Handle HTML forms](../guides/forms.md) for walkthroughs. The components
@@ -33,8 +33,9 @@ of a project's `views/ui` are in the [UI components reference](ui.md).
 
 | API | Does |
 |---|---|
-| `web.CSRF(opts...)` | Middleware: for every method but GET, HEAD, OPTIONS and TRACE, rejects cross-site requests (`web.ErrCrossOrigin`, 403) and requires the session token from `_token` or `X-CSRF-Token` (`web.ErrCSRF`, 403). Needs the session middleware first |
+| `web.CSRF(opts...)` | Middleware: for every method but GET, HEAD, OPTIONS and TRACE, rejects cross-site requests (`web.ErrCrossOrigin`, 403) and requires the session token from `_token`, `X-CSRF-Token` or `X-XSRF-TOKEN` (`web.ErrCSRF`, 403). Needs the session middleware first |
 | `web.WithTrustedOrigins(origins...)` | CSRF option: allow these origins (`https://admin.example.com`) |
+| `web.WithXSRFCookie()` | CSRF option (since v0.6): when the response starts, set an `XSRF-TOKEN` cookie holding the session's masked token, readable by the page's scripts, unless the request's holds that token (so a login's response carries the new one); scripts send it back in `X-XSRF-TOKEN` (Inertia's client, Axios and Angular do). The header is accepted with or without the option |
 | `web.MethodOverride` | Global middleware: a POST with `_method` of PUT, PATCH or DELETE (in a URL-encoded body of at most 10 MB, which is parsed into `r.PostForm` and restored, or in the query string) is routed with that method |
 
 Validation failures (422, or 400 with field errors) of a non-GET request
@@ -81,7 +82,45 @@ Since v0.6. See [Bundle JavaScript and CSS with Vite](../guides/vite.md).
 | `vite.Handler()` | Serves the build under `/build/` (`vite.Base`): GET and HEAD; files under `assets/` (named by their content's hash) `Cache-Control: public, max-age=31536000, immutable`, others `no-cache`; `ETag`; text of 1 KiB or more gzipped as `view.Assets` does. Not the manifest or dot files; 404 without a Vite in the request's context |
 | `vite.From(ctx)`, `vite.WithVite(ctx, v)` | The context's Vite (or `vite.ErrNoVite`); a context carrying v |
 | `vite.NewWithFiles(files, devURL, opts...)` | A Vite without an app, for tests and tools; `v.Tags`, `v.URL`, `v.Dev()` and `v` as an `http.Handler` are the package's functions with it |
+| `v.Version()` | A hash of the build's manifest, `""` in development and without a build: Inertia's asset version |
 | `vite.LoadConfig(src)`, `vite.Config` | The `VITE_*` settings |
+
+## Inertia pages (`web/inertia`)
+
+Since v0.6. See [Pages in Vue, React or Svelte with Inertia](../guides/inertia.md).
+
+| API | Does |
+|---|---|
+| `inertia.New(app, root, opts...)` | `(*Inertia, error)`: the app's Inertia, with the root view (the first visit's HTML, which places `@inertia.App()`), in the app's contexts and container. The asset version is the Vite build's when the app has one (call `vite.New` first). Errors: a nil root, an invalid option, a second call |
+| `inertia.WithVersion(v)` | Option: the asset version; a client's GET visit with another one gets 409 and reloads the page whole |
+| `inertia.WithShared(fn)` | Option: props for every page, `fn(c)`'s result (a struct, as a page's props, or `inertia.Props`); a page's prop of the same name wins. Listed in the page's `sharedProps` |
+| `inertia.WithEncryptHistory()` | Option: encrypt the pages' history state (HTTPS only) |
+| `inertia.NewPage[P](component)` | A page: its component name and props type, read once. Props are the fields as `encoding/json` writes them (`json` names, `omitempty`, `omitzero`, embedded structs, the shallowest field of a name). Panics on an empty name, a `P` that isn't a struct or `inertia.Props`, two fields tagged with one name at one depth, or a prop named `errors` |
+| `p.Render(c, props)` | Responds 200 with the page: JSON for a visit of the client (`X-Inertia: true`), the root view's HTML otherwise. Props are the fields, as `encoding/json` names them, the shared props, and `errors` |
+| `inertia.Render(c, component, props)` | The same with untyped `inertia.Props` |
+| `inertia.Prop[T]` | A prop field loaded specially; unset, it is left out (a shared prop of its name stays). Set by `inertia.Value(v)`, `Func(fn)` (computed when included), `Always(v)`, `Optional(fn)` (only when asked for), `Defer(fn)` (after the page shows), `Merge(v)`, `Once(fn)` |
+| `.Group(name)`, `.Rescue()` | A deferred prop's group (`default`), and leaving it out (logged, in `rescuedProps`) when `fn` fails |
+| `.Append(paths...)`, `.Prepend(paths...)`, `.DeepMerge()`, `.MatchOn(paths...)` | How the client merges the value on a partial reload; paths inside the prop (`"data"`, `"data.id"`), none for the prop itself. `DeepMerge` replaces appending and prepending |
+| `.Once()`, `.OnceAs(key)`, `.ExpiresIn(d)`, `.Until(t)`, `.Fresh()` | Kept by the client once loaded, under key (the prop's name by default), until it expires; `Fresh` sends it anyway |
+| `inertia.Middleware` | For the client's visits: 409 with `X-Inertia-Location` on an old asset version (GET; flashed data kept), 303 for a 302 after PUT, PATCH or DELETE, 409 with `X-Inertia-Redirect` for a redirect to a URL with a fragment (not for prefetches), the error bag of `X-Inertia-Error-Bag`; `Vary: X-Inertia` on every response |
+| `inertia.Location(c, url)` | A full page load of `url`: 409 with `X-Inertia-Location` for the client, 303 otherwise |
+| `inertia.Flash(ctx, key, v)` | Data in `flash` of the next page rendered, here or after a redirect |
+| `inertia.ClearHistory(ctx)`, `inertia.PreserveFragment(ctx)` | Flags of the next page rendered: drop the history encryption key; keep the URL's fragment across the redirect |
+| `inertia.EncryptHistory(ctx)` | Encrypt this response's history state. It, `Flash`, `ClearHistory` and `PreserveFragment` need `inertia.Middleware`, and do nothing without it |
+| `inertia.ErrorPages(component)` | For `r.ErrorPages`: the error pages as the component with `inertia.ErrorProps` (`status`, `title`, `detail`, `requestId`) and the error's field errors in `errors`, with the error's status |
+| `inertia.App()` | Component for the root view's body: `<script data-page="app" type="application/json">` with the page object (`/` escaped), and `<div id="app">` |
+| `inertia.Component(ctx)` | The root view's page component, `""` elsewhere |
+| `inertia.ReadPage(body)` | A response's `*inertia.PageObject` (JSON or the first visit's HTML), for tests |
+| `inertia.From(ctx)`, `inertia.WithInertia(ctx, in)`, `inertia.NewWithRoot(root, opts...)` | The context's Inertia (or `inertia.ErrNoInertia`); a context carrying one; one without an app |
+
+The `errors` prop is always there: the field errors the previous request
+flashed, one message per field (`{"title": "…"}`), under the error bag
+when the form named one. Server-side rendering, infinite scroll and
+Precognition aren't supported.
+
+In tests, `app.AsInertia()` makes later requests the client's visits,
+and `res.AssertInertia(component)`, `res.AssertInertiaProp(name, want)`
+and `res.InertiaPage()` read the page (package `anetostest`).
 
 ## Sessions (`session`)
 
@@ -93,7 +132,9 @@ Since v0.6. See [Bundle JavaScript and CSS with Vite](../guides/vite.md).
 | `m.Middleware` | Loads the session into the request context and saves it when the response starts; adds `Cache-Control: private` (if unset) and `Vary: Cookie` for requests with a session. Does nothing if the same manager already runs for the request |
 | `m.Use(mw...)` | Middleware that run inside `m.Middleware`, wherever it runs (every group with sessions), after the session is loaded and before the group's other middleware, in order; for routes registered before and after. Call it at setup. `make:auth`'s `setupAuth` calls `sessions.Use(a.Middleware)`, so every page knows the logged-in user |
 | `m.CookieName()` | `SESSION_COOKIE`, with the `__Host-` prefix when Secure, without Domain, with Path `/` |
+| `m.NewCookie(name, value)` | A cookie that goes with the session's: its Path, Domain, Secure and SameSite, without an expiry, not HttpOnly (since v0.6; `web.WithXSRFCookie`'s) |
 | `session.From(ctx)` | The session, or nil |
+| `session.ManagerFrom(ctx)` | The manager whose middleware runs for the request, or nil (since v0.6) |
 | `session.NewSession()`, `session.WithSession(ctx, s)` | A session for tests |
 | `s.Put(key, v)`, `s.Get(key, &dst)`, `session.Value[T](s, key)`, `s.GetString(key)` | Store (as JSON) and read values |
 | `s.Has`, `s.Delete`, `s.Pull`, `s.Clear` | Check, remove, read-and-remove, remove all |

@@ -29,3 +29,8 @@ change in the audit log.
 builds, made with `anetos new --stack=api`, `make:auth` and
 `make:crud`: bookmarks that are each user's, tokens limited to reading,
 an action of its own, and its OpenAPI description (`openapi.json`).
+[`inertia`](inertia) is a notes app whose pages are React components
+that Inertia's client renders, with Go handlers: a list that loads more
+notes and its statistics after the page shows, a form with errors from
+the server, a message after saving, and the error page. Its tests run
+without Node.
