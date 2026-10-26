@@ -1678,6 +1678,42 @@ OpenAPI document is written:
   type says array or object (documented). Scaffolding the command
   into projects is V3's and SP2's.
 
+**Login for SPAs (SP1, D361–D364).** D334's first-party SPA, built:
+
+- **The origins** (D361): `HTTP_SPA_ORIGINS` (web's settings) lists
+  them, origins only (a scheme, a host and a port; default ports
+  dropped, lower case; a host in ASCII); empty, nothing changes. The
+  server's global middleware `web.FirstPartyOrigins` marks a request
+  whose `Origin`, or without one its `Referer`'s origin, is listed, or
+  that the browser says is same-origin (`Sec-Fetch-Site`) on a listed
+  host, but never one with an API token (`Authorization: Bearer`)
+  (`web.IsFirstParty`); `doctor` warns of an `http://` or `localhost`
+  origin where the app is deployed;
+  its CORS allows those origins with credentials and the `X-XSRF-TOKEN`
+  header, other origins keeping `HTTP_CORS_*`'s rules; `web.CSRF`
+  accepts them in its cross-origin check, the token check unchanged.
+- **The routes** (D362): `web.FirstParty(mws...)` runs middleware for
+  first-party requests only, so an API group takes
+  `web.FirstParty(sessions.Middleware, web.CSRF(web.WithXSRFCookie()))`
+  before `a.TokenMiddleware`, which already accepted a session's user:
+  token clients keep no session and no CSRF. Its `MiddlewareDoc` lists
+  what it runs (`Inner`), which `RouteInfo.Uses` searches, so route
+  listings, the OpenAPI document's responses and `route.csrf` see the
+  session and CSRF middleware.
+- **The endpoints** (D363): the same as the tokens', answering the SPA
+  with its session: registration logs in (`Auth.Login`), the login is
+  `Auth.Attempt` (a two-factor login waits in the session, as the
+  pages'), the second step `Auth.AttemptTwoFactor` with the code alone,
+  the logout `Auth.Logout`; the answer is the user, never a token.
+  Changing the password and turning on two-factor authentication
+  already log out the other sessions (`LogoutOthers`) beside revoking
+  the other tokens.
+- **Scaffolding** (D364): `make:auth` in an API project always writes
+  it (`session.New` in `setupAuth`, cookie sessions by default, so no
+  table), inert while `HTTP_SPA_ORIGINS` is empty; the API project's
+  settings files list it empty; `examples/bookmarks` follows, with a
+  test logging in as the SPA. The SPA's own pages are SP2's.
+
 ### 12.3 Admin interface (v0.3: AD1, AD2)
 
 An admin for the people who run a site: its records, its users and their
@@ -3600,6 +3636,10 @@ unless new information arrives), **Open**, **Superseded**.
 | D358 | `HTTP_CLIENT_IP_HEADER` names a header a platform's proxy sets to the client's IP (`do-connecting-ip`, `Fly-Client-IP`); `web.ClientIPHeader` reads it instead of `X-Forwarded-For`, on connections from `HTTP_TRUSTED_PROXIES`, or from every connection when that's empty (a `doctor` note says the app must then be reachable only through the proxy). A header sent twice or not an address leaves the peer's. `X-Forwarded-For` as the header is refused | Accepted | Samiul's choice (2026-10-26). DigitalOcean App Platform's `X-Forwarded-For` holds its ingress's address, the client's being in `do-connecting-ip` (its docs), and Fly.io's ends with the app's own address: with forwarding headers only, every visitor had one IP there, so per-IP rate limits, the audit log and `ADMIN_ALLOW_IPS` saw the platform. Reading from every peer when none are listed fits platforms whose proxy's address isn't documented and that are the only way in |
 | D359 | `DB_TLS_CA` takes the CAs' PEM text as well as a file's path: text starting with `-----BEGIN` (after spaces) is the certificates, `\n` written as two characters being a line break; `db.Config.TLSCAPEM` and `TLSCAInline` serve the drivers, and `String` prints "(PEM text)" | Accepted | Samiul's choice (2026-10-26). DigitalOcean's managed PostgreSQL is signed by the cluster's own CA, which App Platform gives as text (`${db.CA_CERT}`), and the image has no shell to write it to a file: without this, the connection could only be unverified (`sslmode=require`) or the image tied to one cluster. Checked against a PostgreSQL with TLS: the text and its escaped form connect, another CA's text is refused |
 | D360 | On DigitalOcean App Platform, the guide migrates at start (`DB_MIGRATE_ON_START=true` for the web and the worker) instead of in a pre-deploy job | Accepted | A pre-deploy job needs a run command, which replaces the image's entrypoint and may run through a shell the image doesn't have (undocumented); the migrations' lock (an advisory lock on PostgreSQL) makes instances starting together wait for one run, and an instance isn't ready before it has migrated, so a failed migration fails the deploy with the old version serving. D255's "several instances keep a release step" stands where a platform has one |
+| D361 | `HTTP_SPA_ORIGINS` lists the first-party SPAs' origins; a request is theirs when its `Origin`, or without one its `Referer`'s origin, is listed, or the browser marks it same-origin (`Sec-Fetch-Site`) on a listed host, unless it carries an API token (`web.FirstPartyOrigins`, `web.IsFirstParty`); those origins get CORS with credentials and `X-XSRF-TOKEN`, and pass `web.CSRF`'s cross-origin check | Accepted | Samiul's choices (2026-10-27): listed origins, in web's settings beside `HTTP_CORS_*`, since one list decides CORS and which requests are first-party. Browsers set `Origin`, so a page elsewhere can't claim it; a program that does gets the SPA's session and CSRF checks, not a token's access. `Referer` covers same-origin GETs, which carry no `Origin`, and `Sec-Fetch-Site` those under a no-referrer policy. A request with a token stays a token's (review85: an SPA, a server rendering pages or an app that kept tokens from a listed origin would otherwise have been switched to sessions and CSRF). Credentials stay off for other CORS origins, as D334 asked |
+| D362 | `web.FirstParty(mws...)` runs middleware for first-party requests only: an API group takes the session middleware and `web.CSRF(web.WithXSRFCookie())` that way, before `TokenMiddleware`, which already takes a session's user | Accepted | Token clients keep what v0.4 gave them (no cookies, no CSRF), and nothing in `auth` changes: the session machinery of the pages serves the SPA |
+| D363 | The SPA uses the token clients' endpoints, answered with its session: registration logs in, `POST /login` is `Auth.Attempt` (a two-factor login waits in the session), `POST /login/two-factor` takes the code alone (`challenge` no longer required), `POST /logout` ends the session; the answer is the user, never a token | Accepted | Samiul's choice (2026-10-27): one set of endpoints for the docs and the TypeScript client. The two-factor step reuses the pages' session-held pending login rather than a challenge the SPA would keep in JavaScript |
+| D364 | `make:auth` in an API project always writes the SPA's wiring (`session.New`, cookie sessions by default), inert while `HTTP_SPA_ORIGINS` is empty | Accepted | Samiul's choice (2026-10-27): no flag to remember; cookie sessions need no table, and an empty setting changes nothing for token clients |
 
 ---
 
@@ -3721,3 +3761,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-26 | V2 (Inertia adapter): §12.2 updated; D346–D351 added |
 | 2026-10-26 | TS1 (TypeScript types): §12.2 updated; D352–D356 added |
 | 2026-10-26 | DOC1 (cloud platforms): §21 updated; D357–D360 added |
+| 2026-10-27 | SP1 (login for SPAs): §12.2 updated; D361–D364 added |

@@ -33,9 +33,10 @@ of a project's `views/ui` are in the [UI components reference](ui.md).
 
 | API | Does |
 |---|---|
-| `web.CSRF(opts...)` | Middleware: for every method but GET, HEAD, OPTIONS and TRACE, rejects cross-site requests (`web.ErrCrossOrigin`, 403) and requires the session token from `_token`, `X-CSRF-Token` or `X-XSRF-TOKEN` (`web.ErrCSRF`, 403). Needs the session middleware first |
+| `web.CSRF(opts...)` | Middleware: for every method but GET, HEAD, OPTIONS and TRACE, rejects cross-site requests (`web.ErrCrossOrigin`, 403; not the first-party SPAs', since v0.6) and requires the session token from `_token`, `X-CSRF-Token` or `X-XSRF-TOKEN` (`web.ErrCSRF`, 403). Needs the session middleware first |
 | `web.WithTrustedOrigins(origins...)` | CSRF option: allow these origins (`https://admin.example.com`) |
 | `web.WithXSRFCookie()` | CSRF option (since v0.6): when the response starts, set an `XSRF-TOKEN` cookie holding the session's masked token, readable by the page's scripts, unless the request's holds that token (so a login's response carries the new one); scripts send it back in `X-XSRF-TOKEN` (Inertia's client, Axios and Angular do). The header is accepted with or without the option |
+| `web.FirstPartyOrigins(origins)`, `web.IsFirstParty(ctx)`, `web.FirstParty(mws...)` | Since v0.6: the middleware marking the requests of first-party SPAs (their `Origin`, else their `Referer`'s origin, is listed, or `Sec-Fetch-Site: same-origin` on a listed host; never a request with `Authorization: Bearer`; the server runs it with `HTTP_SPA_ORIGINS`, and panics on a value that isn't an origin); whether a request is one; middleware run for those requests only (`web.FirstParty(sessions.Middleware, web.CSRF(web.WithXSRFCookie()))`; its `MiddlewareDoc.Inner` lists them). `web.CSRF` accepts their origins. See [Log in from your SPA](../guides/spa-login.md) |
 | `web.MethodOverride` | Global middleware: a POST with `_method` of PUT, PATCH or DELETE (in a URL-encoded body of at most 10 MB, which is parsed into `r.PostForm` and restored, or in the query string) is routed with that method |
 
 Validation failures (422, or 400 with field errors) of a non-GET request

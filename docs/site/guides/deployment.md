@@ -81,13 +81,15 @@ Render, Railway, Fly, Cloud Run), the app listens on that port when
 when nothing else says where the database is (no `DB_URL`, `DB_HOST` or
 `DB_NAME`, and `DB_DRIVER` unset or `postgres`); it logs that it does.
 
-An API project (`anetos new --stack=api`) has no sessions, so
-`SESSION_*` don't apply; it adds:
+An API project (`anetos new --stack=api`) has sessions only for its own
+SPA's login ([Log in from your SPA](spa-login.md)), so `SESSION_*`
+apply only with `HTTP_SPA_ORIGINS`; it adds:
 
 | Setting | Why |
 |---|---|
 | `AUTH_CLIENT_URL` | After `make:auth`: the client app's address (`https://app.example.com`), which the verification and password reset emails link to. The app refuses to start without it in production |
 | `HTTP_CORS_ORIGINS` | The origins of browser apps that call the API (`https://app.example.com`), comma-separated; empty, none may. Server-side clients and mobile apps don't need it |
+| `HTTP_SPA_ORIGINS` | After `make:auth`: the origins of the app's own SPA, which logs in with a session cookie (`https://app.example.com`); `SESSION_DOMAIN` when it's on another subdomain than the API |
 
 The app serves its API's description at `/api/v1/openapi.json`, made
 from its routes; commit `openapi.json` with the code, for reviewers and

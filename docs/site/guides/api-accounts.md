@@ -11,8 +11,10 @@ In a project made with `anetos new --stack=api`, `make:auth` writes
 accounts that log in with API tokens: registration, login (with
 two-factor codes for users who turn them on), logout, email
 verification, password reset and change, and token management, as JSON
-endpoints under `/api/v1`. There are no sessions or cookies: a client
-keeps its token and sends it in every request.
+endpoints under `/api/v1`. A client keeps its token and sends it in
+every request; the app's own single-page app can log in with a session
+cookie instead ([Log in from your SPA with a session
+cookie](spa-login.md)).
 
 ## Before you start
 
@@ -236,3 +238,4 @@ with `app.WithHeader("Authorization", "Bearer "+token)`. Run it with
 - [Roles and permissions](roles-and-permissions.md): what users may do,
   with tokens' abilities as a ceiling.
 - [Rate limiting](rate-limiting.md).
+- [Log in from your SPA with a session cookie](spa-login.md).

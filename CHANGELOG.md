@@ -7,6 +7,22 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Login for SPAs (SP1, D361–D364): the app's own single-page app logs in
+  to an API project with a session cookie, while other clients keep
+  tokens. `HTTP_SPA_ORIGINS` lists its origins: their requests are
+  first-party (`web.FirstPartyOrigins`, `web.IsFirstParty`, by `Origin`
+  or `Referer`), allowed CORS with credentials and the `X-XSRF-TOKEN`
+  header, and accepted by `web.CSRF`; `web.FirstParty(mws...)` runs
+  middleware for them only. `make:auth` in an API project wires it
+  (`session.New`, `web.FirstParty(sessions.Middleware,
+  web.CSRF(web.WithXSRFCookie()))` on the API's group;
+  `MiddlewareDoc.Inner` shows tools what it runs), and its
+  handlers log the SPA in with the session (registration, login,
+  two-factor login without a challenge, logout); `HTTP_SPA_ORIGINS` in
+  the API project's settings files; `doctor` warns of an `http://` or
+  `localhost` SPA origin where the app is deployed
+  (`setting.spa-origins`). Guide "Log in from your SPA with a session
+  cookie".
 - Deploying to cloud platforms (DOC1, D357–D360): a new guide, "Deploy
   to a cloud platform", for Google Cloud Run, Azure Container Apps,
   Amazon ECS on Fargate, DigitalOcean App Platform, Kubernetes (GKE,
@@ -76,6 +92,9 @@ All notable changes to this project are documented here. The format follows
   (DR1, D339).
 
 ### Changed
+- `make:auth` (API): `POST /api/v1/login/two-factor`'s `challenge` is
+  no longer required by validation (the SPA's login has none); a token
+  client without one gets the "log in again" error (SP1).
 - In a web project with `frontend/package.json`, `anetos dev` now runs
   its Vite, and `anetos build` and `anetos check` install its packages
   and run its `build` script (V1, D342, D343). A web project with a

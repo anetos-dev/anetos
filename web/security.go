@@ -64,7 +64,9 @@ func (rt RouteInfo) String() string {
 // Uses reports whether one of the route's middleware has the name
 // ([MiddlewareDoc.Name]): "web.CSRF", "auth.Auth.Require".
 func (rt RouteInfo) Uses(name string) bool {
-	return slices.ContainsFunc(rt.Middleware, func(d MiddlewareDoc) bool { return d.Name == name })
+	var uses func(d MiddlewareDoc) bool
+	uses = func(d MiddlewareDoc) bool { return d.Name == name || slices.ContainsFunc(d.Inner, uses) }
+	return slices.ContainsFunc(rt.Middleware, uses)
 }
 
 // changes reports whether the route's method may change data.

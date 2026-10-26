@@ -283,6 +283,12 @@ read from every connection, so a client that reaches the app without
 the platform's proxy chooses the IP address the app sees. Right where
 the proxy is the only way in. Note; A02:2025.
 
+### `setting.spa-origins`
+
+`HTTP_SPA_ORIGINS` lists an `http://` or `localhost` origin where the
+app is deployed (a development value copied over): a page there gets
+the SPA's session login and CORS with credentials. Warning; A02:2025.
+
 ### `setting.cors`
 
 `HTTP_CORS_ORIGINS="*"`: scripts on any site may call the app. Warning;

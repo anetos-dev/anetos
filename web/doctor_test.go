@@ -25,6 +25,8 @@ func TestDoctorHTTP(t *testing.T) {
 		{config.Map{"APP_ENV": "staging", "HTTP_MAX_BODY": "0", "HTTP_REQUEST_TIMEOUT": "0", "HTTP_READ_HEADER_TIMEOUT": "0"}, []string{
 			"warning http: HTTP_MAX_BODY=0", "warning http: HTTP_REQUEST_TIMEOUT=0", "warning http: HTTP_READ_HEADER_TIMEOUT=0"}},
 		{config.Map{"APP_ENV": "development", "HTTP_MAX_BODY": "0"}, []string{"ok http"}},
+		{config.Map{"APP_ENV": "production", "HTTP_SPA_ORIGINS": "http://localhost:5173,https://app.example.com"}, []string{"warning http: HTTP_SPA_ORIGINS has http://localhost:5173 where the app is deployed"}},
+		{config.Map{"APP_ENV": "development", "HTTP_SPA_ORIGINS": "http://localhost:5173"}, []string{"ok http"}},
 		{config.Map{"APP_ENV": "production", "HTTP_CLIENT_IP_HEADER": "do-connecting-ip"}, []string{"HTTP_CLIENT_IP_HEADER=do-connecting-ip is read from every connection"}},
 		{config.Map{"APP_ENV": "production", "HTTP_CLIENT_IP_HEADER": "Fly-Client-IP", "HTTP_TRUSTED_PROXIES": "10.0.0.0/8"}, []string{"ok http"}},
 	}

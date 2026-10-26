@@ -2443,7 +2443,10 @@ pkg anetos.dev/anetos/web, func DefaultErrorHandler(*Ctx, error)
 pkg anetos.dev/anetos/web, func Documented(http.Handler, MiddlewareDoc) http.Handler
 pkg anetos.dev/anetos/web, func Error(int, string) *HTTPError
 pkg anetos.dev/anetos/web, func Errorf(int, string, ...any) *HTTPError
+pkg anetos.dev/anetos/web, func FirstParty(...Middleware) Middleware
+pkg anetos.dev/anetos/web, func FirstPartyOrigins([]string) Middleware
 pkg anetos.dev/anetos/web, func H[In, Out any](func(*Ctx, In) (Out, error)) HandlerFunc
+pkg anetos.dev/anetos/web, func IsFirstParty(context.Context) bool
 pkg anetos.dev/anetos/web, func JSON(int, any) Responder
 pkg anetos.dev/anetos/web, func JSONErrors(http.Handler) http.Handler
 pkg anetos.dev/anetos/web, func LoadConfig(config.Source) (Config, error)
@@ -2583,6 +2586,7 @@ pkg anetos.dev/anetos/web, type Config struct, MaxBody config.ByteSize
 pkg anetos.dev/anetos/web, type Config struct, ReadHeaderTimeout time.Duration
 pkg anetos.dev/anetos/web, type Config struct, ReadTimeout time.Duration
 pkg anetos.dev/anetos/web, type Config struct, RequestTimeout time.Duration
+pkg anetos.dev/anetos/web, type Config struct, SPAOrigins []string
 pkg anetos.dev/anetos/web, type Config struct, ShutdownGrace time.Duration
 pkg anetos.dev/anetos/web, type Config struct, TrustedProxies []string
 pkg anetos.dev/anetos/web, type Config struct, WriteTimeout time.Duration
@@ -2617,6 +2621,7 @@ pkg anetos.dev/anetos/web, type HandlerFunc func(*Ctx) error
 pkg anetos.dev/anetos/web, type Middleware = func(http.Handler) http.Handler
 pkg anetos.dev/anetos/web, type MiddlewareDoc struct
 pkg anetos.dev/anetos/web, type MiddlewareDoc struct, Detail string
+pkg anetos.dev/anetos/web, type MiddlewareDoc struct, Inner []MiddlewareDoc
 pkg anetos.dev/anetos/web, type MiddlewareDoc struct, Name string
 pkg anetos.dev/anetos/web, type MiddlewareDoc struct, Responses map[int]string
 pkg anetos.dev/anetos/web, type MiddlewareDoc struct, Scopes []string

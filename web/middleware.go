@@ -448,12 +448,22 @@ func (c CORSConfig) allows(origin string) bool {
 //
 // CORS panics if cfg allows any origin ("*") together with credentials,
 // which would let every website make authenticated requests.
-func CORS(cfg CORSConfig) Middleware {
+func CORS(cfg CORSConfig) Middleware { return cors(cfg, nil) }
+
+// cors is [CORS] with the origins of first-party SPAs (HTTP_SPA_ORIGINS)
+// allowed too, with credentials and the X-XSRF-TOKEN header, whatever
+// cfg says about other origins.
+func cors(cfg CORSConfig, spa []string) Middleware {
 	if cfg.Credentials && slices.Contains(cfg.Origins, "*") {
 		panic(`web: CORS with Origins "*" and Credentials is unsafe; list the allowed origins`)
 	}
+	spaSet := originSet(spa)
 	methods := strings.Join(cfg.Methods, ", ")
 	headers := strings.Join(cfg.Headers, ", ")
+	spaHeaders := headers
+	if !slices.ContainsFunc(cfg.Headers, func(h string) bool { return strings.EqualFold(h, xsrfHeader) }) {
+		spaHeaders = strings.Join(append(slices.Clone(cfg.Headers), xsrfHeader), ", ")
+	}
 	expose := strings.Join(cfg.Expose, ", ")
 	maxAge := strconv.Itoa(int(cfg.MaxAge.Seconds()))
 	wildcard := slices.Contains(cfg.Origins, "*") && !cfg.Credentials
@@ -462,23 +472,29 @@ func CORS(cfg CORSConfig) Middleware {
 			origin := r.Header.Get("Origin")
 			h := w.Header()
 			h.Add("Vary", "Origin")
-			if origin == "" || !cfg.allows(origin) {
+			norm, _ := parseOrigin(origin)
+			first := origin != "" && spaSet[norm]
+			if origin == "" || !first && !cfg.allows(origin) {
 				next.ServeHTTP(w, r)
 				return
 			}
-			if wildcard {
+			if wildcard && !first {
 				h.Set("Access-Control-Allow-Origin", "*")
 			} else {
 				h.Set("Access-Control-Allow-Origin", origin)
 			}
-			if cfg.Credentials {
+			if cfg.Credentials || first {
 				h.Set("Access-Control-Allow-Credentials", "true")
 			}
 			if r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {
 				h.Add("Vary", "Access-Control-Request-Method")
 				h.Add("Vary", "Access-Control-Request-Headers")
 				h.Set("Access-Control-Allow-Methods", methods)
-				h.Set("Access-Control-Allow-Headers", headers)
+				if first {
+					h.Set("Access-Control-Allow-Headers", spaHeaders)
+				} else {
+					h.Set("Access-Control-Allow-Headers", headers)
+				}
 				h.Set("Access-Control-Max-Age", maxAge)
 				w.WriteHeader(http.StatusNoContent)
 				return

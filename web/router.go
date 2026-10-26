@@ -414,7 +414,7 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		// client IP or locale.
 		ns := &requestState{core: r.core, url: req.URL, remoteAddr: req.RemoteAddr}
 		if st != nil {
-			ns.requestID, ns.clientIP, ns.locale, ns.jsonErrors = st.requestID, st.clientIP, st.locale, st.jsonErrors
+			ns.requestID, ns.clientIP, ns.locale, ns.jsonErrors, ns.firstParty = st.requestID, st.clientIP, st.locale, st.jsonErrors, st.firstParty
 		}
 		req = req.WithContext(context.WithValue(req.Context(), stateKey{}, ns))
 	}
@@ -774,6 +774,7 @@ type requestState struct {
 	// them here rather than in two more context values.
 	requestID  string
 	clientIP   string
+	firstParty bool         // set by FirstPartyOrigins: the request comes from a listed SPA
 	remoteAddr string       // the request's, for ClientIP without RealIP
 	locale     *localeState // set by the server's locale middleware
 

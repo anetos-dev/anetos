@@ -466,7 +466,9 @@ func TestNewAPIProject(t *testing.T) {
 	if out := app("locale:check"); !strings.Contains(out, "locale:check: en OK") {
 		t.Errorf("locale:check:\n%s", out)
 	}
-	if out := app("doctor"); strings.Contains(out, "session") {
+	// make:auth's sessions are its SPA's (HTTP_SPA_ORIGINS): checked, and
+	// fine as they are.
+	if out := app("doctor"); !strings.Contains(out, "ok  session") || !strings.Contains(out, "0 problems, 0 warnings") {
 		t.Errorf("doctor:\n%s", out)
 	}
 

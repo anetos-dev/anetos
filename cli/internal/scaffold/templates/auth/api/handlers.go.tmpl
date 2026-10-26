@@ -29,7 +29,8 @@ import (
 
 // Accounts serves the API's accounts (anetos make:auth): registration,
 // login with an API token (and a two-factor code for users who have it
-// on), logout, the logged-in user, email verification, password reset
+// on), or, for the app's own SPA (HTTP_SPA_ORIGINS), with a session
+// cookie; logout, the logged-in user, email verification, password reset
 // and change, API tokens and two-factor authentication. Hashing, tokens and
 // throttling are package auth's; this is your code to change.
 type Accounts struct {
@@ -57,9 +58,11 @@ func userResponse(u *models.User) UserResponse {
 }
 
 // LoginResponse answers registration and login: a token for the
-// Authorization header, and its user. For a user with two-factor
+// Authorization header, and its user; the SPA (HTTP_SPA_ORIGINS), logged
+// in with its session, gets the user alone. For a user with two-factor
 // authentication on, login answers instead with TwoFactor and a Challenge, to
-// send back with a code to POST /api/v1/login/two-factor.
+// send back with a code to POST /api/v1/login/two-factor (the SPA, with
+// TwoFactor alone: its session holds the login).
 type LoginResponse struct {
 	Token     string        `json:"token,omitempty"`
 	User      *UserResponse `json:"user,omitempty"`
@@ -87,7 +90,7 @@ type LoginInput struct {
 // the challenge the login answered, and a code of the user's
 // authenticator app or one of their recovery codes.
 type ChallengeInput struct {
-	Challenge  string `json:"challenge" validate:"required|max:4096"`
+	Challenge  string `json:"challenge" validate:"max:4096"` // the login's answer; none for the SPA, whose session has it
 	Code       string `json:"code" validate:"required|max:30"`
 	DeviceName string `json:"device_name" validate:"max:100"`
 }
@@ -198,7 +201,8 @@ type RecoveryCodesResponse struct {
 }
 
 // Register creates the account, emails the verification link, and
-// answers with a token (201: the route's Status).
+// answers with a token (201: the route's Status); the SPA is logged in
+// with its session.
 func (h Accounts) Register(c *web.Ctx, in RegisterInput) (LoginResponse, error) {
 	name := cleanName(in.Name)
 	if name == "" {
@@ -256,8 +260,14 @@ func cleanName(name string) string {
 }
 
 // loginResponse gives u a token named after the client's device, with every
-// ability.
+// ability; the SPA, a session.
 func (h Accounts) loginResponse(c *web.Ctx, u *models.User, device string) (LoginResponse, error) {
+	if web.IsFirstParty(c) {
+		if err := h.Auth.Login(c, u, false); err != nil {
+			return LoginResponse{}, err
+		}
+		return sessionResponse(u), nil
+	}
 	device = cleanName(device)
 	if device == "" {
 		device = "API"
@@ -269,6 +279,13 @@ func (h Accounts) loginResponse(c *web.Ctx, u *models.User, device string) (Logi
 	c.SetHeader("Cache-Control", "no-store") // a token: kept by no cache
 	user := userResponse(u)
 	return LoginResponse{Token: plain, User: &user}, nil
+}
+
+// sessionResponse answers the SPA's login: the user, the session cookie
+// going with it.
+func sessionResponse(u *models.User) LoginResponse {
+	user := userResponse(u)
+	return LoginResponse{User: &user}
 }
 
 // SendVerification emails u a link to the client app (AUTH_CLIENT_URL)
@@ -293,33 +310,59 @@ func SendPasswordReset(ctx context.Context, a *auth.Auth[*models.User], u *model
 
 // Login checks the email and password (throttled: AUTH_THROTTLE) and
 // answers with a token; or, for a user with two-factor authentication on, with
-// a challenge for POST /login/two-factor.
+// a challenge for POST /login/two-factor. The SPA (an origin of
+// HTTP_SPA_ORIGINS) is logged in with its session instead: the answer is
+// the user, or that a code is needed.
 func (h Accounts) Login(c *web.Ctx, in LoginInput) (LoginResponse, error) {
+	if web.IsFirstParty(c) {
+		u, err := h.Auth.Attempt(c, in.Email, in.Password, false)
+		if errors.Is(err, auth.ErrTwoFactorRequired) {
+			return LoginResponse{TwoFactor: true}, nil // the session waits for the code
+		}
+		if err != nil {
+			return LoginResponse{}, loginFailed(c, err)
+		}
+		return sessionResponse(u), nil
+	}
 	u, err := h.Auth.AttemptCredentials(c, in.Email, in.Password)
-	var (
-		challenge *auth.TwoFactorChallenge
-		throttled *auth.ThrottledError
-	)
-	switch {
-	case errors.As(err, &challenge):
+	if challenge, ok := errors.AsType[*auth.TwoFactorChallenge](err); ok {
 		c.SetHeader("Cache-Control", "no-store")
 		return LoginResponse{TwoFactor: true, Challenge: challenge.Token}, nil
-	case errors.Is(err, auth.ErrInvalidCredentials):
-		return LoginResponse{}, validate.Fail("email", i18n.T(c, "auth.errors.credentials"))
-	case errors.Is(err, auth.ErrDisabled):
-		return LoginResponse{}, validate.Fail("email", i18n.T(c, "auth.errors.disabled"))
-	case errors.As(err, &throttled):
-		return LoginResponse{}, tooMany(c, throttled)
-	case err != nil:
-		return LoginResponse{}, err
+	}
+	if err != nil {
+		return LoginResponse{}, loginFailed(c, err)
 	}
 	return h.loginResponse(c, u, in.DeviceName)
 }
 
+// loginFailed is the answer to a login that didn't work: a 422 on the
+// email field, or a 429 after too many tries.
+func loginFailed(c *web.Ctx, err error) error {
+	var throttled *auth.ThrottledError
+	switch {
+	case errors.Is(err, auth.ErrInvalidCredentials):
+		return validate.Fail("email", i18n.T(c, "auth.errors.credentials"))
+	case errors.Is(err, auth.ErrDisabled):
+		return validate.Fail("email", i18n.T(c, "auth.errors.disabled"))
+	case errors.As(err, &throttled):
+		return tooMany(c, throttled)
+	}
+	return err
+}
+
 // LoginTwoFactor finishes a login with the challenge and a code of the
-// authenticator app, or a recovery code, and answers with a token.
+// authenticator app, or a recovery code, and answers with a token; the
+// SPA's, waiting in its session, with the user.
 func (h Accounts) LoginTwoFactor(c *web.Ctx, in ChallengeInput) (LoginResponse, error) {
-	u, err := h.Auth.AttemptTwoFactorChallenge(c, in.Challenge, in.Code)
+	var (
+		u   *models.User
+		err error
+	)
+	if web.IsFirstParty(c) {
+		u, err = h.Auth.AttemptTwoFactor(c, in.Code)
+	} else {
+		u, err = h.Auth.AttemptTwoFactorChallenge(c, in.Challenge, in.Code)
+	}
 	var throttled *auth.ThrottledError
 	switch {
 	case errors.Is(err, auth.ErrInvalidCode):
@@ -333,6 +376,9 @@ func (h Accounts) LoginTwoFactor(c *web.Ctx, in ChallengeInput) (LoginResponse, 
 		return LoginResponse{}, tooMany(c, throttled)
 	case err != nil:
 		return LoginResponse{}, err
+	}
+	if web.IsFirstParty(c) {
+		return sessionResponse(u), nil
 	}
 	return h.loginResponse(c, u, in.DeviceName)
 }
@@ -358,18 +404,16 @@ func (Accounts) Me(c *web.Ctx, _ struct{}) (UserResponse, error) {
 	return userResponse(u), nil
 }
 
-// Logout revokes the request's token: 204.
+// Logout revokes the request's token, or ends the SPA's session: 204.
 func (h Accounts) Logout(c *web.Ctx, _ struct{}) (web.Empty, error) {
 	u, err := auth.Current[*models.User](c)
 	if err != nil {
 		return web.Empty{}, err
 	}
 	if tok, ok := auth.CurrentToken(c); ok {
-		if err := h.Auth.RevokeToken(c, u, tok.ID); err != nil {
-			return web.Empty{}, err
-		}
+		return web.Empty{}, h.Auth.RevokeToken(c, u, tok.ID)
 	}
-	return web.Empty{}, nil
+	return web.Empty{}, h.Auth.Logout(c)
 }
 
 // VerifyEmail marks the address of an emailed link as verified: 204. A

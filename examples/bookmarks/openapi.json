@@ -1514,7 +1514,6 @@
         "properties": {
           "challenge": {
             "type": "string",
-            "minLength": 1,
             "maxLength": 4096
           },
           "code": {
@@ -1528,7 +1527,6 @@
           }
         },
         "required": [
-          "challenge",
           "code"
         ]
       },

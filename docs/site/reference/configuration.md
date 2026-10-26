@@ -174,6 +174,7 @@ Read by `web.NewServer` (or `web.LoadConfig`) into `web.Config`.
 | `HTTP_CORS_HEADERS` | list | `Accept,Authorization,Content-Type,X-Requested-With,X-Request-ID` | Allowed request headers |
 | `HTTP_CORS_EXPOSE` | list | `X-Request-ID,Location,Retry-After,X-RateLimit-Limit,X-RateLimit-Remaining` | Response headers readable by browsers (`Location` and the rate limit's) |
 | `HTTP_CORS_CREDENTIALS` | bool | `false` | Allow cookies; can't be combined with `*` |
+| `HTTP_SPA_ORIGINS` | list | empty | The origins of the app's own SPAs (`https://app.example.com`, without a path), comma-separated: their requests are first-party (`web.IsFirstParty`, by `Origin` or `Referer`, or `Sec-Fetch-Site` on a listed host; not with an API token), allowed CORS with credentials and the `X-XSRF-TOKEN` header, and accepted by `web.CSRF`; `make:auth`'s API accounts log them in with a session cookie. Since v0.6 |
 | `HTTP_CORS_MAX_AGE` | duration | `10m` | How long browsers cache preflights |
 
 Streaming responses lift `HTTP_REQUEST_TIMEOUT` and `HTTP_WRITE_TIMEOUT`

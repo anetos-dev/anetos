@@ -40,6 +40,10 @@ type MiddlewareDoc struct {
 	// Responses are the error statuses the middleware may answer with,
 	// and when: 401 "The request has no valid API token.", 429…
 	Responses map[int]string
+	// Inner describes the middleware it runs, for one that runs others
+	// for some requests: [FirstParty]'s session and CSRF middleware.
+	// [RouteInfo.Uses] looks in it too.
+	Inner []MiddlewareDoc
 }
 
 // Documented returns h, the handler a middleware returns, with doc: the

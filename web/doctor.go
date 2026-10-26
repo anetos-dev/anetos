@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 
 	"anetos.dev/anetos"
 )
@@ -29,6 +30,11 @@ func checks(cfg Config, env anetos.Environment) []anetos.Finding {
 		out = append(out, anetos.Finding{Rule: "setting.cors", Severity: anetos.Warning, Message: `HTTP_CORS_ORIGINS="*": scripts on any site can call the app and read its answers (without cookies); right for a public API, else list the origins`})
 	}
 	if env.Deployed() {
+		for _, o := range cfg.SPAOrigins {
+			if n, err := parseOrigin(o); err == nil && (strings.HasPrefix(n, "http://") || strings.Contains(n, "://localhost") || strings.Contains(n, "://127.") || strings.Contains(n, "://[::1]")) {
+				out = append(out, anetos.Finding{Rule: "setting.spa-origins", Severity: anetos.Warning, Message: fmt.Sprintf("HTTP_SPA_ORIGINS has %s where the app is deployed: a page there gets the SPA's login and CORS with credentials; list the SPA's https address", o)})
+			}
+		}
 		if cfg.MaxBody == 0 {
 			out = append(out, anetos.Finding{Rule: "setting.body-limit", Severity: anetos.Warning, Message: "HTTP_MAX_BODY=0: request bodies have no size limit, so one client can fill memory or disk; set a limit (default 10MB)"})
 		}

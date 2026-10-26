@@ -41,6 +41,7 @@ type Config struct {
 	MaxBody           config.ByteSize `env:"MAX_BODY" default:"10MB"`           // 0 disables
 	TrustedProxies    []string        `env:"TRUSTED_PROXIES"`                   // IPs or CIDRs whose forwarding headers are trusted
 	ClientIPHeader    string          `env:"CLIENT_IP_HEADER"`                  // a platform's header with the client IP (do-connecting-ip), read instead of X-Forwarded-For
+	SPAOrigins        []string        `env:"SPA_ORIGINS"`                       // first-party SPAs' origins: CORS with credentials, sessions and CSRF (FirstParty)
 	AccessLog         bool            `env:"ACCESS_LOG" default:"true"`         // log every request (health checks at debug level)
 	HealthRoutes      bool            `env:"HEALTH_ROUTES" default:"true"`      // GET /health/live and /health/ready
 	CORS              CORSConfig      `prefix:"CORS_"`                          // HTTP_CORS_*
@@ -64,6 +65,11 @@ func (c Config) Validate() error {
 		errs = append(errs, errors.New("HTTP_CLIENT_IP_HEADER=X-Forwarded-For: that header is a list of proxies, which HTTP_TRUSTED_PROXIES reads; leave HTTP_CLIENT_IP_HEADER empty"))
 	case strings.ContainsFunc(h, func(r rune) bool { return r <= ' ' || r >= 0x7f || strings.ContainsRune(`"(),/:;<=>?@[\]{}`, r) }):
 		errs = append(errs, fmt.Errorf("HTTP_CLIENT_IP_HEADER %q isn't a header name", h))
+	}
+	for _, o := range c.SPAOrigins {
+		if _, err := parseOrigin(o); err != nil {
+			errs = append(errs, fmt.Errorf("HTTP_SPA_ORIGINS: %w", err))
+		}
 	}
 	if c.CORS.Credentials && slices.Contains(c.CORS.Origins, "*") {
 		errs = append(errs, errors.New(`HTTP_CORS_CREDENTIALS=true can't be combined with HTTP_CORS_ORIGINS="*"; list the origins`))
@@ -173,8 +179,11 @@ func NewServer(app *anetos.App, opts ...ServerOption) (*Server, error) {
 		global = append(global, AccessLog(s.log))
 	}
 	global = append(global, SecureHeaders(app.Config().Env.IsProduction()))
-	if len(cfg.CORS.Origins) > 0 {
-		global = append(global, CORS(cfg.CORS))
+	if len(cfg.CORS.Origins) > 0 || len(cfg.SPAOrigins) > 0 {
+		global = append(global, cors(cfg.CORS, cfg.SPAOrigins))
+	}
+	if len(cfg.SPAOrigins) > 0 {
+		global = append(global, FirstPartyOrigins(cfg.SPAOrigins))
 	}
 	global = append(global, localize(app), BodyLimit(int64(cfg.MaxBody)), Timeout(cfg.RequestTimeout))
 	s.router.UseGlobal(global...)

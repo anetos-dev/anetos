@@ -4,6 +4,7 @@ package main
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strconv"
 	"strings"
@@ -128,6 +129,79 @@ func TestLoginAndLogout(t *testing.T) {
 	}
 	app.WithHeader("Authorization", "Bearer "+res.Token)
 	app.GetJSON("/api/v1/me").AssertOK().AssertJSONPath("email", "ada@example.com")
+}
+
+// The app's SPA, at an origin of HTTP_SPA_ORIGINS, logs in with a
+// session cookie, protected from CSRF, and gets no token; its two-factor
+// login waits in the session.
+func TestSPALogin(t *testing.T) {
+	// region: spa-test
+	app := anetostest.New(t, setup, anetostest.Env(map[string]string{"AUTH_CLIENT_URL": authClient, "HTTP_SPA_ORIGINS": authClient}))
+	app.Freeze(time.Time{})
+	app.WithHeader("Origin", authClient) // as the SPA's browser sends it
+	// endregion
+	first := app.GetJSON("/api/v1/me").AssertStatus(http.StatusUnauthorized)
+	if !strings.Contains(strings.Join(first.Header.Values("Set-Cookie"), "\n"), "XSRF-TOKEN=") {
+		t.Fatalf("no XSRF-TOKEN cookie: %v", first.Header)
+	}
+	var res handlers.LoginResponse
+	app.PostJSON("/api/v1/register", map[string]any{
+		"name": "Ada", "email": "ada@example.com",
+		"password": "correct horse", "password_confirmation": "correct horse",
+	}).AssertCreated().JSON(&res)
+	if res.Token != "" || res.User == nil {
+		t.Fatalf("registration: %+v", res)
+	}
+	app.GetJSON("/api/v1/me").AssertOK().AssertJSONPath("email", "ada@example.com")
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/logout", nil)
+	req.Header.Set("X-CSRF-Token", "forged") // the test client sends the session's otherwise
+	app.Do(req).AssertStatus(http.StatusForbidden)
+	app.PostJSON("/api/v1/logout", nil).AssertNoContent()
+	app.GetJSON("/api/v1/me").AssertStatus(http.StatusUnauthorized)
+
+	authLogin(app, "wrong").AssertValidationErrors("email")
+	res = handlers.LoginResponse{}
+	authLogin(app, "correct horse").AssertOK().JSON(&res)
+	if res.Token != "" || res.User == nil || res.TwoFactor {
+		t.Fatalf("login: %+v", res)
+	}
+	var setup handlers.TwoFactorSetupResponse
+	app.PostJSON("/api/v1/two-factor", map[string]any{"password": "correct horse"}).AssertOK().JSON(&setup)
+	code, err := auth.TwoFactorCode(setup.Secret, anetos.Now(app.Context()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var codes handlers.RecoveryCodesResponse
+	app.PostJSON("/api/v1/two-factor/confirm", map[string]any{"code": code}).AssertOK().JSON(&codes)
+	app.PostJSON("/api/v1/logout", nil).AssertNoContent()
+
+	// With two-factor authentication on, the login waits for a code.
+	res = handlers.LoginResponse{}
+	authLogin(app, "correct horse").AssertOK().JSON(&res)
+	if !res.TwoFactor || res.Challenge != "" || res.User != nil {
+		t.Fatalf("login: %+v", res)
+	}
+	app.GetJSON("/api/v1/me").AssertStatus(http.StatusUnauthorized)
+	app.PostJSON("/api/v1/login/two-factor", map[string]any{"code": "000000"}).AssertValidationErrors("code")
+	res = handlers.LoginResponse{}
+	app.PostJSON("/api/v1/login/two-factor", map[string]any{"code": codes.RecoveryCodes[0]}).AssertOK().JSON(&res)
+	if res.Token != "" || res.User == nil {
+		t.Fatalf("two-factor login: %+v", res)
+	}
+	app.GetJSON("/api/v1/me").AssertOK()
+
+	// The session's cookie, sent from another origin, is a guest's: only
+	// the SPA's requests read it.
+	app.WithHeader("Origin", "https://elsewhere.example")
+	app.GetJSON("/api/v1/me").AssertStatus(http.StatusUnauthorized)
+
+	// A client elsewhere still logs in with a token.
+	app.WithHeader("Origin", "")
+	var other handlers.LoginResponse
+	app.PostJSON("/api/v1/login", map[string]any{"email": "ada@example.com", "password": "correct horse"}).AssertOK().JSON(&other)
+	if other.Challenge == "" {
+		t.Errorf("a token client's login: %+v", other)
+	}
 }
 
 func TestLoginThrottled(t *testing.T) {

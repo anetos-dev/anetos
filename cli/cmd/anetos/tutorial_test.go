@@ -167,7 +167,12 @@ func TestAPITutorialProject(t *testing.T) {
 	undo := map[string][][2]string{
 		"routes/api.go": {{"\tapi.Get(\"/\", web.H(handlers.Welcome{}.Show)).Name(\"welcome\")\n}",
 			"\tapi.Get(\"/\", web.H(handlers.Welcome{}.Show)).Name(\"welcome\")\n\tBookmarks(api) // anetos make:crud\n}"}},
-		"routes/auth.go": {{"\t" + region("logged-in", "\tBookmarks(loggedIn) // the user's bookmarks, with their token\n\t"), ""}},
+		"routes/auth.go": {
+			{"\t// region: spa\n", ""}, {"\t// endregion\n", ""}, // the SPA guide's
+			{"\t" + region("logged-in", "\tBookmarks(loggedIn) // the user's bookmarks, with their token\n\t"), ""},
+		},
+		"app/handlers/auth.go": {{"// region: spa-login\n\n", ""}, {"\t// endregion\n", ""}},
+		"auth_test.go":         {{"\t// region: spa-test\n", ""}, {"\t// endregion\n", ""}},
 		"app/models/bookmark.go": {
 			{"// region: model\n\n", ""},
 			{"\tUserID   int64  `db:\"user_id\"` // whose bookmark\n", ""},

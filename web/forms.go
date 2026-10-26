@@ -226,7 +226,8 @@ func WithTrustedOrigins(origins ...string) CSRFOption {
 //
 //   - rejects requests the browser marks as coming from another site
 //     (Sec-Fetch-Site, or an Origin that isn't this host), with
-//     [ErrCrossOrigin], and
+//     [ErrCrossOrigin], except those of the first-party SPAs
+//     (HTTP_SPA_ORIGINS, [IsFirstParty]), and
 //   - requires the session's token, from the "_token" form field
 //     (view.CSRFField), the X-CSRF-Token header (view.CSRFToken) or the
 //     X-XSRF-TOKEN header (the cookie of [WithXSRFCookie]), with
@@ -255,7 +256,7 @@ func CSRF(opts ...CSRFOption) Middleware {
 				next.ServeHTTP(w, r)
 				return
 			}
-			if err := cop.Check(r); err != nil {
+			if err := cop.Check(r); err != nil && !IsFirstParty(r.Context()) {
 				WriteError(w, r, ErrCrossOrigin)
 				return
 			}
@@ -266,7 +267,7 @@ func CSRF(opts ...CSRFOption) Middleware {
 			}
 			token := r.Header.Get("X-CSRF-Token")
 			if token == "" {
-				token = r.Header.Get("X-XSRF-TOKEN")
+				token = r.Header.Get(xsrfHeader)
 			}
 			if token == "" && isForm(r) {
 				var err error

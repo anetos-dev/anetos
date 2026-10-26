@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"anetos.dev/anetos/auth"
+	"anetos.dev/anetos/session"
 	"anetos.dev/anetos/web"
 	"anetos.dev/anetos/web/ratelimit"
 
@@ -16,10 +17,15 @@ import (
 // Auth adds the account routes (anetos make:auth) to the API, version 1,
 // as in api.go. Clients log in with a token: register or log in (with a
 // two-factor code if the user has it on) to get one, then send it in
-// every request as "Authorization: Bearer <token>".
-func Auth(r *web.Router, a *auth.Auth[*models.User]) {
+// every request as "Authorization: Bearer <token>". The app's own SPA, at
+// an origin of HTTP_SPA_ORIGINS, logs in with a session cookie instead,
+// and sends the XSRF-TOKEN cookie back in the X-XSRF-TOKEN header.
+func Auth(r *web.Router, a *auth.Auth[*models.User], sessions *session.Manager) {
 	h := handlers.Accounts{Auth: a}
-	api := r.Group("/api/v1", a.TokenMiddleware).As("api.")
+	// region: spa
+	spa := web.FirstParty(sessions.Middleware, web.CSRF(web.WithXSRFCookie()))
+	api := r.Group("/api/v1", spa, a.TokenMiddleware).As("api.")
+	// endregion
 
 	api.With(ratelimit.Middleware("register", ratelimit.PerMinute(10))).
 		Post("/register", web.H(h.Register)).Name("register").Status(http.StatusCreated)

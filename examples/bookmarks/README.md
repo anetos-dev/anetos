@@ -24,7 +24,8 @@ settings.
 
 Errors are JSON problem details ([RFC 9457](https://www.rfc-editor.org/rfc/rfc9457)),
 whatever the client accepts. Browsers on other origins may call the API
-once `HTTP_CORS_ORIGINS` lists them.
+once `HTTP_CORS_ORIGINS` lists them; the app's own SPA logs in with a
+session cookie (with make:auth's accounts) once `HTTP_SPA_ORIGINS` lists it.
 
 Add user accounts that log in with API tokens (registration, login
 with two-factor codes, email verification, password reset, token
