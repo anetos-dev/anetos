@@ -3116,9 +3116,30 @@ Implemented in M5 (D229–D231, D233).
   for dev.
 - The guide "Deploy": the build, the production settings, migrations on
   each deploy (written to work with the version still running), systemd,
-  Docker, Fly.io and Render, HTTPS with Caddy and
+  Docker, HTTPS with Caddy and
   `HTTP_TRUSTED_PROXIES`, splitting process types, graceful shutdown against the
   platform's grace period, a Compose example.
+- The guide "Deploy to a cloud platform" (DOC1, D357–D360): Google Cloud
+  Run (a service, a worker pool, a migration job, Cloud SQL's socket),
+  Azure Container Apps (two apps, a manual job, Key Vault), Amazon ECS on
+  Fargate (two services, a one-off migration task, RDS's CA bundle in the
+  image), DigitalOcean App Platform (a service and a worker that migrate
+  at start), plain Kubernetes manifests (Deployments, a migration Job,
+  the Gateway API, kustomize), Fly.io and Render. For them, three
+  settings:
+  - `APP_PROCESS_TYPES` (D357): the process types `run` starts without
+    `--only`, so a platform sets a process's role in its environment
+    and keeps the image's command; `--only` wins.
+  - `HTTP_CLIENT_IP_HEADER` (D358): a header a platform's proxy sets to
+    the client's IP, read instead of `X-Forwarded-For` (`web.ClientIPHeader`),
+    from `HTTP_TRUSTED_PROXIES`' peers, or from every peer when none are
+    listed, which `doctor` notes.
+  - `DB_TLS_CA` as PEM text (D359): text starting with `-----BEGIN` is
+    the certificates themselves (`\n` as two characters, a line break),
+    for a CA a platform gives in a variable; the PostgreSQL driver sets
+    pgx's pool, the MySQL driver registers it.
+  - DigitalOcean's web and worker instances migrate at start
+    (`DB_MIGRATE_ON_START`), the lock serializing them (D360).
 - Features whose components come later declare their process types when set up
   (`Supervisor.Declare`), so a deployment can name `scheduler` before
   the app has tasks (D233).
@@ -3575,6 +3596,10 @@ unless new information arrives), **Open**, **Superseded**.
 | D354 | The client is a function per route under `Config.Prefix`, grouped by the route name's dots (`api.posts.show({ id })`), taking one object, resolving to the result and rejecting with `ApiError` (the problem details); it sends cookies (`same-origin`), the `XSRF-TOKEN` cookie as `X-XSRF-TOKEN`, or a bearer token | Accepted | Samiul's choice (2026-10-26): call sites read as the route names do, and errors carry what the server said; SP1's cookie login and v0.4's tokens both work without setup |
 | D355 | `go tool anetos generate` runs `go run . types` (with `--check` too) and `anetos dev` runs the built app's `types` after each build, when the app's `main` package calls `typescript.Register`; a failure in dev is logged, not fatal | Accepted | Samiul's choice (2026-10-26): the frontend's types follow the Go code as it is edited; detecting the call is how `make:crud` finds `openapi.Register`; a stale type shouldn't stop the app |
 | D356 | `pages.ts` writes props as `type` aliases (not interfaces: `usePage<T>` needs an index signature), a `Prop[T]` field as optional, and augments `@inertiajs/core`'s `InertiaConfig.sharedPageProps`; `inertia`'s props plan uses `internal/jsonfield`, the rules the types use | Accepted | Checked against Inertia's React types under `tsc --strict`; a deferred or optional prop is absent on the first visit, which the type must allow; one set of JSON rules for what is sent and what is typed |
+| D357 | `APP_PROCESS_TYPES` lists the process types `run` starts when it has no `--only` (which wins); empty runs every component | Accepted | Samiul's choice (2026-10-26). Platforms set a process's role more easily in its environment than in its command: gcloud splits `--args` on commas (`--only=worker,scheduler` needs its escape syntax), DigitalOcean's run command replaces the image's entrypoint and isn't documented to run without a shell (the image has none), and every platform's config otherwise repeats the binary's path. The flag stays for servers and for overriding |
+| D358 | `HTTP_CLIENT_IP_HEADER` names a header a platform's proxy sets to the client's IP (`do-connecting-ip`, `Fly-Client-IP`); `web.ClientIPHeader` reads it instead of `X-Forwarded-For`, on connections from `HTTP_TRUSTED_PROXIES`, or from every connection when that's empty (a `doctor` note says the app must then be reachable only through the proxy). A header sent twice or not an address leaves the peer's. `X-Forwarded-For` as the header is refused | Accepted | Samiul's choice (2026-10-26). DigitalOcean App Platform's `X-Forwarded-For` holds its ingress's address, the client's being in `do-connecting-ip` (its docs), and Fly.io's ends with the app's own address: with forwarding headers only, every visitor had one IP there, so per-IP rate limits, the audit log and `ADMIN_ALLOW_IPS` saw the platform. Reading from every peer when none are listed fits platforms whose proxy's address isn't documented and that are the only way in |
+| D359 | `DB_TLS_CA` takes the CAs' PEM text as well as a file's path: text starting with `-----BEGIN` (after spaces) is the certificates, `\n` written as two characters being a line break; `db.Config.TLSCAPEM` and `TLSCAInline` serve the drivers, and `String` prints "(PEM text)" | Accepted | Samiul's choice (2026-10-26). DigitalOcean's managed PostgreSQL is signed by the cluster's own CA, which App Platform gives as text (`${db.CA_CERT}`), and the image has no shell to write it to a file: without this, the connection could only be unverified (`sslmode=require`) or the image tied to one cluster. Checked against a PostgreSQL with TLS: the text and its escaped form connect, another CA's text is refused |
+| D360 | On DigitalOcean App Platform, the guide migrates at start (`DB_MIGRATE_ON_START=true` for the web and the worker) instead of in a pre-deploy job | Accepted | A pre-deploy job needs a run command, which replaces the image's entrypoint and may run through a shell the image doesn't have (undocumented); the migrations' lock (an advisory lock on PostgreSQL) makes instances starting together wait for one run, and an instance isn't ready before it has migrated, so a failed migration fails the deploy with the old version serving. D255's "several instances keep a release step" stands where a platform has one |
 
 ---
 
@@ -3695,3 +3720,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-26 | V1 (Vite): §12.2 updated; D341–D345 added |
 | 2026-10-26 | V2 (Inertia adapter): §12.2 updated; D346–D351 added |
 | 2026-10-26 | TS1 (TypeScript types): §12.2 updated; D352–D356 added |
+| 2026-10-26 | DOC1 (cloud platforms): §21 updated; D357–D360 added |

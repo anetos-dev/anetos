@@ -3,9 +3,17 @@
 package mysql_test
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
+	"math/big"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"anetos.dev/anetos/db"
 	"anetos.dev/anetos/db/dbtest"
@@ -116,4 +124,34 @@ func TestInspectURL(t *testing.T) {
 	if _, _, err := inspect("not a dsn"); err == nil {
 		t.Error("a bad DSN: no error")
 	}
+}
+
+// DB_TLS_CA as PEM text registers its own TLS configuration; text without
+// a certificate fails.
+func TestInlineCA(t *testing.T) {
+	ca := testCA(t)
+	for _, text := range []string{ca, strings.ReplaceAll(ca, "\n", `\n`)} { // as given, and with "\n" written out
+		got, err := mysql.DSN(db.Config{Host: "db", TLSCA: text})
+		if err != nil || !strings.Contains(got, "tls=anetos-") {
+			t.Errorf("DSN = %s, %v", got, err)
+		}
+	}
+	if _, err := mysql.DSN(db.Config{Host: "db", TLSCA: "-----BEGIN CERTIFICATE-----\nnope\n-----END CERTIFICATE-----"}); err == nil || !strings.Contains(err.Error(), "PEM text has no certificates") {
+		t.Errorf("bad PEM text: %v", err)
+	}
+}
+
+// testCA is a self-signed CA's certificate, as PEM.
+func testCA(t *testing.T) string {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmpl := &x509.Certificate{SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "test CA"}, NotBefore: time.Now(), NotAfter: time.Now().Add(time.Hour), IsCA: true, BasicConstraintsValid: true, KeyUsage: x509.KeyUsageCertSign}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}))
 }

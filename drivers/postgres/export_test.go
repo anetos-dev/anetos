@@ -3,4 +3,7 @@
 package postgres
 
 // DSN is dsn, for the tests.
-var DSN = dsn
+var (
+	DSN        = dsn
+	ConnConfig = connConfig
+)

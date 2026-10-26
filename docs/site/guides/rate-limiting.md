@@ -19,8 +19,10 @@ Redis store so a limit holds across all of them.
 
 Behind a load balancer or reverse proxy, set `HTTP_TRUSTED_PROXIES` to
 your proxies' networks, so the server's `RealIP` middleware finds the
-client's address; otherwise every request seems to come from the proxy,
-and all clients share one limit.
+client's address (on a platform that puts it in a header of its own,
+set `HTTP_CLIENT_IP_HEADER`: see [Deploy to a cloud
+platform](cloud-platforms.md)); otherwise every request seems to come
+from the proxy, and all clients share one limit.
 
 ## Steps
 

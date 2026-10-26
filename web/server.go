@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"text/tabwriter"
@@ -39,6 +40,7 @@ type Config struct {
 	RequestTimeout    time.Duration   `env:"REQUEST_TIMEOUT" default:"30s"`     // context deadline per request; 0 disables
 	MaxBody           config.ByteSize `env:"MAX_BODY" default:"10MB"`           // 0 disables
 	TrustedProxies    []string        `env:"TRUSTED_PROXIES"`                   // IPs or CIDRs whose forwarding headers are trusted
+	ClientIPHeader    string          `env:"CLIENT_IP_HEADER"`                  // a platform's header with the client IP (do-connecting-ip), read instead of X-Forwarded-For
 	AccessLog         bool            `env:"ACCESS_LOG" default:"true"`         // log every request (health checks at debug level)
 	HealthRoutes      bool            `env:"HEALTH_ROUTES" default:"true"`      // GET /health/live and /health/ready
 	CORS              CORSConfig      `prefix:"CORS_"`                          // HTTP_CORS_*
@@ -55,6 +57,13 @@ func (c Config) Validate() error {
 	}
 	if _, err := ParsePrefixes(c.TrustedProxies); err != nil {
 		errs = append(errs, fmt.Errorf("HTTP_TRUSTED_PROXIES: %w", err))
+	}
+	switch h := c.ClientIPHeader; {
+	case h == "":
+	case strings.EqualFold(h, "X-Forwarded-For"):
+		errs = append(errs, errors.New("HTTP_CLIENT_IP_HEADER=X-Forwarded-For: that header is a list of proxies, which HTTP_TRUSTED_PROXIES reads; leave HTTP_CLIENT_IP_HEADER empty"))
+	case strings.ContainsFunc(h, func(r rune) bool { return r <= ' ' || r >= 0x7f || strings.ContainsRune(`"(),/:;<=>?@[\]{}`, r) }):
+		errs = append(errs, fmt.Errorf("HTTP_CLIENT_IP_HEADER %q isn't a header name", h))
 	}
 	if c.CORS.Credentials && slices.Contains(c.CORS.Origins, "*") {
 		errs = append(errs, errors.New(`HTTP_CORS_CREDENTIALS=true can't be combined with HTTP_CORS_ORIGINS="*"; list the origins`))
@@ -155,7 +164,11 @@ func NewServer(app *anetos.App, opts ...ServerOption) (*Server, error) {
 	s := &Server{cfg: cfg, app: app, log: app.Logger(), stopping: make(chan struct{})}
 	s.router = NewRouter(WithApp(app))
 
-	global := []Middleware{Recover(s.log), RequestIDs, RealIP(trusted), operations(app)}
+	realIP := RealIP(trusted)
+	if cfg.ClientIPHeader != "" {
+		realIP = ClientIPHeader(cfg.ClientIPHeader, trusted)
+	}
+	global := []Middleware{Recover(s.log), RequestIDs, realIP, operations(app)}
 	if cfg.AccessLog {
 		global = append(global, AccessLog(s.log))
 	}

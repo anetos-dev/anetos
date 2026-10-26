@@ -23,7 +23,9 @@ package postgres
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"database/sql"
+	"errors"
 	"net"
 	"net/url"
 	"strconv"
@@ -68,6 +70,16 @@ func inspectURL(dsn string) (host, mode string, err error) {
 	return host, mode, nil
 }
 
+// fallbackTLS returns the TLS configurations of pgx's fallback
+// connection attempts.
+func fallbackTLS(cc *pgx.ConnConfig) []*tls.Config {
+	var out []*tls.Config
+	for _, f := range cc.Fallbacks {
+		out = append(out, f.TLSConfig)
+	}
+	return out
+}
+
 // tlsMode is the mode of one of pgx's connection attempts.
 func tlsMode(tc *tls.Config) string {
 	switch {
@@ -82,11 +94,33 @@ func tlsMode(tc *tls.Config) string {
 }
 
 func open(cfg db.Config) (*sql.DB, error) {
-	cc, err := pgx.ParseConfig(dsn(cfg))
+	cc, err := connConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
 	return stdlib.OpenDB(*cc, stdlib.OptionAfterConnect(vectorSettings)), nil
+}
+
+// connConfig is pgx's configuration of cfg's connection.
+func connConfig(cfg db.Config) (*pgx.ConnConfig, error) {
+	cc, err := pgx.ParseConfig(dsn(cfg))
+	if err != nil {
+		return nil, err
+	}
+	if cfg.TLSMode() == db.TLSVerify && cfg.TLSCAInline() {
+		// DB_TLS_CA's PEM text: no file for sslrootcert, so the pool here.
+		pem, _ := cfg.TLSCAPEM() // text: no error
+		pool := x509.NewCertPool()
+		if !pool.AppendCertsFromPEM(pem) {
+			return nil, errors.New("postgres: DB_TLS_CA's PEM text has no certificates")
+		}
+		for _, tc := range append([]*tls.Config{cc.TLSConfig}, fallbackTLS(cc)...) {
+			if tc != nil {
+				tc.RootCAs = pool
+			}
+		}
+	}
+	return cc, nil
 }
 
 // vectorSettings sets pgvector's HNSW search settings for the session.
@@ -146,8 +180,8 @@ func dsn(cfg db.Config) string {
 	switch cfg.TLSMode() {
 	case db.TLSVerify:
 		q.Set("sslmode", "verify-full")
-		if cfg.TLSCA != "" {
-			q.Set("sslrootcert", cfg.TLSCA)
+		if cfg.TLSCA != "" && !cfg.TLSCAInline() {
+			q.Set("sslrootcert", cfg.TLSCA) // PEM text: open sets the pool
 		}
 	case db.TLSSkipVerify:
 		q.Set("sslmode", "require")

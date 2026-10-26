@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"slices"
 	"strconv"
 	"strings"
@@ -44,10 +45,12 @@ type Config struct {
 	// DB_TLS (v0.3).
 	TLS string `env:"DB_TLS"`
 	// TLSCA is a PEM file of the certificate authorities that sign the
-	// server's certificate, for "verify" when they aren't the system's
-	// (a managed database's own CA). Setting it means "verify" unless
-	// DB_TLS says otherwise, also for a local host (a tunnel); it can't
-	// be combined with "skip-verify" or "none". DB_TLS_CA.
+	// server's certificate, or their PEM text itself (as a platform gives
+	// it in a variable), for "verify" when they aren't the system's (a
+	// managed database's own CA): see [Config.TLSCAPEM]. Setting it means
+	// "verify" unless DB_TLS says otherwise, also for a local host (a
+	// tunnel); it can't be combined with "skip-verify" or "none".
+	// DB_TLS_CA.
 	TLSCA string `env:"DB_TLS_CA"`
 
 	// Pool settings, as for database/sql's DB.SetMaxOpenConns and friends.
@@ -131,6 +134,26 @@ func (c Config) TLSMode() string {
 	return TLSVerify
 }
 
+// TLSCAInline reports whether TLSCA holds PEM text rather than a file's
+// path: it starts with "-----BEGIN".
+func (c Config) TLSCAInline() bool {
+	return strings.HasPrefix(strings.TrimSpace(c.TLSCA), "-----BEGIN")
+}
+
+// TLSCAPEM returns the certificate authorities of TLSCA, as PEM: its
+// text (where a platform wrote line breaks as "\n", they are line
+// breaks again), or the contents of the file it names. Drivers use it.
+func (c Config) TLSCAPEM() ([]byte, error) {
+	if c.TLSCAInline() {
+		return []byte(strings.ReplaceAll(strings.TrimSpace(c.TLSCA), `\n`, "\n")), nil
+	}
+	b, err := os.ReadFile(c.TLSCA)
+	if err != nil {
+		return nil, fmt.Errorf("DB_TLS_CA: %w", err)
+	}
+	return b, nil
+}
+
 // LocalHost reports whether host is this machine: localhost, a loopback
 // address, or a Unix socket path.
 func LocalHost(host string) bool {
@@ -151,8 +174,16 @@ func (c Config) String() string {
 	}
 	return fmt.Sprintf("{Driver:%s URL:%s Host:%s Port:%d Name:%s User:%s Password:%s TLS:%s TLSCA:%s "+
 		"MaxOpenConns:%d MaxIdleConns:%d ConnMaxLifetime:%s ConnMaxIdleTime:%s LogQueries:%s SlowQuery:%s RepeatedQueries:%s}",
-		c.Driver, maskDSN(c.URL), c.Host, c.Port, c.Name, c.User, mask(c.Password), c.TLS, c.TLSCA,
+		c.Driver, maskDSN(c.URL), c.Host, c.Port, c.Name, c.User, mask(c.Password), c.TLS, c.tlsCAText(),
 		c.MaxOpenConns, c.MaxIdleConns, c.ConnMaxLifetime, c.ConnMaxIdleTime, logQueries, c.SlowQuery, repeated)
+}
+
+// tlsCAText is TLSCA for String: a path, or that it is PEM text.
+func (c Config) tlsCAText() string {
+	if c.TLSCAInline() {
+		return "(PEM text)"
+	}
+	return c.TLSCA
 }
 
 // GoString masks secrets for %#v too.

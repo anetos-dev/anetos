@@ -168,8 +168,8 @@ func Recover(logger *slog.Logger) Middleware {
 type clientIPKey struct{}
 
 // ClientIP returns the IP address of the client of the request ctx
-// belongs to: the one the [RealIP] middleware (which the server runs on
-// every request) determined, else the host part of the request's
+// belongs to: the one the [RealIP] or [ClientIPHeader] middleware (the
+// server runs one on every request) determined, else the host part of the request's
 // RemoteAddr as a [Router] received it (a middleware of the router that
 // rewrites RemoteAddr isn't seen: set trusted proxies for RealIP
 // instead); "" outside a request.
@@ -220,11 +220,44 @@ func RealIP(trusted []netip.Prefix) Middleware {
 	isTrusted := func(a netip.Addr) bool {
 		return slices.ContainsFunc(trusted, func(p netip.Prefix) bool { return p.Contains(a.Unmap()) })
 	}
+	return clientIP(func(r *http.Request, peer netip.Addr) (netip.Addr, bool) {
+		if !isTrusted(peer) {
+			return netip.Addr{}, false
+		}
+		return forwardedClient(r, isTrusted)
+	})
+}
+
+// ClientIPHeader takes the client IP from header, which a hosting
+// platform's proxy sets to the address it accepted the connection from
+// (do-connecting-ip, Fly-Client-IP), instead of from X-Forwarded-For. The
+// header is read on connections from trusted peers, or, with no trusted
+// peers, from every peer: then the app must be reachable only through
+// that proxy, which replaces any value a client sends. Without the
+// header, the client IP is the peer's. The result is available through
+// [ClientIP].
+func ClientIPHeader(header string, trusted []netip.Prefix) Middleware {
+	header = http.CanonicalHeaderKey(header)
+	return clientIP(func(r *http.Request, peer netip.Addr) (netip.Addr, bool) {
+		if len(trusted) > 0 && !slices.ContainsFunc(trusted, func(p netip.Prefix) bool { return p.Contains(peer.Unmap()) }) {
+			return netip.Addr{}, false
+		}
+		vs := r.Header.Values(header)
+		if len(vs) != 1 {
+			return netip.Addr{}, false // absent, or sent twice: don't guess
+		}
+		return parseHop(vs[0])
+	})
+}
+
+// clientIP records the client IP: the one forwarded returns for the
+// request and its peer, else the peer's.
+func clientIP(forwarded func(r *http.Request, peer netip.Addr) (netip.Addr, bool)) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ip := peerIP(r)
-			if ip.IsValid() && isTrusted(ip) {
-				if client, ok := forwardedClient(r, isTrusted); ok {
+			if ip.IsValid() {
+				if client, ok := forwarded(r, ip); ok {
 					ip = client
 				}
 			}
@@ -244,13 +277,18 @@ func RealIP(trusted []netip.Prefix) Middleware {
 // "1.2.3.4:5678", "2001:db8::1" or "[2001:db8::1]:443".
 func parseHop(h string) (netip.Addr, bool) {
 	h = strings.TrimSpace(h)
-	if a, err := netip.ParseAddr(h); err == nil {
-		return a, true
+	a, err := netip.ParseAddr(h)
+	if err != nil {
+		ap, err := netip.ParseAddrPort(h)
+		if err != nil {
+			return netip.Addr{}, false
+		}
+		a = ap.Addr()
 	}
-	if ap, err := netip.ParseAddrPort(h); err == nil {
-		return ap.Addr(), true
+	if a.Zone() != "" {
+		return netip.Addr{}, false // fe80::1%anything: a zone means nothing past this machine
 	}
-	return netip.Addr{}, false
+	return a, true
 }
 
 func peerIP(r *http.Request) netip.Addr {

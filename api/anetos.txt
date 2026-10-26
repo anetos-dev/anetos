@@ -107,6 +107,7 @@ pkg anetos.dev/anetos, type AppConfig struct, Key Secret
 pkg anetos.dev/anetos, type AppConfig struct, Log LogConfig
 pkg anetos.dev/anetos, type AppConfig struct, Name string
 pkg anetos.dev/anetos, type AppConfig struct, PreviousKeys []Secret
+pkg anetos.dev/anetos, type AppConfig struct, ProcessTypes []string
 pkg anetos.dev/anetos, type AppConfig struct, ShutdownTimeout time.Duration
 pkg anetos.dev/anetos, type AppConfig struct, TimeZone string
 pkg anetos.dev/anetos, type AppConfig struct, URL string
@@ -1299,6 +1300,8 @@ pkg anetos.dev/anetos/db, method (Column[T]) StartsWith(string) Expr
 pkg anetos.dev/anetos/db, method (Config) GoString() string
 pkg anetos.dev/anetos/db, method (Config) LogValue() slog.Value
 pkg anetos.dev/anetos/db, method (Config) String() string
+pkg anetos.dev/anetos/db, method (Config) TLSCAInline() bool
+pkg anetos.dev/anetos/db, method (Config) TLSCAPEM() ([]byte, error)
 pkg anetos.dev/anetos/db, method (Config) TLSMode() string
 pkg anetos.dev/anetos/db, method (Config) Validate() error
 pkg anetos.dev/anetos/db, method (Page[T]) HasNext() bool
@@ -2432,6 +2435,7 @@ pkg anetos.dev/anetos/web, func BodyLimit(int64) Middleware
 pkg anetos.dev/anetos/web, func CORS(CORSConfig) Middleware
 pkg anetos.dev/anetos/web, func CSRF(...CSRFOption) Middleware
 pkg anetos.dev/anetos/web, func ClientIP(context.Context) string
+pkg anetos.dev/anetos/web, func ClientIPHeader(string, []netip.Prefix) Middleware
 pkg anetos.dev/anetos/web, func Created(any) Responder
 pkg anetos.dev/anetos/web, func CurrentRoute(context.Context) *Route
 pkg anetos.dev/anetos/web, func DefaultConfig() Config
@@ -2572,6 +2576,7 @@ pkg anetos.dev/anetos/web, type Config struct
 pkg anetos.dev/anetos/web, type Config struct, AccessLog bool
 pkg anetos.dev/anetos/web, type Config struct, Addr string
 pkg anetos.dev/anetos/web, type Config struct, CORS CORSConfig
+pkg anetos.dev/anetos/web, type Config struct, ClientIPHeader string
 pkg anetos.dev/anetos/web, type Config struct, HealthRoutes bool
 pkg anetos.dev/anetos/web, type Config struct, IdleTimeout time.Duration
 pkg anetos.dev/anetos/web, type Config struct, MaxBody config.ByteSize

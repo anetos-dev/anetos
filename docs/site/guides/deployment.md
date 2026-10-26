@@ -10,8 +10,10 @@ weight: 800
 An Anetos app is one binary: the migrations, views, translations and
 static files are inside it. Deploying it is building it, giving it its
 settings, running its migrations, and keeping it running. This guide
-does that on a server with systemd, in a container, and on two hosting
-platforms (Fly.io, Render). The examples use an app called `blog`.
+does that on a server with systemd and in a container; [Deploy to a
+cloud platform](cloud-platforms.md) does it on Google Cloud Run, Azure
+Container Apps, Amazon ECS, DigitalOcean App Platform, Kubernetes,
+Fly.io and Render. The examples use an app called `blog`.
 
 Projects made by `anetos new` have the files this guide uses: a
 `Dockerfile`, `deploy/blog.service` and `deploy/production.env.example`.
@@ -67,10 +69,10 @@ no `.env` file. `deploy/production.env.example` lists the ones to set:
 | `APP_ENV=production` | The default when unset; JSON logs, secure cookies, `APP_DEBUG` refused |
 | `APP_KEY` | A new key for production (`go tool anetos key:generate --show`), never the one in `.env`. Keep it secret: it encrypts sessions and two-factor secrets. When you change it, put the old one in `APP_PREVIOUS_KEYS` |
 | `APP_URL` | The public URL (`https://blog.example.com`), for links in emails and social login |
-| `DB_DRIVER`, `DB_URL` | The database, with TLS that checks the server (`sslmode=verify-full`, `tls=true`). With `DB_HOST` and the others instead of `DB_URL`, TLS is on and verified for any host but `localhost` (`DB_TLS`; `DB_TLS_CA` for a provider's own CA) |
+| `DB_DRIVER`, `DB_URL` | The database, with TLS that checks the server (`sslmode=verify-full`, `tls=true`). With `DB_HOST` and the others instead of `DB_URL`, TLS is on and verified for any host but `localhost` (`DB_TLS`; `DB_TLS_CA` for a provider's own CA, as a file or as PEM text) |
 | `CACHE_DRIVER`, `SESSION_DRIVER`, `QUEUE_DRIVER` | `database` (or `redis`) so that every process shares them: with `memory`, a second process has its own cache and queue |
 | `MAIL_DRIVER`, `MAIL_FROM_ADDRESS` | `log` sends nothing (the app warns at start); in production it logs who an email is for and its subject, never its body, which may hold login links |
-| `HTTP_TRUSTED_PROXIES` | The address of the proxy in front of the app, so client IPs (rate limits, logs, the audit log) are the visitors' (step 5) |
+| `HTTP_TRUSTED_PROXIES` | The address of the proxy in front of the app, so client IPs (rate limits, logs, the audit log) are the visitors' (step 5); or `HTTP_CLIENT_IP_HEADER`, where a platform puts the client's IP in a header of its own |
 | `STORAGE_ROOT` or `STORAGE_DRIVER` | Uploaded files: a directory that survives deploys, or `s3`/`gcs` |
 
 On a platform that gives the app `PORT` and `DATABASE_URL` (Heroku,
@@ -115,7 +117,8 @@ next; stop using a column in one release and drop it in the next.
 
 ### 4. Run it
 
-Pick one of the three ways below.
+On a server with systemd, or in a container. On a hosting platform,
+see [Deploy to a cloud platform](cloud-platforms.md).
 
 #### Run it on a server with systemd
 
@@ -193,115 +196,6 @@ docker run -d --name blog-worker --env-file production.env --no-healthcheck blog
 The [complete example](#complete-example) runs the web server, the
 workers and PostgreSQL with Docker Compose.
 
-#### Run it on a hosting platform
-
-Platforms build the image from the `Dockerfile`, run it, and route
-HTTPS to it. Two examples:
-
-**Fly.io**: `fly launch` finds the `Dockerfile`; edit the `fly.toml` it
-writes:
-
-```toml
-app = "blog"
-primary_region = "ams"
-# Fly sends SIGINT and waits 5 seconds by default.
-kill_signal = "SIGTERM"
-kill_timeout = 35
-
-# Runs in a temporary machine before each deploy (no volumes there).
-[deploy]
-  release_command = "migrate"
-
-# Each value replaces the image's CMD; the binary stays the entrypoint.
-[processes]
-  web = "run --only=web"
-  worker = "run --only=worker,scheduler"
-
-[env]
-  APP_URL = "https://blog.fly.dev"
-  CACHE_DRIVER = "database"
-  SESSION_DRIVER = "database"
-  QUEUE_DRIVER = "database"
-
-[http_service]
-  internal_port = 8080
-  force_https = true
-  processes = ["web"]
-
-  [[http_service.checks]]
-    grace_period = "15s"
-    interval = "30s"
-    method = "GET"
-    timeout = "5s"
-    path = "/health/ready"
-```
-
-Set the secrets with `fly secrets set APP_KEY=base64:… DB_URL=…`, then
-`fly deploy`. The release command has no volume, so this suits
-PostgreSQL or MySQL. For SQLite, run one machine of a single process
-(no `[processes]`), with a volume (`[[mounts]] source = "blog_data"`,
-`destination = "/data"`) and without `release_command`: the image
-migrates when it starts (`DB_MIGRATE_ON_START=true`, set by the
-`Dockerfile`), and the health check passes once it has.
-
-**Render**: a `render.yaml` blueprint with a PostgreSQL database; the
-web service and the worker share their settings through an environment
-group (except `APP_KEY` and `DB_URL`, which a group can't hold):
-
-```yaml
-services:
-  - type: web
-    name: blog
-    runtime: docker
-    plan: starter
-    healthCheckPath: /health/ready
-    # Render's commands replace the image's entrypoint: give the binary's path.
-    preDeployCommand: /app/blog migrate
-    dockerCommand: /app/blog run --only=web
-    envVars:
-      - fromGroup: blog
-      - key: APP_KEY
-        sync: false            # asked for on the first deploy: the same key for both
-      - key: DB_URL
-        fromDatabase:
-          name: blog-db
-          property: connectionString
-  - type: worker
-    name: blog-worker
-    runtime: docker
-    plan: starter
-    dockerCommand: /app/blog run --only=worker,scheduler
-    envVars:
-      - fromGroup: blog
-      - key: APP_KEY
-        sync: false            # asked for on the first deploy: the same key for both
-      - key: DB_URL
-        fromDatabase:
-          name: blog-db
-          property: connectionString
-
-envVarGroups:
-  - name: blog
-    envVars:
-      - key: APP_URL
-        value: https://blog.onrender.com
-      - key: DB_DRIVER
-        value: postgres
-      - key: CACHE_DRIVER
-        value: database
-      - key: SESSION_DRIVER
-        value: database
-      - key: QUEUE_DRIVER
-        value: database
-
-databases:
-  - name: blog-db
-```
-
-`APP_KEY` must be `base64:` and 32 bytes, so don't let Render generate
-it (`generateValue`). The pre-deploy command needs a paid instance
-type.
-
 ### 5. Put HTTPS in front
 
 The app serves plain HTTP. On a server, put a proxy in front for HTTPS.
@@ -340,7 +234,9 @@ trusted.
 
 `run` starts every background component: the web server, queue workers, event
 listeners, the scheduler. With more traffic, run them in separate
-processes or machines (`run --only=web`, `run --only=worker`;
+processes or machines (`run --only=web`, `run --only=worker`, or
+`APP_PROCESS_TYPES=web` with plain `run`, where a platform sets a
+process's environment more easily than its command;
 [the runtime supervisor](../concepts/runtime-supervisor.md) explains
 process types):
 
@@ -498,11 +394,13 @@ server, or `docker run --rm blog version`) tells which version runs.
 | `permission denied` writing files in the container | The volume isn't writable by user 65532 | Mount on `/data` (the image prepares it), or `chown 65532` the host directory |
 | The container stays `unhealthy` | It doesn't serve HTTP (`run --only=worker`), it isn't ready (`/health/ready` answers 503 while a background component restarts or migrations haven't run: the log says which), or `HTTP_HEALTH_ROUTES=false` | Turn the check off for workers (`--no-healthcheck`, `healthcheck: disable: true`); read the logs; keep the health routes on |
 | `unknown process type "scheduler"` (or `listener`) | The app has none: no `schedule.New` (or `pubsub.New`) | Leave it out of `--only`; the error lists the app's process types |
-| Jobs cut off at each deploy | The platform kills the process before it finishes | Raise its grace period (`docker stop -t`, `kill_timeout`, `TimeoutStopSec`) or lower `APP_SHUTDOWN_TIMEOUT` |
+| Jobs cut off at each deploy | The platform kills the process before it finishes | Raise its grace period (`docker stop -t`, `TimeoutStopSec`, a platform's setting) or lower `APP_SHUTDOWN_TIMEOUT` |
 | `blog version` prints `(devel)` | Built outside a git repository without `--version` | `anetos build --version=v1.2.0` (the `Dockerfile` takes `--build-arg VERSION`) |
 
 ## Next steps
 
+- [Deploy to a cloud platform](cloud-platforms.md): Cloud Run, Azure
+  Container Apps, ECS, DigitalOcean, Kubernetes, Fly.io, Render.
 - [Secure your app](security.md): the checklist before going live.
 - [Configuration](configuration.md) and the [settings reference](../reference/configuration.md).
 - [Migrations](migrations.md).

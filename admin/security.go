@@ -80,7 +80,8 @@ func parseAllowed(list []string) ([]netip.Prefix, error) {
 }
 
 // allowIPs lets in only the addresses of ADMIN_ALLOW_IPS (the client's,
-// as web.RealIP finds it behind trusted proxies); others get 404, as if
+// as web.ClientIP has it: behind trusted proxies, or from a platform's
+// header, HTTP_CLIENT_IP_HEADER); others get 404, as if
 // there were no admin.
 func (p *Panel) allowIPs(next http.Handler) http.Handler {
 	if len(p.allowed) == 0 {

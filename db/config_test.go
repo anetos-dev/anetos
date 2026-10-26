@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -103,5 +105,29 @@ func TestTLSMode(t *testing.T) {
 	_, err := db.LoadConfig(config.Map{"DB_TLS": "none", "DB_TLS_CA": "/etc/ca.pem"}, "")
 	if err == nil || !strings.Contains(err.Error(), "DB_TLS_CA is for checking the server's certificate") {
 		t.Errorf("DB_TLS_CA with DB_TLS=none: %v", err)
+	}
+}
+
+// DB_TLS_CA is a file's path or PEM text; the text's "\\n" are line
+// breaks; String doesn't print the text.
+func TestTLSCAPEM(t *testing.T) {
+	text := db.Config{Host: "db", TLSCA: "  -----BEGIN CERTIFICATE-----\\nAAAA\\n-----END CERTIFICATE-----\n"}
+	got, err := text.TLSCAPEM()
+	if !text.TLSCAInline() || err != nil || string(got) != "-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----" {
+		t.Errorf("PEM text: %q, %v", got, err)
+	}
+	if s := text.String(); !strings.Contains(s, "TLSCA:(PEM text)") || strings.Contains(s, "AAAA") {
+		t.Errorf("String: %s", s)
+	}
+	path := filepath.Join(t.TempDir(), "ca.pem")
+	if err := os.WriteFile(path, []byte("pem"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	file := db.Config{TLSCA: path}
+	if got, err := file.TLSCAPEM(); file.TLSCAInline() || err != nil || string(got) != "pem" {
+		t.Errorf("a file: %q, %v", got, err)
+	}
+	if _, err := (db.Config{TLSCA: path + ".missing"}).TLSCAPEM(); err == nil || !strings.HasPrefix(err.Error(), "DB_TLS_CA: ") {
+		t.Errorf("a missing file: %v", err)
 	}
 }

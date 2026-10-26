@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"slices"
 	"strings"
 	"testing"
@@ -187,6 +188,26 @@ func TestServerConfig(t *testing.T) {
 		if err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("err = %v, want %s", err, want)
 		}
+	}
+
+	for h, want := range map[string]string{"X-Forwarded-For": "list of proxies", "bad header": "isn't a header name", "a:b": "isn't a header name"} {
+		if _, err := web.LoadConfig(config.Map{"HTTP_CLIENT_IP_HEADER": h}); err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("HTTP_CLIENT_IP_HEADER=%q: %v", h, err)
+		}
+	}
+	// The server reads the client IP from HTTP_CLIENT_IP_HEADER.
+	ipApp := newApp(t, config.Map{"HTTP_CLIENT_IP_HEADER": "do-connecting-ip"})
+	ipSrv, err := web.NewServer(ipApp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var seen string
+	ipSrv.Router().Get("/ip", func(c *web.Ctx) error { seen = web.ClientIP(c); return nil })
+	req := httptest.NewRequest("GET", "/ip", nil)
+	req.Header.Set("do-connecting-ip", "198.51.100.7")
+	ipSrv.Router().ServeHTTP(httptest.NewRecorder(), req)
+	if seen != "198.51.100.7" {
+		t.Errorf("client IP from do-connecting-ip: %q", seen)
 	}
 
 	app := newApp(t, config.Map{})

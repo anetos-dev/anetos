@@ -22,6 +22,9 @@ func checks(cfg Config, env anetos.Environment) []anetos.Finding {
 			out = append(out, anetos.Finding{Rule: "setting.trusted-proxies", Severity: anetos.Warning, Message: fmt.Sprintf("HTTP_TRUSTED_PROXIES has %s, a very wide range: clients in it can choose the IP address the app sees; list your proxies' addresses", p)})
 		}
 	}
+	if cfg.ClientIPHeader != "" && len(trusted) == 0 {
+		out = append(out, anetos.Finding{Rule: "setting.client-ip-header", Severity: anetos.Note, Message: fmt.Sprintf("HTTP_CLIENT_IP_HEADER=%s is read from every connection: right when the app can be reached only through the platform's proxy, which sets it; else list the proxy's addresses in HTTP_TRUSTED_PROXIES", cfg.ClientIPHeader)})
+	}
 	if slices.Contains(cfg.CORS.Origins, "*") {
 		out = append(out, anetos.Finding{Rule: "setting.cors", Severity: anetos.Warning, Message: `HTTP_CORS_ORIGINS="*": scripts on any site can call the app and read its answers (without cookies); right for a public API, else list the origins`})
 	}

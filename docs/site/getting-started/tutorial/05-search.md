@@ -1,10 +1,10 @@
 ---
-title: "5. Search"
+title: "5. Full-text search"
 since: v0.3.0
 weight: 5
 ---
 
-# 5. Search
+# 5. Full-text search
 
 You add a search box that finds issues by the words in their title and
 description, best matches first, from a full-text index in the database.

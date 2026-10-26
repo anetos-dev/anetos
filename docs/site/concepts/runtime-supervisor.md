@@ -42,6 +42,7 @@ some:
 ./blog run --only=web                 # web machines
 ./blog run --only=worker              # background machines
 ./blog run --only=scheduler           # one machine, or several with OnOneServer
+APP_PROCESS_TYPES=worker ./blog run   # the same as --only, from the environment
 ```
 
 The built-in components with process types are the web server (`web`),

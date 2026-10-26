@@ -146,7 +146,7 @@ func (a *App) addBuiltins() {
 	a.commands["run"] = cmd.Command{
 		Name:        "run",
 		Usage:       "[--only=type,…]",
-		Description: "Run the application's components (the default command)",
+		Description: "Run the application's components (the default command); without --only, those of APP_PROCESS_TYPES",
 		ManagesApp:  true,
 		Run: func(ctx context.Context, args *cmd.Args) error {
 			fs := flag.NewFlagSet("run", flag.ContinueOnError)
@@ -161,6 +161,13 @@ func (a *App) addBuiltins() {
 			for t := range strings.SplitSeq(*only, ",") {
 				if t = strings.TrimSpace(t); t != "" {
 					types = append(types, t)
+				}
+			}
+			if *only == "" { // the environment's choice (APP_PROCESS_TYPES)
+				for _, t := range a.cfg.ProcessTypes {
+					if t = strings.TrimSpace(t); t != "" {
+						types = append(types, t)
+					}
 				}
 			}
 			return a.Run(ctx, types...)

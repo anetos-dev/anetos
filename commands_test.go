@@ -128,6 +128,56 @@ func TestRunIsTheDefault(t *testing.T) {
 	}
 }
 
+// Without --only, run starts APP_PROCESS_TYPES' components; --only wins.
+func TestRunProcessTypesSetting(t *testing.T) {
+	for _, c := range []struct {
+		args       []string
+		want, skip string
+	}{
+		{[]string{"run"}, "worker", "listener"},
+		{[]string{"run", "--only=listener"}, "listener", "worker"},
+	} {
+		app := newApp(t, config.Map{"APP_PROCESS_TYPES": " worker"})
+		started := make(chan string, 2)
+		for _, typ := range []string{"worker", "listener"} {
+			if err := app.Go(typ, func(ctx context.Context) error {
+				started <- typ
+				<-ctx.Done()
+				return nil
+			}, anetos.ProcessTypes(typ)); err != nil {
+				t.Fatal(err)
+			}
+		}
+		ctx, cancel := context.WithCancel(t.Context())
+		done := make(chan int)
+		var out, errOut bytes.Buffer
+		go func() { done <- app.ExecuteArgs(ctx, c.args, &out, &errOut) }()
+		select {
+		case got := <-started:
+			if got != c.want {
+				t.Errorf("%v started %s, want %s", c.args, got, c.want)
+			}
+		case code := <-done:
+			t.Fatalf("%v: %d %s", c.args, code, errOut.String())
+		}
+		cancel()
+		if code := <-done; code != 0 {
+			t.Errorf("%v: %d %s", c.args, code, errOut.String())
+		}
+		select {
+		case got := <-started:
+			if got == c.skip {
+				t.Errorf("%v started %s too", c.args, got)
+			}
+		default:
+		}
+	}
+	app := newApp(t, config.Map{"APP_PROCESS_TYPES": "nope"})
+	if code, out, errOut := execute(t, app, "run"); code != 1 || !strings.Contains(out+errOut, `unknown process type "nope"`) {
+		t.Errorf("APP_PROCESS_TYPES=nope: %d %q %q", code, out, errOut)
+	}
+}
+
 func TestAddCommandErrors(t *testing.T) {
 	app := newApp(t, config.Map{})
 	run := func(context.Context, *cmd.Args) error { return nil }

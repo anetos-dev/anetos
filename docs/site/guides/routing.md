@@ -145,11 +145,13 @@ middleware works.
 | `r.With(mw...).Get(...)` | A single route |
 
 `web.NewServer` already installs these global middleware, outermost first:
-`Recover`, `RequestIDs`, `RealIP`, `AccessLog`, `SecureHeaders`, `CORS`
+`Recover`, `RequestIDs`, `RealIP` (or `ClientIPHeader`, with
+`HTTP_CLIENT_IP_HEADER`), `AccessLog`, `SecureHeaders`, `CORS`
 (when configured), the request's locale (with
 [translations](translations.md)), `BodyLimit` and `Timeout`. See the
 [configuration reference](../reference/configuration.md#http-server).
-`web.ClientIP(ctx)` returns the client's address `RealIP` found
+`web.ClientIP(ctx)` returns the client's address `RealIP` (or
+`ClientIPHeader`) found
 (or the peer's), from the request's context: `web.ClientIP(c)` in a
 handler.
 To limit how often clients call a group of routes, add

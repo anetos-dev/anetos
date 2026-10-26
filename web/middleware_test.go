@@ -75,6 +75,45 @@ func TestRecoverMiddleware(t *testing.T) {
 	})
 }
 
+func TestClientIPHeader(t *testing.T) {
+	trusted, _ := ParsePrefixes([]string{"10.0.0.0/8"})
+	var ip string
+	record := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { ip = ClientIP(r.Context()) })
+	serve := func(h http.Handler, remote string, headers ...string) string {
+		req := httptest.NewRequest("GET", "/", nil)
+		req.RemoteAddr = remote
+		for i := 0; i+1 < len(headers); i += 2 {
+			req.Header.Add(headers[i], headers[i+1])
+		}
+		h.ServeHTTP(httptest.NewRecorder(), req)
+		return ip
+	}
+	anyPeer := ClientIPHeader("do-connecting-ip", nil)(record)
+	onlyTrusted := ClientIPHeader("Fly-Client-IP", trusted)(record)
+	for _, tt := range []struct {
+		name    string
+		h       http.Handler
+		remote  string
+		headers []string
+		want    string
+	}{
+		{"any peer: the header", anyPeer, "203.0.113.9:5000", []string{"Do-Connecting-Ip", "198.51.100.7"}, "198.51.100.7"},
+		{"any peer: ipv6 with a port", anyPeer, "203.0.113.9:5000", []string{"do-connecting-ip", "[2001:db8::7]:443"}, "2001:db8::7"},
+		{"X-Forwarded-For isn't read", anyPeer, "203.0.113.9:5000", []string{"X-Forwarded-For", "198.51.100.7"}, "203.0.113.9"},
+		{"sent twice: the peer", anyPeer, "203.0.113.9:5000", []string{"do-connecting-ip", "1.1.1.1", "do-connecting-ip", "2.2.2.2"}, "203.0.113.9"},
+		{"malformed: the peer", anyPeer, "203.0.113.9:5000", []string{"do-connecting-ip", "1.1.1.1, 2.2.2.2"}, "203.0.113.9"},
+		{"trusted peer: the header", onlyTrusted, "10.1.2.3:5000", []string{"Fly-Client-IP", "198.51.100.7"}, "198.51.100.7"},
+		{"untrusted peer: the peer", onlyTrusted, "203.0.113.9:5000", []string{"Fly-Client-IP", "198.51.100.7"}, "203.0.113.9"},
+		{"trusted mapped peer: the header", onlyTrusted, "[::ffff:10.1.2.3]:5000", []string{"Fly-Client-IP", "198.51.100.7"}, "198.51.100.7"},
+		{"trusted peer, no header: the peer", onlyTrusted, "10.1.2.3:5000", nil, "10.1.2.3"},
+		{"a zone: the peer", anyPeer, "203.0.113.9:5000", []string{"do-connecting-ip", "fe80::1%<script>"}, "203.0.113.9"},
+	} {
+		if got := serve(tt.h, tt.remote, tt.headers...); got != tt.want {
+			t.Errorf("%s: ClientIP = %q, want %q", tt.name, got, tt.want)
+		}
+	}
+}
+
 func TestRealIP(t *testing.T) {
 	trusted, err := ParsePrefixes([]string{"10.0.0.0/8", "192.168.1.5"})
 	if err != nil {
@@ -105,6 +144,7 @@ func TestRealIP(t *testing.T) {
 		{"multiple XFF headers", "192.168.1.5:1", []string{"X-Forwarded-For", "198.51.100.1", "X-Forwarded-For", "10.0.0.1"}, "198.51.100.1"},
 		{"X-Real-IP isn't read", "10.1.2.3:5000", []string{"X-Real-IP", "198.51.100.8"}, "10.1.2.3"},
 		{"malformed chain keeps peer", "10.1.2.3:5000", []string{"X-Forwarded-For", "nonsense"}, "10.1.2.3"},
+		{"a zoned hop keeps peer", "10.1.2.3:5000", []string{"X-Forwarded-For", "fe80::1%eth0"}, "10.1.2.3"},
 		{"ipv6 peer", "[2001:db8::1]:443", nil, "2001:db8::1"},
 	}
 	for _, tt := range tests {

@@ -45,8 +45,10 @@ of `public/` and `locales/`. A server needs only the binary and its
 settings (the environment, or a file: `deploy/production.env.example`
 lists them).
 
-[Deploy](../guides/deployment.md) runs it on a server with systemd, in
-a container (the project has a `Dockerfile`), or on Fly.io and Render.
+[Deploy](../guides/deployment.md) runs it on a server with systemd or
+in a container (the project has a `Dockerfile`), and [Deploy to a cloud
+platform](../guides/cloud-platforms.md) on Cloud Run, Azure Container
+Apps, ECS, DigitalOcean, Kubernetes, Fly.io or Render.
 Before going live, run `./bin/blog doctor` with the production
 settings: it reports unsafe ones (`SESSION_SECURE=false`, a database
 reached without TLS, the log mail driver…) and migrations that haven't

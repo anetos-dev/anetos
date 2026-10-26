@@ -276,6 +276,13 @@ A07:2025.
 `HTTP_TRUSTED_PROXIES` trusting everyone, or a very wide range: clients
 choose the IP address the app sees. Problem or warning; A02:2025.
 
+### `setting.client-ip-header`
+
+`HTTP_CLIENT_IP_HEADER` without `HTTP_TRUSTED_PROXIES`: the header is
+read from every connection, so a client that reaches the app without
+the platform's proxy chooses the IP address the app sees. Right where
+the proxy is the only way in. Note; A02:2025.
+
 ### `setting.cors`
 
 `HTTP_CORS_ORIGINS="*"`: scripts on any site may call the app. Warning;

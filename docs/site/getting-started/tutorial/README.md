@@ -23,7 +23,7 @@ issues, ready to deploy.
 | [2. Accounts](02-accounts.md) | Sign-up, login, email verification, settings |
 | [3. Issues](03-issues.md) | A model, a migration, pages to list, open and edit issues, a test |
 | [4. The issue page](04-the-issue-page.md) | Comments posted with htmx, closing issues, an event |
-| [5. Search](05-search.md) | A full-text index and a search page |
+| [5. Full-text search](05-search.md) | A full-text index and a search page |
 | [6. Email the author](06-email-the-author.md) | A mail, and a queued listener that sends it |
 | [7. Deploy](07-deploy.md) | The production build, as a binary and an image |
 

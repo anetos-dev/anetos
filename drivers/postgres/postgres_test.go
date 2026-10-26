@@ -129,3 +129,39 @@ func TestInspectURL(t *testing.T) {
 		t.Error("a missing sslrootcert: no error")
 	}
 }
+
+// DB_TLS_CA as PEM text: no sslrootcert, the pool set in pgx's
+// configuration; a line break written as "\\n" works; text without a
+// certificate fails.
+func TestInlineCA(t *testing.T) {
+	ca := testCA(t)
+	cfg := db.Config{Host: "db", Name: "app", TLSCA: strings.ReplaceAll(ca, "\n", `\n`)}
+	if got := postgres.DSN(cfg); got != "postgres://db:5432/app?sslmode=verify-full&timezone=UTC" {
+		t.Errorf("DSN = %s", got)
+	}
+	cc, err := postgres.ConnConfig(cfg)
+	if err != nil || cc.TLSConfig == nil || cc.TLSConfig.RootCAs == nil || cc.TLSConfig.InsecureSkipVerify || cc.TLSConfig.ServerName != "db" {
+		t.Fatalf("ConnConfig: %+v, %v", cc, err)
+	}
+	if _, err := postgres.ConnConfig(db.Config{Host: "db", TLSCA: "-----BEGIN CERTIFICATE-----\nnope\n-----END CERTIFICATE-----"}); err == nil || !strings.Contains(err.Error(), "has no certificates") {
+		t.Errorf("bad PEM text: %v", err)
+	}
+	if cc, err := postgres.ConnConfig(db.Config{Host: "db", TLSCA: "/etc/ca.pem"}); err == nil || cc != nil {
+		t.Errorf("a missing file: %v", err) // pgx reads sslrootcert
+	}
+}
+
+// testCA is a self-signed CA's certificate, as PEM.
+func testCA(t *testing.T) string {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmpl := &x509.Certificate{SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "test CA"}, NotBefore: time.Now(), NotAfter: time.Now().Add(time.Hour), IsCA: true, BasicConstraintsValid: true, KeyUsage: x509.KeyUsageCertSign}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}))
+}

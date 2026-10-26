@@ -69,6 +69,13 @@ type AppConfig struct {
 	// Set it at or below your platform's grace period.
 	ShutdownTimeout time.Duration `env:"APP_SHUTDOWN_TIMEOUT" default:"30s"`
 
+	// ProcessTypes are the process types the run command starts when it
+	// isn't given --only (web, worker, scheduler, listener): for platforms
+	// that give each process its role through its environment rather than
+	// its command. APP_PROCESS_TYPES, comma-separated; empty runs every
+	// component. --only wins over it.
+	ProcessTypes []string `env:"APP_PROCESS_TYPES"`
+
 	// Key encrypts and authenticates session cookies and other data: 32
 	// random bytes written as "base64:…". APP_KEY. Required by the features
 	// that use it (sessions), which fail at startup without it. Keep it

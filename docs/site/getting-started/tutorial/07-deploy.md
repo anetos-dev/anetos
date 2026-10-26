@@ -49,8 +49,11 @@ volume.
 ## Where to run it
 
 [Deploy](../../guides/deployment.md) covers a server with systemd,
-Docker and Docker Compose, Fly.io and Render, HTTPS, and running the
-queue's workers apart from the web server as traffic grows.
+Docker and Docker Compose, HTTPS, and running the queue's workers apart
+from the web server as traffic grows; [Deploy to a cloud
+platform](../../guides/cloud-platforms.md), Google Cloud Run, Azure
+Container Apps, Amazon ECS, DigitalOcean App Platform, Kubernetes,
+Fly.io and Render.
 
 ## What's next
 

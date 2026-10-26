@@ -30,9 +30,9 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net"
-	"os"
 	"strconv"
 	"time"
 
@@ -110,17 +110,20 @@ func (v vectorConnector) Connect(ctx context.Context) (driver.Conn, error) {
 	return c, nil
 }
 
-// registerCA registers a TLS configuration that trusts the CAs in the PEM
-// file at path and checks the server is host, and returns its name for
-// the DSN's tls parameter.
-func registerCA(path, host string) (string, error) {
-	pem, err := os.ReadFile(path)
+// registerCA registers a TLS configuration that trusts the CAs of
+// DB_TLS_CA (a PEM file, or PEM text) and checks the server is host, and
+// returns its name for the DSN's tls parameter.
+func registerCA(cfg db.Config, host string) (string, error) {
+	pem, err := cfg.TLSCAPEM()
 	if err != nil {
-		return "", fmt.Errorf("mysql: DB_TLS_CA: %w", err)
+		return "", fmt.Errorf("mysql: %w", err)
 	}
 	pool := x509.NewCertPool()
 	if !pool.AppendCertsFromPEM(pem) {
-		return "", fmt.Errorf("mysql: DB_TLS_CA %s has no PEM certificates", path)
+		if cfg.TLSCAInline() {
+			return "", errors.New("mysql: DB_TLS_CA's PEM text has no certificates")
+		}
+		return "", fmt.Errorf("mysql: DB_TLS_CA %s has no PEM certificates", cfg.TLSCA)
 	}
 	sum := sha256.Sum256(append([]byte(host+"\x00"), pem...))
 	name := "anetos-" + hex.EncodeToString(sum[:8])
@@ -153,7 +156,7 @@ func dsn(cfg db.Config) (string, error) {
 		case db.TLSVerify:
 			c.TLSConfig = "true"
 			if cfg.TLSCA != "" {
-				name, err := registerCA(cfg.TLSCA, cfg.Host)
+				name, err := registerCA(cfg, cfg.Host)
 				if err != nil {
 					return "", err
 				}

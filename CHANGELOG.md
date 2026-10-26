@@ -7,6 +7,19 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Deploying to cloud platforms (DOC1, D357–D360): a new guide, "Deploy
+  to a cloud platform", for Google Cloud Run, Azure Container Apps,
+  Amazon ECS on Fargate, DigitalOcean App Platform, Kubernetes (GKE,
+  EKS, AKS, DigitalOcean Kubernetes), Fly.io and Render (moved from
+  "Deploy"), each with its configuration, migrations before each
+  release, separate web and background processes, health checks,
+  shutdown, the database's TLS and the client's IP. For them:
+  `APP_PROCESS_TYPES`, the process types `run` starts without `--only`
+  (`AppConfig.ProcessTypes`); `HTTP_CLIENT_IP_HEADER`, a platform's
+  header holding the client's IP (`do-connecting-ip`, `Fly-Client-IP`),
+  with `web.ClientIPHeader`; and `DB_TLS_CA` as PEM text as well as a
+  file (`db.Config.TLSCAPEM`, `TLSCAInline`), for a CA a platform gives
+  in a variable. The tutorial's chapter 5 is now "Full-text search".
 - TypeScript types for the frontend, generated from the Go types (TS1,
   D352–D356): new package `web/typescript`. `typescript.Register(app,
   srv, cfg)` adds the app's `types` command, which writes

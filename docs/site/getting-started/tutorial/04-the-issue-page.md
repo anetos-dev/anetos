@@ -364,4 +364,4 @@ func TestIssuePage(t *testing.T) {
 
 (Copied from [`examples/tutorial/issue_page_test.go`](../../../../examples/tutorial/issue_page_test.go), region `test`.)
 
-Next: [5. Search](05-search.md).
+Next: [5. Full-text search](05-search.md).

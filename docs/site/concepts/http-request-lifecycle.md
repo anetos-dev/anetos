@@ -47,7 +47,7 @@ Every request, matched or not, passes through the global middleware:
 |---|---|
 | `Recover` | Last-resort panic catcher for middleware (handler panics are handled later, with more context) |
 | `RequestIDs` | Reuses a safe incoming `X-Request-ID` or generates one; returned in the response and attached to logs |
-| `RealIP` | Determines the client IP, trusting forwarding headers only from `HTTP_TRUSTED_PROXIES` |
+| `RealIP` | Determines the client IP, trusting forwarding headers only from `HTTP_TRUSTED_PROXIES`; `ClientIPHeader` instead with `HTTP_CLIENT_IP_HEADER`, reading a platform's own header |
 | `AccessLog` | One structured log line per request (`health.*` routes at debug level) |
 | `SecureHeaders` | `nosniff`, frame and referrer policies; HSTS in production |
 | `CORS` | Only if `HTTP_CORS_ORIGINS` is set; answers preflights |

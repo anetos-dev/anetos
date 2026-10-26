@@ -27,6 +27,7 @@ Read by `anetos.New` into `anetos.AppConfig`.
 | `APP_URL` | URL | empty | The app's public URL (`https://example.com`, no path), for links that leave the app: OAuth callbacks (social login), links in emails (`mailer.URL`) |
 | `APP_DEBUG` | bool | `false` | Enables debugging aids. **Rejected when `APP_ENV=production`** |
 | `APP_SHUTDOWN_TIMEOUT` | duration | `30s` | Total graceful-shutdown budget: components first, then shutdown hooks. Hooks always keep the smaller of 5s and a fifth of it. Keep it at or below your platform's grace period (Kubernetes default: 30s) |
+| `APP_PROCESS_TYPES` | list | empty | The process types `run` starts when it isn't given `--only` (`web`; `worker,scheduler`), for platforms that set a process's environment rather than its command; `--only` wins. Empty: every component. Since v0.6 |
 | `APP_KEY` | `base64:…` (32 bytes) | empty | Encrypts and authenticates session cookies. Required by sessions, which fail at startup without it. Generate one with `go tool anetos key:generate`. Keep it secret |
 | `APP_PREVIOUS_KEYS` | list of keys | empty | Old keys that still decrypt, so `APP_KEY` can be rotated without logging everyone out |
 | `APP_TIMEZONE` | IANA time zone (`Asia/Dhaka`) | `UTC` | The app's zone: the process's local zone (so `time.Now`, logs and formatting agree on every machine), the zone of `anetos.Now` and the default of `SCHEDULE_TIMEZONE`. Times are stored in UTC whatever it is. `Local` isn't allowed. See [Times and dates](../guides/times-and-dates.md) |
@@ -165,6 +166,7 @@ Read by `web.NewServer` (or `web.LoadConfig`) into `web.Config`.
 | `HTTP_REQUEST_TIMEOUT` | duration | `30s` | Deadline on each request's context; expiry gives 503. `0` disables |
 | `HTTP_MAX_BODY` | size | `10MB` | Maximum request body (`512KB`, `10MB`, `1GB`; units are powers of 1024); larger gives 413. `0` disables |
 | `HTTP_TRUSTED_PROXIES` | list of IPs/CIDRs | empty | Peers whose `X-Forwarded-For` is trusted for the client IP (`X-Real-IP` isn't read) |
+| `HTTP_CLIENT_IP_HEADER` | string | empty | A header a platform's proxy sets to the client's IP (`do-connecting-ip`, `Fly-Client-IP`), read instead of `X-Forwarded-For`: on connections from `HTTP_TRUSTED_PROXIES` when set, else from every connection (then the app must be reachable only through that proxy; `doctor` notes it). Without the header, the peer's address. Since v0.6 |
 | `HTTP_ACCESS_LOG` | bool | `true` | One log line per request |
 | `HTTP_HEALTH_ROUTES` | bool | `true` | Serve `GET /health/live` and `GET /health/ready` |
 | `HTTP_CORS_ORIGINS` | list | empty (CORS off) | Allowed origins; `*` for any; `https://*.example.com` for subdomains |
@@ -222,7 +224,7 @@ keys with a prefix, e.g. `ANALYTICS_DB_HOST`) into `db.Config`.
 | `DB_USER` | string | empty | User |
 | `DB_PASSWORD` | string | empty | Password |
 | `DB_TLS` | `verify` \| `skip-verify` \| `none` | `verify` with `DB_TLS_CA` set or a remote host; `none` for a local host (localhost, loopback, Unix socket) | TLS of the connection built from `DB_HOST` (PostgreSQL `sslmode=verify-full`/`require`/`disable`, MySQL `tls=true`/`skip-verify`/`false`). With `DB_URL`, set it in the URL instead (setting both is refused) |
-| `DB_TLS_CA` | path | empty | PEM file of the CAs that sign the server's certificate, for `verify` when they aren't the system's; setting it means `verify` (also through a tunnel on localhost), and it is refused with `skip-verify` or `none` |
+| `DB_TLS_CA` | path or PEM text | empty | PEM file of the CAs that sign the server's certificate, or their PEM text (starting with `-----BEGIN`; `\n` written as two characters is a line break; since v0.6), as a platform gives it in a variable, for `verify` when they aren't the system's; setting it means `verify` (also through a tunnel on localhost), and it is refused with `skip-verify` or `none` |
 | `DB_MAX_OPEN_CONNS` | int | `25` | Maximum open connections (in-memory SQLite always uses 1) |
 | `DB_MAX_IDLE_CONNS` | int | `25` | Maximum idle connections kept for reuse |
 | `DB_CONN_MAX_LIFETIME` | duration | `30m` | Connections are replaced after this long |

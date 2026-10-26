@@ -191,7 +191,9 @@ func storeKey(key string, l Limit, now time.Time) (string, time.Time, error) {
 // IP returns the client's IP address for rate limiting: web.ClientIP,
 // narrowed to its /64 network for IPv6, since a client usually has a
 // whole /64 to pick addresses from. Behind a proxy, set
-// HTTP_TRUSTED_PROXIES so that web.ClientIP is the client's address.
+// HTTP_TRUSTED_PROXIES (or, on a platform that puts it in a header of
+// its own, HTTP_CLIENT_IP_HEADER) so that web.ClientIP is the client's
+// address.
 func IP(r *http.Request) string {
 	ip := web.ClientIP(r.Context())
 	if ip == "" { // outside a router
