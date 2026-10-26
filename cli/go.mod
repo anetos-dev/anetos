@@ -6,10 +6,10 @@ require (
 	anetos.dev/anetos v0.5.0
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	go.yaml.in/yaml/v3 v3.0.5
-	golang.org/x/mod v0.41.0
-	golang.org/x/term v0.46.0
-	golang.org/x/tools v0.51.0
-	golang.org/x/vuln v1.8.0
+	golang.org/x/mod v0.42.0
+	golang.org/x/term v0.47.0
+	golang.org/x/tools v0.52.0
+	golang.org/x/vuln v1.9.0
 )
 
 require (
@@ -18,10 +18,10 @@ require (
 	github.com/segmentio/encoding v0.5.4 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	golang.org/x/oauth2 v0.37.0 // indirect
-	golang.org/x/sync v0.23.0 // indirect
-	golang.org/x/sys v0.48.0 // indirect
-	golang.org/x/telemetry v0.0.0-20260924152758-ed294f943157 // indirect
-	golang.org/x/text v0.42.0 // indirect
+	golang.org/x/sync v0.24.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
+	golang.org/x/telemetry v0.0.0-20261010193011-f71dc92da45e // indirect
+	golang.org/x/text v0.43.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 )
 
