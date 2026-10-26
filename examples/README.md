@@ -32,5 +32,6 @@ an action of its own, and its OpenAPI description (`openapi.json`).
 [`inertia`](inertia) is a notes app whose pages are React components
 that Inertia's client renders, with Go handlers: a list that loads more
 notes and its statistics after the page shows, a form with errors from
-the server, a message after saving, and the error page. Its tests run
-without Node.
+the server, a message after saving, and the error page. Its pages are
+typed from the TypeScript types its `types` command writes. Its tests
+run without Node.

@@ -51,6 +51,7 @@ func main() {
 | `run [--only=type,…]` | Every app |
 | `serve`, `route:list` | `web.NewServer` |
 | `openapi` | `openapi.Register` ([Describe an API with OpenAPI](openapi.md)) |
+| `types` | `typescript.Register` ([Generate TypeScript types for the frontend](typescript.md)) |
 | `migrate`, `migrate:rollback`, `migrate:reset`, `migrate:fresh`, `migrate:status`, `db:seed`, `search:reindex` | `migrate.New` ([Migrations](migrations.md), [Search](search.md)) |
 | `cache:clear` | `cache.New` ([Cache](cache.md)) |
 | `ai:embed` | `ai.EmbeddingsFor` ([Search by meaning](semantic-search.md)) |

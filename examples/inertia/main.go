@@ -11,6 +11,9 @@
 //	go tool anetos key:generate           # APP_KEY, once
 //	go tool anetos dev                    # the app and Vite, on http://localhost:8080
 //
+// The pages' props are TypeScript types in frontend/src/types, which
+// go run . types writes from the Go types (anetos dev does as you edit).
+//
 // Its tests (go test) need neither Node nor a build of the frontend.
 package main
 
@@ -31,6 +34,7 @@ import (
 	"anetos.dev/anetos/view/vite"
 	"anetos.dev/anetos/web"
 	"anetos.dev/anetos/web/inertia"
+	"anetos.dev/anetos/web/typescript"
 )
 
 // Note is a note, as the pages get it.
@@ -200,7 +204,8 @@ func setup(app *anetos.App) (*web.Server, error) {
 		return nil, err
 	}
 	shared := func(*web.Ctx) (Shared, error) { return Shared{AppName: app.Config().Name}, nil }
-	if _, err := inertia.New(app, root(), inertia.WithShared(shared)); err != nil {
+	in, err := inertia.New(app, root(), inertia.WithShared(shared), inertia.WithPages(notesIndex, notesCreate))
+	if err != nil {
 		return nil, err
 	}
 
@@ -215,7 +220,18 @@ func setup(app *anetos.App) (*web.Server, error) {
 	g.Post("/notes", web.H(h.save))
 	g.Delete("/notes/{id}", h.delete)
 	g.Get("/boom", func(*web.Ctx) error { return web.Error(http.StatusTeapot, "This page is a teapot.") })
+
+	// go run . types writes the pages' props as TypeScript, in
+	// frontend/src/types (anetos dev does after each build).
+	if err := typescript.Register(app, srv, types(in)); err != nil {
+		return nil, err
+	}
 	return srv, nil
+}
+
+// types is where the frontend's TypeScript types come from.
+func types(in *inertia.Inertia) typescript.Config {
+	return typescript.Config{Inertia: in}
 }
 
 // endregion

@@ -145,6 +145,59 @@ func TestGenWritesAndChecks(t *testing.T) {
 	}
 }
 
+// In an app that writes the frontend's TypeScript types
+// (typescript.Register), generate runs its types command, --check too.
+func TestGenerateTypes(t *testing.T) {
+	if testing.Short() {
+		t.Skip("runs go run")
+	}
+	dir := t.TempDir()
+	files := map[string]string{
+		"go.mod": "module typesapp\n\ngo 1.26\n",
+		"main.go": `package main
+
+import (
+	"fmt"
+	"os"
+)
+
+// typescript stands in for web/typescript, main for an app whose setup
+// calls typescript.Register.
+var typescript struct{ Register func(...any) }
+
+func main() {
+	if typescript.Register != nil {
+		typescript.Register()
+	}
+	if len(os.Args) < 2 || os.Args[1] != "types" {
+		return
+	}
+	if len(os.Args) > 2 && os.Args[2] == "--check" {
+		if b, _ := os.ReadFile("types.ts"); string(b) != "types\n" {
+			fmt.Fprintln(os.Stderr, "types.ts is out of date")
+			os.Exit(1)
+		}
+		fmt.Println("types.ts is up to date")
+		return
+	}
+	_ = os.WriteFile("types.ts", []byte("types\n"), 0o644)
+	fmt.Println("wrote types.ts")
+}
+`,
+	}
+	writeFiles(t, dir, files)
+	t.Chdir(dir)
+	if code, out, errOut := runCmd(t, "generate", "--check"); code != 1 || !strings.Contains(errOut, "types.ts is out of date") || !strings.Contains(errOut, "go run . types") {
+		t.Errorf("check before: %d %q %q", code, out, errOut)
+	}
+	if code, out, errOut := runCmd(t, "generate"); code != 0 || out != "wrote types.ts\n" {
+		t.Errorf("generate: %d %q %q", code, out, errOut)
+	}
+	if code, out, errOut := runCmd(t, "generate", "--check"); code != 0 || out != "types.ts is up to date\n" {
+		t.Errorf("check after: %d %q %q", code, out, errOut)
+	}
+}
+
 // commandNames, which short forms expand to, are exactly the commands
 // of run's switch: a command missing from the list would be reached by
 // its whole name no more (make:admin would be a short form of

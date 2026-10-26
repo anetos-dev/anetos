@@ -30,6 +30,20 @@ type Field struct {
 // field hides deeper ones of its name, then a tagged one untagged ones,
 // and fields left ambiguous are dropped.
 func Of(t reflect.Type) []Field {
+	out, _ := fields(t, false)
+	return out
+}
+
+// Written returns the fields encoding/json writes for t, a struct type,
+// as [Of] does, with those promoted through an embedded pointer to an
+// unexported struct (which it writes but can't read), and the names
+// left out because two fields are tagged with them at one depth (Go
+// itself hides two untagged fields of one name).
+func Written(t reflect.Type) (written []Field, ambiguous []string) {
+	return fields(t, true)
+}
+
+func fields(t reflect.Type, write bool) ([]Field, []string) {
 	type level struct {
 		typ   reflect.Type
 		index []int
@@ -59,7 +73,7 @@ func Of(t reflect.Type) []Field {
 				if sf.Anonymous {
 					ft := sf.Type
 					if ft.Kind() == reflect.Pointer {
-						if !sf.IsExported() {
+						if !sf.IsExported() && !write {
 							continue // json can't set an embedded pointer to an unexported struct
 						}
 						ft = ft.Elem()
@@ -100,6 +114,7 @@ func Of(t reflect.Type) []Field {
 		return cmp.Or(strings.Compare(a.Name, b.Name), cmp.Compare(a.depth, b.depth), compareBool(b.Tagged, a.Tagged))
 	})
 	var out []Field
+	var ambiguous []string
 	for i := 0; i < len(all); {
 		j := i + 1
 		for j < len(all) && all[j].Name == all[i].Name {
@@ -108,11 +123,13 @@ func Of(t reflect.Type) []Field {
 		group := all[i:j]
 		if len(group) == 1 || group[0].depth != group[1].depth || group[0].Tagged != group[1].Tagged {
 			out = append(out, group[0].Field)
+		} else if group[0].Tagged {
+			ambiguous = append(ambiguous, group[0].Name)
 		}
 		i = j
 	}
 	slices.SortFunc(out, func(a, b Field) int { return slices.Compare(a.Index, b.Index) })
-	return out
+	return out, ambiguous
 }
 
 func compareBool(a, b bool) int {

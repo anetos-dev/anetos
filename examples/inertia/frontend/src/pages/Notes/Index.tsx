@@ -1,12 +1,11 @@
 import { Deferred, Link, router } from '@inertiajs/react'
 import Layout from '../../Layout'
-
-type Note = { id: number; title: string; body: string }
-type Stats = { count: number; words: number }
+import type { PageProps } from '../../types/pages'
 
 // Notes/Index: a page of notes, more appended on demand (a merge prop),
-// and statistics loaded after the page shows (a deferred prop).
-export default function Index({ notes, next, stats }: { notes: Note[]; next: number; stats?: Stats }) {
+// and statistics loaded after the page shows (a deferred prop). Its props'
+// types come from the Go types (go run . types).
+export default function Index({ notes = [], next, stats }: PageProps<'Notes/Index'>) {
   return (
     <Layout>
       <h1>Notes</h1>

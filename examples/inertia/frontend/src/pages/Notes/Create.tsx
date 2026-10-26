@@ -1,9 +1,10 @@
 import { Form } from '@inertiajs/react'
 import Layout from '../../Layout'
+import type { PageProps } from '../../types/pages'
 
 // Notes/Create: the form posts to the server, which redirects back with
 // its errors (in the errors prop) or to the list.
-export default function Create({ maxTitle }: { maxTitle: number }) {
+export default function Create({ maxTitle }: PageProps<'Notes/Create'>) {
   return (
     <Layout>
       <h1>New note</h1>

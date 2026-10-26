@@ -38,6 +38,28 @@ func Uses(root string) bool {
 	return err == nil
 }
 
+// UsesTypes reports whether the app in root writes the frontend's
+// TypeScript types: a Go file of its main package calls
+// typescript.Register, which adds the app's types command.
+func UsesTypes(root string) bool {
+	files, _ := filepath.Glob(filepath.Join(root, "*.go"))
+	for _, f := range files {
+		if strings.HasSuffix(f, "_test.go") {
+			continue
+		}
+		b, err := os.ReadFile(f)
+		if err != nil {
+			continue
+		}
+		for line := range strings.Lines(string(b)) {
+			if code, _, _ := strings.Cut(line, "//"); strings.Contains(code, "typescript.Register(") {
+				return true // a call, not a comment's
+			}
+		}
+	}
+	return false
+}
+
 // Manager is a package manager: the command and its arguments to install
 // the packages, and to run a package.json script.
 type Manager struct {

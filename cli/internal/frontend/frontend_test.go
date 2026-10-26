@@ -96,3 +96,17 @@ func TestNeedsInstall(t *testing.T) {
 		t.Errorf("DevArgs: %s", got)
 	}
 }
+
+// UsesTypes: an app whose main package calls typescript.Register.
+func TestUsesTypes(t *testing.T) {
+	dir := t.TempDir()
+	write(t, filepath.Join(dir, "main_test.go"), "package main // typescript.Register(")
+	write(t, filepath.Join(dir, "main.go"), "package main\n\n// typescript.Register(app, srv, cfg) later\n")
+	if UsesTypes(dir) {
+		t.Error("a test file or a comment counted")
+	}
+	write(t, filepath.Join(dir, "types.go"), "package main\n\nvar _ = typescript.Register(app, srv, cfg)\n")
+	if !UsesTypes(dir) {
+		t.Error("not found")
+	}
+}

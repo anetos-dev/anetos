@@ -246,3 +246,5 @@ before the Go build, so a type error in `frontend/src` fails it.
 - [Deploy](deployment.md): the Docker image with the frontend's stage.
 - [Pages in Vue, React or Svelte with Inertia](inertia.md): whole pages
   written in a JavaScript framework.
+- [Generate TypeScript types for the frontend](typescript.md): the Go
+  types, in the frontend.

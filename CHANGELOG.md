@@ -7,6 +7,19 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- TypeScript types for the frontend, generated from the Go types (TS1,
+  D352–D356): new package `web/typescript`. `typescript.Register(app,
+  srv, cfg)` adds the app's `types` command, which writes
+  `frontend/src/types/api.ts` (the typed handlers' inputs and results,
+  with the OpenAPI document's schemas and names, and, for the routes
+  under `Config.Prefix`, a client: `createApi()` with a function per
+  route, `ApiError` with the problem details, cookies, the XSRF header
+  or a bearer token) and `pages.ts` (the props of the Inertia pages
+  `inertia.WithPages` lists, the shared props, `PageProps<C>`, and the
+  augmentation that types `usePage()`); `--check` and
+  `typescript.Check` for tests. `go tool anetos generate` and `anetos
+  dev` run the command. `inertia.WithPages`: in development and tests,
+  rendering a page the app doesn't list is an error.
 - Pages in Vue, React or Svelte with Inertia (V2, D346–D351): new package
   `web/inertia`, the server side of Inertia's protocol (v3). Pages are
   declared with their props' Go type (`inertia.NewPage[P]("Posts/Index")`)
@@ -61,6 +74,11 @@ All notable changes to this project are documented here. The format follows
   each module's tests counting the code of the Anetos modules they use,
   into one `coverage.out`; CI's new `coverage` job runs it on the main branch
   and sends it to Codecov, and the README shows its badge (M9b, D332).
+
+### Fixed
+- `web/openapi`: a result's fields promoted through an embedded pointer
+  to an unexported struct, which `encoding/json` writes, are in its
+  schema (TS1).
 
 ### Removed
 - **BREAKING:** the names v0.5 deprecated (DR1, D338): every `ForApp`

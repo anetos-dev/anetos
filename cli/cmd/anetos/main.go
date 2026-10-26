@@ -20,7 +20,7 @@
 //	make:auth                 add accounts: registration, login, verification, reset, API tokens
 //	make:admin                add the admin interface (after make:auth)
 //	make:admin-resource <Model>  add a model to the admin
-//	generate [--check] [packages]  generate typed columns for models (default ./...)
+//	generate [--check] [packages]  generate typed columns for models (default ./...), and TypeScript types
 //	model:list [--json]       list the models: tables, columns, relations
 //	css:build [--check]       compile the Tailwind CSS stylesheet
 //	css:use [<framework>] [--force]  switch the project's CSS framework
@@ -53,6 +53,7 @@ import (
 	"strings"
 	"syscall"
 
+	"anetos.dev/anetos/cli/internal/frontend"
 	"anetos.dev/anetos/cli/internal/modelgen"
 	"anetos.dev/anetos/internal/cmdname"
 )
@@ -76,7 +77,7 @@ Commands:
   make:auth                 add accounts: registration, login, email verification, password reset, API tokens
   make:admin                add the admin interface at /admin (after make:auth)
   make:admin-resource <Model>  add a model to the admin (app/admin)
-  generate [--check] [packages]  generate typed columns for models (default ./...)
+  generate [--check] [packages]  generate typed columns for models (default ./...), and TypeScript types
   model:list [--json] [packages]  list the models: their tables, columns and relations
   css:build [--check]       compile views/ui/tailwind.css into public/static/app.css (Tailwind CSS)
   css:use [<framework>] [--force]  switch the project's CSS framework (anetos, none, pico, bootstrap, bulma, tailwind)
@@ -240,6 +241,8 @@ columns of every model (PostCols for Post) and the handles of its relation
 fields (PostRels, for fields with a rel tag). A model is a struct that embeds
 db.Model, db.Timestamps or db.SoftDeletes, has a TableName method, or has a
 //anetos:model comment; //anetos:skip excludes one. Packages default to ./...
+Then, in an app that writes the frontend's TypeScript types
+(typescript.Register in main.go), it runs go run . types.
 
 Flags:
 `)
@@ -269,7 +272,7 @@ Flags:
 			fmt.Fprintln(stderr, "anetos generate: run `go tool anetos generate` and commit the result")
 			return 1
 		}
-		return 0
+		return generateTypes(dir, true, stdout, stderr)
 	}
 	if err := modelgen.Apply(changes); err != nil {
 		fmt.Fprintln(stderr, "anetos generate:", err)
@@ -281,6 +284,24 @@ Flags:
 		} else {
 			fmt.Fprintf(stdout, "wrote %s (%s)\n", rel(dir, c.Path), strings.Join(c.Models, ", "))
 		}
+	}
+	return generateTypes(dir, false, stdout, stderr)
+}
+
+// generateTypes runs the app's types command (`go run . types`), which
+// writes the frontend's TypeScript types, when the app has it
+// (typescript.Register); with check, it fails if they are out of date.
+func generateTypes(dir string, check bool, stdout, stderr io.Writer) int {
+	if !frontend.UsesTypes(dir) {
+		return 0
+	}
+	args := []string{"run", ".", "types"}
+	if check {
+		args = append(args, "--check")
+	}
+	if err := runGoOut(context.Background(), dir, stdout, stderr, args...); err != nil {
+		fmt.Fprintf(stderr, "anetos generate: go run . types: %v\n", err)
+		return 1
 	}
 	return 0
 }

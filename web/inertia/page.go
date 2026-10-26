@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"anetos.dev/anetos/internal/jsonfield"
 	"anetos.dev/anetos/session"
 	"anetos.dev/anetos/view"
 	"anetos.dev/anetos/web"
@@ -56,12 +57,40 @@ func NewPage[P any](component string) *Page[P] {
 // Component returns the page's component name.
 func (p *Page[P]) Component() string { return p.component }
 
+// PropsType returns P, for tools.
+func (p *Page[P]) PropsType() reflect.Type { return reflect.TypeFor[P]() }
+
+// AnyPage is a [Page] of any props type, for [WithPages].
+type AnyPage interface {
+	// Component returns the page's component name.
+	Component() string
+	// PropsType returns the page's props type.
+	PropsType() reflect.Type
+}
+
+// PropType reports whether t is a [Prop] type, and the type of its
+// value, for tools: string for Prop[string].
+func PropType(t reflect.Type) (reflect.Type, bool) {
+	if t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	if !t.Implements(propType) {
+		return nil, false
+	}
+	return reflect.Zero(t).Interface().(propValue).valueType(), true
+}
+
 // Render responds with the page and props (and the shared props of
 // [WithShared]), status 200: the page object for a visit of Inertia's
-// client, the root view's HTML for the first one. Its [Prop] fields are
+// client, the root view's HTML for the first one. In development and
+// tests, once the app lists pages ([WithPages]), a page it doesn't list
+// is an error. Its [Prop] fields are
 // resolved as the visit asks; an error of one fails the response, unless
 // it is a rescued deferred prop. The Inertia is the context's ([From]).
 func (p *Page[P]) Render(c *web.Ctx, props P) error {
+	if in, err := From(c); err == nil && in.strict && in.listed != nil && !in.listed[p.component] {
+		return fmt.Errorf("inertia: the page %q isn't in inertia.WithPages: add it to the list, so its props get TypeScript types", p.component)
+	}
 	return render(c, http.StatusOK, p.component, p.plan, reflect.ValueOf(props), nil)
 }
 
@@ -100,72 +129,26 @@ func planFor(t reflect.Type) (*plan, error) {
 	if t.Kind() != reflect.Struct {
 		return nil, fmt.Errorf("props must be a struct or inertia.Props, not %s", t)
 	}
-	// The fields encoding/json writes: by name, the shallowest wins, then
-	// the one with a json tag.
-	type candidate struct {
-		field
-		tagged bool
+	fields, ambiguous := jsonfield.Written(t) // as encoding/json writes them
+	if len(ambiguous) > 0 {
+		return nil, fmt.Errorf("%s has two fields tagged %q at one depth", t, ambiguous[0])
 	}
-	byName := map[string][]candidate{}
-	var order []string
-	for _, f := range reflect.VisibleFields(t) {
-		tag := f.Tag.Get("json")
-		if tag == "-" {
-			continue
+	pl := &plan{}
+	for _, f := range fields {
+		if f.Name == "errors" {
+			return nil, fmt.Errorf("%s.%s: the prop name errors is Inertia's, for the validation errors", t, f.Field.Name)
 		}
-		name, opts, _ := strings.Cut(tag, ",")
-		if f.Anonymous && name == "" && (f.Type.Kind() == reflect.Struct || f.Type.Kind() == reflect.Pointer && f.Type.Elem().Kind() == reflect.Struct) {
-			continue // its fields are the props
-		}
-		if !f.IsExported() {
-			continue
-		}
-		c := candidate{field: field{name: name, index: f.Index, isProp: f.Type.Implements(propType)}, tagged: name != ""}
-		if name == "" {
-			c.name = f.Name
-		}
+		fd := field{name: f.Name, index: f.Index, isProp: f.Field.Type.Implements(propType)}
+		_, opts, _ := strings.Cut(f.Field.Tag.Get("json"), ",")
 		for o := range strings.SplitSeq(opts, ",") {
 			switch o {
 			case "omitempty":
-				c.omitEmpty = true
+				fd.omitEmpty = true
 			case "omitzero":
-				c.omitZero = true
+				fd.omitZero = true
 			}
 		}
-		if _, ok := byName[c.name]; !ok {
-			order = append(order, c.name)
-		}
-		byName[c.name] = append(byName[c.name], c)
-	}
-	pl := &plan{}
-	for _, name := range order {
-		cs := byName[name]
-		depth := len(cs[0].index)
-		for _, c := range cs {
-			depth = min(depth, len(c.index))
-		}
-		var top []candidate
-		for _, c := range cs {
-			if len(c.index) == depth {
-				top = append(top, c)
-			}
-		}
-		if len(top) > 1 {
-			var tagged []candidate
-			for _, c := range top {
-				if c.tagged {
-					tagged = append(tagged, c)
-				}
-			}
-			if len(tagged) != 1 {
-				return nil, fmt.Errorf("%s has two fields tagged %q at one depth", t, name)
-			}
-			top = tagged
-		}
-		if name == "errors" {
-			return nil, fmt.Errorf("%s: the prop name errors is Inertia's, for the validation errors", t)
-		}
-		pl.fields = append(pl.fields, top[0].field)
+		pl.fields = append(pl.fields, fd)
 	}
 	return pl, nil
 }

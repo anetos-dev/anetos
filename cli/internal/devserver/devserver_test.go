@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -401,4 +402,98 @@ func TestDevViteFails(t *testing.T) {
 	if got := out.String(); got != "port taken\n" {
 		t.Errorf("output: %q", got)
 	}
+}
+
+// typesApp is an app with a types command, as typescript.Register adds.
+const typesApp = `package main
+
+import (
+	"fmt"
+	"net/http"
+	"os"
+)
+
+// typescript stands in for web/typescript, main for an app whose setup
+// calls typescript.Register.
+var typescript struct{ Register func(...any) }
+
+func main() {
+	if typescript.Register != nil {
+		typescript.Register()
+	}
+	if len(os.Args) > 1 && os.Args[1] == "types" {
+		if os.Getenv("FAIL_TYPES") != "" {
+			fmt.Println("types failed")
+			os.Exit(1)
+		}
+		_ = os.WriteFile("types.ts", []byte("CONTENT\n"), 0o644)
+		fmt.Println("wrote types.ts")
+		return
+	}
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "app") })
+	if err := http.ListenAndServe(os.Getenv("HTTP_ADDR"), nil); err != nil {
+		panic(err)
+	}
+}
+`
+
+// anetos dev runs the app's types command after each build; a failure is
+// logged, and the app starts all the same.
+func TestDevTypes(t *testing.T) {
+	if testing.Short() {
+		t.Skip("builds programs")
+	}
+	for _, fail := range []bool{false, true} {
+		dir := t.TempDir()
+		write(t, filepath.Join(dir, "go.mod"), "module devtest\n\ngo 1.26\n")
+		write(t, filepath.Join(dir, "main.go"), strings.Replace(typesApp, "CONTENT", "export type T = 1", 1))
+		if fail {
+			t.Setenv("FAIL_TYPES", "1")
+		}
+		var out syncBuffer
+		ctx, cancel := context.WithCancel(context.Background())
+		addrCh := make(chan string, 1)
+		done := make(chan error, 1)
+		go func() {
+			done <- Run(ctx, Options{Dir: dir, Addr: "127.0.0.1:0", Poll: time.Hour, Out: &out, OnListen: func(a string) { addrCh <- a }})
+		}()
+		addr := <-addrCh
+		deadline := time.Now().Add(3 * time.Minute)
+		for !strings.Contains(out.String(), "ready in") && time.Now().Before(deadline) {
+			time.Sleep(50 * time.Millisecond)
+		}
+		res, err := http.Get("http://" + addr + "/")
+		if err == nil {
+			res.Body.Close()
+		}
+		cancel()
+		<-done
+		b, _ := os.ReadFile(filepath.Join(dir, "types.ts"))
+		switch {
+		case err != nil || res.StatusCode != 200:
+			t.Errorf("fail=%v: the app: %v", fail, err)
+		case !fail && (string(b) != "export type T = 1\n" || !strings.Contains(out.String(), "anetos dev: wrote types.ts")):
+			t.Errorf("types not written: %q\n%s", b, out.String())
+		case fail && !strings.Contains(out.String(), "the frontend's TypeScript types weren't written: types failed"):
+			t.Errorf("failure not logged:\n%s", out.String())
+		}
+	}
+}
+
+// syncBuffer is a bytes.Buffer safe for concurrent writes.
+type syncBuffer struct {
+	mu sync.Mutex
+	b  bytes.Buffer
+}
+
+func (s *syncBuffer) Write(p []byte) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.b.Write(p)
+}
+
+func (s *syncBuffer) String() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.b.String()
 }

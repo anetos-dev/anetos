@@ -27,10 +27,14 @@ type Inertia struct {
 	version string
 	encrypt bool
 	shared  []shared
+	pages   []AnyPage
+	listed  map[string]bool // the listed pages' components
+	strict  bool            // refuse pages not listed: in development and tests
 }
 
 // shared is a WithShared function and the plan of its result.
 type shared struct {
+	typ  reflect.Type
 	plan *plan
 	get  func(c *web.Ctx) (reflect.Value, error)
 }
@@ -73,12 +77,53 @@ func WithShared[S any](fn func(c *web.Ctx) (S, error)) Option {
 		if err != nil {
 			return fmt.Errorf("inertia: WithShared: %w", err)
 		}
-		in.shared = append(in.shared, shared{plan: pl, get: func(c *web.Ctx) (reflect.Value, error) {
+		in.shared = append(in.shared, shared{typ: reflect.TypeFor[S](), plan: pl, get: func(c *web.Ctx) (reflect.Value, error) {
 			v, err := fn(c)
 			return reflect.ValueOf(v), err
 		}})
 		return nil
 	}
+}
+
+// WithPages lists the app's pages: the TypeScript types of their props
+// are generated from the list (web/typescript), so in development and
+// tests, once the app lists pages, rendering a page it doesn't list
+// fails, saying to add it. A package of handlers can export its pages
+// for setup to list:
+//
+//	var Pages = []inertia.AnyPage{postsIndex, postsCreate}
+//
+// Two pages of one component are an error.
+func WithPages(pages ...AnyPage) Option {
+	return func(in *Inertia) error {
+		for _, p := range pages {
+			if p == nil {
+				return errors.New("inertia: WithPages: a nil page")
+			}
+			if in.listed == nil {
+				in.listed = map[string]bool{}
+			}
+			if in.listed[p.Component()] {
+				return fmt.Errorf("inertia: WithPages: %q is listed twice", p.Component())
+			}
+			in.listed[p.Component()] = true
+			in.pages = append(in.pages, p)
+		}
+		return nil
+	}
+}
+
+// Pages returns the pages [WithPages] listed, in order, for tools.
+func (in *Inertia) Pages() []AnyPage { return in.pages }
+
+// SharedTypes returns the types of the shared props ([WithShared]'s
+// results), in order, for tools.
+func (in *Inertia) SharedTypes() []reflect.Type {
+	out := make([]reflect.Type, len(in.shared))
+	for i, sh := range in.shared {
+		out[i] = sh.typ
+	}
+	return out
 }
 
 type ctxKey struct{}
@@ -108,18 +153,21 @@ func New(app *anetos.App, root view.Component, opts ...Option) (*Inertia, error)
 	if err != nil {
 		return nil, err
 	}
+	env := app.Config().Env
+	in.strict = env.IsDevelopment() || env.IsTesting()
 	anetos.Provide(app, in)
 	app.AddContextValue(ctxKey{}, in)
 	return in, nil
 }
 
 // NewWithRoot returns an Inertia for root without an app, for tests and
-// tools; [WithInertia] puts it in a context.
+// tools; [WithInertia] puts it in a context. It refuses pages
+// [WithPages] doesn't list, as an app's does in development.
 func NewWithRoot(root view.Component, opts ...Option) (*Inertia, error) {
 	if root == nil {
 		return nil, errors.New("inertia: the root view is nil")
 	}
-	in := &Inertia{root: root}
+	in := &Inertia{root: root, strict: true}
 	for _, opt := range opts {
 		if err := opt(in); err != nil {
 			return nil, err

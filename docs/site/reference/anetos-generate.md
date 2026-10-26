@@ -25,6 +25,12 @@ Package patterns are the ones `go build` takes. Exit status: 0 on
 success, 1 on errors (or out-of-date files with `--check`), 2 for bad
 usage.
 
+Since v0.6, in an app that writes the frontend's TypeScript types (its
+`main.go` calls `typescript.Register`), it then runs `go run . types`
+(`--check` too), which runs the app's `setup` and so needs its settings
+(`APP_KEY`; in CI too): see
+[Generate TypeScript types for the frontend](../guides/typescript.md).
+
 ## Which structs are models
 
 A named, non-generic struct type declared at package level (in a non-test

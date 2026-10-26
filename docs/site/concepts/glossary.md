@@ -99,6 +99,7 @@ a new idea, and is listed here.
 | **Prop** | A value an Inertia page's component gets: a field of the page's props struct, named by its `json` tag. An `inertia.Prop[T]` field is loaded as it says: computed only when sent, after the page shows (deferred), only when asked for (optional), merged into the value the page holds, or once | A component's props (React, Svelte, Vue) |
 | **Shared props** | Props every Inertia page gets (`inertia.WithShared`), such as the app's name or the logged-in user | Inertia's shared data |
 | **Root view** | The templ component of an Inertia app's first visit: it loads the frontend and places `@inertia.App()`, which holds the page | Inertia's root template |
+| **Generated types** | The TypeScript types a frontend imports, written from the app's Go types by its `types` command (`typescript.Register`, since v0.6): the typed handlers' inputs and results, a client with a function per API route, and the props of the Inertia pages `inertia.WithPages` lists. See [Generate TypeScript types for the frontend](../guides/typescript.md) | Generated API clients (OpenAPI generators, tRPC); types shared between server and client |
 | **Catalog** | One locale's translations, in YAML files under `locales/`. See [Translations](../guides/translations.md) | Message files: Django's `.po` files, Laravel's `lang/`, Rails' `config/locales` |
 
 ## Plugins

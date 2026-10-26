@@ -47,6 +47,7 @@ import (
 	"anetos.dev/anetos/cmd"
 	"anetos.dev/anetos/internal/convert"
 	"anetos.dev/anetos/internal/jsonfield"
+	"anetos.dev/anetos/internal/jsonschema"
 	"anetos.dev/anetos/validate"
 	"anetos.dev/anetos/web"
 )
@@ -122,7 +123,7 @@ func build(r *web.Router, cfg Config) ([]byte, []string, []string, error) {
 		return nil, nil, nil, errors.New("openapi: Config.Title is empty")
 	}
 	cfg = cfg.withDefaults()
-	g := &generator{cfg: cfg, schemas: newSchemas(), schemes: map[string]bool{}, ids: map[string]bool{}, responses: map[string]bool{}}
+	g := &generator{cfg: cfg, schemas: jsonschema.NewSet(), schemes: map[string]bool{}, ids: map[string]bool{}, responses: map[string]bool{}}
 	paths := map[string]*object{}
 	shapes := map[string]string{} // paths with their wildcards unnamed
 	var order []string
@@ -150,7 +151,7 @@ func build(r *web.Router, cfg Config) ([]byte, []string, []string, error) {
 		}
 		paths[p].add(method, op)
 	}
-	nameComponents(g.schemas.order)
+	jsonschema.NameComponents(g.schemas.Components())
 	if len(g.schemes) > 0 {
 		// Where some operations need credentials, say the others don't.
 		for _, op := range g.public {
@@ -185,10 +186,10 @@ func build(r *web.Router, cfg Config) ([]byte, []string, []string, error) {
 
 	var comps object
 	var schemaObj object
-	sorted := slices.Clone(g.schemas.order)
-	slices.SortFunc(sorted, func(a, b *component) int { return strings.Compare(a.name, b.name) })
+	sorted := slices.Clone(g.schemas.Components())
+	slices.SortFunc(sorted, func(a, b *jsonschema.Component) int { return strings.Compare(a.Name, b.Name) })
 	for _, c := range sorted {
-		schemaObj.add(c.name, c.schema)
+		schemaObj.add(c.Name, c.Schema)
 	}
 	if g.problem || len(g.responses) > 0 {
 		schemaObj = withSchema(schemaObj, "Problem", problemSchema)
@@ -218,12 +219,12 @@ func build(r *web.Router, cfg Config) ([]byte, []string, []string, error) {
 	if err := jsonIndent(&out, body); err != nil {
 		return nil, nil, nil, fmt.Errorf("openapi: %w", err)
 	}
-	return out.Bytes(), slices.Sorted(maps.Keys(g.schemas.warnings)), g.leftOut, nil
+	return out.Bytes(), g.schemas.Warnings(), g.leftOut, nil
 }
 
 // withSchema adds a schema to the components' schemas, in its place
 // by name.
-func withSchema(schemas object, name string, sc *schema) object {
+func withSchema(schemas object, name string, sc *jsonschema.Schema) object {
 	var out object
 	added := false
 	for i, k := range schemas.keys {
@@ -256,7 +257,7 @@ func sortedMethods(o *object) object {
 
 type generator struct {
 	cfg       Config
-	schemas   *schemas
+	schemas   *jsonschema.Set
 	schemes   map[string]bool // security schemes used
 	ids       map[string]bool // operationIds used
 	problem   bool            // the Problem schema is used
@@ -283,11 +284,11 @@ func (g *generator) selected(rt web.RouteInfo) bool {
 	}
 	switch {
 	case rt.Method == "":
-		g.schemas.warn("%s: a route for every method isn't described", rt.Pattern)
+		g.schemas.Warn("%s: a route for every method isn't described", rt.Pattern)
 		g.omit("any method " + rt.Pattern)
 		return false
 	case rt.Input == nil:
-		g.schemas.warn("%s %s: not a typed handler (web.H, registered as web.H returns it): left out", rt.Method, rt.Pattern)
+		g.schemas.Warn("%s %s: not a typed handler (web.H, registered as web.H returns it): left out", rt.Method, rt.Pattern)
 		g.omit(rt.Method + " " + rt.Pattern)
 		return false
 	}
@@ -365,7 +366,7 @@ func (g *generator) operation(rt web.RouteInfo) (*object, error) {
 		p.add("required", true)
 		i := slices.IndexFunc(ps, func(p param) bool { return p.in == "path" && p.name == name })
 		if i < 0 {
-			p.add("schema", &schema{typ: "string"})
+			p.add("schema", &jsonschema.Schema{Type: "string"})
 		} else {
 			g.describeParam(&p, ps[i])
 		}
@@ -471,16 +472,16 @@ func (g *generator) operation(rt web.RouteInfo) (*object, error) {
 // describeParam adds a parameter's schema (and style, for lists).
 func (g *generator) describeParam(p *object, pm param) {
 	tag := pm.field.Tag.Get("validate")
-	sc := g.schemas.of(pm.field.Type, tag, jsonfield.Has(tag, "required"), true)
-	for _, s := range append([]*schema{sc}, sc.anyOf...) {
-		s.nullable = false // a parameter is absent or has a value
-		if len(s.enum) > 0 && s.enum[len(s.enum)-1] == nil {
-			s.enum = s.enum[:len(s.enum)-1]
+	sc := g.schemas.Of(pm.field.Type, tag, jsonfield.Has(tag, "required"), true)
+	for _, s := range append([]*jsonschema.Schema{sc}, sc.AnyOf...) {
+		s.Nullable = false // a parameter is absent or has a value
+		if len(s.Enum) > 0 && s.Enum[len(s.Enum)-1] == nil {
+			s.Enum = s.Enum[:len(s.Enum)-1]
 		}
 	}
 	if isDuration(pm.field.Type) {
 		// From text, a duration is time.ParseDuration's: "30s", "5m".
-		sc = &schema{typ: "string", description: `A duration: a number and a unit (ns, us, ms, s, m, h), such as "30s" or "1h30m".`}
+		sc = &jsonschema.Schema{Type: "string", Description: `A duration: a number and a unit (ns, us, ms, s, m, h), such as "30s" or "1h30m".`}
 	}
 	if d := pm.field.Tag.Get("description"); d != "" {
 		p.add("description", d)
@@ -504,10 +505,10 @@ func (g *generator) requestBody(method string, in reflect.Type) any {
 		return nil
 	}
 	forms := formFields(in)
-	hasFiles := slices.ContainsFunc(forms, func(f param) bool { return isFile(f.field.Type) })
+	hasFiles := slices.ContainsFunc(forms, func(f param) bool { return jsonschema.IsFile(f.field.Type) })
 	hasBody, required := false, false
 	for _, f := range jsonfield.Of(in) {
-		if !notInBody(f.Field) {
+		if !jsonschema.NotInBody(f.Field) {
 			hasBody = true
 			required = required || jsonfield.Has(f.Field.Tag.Get("validate"), "required")
 		}
@@ -519,18 +520,18 @@ func (g *generator) requestBody(method string, in reflect.Type) any {
 	if hasFiles {
 		// A multipart form: the fields web.H binds from forms, by their
 		// form names, and the files.
-		sc := &schema{typ: "object", properties: []property{}}
+		sc := &jsonschema.Schema{Type: "object", Properties: []jsonschema.Property{}}
 		required = false
 		for _, f := range forms {
 			tag := f.field.Tag.Get("validate")
 			req := jsonfield.Has(tag, "required")
-			ps := g.schemas.of(f.field.Type, tag, req, true)
-			for _, s := range append([]*schema{ps}, ps.anyOf...) {
-				s.nullable = false // a form field is there or not: never null
+			ps := g.schemas.Of(f.field.Type, tag, req, true)
+			for _, s := range append([]*jsonschema.Schema{ps}, ps.AnyOf...) {
+				s.Nullable = false // a form field is there or not: never null
 			}
-			sc.properties = append(sc.properties, property{f.name, ps})
+			sc.Properties = append(sc.Properties, jsonschema.Property{Name: f.name, Schema: ps})
 			if req {
-				sc.required = append(sc.required, f.name)
+				sc.Required = append(sc.Required, f.name)
 				required = true
 			}
 		}
@@ -539,7 +540,7 @@ func (g *generator) requestBody(method string, in reflect.Type) any {
 		content.add("multipart/form-data", mt)
 	} else {
 		var mt object
-		mt.add("schema", g.schemas.of(in, "", false, true))
+		mt.add("schema", g.schemas.Of(in, "", false, true))
 		content.add("application/json", mt)
 	}
 	var body object
@@ -574,7 +575,7 @@ func formFields(t reflect.Type) []param {
 		}
 		tag, ok := sf.Tag.Lookup("json")
 		name, _, _ := strings.Cut(tag, ",")
-		if !ok || name == "-" || isFile(sf.Type) || !formBindable(sf.Type) {
+		if !ok || name == "-" || jsonschema.IsFile(sf.Type) || !formBindable(sf.Type) {
 			continue
 		}
 		out = append(out, param{"form", cmp.Or(name, sf.Name), sf})
@@ -606,14 +607,14 @@ func formBindable(t reflect.Type) bool {
 func (g *generator) success(res *object, rt web.RouteInfo) {
 	out := rt.Output
 	if out.Implements(responderType) { // as web.H's result is: a value of Out
-		g.schemas.warn("%s %s: its result is a web.Responder, whose status and body are chosen as it runs: described as any 2XX", rt.Method, rt.Pattern)
+		g.schemas.Warn("%s %s: its result is a web.Responder, whose status and body are chosen as it runs: described as any 2XX", rt.Method, rt.Pattern)
 		var r object
 		r.add("description", "The handler's response (a web.Responder).")
 		res.add("2XX", r)
 		return
 	}
 	if out.Kind() == reflect.Interface {
-		g.schemas.warn("%s %s: its result is an interface (%s): described as any value; a nil one answers 204", rt.Method, rt.Pattern, out)
+		g.schemas.Warn("%s %s: its result is an interface (%s): described as any value; a nil one answers 204", rt.Method, rt.Pattern, out)
 	}
 	empty := out == emptyType
 	status := rt.Status
@@ -627,7 +628,7 @@ func (g *generator) success(res *object, rt web.RouteInfo) {
 	r.add("description", http.StatusText(status))
 	if !empty && status != http.StatusNoContent && status != http.StatusResetContent {
 		var mt object
-		mt.add("schema", g.schemas.of(out, "", false, false))
+		mt.add("schema", g.schemas.Of(out, "", false, false))
 		var content object
 		content.add("application/json", mt)
 		r.add("content", content)
@@ -649,14 +650,14 @@ func (g *generator) problemResponse(description string) object {
 }
 
 // problemSchema is web's problem details.
-var problemSchema = &schema{typ: "object", description: "Problem details (RFC 9457).", properties: []property{
-	{"type", &schema{typ: "string", description: `"about:blank": the status says what happened.`}},
-	{"title", &schema{typ: "string", description: "The status's title, in the request's language."}},
-	{"status", &schema{typ: "integer", description: "The HTTP status."}},
-	{"detail", &schema{typ: "string", description: "What went wrong, for people."}},
-	{"errors", &schema{typ: "object", additional: &schema{typ: "string"}, description: "A message per field of the request that has a problem."}},
-	{"request_id", &schema{typ: "string", description: "The request's ID, as in the logs."}},
-}, required: []string{"type", "title", "status"}}
+var problemSchema = &jsonschema.Schema{Type: "object", Description: "Problem details (RFC 9457).", Properties: []jsonschema.Property{
+	{Name: "type", Schema: &jsonschema.Schema{Type: "string", Description: `"about:blank": the status says what happened.`}},
+	{Name: "title", Schema: &jsonschema.Schema{Type: "string", Description: "The status's title, in the request's language."}},
+	{Name: "status", Schema: &jsonschema.Schema{Type: "integer", Description: "The HTTP status."}},
+	{Name: "detail", Schema: &jsonschema.Schema{Type: "string", Description: "What went wrong, for people."}},
+	{Name: "errors", Schema: &jsonschema.Schema{Type: "object", Additional: &jsonschema.Schema{Type: "string"}, Description: "A message per field of the request that has a problem."}},
+	{Name: "request_id", Schema: &jsonschema.Schema{Type: "string", Description: "The request's ID, as in the logs."}},
+}, Required: []string{"type", "title", "status"}}
 
 // The error responses every operation may have, in components/responses.
 const (

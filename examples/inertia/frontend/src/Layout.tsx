@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 // Layout is every page's frame: the app's name (a shared prop) and the
 // message the server flashed (inertia.Flash).
 export default function Layout({ children }: { children: ReactNode }) {
-  const page = usePage<{ appName: string }>()
+  const page = usePage() // the shared props are typed (types/pages.ts)
   const toast = page.flash?.toast as string | undefined
   return (
     <>

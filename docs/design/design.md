@@ -1609,6 +1609,75 @@ dependencies) is the server side of Inertia's protocol, v3:
   Server-side rendering, infinite scroll (`scrollProps`) and
   Precognition are left for later.
 
+**TypeScript types (TS1, D352–D356).** Package `web/typescript` writes
+the frontend's types from the app's Go types, at run time, as the
+OpenAPI document is written:
+
+- **The schemas** (D352): web/openapi's JSON Schema builder moved to
+  `internal/jsonschema` (the document is unchanged: its golden files
+  pass); `typescript.Generate(r, cfg)` builds schemas of the typed
+  routes' inputs, bodies and results, names the components as the
+  document does, and writes `api.ts` (an interface per component,
+  `Problem`, and, under `Config.Prefix`, each route's `<Op>Input` and
+  the client) and, with `Config.Inertia`, `pages.ts`. The names are
+  made TypeScript identifiers apart from each other, TypeScript's own
+  and the files' (`handlers.Order` is `HandlersOrder`; `Record`,
+  `Pages`, a second `PostsCreateInput` get a number). An input's path
+  parameters are the pattern's wildcards, as in the document; its
+  fields' schemas come from the document's per-field rules
+  (`json:",string"`, `description`); a result's fields are those
+  `encoding/json` writes, through an embedded pointer to an
+  unexported struct too (`jsonfield.Written`, which the document's
+  results now use as well). An input's
+  `validate` rules shape it where TypeScript can (`required`, `in`'s
+  union with `""` when not required). The files go to
+  `frontend/src/types` (`Config.Dir`); `typescript.Register` adds the
+  `types` command (only changed files are written, so Vite doesn't
+  reload), `--check` and `typescript.Check` fail on stale files.
+- **Pages** (D353): `inertia.WithPages(pages...)` lists them
+  (`inertia.AnyPage`: `Component()`, `PropsType()`); `in.Pages()`,
+  `in.SharedTypes()` and `inertia.PropType` let the generator read them.
+  In development and tests (`NewWithRoot` too), once the app lists
+  pages, rendering a typed page it doesn't list is an error naming the
+  fix; untyped `inertia.Render` and error pages aren't checked, and an
+  empty list checks nothing. `inertia`'s props plan now uses
+  `jsonfield.Written`, the rules the types use (D356); two fields
+  tagged with one name at one depth still panic in `NewPage`.
+- **pages.ts** (D356): a `type` (not an interface: `usePage<T>` needs an
+  index signature) per page's and shared props' Go type, a `Prop[T]`
+  field optional (a deferred or optional prop is absent from the first
+  visit), `inertia.Props` as `Record<string, unknown>`, `ErrorProps`,
+  `SharedProps`, `Errors`, `Pages`, `PageProps<C>`, and the augmentation
+  of `@inertiajs/core`'s `InertiaConfig.sharedPageProps` (with a
+  type-only import of the module, which the augmentation needs).
+- **The client** (D354): `createApi(options)` returns an object of
+  functions grouped by the dots of the operation's name, as the
+  document names it (the route's name, the handler's method or
+  function, else the method and path; the functions under a name that
+  is also a function's are joined with it, `edgeSub`, whatever the
+  routes' order); each takes one object (optional when nothing in it is
+  required)
+  (parameters by name, the body's fields by JSON name), sends JSON or a
+  multipart form, resolves to the result (`void` for 204) and rejects
+  with `ApiError` (`status`, `problem`). Options: `baseUrl`, `token`
+  (bearer), `credentials` (`same-origin`), `headers`, `fetch`; the
+  `XSRF-TOKEN` cookie becomes `X-XSRF-TOKEN` on non-GET calls.
+- **The tool** (D355): `go tool anetos generate` runs `go run . types`
+  (`--check` with `--check`), and `anetos dev` runs the built app's
+  `types` after each build, logging a failure, when a Go file of the
+  app's root calls `typescript.Register(` (as `make:crud` detects
+  `openapi.Register(`).
+- Checked: the files compile under `tsc --strict` (TypeScript 7.0.2)
+  with `@inertiajs/react` 3.9.1's types, `usePage<Pages[C]>()` and the
+  augmentation included, and with names that clash (`TestNames`); the
+  client ran in Node 22 against a Go server (query arrays, headers,
+  path, a `{path...}` wildcard with `?` and `#`, bearer, JSON, a
+  `,string` field, 201, 204, 404 and 422 as `ApiError`, a multipart
+  upload). A list header is sent as one value (the generator warns). `examples/inertia` types its pages
+  from `pages.ts`. A nil slice or map is written as `null` while its
+  type says array or object (documented). Scaffolding the command
+  into projects is V3's and SP2's.
+
 ### 12.3 Admin interface (v0.3: AD1, AD2)
 
 An admin for the people who run a site: its records, its users and their
@@ -3501,6 +3570,11 @@ unless new information arrives), **Open**, **Superseded**.
 | D349 | An error page component that is also a `web.Responder` responds itself with the error's status; `inertia.ErrorPages(component)` renders the frontend's error component through Inertia | Accepted | Samiul's choice (2026-10-26): Inertia's client shows a non-Inertia response in a dialog; an error page in the page is what visitors should see. The router's other error behavior (JSON clients, the redirect back, debug pages) stays |
 | D350 | The asset version is the Vite build's manifest hash by default; a GET visit with another one gets 409 after the session is reflashed; what a request leaves for the next page (flash data, the error bag, history flags) is kept in the session's flash and read by the middleware before the handler | Accepted | The build changes exactly when the assets do; reflashing keeps messages across the reload the 409 causes; reading before the handler separates the previous request's data from this one's |
 | D351 | Tests of Inertia apps run in Go: `anetostest`'s `AsInertia`, `AssertInertia`, `AssertInertiaProp`, `InertiaPage`; `examples/inertia` (React) runs its Go tests without Node and was checked with the real client; frontend modules' `go.mod` files are left out of the repository's module loops | Accepted | The protocol is tested where the handlers are; the real client is the check that the protocol is right: done by hand for V2, and V3's generated stacks are to be built in CI |
+| D352 | TypeScript types are generated at run time by the app's `types` command (`web/typescript`), from the JSON Schemas of the OpenAPI document, moved to `internal/jsonschema`; they go to `frontend/src/types/api.ts` and `pages.ts` (`Config.Dir`), committed, with `--check` and `typescript.Check` for tests | Accepted | Samiul's choices (2026-10-26): the types come from the same schemas as the document, so a Go type has one shape in both (D336); a command beside `openapi`'s needs no database; two files keep the API's types apart from the pages' |
+| D353 | The Inertia pages are listed in setup (`inertia.WithPages`); in development and tests, once the app lists pages, rendering a typed page it doesn't list is an error | Accepted | Samiul's choice (2026-10-26): explicit (principle 2), and one generator for the API and the pages; reading the code for `NewPage` calls would need a second Go-to-TypeScript mapping. The check makes a forgotten page fail at once, not leave it untyped |
+| D354 | The client is a function per route under `Config.Prefix`, grouped by the route name's dots (`api.posts.show({ id })`), taking one object, resolving to the result and rejecting with `ApiError` (the problem details); it sends cookies (`same-origin`), the `XSRF-TOKEN` cookie as `X-XSRF-TOKEN`, or a bearer token | Accepted | Samiul's choice (2026-10-26): call sites read as the route names do, and errors carry what the server said; SP1's cookie login and v0.4's tokens both work without setup |
+| D355 | `go tool anetos generate` runs `go run . types` (with `--check` too) and `anetos dev` runs the built app's `types` after each build, when the app's `main` package calls `typescript.Register`; a failure in dev is logged, not fatal | Accepted | Samiul's choice (2026-10-26): the frontend's types follow the Go code as it is edited; detecting the call is how `make:crud` finds `openapi.Register`; a stale type shouldn't stop the app |
+| D356 | `pages.ts` writes props as `type` aliases (not interfaces: `usePage<T>` needs an index signature), a `Prop[T]` field as optional, and augments `@inertiajs/core`'s `InertiaConfig.sharedPageProps`; `inertia`'s props plan uses `internal/jsonfield`, the rules the types use | Accepted | Checked against Inertia's React types under `tsc --strict`; a deferred or optional prop is absent on the first visit, which the type must allow; one set of JSON rules for what is sent and what is typed |
 
 ---
 
@@ -3620,3 +3694,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-26 | v0.6 planned with Samiul (`docs/planning/v06-plan.md`): §12.2's SPA-style part rewritten as frontends two ways; D333–D337 added. DR1 (removing v0.5's deprecations): §7, §23 updated; D338–D340 added |
 | 2026-10-26 | V1 (Vite): §12.2 updated; D341–D345 added |
 | 2026-10-26 | V2 (Inertia adapter): §12.2 updated; D346–D351 added |
+| 2026-10-26 | TS1 (TypeScript types): §12.2 updated; D352–D356 added |

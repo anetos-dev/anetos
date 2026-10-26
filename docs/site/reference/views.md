@@ -95,6 +95,7 @@ Since v0.6. See [Pages in Vue, React or Svelte with Inertia](../guides/inertia.m
 | `inertia.WithVersion(v)` | Option: the asset version; a client's GET visit with another one gets 409 and reloads the page whole |
 | `inertia.WithShared(fn)` | Option: props for every page, `fn(c)`'s result (a struct, as a page's props, or `inertia.Props`); a page's prop of the same name wins. Listed in the page's `sharedProps` |
 | `inertia.WithEncryptHistory()` | Option: encrypt the pages' history state (HTTPS only) |
+| `inertia.WithPages(pages...)` | Option: the app's pages, whose props get TypeScript types (`web/typescript`); in development and tests, once the app lists pages, rendering a page it doesn't list is an error. `inertia.AnyPage` is any `*inertia.Page[P]` |
 | `inertia.NewPage[P](component)` | A page: its component name and props type, read once. Props are the fields as `encoding/json` writes them (`json` names, `omitempty`, `omitzero`, embedded structs, the shallowest field of a name). Panics on an empty name, a `P` that isn't a struct or `inertia.Props`, two fields tagged with one name at one depth, or a prop named `errors` |
 | `p.Render(c, props)` | Responds 200 with the page: JSON for a visit of the client (`X-Inertia: true`), the root view's HTML otherwise. Props are the fields, as `encoding/json` names them, the shared props, and `errors` |
 | `inertia.Render(c, component, props)` | The same with untyped `inertia.Props` |
@@ -111,7 +112,8 @@ Since v0.6. See [Pages in Vue, React or Svelte with Inertia](../guides/inertia.m
 | `inertia.App()` | Component for the root view's body: `<script data-page="app" type="application/json">` with the page object (`/` escaped), and `<div id="app">` |
 | `inertia.Component(ctx)` | The root view's page component, `""` elsewhere |
 | `inertia.ReadPage(body)` | A response's `*inertia.PageObject` (JSON or the first visit's HTML), for tests |
-| `inertia.From(ctx)`, `inertia.WithInertia(ctx, in)`, `inertia.NewWithRoot(root, opts...)` | The context's Inertia (or `inertia.ErrNoInertia`); a context carrying one; one without an app |
+| `inertia.From(ctx)`, `inertia.WithInertia(ctx, in)`, `inertia.NewWithRoot(root, opts...)` | The context's Inertia (or `inertia.ErrNoInertia`); a context carrying one; one without an app (refusing unlisted pages, as in development) |
+| `in.Pages()`, `in.SharedTypes()`, `p.PropsType()`, `inertia.PropType(t)` | For tools such as `web/typescript`: the listed pages, the shared props' types, a page's props type, and `T` for an `inertia.Prop[T]` |
 
 The `errors` prop is always there: the field errors the previous request
 flashed, one message per field (`{"title": "…"}`), under the error bag

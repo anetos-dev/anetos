@@ -2667,15 +2667,20 @@ pkg anetos.dev/anetos/web/inertia, func NewWithRoot(view.Component, ...Option) (
 pkg anetos.dev/anetos/web/inertia, func Once[T any](func(context.Context) (T, error)) Prop[T]
 pkg anetos.dev/anetos/web/inertia, func Optional[T any](func(context.Context) (T, error)) Prop[T]
 pkg anetos.dev/anetos/web/inertia, func PreserveFragment(context.Context)
+pkg anetos.dev/anetos/web/inertia, func PropType(reflect.Type) (reflect.Type, bool)
 pkg anetos.dev/anetos/web/inertia, func ReadPage([]byte) (*PageObject, error)
 pkg anetos.dev/anetos/web/inertia, func Render(*web.Ctx, string, Props) error
 pkg anetos.dev/anetos/web/inertia, func Value[T any](T) Prop[T]
 pkg anetos.dev/anetos/web/inertia, func WithEncryptHistory() Option
 pkg anetos.dev/anetos/web/inertia, func WithInertia(context.Context, *Inertia) context.Context
+pkg anetos.dev/anetos/web/inertia, func WithPages(...AnyPage) Option
 pkg anetos.dev/anetos/web/inertia, func WithShared[S any](func(*web.Ctx) (S, error)) Option
 pkg anetos.dev/anetos/web/inertia, func WithVersion(string) Option
+pkg anetos.dev/anetos/web/inertia, method (*Inertia) Pages() []AnyPage
+pkg anetos.dev/anetos/web/inertia, method (*Inertia) SharedTypes() []reflect.Type
 pkg anetos.dev/anetos/web/inertia, method (*Inertia) Version() string
 pkg anetos.dev/anetos/web/inertia, method (*Page[P]) Component() string
+pkg anetos.dev/anetos/web/inertia, method (*Page[P]) PropsType() reflect.Type
 pkg anetos.dev/anetos/web/inertia, method (*Page[P]) Render(*web.Ctx, P) error
 pkg anetos.dev/anetos/web/inertia, method (Prop[T]) Append(...string) Prop[T]
 pkg anetos.dev/anetos/web/inertia, method (Prop[T]) DeepMerge() Prop[T]
@@ -2688,6 +2693,9 @@ pkg anetos.dev/anetos/web/inertia, method (Prop[T]) OnceAs(string) Prop[T]
 pkg anetos.dev/anetos/web/inertia, method (Prop[T]) Prepend(...string) Prop[T]
 pkg anetos.dev/anetos/web/inertia, method (Prop[T]) Rescue() Prop[T]
 pkg anetos.dev/anetos/web/inertia, method (Prop[T]) Until(time.Time) Prop[T]
+pkg anetos.dev/anetos/web/inertia, type AnyPage interface
+pkg anetos.dev/anetos/web/inertia, type AnyPage interface, Component() string
+pkg anetos.dev/anetos/web/inertia, type AnyPage interface, PropsType() reflect.Type
 pkg anetos.dev/anetos/web/inertia, type ErrorProps struct
 pkg anetos.dev/anetos/web/inertia, type ErrorProps struct, Detail string
 pkg anetos.dev/anetos/web/inertia, type ErrorProps struct, RequestID string
@@ -2760,3 +2768,10 @@ pkg anetos.dev/anetos/web/ratelimit, type Result struct, Allowed bool
 pkg anetos.dev/anetos/web/ratelimit, type Result struct, Limit int
 pkg anetos.dev/anetos/web/ratelimit, type Result struct, Remaining int
 pkg anetos.dev/anetos/web/ratelimit, type Result struct, Reset time.Time
+pkg anetos.dev/anetos/web/typescript, func Check(*web.Router, Config) error
+pkg anetos.dev/anetos/web/typescript, func Generate(*web.Router, Config) (map[string][]byte, []string, error)
+pkg anetos.dev/anetos/web/typescript, func Register(*anetos.App, *web.Server, Config) error
+pkg anetos.dev/anetos/web/typescript, type Config struct
+pkg anetos.dev/anetos/web/typescript, type Config struct, Dir string
+pkg anetos.dev/anetos/web/typescript, type Config struct, Inertia *inertia.Inertia
+pkg anetos.dev/anetos/web/typescript, type Config struct, Prefix string

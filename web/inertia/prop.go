@@ -5,6 +5,7 @@ package inertia
 import (
 	"context"
 	"errors"
+	"reflect"
 	"slices"
 	"time"
 )
@@ -39,9 +40,14 @@ type spec struct {
 }
 
 // propValue is what a Prop of any T is to the renderer.
-type propValue interface{ propSpec() *spec }
+type propValue interface {
+	propSpec() *spec
+	valueType() reflect.Type
+}
 
 func (p Prop[T]) propSpec() *spec { return p.s }
+
+func (Prop[T]) valueType() reflect.Type { return reflect.TypeFor[T]() }
 
 func valueGetter[T any](v T) func(context.Context) (any, error) {
 	return func(context.Context) (any, error) { return v, nil }

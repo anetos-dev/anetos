@@ -6,7 +6,10 @@ import (
 	"net/http"
 	"testing"
 
+	"anetos.dev/anetos"
 	"anetos.dev/anetos/anetostest"
+	"anetos.dev/anetos/web/inertia"
+	"anetos.dev/anetos/web/typescript"
 )
 
 // region: test
@@ -58,3 +61,16 @@ func TestDeleteAndErrors(t *testing.T) {
 	app.Get("/boom").AssertStatus(http.StatusTeapot).AssertInertia("Error").AssertInertiaProp("detail", "This page is a teapot.")
 	app.Get("/nowhere").AssertNotFound().AssertInertia("Error")
 }
+
+// region: types-test
+// The frontend's TypeScript types are those of the Go types: a change to
+// a page's props without go run . types fails here.
+func TestTypes(t *testing.T) {
+	app := anetostest.New(t, setup)
+	in := anetos.MustResolve[*inertia.Inertia](app.App)
+	if err := typescript.Check(app.Router(), types(in)); err != nil {
+		t.Error(err)
+	}
+}
+
+// endregion

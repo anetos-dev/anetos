@@ -96,7 +96,9 @@ templ root() {
 
 In `main.go`'s `setup`, `inertia.New` takes the root view. Its options
 add shared props, which every page gets (the app's name, the logged-in
-user). In the routes, `inertia.Middleware` runs after the session and
+user), and list the pages, whose props get TypeScript types
+(`typescript.Register` adds the command that writes them: see
+[Generate TypeScript types for the frontend](typescript.md)). In the routes, `inertia.Middleware` runs after the session and
 CSRF middleware; `web.WithXSRFCookie` gives Inertia's client the CSRF
 token in the cookie it reads. `inertia.ErrorPages` makes the error pages
 the frontend's `Error` component:
@@ -115,7 +117,8 @@ func setup(app *anetos.App) (*web.Server, error) {
 		return nil, err
 	}
 	shared := func(*web.Ctx) (Shared, error) { return Shared{AppName: app.Config().Name}, nil }
-	if _, err := inertia.New(app, root(), inertia.WithShared(shared)); err != nil {
+	in, err := inertia.New(app, root(), inertia.WithShared(shared), inertia.WithPages(notesIndex, notesCreate))
+	if err != nil {
 		return nil, err
 	}
 
@@ -130,7 +133,18 @@ func setup(app *anetos.App) (*web.Server, error) {
 	g.Post("/notes", web.H(h.save))
 	g.Delete("/notes/{id}", h.delete)
 	g.Get("/boom", func(*web.Ctx) error { return web.Error(http.StatusTeapot, "This page is a teapot.") })
+
+	// go run . types writes the pages' props as TypeScript, in
+	// frontend/src/types (anetos dev does after each build).
+	if err := typescript.Register(app, srv, types(in)); err != nil {
+		return nil, err
+	}
 	return srv, nil
+}
+
+// types is where the frontend's TypeScript types come from.
+func types(in *inertia.Inertia) typescript.Config {
+	return typescript.Config{Inertia: in}
 }
 ```
 
@@ -212,11 +226,14 @@ func (h notes) save(c *web.Ctx, in NoteInput) (web.Responder, error) {
 
 (Copied from [`examples/inertia`](../../../examples/inertia/main.go), region `handlers`.)
 
-The component gets the props:
+The component gets the props, typed from the Go types
+(`frontend/src/types/pages.ts`, which `go run . types` writes):
 
 ```tsx
 // illustrative: frontend/src/pages/Notes/Index.tsx
-export default function Index({ notes, next, stats }: { notes: Note[]; next: number; stats?: Stats }) {
+import type { PageProps } from '../../types/pages'
+
+export default function Index({ notes = [], next, stats }: PageProps<'Notes/Index'>) {
   // …
 }
 ```
@@ -364,5 +381,7 @@ func TestNotes(t *testing.T) {
 
 - [Bundle JavaScript and CSS with Vite](vite.md): the frontend's build
   and development server.
+- [Generate TypeScript types for the frontend](typescript.md): the
+  props' types, kept in step with the Go code.
 - [Views, sessions and forms reference](../reference/views.md#inertia-pages-webinertia):
   every function of `web/inertia`.

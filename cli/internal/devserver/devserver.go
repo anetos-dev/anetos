@@ -194,7 +194,27 @@ func (d *dev) build() error {
 	if out, err := d.run(dir, "go", "build", "-o", d.bin, "."); err != nil {
 		return fmt.Errorf("%s", bytes.TrimSpace(out))
 	}
+	d.writeTypes()
 	return nil
+}
+
+// writeTypes brings the frontend's TypeScript types up to date with the
+// app's types command, when the app has it (web/typescript). A failure
+// doesn't stop the app: it is logged.
+func (d *dev) writeTypes() {
+	if !frontend.UsesTypes(d.opts.Dir) {
+		return
+	}
+	out, err := d.run(d.opts.Dir, d.bin, "types")
+	if err != nil {
+		d.logf("the frontend's TypeScript types weren't written: %s", bytes.TrimSpace(out))
+		return
+	}
+	for line := range strings.SplitSeq(strings.TrimSpace(string(out)), "\n") {
+		if strings.HasPrefix(line, "wrote ") {
+			d.logf("%s", line)
+		}
+	}
 }
 
 // Generate brings the project's generated code up to date, as anetos dev

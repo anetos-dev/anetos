@@ -12,6 +12,7 @@ import (
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"net/url"
+	"reflect"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -754,6 +755,36 @@ func TestPropsLikeJSON(t *testing.T) {
 	if pg, _ := inertia.ReadPage(serve(r, http.MethodGet, "/tied", "X-Inertia", "true").Body.Bytes()); pg.Props["Title"] != nil {
 		t.Errorf("tied fields: %v", keys(pg))
 	}
+	// A field promoted through an embedded pointer to an unexported
+	// struct is written, as encoding/json writes it; not when it's nil.
+	type hidden struct {
+		Hidden string `json:"hidden"`
+	}
+	type viaPtr struct {
+		*hidden
+		Name string `json:"name"`
+	}
+	vp := inertia.NewPage[viaPtr]("V")
+	r.Get("/via", func(c *web.Ctx) error { return vp.Render(c, viaPtr{&hidden{"h"}, "n"}) })
+	r.Get("/via-nil", func(c *web.Ctx) error { return vp.Render(c, viaPtr{nil, "n"}) })
+	if pg, _ := inertia.ReadPage(serve(r, http.MethodGet, "/via", "X-Inertia", "true").Body.Bytes()); string(pg.Props["hidden"]) != `"h"` {
+		t.Errorf("via an unexported pointer: %v", keys(pg))
+	}
+	if pg, _ := inertia.ReadPage(serve(r, http.MethodGet, "/via-nil", "X-Inertia", "true").Body.Bytes()); pg.Props["hidden"] != nil || pg.Props["name"] == nil {
+		t.Errorf("via a nil pointer: %v", keys(pg))
+	}
+}
+
+// withInertia is a router whose requests have in.
+func withInertia(in *inertia.Inertia, routes func(*web.Router)) *web.Router {
+	r := web.NewRouter()
+	r.UseGlobal(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			next.ServeHTTP(w, r.WithContext(inertia.WithInertia(r.Context(), in)))
+		})
+	})
+	routes(r)
+	return r
 }
 
 // Without the middleware, Flash and the history flags do nothing, and
@@ -829,5 +860,79 @@ func TestRootFails(t *testing.T) {
 	r.Get("/", func(c *web.Ctx) error { return inertia.Render(c, "X", nil) })
 	if rec := serve(r, http.MethodGet, "/"); rec.Code != 500 {
 		t.Errorf("broken root: %d", rec.Code)
+	}
+}
+
+// WithPages: the list tools read; in development and tests, a page it
+// doesn't list fails to render.
+func TestWithPages(t *testing.T) {
+	type A struct {
+		X inertia.Prop[[]int] `json:"x"`
+	}
+	a, b := inertia.NewPage[A]("A"), inertia.NewPage[A]("B")
+	if _, err := inertia.NewWithRoot(root, inertia.WithPages(a, a)); err == nil || !strings.Contains(err.Error(), `"A" is listed twice`) {
+		t.Errorf("twice: %v", err)
+	}
+	if _, err := inertia.NewWithRoot(root, inertia.WithPages(nil)); err == nil {
+		t.Error("a nil page")
+	}
+	in, err := inertia.NewWithRoot(root, inertia.WithPages(a), inertia.WithShared(func(*web.Ctx) (Shared, error) { return Shared{}, nil }))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(in.Pages()) != 1 || in.Pages()[0].Component() != "A" || in.Pages()[0].PropsType() != reflect.TypeFor[A]() ||
+		len(in.SharedTypes()) != 1 || in.SharedTypes()[0] != reflect.TypeFor[Shared]() {
+		t.Errorf("pages %v, shared %v", in.Pages(), in.SharedTypes())
+	}
+	if vt, ok := inertia.PropType(reflect.TypeFor[inertia.Prop[[]int]]()); !ok || vt != reflect.TypeFor[[]int]() {
+		t.Errorf("PropType: %v %v", vt, ok)
+	}
+	if _, ok := inertia.PropType(reflect.TypeFor[int]()); ok {
+		t.Error("PropType(int)")
+	}
+	if vt, ok := inertia.PropType(reflect.TypeFor[*inertia.Prop[string]]()); !ok || vt != reflect.TypeFor[string]() {
+		t.Errorf("PropType(*Prop): %v %v", vt, ok)
+	}
+	// An empty list checks nothing.
+	if none, err := inertia.NewWithRoot(root, inertia.WithPages()); err != nil {
+		t.Fatal(err)
+	} else if rec := serve(withInertia(none, func(r *web.Router) {
+		r.Get("/b", func(c *web.Ctx) error { return b.Render(c, A{}) })
+	}), http.MethodGet, "/b", "X-Inertia", "true"); rec.Code != 200 {
+		t.Errorf("WithPages(): %d", rec.Code)
+	}
+	r := web.NewRouter()
+	r.UseGlobal(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			next.ServeHTTP(w, r.WithContext(inertia.WithInertia(r.Context(), in)))
+		})
+	})
+	r.Get("/a", func(c *web.Ctx) error { return a.Render(c, A{}) })
+	r.Get("/b", func(c *web.Ctx) error { return b.Render(c, A{}) })
+	r.Get("/untyped", func(c *web.Ctx) error { return inertia.Render(c, "C", nil) })
+	for p, want := range map[string]int{"/a": 200, "/b": 500, "/untyped": 200} {
+		if rec := serve(r, http.MethodGet, p, "X-Inertia", "true"); rec.Code != want {
+			t.Errorf("%s: %d, want %d", p, rec.Code, want)
+		}
+	}
+	// In production, an app's unlisted page renders.
+	app, err := anetos.New(anetos.WithSource(config.Map{"APP_NAME": "x", "APP_ENV": "production", "APP_KEY": "base64:" + strings.Repeat("A", 43)}), anetos.WithLogOutput(io.Discard))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = app.Close() })
+	prod, err := inertia.New(app, root, inertia.WithPages(a))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r2 := web.NewRouter()
+	r2.UseGlobal(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			next.ServeHTTP(w, r.WithContext(inertia.WithInertia(r.Context(), prod)))
+		})
+	})
+	r2.Get("/b", func(c *web.Ctx) error { return b.Render(c, A{}) })
+	if rec := serve(r2, http.MethodGet, "/b", "X-Inertia", "true"); rec.Code != 200 {
+		t.Errorf("production: %d", rec.Code)
 	}
 }
