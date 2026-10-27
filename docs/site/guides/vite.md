@@ -19,7 +19,8 @@ interactive widget in one of your pages.
 ## Before you start
 
 - A web project ([Create a project](../getting-started/create-a-project.md)).
-  An API project's frontend is a separate app.
+  An API project's frontend is a single-page app: see [Build a
+  single-page app](spa.md).
 - [Node.js](https://nodejs.org) 20.19 or later in 20, or 22.12 or
   later, with npm. Only the frontend needs it: the Go app doesn't, and
   neither do its tests.

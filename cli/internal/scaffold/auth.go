@@ -175,10 +175,20 @@ func MakeAuth(root string, now time.Time) (AuthResult, error) {
 		}
 	}
 	// undo leaves the project as it was.
+	// The SPA the app serves (vite:install, before make:auth) is at
+	// APP_URL: the emails link there.
+	spaOrigin := ""
+	if res.API && ServesSPA(root) {
+		if b, err := os.ReadFile(filepath.Join(root, "deploy", "production.env.example")); err == nil {
+			spaOrigin = appOrigin(b)
+		}
+	}
 	settings := func(name string) string {
 		switch {
 		case !res.API:
 			return socialSettings
+		case name == "deploy/production.env.example" && spaOrigin != "":
+			return strings.Replace(clientSettingsProd, "https://app.example.com", spaOrigin, 1)
 		case name == "deploy/production.env.example":
 			return clientSettingsProd
 		}

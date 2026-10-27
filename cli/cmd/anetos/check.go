@@ -34,7 +34,7 @@ before calling a change done. In order, stopping at the first failure:
             tailwindcss binary on first use; offline, a note)
   frontend  in a project with frontend/: its packages' install if they
             need it, and its build script (TypeScript's checks, vite
-            build into public/build); it needs Node.js
+            build into public/build, or public/spa); it needs Node.js
   build     go build ./...
   vet       go vet ./...
   test      go test ./... (--short: go test -short ./...)

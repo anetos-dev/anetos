@@ -58,8 +58,21 @@ func TestNeedsInstall(t *testing.T) {
 	api := t.TempDir()
 	write(t, filepath.Join(api, "routes", "api.go"), "package routes\n")
 	write(t, filepath.Join(api, Dir, "package.json"), "{}")
-	if Uses(api) {
+	if Uses(api) || SPA(api) {
 		t.Error("Uses in an api project")
+	}
+	// One that serves it as its SPA (vite.SPA in main.go): it is the
+	// app's.
+	write(t, filepath.Join(api, "main.go"), "package main\n\n// vite.SPA(app, public.Files) in setup\n")
+	if Uses(api) || SPA(api) {
+		t.Error("Uses in an api project that names vite.SPA in a comment")
+	}
+	write(t, filepath.Join(api, "main.go"), "package main\n\nfunc setup() {\n\tspa, err := vite.SPA(app, public.Files)\n}\n")
+	if !Uses(api) || !SPA(api) || SPA(dir) {
+		t.Error("an api project's SPA")
+	}
+	if got := strings.Join(SPADevArgs("vite.js"), " "); got != "vite.js --clearScreen false" {
+		t.Errorf("SPADevArgs: %s", got)
 	}
 	fe := filepath.Join(dir, Dir)
 	write(t, filepath.Join(fe, "package.json"), "{}")

@@ -38,7 +38,8 @@ built bin/blog (linux/amd64, 18.3 MB)
 ```
 
 `anetos build` generates the templ views and typed columns, builds the
-frontend if the project has one ([Vite](vite.md), with Node.js), then
+frontend if the project has one ([Vite](vite.md), or an API project's
+[single-page app](spa.md), with Node.js), then
 builds a static binary (`CGO_ENABLED=0`, `-trimpath`, without debug
 symbols).
 `--target` builds for another system, a Linux server from a Mac say:
@@ -89,7 +90,7 @@ apply only with `HTTP_SPA_ORIGINS`; it adds:
 |---|---|
 | `AUTH_CLIENT_URL` | After `make:auth`: the client app's address (`https://app.example.com`), which the verification and password reset emails link to. The app refuses to start without it in production |
 | `HTTP_CORS_ORIGINS` | The origins of browser apps that call the API (`https://app.example.com`), comma-separated; empty, none may. Server-side clients and mobile apps don't need it |
-| `HTTP_SPA_ORIGINS` | After `make:auth`: the origins of the app's own SPA, which logs in with a session cookie (`https://app.example.com`); `SESSION_DOMAIN` when it's on another subdomain than the API |
+| `HTTP_SPA_ORIGINS` | After `make:auth`: the origins of the app's own SPA, which logs in with a session cookie (`https://app.example.com`); `SESSION_DOMAIN` when it's on another subdomain than the API. An SPA the app serves ([Build a single-page app](spa.md)) is at `APP_URL`'s origin |
 
 The app serves its API's description at `/api/v1/openapi.json`, made
 from its routes; commit `openapi.json` with the code, for reviewers and
@@ -176,7 +177,8 @@ stylesheet first, with Tailwind CSS downloaded once into BuildKit's
 cache, so the build needs to reach GitHub's releases the first time
 ([Tailwind CSS](tailwind.md)). A project with a frontend
 ([Vite](vite.md)) builds it first in a `node:22-alpine` stage (`npm ci`,
-`npm run build`) and copies `public/build` into the Go stage, which runs
+`npm run build`) and copies `public/build` (an SPA's `public/spa`) into
+the Go stage, which runs
 `anetos build --no-frontend`; the final image has no Node. The image sets
 `APP_ENV=production` and `STORAGE_ROOT=/data/storage` (and
 `DB_NAME=/data/app.db` and `DB_MIGRATE_ON_START=true` for SQLite), and

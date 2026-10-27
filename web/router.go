@@ -66,14 +66,15 @@ type routerCore struct {
 	errorHandler ErrorHandler
 	errorPage    func(*Ctx, ErrorPage) view.Component // ErrorPages; under mu
 
-	mu      sync.RWMutex
-	names   map[string]*Route
-	routes  []*Route
-	methods map[string]bool // methods used by registered routes, for Allow
-	statics []static        // Static's file systems, tried before a 404
-	global  []Middleware
-	built   bool
-	handler atomic.Pointer[http.Handler] // global(mux), built on first request
+	mu        sync.RWMutex
+	names     map[string]*Route
+	routes    []*Route
+	methods   map[string]bool // methods used by registered routes, for Allow
+	statics   []static        // Static's file systems, tried before a 404
+	fallbackH http.Handler    // Fallback's handler, after them
+	global    []Middleware
+	built     bool
+	handler   atomic.Pointer[http.Handler] // global(mux), built on first request
 }
 
 // RouterOption configures [NewRouter].
@@ -435,11 +436,18 @@ func (c *routerCore) build() *http.Handler {
 
 // fallback handles requests no route matched: 204 for OPTIONS, 405 with an
 // Allow header if the path exists for other methods, a file of
-// [Router.Static], otherwise 404.
+// [Router.Static], the handler of [Router.Fallback], otherwise 404.
 func (r *Router) fallback(w http.ResponseWriter, req *http.Request) {
 	c := &Ctx{w: wrapWriter(w), r: req, router: r}
 	allowed := r.allowedMethods(req)
 	if len(allowed) == 0 && r.serveStatic(w, req) {
+		return
+	}
+	r.core.mu.RLock()
+	fallback := r.core.fallbackH
+	r.core.mu.RUnlock()
+	if len(allowed) == 0 && fallback != nil {
+		fallback.ServeHTTP(w, req)
 		return
 	}
 	switch {

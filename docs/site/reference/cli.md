@@ -30,9 +30,9 @@ status: 0 on success, 1 on errors, 2 for bad usage.
 |---|---|---|
 | `--module` | the directory's name | Go module path |
 | `--db` | `sqlite` | `sqlite`, `postgres` or `mysql`: the driver in `main.go` and the `DB_*` settings in `.env` |
-| `--stack` | `web` | `web`: pages rendered on the server, with sessions and CSRF protection; `api`: JSON only, no views, static files or sessions ([the API project](#the-api-project)) |
+| `--stack` | `web` | `web`: pages rendered on the server, with sessions and CSRF protection; `api`: JSON only, no views or static files, sessions only for its own SPA's login ([the API project](#the-api-project)); with `--vite`, a single-page app served at `/` |
 | `--css` | `anetos` | The web stack's CSS framework: the components of `views/ui` and the stylesheet, `public/static/app.css`. `anetos`: the starter theme (light and dark, no build step) and components writing its classes; `none`: components writing plain HTML without classes, and a stylesheet holding only a comment, for your own CSS or a CSS framework; `pico`, `bootstrap`, `bulma`: components writing Pico 2.1.1's, Bootstrap 5.3.8's or Bulma 1.0.4's markup, with the framework's files as released in `public/static/` (and its license), and an `app.css` for the rest; `tailwind`: components with Tailwind CSS 4.3.3's classes, `views/ui/tailwind.css` and the `app.css` Tailwind compiles from it (`css:build`). See [Style your app](../guides/styling.md). Refused with `--stack=api` |
-| `--vite[=ts\|js]` | none | A frontend that Vite builds, in TypeScript (`--vite`) or JavaScript (`--vite=js`), loaded by the layout (web stack only; since v0.6): see [`vite:install`](#other-commands), which writes the same; `anetos new` then installs its packages with npm (Node.js 20.19 or 22.12 or later; without Node.js, it says so and goes on) |
+| `--vite[=ts\|js]` | none | A frontend that Vite builds, in TypeScript (`--vite`) or JavaScript (`--vite=js`) (since v0.6): the web stack's layout loads it; the api stack's is a single-page app the app serves at `/` (and `anetos new` runs `go run . types`, its client). See [`vite:install`](#other-commands), which writes the same; `anetos new` then installs its packages with npm (Node.js 20.19 or 22.12 or later; without Node.js, it says so and goes on) |
 | `--no-agent` | `false` | Don't write the files coding agents read (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, the skills); see [`agent:install`](#anetos-agentinstall-and-agentupdate) |
 | `--skip-install` | `false` | Only write the files |
 | `--replace` | | A local Anetos checkout, used through `replace` directives (framework development): the core, the tool, and every driver and plugin module of the checkout, so `go get` and `anetos add` take them from it too |
@@ -85,6 +85,7 @@ static files:
 | `locales/en/app.yaml` | The API's English messages |
 | `main_test.go` | Tests of `GET /api/v1`, of a missing URL's problem details, and that `openapi.json` is up to date (`openapi.Check`) |
 | `openapi.json` | The API's OpenAPI 3.1 description, written by `go run . openapi` (not with `--skip-install`) and served at `/api/v1/openapi.json`; `main.go` calls `openapi.Register`. See [Describe an API with OpenAPI](../guides/openapi.md) |
+| `frontend/`, `public/public.go` | With `--vite` (since v0.6): the single-page app and its build's folder, served at `/` ([Build a single-page app](../guides/spa.md); see [`vite:install`](#other-commands)) |
 
 `.env`, `.env.example` and `deploy/production.env.example` have
 `HTTP_CORS_ORIGINS=` (empty: no browser on another origin may call the
@@ -128,8 +129,15 @@ edit of `package.json`), then runs Vite
 `vite.config`). Requests under `/build/` go to Vite, WebSocket upgrades
 included, with Vite's own host name; the app gets `VITE_DEV_URL=/build/`.
 Vite updates the page as the frontend's files change; the app isn't
-rebuilt for them. An API project's `frontend/` is an app of its own,
-which `anetos dev`, `build` and `check` leave alone.
+rebuilt for them.
+
+In an API project whose `main.go` calls `vite.SPA` (its single-page app,
+which `vite:install` adds; since v0.6), it runs Vite at the address of
+its `vite.config` instead (`node frontend/node_modules/vite/bin/vite.js
+--clearScreen false`: `http://localhost:5173`, which forwards `/api` to
+the app), and forwards nothing to it: open Vite's address. Another API
+project's `frontend/` is an app of its own, which `anetos dev`, `build`
+and `check` leave alone.
 
 Watched: `.go` (not tests or generated files), `.templ`, `go.mod`,
 `go.sum`, `.env*`, everything under `public/` and `views/ui/tailwind.css`
@@ -153,15 +161,16 @@ page until the next change. On Linux the app is stopped even if
 | `--target` | `go env GOOS`/`GOARCH` | The system to build for: `linux/amd64`, `linux/arm64`, `windows/amd64`… The generators still run on this one |
 | `--version` | the version Go records from git: the tag of the commit (`v1.2.0`), else a pseudo-version (`v0.0.0-20261006100000-1a2b3c4d5e6f`); `(devel)` outside a repository | The app's version, for its `version` command: letters, digits and `. + - _ ~ /` |
 | `--cgo` | `false` | Build with `CGO_ENABLED=1` (only for a driver or package that needs cgo; SQLite doesn't) |
-| `--no-frontend` | `false` | Don't build `frontend/`: `public/build` holds its build already (the Dockerfile's Node stage made it). Since v0.6 |
+| `--no-frontend` | `false` | Don't build `frontend/`: `public/build` (an SPA's `public/spa`) holds its build already (the Dockerfile's Node stage made it). Since v0.6 |
 | `-- flags…` | | More `go build` flags (`-tags=…`); an `-ldflags` is added to the build's own |
 
 Run it in the project. It runs `go tool templ generate` (if there are
 `.templ` files), `anetos generate` and, in a project that uses Tailwind CSS,
-Tailwind as `css:build` does (failing if it can't run), in a web project with
-a frontend its packages' install if they need it (as the lockfile pins
+Tailwind as `css:build` does (failing if it can't run), in a project with
+a frontend (a web project's, or an API project's SPA) its packages' install if they need it (as the lockfile pins
 them: `npm ci`) and its `build` script
-(TypeScript's checks and `vite build` into `public/build`; Node.js
+(TypeScript's checks and `vite build` into `public/build`, or an API
+project's SPA into `public/spa`; Node.js
 needed, unless `--no-frontend`), then `go build -trimpath
 -ldflags="-s -w" .` with `CGO_ENABLED=0`, and prints the binary, its
 system and size (`built bin/blog (linux/amd64, 18.3 MB)`). Use
@@ -315,7 +324,7 @@ a change done. In order, stopping at the first failure:
 | Step | Runs |
 |---|---|
 | `generate` | templ's views (`go tool templ generate`, when the project has `.templ` files), the models' typed columns (`anetos generate`), and in a project with Tailwind CSS its stylesheet (downloading the `tailwindcss` binary on first use, as [`css:build`](#other-commands) does; offline, a note) |
-| `frontend` | In a web project with a frontend (`frontend/package.json`; since v0.6): its packages' install if they need it, and its `build` script (TypeScript's checks, `vite build` into `public/build`); it needs Node.js |
+| `frontend` | In a web project with a frontend (`frontend/package.json`), or an API project that serves its SPA (`vite.SPA`; since v0.6): its packages' install if they need it, and its `build` script (TypeScript's checks, `vite build` into `public/build` or `public/spa`); it needs Node.js |
 | `build` | `go build ./...` |
 | `vet` | `go vet ./...` |
 | `test` | `go test ./...` (`--short`: `go test -short ./...`) |
@@ -428,7 +437,7 @@ itself (`gopls mcp`): add it to the same files if you have gopls.
 | `anetos model:list [--json] [packages]` | The models, read from the code as `generate` reads it, so the app needn't run: each one's package, file and table (its `TableName` method's string, else the plural of its name in snake case), its columns (the column, the typed column's field in `<Model>Cols`, the Go type, `json`) and its relations (the field, `belongs_to`, `has_one`, `has_many` or `many_to_many`, the related model). `--json` prints a list of `{"package", "name", "table", "table_method", "file", "columns", "relations"}`. Packages default to `./...` |
 | `anetos css:build [--check]` | In a project that uses Tailwind CSS: compiles `views/ui/tailwind.css` into `public/static/app.css` with Tailwind CSS's standalone CLI (`--input views/ui/tailwind.css --minify`), writing it only when it changes. The first run downloads Tailwind CSS 4.3.3 for the platform from its GitHub releases into the user cache directory (`<cache>/anetos/tailwindcss/v4.3.3/`), checking the SHA-256 written in `anetos` then and before each run (a download that sends nothing for 30 s stops); `ANETOS_TAILWIND=<path>` runs that binary instead (its version is checked, and a different one warned about). `--check` writes nothing and exits 1 when `app.css` is out of date. Exits 1 in a project without `views/ui/tailwind.css` ([Tailwind CSS](../guides/tailwind.md)) |
 | `anetos css:use [<framework>] [--force]` | Switches a web project's CSS framework: writes its files in `views/ui` and `public/static/`, removes the old one's files the new one lacks (and their `_templ.go`), records the framework in `views/ui/css.json` (its name and version, the SHA-256 of each file), adds `nav.menu` to `locales/en/app.yaml` if missing (or says what to add, when it can't edit the file safely; and names the other locales without it), runs `templ generate`, and for `tailwind` `css:build` (going on without Tailwind: the `app.css` anetos ships is compiled for the components). Exits 1, writing nothing, when a recorded file changed since (line endings aside) or is a symbolic link, when a file in the new framework's way isn't the old one's (it lists them), or when the project has no usable `css.json` (missing, not JSON, or naming a file outside `views/ui` and `public/static`): `--force` replaces them (without a record, it lists `public/static`'s files that aren't the new framework's instead of removing them). Each file is written through a temporary file, the record last. Then runs `go build ./...`, exiting 1 when the project doesn't build with the new framework. With the project's own, updates its files to this version's. Lists your own files in `views/ui`, which keep their classes, and the `Dockerfile` cache line to add or remove when moving to or from Tailwind. Without `<framework>`, prints the project's. Refused in an API project (no `views/`); in a web project without `views/ui` or `views/ui/css.json`, `--force` writes the framework's files ([Style your app](../guides/styling.md#8-switch-css-frameworks)) |
-| `anetos vite:install [--js] [--skip-install]` | Adds a frontend that Vite builds to a web project (since v0.6; [guide](../guides/vite.md)): `frontend/` (`package.json`, `vite.config.ts`, `tsconfig.json`, `src/main.ts`, `src/main.css`; with `--js`, `vite.config.js` and `src/main.js` without `tsconfig.json`; and a `go.mod` that keeps the go command out of `node_modules`), `vite.New(app, public.Files)` in `main.go`'s setup before `web.NewServer`, the `/build/` route after `/assets/` in `routes/web.go`, `@vite.Tags("src/main.ts")` after `@ui.Head()` in `views/layout.templ`, `frontend/node_modules/` and `public/build/` in `.gitignore` and `.dockerignore`, and a Node stage in the `Dockerfile` (its build copied into the Go stage, `anetos build --no-frontend` there). A file it can't find its place in is left alone, with what to add printed (the layout too when `main.go` is: the tags need `vite.New`); CRLF files keep their line endings. Refused in an API project and in one with `frontend/`. Then it runs `templ generate`, and installs the packages with npm, unless `--skip-install` or Node.js is missing (said so) |
+| `anetos vite:install [--js] [--skip-install]` | Adds a frontend that Vite builds to a web project (since v0.6; [guide](../guides/vite.md)): `frontend/` (`package.json`, `vite.config.ts`, `tsconfig.json`, `src/main.ts`, `src/main.css`; with `--js`, `vite.config.js` and `src/main.js` without `tsconfig.json`; and a `go.mod` that keeps the go command out of `node_modules`), `vite.New(app, public.Files)` in `main.go`'s setup before `web.NewServer`, the `/build/` route after `/assets/` in `routes/web.go`, `@vite.Tags("src/main.ts")` after `@ui.Head()` in `views/layout.templ`, `frontend/node_modules/` and `public/build/` in `.gitignore` and `.dockerignore`, and a Node stage in the `Dockerfile` (its build copied into the Go stage, `anetos build --no-frontend` there). A file it can't find its place in is left alone, with what to add printed (the layout too when `main.go` is: the tags need `vite.New`); CRLF files keep their line endings. Refused in a project with `frontend/`. Then it runs `templ generate`, and installs the packages with npm, unless `--skip-install` or Node.js is missing (said so). In an API project, a single-page app instead ([guide](../guides/spa.md)): `frontend/` with `package.json`, `tsconfig.json`, `go.mod`, `vite.config.ts` (port 5173, `/api` forwarded to `127.0.0.1:8080`, the build into `../public/spa`), `index.html`, `src/main.ts` (with `make:auth`'s routes, run before: a login with two-factor codes, a registration, a logout, and the `/verify-email` and `/reset-password` pages the emails link to; else the API's welcome) and `src/style.css` (with `--js`, `vite.config.js` and `src/main.js` without `tsconfig.json`); `public/public.go` (`public.Files`; an existing one is kept, and must declare `Files`); in `main.go`'s setup after `openapi.Register`, `typescript.Register` (unless there) and `vite.SPA(app, public.Files, vite.Except("/api/"))` as `srv.Router().Fallback`; `frontend/node_modules/` and `public/spa/` in `.gitignore` and `.dockerignore`; the Node stage in the `Dockerfile`; `HTTP_SPA_ORIGINS` (when empty) listing `http://localhost:5173` and `APP_URL`'s origin in `.env` and `.env.example`, and `APP_URL`'s in `deploy/production.env.example`, whose `AUTH_CLIENT_URL` becomes it too with `make:auth` (from the template's `https://app.example.com`). Then, once `main.go` calls `typescript.Register`, it runs `go run . types` instead of `templ generate`. `make:auth` and `make:crud` run `go run . types` too in such a project, and `make:auth` after it points production's `AUTH_CLIENT_URL` at `APP_URL` |
 | `anetos key:generate [--show] [--force]` | Sets `APP_KEY` in `.env` to a new key when it is missing or empty (it used to print it); refuses when it is set, unless `--force`, which moves the old key to the front of `APP_PREVIOUS_KEYS`. `--show` prints `APP_KEY=base64:…` on stdout instead, for a server's environment; the other messages go to stderr |
 | `anetos version` | Prints the tool's version |
 
@@ -529,6 +538,7 @@ Checking blog (APP_ENV=production).
 | `mail` | `mailer.New` | `MAIL_DRIVER` `log` or `memory` in production or staging (warning); no `MAIL_FROM_ADDRESS` for a driver that sends (warning); `tls=none` in `MAIL_SMTP_URL` for a server other than this machine (warning); in production and staging, an example's domain (`example.com`, `.test`) as `MAIL_SMTP_URL`'s server or `MAIL_FROM_ADDRESS`'s (warning) |
 | `cache` | `cache.New` | `CACHE_DRIVER=memory` in production or staging (note) |
 | `queue` | `queue.New` | In production and staging: `QUEUE_DRIVER=memory` (warning), `sync` (note) |
+| `spa` | `vite.SPA` | In production and staging with `APP_URL`: `HTTP_SPA_ORIGINS` not listing `APP_URL`'s origin, where the app serves its SPA (warning: the SPA's login would answer a token). Since v0.6 |
 
 | API | Does |
 |---|---|

@@ -85,6 +85,8 @@ Since v0.6. See [Bundle JavaScript and CSS with Vite](../guides/vite.md).
 | `vite.NewWithFiles(files, devURL, opts...)` | A Vite without an app, for tests and tools; `v.Tags`, `v.URL`, `v.Dev()` and `v` as an `http.Handler` are the package's functions with it |
 | `v.Version()` | A hash of the build's manifest, `""` in development and without a build: Inertia's asset version |
 | `vite.LoadConfig(src)`, `vite.Config` | The `VITE_*` settings |
+| `vite.SPA(app, files, opts...)` | `(http.Handler, error)`: a single-page app's handler, for `r.Fallback`, serving the build in `files`' `spa/` folder (`vite.SPADir`; `public.Files`): GET and HEAD; a file of the build as `vite.Handler` serves one (not dot files or `index.html` by its name); `/`, and any other path from a browser (`Accept` naming `text/html`), `index.html` (`no-cache`); anything else 404, via `web.WriteError` (problem details with `web.JSONErrors`). Without `spa/index.html`: an error where the app is deployed (production or staging), else a 404 page that says to build it. Files under `assets/` are cached as Vite's hashed files: keep `frontend/public`'s own files out of an `assets/` folder. Adds the doctor check `spa`: deployed with `APP_URL`, a warning unless `HTTP_SPA_ORIGINS` lists its origin. Since v0.6; see [Build a single-page app](../guides/spa.md) |
+| `vite.Except(prefix)` | `SPA` option: the paths under `prefix` (`"/api/"`, and `/api` itself) are the routes', never the SPA's: 404. Panics on a prefix not starting with `/`. Since v0.6 |
 
 ## Inertia pages (`web/inertia`)
 

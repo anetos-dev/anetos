@@ -30,8 +30,8 @@ migrations, the templ views, the files in public/ and locales/). It runs
 templ generate and anetos generate first (and, in a project that uses
 Tailwind CSS, anetos css:build; in a project with a frontend/, its
 packages' install if they need it and its build script, vite build,
-into public/build: Node.js is needed, unless --no-frontend says the
-build is there already), then go build with -trimpath and
+into public/build, or an API project's SPA into public/spa: Node.js is
+needed, unless --no-frontend says the build is there already), then go build with -trimpath and
 -ldflags=-s -w, and CGO_ENABLED=0 (a static binary; SQLite works without
 cgo) unless --cgo. --target builds for another system (linux/amd64,
 linux/arm64, windows/amd64…); GOOS and GOARCH work too when the tool
@@ -47,7 +47,7 @@ func build(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	out := fs.String("o", "", "the binary to write (default bin/<module name>)")
 	target := fs.String("target", "", "the system to build for, os/arch (default: this one, or GOOS and GOARCH)")
 	cgo := fs.Bool("cgo", false, "build with cgo (CGO_ENABLED=1)")
-	noFrontend := fs.Bool("no-frontend", false, "don't build frontend/: public/build has its build already (a Dockerfile's Node stage made it)")
+	noFrontend := fs.Bool("no-frontend", false, "don't build frontend/: public/build (or public/spa) has its build already (a Dockerfile's Node stage made it)")
 	ver := fs.String("version", "", "the app's version, for its version command (default: from git)")
 	var extra []string
 	if i := indexOf(args, "--"); i >= 0 {
@@ -118,7 +118,7 @@ type appBuild struct {
 	cgo          bool
 	version      string
 	extra        []string // go build flags
-	noFrontend   bool     // public/build is built already
+	noFrontend   bool     // public/build (public/spa) is built already
 }
 
 // run generates the code and builds the binary, returning its path. It

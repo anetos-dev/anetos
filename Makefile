@@ -82,8 +82,10 @@ api-check: ## Check api/*.txt list the exported API of each module (make api-upd
 api-update: ## Write the exported API of each module to api/*.txt
 	@$(GO) run ./internal/cmd/apisnap
 
-gen-check: ## Check generated model columns are up to date
-	@for m in examples/database examples/forms examples/saas examples/tracker examples/tutorial examples/bookmarks; do (cd $$m && $(GO) tool anetos generate --check) || exit 1; done
+gen-check: ## Check generated model columns (and examples/spa's TypeScript types) are up to date
+	@# The types command runs the app's setup, which needs settings: the
+	@# examples have no .env.
+	@for m in examples/database examples/forms examples/saas examples/tracker examples/tutorial examples/bookmarks examples/spa; do (cd $$m && APP_ENV=development APP_KEY=base64:$$(head -c32 /dev/urandom | base64) $(GO) tool anetos generate --check) || exit 1; done
 
 tidy: ## go mod tidy
 	@$(EACH) $(GO) mod tidy $(DONE)

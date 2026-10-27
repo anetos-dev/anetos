@@ -17,16 +17,28 @@ import (
 
 const viteInstallUsage = `Usage: anetos vite:install [--js] [--skip-install]
 
-Adds a frontend that Vite builds to a web project: frontend/ with
-package.json, vite.config.ts, tsconfig.json and src/main.ts (with --js,
-vite.config.js and src/main.js), and the app's side: vite.New in
-main.go's setup, the /build/ route in routes/web.go, @vite.Tags in the
-layout's head, the build in .gitignore and .dockerignore, and a Node
-stage in the Dockerfile. What it can't change safely (an app's own
-edits), it says how to add. Then it runs templ generate, and installs
-the packages (Node.js 20.19 or 22.12 or later), unless --skip-install. anetos dev runs Vite
-and forwards /build/ to it; anetos build builds the frontend into
-public/build, which the binary embeds.
+Adds a frontend that Vite builds: frontend/ with package.json,
+vite.config.ts, tsconfig.json and src/main.ts (with --js, vite.config.js
+and src/main.js), and the app's side. What it can't change safely (an
+app's own edits), it says how to add. Then it installs the packages
+(Node.js 20.19 or 22.12 or later), unless --skip-install.
+
+In a web project, the frontend is the pages' scripts and styles:
+vite.New in main.go's setup, the /build/ route in routes/web.go,
+@vite.Tags in the layout's head, the build in .gitignore and
+.dockerignore, and a Node stage in the Dockerfile; then it runs templ
+generate. anetos dev runs Vite and forwards /build/ to it; anetos build
+builds the frontend into public/build, which the binary embeds.
+
+In an API project, it is a single-page app without a framework
+(index.html, and a login page once make:auth has run): the app serves
+it at / (vite.SPA in main.go, public/public.go), and writes its API
+client (typescript.Register; then it runs go run . types);
+HTTP_SPA_ORIGINS lists Vite's address in .env, and APP_URL in
+deploy/production.env.example; .gitignore, .dockerignore and the
+Dockerfile as above. anetos dev runs Vite at http://localhost:5173,
+which forwards /api to the app; anetos build builds the SPA into
+public/spa.
 `
 
 func viteInstall(ctx context.Context, args []string, stdout, stderr io.Writer) int {
@@ -72,11 +84,21 @@ func viteInstall(ctx context.Context, args []string, stdout, stderr io.Writer) i
 			fmt.Fprintln(stdout, "  - "+m)
 		}
 	}
-	// The layout's tags, in its generated Go.
-	var templOut bytes.Buffer // templ reports progress on stderr: shown only if it fails
-	if err := runGoOut(ctx, root, &templOut, &templOut, "tool", "templ", "generate"); err != nil {
-		fmt.Fprint(stderr, templOut.String())
-		return fail(fmt.Errorf("templ generate: %w", err))
+	if res.SPA {
+		// The client src/main calls the API with.
+		if frontend.UsesTypes(root) {
+			if out, err := goCmd(ctx, root, "run", ".", "types"); err != nil {
+				fmt.Fprint(stderr, string(out))
+				return fail(fmt.Errorf("go run . types: %w", err))
+			}
+		}
+	} else {
+		// The layout's tags, in its generated Go.
+		var templOut bytes.Buffer // templ reports progress on stderr: shown only if it fails
+		if err := runGoOut(ctx, root, &templOut, &templOut, "tool", "templ", "generate"); err != nil {
+			fmt.Fprint(stderr, templOut.String())
+			return fail(fmt.Errorf("templ generate: %w", err))
+		}
 	}
 	if !*skip {
 		if err := frontend.CheckNode(ctx); err != nil {
@@ -85,9 +107,14 @@ func viteInstall(ctx context.Context, args []string, stdout, stderr io.Writer) i
 			return fail(err)
 		}
 	}
-	if slices.Contains(res.Updated, "views/layout.templ") {
+	switch {
+	case res.SPA && slices.Contains(res.Updated, "main.go"):
+		fmt.Fprintln(stdout, "\nThe app serves the SPA at /; go tool anetos dev runs Vite with the app: open http://localhost:5173.")
+	case res.SPA:
+		fmt.Fprintln(stdout, "\nOnce main.go serves the SPA, go tool anetos dev runs Vite with the app: open http://localhost:5173.")
+	case slices.Contains(res.Updated, "views/layout.templ"):
 		fmt.Fprintf(stdout, "\nThe layout loads %s; go tool anetos dev runs Vite with the app.\n", res.Entry)
-	} else {
+	default:
 		fmt.Fprintf(stdout, "\nOnce the layout loads %s, go tool anetos dev runs Vite with the app.\n", res.Entry)
 	}
 	fmt.Fprintln(stdout, "Run go tool anetos agent:update so coding agents know about frontend/.")

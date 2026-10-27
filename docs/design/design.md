@@ -1714,6 +1714,45 @@ OpenAPI document is written:
   settings files list it empty; `examples/bookmarks` follows, with a
   test logging in as the SPA. The SPA's own pages are SP2's.
 
+**Single-page apps in the project (SP2, D365–D369).** D335's SPA,
+built:
+
+- **Serving** (D365, D366): `vite.SPA(app, public.Files,
+  vite.Except("/api/"))` serves the build Vite writes into `public/spa`
+  (base `/`, files named without `_` or `.` as in D342), and
+  `Router.Fallback(h)` hands it the requests no route or `Static` file
+  takes, before the 404 (a path with routes for other methods still
+  answers 405); global middleware applies, route and group middleware
+  don't, and there is one, the whole router's (set on the router
+  itself, not a group, `With` or `Host` router). A file of the build is
+  served as `vite.Handler` serves one; `/`, and any other path a
+  browser opens (`Accept` naming `text/html`), get `index.html` (with
+  `Vary: Accept`, as their 404 has); the rest, and every path under `Except`'s prefixes, the app's 404 (problem
+  details with `web.JSONErrors`). Without the build, the app refuses to
+  start where it is deployed and answers a page saying to build it
+  elsewhere, so tests run without Node; `doctor` warns, deployed, unless
+  `HTTP_SPA_ORIGINS` lists `APP_URL`'s origin (D367).
+- **Development** (D368): the SPA is Vite's address
+  (`http://localhost:5173`, `strictPort`), which forwards `/api` to the
+  app at `anetos dev`'s address; `anetos dev` runs that Vite as its
+  `vite.config` says rather than proxying it. The page and the API are
+  then one origin, as in production, and the address
+  `HTTP_SPA_ORIGINS` and `AUTH_CLIENT_URL` name is fixed.
+- **Scaffolding** (D369): `vite:install` in an API project, and `anetos
+  new --stack=api --vite`, write a plain TypeScript (or JavaScript) SPA
+  (a login with two-factor codes, a registration, a logout and the
+  pages the account emails link to when `make:auth`'s routes are there,
+  else the welcome; `make:auth` after it points production's
+  `AUTH_CLIENT_URL` at `APP_URL` and says the page doesn't log in), `public/public.go`,
+  `typescript.Register` and `vite.SPA` in `main.go`, the settings files'
+  `HTTP_SPA_ORIGINS` (Vite's address and `APP_URL`'s origin;
+  production's `APP_URL`, and `AUTH_CLIENT_URL` with `make:auth`), and
+  the V1 Dockerfile stage. The tool tells an API project's SPA from an
+  app of its own in `frontend/` by a call of `vite.SPA` in the main
+  package: only then do `dev`, `build` and `check` run its Node side.
+  `examples/spa` is the bookmarks API with a React SPA (React Router,
+  plain CSS, the generated client); framework scaffolds stay v0.7's.
+
 ### 12.3 Admin interface (v0.3: AD1, AD2)
 
 An admin for the people who run a site: its records, its users and their
@@ -3640,6 +3679,11 @@ unless new information arrives), **Open**, **Superseded**.
 | D362 | `web.FirstParty(mws...)` runs middleware for first-party requests only: an API group takes the session middleware and `web.CSRF(web.WithXSRFCookie())` that way, before `TokenMiddleware`, which already takes a session's user | Accepted | Token clients keep what v0.4 gave them (no cookies, no CSRF), and nothing in `auth` changes: the session machinery of the pages serves the SPA |
 | D363 | The SPA uses the token clients' endpoints, answered with its session: registration logs in, `POST /login` is `Auth.Attempt` (a two-factor login waits in the session), `POST /login/two-factor` takes the code alone (`challenge` no longer required), `POST /logout` ends the session; the answer is the user, never a token | Accepted | Samiul's choice (2026-10-27): one set of endpoints for the docs and the TypeScript client. The two-factor step reuses the pages' session-held pending login rather than a challenge the SPA would keep in JavaScript |
 | D364 | `make:auth` in an API project always writes the SPA's wiring (`session.New`, cookie sessions by default), inert while `HTTP_SPA_ORIGINS` is empty | Accepted | Samiul's choice (2026-10-27): no flag to remember; cookie sessions need no table, and an empty setting changes nothing for token clients |
+| D365 | An API project's SPA is embedded in the binary and served at `/` by `vite.SPA`, the router's `Fallback`: a file of the build, `index.html` for `/` and for a browser's other paths (`Accept: text/html`), the app's 404 for the rest and for `vite.Except`'s prefixes (`/api/`) | Accepted | Samiul's choice (2026-10-27): one binary and one origin, so no CORS, no `SESSION_DOMAIN` and one deploy. Answering by `Accept` keeps a client's mistyped JSON request a JSON 404 rather than an HTML page; `Except` keeps the API's paths the API's, from a browser too (a 404 there is the API's, not the SPA's page) |
+| D366 | `Router.Fallback(h)`: one handler, the whole router's, for the requests no route or `Static` file takes, before the 404 (405 still wins); global middleware only | Accepted | A catch-all route (`/{path...}`) clashes with the router's own `/` catch-all and would take other methods' 405s; the fallback sits where the 404 did. Route and group middleware belong to routes; one fallback keeps "which handler answers" a single answer |
+| D367 | Without `public/spa/index.html`, `vite.SPA` fails where the app is deployed and answers a page saying to build the frontend elsewhere; deployed, `doctor` warns unless `HTTP_SPA_ORIGINS` lists `APP_URL`'s origin | Accepted | Tests and `go run .` must work without Node (D345), but a production binary without its SPA is a broken release. The SPA the app serves is at `APP_URL`; unlisted, its login would answer a token (D361) |
+| D368 | In development, the SPA is Vite's address (`localhost:5173`, `strictPort`), which forwards `/api` to the app; `anetos dev` runs Vite as `vite.config` says and proxies nothing to it | Accepted | Samiul's choice (2026-10-27): Vite's own server gives the SPA hot reload with no proxy of ours in between, and the page and the API are one origin as in production. A fixed port lets `HTTP_SPA_ORIGINS` and `AUTH_CLIENT_URL` name it |
+| D369 | `vite:install` in an API project (and `anetos new --stack=api --vite`) writes a plain TypeScript or JavaScript SPA (a login page with `make:auth`'s routes), its serving and its settings; the tool treats an API project's `frontend/` as the SPA only when the main package calls `vite.SPA` | Accepted | Samiul's choice (2026-10-27): a working, framework-free start; React, Vue and Svelte scaffolds are v0.7's (D333). A `frontend/` without `vite.SPA` may be an app of its own (V1's rule), which the tool still leaves alone |
 
 ---
 
@@ -3762,3 +3806,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-26 | TS1 (TypeScript types): §12.2 updated; D352–D356 added |
 | 2026-10-26 | DOC1 (cloud platforms): §21 updated; D357–D360 added |
 | 2026-10-27 | SP1 (login for SPAs): §12.2 updated; D361–D364 added |
+| 2026-10-27 | SP2 (single-page apps in the project): §12.2 updated; D365–D369 added |

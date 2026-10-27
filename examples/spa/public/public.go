@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: Apache-2.0
+
+// Package public is the folder of the app's single-page app: Vite builds
+// frontend/ into spa/, which the binary embeds, and main.go serves at /
+// (vite.SPA).
+package public
+
+import "embed"
+
+// Files are the folder's files: spa/, once the frontend is built
+// (anetos build builds it first).
+//
+//go:embed *
+var Files embed.FS

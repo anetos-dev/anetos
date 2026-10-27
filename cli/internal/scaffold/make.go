@@ -52,6 +52,42 @@ func IsAPI(root string) bool {
 	return errors.Is(err, fs.ErrNotExist)
 }
 
+// ServesSPA reports whether the project in root is an API project that
+// serves a single-page app Vite builds ([AddVite]): it has
+// frontend/package.json, and a Go file of its main package calls
+// vite.SPA. An API project's frontend/ without it is an app of its own,
+// which the tool leaves alone.
+func ServesSPA(root string) bool {
+	if !IsAPI(root) {
+		return false
+	}
+	if _, err := os.Stat(filepath.Join(root, "frontend", "package.json")); err != nil {
+		return false
+	}
+	return mainCalls(root, "vite.SPA(")
+}
+
+// mainCalls reports whether a Go file of the main package in root (not a
+// test) calls call: in its code, not a comment.
+func mainCalls(root, call string) bool {
+	files, _ := filepath.Glob(filepath.Join(root, "*.go"))
+	for _, f := range files {
+		if strings.HasSuffix(f, "_test.go") {
+			continue
+		}
+		b, err := os.ReadFile(f)
+		if err != nil {
+			continue
+		}
+		for line := range strings.Lines(string(b)) {
+			if code, _, _ := strings.Cut(line, "//"); strings.Contains(code, call) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // RefuseAPI returns an error when the project at root is an API project
 // ([IsAPI]) and cmd, a generator of HTML pages, can't run there; why
 // says what to do instead or when it's coming. Otherwise it returns nil.

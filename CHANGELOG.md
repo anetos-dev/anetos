@@ -7,6 +7,29 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Single-page apps served by an API project (SP2, D365–D369): new
+  `vite.SPA(app, files, vite.Except("/api/"))`, the handler of an SPA
+  that Vite built into `public/spa`, which the binary embeds: its files
+  (those under `assets/` cached for a year), `index.html` for `/` and
+  any other path a browser opens, 404 problem details for the rest and
+  for the paths under `Except`'s prefixes; a binary without the build
+  refuses to start where it is deployed (production or staging), and
+  `doctor` warns unless
+  `HTTP_SPA_ORIGINS` lists `APP_URL`'s origin. New `Router.Fallback(h)`,
+  the router's handler for the requests no route or `Static` file takes.
+  `anetos new --stack=api --vite` and `anetos vite:install` in an API
+  project write a single-page app without a framework, in TypeScript or
+  JavaScript (with `make:auth`'s routes, a login, registration, and the
+  pages the account emails link to, calling the API with the generated
+  client), and wire it: `typescript.Register` and `vite.SPA` in
+  `main.go`, `public/public.go`, `HTTP_SPA_ORIGINS` in the settings
+  files, the Dockerfile's Node stage. `anetos dev` runs its Vite at
+  `http://localhost:5173`, which forwards `/api` to the app; `anetos
+  build` and `check` build it; `make:auth` and `make:crud` update its
+  client. New example `examples/spa`: the bookmarks
+  API with a React SPA (login with two-factor codes, registration,
+  password reset, email verification, the bookmarks). Guide "Build a
+  single-page app".
 - Login for SPAs (SP1, D361–D364): the app's own single-page app logs in
   to an API project with a session cookie, while other clients keep
   tokens. `HTTP_SPA_ORIGINS` lists its origins: their requests are
@@ -92,6 +115,10 @@ All notable changes to this project are documented here. The format follows
   (DR1, D339).
 
 ### Changed
+- `anetos vite:install` and `anetos new --vite` no longer refuse an API
+  project: they add its single-page app (SP2). An API project's
+  `frontend/` without `vite.SPA` in `main.go` is still left alone by
+  `anetos dev`, `build` and `check`.
 - `make:auth` (API): `POST /api/v1/login/two-factor`'s `challenge` is
   no longer required by validation (the SPA's login has none); a token
   client without one gets the "log in again" error (SP1).

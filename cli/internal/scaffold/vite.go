@@ -8,10 +8,12 @@ import (
 	"fmt"
 	"go/format"
 	"io/fs"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"golang.org/x/mod/modfile"
@@ -32,13 +34,18 @@ type ViteResult struct {
 	// Created are the files it wrote, relative to the project.
 	Created []string
 	// Updated are the project's files it changed: main.go, routes/web.go,
-	// views/layout.templ, .gitignore, .dockerignore, Dockerfile.
+	// views/layout.templ (an API project: .env, .env.example,
+	// deploy/production.env.example), .gitignore, .dockerignore,
+	// Dockerfile.
 	Updated []string
 	// Manual says what to add by hand, for the files it couldn't change
 	// (an app's own edits moved what it looks for).
 	Manual []string
 	// Entry is the frontend's entry ("src/main.ts").
 	Entry string
+	// SPA reports that the frontend is an API project's single-page app,
+	// served at / ([AddVite]).
+	SPA bool
 }
 
 // ErrHasFrontend is AddVite's error for a project that has frontend/
@@ -48,20 +55,35 @@ var ErrHasFrontend = errors.New("the project has frontend/ already")
 type viteData struct {
 	Module, Title, Image, GoMinor  string
 	TS                             bool
+	Auth                           bool   // make:auth's routes: the SPA logs in
 	Ext                            string // "ts" or "js"
 	ViteVersion, TypeScriptVersion string
 }
 
-// AddVite gives the web project in root a frontend that Vite builds
-// (design D341–D345): frontend/ (package.json, vite.config, src/main.ts
-// or main.js, a go.mod that keeps the go command out of node_modules;
-// tsconfig.json for TypeScript), and the app's side: vite.New in
-// main.go's setup, the /build/ route in routes/web.go, @vite.Tags in the
-// layout's head, the build output and node_modules in .gitignore and
-// .dockerignore, and a Node stage in the Dockerfile. lang is "ts" or
-// "js". It writes nothing in an API project or one with frontend/; a
-// file it can't change safely is left alone and named in Manual, with
-// what to add. It doesn't install the packages.
+// AddVite gives the project in root a frontend that Vite builds (design
+// D341–D345): frontend/ (package.json, vite.config, src/main.ts or
+// main.js, a go.mod that keeps the go command out of node_modules;
+// tsconfig.json for TypeScript), and the app's side. lang is "ts" or
+// "js".
+//
+// In a web project, the frontend is its pages' scripts and styles:
+// vite.New in main.go's setup, the /build/ route in routes/web.go,
+// @vite.Tags in the layout's head, the build output (public/build) and
+// node_modules in .gitignore and .dockerignore, and a Node stage in the
+// Dockerfile.
+//
+// In an API project, it is a single-page app, served at / (design D365):
+// index.html and src/main (a login page, with make:auth's routes), built
+// into public/spa, which public/public.go embeds; in main.go,
+// typescript.Register (the client src/main uses) and vite.SPA as the
+// router's fallback; Vite's address (http://localhost:5173) and APP_URL
+// in HTTP_SPA_ORIGINS in .env and .env.example, and APP_URL in
+// deploy/production.env.example's; .gitignore, .dockerignore and the
+// Dockerfile as for a web project.
+//
+// It writes nothing in a project with frontend/; a file it can't change
+// safely is left alone and named in Manual, with what to add. It doesn't
+// install the packages, or write the types (go run . types).
 func AddVite(root, lang string) (ViteResult, error) {
 	var res ViteResult
 	switch lang {
@@ -69,12 +91,10 @@ func AddVite(root, lang string) (ViteResult, error) {
 	default:
 		return res, fmt.Errorf("the frontend's language must be one of %s", strings.Join(Languages, ", "))
 	}
-	if IsAPI(root) {
-		return res, errors.New("an api project has no pages to load a frontend: its frontend is a separate app (see the guide)")
-	}
 	if _, err := os.Stat(filepath.Join(root, "frontend")); err == nil {
 		return res, ErrHasFrontend
 	}
+	spa := IsAPI(root)
 	mod, err := os.ReadFile(filepath.Join(root, "go.mod"))
 	if err != nil {
 		return res, err
@@ -86,7 +106,11 @@ func AddVite(root, lang string) (ViteResult, error) {
 	}
 	d := viteData{Module: module, Title: title(name), Image: strings.ToLower(name), GoMinor: goMinor,
 		TS: lang == "ts", Ext: lang, ViteVersion: ViteVersion, TypeScriptVersion: TypeScriptVersion}
-	res.Entry = "src/main." + lang
+	res.Entry, res.SPA = "src/main."+lang, spa
+	if spa {
+		_, err := os.Stat(filepath.Join(root, "routes", "auth.go"))
+		d.Auth = err == nil
+	}
 
 	// Render everything first, so a template error writes nothing.
 	type file struct {
@@ -94,26 +118,46 @@ func AddVite(root, lang string) (ViteResult, error) {
 		content []byte
 	}
 	var files []file
-	err = fs.WalkDir(templates, "templates/vite", func(src string, de fs.DirEntry, err error) error {
-		if err != nil || de.IsDir() {
-			return err
-		}
-		rel := strings.TrimSuffix(strings.TrimPrefix(src, "templates/vite/"), ".tmpl")
-		switch rel {
-		case "tsconfig.json":
-			if !d.TS {
+	add := func(dir string, skip func(rel string) bool) error {
+		return fs.WalkDir(templates, dir, func(src string, de fs.DirEntry, err error) error {
+			if err != nil || de.IsDir() {
+				return err
+			}
+			rel := strings.TrimSuffix(strings.TrimPrefix(src, dir+"/"), ".tmpl")
+			if skip(rel) || rel == "tsconfig.json" && !d.TS {
 				return nil
 			}
-		case "vite.config", "src/main":
-			rel += "." + lang
+			switch rel {
+			case "vite.config", "src/main":
+				rel += "." + lang
+			}
+			b, err := render(src, "", d)
+			if err != nil {
+				return err
+			}
+			to := path.Join("frontend", rel)
+			if rel == "public.go" {
+				to = "public/public.go"
+			}
+			files = append(files, file{to, b})
+			return nil
+		})
+	}
+	if spa {
+		// package.json, tsconfig.json and go.mod as a web project's; the
+		// rest the SPA's.
+		err = add("templates/vite", func(rel string) bool {
+			return rel != "package.json" && rel != "tsconfig.json" && rel != "go.mod"
+		})
+		if err == nil {
+			err = add("templates/spa", func(rel string) bool {
+				_, err := os.Stat(filepath.Join(root, "public", "public.go"))
+				return rel == "public.go" && err == nil // the app's own: it must have Files
+			})
 		}
-		b, err := render(src, "", d)
-		if err != nil {
-			return err
-		}
-		files = append(files, file{path.Join("frontend", rel), b})
-		return nil
-	})
+	} else {
+		err = add("templates/vite", func(string) bool { return false })
+	}
 	if err != nil {
 		return res, err
 	}
@@ -127,27 +171,28 @@ func AddVite(root, lang string) (ViteResult, error) {
 		res.Created = append(res.Created, f.rel)
 	}
 
-	patches := []struct {
-		file   string
-		patch  func([]byte) ([]byte, bool)
-		manual string
-	}{
-		{"main.go", func(b []byte) ([]byte, bool) { return patchMainVite(b, module) },
-			"main.go: in setup, before web.NewServer, call `if _, err := vite.New(app, public.Files); err != nil { return nil, err }` (imports anetos.dev/anetos/view/vite and " + module + "/public)"},
-		{"routes/web.go", patchRoutesVite,
-			"routes/web.go: route the build, `r.Get(\"/build/{path...}\", web.WrapHandler(vite.Handler()))` (import anetos.dev/anetos/view/vite)"},
-		{"views/layout.templ", func(b []byte) ([]byte, bool) { return patchLayoutVite(b, res.Entry) },
-			"views/layout.templ: in <head>, load the entry with `@vite.Tags(\"" + res.Entry + "\")` (import anetos.dev/anetos/view/vite), once main.go calls vite.New"},
-		{".gitignore", func(b []byte) ([]byte, bool) { return appendLines(b, gitignoreVite) }, ""},
-		{".dockerignore", func(b []byte) ([]byte, bool) { return appendLines(b, dockerignoreVite) }, ""},
-		{"Dockerfile", patchDockerfileVite,
-			"Dockerfile: build the frontend in a Node stage (its package manager's install, then its build script, in frontend/), copy its public/build into the Go stage after `COPY . .`, and run `go tool anetos build --no-frontend` there"},
+	var patches []vitePatch
+	if spa {
+		patches = spaPatches(root, module)
+	} else {
+		patches = []vitePatch{
+			{"main.go", func(b []byte) ([]byte, bool) { return patchMainVite(b, module) },
+				"main.go: in setup, before web.NewServer, call `if _, err := vite.New(app, public.Files); err != nil { return nil, err }` (imports anetos.dev/anetos/view/vite and " + module + "/public)", false},
+			{"routes/web.go", patchRoutesVite,
+				"routes/web.go: route the build, `r.Get(\"/build/{path...}\", web.WrapHandler(vite.Handler()))` (import anetos.dev/anetos/view/vite)", false},
+			{"views/layout.templ", func(b []byte) ([]byte, bool) { return patchLayoutVite(b, res.Entry) },
+				"views/layout.templ: in <head>, load the entry with `@vite.Tags(\"" + res.Entry + "\")` (import anetos.dev/anetos/view/vite), once main.go calls vite.New", false},
+			{".gitignore", func(b []byte) ([]byte, bool) { return appendLines(b, gitignoreVite, "/public/build/") }, "", false},
+			{".dockerignore", func(b []byte) ([]byte, bool) { return appendLines(b, dockerignoreVite, "/public/build/") }, "", false},
+			{"Dockerfile", func(b []byte) ([]byte, bool) { return patchDockerfileVite(b, "public/build") },
+				"Dockerfile: build the frontend in a Node stage (its package manager's install, then its build script, in frontend/), copy its public/build into the Go stage after `COPY . .`, and run `go tool anetos build --no-frontend` there", false},
+		}
 	}
 	mainPatched := false
 	for _, p := range patches {
 		full := filepath.Join(root, filepath.FromSlash(p.file))
 		b, err := os.ReadFile(full)
-		if errors.Is(err, os.ErrNotExist) && p.manual == "" {
+		if errors.Is(err, os.ErrNotExist) && (p.manual == "" || p.ifExists) {
 			continue // no .gitignore: nothing to add to
 		}
 		var out []byte
@@ -162,13 +207,184 @@ func AddVite(root, lang string) (ViteResult, error) {
 			}
 			continue
 		}
+		if bytes.Equal(out, lf(b)) {
+			continue // has it already
+		}
 		if err := os.WriteFile(full, crlf(out, b), 0o644); err != nil {
 			return res, err
 		}
 		mainPatched = mainPatched || p.file == "main.go"
 		res.Updated = append(res.Updated, p.file)
 	}
+	if spa {
+		if b, err := os.ReadFile(filepath.Join(root, "public", "public.go")); err == nil &&
+			!slices.Contains(res.Created, "public/public.go") && !bytes.Contains(b, []byte("Files embed.FS")) {
+			res.Manual = append(res.Manual, "public/public.go: embed the folder, `//go:embed *` above `var Files embed.FS`, for vite.SPA in main.go")
+		}
+	}
 	return res, nil
+}
+
+// vitePatch is a change AddVite makes to a file of the project, with
+// what to add by hand when it can't ("" for a change it leaves out
+// quietly: a missing .gitignore). A patch returning its input unchanged
+// found the change made already.
+type vitePatch struct {
+	file     string
+	patch    func([]byte) ([]byte, bool)
+	manual   string
+	ifExists bool // a missing file is left out quietly
+}
+
+// spaPatches are AddVite's changes to an API project, whose module is
+// module.
+func spaPatches(root, module string) []vitePatch {
+	_, err := os.Stat(filepath.Join(root, "routes", "auth.go"))
+	auth := err == nil
+	return []vitePatch{
+		{"main.go", func(b []byte) ([]byte, bool) { return patchMainSPA(b, module) },
+			"main.go: in setup, after the routes, serve the SPA for the paths they don't take, `spa, err := vite.SPA(app, public.Files, vite.Except(\"/api/\"))` then `srv.Router().Fallback(spa)`, and write its client, `typescript.Register(app, srv, typescript.Config{Prefix: routes.OpenAPI.Prefix})` (imports anetos.dev/anetos/view/vite, anetos.dev/anetos/web/typescript and " + module + "/public)", false},
+		{".gitignore", func(b []byte) ([]byte, bool) { return appendLines(b, gitignoreSPA, "/public/spa/") }, "", false},
+		{".dockerignore", func(b []byte) ([]byte, bool) { return appendLines(b, dockerignoreSPA, "/public/spa/") }, "", false},
+		{"Dockerfile", func(b []byte) ([]byte, bool) {
+			if bytes.Contains(b, []byte("COPY --from=frontend /src/public/spa ")) {
+				return b, true // built already
+			}
+			return patchDockerfileVite(b, "public/spa")
+		},
+			"Dockerfile: build the frontend in a Node stage (its package manager's install, then its build script, in frontend/), copy its public/spa into the Go stage after `COPY . .`, and run `go tool anetos build --no-frontend` there", false},
+		{".env", patchEnvSPA, ".env: list " + spaDevOrigin + " (Vite's address) and APP_URL's origin in HTTP_SPA_ORIGINS, for the SPA to log in with the session", true},
+		{".env.example", patchEnvSPA, ".env.example: list " + spaDevOrigin + " and APP_URL's origin in HTTP_SPA_ORIGINS", true},
+		{"deploy/production.env.example", func(b []byte) ([]byte, bool) { return patchProductionEnvSPA(b, auth) },
+			"deploy/production.env.example: list APP_URL's origin, where the app serves the SPA, in HTTP_SPA_ORIGINS", true},
+	}
+}
+
+const gitignoreSPA = `
+# The frontend's packages and build (anetos build makes it)
+/frontend/node_modules/
+/public/spa/
+`
+
+const dockerignoreSPA = `/frontend/node_modules/
+/public/spa/
+`
+
+// spaDevOrigin is the SPA's address in development: Vite's, which its
+// vite.config sets.
+const spaDevOrigin = "http://localhost:5173"
+
+var spaOriginsEmpty = regexp.MustCompile(`(?m)^HTTP_SPA_ORIGINS=[ \t]*$`)
+
+// patchEnvSPA lists Vite's address, and APP_URL's origin, where the
+// built app serves the SPA, in HTTP_SPA_ORIGINS, when it is empty: the
+// SPA logs in with the session.
+func patchEnvSPA(src []byte) ([]byte, bool) {
+	if listsOrigin(src, spaDevOrigin) {
+		return src, true
+	}
+	if !spaOriginsEmpty.Match(src) {
+		return nil, false
+	}
+	origins := spaDevOrigin
+	if o := appOrigin(src); o != "" && o != spaDevOrigin {
+		origins += "," + o
+	}
+	return spaOriginsEmpty.ReplaceAll(src, []byte("HTTP_SPA_ORIGINS="+origins)), true
+}
+
+var spaOriginsLine = regexp.MustCompile(`(?m)^HTTP_SPA_ORIGINS=(.*)$`)
+
+// listsOrigin reports whether an env file's HTTP_SPA_ORIGINS lists origin.
+func listsOrigin(src []byte, origin string) bool {
+	m := spaOriginsLine.FindSubmatch(src)
+	if m == nil {
+		return false
+	}
+	for o := range strings.SplitSeq(string(m[1]), ",") {
+		if strings.EqualFold(strings.TrimSuffix(strings.TrimSpace(o), "/"), origin) {
+			return true
+		}
+	}
+	return false
+}
+
+var (
+	appURLLine        = regexp.MustCompile(`(?m)^APP_URL=["']?([^\s#"']+)["']?[ \t]*(?:#.*)?$`)
+	clientURLTemplate = regexp.MustCompile(`(?m)^AUTH_CLIENT_URL=https://app\.example\.com[ \t]*$`)
+)
+
+// patchProductionEnvSPA lists APP_URL, where the app serves its SPA, in
+// HTTP_SPA_ORIGINS; with make:auth, the account emails link there too
+// (AUTH_CLIENT_URL), unless the file names another address already.
+func patchProductionEnvSPA(src []byte, auth bool) ([]byte, bool) {
+	origin := appOrigin(src)
+	if origin == "" {
+		return nil, false
+	}
+	if listsOrigin(src, origin) {
+		return src, true
+	}
+	if !spaOriginsEmpty.Match(src) {
+		return nil, false
+	}
+	out := spaOriginsEmpty.ReplaceAll(src, []byte("HTTP_SPA_ORIGINS="+origin))
+	if auth {
+		out = clientURLTemplate.ReplaceAll(out, []byte("AUTH_CLIENT_URL="+origin))
+	}
+	return out, true
+}
+
+// appOrigin is the origin of an env file's APP_URL, or "".
+func appOrigin(src []byte) string {
+	m := appURLLine.FindSubmatch(src)
+	if m == nil {
+		return ""
+	}
+	u, err := url.Parse(string(m[1]))
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return ""
+	}
+	return strings.ToLower(u.Scheme + "://" + u.Host)
+}
+
+var openAPIRegister = regexp.MustCompile(`(?m)^\tif err := openapi\.Register\(app, srv, routes\.OpenAPI\); err != nil \{\n\t\treturn nil, err\n\t\}\n`)
+
+// patchMainSPA adds, after openapi.Register in setup, typescript.Register
+// (the client the SPA calls the API with) and vite.SPA as the router's
+// fallback, and their imports.
+func patchMainSPA(src []byte, module string) ([]byte, bool) {
+	s := string(src)
+	if strings.Contains(s, "vite.SPA(") {
+		return src, true // served already
+	}
+	loc := openAPIRegister.FindStringIndex(s)
+	if loc == nil || len(openAPIRegister.FindAllString(s, -1)) != 1 {
+		return nil, false
+	}
+	block := ""
+	imports := []string{`"anetos.dev/anetos/view/vite"`, `"` + module + `/public"`}
+	if !strings.Contains(s, "typescript.Register(") {
+		block = "\t// `go run . types`: the client of the API in frontend/src/types, which\n" +
+			"\t// the SPA calls it with (anetos dev updates it).\n" +
+			"\tif err := typescript.Register(app, srv, typescript.Config{Prefix: routes.OpenAPI.Prefix}); err != nil {\n\t\treturn nil, err\n\t}\n"
+		imports = append(imports, `"anetos.dev/anetos/web/typescript"`)
+	}
+	block += "\t// The single-page app (frontend/), which Vite builds into public/spa:\n" +
+		"\t// at /, for the paths the routes don't take, but /api/'s. In\n" +
+		"\t// development, open Vite's address instead (anetos dev runs it).\n" +
+		"\tspa, err := vite.SPA(app, public.Files, vite.Except(\"/api/\"))\n\tif err != nil {\n\t\treturn nil, err\n\t}\n" +
+		"\tsrv.Router().Fallback(spa)\n"
+	s = s[:loc[1]] + block + s[loc[1]:]
+	s, ok := addImports(s, imports...)
+	if !ok {
+		return nil, false
+	}
+	out, err := format.Source([]byte(s))
+	if err != nil {
+		return nil, false
+	}
+	return out, true
 }
 
 const gitignoreVite = `
@@ -181,9 +397,10 @@ const dockerignoreVite = `/frontend/node_modules/
 /public/build/
 `
 
-// appendLines appends lines to a file that doesn't have them yet.
-func appendLines(b []byte, lines string) ([]byte, bool) {
-	if bytes.Contains(b, []byte("/public/build/")) {
+// appendLines appends lines to a file that doesn't have marker (one of
+// them) yet.
+func appendLines(b []byte, lines, marker string) ([]byte, bool) {
+	if bytes.Contains(b, []byte(marker)) {
 		return nil, false
 	}
 	if len(b) > 0 && !bytes.HasSuffix(b, []byte("\n")) {
@@ -326,7 +543,7 @@ func sortLines(l []string) {
 	}
 }
 
-const dockerFrontendStage = `# The frontend (frontend/): built by Vite into public/build, which the
+const dockerFrontendStage = `# The frontend (frontend/): built by Vite into %s, which the
 # Go stage embeds. The packages first: in BuildKit's cache. With pnpm,
 # yarn or bun, copy its lockfile and install with it instead.
 FROM node:22-alpine AS frontend
@@ -344,18 +561,19 @@ var (
 	anetosBuild = regexp.MustCompile(`go tool anetos build -o `)
 )
 
-// patchDockerfileVite adds the Node stage, copies its build into the Go
-// stage, and builds the binary without building the frontend again.
-func patchDockerfileVite(src []byte) ([]byte, bool) {
+// patchDockerfileVite adds the Node stage, copies its build (out, under
+// the project) into the Go stage, and builds the binary without building
+// the frontend again.
+func patchDockerfileVite(src []byte, out string) ([]byte, bool) {
 	s := string(src)
 	if strings.Contains(s, "AS frontend") || len(golangStage.FindAllString(s, -1)) != 1 ||
 		len(copyAll.FindAllString(s, -1)) != 1 || len(anetosBuild.FindAllString(s, -1)) != 1 {
 		return nil, false
 	}
 	loc := copyAll.FindStringIndex(s)
-	s = s[:loc[1]] + "COPY --from=frontend /src/public/build ./public/build\n" + s[loc[1]:]
+	s = s[:loc[1]] + "COPY --from=frontend /src/" + out + " ./" + out + "\n" + s[loc[1]:]
 	s = anetosBuild.ReplaceAllString(s, "go tool anetos build --no-frontend -o ")
 	loc = golangStage.FindStringIndex(s)
-	s = s[:loc[0]] + dockerFrontendStage + s[loc[0]:]
+	s = s[:loc[0]] + fmt.Sprintf(dockerFrontendStage, out) + s[loc[0]:]
 	return []byte(s), true
 }

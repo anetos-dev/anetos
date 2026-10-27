@@ -1,0 +1,173 @@
+// The app's entry, which index.html loads. It calls the API with the
+// client that `go run . types` writes into src/types (anetos dev keeps it
+// up to date): a function per route of /api/v1, named after the route.
+import './style.css'
+import { ApiError, createApi[[if and .Auth .TS]], type UserResponse[[end]] } from './types/api'
+
+const client = createApi()
+const app = document.querySelector[[if .TS]]<HTMLDivElement>[[end]]('#app')[[if .TS]]![[end]]
+
+// message says what went wrong: the API's message (a 422's per field),
+// or the error's.
+function message(err[[if .TS]]: unknown[[end]])[[if .TS]]: string[[end]] {
+  if (err instanceof ApiError && err.problem.errors) return Object.values(err.problem.errors).join(' ')
+  return err instanceof Error ? err.message : String(err)
+}
+[[- if .Auth]]
+
+// The page: the account if the session is logged in, else the login
+// form; or the page of a link the API emailed. The session is the API's
+// cookie: the SPA's origin is in HTTP_SPA_ORIGINS.
+async function start() {
+  const token = new URLSearchParams(location.search).get('token') ?? ''
+  if (location.pathname === '/verify-email') return verifyEmail(token)
+  if (location.pathname === '/reset-password') return resetPassword(token)
+  try {
+    account(await client.api.me())
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 401) logIn()
+    else show(el('p', { className: 'error' }, message(err)))
+  }
+}
+
+function logIn() {
+  history.replaceState(null, '', '/')
+  form('Log in', [
+    { name: 'email', label: 'Email', type: 'email', autocomplete: 'username' },
+    { name: 'password', label: 'Password', type: 'password', autocomplete: 'current-password' },
+  ], async ({ email, password }) => {
+    const res = await client.api.login({ email, password })
+    if (res.token) throw new Error("The API answered with a token: list this page's origin in HTTP_SPA_ORIGINS")
+    if (res.two_factor) twoFactor()
+    else account(res.user[[if .TS]]![[end]])
+  }, link('Create an account', register))
+}
+
+function twoFactor() {
+  form('Log in', [
+    { name: 'code', label: 'Your authenticator app’s code, or a recovery code', autocomplete: 'one-time-code' },
+  ], async ({ code }) => {
+    const res = await client.api.loginTwoFactor({ code })
+    account(res.user[[if .TS]]![[end]])
+  }, link('Start over', logIn))
+}
+
+function register() {
+  form('Create an account', [
+    { name: 'name', label: 'Name', autocomplete: 'name' },
+    { name: 'email', label: 'Email', type: 'email', autocomplete: 'username' },
+    { name: 'password', label: 'Password (8 characters or more)', type: 'password', autocomplete: 'new-password' },
+  ], async ({ name, email, password }) => {
+    const res = await client.api.register({ name, email, password, password_confirmation: password })
+    if (res.token) throw new Error("The API answered with a token: list this page's origin in HTTP_SPA_ORIGINS")
+    account(res.user[[if .TS]]![[end]])
+  }, link('Log in instead', logIn))
+}
+
+function account(user[[if .TS]]: UserResponse[[end]]) {
+  const logOut = el('button', { type: 'button' }, 'Log out')
+  const error = el('p', { className: 'error', role: 'alert' })
+  logOut.addEventListener('click', async () => {
+    try {
+      await client.api.logout()
+    } catch (err) {
+      // 401: logged out already.
+      if (!(err instanceof ApiError && err.status === 401)) {
+        error.textContent = message(err)
+        return
+      }
+    }
+    logIn()
+  })
+  show(el('h1', {}, 'Hello, ' + user.name), el('p', {}, 'You’re logged in as ' + user.email + '.'), error, logOut)
+}
+
+// verifyEmail is the page of the emailed verification link
+// (/verify-email?token=…).
+async function verifyEmail(token[[if .TS]]: string[[end]]) {
+  show(el('p', {}, 'Verifying your email address…'))
+  try {
+    await client.api.verification.verify({ token })
+    show(el('h1', {}, 'Your email address is verified'), el('p', {}, el('a', { href: '/' }, 'Continue')))
+  } catch (err) {
+    // A bad or expired link is a 400 without details.
+    const why = err instanceof ApiError && err.status === 400 && !err.problem.detail ? 'The link is invalid or has expired.' : message(err)
+    show(el('h1', {}, 'The link didn’t work'), el('p', { className: 'error' }, why), el('p', {}, el('a', { href: '/' }, 'Log in')))
+  }
+}
+
+// resetPassword is the page of the emailed password reset link
+// (/reset-password?token=…), which works once.
+function resetPassword(token[[if .TS]]: string[[end]]) {
+  form('Choose a new password', [
+    { name: 'password', label: 'New password (8 characters or more)', type: 'password', autocomplete: 'new-password' },
+  ], async ({ password }) => {
+    await client.api.password.reset({ token, password, password_confirmation: password })
+    show(el('h1', {}, 'Your password is changed'), el('p', {}, el('a', { href: '/' }, 'Log in')))
+  })
+}
+[[- if .TS]]
+
+type Field = { name: string; label: string; type?: string; autocomplete?: AutoFill }
+[[- end]]
+
+// form shows a form of fields, which calls send with their values; the
+// API's error shows above its button.
+function form(title[[if .TS]]: string[[end]], fields[[if .TS]]: Field[][[end]], send[[if .TS]]: (values: Record<string, string>) => Promise<void>[[end]], ...after[[if .TS]]: Node[][[end]]) {
+  const inputs = fields.map((f) =>
+    el('input', { name: f.name, type: f.type ?? 'text', autocomplete: f.autocomplete ?? 'off', required: true }),
+  )
+  const error = el('p', { className: 'error', role: 'alert' })
+  const button = el('button', {}, title)
+  const f = el('form', {}, el('h1', {}, title), ...fields.map((field, i) => el('label', {}, field.label, inputs[i])), error, button)
+  let busy = false
+  f.addEventListener('submit', async (e) => {
+    e.preventDefault()
+    if (busy) return
+    busy = true // not disabled: the button keeps the focus
+    error.textContent = ''
+    try {
+      await send(Object.fromEntries(inputs.map((input) => [input.name, input.value])))
+    } catch (err) {
+      error.textContent = message(err)
+    } finally {
+      busy = false
+    }
+  })
+  app.replaceChildren(f, ...after)
+  inputs[0]?.focus()
+}
+
+function link(text[[if .TS]]: string[[end]], open[[if .TS]]: () => void[[end]]) {
+  const b = el('button', { type: 'button', className: 'link' }, text)
+  b.addEventListener('click', open)
+  return el('p', {}, b)
+}
+[[- end]]
+
+// show replaces the page with nodes, and moves the focus to its heading.
+function show(...nodes[[if .TS]]: Node[][[end]]) {
+  app.replaceChildren(...nodes)
+  const h1 = app.querySelector('h1')
+  if (h1) {
+    h1.tabIndex = -1
+    h1.focus()
+  }
+}
+
+// el makes an element with properties and children.
+function el[[if .TS]]<K extends keyof HTMLElementTagNameMap>[[end]](tag[[if .TS]]: K[[end]], props[[if .TS]]: Partial<HTMLElementTagNameMap[K]>[[end]] = {}, ...children[[if .TS]]: (Node | string)[][[end]])[[if .TS]]: HTMLElementTagNameMap[K][[end]] {
+  const e = Object.assign(document.createElement(tag), props)
+  e.append(...children)
+  return e
+}
+[[- if .Auth]]
+
+start()
+[[- else]]
+
+client.api.welcome().then(
+  (welcome) => show(el('h1', {}, welcome.message)),
+  (err) => show(el('p', { className: 'error' }, 'The API didn’t answer: ' + message(err))),
+)
+[[- end]]

@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package frontend runs the Node side of a project with a frontend/
-// folder (design D341–D345): it checks Node's version, installs the
+// folder (design D341–D345, D365): it checks Node's version, installs the
 // packages with the package manager the lockfile names (npm without
-// one), builds with Vite into public/build, and starts Vite's
-// development server for anetos dev.
+// one), builds with Vite (into public/build, or an API project's
+// single-page app into public/spa), and starts Vite's development server
+// for anetos dev.
 package frontend
 
 import (
@@ -27,16 +28,23 @@ import (
 const Dir = "frontend"
 
 // Uses reports whether the project in root has a frontend that Vite
-// builds for its pages: frontend/package.json in a project that isn't an
-// API project. An API project's frontend/ is an app of its own, which
-// anetos dev, build and check leave alone.
+// builds: frontend/package.json in a web project (its pages' scripts and
+// styles, into public/build), or in an API project that serves it as a
+// single-page app (vite.SPA: into public/spa). An API project's other
+// frontend/ is an app of its own, which anetos dev, build and check leave
+// alone.
 func Uses(root string) bool {
 	if scaffold.IsAPI(root) {
-		return false
+		return scaffold.ServesSPA(root)
 	}
 	_, err := os.Stat(filepath.Join(root, Dir, "package.json"))
 	return err == nil
 }
+
+// SPA reports whether the project in root serves a single-page app that
+// Vite builds ([scaffold.ServesSPA]): in development, the app is Vite's
+// address, which forwards /api to the app.
+func SPA(root string) bool { return scaffold.ServesSPA(root) }
 
 // UsesTypes reports whether the app in root writes the frontend's
 // TypeScript types: a Go file of its main package calls
@@ -169,7 +177,8 @@ func Install(ctx context.Context, dir string, w io.Writer, update bool) error {
 }
 
 // Build installs the packages if they need it, then runs the frontend's
-// build script (vite build: into public/build), its output going to w.
+// build script (vite build: into public/build, or public/spa), its
+// output going to w.
 func Build(ctx context.Context, dir string, w io.Writer) error {
 	if err := CheckNode(ctx); err != nil {
 		return err
@@ -203,6 +212,13 @@ func ViteScript(dir string) (string, error) {
 		return "", errors.New("frontend/node_modules has no vite: add it to frontend/package.json's devDependencies")
 	}
 	return p, nil
+}
+
+// SPADevArgs are the arguments anetos dev runs the development server of
+// an API project's single-page app with: at the address its vite.config
+// sets (the one HTTP_SPA_ORIGINS lists), without clearing the terminal.
+func SPADevArgs(script string) []string {
+	return []string{script, "--clearScreen", "false"}
 }
 
 // DevArgs are the arguments anetos dev runs Vite's development server

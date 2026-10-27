@@ -99,7 +99,9 @@ app's own commands (`go run . …`) refuse to start. Make one first with
 [[- end]]
 | `public/`, `public/static/` | The web root, and static files served under `/assets` |
 [[- end]]
-[[- if .Frontend]]
+[[- if and .Frontend .API]]
+| `frontend/` | The single-page app Vite builds: `package.json`, `vite.config`, `index.html`, `src/` (`src/types/api.ts` is the API's client, written by `go run . types`). `go tool anetos dev` runs Vite, whose address (http://localhost:5173) serves it and forwards `/api` to the app; `go tool anetos build` builds it into `public/spa`, which the app serves at `/` (Node.js needed) |
+[[- else if .Frontend]]
 | `frontend/` | The frontend Vite builds: `package.json`, `vite.config`, `src/` (the entries `@vite.Tags` loads in the layout). `go tool anetos dev` runs Vite; `go tool anetos build` builds it into `public/build` (Node.js needed) |
 [[- end]]
 | `locales/` | The messages' translations (`locales/en/app.yaml`) |
@@ -132,7 +134,14 @@ app's own commands (`go run . …`) refuse to start. Make one first with
 - **Pages** follow the markup of the existing views. Forms carry
   `@view.CSRFField(ctx)`.
 [[- end]]
-[[- if .Frontend]]
+[[- if and .Frontend .API]]
+- **The SPA** (`frontend/src`) calls the API with the generated client
+  (`createApi()` from `src/types/api`), never with hand-written types:
+  after changing a handler's input or result, `go run . types` (which
+  `go tool anetos dev` runs) updates it. Add npm packages in `frontend/`
+  with the package manager its lockfile belongs to, never to the Go
+  module.
+[[- else if .Frontend]]
 - **Scripts and styles that need a build** go in `frontend/src`, imported
   by an entry that `@vite.Tags(...)` loads (`vite.config`'s inputs list
   the entries); files served as they are go in `public/static`. Add npm

@@ -179,6 +179,12 @@ handles everything else:
 - Anything else gets **404**, as JSON problem details or an HTML page (see
   [Return errors](handlers.md#4-return-errors)); always JSON when
   `web.JSONErrors` is global middleware, as in an API project.
+- Before the 404, a file of `r.Static`, then the handler of
+  `r.Fallback(h)` (since v0.6), if any: a single-page app's, which
+  answers its pages' paths with its `index.html` ([Build a single-page
+  app](spa.md)). Global middleware applies to it; route and group
+  middleware don't. Call it once, on the router itself: it panics on a
+  group, a `With` or a `Host` router, and when called a second time.
 
 > **Coming from another framework?** `r.Get(...).Name("x")` and
 > `c.URL("x", id)` are named routes, like Django's `name=` with

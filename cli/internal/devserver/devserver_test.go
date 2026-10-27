@@ -404,6 +404,110 @@ func TestDevViteFails(t *testing.T) {
 	}
 }
 
+// fakeSPAVite stands in for an API project's Vite: it writes its
+// arguments to args.txt and listens (where its vite.config says).
+const fakeSPAVite = `require('fs').writeFileSync('args.txt', process.argv.slice(2).join(' '))
+require('http').createServer((req, res) => res.end('vite')).listen(0, '127.0.0.1')
+`
+
+// spaApp is an API project's app that serves its SPA.
+const spaApp = `package main
+
+import (
+	"fmt"
+	"net/http"
+	"os"
+)
+
+// vite stands in for view/vite: main is an app whose setup calls vite.SPA.
+var vite struct{ SPA func(...any) }
+
+func main() {
+	if vite.SPA != nil {
+		vite.SPA()
+	}
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "app "+r.URL.Path+" VITE_DEV_URL="+os.Getenv("VITE_DEV_URL"))
+	})
+	if err := http.ListenAndServe(os.Getenv("HTTP_ADDR"), nil); err != nil {
+		panic(err)
+	}
+}
+`
+
+// In an API project whose app serves its SPA, anetos dev starts Vite at
+// its vite.config's address (no --host or --port), which forwards /api
+// to the app; it forwards nothing to Vite itself, nor sets VITE_DEV_URL.
+func TestDevSPA(t *testing.T) {
+	if testing.Short() {
+		t.Skip("builds programs")
+	}
+	if _, err := exec.LookPath("node"); err != nil {
+		t.Skip("no node command")
+	}
+	dir := t.TempDir()
+	write(t, filepath.Join(dir, "go.mod"), "module devtest\n\ngo 1.26\n")
+	write(t, filepath.Join(dir, "main.go"), spaApp)
+	write(t, filepath.Join(dir, "routes", "api.go"), "package routes\n")
+	write(t, filepath.Join(dir, "frontend", "package.json"), `{"private": true}`)
+	write(t, filepath.Join(dir, "frontend", "node_modules", "vite", "bin", "vite.js"), fakeSPAVite)
+	later := time.Now().Add(time.Minute)
+	if err := os.Chtimes(filepath.Join(dir, "frontend", "node_modules"), later, later); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	addrCh := make(chan string, 1)
+	done := make(chan error, 1)
+	var out syncBuffer
+	go func() {
+		done <- Run(ctx, Options{Dir: dir, Addr: "127.0.0.1:0", Poll: 100 * time.Millisecond, Out: &out,
+			OnListen: func(a string) { addrCh <- a }})
+	}()
+	addr := <-addrCh
+	t.Cleanup(func() {
+		cancel()
+		select {
+		case <-done:
+		case <-time.After(20 * time.Second):
+			t.Error("Run didn't stop")
+		}
+	})
+	deadline := time.Now().Add(3 * time.Minute)
+	for {
+		res, err := http.Get("http://" + addr + "/build/src/main.ts")
+		if err == nil {
+			b, _ := io.ReadAll(res.Body)
+			res.Body.Close()
+			if res.StatusCode == 200 {
+				if string(b) != "app /build/src/main.ts VITE_DEV_URL=" {
+					t.Errorf("/build/src/main.ts: %q", b)
+				}
+				break
+			}
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("GET: %v", err)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	for {
+		b, err := os.ReadFile(filepath.Join(dir, "frontend", "args.txt"))
+		if err == nil && len(b) > 0 {
+			if string(b) != "--clearScreen false" {
+				t.Errorf("Vite's arguments: %q", b)
+			}
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("Vite didn't start")
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if !strings.Contains(out.String(), "Vite serves the SPA: open the address it prints") {
+		t.Errorf("output: %s", out.String())
+	}
+}
+
 // typesApp is an app with a types command, as typescript.Register adds.
 const typesApp = `package main
 

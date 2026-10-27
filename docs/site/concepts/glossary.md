@@ -100,7 +100,7 @@ a new idea, and is listed here.
 | **Shared props** | Props every Inertia page gets (`inertia.WithShared`), such as the app's name or the logged-in user | Inertia's shared data |
 | **Root view** | The templ component of an Inertia app's first visit: it loads the frontend and places `@inertia.App()`, which holds the page | Inertia's root template |
 | **Generated types** | The TypeScript types a frontend imports, written from the app's Go types by its `types` command (`typescript.Register`, since v0.6): the typed handlers' inputs and results, a client with a function per API route, and the props of the Inertia pages `inertia.WithPages` lists. See [Generate TypeScript types for the frontend](../guides/typescript.md) | Generated API clients (OpenAPI generators, tRPC); types shared between server and client |
-| **First-party SPA** | The app's own single-page app, at an origin listed in `HTTP_SPA_ORIGINS` (since v0.6): it logs in to the API with a session cookie and CSRF protection, where other clients use tokens. See [Log in from your SPA](../guides/spa-login.md) | Cookie-based SPA authentication (Django, Laravel, Rails) |
+| **First-party SPA** | The app's own single-page app, at an origin listed in `HTTP_SPA_ORIGINS` (since v0.6): it logs in to the API with a session cookie and CSRF protection, where other clients use tokens. See [Log in from your SPA](../guides/spa-login.md) and [Build a single-page app](../guides/spa.md), where the app serves it at `/` (`vite.SPA`) | Cookie-based SPA authentication (Django, Laravel, Rails) |
 | **Catalog** | One locale's translations, in YAML files under `locales/`. See [Translations](../guides/translations.md) | Message files: Django's `.po` files, Laravel's `lang/`, Rails' `config/locales` |
 
 ## Plugins

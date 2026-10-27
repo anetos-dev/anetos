@@ -77,13 +77,15 @@ Run `make check` before every commit.
 Generated files in the examples (`make gen-check` checks the models' code):
 
 - After changing a model in `examples/bookmarks`, `examples/database`,
-  `examples/forms`, `examples/saas`, `examples/tracker` or
+  `examples/forms`, `examples/saas`, `examples/spa`, `examples/tracker` or
   `examples/tutorial`, or a `.templ` file in `examples/forms`,
   `examples/queue`, `examples/saas`, `examples/tracker` or
   `examples/tutorial`, run `go generate ./...` there.
 - After changing an API route, or the types its handler takes or answers,
-  in `examples/bookmarks` or `examples/tracker`, or `web/openapi`'s output,
-  update `openapi.json` there (its test fails otherwise). The examples have
+  in `examples/bookmarks`, `examples/spa` or `examples/tracker`, or
+  `web/openapi`'s output, update `openapi.json` there (its test fails
+  otherwise); in `examples/spa`, also `frontend/src/types/api.ts`
+  (`go run . types`, with the same settings). The examples have
   no `.env`: `APP_ENV=development APP_KEY=base64:$(head -c32 /dev/urandom | base64) go run . openapi`.
   `web/openapi`'s own golden files: `go test ./web/openapi -update`.
 - After changing the generator's fixtures, run

@@ -104,6 +104,100 @@ func TestNewProjectVite(t *testing.T) {
 	}
 }
 
+// With Node: an API project's single-page app (design D365). anetos new
+// --stack=api --vite=js installs its packages and writes its client of
+// the API; the project passes its tests without a build, and anetos build
+// builds it into public/spa, which the binary embeds. vite:install after
+// make:auth writes the login page, which type-checks against the client.
+func TestNewAPIProjectSPA(t *testing.T) {
+	if testing.Short() {
+		t.Skip("creates and builds projects")
+	}
+	if os.Getenv("ANETOS_TEST_NODE") != "1" {
+		t.Skip("set ANETOS_TEST_NODE=1 to install the frontend's packages with npm and build them with Vite")
+	}
+	repo, err := filepath.Abs("../../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	goIn := func(dir string, args ...string) {
+		t.Helper()
+		cmd := exec.Command("go", args...)
+		cmd.Dir = dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("go %s: %v\n%s", strings.Join(args, " "), err, out)
+		}
+	}
+	dir := filepath.Join(t.TempDir(), "shop")
+	code, out, errOut := runCmd(t, "new", dir, "--stack=api", "--vite=js", "--replace", repo)
+	if code != 0 || !strings.Contains(out, "go run . types") || !strings.Contains(out, "npm install (frontend/)") {
+		t.Fatalf("new --stack=api --vite=js: %d\n%s\n%s", code, out, errOut)
+	}
+	if api := read(t, filepath.Join(dir, "frontend", "src", "types", "api.ts")); !strings.Contains(api, "welcome: (") {
+		t.Errorf("api.ts:\n%s", api)
+	}
+	goIn(dir, "test", "./...") // without the build: the SPA's page says so
+	t.Chdir(dir)
+	if code, out, errOut := runCmd(t, "build", "-o", "bin/shop"); code != 0 {
+		t.Fatalf("build: %d\n%s\n%s", code, out, errOut)
+	}
+	if html := read(t, filepath.Join(dir, "public", "spa", "index.html")); !strings.Contains(html, `<script type="module" crossorigin src="/assets/index-`) {
+		t.Errorf("index.html:\n%s", html)
+	}
+	writeFiles(t, filepath.Join(dir, "public"), map[string]string{"embed_test.go": spaEmbedTest})
+	goIn(dir, "test", "./public")
+
+	// vite:install after make:auth: the login page.
+	authDir := filepath.Join(t.TempDir(), "accounts")
+	if code, out, errOut := runCmd(t, "new", authDir, "--stack=api", "--replace", repo); code != 0 {
+		t.Fatalf("new: %d\n%s\n%s", code, out, errOut)
+	}
+	t.Chdir(authDir)
+	if code, out, errOut := runCmd(t, "make:auth"); code != 0 {
+		t.Fatalf("make:auth: %d\n%s\n%s", code, out, errOut)
+	}
+	code, out, errOut = runCmd(t, "vite:install")
+	if code != 0 || !strings.Contains(out, "created frontend/src/main.ts") || !strings.Contains(out, "updated main.go") ||
+		!strings.Contains(out, "updated .env") || strings.Contains(out, "Add by hand") || !strings.Contains(out, "open http://localhost:5173") {
+		t.Fatalf("vite:install: %d\n%s\n%s", code, out, errOut)
+	}
+	if api := read(t, filepath.Join(authDir, "frontend", "src", "types", "api.ts")); !strings.Contains(api, "loginTwoFactor: (") {
+		t.Errorf("api.ts has no login:\n%s", api)
+	}
+	goIn(authDir, "vet", "./...")
+	goIn(authDir, "test", "./...")
+	if code, out, errOut := runCmd(t, "build", "-o", "bin/accounts"); code != 0 { // tsc checks main.ts
+		t.Fatalf("build: %d\n%s\n%s", code, out, errOut)
+	}
+}
+
+// spaEmbedTest checks that public.Files has the SPA's page and the
+// files it loads.
+const spaEmbedTest = `package public
+
+import (
+	"io/fs"
+	"regexp"
+	"testing"
+)
+
+func TestEmbedsSPA(t *testing.T) {
+	b, err := fs.ReadFile(Files, "spa/index.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	refs := regexp.MustCompile(` + "`(?:src|href)=\"/(assets/[^\"]+)\"`" + `).FindAllSubmatch(b, -1)
+	if len(refs) < 2 {
+		t.Fatalf("index.html loads %d files:\n%s", len(refs), b)
+	}
+	for _, r := range refs {
+		if _, err := fs.Stat(Files, "spa/"+string(r[1])); err != nil {
+			t.Errorf("not embedded: %v", err)
+		}
+	}
+}
+`
+
 // embedTest checks that public.Files has every file of the manifest.
 const embedTest = `package public
 

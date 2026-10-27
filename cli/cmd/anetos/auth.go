@@ -11,6 +11,7 @@ import (
 	"os"
 	"time"
 
+	"anetos.dev/anetos/cli/internal/frontend"
 	"anetos.dev/anetos/cli/internal/modelgen"
 	"anetos.dev/anetos/cli/internal/scaffold"
 )
@@ -131,6 +132,14 @@ Next:
   go tool anetos dev   then POST /api/v1/register; emails go to the log (MAIL_DRIVER=log)
 The emails link to the client app: AUTH_CLIENT_URL in .env.
 `)
+		if frontend.SPA(root) {
+			fmt.Fprint(stdout, `
+The SPA in frontend/ was written before the accounts: its page doesn't log
+in. Write the login, and the /verify-email and /reset-password pages the
+emails link to, with the client (frontend/src/types/api.ts): see the guide
+"Build a single-page app", and examples/spa.
+`)
+		}
 		return 0
 	}
 	if !res.Wired {

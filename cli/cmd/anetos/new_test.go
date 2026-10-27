@@ -634,7 +634,7 @@ func TestInstallStepsVersion(t *testing.T) {
 	if v != "v0.5.0-rc.1" {
 		t.Fatalf("anetosVersion = %q", v)
 	}
-	steps := installSteps("postgres", "web", false)
+	steps := installSteps("postgres", "web", false, false)
 	want := [][]string{
 		{"get", "anetos.dev/anetos@" + v, "anetos.dev/anetos/drivers/postgres@" + v},
 		{"get", "-tool", "anetos.dev/anetos/cli/cmd/anetos@" + v},
@@ -642,9 +642,17 @@ func TestInstallStepsVersion(t *testing.T) {
 	if len(steps) < 2 || !slices.Equal(steps[0], want[0]) || !slices.Equal(steps[1], want[1]) {
 		t.Errorf("installSteps = %q, want it to start with %q", steps, want)
 	}
-	for _, s := range installSteps("sqlite", "api", true) {
+	for _, s := range installSteps("sqlite", "api", true, false) {
 		if s[0] == "get" && strings.HasPrefix(s[len(s)-1], "anetos.dev/") {
 			t.Errorf("with --replace: %q", s)
 		}
+		if slices.Equal(s, []string{"run", ".", "types"}) {
+			t.Errorf("types without a frontend: %q", s)
+		}
+	}
+	// An API project's SPA: its client, after openapi.json.
+	if steps := installSteps("sqlite", "api", true, true); !slices.Equal(steps[len(steps)-2], []string{"run", ".", "openapi"}) ||
+		!slices.Equal(steps[len(steps)-1], []string{"run", ".", "types"}) {
+		t.Errorf("api with --vite: %q", steps)
 	}
 }

@@ -74,7 +74,8 @@ type AgentProject struct {
 	// (every new one does).
 	HasUI bool
 	// Frontend is set when the project has a frontend that Vite builds
-	// (frontend/package.json).
+	// (frontend/package.json): a web project's pages', or an API
+	// project's single-page app ([ServesSPA]).
 	Frontend bool
 }
 
@@ -504,7 +505,7 @@ func ReadAgentProject(root string) (AgentProject, error) {
 		p.Name = units[0]
 	}
 	if _, err := os.Stat(filepath.Join(root, "frontend", "package.json")); err == nil {
-		p.Frontend = true
+		p.Frontend = !IsAPI(root) || ServesSPA(root) // not an app of its own
 	}
 	if p.Name == "" && p.Module != "" {
 		p.Name = BinaryName(p.Module)

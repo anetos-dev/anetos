@@ -1,0 +1,46 @@
+/* The app's styles, bundled by Vite. */
+body {
+  margin: 0 auto;
+  max-width: 28rem;
+  padding: 2rem 1rem;
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+}
+[[- if .Auth]]
+
+label {
+  display: block;
+  margin-bottom: 1rem;
+}
+
+input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: 0.25rem;
+  padding: 0.5rem;
+  font: inherit;
+}
+
+button {
+  padding: 0.5rem 1rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+button.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: LinkText;
+  text-decoration: underline;
+}
+
+.error {
+  color: #b00020;
+}
+
+.error:empty {
+  display: none;
+}
+[[- end]]

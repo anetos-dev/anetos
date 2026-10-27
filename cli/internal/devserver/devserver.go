@@ -76,8 +76,15 @@ func Run(ctx context.Context, o Options) error {
 		return fmt.Errorf("anetos dev: %w", err)
 	}
 	// Vite first: requests under /build/ go to it from the start (d.vite
-	// doesn't change while serving).
-	if frontend.Uses(o.Dir) {
+	// doesn't change while serving). An API project's SPA is Vite's
+	// address, which forwards /api here.
+	if frontend.SPA(o.Dir) {
+		if err := d.startSPA(); err != nil {
+			_ = ln.Close()
+			return fmt.Errorf("anetos dev: %w", err)
+		}
+		defer d.stopVite()
+	} else if frontend.Uses(o.Dir) {
 		if err := d.startVite(); err != nil {
 			_ = ln.Close()
 			return fmt.Errorf("anetos dev: %w", err)
@@ -441,17 +448,7 @@ const viteBase = vite.Base
 // Vite's development server on 127.0.0.1 and a free port (command-line
 // flags, which win over vite.config), returning once it listens.
 func (d *dev) startVite() error {
-	dir := filepath.Join(d.opts.Dir, frontend.Dir)
-	if err := frontend.CheckNode(d.ctx); err != nil {
-		return err
-	}
-	if frontend.NeedsInstall(dir) {
-		d.logf("installing the frontend's packages (%s)", frontend.ManagerOf(dir).Name)
-		if err := frontend.Install(d.ctx, dir, d.opts.Out, true); err != nil {
-			return err
-		}
-	}
-	script, err := frontend.ViteScript(dir)
+	script, err := d.viteScript()
 	if err != nil {
 		return err
 	}
@@ -459,27 +456,15 @@ func (d *dev) startVite() error {
 	if err != nil {
 		return err
 	}
-	// node itself, not a shell shim: stopping it stops Vite.
-	c := exec.CommandContext(d.ctx, "node", frontend.DevArgs(script, port)...)
-	if runtime.GOOS != "windows" {
-		c.Cancel = func() error { return c.Process.Signal(os.Interrupt) }
-	}
-	c.WaitDelay = 5 * time.Second
-	c.SysProcAttr = sysProcAttr()
-	c.Dir = dir
-	c.Stdout, c.Stderr = d.opts.Out, d.opts.Out
-	if err := c.Start(); err != nil {
-		return fmt.Errorf("start Vite: %w", err)
-	}
 	var started atomic.Bool
-	exited := make(chan struct{})
-	go func() {
-		_ = c.Wait()
-		close(exited)
-		if started.Load() && d.ctx.Err() == nil {
+	c, exited, err := d.runVite(frontend.DevArgs(script, port), func(c *exec.Cmd) {
+		if started.Load() {
 			d.logf("Vite stopped (%s): /build/ answers 502 until anetos dev restarts", c.ProcessState)
 		}
-	}()
+	})
+	if err != nil {
+		return err
+	}
 	addr := "127.0.0.1:" + strconv.Itoa(port)
 	deadline := time.Now().Add(30 * time.Second)
 	for {
@@ -505,6 +490,71 @@ func (d *dev) startVite() error {
 	d.mu.Unlock()
 	d.logf("Vite serves the frontend under %s", viteBase)
 	return nil
+}
+
+// startSPA installs the frontend's packages if they need it, and starts
+// Vite's development server for an API project's single-page app, at the
+// address its vite.config sets (http://localhost:5173), which forwards
+// /api to the app.
+func (d *dev) startSPA() error {
+	script, err := d.viteScript()
+	if err != nil {
+		return err
+	}
+	c, exited, err := d.runVite(frontend.SPADevArgs(script), func(c *exec.Cmd) {
+		d.logf("Vite stopped (%s): its output is above; the SPA is back once anetos dev restarts", c.ProcessState)
+	})
+	if err != nil {
+		return err
+	}
+	d.mu.Lock()
+	d.viteProc, d.viteExited = c, exited
+	d.mu.Unlock()
+	d.logf("Vite serves the SPA: open the address it prints (http://localhost:5173 in frontend/vite.config), which forwards /api to the app")
+	return nil
+}
+
+// viteScript checks Node, installs the frontend's packages if they need
+// it, and returns its Vite.
+func (d *dev) viteScript() (string, error) {
+	dir := filepath.Join(d.opts.Dir, frontend.Dir)
+	if err := frontend.CheckNode(d.ctx); err != nil {
+		return "", err
+	}
+	if frontend.NeedsInstall(dir) {
+		d.logf("installing the frontend's packages (%s)", frontend.ManagerOf(dir).Name)
+		if err := frontend.Install(d.ctx, dir, d.opts.Out, true); err != nil {
+			return "", err
+		}
+	}
+	return frontend.ViteScript(dir)
+}
+
+// runVite starts node with args in the frontend's folder, its output
+// going to anetos dev's; stopped calls back when it stops before anetos
+// dev does.
+func (d *dev) runVite(args []string, stopped func(*exec.Cmd)) (*exec.Cmd, chan struct{}, error) {
+	// node itself, not a shell shim: stopping it stops Vite.
+	c := exec.CommandContext(d.ctx, "node", args...)
+	if runtime.GOOS != "windows" {
+		c.Cancel = func() error { return c.Process.Signal(os.Interrupt) }
+	}
+	c.WaitDelay = 5 * time.Second
+	c.SysProcAttr = sysProcAttr()
+	c.Dir = filepath.Join(d.opts.Dir, frontend.Dir)
+	c.Stdout, c.Stderr = d.opts.Out, d.opts.Out
+	if err := c.Start(); err != nil {
+		return nil, nil, fmt.Errorf("start Vite: %w", err)
+	}
+	exited := make(chan struct{})
+	go func() {
+		_ = c.Wait()
+		close(exited)
+		if d.ctx.Err() == nil {
+			stopped(c)
+		}
+	}()
+	return c, exited, nil
 }
 
 func (d *dev) stopVite() {

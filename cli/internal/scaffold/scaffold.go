@@ -58,7 +58,8 @@ type Project struct {
 	// the skills…; see [Agents]): none when empty.
 	Agents []string
 	// Vite adds a frontend that Vite builds (see [AddVite]) in the
-	// language ("ts" or "js"); "" for none. Web stack only.
+	// language ("ts" or "js"); "" for none. In an API project, it is a
+	// single-page app served at /.
 	Vite string
 }
 
@@ -223,8 +224,6 @@ func Create(p Project) ([]string, error) {
 	}
 	switch {
 	case p.Vite == "":
-	case p.Stack == "api":
-		return nil, errors.New("anetos new: --vite is for the web stack: an api project's frontend is a separate app")
 	case !slices.Contains(Languages, p.Vite):
 		return nil, fmt.Errorf("anetos new: --vite must be one of %s", strings.Join(Languages, ", "))
 	}

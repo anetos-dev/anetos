@@ -1,0 +1,47 @@
+// SPDX-License-Identifier: Apache-2.0
+
+package main
+
+import (
+	"errors"
+
+	"anetos.dev/anetos"
+	"anetos.dev/anetos/auth"
+	"anetos.dev/anetos/db/migrate"
+	"anetos.dev/anetos/session"
+	"anetos.dev/anetos/web"
+
+	"spa/app/models"
+	"spa/routes"
+)
+
+// setupAuth adds accounts (anetos make:auth): the migration of the
+// api_tokens table, package auth with the app's users (AUTH_* settings;
+// AUTH_CLIENT_URL is where emailed links lead), the sessions of the
+// app's own SPA (HTTP_SPA_ORIGINS; SESSION_* settings, kept in an
+// encrypted cookie by default), and the account routes. setup calls it
+// after the routes.
+func setupAuth(app *anetos.App, r *web.Router) (*auth.Auth[*models.User], error) {
+	runner, err := anetos.Resolve[*migrate.Runner](app)
+	if err != nil {
+		return nil, err
+	}
+	if err := runner.Add(auth.Migrations()); err != nil {
+		return nil, err
+	}
+	a, err := auth.New(app, models.Users)
+	if err != nil {
+		return nil, err
+	}
+	// The verification and reset emails link to the client app: a server
+	// without its address couldn't register anyone.
+	if a.Config().ClientURL == "" && app.Config().Env.Deployed() {
+		return nil, errors.New("AUTH_CLIENT_URL isn't set: the address of the client app, where the account emails link")
+	}
+	sessions, err := session.New(app)
+	if err != nil {
+		return nil, err
+	}
+	routes.Auth(r, a, sessions)
+	return a, nil
+}

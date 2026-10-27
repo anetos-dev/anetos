@@ -34,10 +34,12 @@ build step), or Tailwind CSS (components with its classes; anetos dev
 and anetos build compile views/ui/tailwind.css with its standalone CLI,
 downloaded on first use). The api stack (--stack=api) serves JSON only:
 routes under /api/v1, errors as JSON problem details, CORS settings,
-an OpenAPI description (openapi.json); no views or sessions. --vite
-adds a frontend that Vite builds (frontend/, in TypeScript, or
-JavaScript with --vite=js), loaded by the layout; it needs Node.js
-20.19 or 22.12 or later (see anetos vite:install). Then it
+an OpenAPI description (openapi.json); no views. --vite adds a
+frontend that Vite builds (frontend/, in TypeScript, or JavaScript with
+--vite=js): the web stack's layout loads it; the api stack serves it as
+a single-page app at / (in development, Vite's address,
+http://localhost:5173). It needs Node.js 20.19 or 22.12 or later (see
+anetos vite:install). Then it
 downloads the dependencies and generates the views (web) or
 openapi.json (api); skip with --skip-install. It also writes the files
 coding agents read (AGENTS.md, CLAUDE.md, GEMINI.md, and the skills in
@@ -55,7 +57,7 @@ func newProject(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	skip := fs.Bool("skip-install", false, "don't download dependencies or generate code")
 	noAgent := fs.Bool("no-agent", false, "don't write the files coding agents read (AGENTS.md, CLAUDE.md, GEMINI.md, the skills)")
 	var lang viteFlag
-	fs.Var(&lang, "vite", "add a frontend that Vite builds (frontend/): --vite for TypeScript, --vite=js for JavaScript (web stack; needs Node.js)")
+	fs.Var(&lang, "vite", "add a frontend that Vite builds (frontend/; an api project's is a single-page app): --vite for TypeScript, --vite=js for JavaScript (needs Node.js)")
 	args = slices.Clone(args)
 	for i, a := range args {
 		if a == "--vite" || a == "-vite" { // alone: TypeScript
@@ -82,7 +84,7 @@ func newProject(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	}
 	fmt.Fprintf(stdout, "Created %s (%d files).\n", dir, len(files))
 	if !*skip {
-		for _, step := range installSteps(*dbName, *stack, *replace != "") {
+		for _, step := range installSteps(*dbName, *stack, *replace != "", lang != "") {
 			fmt.Fprintf(stdout, "  go %s\n", strings.Join(step, " "))
 			if out, err := goCmd(ctx, dir, step...); err != nil {
 				fmt.Fprintf(stderr, "anetos new: go %s failed: %v\n%s\nFix the problem, then run the remaining steps in %s yourself.\n", strings.Join(step, " "), err, out, dir)
@@ -101,12 +103,18 @@ func newProject(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	fmt.Fprintf(stdout, "\nNext:\n  cd %s\n", dir)
 	if *skip && *stack == "api" {
 		fmt.Fprintf(stdout, "  # go mod tidy, then go run . openapi: writes openapi.json, which main_test.go checks\n")
+		if lang != "" {
+			fmt.Fprintf(stdout, "  # and go run . types: the SPA's client of the API (frontend/src/types)\n")
+		}
 	}
 	if *dbName != "sqlite" {
 		fmt.Fprintf(stdout, "  # create the database and set DB_* in .env\n")
 	}
 	url := "http://localhost:8080"
-	if *stack == "api" {
+	switch {
+	case *stack == "api" && lang != "":
+		url = "the SPA at http://localhost:5173 (Vite's), the API under /api/v1"
+	case *stack == "api":
 		url += "/api/v1"
 	}
 	fmt.Fprintf(stdout, "  go run . migrate\n  go tool anetos dev    # %s\n", url)
@@ -115,8 +123,9 @@ func newProject(ctx context.Context, args []string, stdout, stderr io.Writer) in
 
 // installSteps are the go commands that finish a new project of a
 // stack: templ and its generated views for the web stack only, the
-// API's description (openapi.json) for the api stack.
-func installSteps(db, stack string, replaced bool) [][]string {
+// API's description (openapi.json) for the api stack, and with a
+// frontend (vite), its client of the API (go run . types).
+func installSteps(db, stack string, replaced, vite bool) [][]string {
 	var steps [][]string
 	if !replaced {
 		// Every module is released with the same version: a tool of one
@@ -135,6 +144,9 @@ func installSteps(db, stack string, replaced bool) [][]string {
 	steps = append(steps, []string{"mod", "tidy"})
 	if stack == "api" {
 		steps = append(steps, []string{"run", ".", "openapi"}) // openapi.json, which a test checks
+		if vite {
+			steps = append(steps, []string{"run", ".", "types"}) // the SPA's client
+		}
 	}
 	return steps
 }

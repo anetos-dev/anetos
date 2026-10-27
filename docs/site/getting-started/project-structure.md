@@ -49,7 +49,9 @@ welcome and a 404's JSON.
 A web project made with `--vite` (or `go tool anetos vite:install`) also
 has `frontend/`: the scripts and styles Vite builds into `public/build`,
 which the layout loads with `@vite.Tags`. See [Bundle JavaScript and CSS
-with Vite](../guides/vite.md).
+with Vite](../guides/vite.md). In an API project, `frontend/` is a
+single-page app, which Vite builds into `public/spa` and the app serves
+at `/`: see [Build a single-page app](../guides/spa.md).
 
 ## How a request flows
 

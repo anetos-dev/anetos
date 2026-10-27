@@ -1,0 +1,5 @@
+# The app's English text. Translate it with the same keys in another
+# locale's folder (locales/bn/app.yaml); the request's Accept-Language
+# header picks the language.
+api:
+  welcome: "Welcome to the {app} API."

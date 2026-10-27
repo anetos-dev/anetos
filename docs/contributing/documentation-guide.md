@@ -259,7 +259,9 @@ Broken examples are the fastest way to lose trust.
    ``(Region `name`.)`` when the example file was already linked on the
    page. The link may name a file other than `main.go`
    (``[`examples/x/migrations.go`](…)``), including a `.templ` file, whose
-   regions are shown in `templ` code blocks. First-party plugins are
+   regions are shown in `templ` code blocks, and a frontend's TypeScript
+   or JavaScript file (``[`examples/spa/frontend/src/api.ts`](…)``), in
+   `ts`, `tsx`, `js` or `jsx` blocks. First-party plugins are
    compiled and tested too, so their regions can be claimed the same
    way (``[`plugins/postmark/plugin.go`](…)``). `make docs-check` (part of
    `make check`) fails if a claimed block differs from its region. Indentation shared by every line is ignored, so
@@ -418,3 +420,4 @@ sketches as illustrative; never invent APIs in docs that don't exist in code.
 | 2026-10-11 | §2: the first pages (README, the website's home page, the install page) in the Definition of Done (after rc.1) |
 | 2026-10-11 | §9: the docs site has one version per minor release; a fix to a released version's pages ships with a patch release (M2v, D320) |
 | 2026-10-11 | §1, §5.4, §8, §11: Anetos described on its own terms; "Coming from another framework?" boxes name several frameworks (M8d) |
+| 2026-10-27 | §7: regions of a frontend's TypeScript and JavaScript files can be claimed (SP2) |

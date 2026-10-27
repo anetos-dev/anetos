@@ -2405,11 +2405,14 @@ pkg anetos.dev/anetos/view/htmx, const SSEVersion = "2.2.4"
 pkg anetos.dev/anetos/view/htmx, const Version = "2.0.11"
 pkg anetos.dev/anetos/view/htmx, var FS embed.FS
 pkg anetos.dev/anetos/view/vite, const Base = "/build/"
+pkg anetos.dev/anetos/view/vite, const SPADir = "spa"
+pkg anetos.dev/anetos/view/vite, func Except(string) SPAOption
 pkg anetos.dev/anetos/view/vite, func From(context.Context) (*Vite, error)
 pkg anetos.dev/anetos/view/vite, func Handler() http.Handler
 pkg anetos.dev/anetos/view/vite, func LoadConfig(config.Source) (Config, error)
 pkg anetos.dev/anetos/view/vite, func New(*anetos.App, fs.FS, ...Option) (*Vite, error)
 pkg anetos.dev/anetos/view/vite, func NewWithFiles(fs.FS, string, ...Option) (*Vite, error)
+pkg anetos.dev/anetos/view/vite, func SPA(*anetos.App, fs.FS, ...SPAOption) (http.Handler, error)
 pkg anetos.dev/anetos/view/vite, func Tags(...string) view.Component
 pkg anetos.dev/anetos/view/vite, func URL(context.Context, string) string
 pkg anetos.dev/anetos/view/vite, func WithReactRefresh() Option
@@ -2423,6 +2426,7 @@ pkg anetos.dev/anetos/view/vite, method (Config) Validate() error
 pkg anetos.dev/anetos/view/vite, type Config struct
 pkg anetos.dev/anetos/view/vite, type Config struct, DevURL string
 pkg anetos.dev/anetos/view/vite, type Option func(*Vite)
+pkg anetos.dev/anetos/view/vite, type SPAOption func(*spa)
 pkg anetos.dev/anetos/view/vite, type Vite struct
 pkg anetos.dev/anetos/view/vite, var ErrNoVite error
 pkg anetos.dev/anetos/web, const LocaleCookie = "locale"
@@ -2536,6 +2540,7 @@ pkg anetos.dev/anetos/web, method (*Route) Status(int) *Route
 pkg anetos.dev/anetos/web, method (*Router) As(string) *Router
 pkg anetos.dev/anetos/web, method (*Router) Delete(string, HandlerFunc) *Route
 pkg anetos.dev/anetos/web, method (*Router) ErrorPages(func(*Ctx, ErrorPage) view.Component)
+pkg anetos.dev/anetos/web, method (*Router) Fallback(http.Handler)
 pkg anetos.dev/anetos/web, method (*Router) Get(string, HandlerFunc) *Route
 pkg anetos.dev/anetos/web, method (*Router) GlobalMiddleware() []MiddlewareDoc
 pkg anetos.dev/anetos/web, method (*Router) Group(string, ...Middleware) *Router

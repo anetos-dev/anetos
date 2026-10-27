@@ -52,11 +52,25 @@ func (v *Vite) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	full := strings.Trim(Base, "/") + "/" + name
-	f, err := v.cache.get(v.files, full)
-	if err != nil {
+	if !serveFile(w, r, v.files, &v.cache, full, name) {
 		http.NotFound(w, r)
-		return
 	}
+}
+
+// serveFile serves full, a file of files, as name: the files Vite names
+// with a hash of their content (under assets/) cached for a year, others
+// revalidated (ETag), gzipped for clients that take it. It reports false,
+// writing nothing, when there is no such file.
+func serveFile(w http.ResponseWriter, r *http.Request, files fs.FS, cache *fileCache, full, name string) bool {
+	f, err := cache.get(files, full)
+	if err != nil {
+		return false
+	}
+	file, err := files.Open(full)
+	if err != nil {
+		return false
+	}
+	defer file.Close()
 	h := w.Header()
 	h.Set("ETag", `"`+f.hash+`"`)
 	if strings.HasPrefix(name, "assets/") {
@@ -73,25 +87,20 @@ func (v *Vite) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if gzipfile.AcceptsGzip(r) {
 			h.Set("ETag", `"`+f.hash+`-gz"`) // another representation
 			http.ServeContent(gzipfile.Writer{ResponseWriter: w}, r, name, time.Time{}, bytes.NewReader(f.gz))
-			return
+			return true
 		}
 	}
-	file, err := v.files.Open(full)
-	if err != nil {
-		http.NotFound(w, r)
-		return
-	}
-	defer file.Close()
 	if rs, ok := file.(io.ReadSeeker); ok { // embed's files: no copy
 		http.ServeContent(w, r, name, time.Time{}, rs)
-		return
+		return true
 	}
 	b, err := io.ReadAll(file)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
+		return true
 	}
 	http.ServeContent(w, r, name, time.Time{}, bytes.NewReader(b))
+	return true
 }
 
 // hiddenPath reports whether a part of name starts with a dot.

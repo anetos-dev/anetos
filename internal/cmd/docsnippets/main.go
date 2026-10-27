@@ -4,10 +4,11 @@
 // copied from an example match that region exactly. A claim is a paragraph
 // right after the block that starts with "(Copied from [`examples/x`](…),
 // region `name`.)" or, for a file already named on the page, "(Region
-// `name`.)". The example is examples/x/main.go, or the file itself when the
-// link names a .go or .templ file (examples/x/migrations.go). First-party
-// plugins are examples too: plugins/x/plugin.go. Go and templ code blocks
-// are checked.
+// `name`.)". The example is examples/x/main.go when the link names a
+// directory, or the file it names (examples/x/migrations.go, or a
+// frontend's examples/x/frontend/src/api.ts). First-party plugins are
+// examples too: plugins/x/plugin.go. Go, templ, TypeScript and
+// JavaScript code blocks are checked.
 // Indentation common to every line, and blank lines at the start and end,
 // are ignored on both sides, so a region inside a function body can be
 // shown unindented, and one in a package can start with a blank line that
@@ -73,7 +74,7 @@ func checkDoc(root, path, doc string) (problems []string, checked int) {
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		switch {
-		case !inBlock && (strings.HasPrefix(trimmed, "```go") || strings.HasPrefix(trimmed, "```templ")):
+		case !inBlock && checkedFence(trimmed):
 			inBlock, block = true, nil
 			continue
 		case inBlock && strings.HasPrefix(trimmed, "```"):
@@ -110,7 +111,7 @@ func checkDoc(root, path, doc string) (problems []string, checked int) {
 		regions, ok := regionsCache[lastExample]
 		if !ok {
 			file := filepath.Join(root, lastExample)
-			if !strings.HasSuffix(lastExample, ".go") && !strings.HasSuffix(lastExample, ".templ") {
+			if st, err := os.Stat(file); err == nil && st.IsDir() { // a package: its main.go
 				file = filepath.Join(file, "main.go")
 			}
 			src, err := os.ReadFile(file)
@@ -135,6 +136,22 @@ func checkDoc(root, path, doc string) (problems []string, checked int) {
 		}
 	}
 	return problems, checked
+}
+
+// checkedFence reports whether a line opens a code block of a language
+// whose regions the checker compares: Go, templ, and a frontend's
+// TypeScript or JavaScript.
+func checkedFence(line string) bool {
+	lang, ok := strings.CutPrefix(line, "```")
+	fields := strings.Fields(lang)
+	if !ok || len(fields) == 0 {
+		return false
+	}
+	switch fields[0] {
+	case "go", "templ", "ts", "tsx", "js", "jsx":
+		return true
+	}
+	return false
 }
 
 // dedent removes the indentation common to all non-blank lines, so a region

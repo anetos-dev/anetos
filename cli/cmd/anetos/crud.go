@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"anetos.dev/anetos/cli/internal/frontend"
 	"anetos.dev/anetos/cli/internal/modelgen"
 	"anetos.dev/anetos/cli/internal/scaffold"
 )
@@ -166,8 +167,9 @@ func testFile(created []string) string {
 
 // updateOpenAPI rewrites the API's description (openapi.json) with the
 // project's openapi command, in a project whose main.go adds it (an API
-// project's, since v0.4). A failure is reported, not fatal: the code is
-// written.
+// project's, since v0.4), and the frontend's TypeScript types when the
+// app writes them (typescript.Register). A failure is reported, not
+// fatal: the code is written.
 func updateOpenAPI(ctx context.Context, root string, stdout, stderr io.Writer) {
 	main, err := os.ReadFile(filepath.Join(root, "main.go"))
 	if err != nil || !bytes.Contains(main, []byte("openapi.Register(")) {
@@ -179,4 +181,12 @@ func updateOpenAPI(ctx context.Context, root string, stdout, stderr io.Writer) {
 		return
 	}
 	fmt.Fprintln(stdout, "Updated openapi.json, the API's description.")
+	if frontend.UsesTypes(root) {
+		out.Reset()
+		if err := runGoOut(ctx, root, &out, &out, "run", ".", "types"); err != nil {
+			fmt.Fprintf(stderr, "Updating the frontend's types failed (%v):\n%s\nRun `go run . types` once it's fixed.\n", err, out.String())
+			return
+		}
+		fmt.Fprintln(stdout, "Updated the frontend's types (go run . types).")
+	}
 }

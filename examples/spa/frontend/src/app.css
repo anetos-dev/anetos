@@ -1,0 +1,160 @@
+/* The app's styles: plain CSS, bundled by Vite. */
+:root {
+  color-scheme: light dark;
+  --accent: #2563eb;
+  --danger: #c62828;
+  --muted: color-mix(in srgb, currentColor 60%, transparent);
+  --line: color-mix(in srgb, currentColor 15%, transparent);
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+}
+
+body {
+  margin: 0;
+}
+
+header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+header nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+}
+
+.brand {
+  font-weight: 600;
+  color: inherit;
+  text-decoration: none;
+}
+
+main {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+a,
+button.link {
+  color: var(--accent);
+}
+
+nav a.active {
+  font-weight: 600;
+  text-decoration: none;
+}
+
+label {
+  display: block;
+}
+
+input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0.25rem 0 0.75rem;
+  padding: 0.5rem;
+  font: inherit;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+input[aria-invalid] {
+  border-color: var(--danger);
+}
+
+button {
+  padding: 0.5rem 1rem;
+  font: inherit;
+  color: white;
+  background: var(--accent);
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+button[aria-disabled] {
+  opacity: 0.6;
+}
+
+button.link {
+  padding: 0;
+  background: none;
+  text-decoration: underline;
+}
+
+button.danger {
+  color: var(--danger);
+}
+
+.error {
+  color: var(--danger);
+}
+
+.field-error {
+  display: block;
+  margin: -0.5rem 0 0.75rem;
+  font-size: 0.9em;
+}
+
+.error:empty {
+  display: none;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.notice {
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+.new {
+  margin-bottom: 1.5rem;
+}
+
+.new summary {
+  cursor: pointer;
+  margin-bottom: 0.75rem;
+}
+
+.bookmarks {
+  padding: 0;
+  list-style: none;
+}
+
+.bookmarks li {
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.bookmarks .url {
+  margin-left: 0.5rem;
+  font-size: 0.9em;
+}
+
+.bookmarks p {
+  margin: 0.25rem 0;
+}
+
+.actions {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.9em;
+}
+
+.pages {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}

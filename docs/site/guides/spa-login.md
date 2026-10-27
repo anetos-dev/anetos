@@ -8,8 +8,8 @@ weight: 180
 # Log in from your SPA with a session cookie
 
 An API project's accounts ([Add accounts to an API](api-accounts.md))
-log in with tokens. Your own single-page app, built with Vue, React,
-Svelte or anything else, can log in with a session cookie instead: the
+log in with tokens. Your own single-page app, built with React, Svelte,
+Vue or anything else, can log in with a session cookie instead: the
 browser keeps it out of reach of the page's scripts, so a script
 injected into the page can't steal the login, as it could a token kept
 in JavaScript. Tokens stay for everything else: mobile apps, programs,
@@ -25,7 +25,8 @@ whatever origin), is answered as before, with tokens.
 - An API project with accounts: `go tool anetos make:auth`
   ([Add accounts to an API](api-accounts.md)).
 - An SPA on the **same site** as the API: the same host
-  (`example.com`, served by the app or behind the same proxy), or
+  (`example.com`, served by the app, as [Build a single-page
+  app](spa.md) does, or behind the same proxy), or
   another subdomain of one domain (`app.example.com` calling
   `api.example.com`). Browsers don't send cookies to another site
   (`app.example.net` calling `api.example.com`): such an SPA, like a
@@ -162,7 +163,9 @@ that did it.
 
 [`examples/bookmarks`](../../../examples/bookmarks) is the API that
 `make:auth` and `make:crud` write; its `auth_test.go` logs in as its SPA
-would.
+would. [`examples/spa`](../../../examples/spa) is that API with its SPA,
+in React: login with two-factor codes, registration, password reset and
+email verification.
 
 ## How it works
 
@@ -214,6 +217,8 @@ app.WithHeader("Origin", authClient) // as the SPA's browser sends it
 
 ## Next steps
 
+- [Build a single-page app](spa.md): an SPA the app serves, at its own
+  origin.
 - [Add accounts to an API](api-accounts.md): the endpoints and tokens.
 - [Generate TypeScript types for the frontend](typescript.md): the
   client.

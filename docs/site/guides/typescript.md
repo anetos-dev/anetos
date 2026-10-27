@@ -244,5 +244,7 @@ func TestTypes(t *testing.T) {
 - [Describe an API with OpenAPI](openapi.md): the same types, for other
   clients and tools.
 - [TypeScript reference](../reference/typescript.md).
+- [Build a single-page app](spa.md): an API project's SPA, served by
+  the app, calling the API with this client.
 - [Log in from your SPA with a session cookie](spa-login.md): the
   client with the API's accounts.

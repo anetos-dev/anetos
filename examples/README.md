@@ -35,3 +35,8 @@ notes and its statistics after the page shows, a form with errors from
 the server, a message after saving, and the error page. Its pages are
 typed from the TypeScript types its `types` command writes. Its tests
 run without Node.
+[`spa`](spa) is the API of [`bookmarks`](bookmarks) with a single-page app in React
+that the binary serves at `/` (`anetos vite:install`): login with
+two-factor codes, registration, password reset, email verification and
+the bookmarks, through the client its `types` command writes, logged in
+with the session. Its tests run without Node.

@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -68,5 +69,42 @@ func TestStatic(t *testing.T) {
 		if rec.Code != tc.status || tc.body != "" && string(body) != tc.body {
 			t.Errorf("%s %s = %d %q, want %d %q", tc.method, tc.path, rec.Code, body, tc.status, tc.body)
 		}
+	}
+}
+
+// Fallback serves what no route and no Static file takes; a path with
+// routes for other methods still answers 405.
+func TestFallback(t *testing.T) {
+	r := web.NewRouter()
+	r.Static("/", fstest.MapFS{"robots.txt": {Data: []byte("User-agent: *")}})
+	r.Post("/login", func(c *web.Ctx) error { return c.NoContent() })
+	r.Fallback(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) { _, _ = w.Write([]byte("spa")) }))
+	for target, want := range map[string]string{"/robots.txt": "User-agent", "/notes/1": "spa", "/": "spa"} {
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, target, nil))
+		if !strings.Contains(rec.Body.String(), want) {
+			t.Errorf("%s: %d %q", target, rec.Code, rec.Body)
+		}
+	}
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/login", nil))
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Errorf("GET /login: %d", rec.Code)
+	}
+	for name, fn := range map[string]func(){
+		"twice": func() { r.Fallback(http.NotFoundHandler()) },
+		"group": func() { web.NewRouter().Group("/x").Fallback(http.NotFoundHandler()) },
+		"with":  func() { web.NewRouter().With(web.JSONErrors).Fallback(http.NotFoundHandler()) },
+		"host":  func() { web.NewRouter().Host("a.example.com").Fallback(http.NotFoundHandler()) },
+		"nil":   func() { web.NewRouter().Fallback(nil) },
+	} {
+		func() {
+			defer func() {
+				if recover() == nil {
+					t.Errorf("%s didn't panic", name)
+				}
+			}()
+			fn()
+		}()
 	}
 }

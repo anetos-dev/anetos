@@ -56,6 +56,32 @@ func (r *Router) Static(prefix string, fsys fs.FS) {
 	})
 }
 
+// Fallback serves the requests no route matches, after [Router.Static]'s
+// files, in place of the 404: a single-page app's handler, which answers
+// its pages' paths with its index.html (vite.SPA):
+//
+//	r.Fallback(spa)
+//
+// A path that has routes for other methods still answers 405. Global
+// middleware applies; route and group middleware don't. It panics when
+// called twice, or on a router made from another ([Router.Group],
+// [Router.With], [Router.Host]), whose middleware it wouldn't run: the
+// fallback is the whole router's.
+func (r *Router) Fallback(h http.Handler) {
+	if h == nil {
+		panic("web: Fallback with a nil handler")
+	}
+	if r.parent != nil {
+		panic("web: Fallback is the whole router's: call it on the router, not a group, a With or a Host router")
+	}
+	r.core.mu.Lock()
+	defer r.core.mu.Unlock()
+	if r.core.fallbackH != nil {
+		panic("web: Fallback called twice")
+	}
+	r.core.fallbackH = h
+}
+
 // serveStatic serves req from the first of the router's static file
 // systems that has the file, and reports whether one did.
 func (r *Router) serveStatic(w http.ResponseWriter, req *http.Request) bool {
