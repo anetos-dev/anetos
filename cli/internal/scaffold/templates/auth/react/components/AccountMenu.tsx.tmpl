@@ -1,0 +1,32 @@
+import { usePage } from '@inertiajs/react'
+import { NavLink } from '../Layout'
+import { useT } from '../i18n'
+import { route } from '../types/routes'
+import { LinkButton, PostButton } from './ui'
+
+// AccountMenu is the header's account links (anetos make:auth): the
+// logged-in user's dashboard, settings and logout, or log in and
+// register. The user is a shared prop (handlers.SharedProps).
+export default function AccountMenu() {
+  const { user } = usePage().props
+  const t = useT()
+  if (user) {
+    return (
+      <>
+        <NavLink route="dashboard" label={user.name} />
+        <NavLink route="settings" label={t('auth.settings.title')} />
+        <PostButton href={route('logout')} variant="ghost">
+          {t('auth.dashboard.logout')}
+        </PostButton>
+      </>
+    )
+  }
+  return (
+    <>
+      <NavLink route="login" label={t('auth.login.title')} />
+      <LinkButton href={route('register')} small>
+        {t('auth.register.title')}
+      </LinkButton>
+    </>
+  )
+}

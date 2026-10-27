@@ -89,6 +89,13 @@ func apiRouter() *web.Router {
 	// A page's form: its input's type, no client function.
 	r.Post("/notes", web.H(func(c *web.Ctx, in NoteInput) (web.Responder, error) { return web.Back(), nil }))
 	r.Get("/plain", func(c *web.Ctx) error { return nil })
+	// Named routes, for routes.ts: a path's rest, an exact path's end
+	// ({$}: no parameter), a host's and an excluded one's (left out).
+	r.Get("/", func(c *web.Ctx) error { return nil }).Name("home")
+	r.Get("/files/{path...}", func(c *web.Ctx) error { return nil }).Name("files.show")
+	r.Get("/docs/{$}", func(c *web.Ctx) error { return nil }).Name("docs")
+	r.Host("admin.example.com").Get("/stats", func(c *web.Ctx) error { return nil }).Name("admin.stats")
+	r.Get("/internal/jobs", func(c *web.Ctx) error { return nil }).Name("internal.jobs")
 	return r
 }
 
@@ -123,7 +130,7 @@ func tsConfig(t *testing.T) typescript.Config {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return typescript.Config{Dir: "testdata", Prefix: "/api/v1", Inertia: in}
+	return typescript.Config{Dir: "testdata", Prefix: "/api/v1", Inertia: in, Routes: true, ExcludeRoutes: []string{"internal."}}
 }
 
 // The files of a router and pages, compared with testdata's.
@@ -132,7 +139,7 @@ func TestGenerate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(files) != 2 {
+	if len(files) != 3 {
 		t.Fatalf("files %v", files)
 	}
 	for path, b := range files {

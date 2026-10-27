@@ -1753,6 +1753,57 @@ built:
   `examples/spa` is the bookmarks API with a React SPA (React Router,
   plain CSS, the generated client); framework scaffolds stay v0.7's.
 
+**Inertia stacks (V3, D370–D376).** D333's second way, scaffolded:
+`anetos new --stack=react|vue|svelte` (React in V3a, Vue in V3b, Svelte
+in V3c):
+
+- **Layers** (D370): the web stack's Go side (sessions, CSRF, the
+  handlers, `make:auth`'s and `make:crud`'s logic and routes) with
+  Inertia in place of the templ pages: a root view
+  (`views/app.templ`, which `@vite.Tags` the entry), `inertia.New` in
+  setup, the page groups behind `inertia.Middleware` and
+  `web.CSRF(web.WithXSRFCookie())`, the error pages the frontend's
+  `Error` page; `frontend/` holds the framework's entry, layout, pages
+  and a small `components/` set mirroring `views/ui` (pages have no
+  classes of their own, as the web stack's views). TypeScript only,
+  styled by the starter theme (its stylesheet imported by the entry;
+  `--css` other than `anetos` refused until v0.7); no server-side
+  rendering (the Go binary stays the only server). templ stays, for the
+  root view and the emails.
+- **Pages** (D371): a handler renders a page declared next to it with
+  its props' type; the handlers package's `page[P](component)` adds it
+  to `handlers.Pages`, which setup passes to `inertia.WithPages`, so a
+  generator adds pages without changing `main.go`. The handlers stay the
+  web stack's (validation errors go back through Inertia's errors bag;
+  redirects and the session's flash messages are unchanged): only the
+  renders differ, so one template serves both stacks.
+- **Shared props** (D372): `handlers.Shared` gives every page the app's
+  name, the session's `status` flash, the logged-in user (`null` until
+  `make:auth` patches `currentUser`), the locale and its direction, and
+  the page text (below), the last as a once prop.
+- **Page text** (D373): the pages' strings stay in the app's catalogs
+  (`locales/<locale>/*.yaml`), with the web stack's keys;
+  `i18n.Messages(ctx, "")` sends the request's locale's (with its
+  fallbacks; not the framework's own catalog) to the frontend, whose
+  `t(key, args)` fills placeholders as `i18n.T` does and picks plural
+  forms with `Intl.PluralRules`. Translating a page is the web stack's workflow;
+  validation errors and flashes come translated from Go.
+- **Links** (D374): `typescript.Config.Routes` also writes `routes.ts`, a
+  `route(name, params, query)` of the named routes (names and parameters
+  typed), so a renamed route breaks the frontend's build rather than a
+  link. `ExcludeRoutes` (name prefixes) keeps routes the pages don't link
+  to out of the bundle: the stack's `main.go` leaves out `admin.`.
+- **Generators** (D375): `make:auth` and `make:crud` in an Inertia
+  project write the same Go (renders as pages) and the framework's pages;
+  the project's stack is read from `frontend/package.json`'s Inertia
+  adapter and `app/handlers/pages.go`'s `page`. Social login's links are full page visits (they leave the
+  site). `make:admin` puts its banner in the root view, `css:use`
+  refuses, and the agent files describe the stack's pages and skills.
+- **Checks** (D376): CI's Node job creates a project of each stack with
+  `make:auth` and `make:crud`, installs, type-checks and builds the
+  frontend, and runs the Go tests; browser tests run before each commit,
+  not in CI.
+
 ### 12.3 Admin interface (v0.3: AD1, AD2)
 
 An admin for the people who run a site: its records, its users and their
@@ -3684,6 +3735,13 @@ unless new information arrives), **Open**, **Superseded**.
 | D367 | Without `public/spa/index.html`, `vite.SPA` fails where the app is deployed and answers a page saying to build the frontend elsewhere; deployed, `doctor` warns unless `HTTP_SPA_ORIGINS` lists `APP_URL`'s origin | Accepted | Tests and `go run .` must work without Node (D345), but a production binary without its SPA is a broken release. The SPA the app serves is at `APP_URL`; unlisted, its login would answer a token (D361) |
 | D368 | In development, the SPA is Vite's address (`localhost:5173`, `strictPort`), which forwards `/api` to the app; `anetos dev` runs Vite as `vite.config` says and proxies nothing to it | Accepted | Samiul's choice (2026-10-27): Vite's own server gives the SPA hot reload with no proxy of ours in between, and the page and the API are one origin as in production. A fixed port lets `HTTP_SPA_ORIGINS` and `AUTH_CLIENT_URL` name it |
 | D369 | `vite:install` in an API project (and `anetos new --stack=api --vite`) writes a plain TypeScript or JavaScript SPA (a login page with `make:auth`'s routes), its serving and its settings; the tool treats an API project's `frontend/` as the SPA only when the main package calls `vite.SPA` | Accepted | Samiul's choice (2026-10-27): a working, framework-free start; React, Vue and Svelte scaffolds are v0.7's (D333). A `frontend/` without `vite.SPA` may be an app of its own (V1's rule), which the tool still leaves alone |
+| D370 | `anetos new --stack=react\|vue\|svelte`: the web stack's Go side with Inertia in place of templ pages (a root view, `inertia.New`, `inertia.Middleware` and the XSRF cookie on the page groups, the frontend's error page), `frontend/` with the framework's pages and components; TypeScript only, the starter theme only, no SSR; delivered as V3a (React), V3b (Vue), V3c (Svelte) | Accepted | Samiul's choices (2026-10-27): one language (the pages are typed from TS1's `pages.ts`), one look (every kit would multiply the pages by three per framework), three reviewed commits. SSR would need a Node server beside the binary |
+| D371 | Pages are declared beside their handlers with `page[P](component)`, which adds them to `handlers.Pages` for `inertia.WithPages`; the generated handlers are the web stack's, with renders as pages | Accepted | Generators add pages without touching `main.go`; one handler template for both stacks keeps the logic (validation, redirects, flashes, rate limits) in one place |
+| D372 | `handlers.Shared`: the app's name, the session's `status` flash, the user (`currentUser`, which `make:auth` patches), the locale and direction, and the page text as a once prop | Accepted | The layout needs them on every page; the handlers' flashes stay the session's, so the web and Inertia stacks share them |
+| D373 | The pages' strings are the app's catalog entries, with the web stack's keys; `i18n.Messages(ctx, prefix)` sends a locale's (all of the app's for "") to the frontend, whose `t()` fills placeholders and plurals | Accepted | Samiul's choice (2026-10-27): one translation workflow for both stacks (`locales/*.yaml`, `locale:check`), no frontend i18n library to pick; the same keys let `make:auth` and `make:crud` write one catalog for both stacks. A `ui.` namespace was dropped for that: the server's keys (errors, emails) ride along, a few kilobytes once per visit |
+| D374 | `typescript.Config.Routes` writes `routes.ts`: `route(name, params, query)` over the named routes, typed | Accepted | Samiul's choice (2026-10-27): a renamed route or a missing parameter fails the type check, where a path in a component would fail in production |
+| D375 | `make:auth` and `make:crud` write Inertia pages in a project whose `frontend/package.json` has an Inertia adapter (`@inertiajs/react`, `-vue3`, `-svelte`) and whose `app/handlers/pages.go` declares `page` | Accepted | The project's own files say what it is, as `IsAPI` reads the routes; no record file to keep. The second file (review87) keeps a web project with Inertia added by hand, which has none of the stack's files, on the web stack's generators |
+| D376 | CI builds a generated project of each Inertia stack (with `make:auth` and `make:crud`): npm install, type check, `vite build`, Go tests; browser tests are run by hand before each commit | Accepted | Samiul's choice (2026-10-27): templates of three frameworks break silently without a build; a browser in CI costs minutes on every run |
 
 ---
 
@@ -3807,3 +3865,5 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-26 | DOC1 (cloud platforms): §21 updated; D357–D360 added |
 | 2026-10-27 | SP1 (login for SPAs): §12.2 updated; D361–D364 added |
 | 2026-10-27 | SP2 (single-page apps in the project): §12.2 updated; D365–D369 added |
+| 2026-10-27 | V3 (Inertia stacks) designed: §12.2 updated; D370–D376 added |
+| 2026-10-27 | V3a (React) built: §12.2 updated (the components, `make:admin`, `css:use`, the agent files) |

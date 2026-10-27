@@ -1,7 +1,11 @@
 package handlers
 
 import (
+[[- if .Inertia]]
+	"time"
+[[- else]]
 	"net/http"
+[[- end]]
 [[if .HasDate]]
 	"anetos.dev/anetos"
 [[- end]]
@@ -10,7 +14,9 @@ import (
 	"anetos.dev/anetos/web"
 
 	"[[.Module]]/app/models"
+[[- if not .Inertia]]
 	"[[.Module]]/views"
+[[- end]]
 )
 
 // [[.Plural]] serves the [[.PluralW]] pages (anetos make:crud): the list, a
@@ -38,6 +44,60 @@ type [[.Model]]Input struct {
 [[- end]]
 }
 
+[[- if .Inertia]]
+// The [[.PluralW]] pages (frontend/src/pages/[[.Plural]]: yours to change), and
+// their props. Their text is in locales/en/[[.Key]].yaml.
+var (
+	[[.Helper]]IndexPage = page[[print "["]][[.Plural]]IndexProps]("[[.Plural]]/Index")
+	[[.Helper]]ShowPage  = page[[print "["]][[.Model]]Props]("[[.Plural]]/Show")
+	[[.Helper]]FormPage  = page[[print "["]][[.Model]]FormProps]("[[.Plural]]/Form")
+)
+
+// [[.Model]]Item is a [[.Words]] as the pages get it: the fields chosen here, so
+// a new column of the [[.Table]] table never shows by accident.
+type [[.Model]]Item struct {
+	ID int64 `json:"id"`
+[[- range .Fields]]
+	[[.Go]] [[.ResponseType]] `json:"[[.Name]]"`
+[[- end]]
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// [[.Helper]]Item is row as the pages get it.
+func [[.Helper]]Item(row models.[[.Model]]) [[.Model]]Item {
+	item := [[.Model]]Item{
+		ID: row.ID,
+[[- range .Fields]][[if not .OptionalDate]]
+		[[.Go]]: row.[[.Go]],
+[[- end]][[end]]
+		CreatedAt: row.CreatedAt,
+	}
+[[- range .Fields]][[if .OptionalDate]]
+	if !row.[[.Go]].IsZero() {
+		item.[[.Go]] = &row.[[.Go]] // null when empty
+	}
+[[- end]][[end]]
+	return item
+}
+
+// [[.Plural]]IndexProps are the list's: a page of [[.PluralW]] (data, with
+// current_page, last_page and total).
+type [[.Plural]]IndexProps struct {
+	Page db.Page[[print "["]][[.Model]]Item] `json:"page"`
+}
+
+// [[.Model]]Props are a [[.Words]]'s page's.
+type [[.Model]]Props struct {
+	Item [[.Model]]Item `json:"item"`
+}
+
+// [[.Model]]FormProps are the form's: the [[.Words]] being edited, null for a new
+// one.
+type [[.Model]]FormProps struct {
+	Item *[[.Model]]Item `json:"item"`
+}
+
+[[ end -]]
 // fill copies the form to the row.
 func (in [[.Model]]Input) fill(row *models.[[.Model]]) {
 [[- range .Fields]]
@@ -51,7 +111,11 @@ func ([[.Plural]]) Index(c *web.Ctx, in [[.Model]]List) (web.Responder, error) {
 	if err != nil {
 		return nil, err
 	}
+[[- if .Inertia]]
+	return [[.Helper]]IndexPage.Responder([[.Plural]]IndexProps{Page: db.MapPage(page, [[.Helper]]Item)}), nil
+[[- else]]
 	return web.Render(views.[[.Plural]]Page(page)), nil
+[[- end]]
 }
 
 // Show shows a [[.Words]]; one that doesn't exist is a 404 (db.ErrNotFound).
@@ -60,12 +124,20 @@ func ([[.Plural]]) Show(c *web.Ctx, in [[.Model]]ID) (web.Responder, error) {
 	if err != nil {
 		return nil, err
 	}
+[[- if .Inertia]]
+	return [[.Helper]]ShowPage.Responder([[.Model]]Props{Item: [[.Helper]]Item(row)}), nil
+[[- else]]
 	return web.Render(views.[[.Model]]Page(row)), nil
+[[- end]]
 }
 
 // New shows the form for a new [[.Words]].
 func ([[.Plural]]) New(c *web.Ctx) error {
+[[- if .Inertia]]
+	return [[.Helper]]FormPage.Render(c, [[.Model]]FormProps{})
+[[- else]]
 	return c.Render(http.StatusOK, views.[[.Model]]Form(models.[[.Model]]{}))
+[[- end]]
 }
 
 // Create saves a new [[.Words]].
@@ -85,7 +157,12 @@ func ([[.Plural]]) Edit(c *web.Ctx, in [[.Model]]ID) (web.Responder, error) {
 	if err != nil {
 		return nil, err
 	}
+[[- if .Inertia]]
+	item := [[.Helper]]Item(row)
+	return [[.Helper]]FormPage.Responder([[.Model]]FormProps{Item: &item}), nil
+[[- else]]
 	return web.Render(views.[[.Model]]Form(row)), nil
+[[- end]]
 }
 
 // Update saves the changes to a [[.Words]].

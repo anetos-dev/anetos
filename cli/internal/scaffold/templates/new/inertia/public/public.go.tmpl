@@ -1,0 +1,13 @@
+// Package public is the web root: its files are served at / (robots.txt
+// at /robots.txt, favicon.svg at /favicon.svg), and Vite's build of the
+// frontend, in build/, at /build/.
+package public
+
+import "embed"
+
+// Files are the folder's files, which routes/web.go serves at / with
+// r.Static (Go files and other hidden files aren't served), and vite.New
+// reads build/ from.
+//
+//go:embed *
+var Files embed.FS

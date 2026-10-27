@@ -1,0 +1,57 @@
+import { Link, usePage } from '@inertiajs/react'
+import { useEffect, type ReactNode } from 'react'
+import { Flash } from './components/ui'
+import { useT } from './i18n'
+import { route, setRoutePrefix, type PlainRouteName } from './types/routes'
+
+// Layout is every page's frame (createInertiaApp's layout in app.tsx):
+// the header with the app's links, the message a handler flashed, then
+// the page. Its markup is components/ui's, styled by theme.css.
+export default function Layout({ children }: { children: ReactNode }) {
+  const { appName, routePrefix, status, locale, dir } = usePage().props
+  const t = useT()
+  setRoutePrefix(routePrefix) // the locale's, for every route() below
+  useEffect(() => {
+    // The root view set them for the first visit; a visit may change the
+    // locale (the settings, a login).
+    document.documentElement.lang = locale
+    document.documentElement.dir = dir
+  }, [locale, dir])
+  return (
+    <>
+      <header className="topbar">
+        <div className="container">
+          <Link className="brand" href={route('home')}>{appName}</Link>
+          <nav className="nav" aria-label={t('nav.label')}>
+            <NavLink route="home" label={t('nav.home')} />
+          </nav>
+          <div className="nav-end">
+            {/* The account's links (go tool anetos make:auth adds them). */}
+          </div>
+        </div>
+      </header>
+      <main className="container">
+        {status && <Flash>{status}</Flash>}
+        {children}
+      </main>
+      <footer className="site-footer">
+        <div className="container">
+          <p>{appName}</p>
+        </div>
+      </footer>
+    </>
+  )
+}
+
+// NavLink links to a named route, marked as the current page when the
+// page's path (its URL without the query) is the route's or under it.
+export function NavLink({ route: name, label }: { route: PlainRouteName; label: string }) {
+  const path = usePage().url.split('?')[0]
+  const href = route(name)
+  const current = path === href || (href !== '/' && path.startsWith(href + '/'))
+  return (
+    <Link href={href} aria-current={current ? 'page' : undefined}>
+      {label}
+    </Link>
+  )
+}

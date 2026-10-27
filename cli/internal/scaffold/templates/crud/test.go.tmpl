@@ -19,8 +19,13 @@ func Test[[.Plural]](t *testing.T) {
 	//
 	//	ada := anetostest.Create(app, factories.Users)
 	//	anetostest.ActingAs(app, &ada)
+[[- if .Inertia]]
+	app.Get("/[[.Path]]").AssertOK().AssertInertia("[[.Plural]]/Index").AssertInertiaProp("page.total", 0)
+	app.Get("/[[.Path]]/new").AssertOK().AssertInertia("[[.Plural]]/Form")
+[[- else]]
 	app.Get("/[[.Path]]").AssertOK().AssertSee("No [[.PluralW]] yet.")
 	app.Get("/[[.Path]]/new").AssertOK()
+[[- end]]
 [[- if .Required]]
 	app.PostForm("/[[.Path]]", url.Values{}).AssertValidationErrors([[.Required]])
 [[- end]]
@@ -30,14 +35,23 @@ func Test[[.Plural]](t *testing.T) {
 		"[[.Name]]": {[[.Sample]]},
 [[- end]]
 	}
+[[- if .Inertia]]
+	app.PostForm("/[[.Path]]", form).Follow().AssertOK().AssertInertia("[[.Plural]]/Show").AssertInertiaProp("status", "[[.OneW]] created.")
+[[- else]]
 	app.PostForm("/[[.Path]]", form).Follow().AssertOK().AssertSee("[[.OneW]] created."[[with .SeeSample]], [[.]][[end]])
+[[- end]]
 	row, err := db.Query[models.[[.Model]]](app.Context()).First()
 	if err != nil {
 		t.Fatal(err)
 	}
 	path := fmt.Sprintf("/[[.Path]]/%d", row.ID)
+[[- if .Inertia]]
+	app.Get("/[[.Path]]").AssertOK().AssertInertiaProp("page.total", 1)
+	app.Get(path + "/edit").AssertOK().AssertInertia("[[.Plural]]/Form").AssertInertiaProp("item.id", row.ID)
+[[- else]]
 	app.Get("/[[.Path]]").AssertOK()
 	app.Get(path + "/edit").AssertOK()
+[[- end]]
 	app.PutForm(path, form).AssertRedirect(path)
 	app.DeleteForm(path, nil).AssertRedirect("/[[.Path]]")
 	anetostest.AssertDatabaseCount[models.[[.Model]]](app, 0)

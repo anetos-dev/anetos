@@ -16,3 +16,9 @@
 *.db
 *.db-shm
 *.db-wal
+[[- if .Inertia]]
+
+# The frontend's packages and build (anetos build makes it)
+/frontend/node_modules/
+/public/build/
+[[- end]]

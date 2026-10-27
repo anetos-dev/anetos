@@ -67,7 +67,7 @@ var skills = []skill{
 type AgentProject struct {
 	Name   string // the app's name ("blog"): its deploy unit's, its binary's
 	Module string // its module path, which names the binary
-	Stack  string // "web" or "api"
+	Stack  string // "web", "api" or an Inertia stack ("react")
 	DB     string // "sqlite", "postgres" or "mysql"
 	Kit    string // the web stack's CSS framework (Kits)
 	// HasUI is set when the web project has views/ui's components
@@ -77,14 +77,21 @@ type AgentProject struct {
 	// (frontend/package.json): a web project's pages', or an API
 	// project's single-page app ([ServesSPA]).
 	Frontend bool
+	// Framework is an Inertia stack's framework ("react";
+	// [InertiaFramework]), whose components are the pages.
+	Framework string
 }
 
 // agentData is what the agent templates see.
 type agentData struct {
 	Title, Name, Bin, Image, DB, DBLabel, KitSentence string
 	Web, API, HasUI, Frontend                         bool
-	Skills                                            []skill
-	SkillDirs                                         []string
+	// Inertia is set for an Inertia stack, whose Framework (react) is
+	// FrameworkName (React) and whose components are TSX (".tsx").
+	Inertia                       bool
+	Framework, FrameworkName, Ext string
+	Skills                        []skill
+	SkillDirs                     []string
 }
 
 var kitSentences = map[string]string{
@@ -103,6 +110,13 @@ const unknownKitSentence = "The pages call the components in `views/ui`."
 // noUISentence is a web project's without views/ui.
 const noUISentence = "The pages are templ views with their own markup and `public/static/app.css`."
 
+// frameworkNames are the Inertia stacks' frameworks' names for people,
+// and frameworkExts their components' file extensions.
+var (
+	frameworkNames = map[string]string{"react": "React", "vue": "Vue", "svelte": "Svelte"}
+	frameworkExts  = map[string]string{"react": ".tsx", "vue": ".vue", "svelte": ".svelte"}
+)
+
 var dbLabels = map[string]string{"sqlite": "SQLite", "postgres": "PostgreSQL", "mysql": "MySQL"}
 
 func (p AgentProject) data(agents []string) agentData {
@@ -112,9 +126,14 @@ func (p AgentProject) data(agents []string) agentData {
 		Web: p.Stack != "api", API: p.Stack == "api", HasUI: p.HasUI && p.Stack != "api", Frontend: p.Frontend,
 		SkillDirs: skillDirs(agents),
 	}
-	if d.Web && !d.HasUI {
+	switch {
+	case p.Framework != "" && d.Web:
+		d.Inertia, d.Framework, d.FrameworkName = true, p.Framework, frameworkNames[p.Framework]
+		d.Ext, d.HasUI, d.Frontend = frameworkExts[p.Framework], false, true
+		d.KitSentence = "The pages use the starter theme (`frontend/src/theme.css`), through the components in `frontend/src/components/ui" + d.Ext + "`."
+	case d.Web && !d.HasUI:
 		d.KitSentence = noUISentence
-	} else if d.Web && d.KitSentence == "" {
+	case d.Web && d.KitSentence == "":
 		d.KitSentence = unknownKitSentence // no usable views/ui/css.json
 	}
 	stack := "web"
@@ -463,7 +482,8 @@ func StaleAgentFiles(root string) ([]string, error) {
 // root: its name (its deploy unit's, deploy/<name>.service, which anetos
 // new names after the project, else its binary's; not the directory's,
 // which a clone or a worktree may change), its stack (api with
-// routes/api.go and no views/), its database (the driver go.mod
+// routes/api.go and no views/; an Inertia stack's, by the adapter
+// frontend/package.json depends on), its database (the driver go.mod
 // requires), its CSS framework (views/ui/css.json's) and whether it has
 // views/ui.
 func ReadAgentProject(root string) (AgentProject, error) {
@@ -512,6 +532,9 @@ func ReadAgentProject(root string) (AgentProject, error) {
 	}
 	if p.Name == "" {
 		p.Name = filepath.Base(abs)
+	}
+	if p.Framework = InertiaFramework(root); p.Framework != "" {
+		p.Stack = p.Framework
 	}
 	if p.Stack == "web" {
 		if r, err := ReadKitRecord(root); err == nil {

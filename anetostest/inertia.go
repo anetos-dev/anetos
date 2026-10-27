@@ -5,6 +5,8 @@ package anetostest
 import (
 	"encoding/json"
 	"reflect"
+	"strconv"
+	"strings"
 
 	"anetos.dev/anetos"
 	"anetos.dev/anetos/web/inertia"
@@ -45,7 +47,9 @@ func (r *Response) AssertInertia(component string) *Response {
 }
 
 // AssertInertiaProp checks that the Inertia page's prop name equals want,
-// compared as JSON (want can be a struct, a map or a plain value).
+// compared as JSON (want can be a struct, a map or a plain value). A name
+// with dots is a path into the prop: "user.name", "tokens.0.id" (since
+// v0.6).
 //
 //	res.AssertInertiaProp("errors", map[string]string{"title": "The title is required."})
 func (r *Response) AssertInertiaProp(name string, want any) *Response {
@@ -55,7 +59,7 @@ func (r *Response) AssertInertiaProp(name string, want any) *Response {
 		r.errorf("%v (status %d)", err, r.StatusCode)
 		return r
 	}
-	raw, ok := p.Props[name]
+	raw, ok := propAt(p.Props, name)
 	if !ok {
 		r.errorf("the Inertia page %q has no prop %q", p.Component, name)
 		return r
@@ -85,4 +89,34 @@ func (r *Response) InertiaPage() *inertia.PageObject {
 		r.app.t.Fatalf("%s %s: %v (status %d)", r.Request.Method, r.Request.URL.RequestURI(), err, r.StatusCode)
 	}
 	return p
+}
+
+// propAt returns the JSON at path in props: a prop's name, then the keys
+// of objects and the indexes of arrays inside it, separated by dots. A
+// prop whose own name has dots is found first.
+func propAt(props map[string]json.RawMessage, path string) (json.RawMessage, bool) {
+	if raw, ok := props[path]; ok {
+		return raw, true
+	}
+	name, rest, ok := strings.Cut(path, ".")
+	raw, found := props[name]
+	if !ok || !found {
+		return nil, false
+	}
+	for part := range strings.SplitSeq(rest, ".") {
+		var obj map[string]json.RawMessage
+		if json.Unmarshal(raw, &obj) == nil {
+			if raw, ok = obj[part]; !ok {
+				return nil, false
+			}
+			continue
+		}
+		var arr []json.RawMessage
+		i, err := strconv.Atoi(part)
+		if json.Unmarshal(raw, &arr) != nil || err != nil || i < 0 || i >= len(arr) {
+			return nil, false
+		}
+		raw = arr[i]
+	}
+	return raw, true
 }

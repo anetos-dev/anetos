@@ -22,12 +22,14 @@ import (
 
 	"[[.Module]]/app/mailers"
 	"[[.Module]]/app/models"
+[[- if not .Inertia]]
 	"[[.Module]]/views"
+[[- end]]
 )
 
 // The account settings (anetos make:auth): the user's name, email
 // address, password, language and time zone, two-factor authentication, and
-// deleting the account. Add your own fields here, in views/settings.templ
+// deleting the account. Add your own fields here, in [[if .Inertia]]frontend/src/pages/Auth/Settings.tsx[[else]]views/settings.templ[[end]]
 // and in routes/auth.go.
 
 // ProfileInput is the profile form.
@@ -55,12 +57,76 @@ type PreferencesInput struct {
 	TimeZone string `json:"time_zone" validate:"max:64"`
 }
 
+[[- if .Inertia]]
+var (
+	settingsPage    = page[SettingsProps]("Auth/Settings")
+	revertEmailPage = page[RevertEmailProps]("Auth/RevertEmail")
+)
+
+// SettingsProps are the settings page's.
+type SettingsProps struct {
+	Name          string   `json:"name"`
+	Email         string   `json:"email"`
+	EmailVerified bool     `json:"emailVerified"`
+	PendingEmail  string   `json:"pendingEmail"`
+	HasPassword   bool     `json:"hasPassword"` // false for users who log in with Google, say
+	Locale        string   `json:"locale"`      // "" for the browser's
+	TimeZone      string   `json:"timeZone"`    // "" for the app's
+	Locales       []Choice `json:"locales"`     // the app's languages
+	TimeZones     []string `json:"timeZones"`   // i18n.TimeZones
+	// EmailURL and DeleteURL are where the forms to change the address
+	// and to delete the account post: "" when users may not
+	// (AllowEmailChange, AllowAccountDeletion in routes/auth.go).
+	EmailURL    string `json:"emailUrl"`
+	DeleteURL   string `json:"deleteUrl"`
+	TwoFactor   bool   `json:"twoFactor"` // two-factor authentication is available
+	TwoFactorOn bool   `json:"twoFactorOn"`
+}
+
+// Choice is an option of a select: its value and its name for people.
+type Choice struct {
+	Value string `json:"value"`
+	Title string `json:"title"`
+}
+
+// RevertEmailProps are the page of the link that undoes a change of
+// email address.
+type RevertEmailProps struct {
+	Token    string `json:"token"`
+	OldEmail string `json:"oldEmail"`
+	NewEmail string `json:"newEmail"`
+}
+
+[[- end]]
+
 // Settings shows the account settings.
 func (h Accounts) Settings(c *web.Ctx) error {
 	u, err := auth.Current[*models.User](c)
 	if err != nil {
 		return err
 	}
+[[- if .Inertia]]
+	page := SettingsProps{Name: u.Name, Email: u.Email, EmailVerified: u.EmailVerifiedAt != nil, PendingEmail: u.PendingEmail,
+		HasPassword: u.Password != "", Locale: u.Locale, TimeZone: u.TimeZone, Locales: []Choice{},
+		TimeZones: i18n.TimeZones(), TwoFactor: h.Auth.SupportsTwoFactor()}
+	if h.AllowEmailChange {
+		page.EmailURL = web.MustURL(c, "settings.email")
+	}
+	if h.AllowAccountDeletion {
+		page.DeleteURL = web.MustURL(c, "settings.delete")
+	}
+	for _, l := range i18n.From(c).Supported() {
+		page.Locales = append(page.Locales, Choice{Value: l, Title: i18n.LanguageName(c, l)})
+	}
+	if page.TwoFactor {
+		st, err := h.Auth.TwoFactor(u)
+		if err != nil {
+			return err
+		}
+		page.TwoFactorOn = st.On
+	}
+	return settingsPage.Render(c, page)
+[[- else]]
 	page := views.SettingsPage{User: u, EmailChange: h.AllowEmailChange, DeleteAccount: h.AllowAccountDeletion,
 		TimeZones: i18n.TimeZones(), TwoFactor: h.Auth.SupportsTwoFactor()}
 	for _, l := range i18n.From(c).Supported() {
@@ -72,6 +138,7 @@ func (h Accounts) Settings(c *web.Ctx) error {
 		}
 	}
 	return c.Render(http.StatusOK, views.Settings(page))
+[[- end]]
 }
 
 // UpdateProfile saves the user's name.
@@ -225,7 +292,11 @@ func (h Accounts) RevertEmailPage(c *web.Ctx) error {
 	if u.Email != email && u.PendingEmail != email {
 		return web.Error(http.StatusBadRequest, i18n.T(c, "auth.errors.revert_invalid"))
 	}
+[[- if .Inertia]]
+	return revertEmailPage.Render(c, RevertEmailProps{Token: token, OldEmail: old, NewEmail: email})
+[[- else]]
 	return c.Render(http.StatusOK, views.RevertEmail(token, old, email))
+[[- end]]
 }
 
 // RevertEmail undoes a change of email address the owner of the old one

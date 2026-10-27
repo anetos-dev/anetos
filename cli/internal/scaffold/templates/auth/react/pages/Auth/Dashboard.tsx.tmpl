@@ -1,0 +1,67 @@
+import { Form, Head, usePage } from '@inertiajs/react'
+import { ActionsCell, Button, Card, Field, Flash, Input, LinkButton, Narrow, Note, PageHeader, PostButton, Table } from '../../components/ui'
+import { useT } from '../../i18n'
+import type { PageProps } from '../../types/pages'
+import { route } from '../../types/routes'
+
+// Auth/Dashboard shows the account and its API tokens (anetos make:auth);
+// newToken is a token just created, shown once.
+export default function Dashboard({ tokens, newToken }: PageProps<'Auth/Dashboard'>) {
+  const t = useT()
+  const user = usePage().props.user!
+  return (
+    <Narrow>
+      <Head title={t('auth.dashboard.title')} />
+      <PageHeader title={t('auth.dashboard.hello', { name: user.name })}>
+        <LinkButton href={route('settings')} variant="secondary">
+          {t('auth.settings.title')}
+        </LinkButton>
+      </PageHeader>
+      {!user.emailVerified && (
+        <Flash tone="warning">
+          <span>{t('auth.dashboard.verify')}</span>
+          <PostButton href={route('verification.send')} variant="secondary" small>
+            {t('auth.dashboard.resend')}
+          </PostButton>
+        </Flash>
+      )}
+      <Card title={t('auth.tokens.title')}>
+        <Note>{t('auth.tokens.intro')}</Note>
+        {newToken && (
+          <>
+            <p>{t('auth.tokens.new')}</p>
+            <pre>
+              <code>{newToken}</code>
+            </pre>
+          </>
+        )}
+        {tokens.length > 0 && (
+          <Table>
+            <tbody>
+              {tokens.map((token) => (
+                <tr key={token.id}>
+                  <td>{token.name}</td>
+                  <ActionsCell>
+                    <PostButton href={route('tokens.delete', { id: token.id })} variant="secondary" small>
+                      {t('auth.tokens.revoke')}
+                    </PostButton>
+                  </ActionsCell>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        )}
+        <Form action={route('tokens.create')} method="post" resetOnSuccess>
+          {({ errors, processing }) => (
+            <>
+              <Field name="name" label={t('auth.tokens.name')} error={errors.name}>
+                <Input />
+              </Field>
+              <Button disabled={processing}>{t('auth.tokens.create')}</Button>
+            </>
+          )}
+        </Form>
+      </Card>
+    </Narrow>
+  )
+}

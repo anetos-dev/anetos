@@ -1,0 +1,96 @@
+// Package handlers holds the HTTP handlers. Their pages are components of
+// frontend/src/pages, which Inertia's client renders with the props the
+// handlers give them.
+package handlers
+
+import (
+	"context"
+	"strings"
+
+	"anetos.dev/anetos/i18n"
+	"anetos.dev/anetos/view"
+	"anetos.dev/anetos/web"
+	"anetos.dev/anetos/web/inertia"
+)
+
+// Pages are the app's pages, which setup lists (inertia.WithPages): `go
+// run . types` writes their props' TypeScript types, and rendering a page
+// that isn't listed fails in development and tests.
+var Pages []inertia.AnyPage
+
+// page declares a page: its component (frontend/src/pages/<component>.tsx)
+// and its props' type, added to Pages.
+func page[P any](component string) *inertia.Page[P] {
+	p := inertia.NewPage[P](component)
+	Pages = append(Pages, p)
+	return p
+}
+
+// Shared are the props of every page (inertia.WithShared in setup).
+type Shared struct {
+	// AppName is the app's name, in the header.
+	AppName string `json:"appName"`
+	// Locale is the request's locale ("en"), and Dir its direction
+	// ("ltr" or "rtl").
+	Locale string `json:"locale"`
+	Dir    string `json:"dir"`
+	// TimeZone is the time zone times are shown in (i18n.TimeZone: the
+	// user's, else APP_TIMEZONE's), an IANA name; "" for the server's
+	// local time, which the browser's stands in for.
+	TimeZone string `json:"timeZone"`
+	// RoutePrefix goes before the paths route() makes: the locale's with
+	// APP_LOCALE_STRATEGY=prefix ("/bn"), else "".
+	RoutePrefix string `json:"routePrefix"`
+	// Status is the message a handler flashed (c.Session().Flash("status", …)).
+	Status string `json:"status"`
+	// User is the logged-in user, or null.
+	User *SharedUser `json:"user"`
+	// Messages are the pages' text: the app's catalogs
+	// (locales/<locale>/*.yaml) in the request's locale, which t() reads.
+	// The client keeps them across visits, until the locale changes.
+	Messages inertia.Prop[map[string]any] `json:"messages"`
+}
+
+// SharedUser is the logged-in user, as every page gets it.
+type SharedUser struct {
+	ID            int64  `json:"id"`
+	Name          string `json:"name"`
+	Email         string `json:"email"`
+	EmailVerified bool   `json:"emailVerified"`
+}
+
+// SharedProps returns the shared props of a request.
+func SharedProps(c *web.Ctx) (Shared, error) {
+	u, err := currentUser(c)
+	if err != nil {
+		return Shared{}, err
+	}
+	locale := i18n.Locale(c)
+	return Shared{
+		AppName:     "[[.Title]]",
+		Locale:      locale,
+		Dir:         i18n.Dir(c),
+		TimeZone:    timeZone(c),
+		RoutePrefix: strings.TrimSuffix(web.LocalePath(c, "/"), "/"),
+		Status:      view.Flash(c, "status"),
+		User:        u,
+		Messages: inertia.Once(func(ctx context.Context) (map[string]any, error) {
+			return i18n.Messages(ctx, ""), nil
+		}).OnceAs("messages:" + locale),
+	}, nil
+}
+
+// timeZone is the IANA name of the request's time zone, or "" for Local,
+// which has none.
+func timeZone(c *web.Ctx) string {
+	if z := i18n.TimeZone(c).String(); z != "Local" {
+		return z
+	}
+	return ""
+}
+
+// currentUser is the logged-in user: none until accounts are added (go
+// tool anetos make:auth fills it in).
+func currentUser(*web.Ctx) (*SharedUser, error) {
+	return nil, nil
+}

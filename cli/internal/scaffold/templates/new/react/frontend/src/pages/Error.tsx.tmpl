@@ -1,0 +1,41 @@
+import { Head } from '@inertiajs/react'
+import { Card, LinkButton, Narrow, Note, PageHeader, Stack } from '../components/ui'
+import { useT } from '../i18n'
+import type { ErrorProps, Errors } from '../types/pages'
+import { route } from '../types/routes'
+
+// Error is the page of an error, such as a 404 (routes.Register sets it
+// with inertia.ErrorPages). Debug mode (APP_DEBUG) shows a server error's
+// details on the framework's page instead.
+export default function Error({ title, detail, errors, requestId }: ErrorProps & { errors?: Errors }) {
+  const t = useT()
+  return (
+    <Narrow>
+      <Head title={title} />
+      <Stack>
+        <PageHeader title={title} lead={detail} />
+        {errors && Object.keys(errors).length > 0 && (
+          <Card>
+            <ul>
+              {Object.entries(errors)
+                .sort()
+                .map(([field, message]) => (
+                  <li key={field}>
+                    <strong>{field}</strong>: {String(message)}
+                  </li>
+                ))}
+            </ul>
+          </Card>
+        )}
+        <p>
+          <LinkButton href={route('home')}>{t('errors.home')}</LinkButton>
+        </p>
+        {requestId && (
+          <Note>
+            <small>{t('errors.request_id', { id: requestId })}</small>
+          </Note>
+        )}
+      </Stack>
+    </Narrow>
+  )
+}

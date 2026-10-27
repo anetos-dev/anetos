@@ -1,0 +1,26 @@
+package views
+
+import (
+	"anetos.dev/anetos/i18n"
+	"anetos.dev/anetos/view/vite"
+	"anetos.dev/anetos/web/inertia"
+)
+
+// App is the root view: the HTML of a first visit, which loads the
+// frontend (frontend/src/app.tsx, built by Vite) and holds the page that
+// Inertia's client renders. Every page after it comes as JSON.
+templ App() {
+	<!DOCTYPE html>
+	<html lang={ i18n.Locale(ctx) } dir={ i18n.Dir(ctx) }>
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>[[.Title]]</title>
+			<link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
+			@vite.Tags("src/app.tsx")
+		</head>
+		<body>
+			@inertia.App()
+		</body>
+	</html>
+}

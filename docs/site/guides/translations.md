@@ -158,6 +158,16 @@ Arguments are pairs of names and values. A key no catalog has shows the
 key itself, so a mistake is visible on the page; `locale:check` (step 7)
 finds them before users do.
 
+A frontend that renders its own pages, such as an [Inertia
+app's](inertia.md#start-a-project-with-it) components, translates with
+the same catalogs: `i18n.Messages(ctx, prefix)` returns the app's
+messages in the request's language (through its fallbacks) whose keys
+are under `prefix`, without it, or all of them for `""`. A plural
+message is an object of its forms (`{"one": "{count} post", "other":
+"{count} posts"}`), for the frontend to pick by the language's plural
+rules; the framework's own messages and lists are left out (since
+v0.6). The react stack sends them once per language, as a shared prop.
+
 ### 4. Choose how visitors get their language
 
 A request's locale is worked out the first time something asks for it.

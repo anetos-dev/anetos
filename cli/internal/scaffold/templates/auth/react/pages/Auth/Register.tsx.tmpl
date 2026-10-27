@@ -1,0 +1,42 @@
+import { Form, Head, Link } from '@inertiajs/react'
+import SocialButtons from '../../components/SocialButtons'
+import { Actions, AuthCard, Button, Field, Input, Note } from '../../components/ui'
+import { useT } from '../../i18n'
+import type { PageProps } from '../../types/pages'
+import { route } from '../../types/routes'
+
+// Auth/Register is the registration form (anetos make:auth): yours to
+// change. Its text is in locales/en/auth.yaml.
+export default function Register({ social, errors: pageErrors }: PageProps<'Auth/Register'>) {
+  const t = useT()
+  return (
+    <AuthCard title={t('auth.register.title')}>
+      <Head title={t('auth.register.title')} />
+      <Form action={route('register')} method="post" resetOnError={['password', 'password_confirmation']}>
+        {({ errors, processing }) => (
+          <>
+            <Field name="name" label={t('auth.fields.name')} error={errors.name}>
+              <Input autoComplete="name" />
+            </Field>
+            <Field name="email" label={t('auth.fields.email')} error={errors.email}>
+              <Input type="email" autoComplete="email" />
+            </Field>
+            <Field name="password" label={t('auth.fields.password')} error={errors.password}>
+              <Input type="password" autoComplete="new-password" />
+            </Field>
+            <Field name="password_confirmation" label={t('auth.fields.password_confirmation')} error={errors.password_confirmation}>
+              <Input type="password" autoComplete="new-password" />
+            </Field>
+            <Actions>
+              <Button disabled={processing}>{t('auth.register.submit')}</Button>
+            </Actions>
+          </>
+        )}
+      </Form>
+      <SocialButtons social={social} error={typeof pageErrors.social === 'string' ? pageErrors.social : undefined} />
+      <Note>
+        {t('auth.register.have_account')} <Link href={route('login')}>{t('auth.login.title')}</Link>
+      </Note>
+    </AuthCard>
+  )
+}

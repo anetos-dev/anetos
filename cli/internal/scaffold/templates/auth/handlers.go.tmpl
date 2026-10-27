@@ -26,7 +26,9 @@ import (
 
 	"[[.Module]]/app/mailers"
 	"[[.Module]]/app/models"
+[[- if not .Inertia]]
 	"[[.Module]]/views"
+[[- end]]
 )
 
 // Accounts serves registration, login and logout, login with Google
@@ -97,10 +99,84 @@ type CodeInput struct {
 type PasswordInput struct {
 	Password string `json:"password" validate:"required"`
 }
+[[- if .Inertia]]
+
+// The account pages (frontend/src/pages/Auth: yours to change), and
+// their props. Their text is in locales/en/auth.yaml.
+var (
+	registerPage  = page[SocialProps]("Auth/Register")
+	loginPage     = page[SocialProps]("Auth/Login")
+	forgotPage    = page[NoProps]("Auth/ForgotPassword")
+	resetPage     = page[ResetProps]("Auth/ResetPassword")
+	challengePage = page[NoProps]("Auth/TwoFactorChallenge")
+	confirmPage   = page[NoProps]("Auth/ConfirmPassword")
+	twoFactorPage = page[TwoFactorProps]("Auth/TwoFactor")
+	dashboardPage = page[DashboardProps]("Auth/Dashboard")
+)
+
+// NoProps are the props of a page with none of its own.
+type NoProps struct{}
+
+// SocialButton is a "Log in with …" button.
+type SocialButton struct {
+	Name  string `json:"name"`  // the provider in URLs: google
+	Title string `json:"title"` // its name for people: Google
+}
+
+// SocialProps are the login and registration pages': a button per
+// provider set up.
+type SocialProps struct {
+	Social []SocialButton `json:"social"`
+}
+
+// ResetProps are the new-password page's: the reset link's token.
+type ResetProps struct {
+	Token string `json:"token"`
+}
+
+// TwoFactorProps are the two-factor page's: off, being set up (the QR
+// code to scan, as SVG, and the key to type in), or on; and the recovery
+// codes once, just after they're made.
+type TwoFactorProps struct {
+	On                bool     `json:"on"`
+	Started           bool     `json:"started"`
+	RecoveryCodesLeft int      `json:"recoveryCodesLeft"`
+	Secret            string   `json:"secret"`
+	QR                string   `json:"qr"`
+	RecoveryCodes     []string `json:"recoveryCodes"`
+}
+
+// DashboardProps are the dashboard's: the user's API tokens, and one just
+// created, shown once.
+type DashboardProps struct {
+	Tokens   []TokenProps `json:"tokens"`
+	NewToken string       `json:"newToken"`
+}
+
+// TokenProps is an API token, as the dashboard lists it.
+type TokenProps struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
+// authUser is the logged-in user, for every page (currentUser, in
+// pages.go), or nil.
+func authUser(c *web.Ctx) (*SharedUser, error) {
+	u, ok := auth.User[*models.User](c)
+	if !ok {
+		return nil, nil
+	}
+	return &SharedUser{ID: u.ID, Name: u.Name, Email: u.Email, EmailVerified: u.EmailVerifiedAt != nil}, nil
+}
+[[- end]]
 
 // RegisterPage shows the registration form.
 func (h Accounts) RegisterPage(c *web.Ctx) error {
+[[- if .Inertia]]
+	return registerPage.Render(c, SocialProps{Social: h.socialButtons()})
+[[- else]]
 	return c.Render(http.StatusOK, views.Register(h.socialButtons()))
+[[- end]]
 }
 
 // Register creates the account, emails the verification link and logs
@@ -189,15 +265,19 @@ func SendPasswordReset(ctx context.Context, a *auth.Auth[*models.User], u *model
 
 // LoginPage shows the login form.
 func (h Accounts) LoginPage(c *web.Ctx) error {
+[[- if .Inertia]]
+	return loginPage.Render(c, SocialProps{Social: h.socialButtons()})
+[[- else]]
 	return c.Render(http.StatusOK, views.Login(h.socialButtons()))
+[[- end]]
 }
 
 // socialButtons returns a "Log in with …" button per provider whose
 // SOCIAL_<NAME>_CLIENT_ID and _CLIENT_SECRET are set.
-func (h Accounts) socialButtons() []views.SocialButton {
-	var buttons []views.SocialButton
+func (h Accounts) socialButtons() [][[if not .Inertia]]views.[[end]]SocialButton {
+	[[if .Inertia]]buttons := []SocialButton{} // [] rather than null in JSON[[else]]var buttons []views.SocialButton[[end]]
 	for _, name := range h.Social.Providers() {
-		buttons = append(buttons, views.SocialButton{Name: name, Title: h.Social.Title(name)})
+		buttons = append(buttons, [[if not .Inertia]]views.[[end]]SocialButton{Name: name, Title: h.Social.Title(name)})
 	}
 	return buttons
 }
@@ -285,7 +365,11 @@ func (h Accounts) ChallengePage(c *web.Ctx) error {
 	if !h.Auth.TwoFactorPending(c) {
 		return c.Redirect(http.StatusSeeOther, web.LocalePath(c, "/login"))
 	}
+[[- if .Inertia]]
+	return challengePage.Render(c, NoProps{})
+[[- else]]
 	return c.Render(http.StatusOK, views.TwoFactorChallenge())
+[[- end]]
 }
 
 // Challenge finishes the login with the code of the user's
@@ -309,7 +393,11 @@ func (h Accounts) Challenge(c *web.Ctx, in CodeInput) (web.Responder, error) {
 
 // ConfirmPage asks for the password again, before something sensitive.
 func (Accounts) ConfirmPage(c *web.Ctx) error {
+[[- if .Inertia]]
+	return confirmPage.Render(c, NoProps{})
+[[- else]]
 	return c.Render(http.StatusOK, views.ConfirmPassword())
+[[- end]]
 }
 
 // ConfirmPassword checks the password, which then holds for
@@ -339,7 +427,12 @@ func (h Accounts) TwoFactorPage(c *web.Ctx) error {
 	if err != nil {
 		return err
 	}
+[[- if .Inertia]]
+	page := TwoFactorProps{On: st.On, Started: st.Started, RecoveryCodesLeft: st.RecoveryCodes,
+		RecoveryCodes: strings.Fields(view.Flash(c, "recovery_codes"))}
+[[- else]]
 	page := views.TwoFactorPage{Status: st, RecoveryCodes: strings.Fields(view.Flash(c, "recovery_codes"))}
+[[- end]]
 	if st.Started {
 		setup, err := h.Auth.StartedTwoFactor(u, u.Email)
 		if err != nil {
@@ -351,7 +444,11 @@ func (h Accounts) TwoFactorPage(c *web.Ctx) error {
 		}
 		page.Secret, page.QR = setup.Secret, svg
 	}
+[[- if .Inertia]]
+	return twoFactorPage.Render(c, page)
+[[- else]]
 	return c.Render(http.StatusOK, views.TwoFactor(page))
+[[- end]]
 }
 
 // StartTwoFactor starts turning on two-factor authentication: a new secret, for
@@ -472,7 +569,11 @@ func (h Accounts) ResendVerification(c *web.Ctx) error {
 
 // ForgotPage shows the forgotten-password form.
 func (Accounts) ForgotPage(c *web.Ctx) error {
+[[- if .Inertia]]
+	return forgotPage.Render(c, NoProps{})
+[[- else]]
 	return c.Render(http.StatusOK, views.ForgotPassword())
+[[- end]]
 }
 
 // SendReset emails a password reset link to the address, if it has an
@@ -500,7 +601,11 @@ func (h Accounts) SendReset(c *web.Ctx, in ForgotInput) (web.Responder, error) {
 
 // ResetPage shows the new-password form of a reset link.
 func (Accounts) ResetPage(c *web.Ctx) error {
+[[- if .Inertia]]
+	return resetPage.Render(c, ResetProps{Token: c.Query("token")})
+[[- else]]
 	return c.Render(http.StatusOK, views.ResetPassword(view.Old(c, "token", c.Request().URL.Query().Get("token"))))
+[[- end]]
 }
 
 // Reset sets the new password. The link works once: it is tied to the
@@ -579,7 +684,15 @@ func (h Accounts) Dashboard(c *web.Ctx) error {
 	if err != nil {
 		return err
 	}
+[[- if .Inertia]]
+	list := []TokenProps{}
+	for _, t := range tokens {
+		list = append(list, TokenProps{ID: t.ID, Name: t.Name})
+	}
+	return dashboardPage.Render(c, DashboardProps{Tokens: list, NewToken: view.Flash(c, "token")})
+[[- else]]
 	return c.Render(http.StatusOK, views.Dashboard(u, tokens, view.Flash(c, "token")))
+[[- end]]
 }
 
 // CreateToken issues an API token, shown once on the dashboard.

@@ -94,6 +94,19 @@ func (p *Page[P]) Render(c *web.Ctx, props P) error {
 	return render(c, http.StatusOK, p.component, p.plan, reflect.ValueOf(props), nil)
 }
 
+// Responder is [Page.Render] as a web.Responder, for a typed handler
+// (web.H) that renders the page:
+//
+//	func (Posts) Show(c *web.Ctx, in PostID) (web.Responder, error) {
+//		…
+//		return postsShow.Responder(PostsShow{Post: post}), nil
+//	}
+//
+// Since v0.6.
+func (p *Page[P]) Responder(props P) web.Responder {
+	return web.ResponderFunc(func(c *web.Ctx) error { return p.Render(c, props) })
+}
+
 // Props are a page's props without a type of their own, for [Render]: the
 // frontend gets them untyped.
 type Props map[string]any

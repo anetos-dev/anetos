@@ -21,7 +21,7 @@ import (
 	"golang.org/x/mod/semver"
 )
 
-const newUsage = `Usage: anetos new <directory> [--module=path] [--db=sqlite|postgres|mysql] [--stack=web|api] [--css=anetos|none|pico|bootstrap|bulma|tailwind] [--vite[=ts|js]]
+const newUsage = `Usage: anetos new <directory> [--module=path] [--db=sqlite|postgres|mysql] [--stack=web|api|react] [--css=anetos|none|pico|bootstrap|bulma|tailwind] [--vite[=ts|js]]
 
 Creates an Anetos project: routes, handlers, migrations, a test, the
 files to deploy it, and a .env with a fresh APP_KEY. The web stack (the
@@ -39,9 +39,12 @@ frontend that Vite builds (frontend/, in TypeScript, or JavaScript with
 --vite=js): the web stack's layout loads it; the api stack serves it as
 a single-page app at / (in development, Vite's address,
 http://localhost:5173). It needs Node.js 20.19 or 22.12 or later (see
-anetos vite:install). Then it
-downloads the dependencies and generates the views (web) or
-openapi.json (api); skip with --skip-install. It also writes the files
+anetos vite:install). The react stack (--stack=react) is the web
+stack's Go side with pages that are React components, which Inertia's
+client renders (frontend/, TypeScript, the starter theme; Node.js
+needed). Then it downloads the dependencies and generates the views
+(web, react), openapi.json (api) or the frontend's types (react), and
+installs the frontend's packages; skip with --skip-install. It also writes the files
 coding agents read (AGENTS.md, CLAUDE.md, GEMINI.md, and the skills in
 .agents/skills and .claude/skills; see anetos agent:install), unless
 --no-agent.
@@ -52,7 +55,7 @@ func newProject(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	module := fs.String("module", "", "Go module path (default: the directory's name)")
 	dbName := fs.String("db", "sqlite", "database: sqlite, postgres or mysql")
 	css := fs.String("css", "", "web stack's CSS framework (views/ui and its stylesheet): anetos (the starter theme; the default), none (plain HTML, no styles), pico, bootstrap, bulma or tailwind")
-	stack := fs.String("stack", "web", "kind of app: web (pages, sessions) or api (JSON only)")
+	stack := fs.String("stack", "web", "kind of app: web (pages, sessions), api (JSON only) or react (pages in React, with Inertia)")
 	replace := fs.String("replace", "", "use a local Anetos checkout at this path (for framework development)")
 	skip := fs.Bool("skip-install", false, "don't download dependencies or generate code")
 	noAgent := fs.Bool("no-agent", false, "don't write the files coding agents read (AGENTS.md, CLAUDE.md, GEMINI.md, the skills)")
@@ -84,14 +87,15 @@ func newProject(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	}
 	fmt.Fprintf(stdout, "Created %s (%d files).\n", dir, len(files))
 	if !*skip {
-		for _, step := range installSteps(*dbName, *stack, *replace != "", lang != "") {
+		inertiaStack := slices.Contains(scaffold.InertiaStacks, *stack)
+		for _, step := range installSteps(*dbName, *stack, *replace != "", lang != "" || inertiaStack) {
 			fmt.Fprintf(stdout, "  go %s\n", strings.Join(step, " "))
 			if out, err := goCmd(ctx, dir, step...); err != nil {
 				fmt.Fprintf(stderr, "anetos new: go %s failed: %v\n%s\nFix the problem, then run the remaining steps in %s yourself.\n", strings.Join(step, " "), err, out, dir)
 				return 1
 			}
 		}
-		if lang != "" {
+		if lang != "" || inertiaStack {
 			if err := frontend.CheckNode(ctx); err != nil {
 				fmt.Fprintf(stdout, "  Not installing the frontend's packages: %v.\n  Once Node.js is installed, anetos dev installs them.\n", err)
 			} else if err := installFrontend(ctx, dir, stdout); err != nil {
@@ -142,11 +146,14 @@ func installSteps(db, stack string, replaced, vite bool) [][]string {
 		)
 	}
 	steps = append(steps, []string{"mod", "tidy"})
-	if stack == "api" {
+	switch {
+	case stack == "api":
 		steps = append(steps, []string{"run", ".", "openapi"}) // openapi.json, which a test checks
 		if vite {
 			steps = append(steps, []string{"run", ".", "types"}) // the SPA's client
 		}
+	case vite && slices.Contains(scaffold.InertiaStacks, stack):
+		steps = append(steps, []string{"run", ".", "types"}) // the pages' props and routes, which the frontend imports
 	}
 	return steps
 }

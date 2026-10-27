@@ -1,7 +1,9 @@
 # [[.Title]]
 
 [[.Title]] is an [Anetos](https://anetos.dev) application[[if .API]]: a JSON
-API under `/api/v1`, with no pages or sessions[[else]]: pages rendered on the
+API under `/api/v1`, with no pages or sessions[[else if .Inertia]]: pages that are
+[[.FrameworkName]] components, which Inertia's client renders with the props the
+Go handlers send, sessions and CSRF protection[[else]]: pages rendered on the
 server with templ, sessions and CSRF protection[[end]]. Anetos is a
 batteries-included Go web framework: typed, `net/http` underneath, and one
 binary that runs the web server, the queue workers, the scheduler and the
@@ -62,6 +64,9 @@ app's own commands (`go run . …`) refuse to start. Make one first with
 [[- if .API]]
 | `go run . openapi` | Updates `openapi.json`, the API's description, after changing a route or its types (a test checks it) |
 [[- end]]
+[[- if .Inertia]]
+| `go run . types` | The frontend's TypeScript types (`frontend/src/types/`: the pages' props, the routes), after changing a page's props or a route (`go tool anetos dev` runs it) |
+[[- end]]
 [[- if .Web]]
 | `go tool templ generate` | The views' Go code (`*_templ.go`), after changing a `.templ` file |
 [[- end]]
@@ -92,14 +97,19 @@ app's own commands (`go run . …`) refuse to start. Make one first with
 | `app/models/` | Models (structs embedding `db.Model`) and their generated `models_gen.go` |
 | `database/migrations/` | Migrations (one file each, which adds itself to `All` in `migrations.go`) and seeders |
 | `database/factories/` | Model factories, for tests and seeders |
-[[- if .Web]]
+[[- if .Inertia]]
+| `views/app.templ` | The root view: the HTML of a first visit, which loads the frontend (every page after it comes as JSON) |
+| `public/` | The web root (`public/build`: the frontend's build) |
+[[- else if .Web]]
 | `views/` | templ pages and the layout |
 [[- if .HasUI]]
 | `views/ui/` | The CSS framework's components (`@ui.Button`, `@ui.Field`…): the only place with CSS classes |
 [[- end]]
 | `public/`, `public/static/` | The web root, and static files served under `/assets` |
 [[- end]]
-[[- if and .Frontend .API]]
+[[- if .Inertia]]
+| `frontend/` | The pages, which Vite builds: [[.FrameworkName]] components in `src/pages` (`Home[[.Ext]]` is the `Home` page), built from `src/components/ui[[.Ext]]`, in `src/Layout[[.Ext]]`; `src/types/` (written by `go run . types`): the pages' props and the routes (`route('posts.show', { id })`). `go tool anetos dev` runs Vite; `go tool anetos build` builds it into `public/build` (Node.js needed) |
+[[- else if and .Frontend .API]]
 | `frontend/` | The single-page app Vite builds: `package.json`, `vite.config`, `index.html`, `src/` (`src/types/api.ts` is the API's client, written by `go run . types`). `go tool anetos dev` runs Vite, whose address (http://localhost:5173) serves it and forwards `/api` to the app; `go tool anetos build` builds it into `public/spa`, which the app serves at `/` (Node.js needed) |
 [[- else if .Frontend]]
 | `frontend/` | The frontend Vite builds: `package.json`, `vite.config`, `src/` (the entries `@vite.Tags` loads in the layout). `go tool anetos dev` runs Vite; `go tool anetos build` builds it into `public/build` (Node.js needed) |
@@ -127,7 +137,18 @@ app's own commands (`go run . …`) refuse to start. Make one first with
   `MAIL_`…); the one that picks a backend is `<AREA>_DRIVER`.
 - **CRUD names** are `index`, `new`, `create`, `show`, `edit`, `update`,
   `delete`, for route names and handler methods alike.
-[[- if and .Web .HasUI]]
+[[- if .Inertia]]
+- **Pages** are [[.FrameworkName]] components in `frontend/src/pages`, built
+  from `src/components/ui[[.Ext]]`'s components (no CSS classes in pages).
+  A handler renders one with its typed page (`homePage = page[HomeProps]("Home")`
+  in `app/handlers`, then `homePage.Render(c, props)`): its props are a Go
+  struct, typed in TypeScript by `go run . types`. Text comes from
+  `locales/` through `useT()` (`t('home.title')`); links name their route
+  (`route('posts.show', { id })`). Forms are Inertia's `<Form>`: the CSRF
+  token goes along by itself, and validation errors come back as `errors`.
+  Add npm packages in `frontend/` with the package manager its lockfile
+  belongs to, never to the Go module.
+[[- else if and .Web .HasUI]]
 - **Pages are built from `views/ui`'s components**: no CSS classes in
   `views/` outside `views/ui`. Forms carry `@view.CSRFField(ctx)`.
 [[- else if .Web]]
@@ -141,7 +162,7 @@ app's own commands (`go run . …`) refuse to start. Make one first with
   `go tool anetos dev` runs) updates it. Add npm packages in `frontend/`
   with the package manager its lockfile belongs to, never to the Go
   module.
-[[- else if .Frontend]]
+[[- else if and .Frontend (not .Inertia)]]
 - **Scripts and styles that need a build** go in `frontend/src`, imported
   by an entry that `@vite.Tags(...)` loads (`vite.config`'s inputs list
   the entries); files served as they are go in `public/static`. Add npm
@@ -151,11 +172,11 @@ app's own commands (`go run . …`) refuse to start. Make one first with
 [[- end]]
 - **Dependencies:** don't add a router, ORM, validator, session, queue,
   mail or cache library: Anetos has them. Check the docs first.
-- **Generated files** (`*_templ.go`, `models_gen.go`, `plugins.go`) are
+- **Generated files** (`*_templ.go`, `models_gen.go`, `plugins.go`[[if .Inertia]], `frontend/src/types/`[[end]]) are
   never edited by hand: change the source and regenerate.
 - **Words**: users log in and log out. Use the names the docs use.
 - **Tests** use `anetostest.New(t, setup)` and its request helpers
-  ([[if .API]]`app.GetJSON("/api/v1").AssertOK()`[[else]]`app.Get("/").AssertOK()`[[end]]); every change comes with its test.
+  ([[if .API]]`app.GetJSON("/api/v1").AssertOK()`[[else if .Inertia]]`app.Get("/").AssertInertia("Home")`[[else]]`app.Get("/").AssertOK()`[[end]]); every change comes with its test.
 
 ## Skills
 

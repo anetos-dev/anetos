@@ -5,6 +5,9 @@ import (
 	"anetos.dev/anetos/auth/social"
 	"anetos.dev/anetos/session"
 	"anetos.dev/anetos/web"
+[[- if .Inertia]]
+	"anetos.dev/anetos/web/inertia"
+[[- end]]
 	"anetos.dev/anetos/web/ratelimit"
 
 	"[[.Module]]/app/handlers"
@@ -20,7 +23,13 @@ func Auth(r *web.Router, sessions *session.Manager, a *auth.Auth[*models.User], 
 	// On /settings, users may change their email address, and not delete
 	// their account: change these to suit the app.
 	h := handlers.Accounts{Auth: a, Social: s, AllowEmailChange: true, AllowAccountDeletion: false}
+[[- if .Inertia]]
+	// Pages: Inertia's (frontend/src/pages/Auth), whose client sends the
+	// XSRF-TOKEN cookie back.
+	pages := r.Group("", sessions.Middleware, web.CSRF(web.WithXSRFCookie()), inertia.Middleware, a.Middleware)
+[[- else]]
 	pages := r.Group("", sessions.Middleware, web.CSRF(), a.Middleware)
+[[- end]]
 	pages.Get("/verify-email", web.H(h.VerifyEmail)).Name("verification.verify")
 	pages.Get("/settings/email/verify", web.H(h.VerifyEmailChange)).Name("settings.email.verify") // the link to a new address
 	// The link to the old address, which undoes a change of address (it

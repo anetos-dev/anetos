@@ -77,8 +77,15 @@ func makeAuth(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	if res.Wired {
 		fmt.Fprintln(stdout, "updated main.go: setup calls setupAuth")
 	}
-	if res.Menu {
+	inertiaStack := scaffold.InertiaFramework(root) != ""
+	switch {
+	case res.Menu && inertiaStack:
+		fmt.Fprintln(stdout, "updated frontend/src/Layout.tsx: the header shows AccountMenu")
+	case res.Menu:
 		fmt.Fprintln(stdout, "updated views/layout.templ: the header shows AccountMenu")
+	}
+	if res.Shared {
+		fmt.Fprintln(stdout, "updated app/handlers/pages.go: every page gets the logged-in user")
 	}
 	// The modules the new imports need, the User model's typed columns,
 	// the pages' Go code, and a check that it all builds.
@@ -86,6 +93,8 @@ func makeAuth(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 		steps := "go mod tidy && go tool anetos generate && go tool templ generate && go build ./..."
 		if res.API {
 			steps = "go mod tidy && go tool anetos generate && go build ./..."
+		} else if frontend.UsesTypes(root) {
+			steps += " && go run . types" // the new pages' props and routes
 		}
 		fmt.Fprintf(stderr, "anetos make:auth: %v\nThe files are written; once fixed, finish with:\n\t%s\n", err, steps)
 		return 1
@@ -112,6 +121,9 @@ func makeAuth(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	}
 	if err := runGo(ctx, root, stderr, "build", "./..."); err != nil {
 		return finish(fmt.Errorf("the project doesn't build: %w", err))
+	}
+	if !res.API {
+		updateTypes(ctx, root, stdout, stderr) // an Inertia stack's pages
 	}
 	if res.API {
 		updateOpenAPI(ctx, root, stdout, stderr)
@@ -152,7 +164,26 @@ setupAuth yourself in setup, after the routes:
 	}
 `)
 	}
-	if !res.Menu {
+	switch {
+	case inertiaStack && !res.Shared:
+		fmt.Fprint(stdout, `
+app/handlers/pages.go's currentUser isn't a new project's: make it return
+the logged-in user, for every page, with authUser (app/handlers/auth.go):
+
+	return authUser(c)
+`)
+		fallthrough
+	case inertiaStack && !res.Menu:
+		if !res.Menu {
+			fmt.Fprint(stdout, `
+frontend/src/Layout.tsx has no place for the account's links, as a new
+project's: add them where you want them (import AccountMenu from
+'./components/AccountMenu'):
+
+	<AccountMenu />
+`)
+		}
+	case !res.Menu:
 		fmt.Fprint(stdout, `
 views/layout.templ has no header with a nav, as a new project's: add the
 links to log in, register and log out (views/auth.templ) where you want

@@ -84,27 +84,50 @@ var KitVersions = map[string]string{
 	"tailwind":  tailwind.Version,
 }
 
-// Stacks are the values of [Project.Stack].
-var Stacks = []string{"web", "api"}
+// Stacks are the values of [Project.Stack]: web, api, and the Inertia
+// stacks ([InertiaStacks]).
+var Stacks = []string{"web", "api", "react"}
+
+// InertiaStacks are the stacks whose pages are a JavaScript framework's
+// components, which Inertia's client renders (design D370): the web
+// stack's Go side, with a frontend.
+var InertiaStacks = []string{"react"}
+
+// Framework versions new Inertia projects' package.json asks for (at
+// least; the lockfile npm writes pins them).
+const (
+	InertiaVersion     = "3.9.1"
+	ReactVersion       = "19.3.1"
+	ReactTypesVersion  = "19.3.0"
+	ReactPluginVersion = "6.1.2"
+)
 
 // stackLayers are the template layers (directories of templates/new) of
 // each stack. No two layers of a stack may write the same file
 // (TestStackLayersDisjoint); base files that differ between stacks do so
 // through projectData's Web and API.
 var stackLayers = map[string][]string{
-	"web": {"base", "web"},
-	"api": {"base", "api"},
+	"web":   {"base", "web"},
+	"api":   {"base", "api"},
+	"react": {"base", "inertia", "react"},
 }
 
 // projectData is what the templates see.
 type projectData struct {
 	Name, Title, Module, DB, Key, Replace, DBName string
-	Stack                                         string // web or api
-	Web, API                                      bool   // the stack
-	Kit                                           string // the design kit, for the web stack
-	KitVersion                                    string // its CSS framework's (KitVersions)
-	Bin                                           string // anetos build's binary (BinaryName)
-	Image                                         string // the name in lower case, for Docker and platforms
+	Stack                                         string // web, api, react…
+	// Web is set for the web stack and the Inertia stacks (sessions, the
+	// web handlers), API for the api stack, Inertia for the Inertia
+	// stacks, whose Framework is react (FrameworkName React).
+	Web, API, Inertia        bool
+	Framework, FrameworkName string
+	// The frontend's packages' versions, for package.json.
+	ViteVersion, TypeScriptVersion, InertiaVersion      string
+	ReactVersion, ReactTypesVersion, ReactPluginVersion string
+	Kit                                                 string // the design kit, for the web stack
+	KitVersion                                          string // its CSS framework's (KitVersions)
+	Bin                                                 string // anetos build's binary (BinaryName)
+	Image                                               string // the name in lower case, for Docker and platforms
 	// GoMinor is the Go release of go.mod's go line ("1.26"), for the
 	// Dockerfile's golang image.
 	GoMinor string
@@ -205,10 +228,11 @@ func Create(p Project) ([]string, error) {
 	default:
 		return nil, fmt.Errorf("anetos new: --db must be one of %s", strings.Join(Databases, ", "))
 	}
-	switch p.Stack {
-	case "":
+	inertia := slices.Contains(InertiaStacks, p.Stack)
+	switch {
+	case p.Stack == "":
 		p.Stack = "web"
-	case "web", "api":
+	case p.Stack == "web", p.Stack == "api", inertia:
 	default:
 		return nil, fmt.Errorf("anetos new: --stack must be one of %s", strings.Join(Stacks, ", "))
 	}
@@ -216,6 +240,10 @@ func Create(p Project) ([]string, error) {
 	case p.Stack == "api" && p.CSS != "":
 		return nil, errors.New("anetos new: --css is for the web stack; an api project has no pages to style")
 	case p.Stack == "api":
+	case inertia && p.CSS != "" && p.CSS != "anetos":
+		return nil, fmt.Errorf("anetos new: --stack=%s pages use the starter theme (--css=anetos) for now; other CSS frameworks come in v0.7", p.Stack)
+	case inertia:
+		p.CSS = "anetos"
 	case p.CSS == "":
 		p.CSS = "anetos"
 	case slices.Contains(Kits, p.CSS):
@@ -224,6 +252,8 @@ func Create(p Project) ([]string, error) {
 	}
 	switch {
 	case p.Vite == "":
+	case inertia:
+		return nil, fmt.Errorf("anetos new: --stack=%s has a frontend that Vite builds already: leave out --vite", p.Stack)
 	case !slices.Contains(Languages, p.Vite):
 		return nil, fmt.Errorf("anetos new: --vite must be one of %s", strings.Join(Languages, ", "))
 	}
@@ -244,7 +274,14 @@ func Create(p Project) ([]string, error) {
 		Name: name, Title: title(name), Module: p.Module, DB: p.DB,
 		Key: appkey.Generate(), Replace: p.Replace, DBName: naming.Snake(identifier(name)),
 		GoMinor: goMinor, Bin: BinaryName(p.Module), Image: strings.ToLower(name),
-		Stack: p.Stack, Web: p.Stack == "web", API: p.Stack == "api", Kit: p.CSS,
+		Stack: p.Stack, Web: p.Stack == "web" || inertia, API: p.Stack == "api", Kit: p.CSS,
+		Inertia: inertia, ViteVersion: ViteVersion, TypeScriptVersion: TypeScriptVersion,
+		InertiaVersion: InertiaVersion, ReactVersion: ReactVersion, ReactTypesVersion: ReactTypesVersion,
+		ReactPluginVersion: ReactPluginVersion,
+	}
+	if inertia {
+		data.Framework = p.Stack
+		data.FrameworkName = frameworkNames[p.Stack]
 	}
 	if p.Replace != "" {
 		data.ReplaceCore = modfile.AutoQuote(p.Replace)
@@ -299,6 +336,24 @@ func Create(p Project) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	if inertia {
+		// The starter theme's stylesheet, which the frontend's entry
+		// imports; the Dockerfile builds the frontend in a Node stage.
+		css, err := render("templates/kits/anetos/public/static/app.css.tmpl", "", data)
+		if err != nil {
+			return nil, err
+		}
+		files = append(files, file{"frontend/src/theme.css", css, 0o644})
+		for i, f := range files {
+			if f.rel == "Dockerfile" {
+				out, ok := patchDockerfileVite(f.content, "public/build")
+				if !ok {
+					return nil, errors.New("scaffold: the Dockerfile's Node stage didn't apply")
+				}
+				files[i].content = out
+			}
+		}
+	}
 	if p.Stack == "web" {
 		kit, err := renderKit(p.CSS, data)
 		if err != nil {
@@ -311,7 +366,7 @@ func Create(p Project) ([]string, error) {
 		files = append(files, file{rec.Rel, rec.Content, 0o644})
 	}
 	if len(p.Agents) > 0 {
-		agentFiles, err := RenderAgentFiles(AgentProject{Name: name, Module: p.Module, Stack: p.Stack, DB: p.DB, Kit: p.CSS, HasUI: p.Stack == "web", Frontend: p.Vite != ""}, p.Agents)
+		agentFiles, err := RenderAgentFiles(AgentProject{Name: name, Module: p.Module, Stack: p.Stack, DB: p.DB, Kit: p.CSS, HasUI: p.Stack == "web", Frontend: p.Vite != "" || inertia, Framework: data.Framework}, p.Agents)
 		if err != nil {
 			return nil, err
 		}

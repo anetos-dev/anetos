@@ -1,0 +1,28 @@
+import { Form, Head } from '@inertiajs/react'
+import { Actions, AuthCard, Button, Field, Input, Note } from '../../components/ui'
+import { useT } from '../../i18n'
+import { route } from '../../types/routes'
+
+// Auth/TwoFactorChallenge asks for the two-factor code, after the
+// password (anetos make:auth).
+export default function TwoFactorChallenge() {
+  const t = useT()
+  return (
+    <AuthCard title={t('auth.challenge.title')}>
+      <Head title={t('auth.challenge.title')} />
+      <Note>{t('auth.challenge.intro')}</Note>
+      <Form action={route('two-factor.challenge')} method="post" resetOnError>
+        {({ errors, processing }) => (
+          <>
+            <Field name="code" label={t('auth.fields.code')} error={errors.code}>
+              <Input autoComplete="one-time-code" autoFocus />
+            </Field>
+            <Actions>
+              <Button disabled={processing}>{t('auth.challenge.submit')}</Button>
+            </Actions>
+          </>
+        )}
+      </Form>
+    </AuthCard>
+  )
+}

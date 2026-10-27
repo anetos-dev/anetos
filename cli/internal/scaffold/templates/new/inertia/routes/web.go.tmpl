@@ -1,0 +1,25 @@
+// Package routes maps URLs to handlers.
+package routes
+
+import (
+	"anetos.dev/anetos/session"
+	"anetos.dev/anetos/view/vite"
+	"anetos.dev/anetos/web"
+	"anetos.dev/anetos/web/inertia"
+
+	"[[.Module]]/app/handlers"
+	"[[.Module]]/public"
+)
+
+// Register adds the application's routes.
+func Register(r *web.Router, sessions *session.Manager) {
+	// Errors (404…) are the frontend's Error page.
+	r.ErrorPages(inertia.ErrorPages("Error"))
+	r.Get("/build/{path...}", web.WrapHandler(vite.Handler())) // the frontend Vite built
+	r.Static("/", public.Files)                                 // robots.txt, favicon.svg…: after the routes
+
+	// Pages: sessions, flash messages, CSRF protection (Inertia's client
+	// sends the XSRF-TOKEN cookie back) and Inertia's protocol.
+	pages := r.Group("", sessions.Middleware, web.CSRF(web.WithXSRFCookie()), inertia.Middleware)
+	pages.Get("/", handlers.Home{}.Show).Name("home")
+}

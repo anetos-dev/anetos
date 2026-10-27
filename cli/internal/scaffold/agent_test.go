@@ -76,6 +76,43 @@ func TestRenderAgentFiles(t *testing.T) {
 	if _, err := RenderAgentFiles(api, []string{"vim"}); err == nil {
 		t.Error("an unknown agent: no error")
 	}
+
+	// An Inertia stack's: the pages are the framework's components.
+	react := AgentProject{Name: "shop", Stack: "react", DB: "sqlite", Kit: "anetos", Frontend: true, Framework: "react"}
+	files, err = RenderAgentFiles(react, []string{"claude"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got = rels(files)
+	if !slices.Contains(got, ".claude/skills/anetos-page/SKILL.md") || slices.Contains(got, ".claude/skills/anetos-api/SKILL.md") {
+		t.Errorf("react: %v", got)
+	}
+	for _, f := range files {
+		c := string(f.Content)
+		if strings.Contains(c, "[[") || strings.Contains(c, "<no value>") || strings.Contains(c, "views/ui") ||
+			strings.Contains(c, "CSRFField") || strings.Contains(c, "@vite.Tags") || strings.Contains(c, "AssertSee") {
+			t.Errorf("react's %s:\n%s", f.Rel, c)
+		}
+	}
+	a := string(files[0].Content)
+	for _, want := range []string{"React components", "`frontend/src/theme.css`", "src/components/ui.tsx", "go run . types",
+		"views/app.templ", `page[HomeProps]("Home")`, `AssertInertia("Home")`, "make:admin"} {
+		if !strings.Contains(a, want) {
+			t.Errorf("react's AGENTS.md lacks %q:\n%s", want, a)
+		}
+	}
+	for _, f := range files {
+		switch f.Rel {
+		case ".claude/skills/anetos-page/SKILL.md":
+			if c := string(f.Content); !strings.Contains(c, "frontend/src/pages/Reports/Show.tsx") || !strings.Contains(c, "transform") {
+				t.Errorf("react's page skill:\n%s", c)
+			}
+		case ".claude/skills/anetos-crud/SKILL.md":
+			if c := string(f.Content); !strings.Contains(c, "frontend/src/pages/<Models>/") {
+				t.Errorf("react's crud skill:\n%s", c)
+			}
+		}
+	}
 }
 
 // TestAgentDocsCommands checks that each `go tool anetos docs <page>` the
@@ -87,7 +124,8 @@ func TestAgentDocsCommands(t *testing.T) {
 	}
 	re := regexp.MustCompile("go tool anetos docs ([a-z0-9][a-z0-9/_-]*)")
 	seen := map[string]bool{}
-	for _, p := range []AgentProject{{Name: "a", Stack: "web", DB: "sqlite", Kit: "anetos"}, {Name: "b", Stack: "api", DB: "mysql"}} {
+	for _, p := range []AgentProject{{Name: "a", Stack: "web", DB: "sqlite", Kit: "anetos"}, {Name: "b", Stack: "api", DB: "mysql"},
+		{Name: "c", Stack: "react", DB: "sqlite", Kit: "anetos", Frontend: true, Framework: "react"}} {
 		files, err := RenderAgentFiles(p, Agents)
 		if err != nil {
 			t.Fatal(err)

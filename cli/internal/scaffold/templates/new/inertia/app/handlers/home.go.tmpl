@@ -1,0 +1,16 @@
+package handlers
+
+import "anetos.dev/anetos/web"
+
+// Home serves the home page.
+type Home struct{}
+
+// HomeProps are the home page's props: none beyond the shared ones yet.
+type HomeProps struct{}
+
+var homePage = page[HomeProps]("Home")
+
+// Show renders the home page (frontend/src/pages/Home.tsx).
+func (Home) Show(c *web.Ctx) error {
+	return homePage.Render(c, HomeProps{})
+}

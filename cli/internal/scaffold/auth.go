@@ -35,6 +35,31 @@ var authFiles = [][2]string{
 	{"factory.go.tmpl", "database/factories/users.go"},
 }
 
+// authInertiaFiles are the files make:auth writes in a project of an
+// Inertia stack (InertiaFramework), besides the framework's pages
+// (authPages): the web stack's Go, with Inertia's renders.
+var authInertiaFiles = [][2]string{
+	{"user.go.tmpl", "app/models/user.go"},
+	{"handlers.go.tmpl", "app/handlers/auth.go"},
+	{"settings.go.tmpl", "app/handlers/settings.go"},
+	{"mailers.go.tmpl", "app/mailers/auth.go"},
+	{"mail.templ.tmpl", "views/auth_mail.templ"},
+	{"routes.go.tmpl", "routes/auth.go"},
+	{"setup.go.tmpl", "auth.go"},
+	{"test.go.tmpl", "auth_test.go"},
+	{"locale.yaml.tmpl", "locales/en/auth.yaml"},
+	{"factory.go.tmpl", "database/factories/users.go"},
+}
+
+// authPages are the React pages make:auth writes, under
+// templates/auth/react and the project's frontend/src.
+var authPages = []string{
+	"components/AccountMenu.tsx", "components/SocialButtons.tsx",
+	"pages/Auth/Register.tsx", "pages/Auth/Login.tsx", "pages/Auth/ForgotPassword.tsx", "pages/Auth/ResetPassword.tsx",
+	"pages/Auth/TwoFactorChallenge.tsx", "pages/Auth/ConfirmPassword.tsx", "pages/Auth/TwoFactor.tsx",
+	"pages/Auth/Dashboard.tsx", "pages/Auth/Settings.tsx", "pages/Auth/RevertEmail.tsx",
+}
+
 // authAPIFiles are the files make:auth writes in an API project
 // (IsAPI): template → path in the project.
 var authAPIFiles = [][2]string{
@@ -93,6 +118,10 @@ type AuthResult struct {
 	// API says the project is an API project ([IsAPI]): the accounts are
 	// JSON endpoints logging in with API tokens.
 	API bool
+	// Shared says, in a project of an Inertia stack, that every page gets
+	// the logged-in user (app/handlers/pages.go's currentUser calls
+	// authUser); when false, the app makes it do so.
+	Shared bool
 }
 
 // MakeAuth writes the account scaffolding into the project at root:
@@ -115,11 +144,18 @@ func MakeAuth(root string, now time.Time) (AuthResult, error) {
 		return res, errors.New("go.mod has no module line")
 	}
 	res.API = IsAPI(root)
+	framework := InertiaFramework(root)
 	dirs, files, names := []string{"app/models", "app/handlers", "views", "routes", "database/migrations", "locales"}, authFiles, authNames
 	migration := "migration.go.tmpl"
-	if res.API {
+	switch {
+	case res.API:
 		dirs, files, names = []string{"app/models", "app/handlers", "routes", "database/migrations", "locales"}, authAPIFiles, authAPINames
 		migration = "api/migration.go.tmpl"
+	case framework != "":
+		dirs, files, names = append(dirs, "frontend/src"), authInertiaFiles, authInertiaNames
+		for _, p := range authPages {
+			files = append(files, [2]string{framework + "/" + p + ".tmpl", "frontend/src/" + p})
+		}
 	}
 	for _, dir := range dirs {
 		if _, err := os.Stat(filepath.Join(root, dir)); err != nil {
@@ -167,7 +203,10 @@ func MakeAuth(root string, now time.Time) (AuthResult, error) {
 		envBefore[name] = b
 	}
 
-	data := struct{ Module, ID string }{mod, id}
+	data := struct {
+		Module, ID, Framework string
+		Inertia               bool
+	}{mod, id, framework, framework != ""}
 	out := make([][]byte, len(files))
 	for i, f := range files {
 		if out[i], err = render("templates/auth/"+f[0], "", data); err != nil {
@@ -204,7 +243,7 @@ func MakeAuth(root string, now time.Time) (AuthResult, error) {
 		}
 		return AuthResult{}, fmt.Errorf("%w (the files written were removed)", err)
 	}
-	if !res.API && !HasUI(root) {
+	if !res.API && framework == "" && !HasUI(root) {
 		return res, ErrNoUI
 	}
 	for i, f := range files {
@@ -237,8 +276,80 @@ func MakeAuth(root string, now time.Time) (AuthResult, error) {
 	if err != nil || res.API {
 		return res, err
 	}
+	if framework != "" {
+		if res.Shared, err = shareUser(filepath.Join(root, "app", "handlers", "pages.go")); err != nil {
+			return res, err
+		}
+		res.Menu, err = addAccountMenuTo(filepath.Join(root, "frontend", "src", "Layout.tsx"))
+		return res, err
+	}
 	res.Menu, err = addAccountMenu(filepath.Join(root, "views", "layout.templ"))
 	return res, err
+}
+
+// currentUserNone is the body of an Inertia project's currentUser before
+// make:auth, which shareUser replaces.
+var currentUserNone = regexp.MustCompile(`(?m)^func currentUser\(\*web\.Ctx\) \(\*SharedUser, error\) \{\r?\n\treturn nil, nil\r?\n\}`)
+
+// currentUserShared is the body of an Inertia project's currentUser once
+// it returns the logged-in user.
+var currentUserShared = regexp.MustCompile(`(?m)^func currentUser\(\w+ \*web\.Ctx\) \(\*SharedUser, error\) \{\r?\n\treturn authUser\(\w+\)`)
+
+// shareUser makes an Inertia project's currentUser (app/handlers/pages.go)
+// return the logged-in user, as anetos new writes it, and reports whether
+// it does.
+func shareUser(pages string) (bool, error) {
+	src, err := os.ReadFile(pages)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if currentUserShared.Match(src) {
+		return true, nil
+	}
+	loc := currentUserNone.FindIndex(src)
+	if loc == nil {
+		return false, nil
+	}
+	nl := string(newline(src))
+	body := "func currentUser(c *web.Ctx) (*SharedUser, error) {" + nl + "\treturn authUser(c) // anetos make:auth: app/handlers/auth.go" + nl + "}"
+	patched := append(append(append([]byte(nil), src[:loc[0]]...), body...), src[loc[1]:]...)
+	return true, os.WriteFile(pages, patched, 0o644)
+}
+
+// accountMenuMarker is the line of an Inertia project's Layout that
+// make:auth replaces with <AccountMenu />.
+var accountMenuMarker = regexp.MustCompile(`(?m)^([ \t]*)\{/\* The account's links \(go tool anetos make:auth adds them\)\. \*/\}[ \t]*(\r?)$`)
+
+// addAccountMenuTo puts <AccountMenu /> in an Inertia project's Layout
+// (frontend/src/Layout.tsx), where anetos new left a comment for it, and
+// imports it; it reports whether the layout shows it.
+func addAccountMenuTo(layout string) (bool, error) {
+	src, err := os.ReadFile(layout)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if bytes.Contains(src, []byte("<AccountMenu")) {
+		return true, nil
+	}
+	accountImport := []byte("import AccountMenu from './components/AccountMenu'")
+	m := accountMenuMarker.FindSubmatchIndex(src)
+	imp := []byte("import { Flash } from './components/ui'")
+	if m == nil || !bytes.Contains(src, imp) {
+		return false, nil
+	}
+	nl := newline(src)
+	out := append(append(append([]byte(nil), src[:m[0]]...), src[m[2]:m[3]]...), "<AccountMenu />"...)
+	out = append(append(out, src[m[4]:m[5]]...), src[m[1]:]...) // the line's \r, if any
+	if !bytes.Contains(out, accountImport) {
+		out = bytes.Replace(out, imp, append(append(accountImport, nl...), imp...), 1)
+	}
+	return true, os.WriteFile(layout, out, 0o644)
 }
 
 // accountMenu is the line make:auth adds to the layout's header.
@@ -383,6 +494,17 @@ var authNames = map[string][]string{
 	"routes":             {"Auth"},
 	"database/factories": {"Users", "UserPassword", "userHash"},
 	"":                   {"setupAuth", "authRegister", "authLink", "TestRegisterAndVerify", "TestResendVerification", "TestRegisterValidation", "TestLoginAndLogout", "TestTwoFactor", "TestSettings", "TestChangeEmail", "TestRevertEmailChange", "TestDisabledAccount", "TestLoginReturnsToTheRequestedPage", "TestPasswordReset", "TestResetLogsOutAndRevokesTokens", "TestAPIToken", "TestSocialLogin", "TestSocialLoginFindsVerifiedAccounts"},
+}
+
+// authInertiaNames are authNames in a project of an Inertia stack.
+var authInertiaNames = map[string][]string{
+	"app/models":         {"User", "Users", "UserCols"},
+	"app/handlers":       {"Accounts", "RegisterInput", "LoginInput", "ForgotInput", "ResetInput", "TokenQuery", "NewTokenInput", "TokenID", "CodeInput", "PasswordInput", "ProfileInput", "EmailInput", "NewPasswordInput", "PreferencesInput", "RevertInput", "sendEmailChange", "SocialUser", "SendVerification", "SendPasswordReset", "emailTaken", "cleanName", "registerPage", "loginPage", "forgotPage", "resetPage", "challengePage", "confirmPage", "twoFactorPage", "dashboardPage", "settingsPage", "revertEmailPage", "NoProps", "SocialButton", "SocialProps", "ResetProps", "TwoFactorProps", "DashboardProps", "TokenProps", "SettingsProps", "Choice", "RevertEmailProps", "authUser"},
+	"app/mailers":        {"VerifyEmail", "ResetPassword", "ChangeEmail", "EmailChanging"},
+	"views":              {"ChangeEmailMail", "EmailChangingMail", "VerifyEmailMail", "ResetPasswordMail", "authMail"},
+	"routes":             {"Auth"},
+	"database/factories": {"Users", "UserPassword", "userHash"},
+	"":                   append([]string{"authSees"}, authNames[""]...),
 }
 
 // authAPINames are authNames in an API project.

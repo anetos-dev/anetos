@@ -1,0 +1,277 @@
+// The pages' building blocks: the starter theme's markup (theme.css), as
+// the web stack's views/ui writes it. Pages use these rather than
+// classes of their own, so the look stays in one place.
+import { Link } from '@inertiajs/react'
+import {
+  createContext,
+  use,
+  type ButtonHTMLAttributes,
+  type InputHTMLAttributes,
+  type ReactNode,
+  type SelectHTMLAttributes,
+  type TextareaHTMLAttributes,
+} from 'react'
+
+type Children = { children?: ReactNode }
+
+/** A button's look: primary (the default), secondary, danger or ghost. */
+export type Variant = 'primary' | 'secondary' | 'danger' | 'ghost'
+/** A badge's or a message's color. */
+export type Tone = 'neutral' | 'success' | 'warning' | 'error' | 'info'
+
+function buttonClass(variant: Variant = 'primary', link = false, small = false, full = false): string | undefined {
+  const c = [link && 'button', variant !== 'primary' && variant, small && 'small', full && 'full'].filter(Boolean)
+  return c.length ? c.join(' ') : undefined
+}
+
+function toneClass(tone: Tone, flash = false): string {
+  if (tone === 'neutral') return ''
+  if (tone === 'error') return flash ? ' error' : ' danger'
+  return ' ' + tone
+}
+
+/** PageHeader is a page's title, with a line under it, and its actions (children). */
+export function PageHeader({ title, lead, children }: Children & { title: string; lead?: string }) {
+  return (
+    <div className="page-header">
+      <div>
+        <h1>{title}</h1>
+        {lead && <p className="muted">{lead}</p>}
+      </div>
+      {children}
+    </div>
+  )
+}
+
+/** Narrow keeps its children to a readable width, for forms and text. */
+export function Narrow({ children }: Children) {
+  return <div className="narrow">{children}</div>
+}
+
+/** Stack puts its children one under the other, spaced evenly. */
+export function Stack({ children }: Children) {
+  return <div className="stack">{children}</div>
+}
+
+/** Cluster puts its children side by side, wrapping. */
+export function Cluster({ children }: Children) {
+  return <div className="cluster">{children}</div>
+}
+
+/** Card is a box of related content, under a heading when it has a title. */
+export function Card({ title, children }: Children & { title?: string }) {
+  return (
+    <section className="card">
+      {title && <h2>{title}</h2>}
+      {children}
+    </section>
+  )
+}
+
+/** CardHeader is a card's heading with actions (children) beside it. */
+export function CardHeader({ title, children }: Children & { title: string }) {
+  return (
+    <div className="card-header">
+      <h2>{title}</h2>
+      {children}
+    </div>
+  )
+}
+
+/** AuthCard is a page made of one small card under its title, as the login pages are. */
+export function AuthCard({ title, children }: Children & { title: string }) {
+  return (
+    <div className="card auth-card">
+      <h1>{title}</h1>
+      {children}
+    </div>
+  )
+}
+
+/** Empty says a list has nothing in it yet. */
+export function Empty({ text }: { text: string }) {
+  return <p className="empty">{text}</p>
+}
+
+/** Note is a paragraph of secondary text. */
+export function Note({ children }: Children) {
+  return <p className="muted">{children}</p>
+}
+
+/** SROnly is text for screen readers only: a column of buttons' header. */
+export function SROnly({ text }: { text: string }) {
+  return <span className="sr-only">{text}</span>
+}
+
+/** Flash is a message about what just happened, with any buttons beside it. */
+export function Flash({ tone = 'success', children }: Children & { tone?: Tone }) {
+  return (
+    <div className={'flash cluster' + toneClass(tone, true)} role="status">
+      {children}
+    </div>
+  )
+}
+
+// The field a control belongs to: its name (and id), and its error.
+const FieldContext = createContext<{ name: string; error?: string }>({ name: '' })
+
+/**
+ * Field is a form's field: its label, the control (children: an Input,
+ * Textarea or Select, which take its name), a hint, and its error from
+ * the server (the form's errors[name]). A Checkbox carries its own
+ * label: give Field none.
+ */
+export function Field({ name, label, hint, error, children }: Children & { name: string; label?: string; hint?: string; error?: string }) {
+  return (
+    <FieldContext value={{ name, error }}>
+      <div className="field">
+        {label && <label htmlFor={name}>{label}</label>}
+        {children}
+        {hint && <p className="hint">{hint}</p>}
+        {error && (
+          <p className="error" id={name + '-error'}>
+            {error}
+          </p>
+        )}
+      </div>
+    </FieldContext>
+  )
+}
+
+// controlProps are a control's name, id and invalid state, from its Field.
+function useControl() {
+  const { name, error } = use(FieldContext)
+  return { id: name, name, 'aria-invalid': error ? true : undefined, 'aria-describedby': error ? name + '-error' : undefined }
+}
+
+/** Input is an <input> of its Field. */
+export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
+  return <input {...useControl()} {...props} />
+}
+
+/** Textarea is a field of several lines. */
+export function Textarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return <textarea {...useControl()} {...props} />
+}
+
+/** Select is a choice among options. */
+export function Select({ options, ...props }: SelectHTMLAttributes<HTMLSelectElement> & { options: { value: string; label: string }[] }) {
+  return (
+    <select {...useControl()} {...props}>
+      {options.map((o) => (
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
+      ))}
+    </select>
+  )
+}
+
+/** Checkbox is a checkbox with its label, sending "1" when checked. */
+export function Checkbox({ label, ...props }: InputHTMLAttributes<HTMLInputElement> & { label: string }) {
+  return (
+    <label className="check">
+      <input type="checkbox" value="1" {...useControl()} {...props} />
+      {label}
+    </label>
+  )
+}
+
+/** Actions is a form's buttons and links, after its fields. */
+export function Actions({ children }: Children) {
+  return <div className="form-actions">{children}</div>
+}
+
+type ButtonLook = { variant?: Variant; small?: boolean; full?: boolean }
+
+/** Button is a button (type submit unless given another). */
+export function Button({ variant, small, full, type = 'submit', ...props }: ButtonHTMLAttributes<HTMLButtonElement> & ButtonLook) {
+  return <button type={type} className={buttonClass(variant, false, small, full)} {...props} />
+}
+
+/** LinkButton is a link of the app that looks like a button. */
+export function LinkButton({ href, variant, small, full, children }: Children & ButtonLook & { href: string }) {
+  return (
+    <Link className={buttonClass(variant, true, small, full)} href={href}>
+      {children}
+    </Link>
+  )
+}
+
+/**
+ * PostButton is a button that sends a request of its own (POST, unless
+ * given another method) to href with Inertia, as a form of one button
+ * would: to log out, delete a row, resend an email.
+ */
+export function PostButton({
+  href,
+  method = 'post',
+  variant,
+  small,
+  full,
+  children,
+}: Children & ButtonLook & { href: string; method?: 'post' | 'put' | 'patch' | 'delete' }) {
+  return (
+    <Link href={href} method={method} as="button" className={buttonClass(variant, false, small, full)}>
+      {children}
+    </Link>
+  )
+}
+
+/** Table is a table in a box that scrolls sideways when it's too wide. */
+export function Table({ children }: Children) {
+  return (
+    <div className="table-wrap">
+      <table>{children}</table>
+    </div>
+  )
+}
+
+/** ActionsCell is a table row's cell of buttons and links (Edit…), at its end. */
+export function ActionsCell({ children }: Children) {
+  return <td className="actions">{children}</td>
+}
+
+/** Details is a list of terms and their values (Detail). */
+export function Details({ children }: Children) {
+  return <dl className="details">{children}</dl>
+}
+
+/** Detail is a term and its value (children). */
+export function Detail({ term, children }: Children & { term: string }) {
+  return (
+    <>
+      <dt>{term}</dt>
+      <dd>{children}</dd>
+    </>
+  )
+}
+
+/** Multiline is text whose line breaks show, as a textarea's. */
+export function Multiline({ text }: { text: string }) {
+  return <span className="prewrap">{text}</span>
+}
+
+/** Badge is a short label in a tone's color. */
+export function Badge({ tone = 'neutral', children }: Children & { tone?: Tone }) {
+  return <span className={'badge' + toneClass(tone)}>{children}</span>
+}
+
+/** Pagination links to the pages before and after a list's page. */
+export function Pagination(p: { label: string; prev?: string; prevLabel: string; status?: string; next?: string; nextLabel: string }) {
+  return (
+    <nav className="pagination" aria-label={p.label}>
+      {p.prev && (
+        <Link href={p.prev} rel="prev">
+          {p.prevLabel}
+        </Link>
+      )}
+      {p.status && <span>{p.status}</span>}
+      {p.next && (
+        <Link href={p.next} rel="next">
+          {p.nextLabel}
+        </Link>
+      )}
+    </nav>
+  )
+}

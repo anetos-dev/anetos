@@ -7,6 +7,27 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- The react stack (V3a, D370–D376): `anetos new --stack=react` writes
+  the web stack's Go side (routes, handlers, sessions, CSRF protection,
+  validation, translations) with pages that are React components in
+  TypeScript, which Inertia's client renders: `app/handlers/pages.go`
+  (`page[P](component)`, the shared props: the app's name, the locale,
+  the flashed status, the logged-in user, the page text), the root view
+  `views/app.templ`, and `frontend/` (`Layout.tsx`, `components/ui.tsx`
+  writing the starter theme's markup, `i18n.ts` with `useT()` and
+  `useFormat()`, `pages/Home.tsx` and `pages/Error.tsx`). `make:auth`
+  and `make:crud` write the same Go in such a project, with React pages
+  (`frontend/src/pages/Auth/`, `frontend/src/pages/<Models>/`), patch
+  the layout and the shared user, and run `go run . types`; `make:admin`
+  puts its banner in the root view; `css:use` refuses (the starter theme
+  only, for now); the agent files describe the stack. New
+  `i18n.Messages(ctx, prefix)`, the app's messages of a locale for a
+  frontend's own translations; `typescript.Config.Routes`, which writes
+  `routes.ts` with `route(name, params, query)` over the named routes,
+  typed (`ExcludeRoutes` leaves some out, as the stack does the
+  admin's); `Page.Responder(props)`, a page for a typed handler; and paths
+  in `AssertInertiaProp` (`"page.data.0.title"`). Guide section "Start
+  a project with it".
 - Single-page apps served by an API project (SP2, D365–D369): new
   `vite.SPA(app, files, vite.Except("/api/"))`, the handler of an SPA
   that Vite built into `public/spa`, which the binary embeds: its files

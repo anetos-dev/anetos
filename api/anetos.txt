@@ -1705,6 +1705,7 @@ pkg anetos.dev/anetos/i18n, func LoadConfig(config.Source) (Config, error)
 pkg anetos.dev/anetos/i18n, func LocalNumber(context.Context, string) string
 pkg anetos.dev/anetos/i18n, func Locale(context.Context) string
 pkg anetos.dev/anetos/i18n, func Lookup(context.Context, string) (string, bool)
+pkg anetos.dev/anetos/i18n, func Messages(context.Context, string) map[string]any
 pkg anetos.dev/anetos/i18n, func New(*anetos.App, fs.FS) (*Translator, error)
 pkg anetos.dev/anetos/i18n, func NewTranslator(Config, ...Option) (*Translator, error)
 pkg anetos.dev/anetos/i18n, func Number[N Numeric](context.Context, N) string
@@ -2697,6 +2698,7 @@ pkg anetos.dev/anetos/web/inertia, method (*Inertia) Version() string
 pkg anetos.dev/anetos/web/inertia, method (*Page[P]) Component() string
 pkg anetos.dev/anetos/web/inertia, method (*Page[P]) PropsType() reflect.Type
 pkg anetos.dev/anetos/web/inertia, method (*Page[P]) Render(*web.Ctx, P) error
+pkg anetos.dev/anetos/web/inertia, method (*Page[P]) Responder(P) web.Responder
 pkg anetos.dev/anetos/web/inertia, method (Prop[T]) Append(...string) Prop[T]
 pkg anetos.dev/anetos/web/inertia, method (Prop[T]) DeepMerge() Prop[T]
 pkg anetos.dev/anetos/web/inertia, method (Prop[T]) ExpiresIn(time.Duration) Prop[T]
@@ -2788,5 +2790,7 @@ pkg anetos.dev/anetos/web/typescript, func Generate(*web.Router, Config) (map[st
 pkg anetos.dev/anetos/web/typescript, func Register(*anetos.App, *web.Server, Config) error
 pkg anetos.dev/anetos/web/typescript, type Config struct
 pkg anetos.dev/anetos/web/typescript, type Config struct, Dir string
+pkg anetos.dev/anetos/web/typescript, type Config struct, ExcludeRoutes []string
 pkg anetos.dev/anetos/web/typescript, type Config struct, Inertia *inertia.Inertia
 pkg anetos.dev/anetos/web/typescript, type Config struct, Prefix string
+pkg anetos.dev/anetos/web/typescript, type Config struct, Routes bool

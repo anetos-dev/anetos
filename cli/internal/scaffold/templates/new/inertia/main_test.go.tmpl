@@ -1,0 +1,22 @@
+package main
+
+import (
+	"testing"
+
+	"anetos.dev/anetos/anetostest"
+)
+
+// anetostest.New boots the app with test settings (.env.testing, not
+// .env) and a migrated database, which the test leaves as it found it.
+// The pages are Inertia's: the tests check the component and its props,
+// without Node or the frontend's build.
+func TestHome(t *testing.T) {
+	app := anetostest.New(t, setup)
+	app.Get("/").AssertOK().AssertInertia("Home").AssertInertiaProp("appName", "[[.Title]]")
+}
+
+// Errors are the frontend's Error page (inertia.ErrorPages).
+func TestNotFound(t *testing.T) {
+	app := anetostest.New(t, setup)
+	app.Get("/no-such-page").AssertNotFound().AssertInertia("Error").AssertInertiaProp("status", 404)
+}

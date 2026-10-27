@@ -105,7 +105,9 @@ go run . types
 ```
 
 writes `frontend/src/types/api.ts` and, with Inertia,
-`frontend/src/types/pages.ts`. Commit them. `go tool anetos generate`
+`frontend/src/types/pages.ts`; with `Routes: true` in the `Config`,
+`frontend/src/types/routes.ts` too, the named routes for links
+(`route('posts.show', { id })`; since v0.6). Commit them. `go tool anetos generate`
 runs the command, and `go tool anetos dev` runs it after each build, so
 the files follow the Go code as you edit; a file whose content didn't
 change isn't written again.

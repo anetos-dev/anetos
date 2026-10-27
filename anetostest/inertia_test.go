@@ -54,6 +54,8 @@ func inertiaApp(app *anetos.App) (*web.Server, error) {
 func TestInertia(t *testing.T) {
 	app := anetostest.New(t, inertiaApp)
 	app.Get("/items").AssertOK().AssertInertia("Items/Index").AssertInertiaProp("items", []item{{1, "Tea"}})
+	// A path into a prop: an array's index, an object's key.
+	app.Get("/items").AssertInertiaProp("items.0.title", "Tea").AssertInertiaProp("items.0", item{1, "Tea"})
 	res := app.AsInertia().Get("/items").AssertOK().AssertHeader("X-Inertia", "true").AssertInertia("Items/Index")
 	if p := res.InertiaPage(); p.Version != "v7" || p.URL != "/items" {
 		t.Errorf("page %+v", p)
@@ -68,7 +70,8 @@ func TestInertia(t *testing.T) {
 	fails.Get("/plain").AssertInertia("Items/Index")
 	fails.Get("/items").AssertInertia("Other").AssertInertiaProp("nope", 1).AssertInertiaProp("items", 1).AssertInertiaProp("items", func() {})
 	fails.Get("/plain").AssertInertiaProp("items", 1)
-	if len(ft.errs) != 6 || !strings.Contains(ft.errs[0], "no page object") || !strings.Contains(ft.errs[1], `got the Inertia page "Items/Index", want "Other"`) ||
+	fails.Get("/items").AssertInertiaProp("items.1.title", "x").AssertInertiaProp("items.0.nope", "x").AssertInertiaProp("items.x", "x")
+	if len(ft.errs) != 9 || !strings.Contains(ft.errs[0], "no page object") || !strings.Contains(ft.errs[1], `got the Inertia page "Items/Index", want "Other"`) ||
 		!strings.Contains(ft.errs[2], `has no prop "nope"`) || !strings.Contains(ft.errs[3], `Inertia prop "items" is [{"id":1,"title":"Tea"}], want 1`) ||
 		!strings.Contains(ft.errs[4], "AssertInertiaProp: json: unsupported type") {
 		t.Errorf("errors: %q", ft.errs)

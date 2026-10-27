@@ -1,0 +1,28 @@
+import { Form, Head } from '@inertiajs/react'
+import { AuthCard, Button } from '../../components/ui'
+import { useT } from '../../i18n'
+import type { PageProps } from '../../types/pages'
+import { route } from '../../types/routes'
+
+// Auth/RevertEmail asks the owner of an account's old address, from the
+// link emailed to it, to confirm undoing a change of address (anetos
+// make:auth).
+export default function RevertEmail({ token, oldEmail, newEmail }: PageProps<'Auth/RevertEmail'>) {
+  const t = useT()
+  return (
+    <AuthCard title={t('auth.revert.title')}>
+      <Head title={t('auth.revert.title')} />
+      <p>{t('auth.revert.intro', { old: oldEmail, new: newEmail })}</p>
+      <Form action={route('settings.email.revert')} method="post">
+        {({ processing }) => (
+          <>
+            <input type="hidden" name="token" value={token} />
+            <Button variant="danger" disabled={processing}>
+              {t('auth.revert.submit')}
+            </Button>
+          </>
+        )}
+      </Form>
+    </AuthCard>
+  )
+}

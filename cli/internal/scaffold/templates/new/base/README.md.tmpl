@@ -1,7 +1,8 @@
 # [[.Title]]
 
 An [Anetos](https://github.com/anetos-dev/anetos) application[[if .API]]: a JSON
-API under `/api/v1`[[end]].
+API under `/api/v1`[[else if .Inertia]] whose pages are [[.FrameworkName]] components,
+rendered by [Inertia](https://inertiajs.com)'s client[[end]].
 
 ```sh
 go run . migrate        # create the database tables
@@ -16,7 +17,13 @@ go test ./...
 | `app/middleware` | Middleware (`go tool anetos make:middleware Admin`) |
 | `database/migrations` | Migrations and seeders (`go tool anetos make:migration create_posts_table`) |
 | `database/factories` | Model factories, for tests and seeders |
-[[- if .Web]]
+[[- if .Inertia]]
+| `routes` | Routes |
+| `frontend` | The pages (`src/pages`), their layout and components, which Vite builds (Node.js); `src/types` is written by `go run . types` |
+| `views` | The root view of the pages (`app.templ`), and the emails' |
+| `public` | The web root: `robots.txt` and the like, served at `/`, and the frontend's build (`build`) |
+| `locales` | The text of the pages and of the server, by locale (`locales/en/app.yaml`), which the pages get in the `messages` prop |
+[[- else if .Web]]
 | `routes` | Routes |
 | `views` | templ components (`go generate ./...` after editing, or `anetos dev`) |
 | `public` | The web root: `robots.txt` and the like, served at `/` |

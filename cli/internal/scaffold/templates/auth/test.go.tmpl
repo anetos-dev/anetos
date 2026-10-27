@@ -1,9 +1,14 @@
 package main
 
 import (
+[[- if .Inertia]]
+	"encoding/json"
+[[- end]]
 	"net/http"
 	"net/url"
+[[- if not .Inertia]]
 	"regexp"
+[[- end]]
 	"strconv"
 	"strings"
 	"testing"
@@ -32,7 +37,32 @@ func authRegister(t *testing.T) *anetostest.App {
 	}).AssertRedirect("/dashboard")
 	return app
 }
-
+[[if .Inertia]]
+// authSees fails the test unless the props of res's Inertia page (as
+// JSON) hold each text.
+func authSees(t *testing.T, res *anetostest.Response, texts ...string) {
+	t.Helper()
+	var props any // decoded, then encoded again without the page's escapes (\/)
+	var b strings.Builder
+	enc := json.NewEncoder(&b)
+	enc.SetEscapeHTML(false)
+	raw, err := json.Marshal(res.InertiaPage().Props)
+	if err == nil {
+		err = json.Unmarshal(raw, &props)
+	}
+	if err == nil {
+		err = enc.Encode(props)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range texts {
+		if !strings.Contains(b.String(), s) {
+			t.Errorf("%s: the page's props don't hold %q", res.Request.URL.Path, s)
+		}
+	}
+}
+[[end]]
 // authLink returns the path of an emailed link.
 func authLink(t *testing.T, u string) string {
 	t.Helper()
@@ -45,13 +75,22 @@ func authLink(t *testing.T, u string) string {
 
 func TestRegisterAndVerify(t *testing.T) {
 	app := authRegister(t)
+[[- if .Inertia]]
+	app.Get("/dashboard").AssertOK().AssertInertia("Auth/Dashboard").
+		AssertInertiaProp("user.name", "Ada").AssertInertiaProp("user.emailVerified", false)
+[[- else]]
 	app.Get("/dashboard").AssertOK().AssertSee("Hello, Ada", "Please verify your email address")
+[[- end]]
 	sent := anetostest.Mailables[mailers.VerifyEmail](app)
 	if len(sent) != 1 || sent[0].Email != "ada@example.com" {
 		t.Fatalf("verification emails: %+v", sent)
 	}
 	app.Get(authLink(t, sent[0].URL)).AssertRedirect("/dashboard").AssertSessionHas("status", "Your email address is verified.")
+[[- if .Inertia]]
+	app.Get("/dashboard").AssertInertiaProp("user.emailVerified", true)
+[[- else]]
 	app.Get("/dashboard").AssertDontSee("Please verify your email address")
+[[- end]]
 
 	app.PostForm("/register", url.Values{"email": {"ada@example.com"}}).AssertStatus(http.StatusSeeOther) // logged in: to AUTH_HOME_URL
 
@@ -110,7 +149,11 @@ func TestTwoFactor(t *testing.T) {
 	app.PostForm("/confirm-password", url.Values{"password": {"wrong"}}).AssertValidationErrors("password")
 	app.PostForm("/confirm-password", url.Values{"password": {"correct horse"}}).AssertRedirect("/two-factor")
 	app.PostForm("/two-factor", nil).AssertRedirect("/two-factor")
+[[- if .Inertia]]
+	app.Get("/two-factor").AssertOK().AssertInertia("Auth/TwoFactor").AssertInertiaProp("started", true)
+[[- else]]
 	app.Get("/two-factor").AssertOK().AssertSee("<svg")
+[[- end]]
 
 	a := anetos.MustResolve[*auth.Auth[*models.User]](app.App)
 	u, err := models.Users.ByLogin(app.Context(), "ada@example.com")
@@ -126,30 +169,53 @@ func TestTwoFactor(t *testing.T) {
 		t.Fatal(err)
 	}
 	app.PostForm("/two-factor/confirm", url.Values{"code": {"000000"}}).AssertValidationErrors("code")
+[[- if .Inertia]]
+	page := app.PostForm("/two-factor/confirm", url.Values{"code": {code}}).AssertRedirect("/two-factor").Follow().AssertOK().InertiaPage()
+	var recovery []string
+	if err := json.Unmarshal(page.Props["recoveryCodes"], &recovery); err != nil || len(recovery) != 8 {
+		t.Fatalf("%d recovery codes shown (%v)", len(recovery), err)
+	}
+[[- else]]
 	page := app.PostForm("/two-factor/confirm", url.Values{"code": {code}}).AssertRedirect("/two-factor").Follow().AssertOK().Text()
 	recovery := regexp.MustCompile(`<code>([a-z2-7]{5}-[a-z2-7]{5})</code>`).FindAllStringSubmatch(page, -1)
 	if len(recovery) != 8 {
 		t.Fatalf("%d recovery codes shown", len(recovery))
 	}
+[[- end]]
 
 	app.PostForm("/logout", nil)
 	app.PostForm("/login", url.Values{"email": {"ada@example.com"}, "password": {"correct horse"}}).AssertRedirect("/two-factor-challenge")
 	app.Get("/dashboard").AssertRedirect("/login") // not yet
 	app.Get("/two-factor-challenge").AssertOK()
 	app.PostForm("/two-factor-challenge", url.Values{"code": {"000000"}}).AssertValidationErrors("code")
+[[- if .Inertia]]
+	app.PostForm("/two-factor-challenge", url.Values{"code": {recovery[0]}}).AssertRedirect("/dashboard")
+	app.PostForm("/logout", nil)
+	app.PostForm("/login", url.Values{"email": {"ada@example.com"}, "password": {"correct horse"}})
+	app.PostForm("/two-factor-challenge", url.Values{"code": {recovery[0]}}).AssertValidationErrors("code") // used
+[[- else]]
 	app.PostForm("/two-factor-challenge", url.Values{"code": {recovery[0][1]}}).AssertRedirect("/dashboard")
 	app.PostForm("/logout", nil)
 	app.PostForm("/login", url.Values{"email": {"ada@example.com"}, "password": {"correct horse"}})
 	app.PostForm("/two-factor-challenge", url.Values{"code": {recovery[0][1]}}).AssertValidationErrors("code") // used
+[[- end]]
 }
 
 // The settings: name, password (other sessions logged out), language and
 // time zone.
 func TestSettings(t *testing.T) {
 	app := authRegister(t)
+[[- if .Inertia]]
+	authSees(t, app.Get("/settings").AssertOK().AssertInertia("Auth/Settings"), `"name":"Ada"`, "ada@example.com", "Asia/Dhaka")
+[[- else]]
 	app.Get("/settings").AssertOK().AssertSee("Ada", "ada@example.com", "Asia/Dhaka")
+[[- end]]
 	app.PostForm("/settings/profile", url.Values{"name": {"  Ada \n Lovelace "}}).AssertRedirect("/settings")
+[[- if .Inertia]]
+	app.Get("/settings").AssertInertiaProp("name", "Ada Lovelace").AssertInertiaProp("status", "Saved.")
+[[- else]]
 	app.Get("/settings").AssertSee(`value="Ada Lovelace"`, "Saved.")
+[[- end]]
 
 	app.PostForm("/settings/password", url.Values{"current_password": {"wrong"}, "password": {"new password"}, "password_confirmation": {"new password"}}).
 		AssertValidationErrors("current_password")
@@ -183,7 +249,11 @@ func TestChangeEmail(t *testing.T) {
 	app.PostForm("/confirm-password", url.Values{"password": {"correct horse"}})
 	app.PostForm("/settings/email", url.Values{"email": {"ADA@example.com"}}).AssertValidationErrors("email") // the same
 	app.PostForm("/settings/email", url.Values{"email": {"New@Example.com"}}).AssertRedirect("/settings")
+[[- if .Inertia]]
+	app.Get("/settings").AssertInertiaProp("pendingEmail", "new@example.com")
+[[- else]]
 	app.Get("/settings").AssertSee("new@example.com", "Cancel the change")
+[[- end]]
 	sent := anetostest.Mailables[mailers.ChangeEmail](app)
 	notices := anetostest.Mailables[mailers.EmailChanging](app)
 	if len(sent) != 1 || sent[0].Email != "new@example.com" || len(notices) != 1 || notices[0].Email != "ada@example.com" {
@@ -193,7 +263,11 @@ func TestChangeEmail(t *testing.T) {
 	if u, err := models.Users.ByLogin(app.Context(), "ada@example.com"); err != nil || u.PendingEmail != "new@example.com" {
 		t.Fatalf("before the link: %+v, %v", u, err)
 	}
+[[- if .Inertia]]
+	app.Get(authLink(t, sent[0].URL)).AssertRedirect("/settings").Follow().AssertInertiaProp("status", "Your email address is now new@example.com.")
+[[- else]]
 	app.Get(authLink(t, sent[0].URL)).AssertRedirect("/settings").Follow().AssertSee("Your email address is now new@example.com.")
+[[- end]]
 	u, err := models.Users.ByLogin(app.Context(), "new@example.com")
 	if err != nil || u.PendingEmail != "" || u.EmailVerifiedAt == nil {
 		t.Fatalf("after the link: %+v, %v", u, err)
@@ -211,7 +285,12 @@ func TestRevertEmailChange(t *testing.T) {
 	app.Get(authLink(t, anetostest.Mailables[mailers.ChangeEmail](app)[0].URL)).AssertRedirect("/settings") // the change is made
 
 	revert := authLink(t, anetostest.Mailables[mailers.EmailChanging](app)[0].RevertURL)
+[[- if .Inertia]]
+	app.Get(revert).AssertOK().AssertInertia("Auth/RevertEmail").
+		AssertInertiaProp("oldEmail", "ada@example.com").AssertInertiaProp("newEmail", "thief@example.com")
+[[- else]]
 	app.Get(revert).AssertOK().AssertSee("ada@example.com", "thief@example.com")
+[[- end]]
 	q, _ := url.ParseQuery(revert[strings.Index(revert, "?")+1:])
 	app.PostForm("/settings/email/revert", url.Values{"token": {q.Get("token")}}).AssertRedirect("/login")
 	app.Get("/dashboard").AssertRedirect("/login") // everyone logged out
@@ -246,7 +325,11 @@ func TestDisabledAccount(t *testing.T) {
 	app.Get("/dashboard").AssertRedirect("/login")
 	app.Get("/login")
 	app.PostForm("/login", url.Values{"email": {"ada@example.com"}, "password": {"correct horse"}}).AssertValidationErrors("email")
+[[- if .Inertia]]
+	app.Get("/login").AssertInertiaProp("errors.email", "This account is disabled.")
+[[- else]]
 	app.Get("/login").AssertSee("This account is disabled.")
+[[- end]]
 }
 
 func TestLoginReturnsToTheRequestedPage(t *testing.T) {
@@ -314,7 +397,11 @@ func TestAPIToken(t *testing.T) {
 	if token == "" {
 		t.Fatal("no token flashed")
 	}
+[[- if .Inertia]]
+	app.Get("/dashboard").AssertInertiaProp("tokens.0.name", "cli").AssertInertiaProp("newToken", token)
+[[- else]]
 	app.Get("/dashboard").AssertSee("cli", token)
+[[- end]]
 
 	var me models.User
 	app.WithHeader("Authorization", "Bearer "+token).GetJSON("/api/me").AssertOK().JSON(&me)
@@ -336,14 +423,26 @@ func TestAPIToken(t *testing.T) {
 func TestSocialLogin(t *testing.T) {
 	// Without SOCIAL_* settings, there's no login with Google or GitHub.
 	off := anetostest.Env(map[string]string{"SOCIAL_GOOGLE_CLIENT_ID": "", "SOCIAL_GITHUB_CLIENT_ID": ""})
+[[- if .Inertia]]
+	anetostest.New(t, setup, off).Get("/login").AssertOK().AssertInertiaProp("social", []string{})
+[[- else]]
 	anetostest.New(t, setup, off).Get("/login").AssertOK().AssertDontSee("Log in with")
+[[- end]]
 
 	// FakeSocial: Google and GitHub log in through a stand-in provider.
 	app := anetostest.New(t, setup, anetostest.FakeSocial())
+[[- if .Inertia]]
+	authSees(t, app.Get("/login"), `"title":"Google"`, `"title":"GitHub"`)
+[[- else]]
 	app.Get("/login").AssertSee("Log in with Google", "Log in with GitHub")
+[[- end]]
 	grace := anetostest.SocialAccount{ID: "g-1", Email: "Grace@Example.com", EmailVerified: true, Name: "Grace"}
 	app.SocialLogin("/auth/google/redirect", grace).AssertRedirect("/dashboard")
+[[- if .Inertia]]
+	app.Get("/dashboard").AssertInertiaProp("user.name", "Grace").AssertInertiaProp("user.emailVerified", true)
+[[- else]]
 	app.Get("/dashboard").AssertSee("Hello, Grace").AssertDontSee("Please verify")
+[[- end]]
 	app.PostForm("/logout", nil)
 
 	// The same account again: the same user.
@@ -365,20 +464,40 @@ func TestSocialLoginFindsVerifiedAccounts(t *testing.T) {
 	ada := anetostest.SocialAccount{ID: "42", Email: "ada@example.com", EmailVerified: true, Name: "Ada L."}
 
 	// Not verified here yet: refused.
+[[- if .Inertia]]
+	authSees(t, app.SocialLogin("/auth/github/redirect", ada).AssertRedirect("/login").Follow(), "An account with this email address exists")
+[[- else]]
 	app.SocialLogin("/auth/github/redirect", ada).AssertRedirect("/login").
 		Follow().AssertSee("An account with this email address exists")
+[[- end]]
 	// Not verified there: refused.
+[[- if .Inertia]]
+	authSees(t, app.SocialLogin("/auth/github/redirect", anetostest.SocialAccount{ID: "43", Email: "ada@example.com"}).
+		AssertRedirect("/login").Follow(), "no verified email address")
+[[- else]]
 	app.SocialLogin("/auth/github/redirect", anetostest.SocialAccount{ID: "43", Email: "ada@example.com"}).
 		AssertRedirect("/login").Follow().AssertSee("no verified email address")
+[[- end]]
 
 	// Verified here: the account is found, and linked.
 	app.Get(authLink(t, anetostest.Mailables[mailers.VerifyEmail](app)[0].URL)) // logs nobody in
 	app.SocialLogin("/auth/github/redirect", ada).AssertRedirect("/dashboard")
+[[- if .Inertia]]
+	app.Get("/dashboard").AssertInertiaProp("user.name", "Ada")
+	app.PostForm("/logout", nil)
+	anetostest.AssertDatabaseCount[models.User](app, 1)
+[[- else]]
 	app.Get("/dashboard").AssertSee("Hello, Ada")
 	app.PostForm("/logout", nil)
 	anetostest.AssertDatabaseCount[models.User](app, 1)
+[[- end]]
 
 	// Another GitHub account with the address (reused) isn't linked to Ada.
+[[- if .Inertia]]
+	authSees(t, app.SocialLogin("/auth/github/redirect", anetostest.SocialAccount{ID: "44", Email: "ada@example.com", EmailVerified: true}).
+		AssertRedirect("/login").Follow(), "logs in with another account there")
+[[- else]]
 	app.SocialLogin("/auth/github/redirect", anetostest.SocialAccount{ID: "44", Email: "ada@example.com", EmailVerified: true}).
 		AssertRedirect("/login").Follow().AssertSee("logs in with another account there")
+[[- end]]
 }

@@ -5,6 +5,9 @@
 [[- if .API]]
 //	go run . openapi          update openapi.json, the API's description
 [[- end]]
+[[- if .Inertia]]
+//	go run . types            update frontend/src/types: the pages' props and the routes
+[[- end]]
 //	go run . help             list every command
 package main
 
@@ -29,14 +32,30 @@ import (
 	"anetos.dev/anetos/session"
 [[- end]]
 	"anetos.dev/anetos/storage"
+[[- if .Inertia]]
+	"anetos.dev/anetos/view/vite"
+[[- end]]
 	"anetos.dev/anetos/web"
+[[- if .Inertia]]
+	"anetos.dev/anetos/web/inertia"
+[[- end]]
 [[- if .API]]
 	"anetos.dev/anetos/web/openapi"
 [[- end]]
+[[- if .Inertia]]
+	"anetos.dev/anetos/web/typescript"
+[[- end]]
 
-	"[[.Module]]/database/migrations"
+[[if .Inertia]]	"[[.Module]]/app/handlers"
+[[end]]	"[[.Module]]/database/migrations"
 	"[[.Module]]/locales"
+[[- if .Inertia]]
+	"[[.Module]]/public"
+[[- end]]
 	"[[.Module]]/routes"
+[[- if .Inertia]]
+	"[[.Module]]/views"
+[[- end]]
 )
 
 [[if .Web]]//go:generate go tool templ generate
@@ -121,7 +140,28 @@ func setup(app *anetos.App) (*web.Server, error) {
 	if err != nil {
 		return nil, err
 	}
+[[- if .Inertia]]
+	// The frontend (frontend/), which Vite builds into public/build;
+	// anetos dev runs Vite. Its pages are Inertia's, in the root view
+	// views/app.templ, with the props of handlers.SharedProps on every
+	// page.
+	if _, err := vite.New(app, public.Files[[if eq .Framework "react"]], vite.WithReactRefresh()[[end]]); err != nil {
+		return nil, err
+	}
+	in, err := inertia.New(app, views.App(), inertia.WithShared(handlers.SharedProps), inertia.WithPages(handlers.Pages...))
+	if err != nil {
+		return nil, err
+	}
+[[- end]]
 	routes.Register(srv.Router(), sessions)
+[[- if .Inertia]]
+	// `go run . types` writes frontend/src/types: the pages' props, and
+	// route() for links (anetos dev runs it after each build), but the
+	// admin's (make:admin), which the pages don't link to.
+	if err := typescript.Register(app, srv, typescript.Config{Inertia: in, Routes: true, ExcludeRoutes: []string{"admin."}}); err != nil {
+		return nil, err
+	}
+[[- end]]
 [[- else]]
 	routes.Register(srv.Router())
 	// `go run . openapi` and GET /api/v1/openapi.json (routes.OpenAPI).

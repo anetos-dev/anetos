@@ -194,6 +194,23 @@ type crudData struct {
 	HasNum   bool // int or float fields: strconv in the form
 	HasEmail bool
 	HasBool  bool // bool fields: the views' YesNo helper
+	// Inertia is set in a project of an Inertia stack, whose pages are
+	// Framework's ("react") components.
+	Inertia   bool
+	Framework string
+}
+
+// HasText reports whether a field is a text (a textarea in the form).
+func (d crudData) HasText() bool {
+	return slices.ContainsFunc(d.Fields, func(f crudField) bool { return f.Kind == "text" })
+}
+
+// HasTransform reports whether an Inertia form converts a field's value
+// before posting it: numbers, booleans, optional dates (null when empty).
+func (d crudData) HasTransform() bool {
+	return slices.ContainsFunc(d.Fields, func(f crudField) bool {
+		return f.Kind == "int" || f.Kind == "float" || f.Kind == "bool" || f.OptionalDate()
+	})
 }
 
 // Required are the quoted names of the fields the form requires, for the
@@ -413,6 +430,7 @@ func label(name string) string {
 // routes/api.go's api group.
 func MakeCrud(root, name string, args []string, now time.Time) (CrudResult, error) {
 	res := CrudResult{API: IsAPI(root)}
+	framework := InertiaFramework(root)
 	model, err := typeName(name)
 	if err != nil {
 		return res, err
@@ -452,6 +470,7 @@ func MakeCrud(root, name string, args []string, now time.Time) (CrudResult, erro
 		Table: table, Key: table, Path: strings.ReplaceAll(table, "_", "-"),
 		Words: words(snake), PluralW: words(table), OneW: label(snake), TitleW: label(table),
 		ID: ts.Format(idLayout) + "_create_" + table + "_table", Fields: fields,
+		Inertia: framework != "", Framework: framework,
 	}
 	if d.Plural == model {
 		return res, fmt.Errorf("%s's plural is %s too: give a name whose plural differs, such as %sItem", model, d.Plural, model)
@@ -495,6 +514,12 @@ func MakeCrud(root, name string, args []string, now time.Time) (CrudResult, erro
 		{"test.go.tmpl", table + "_test.go"},
 		{"locale.yaml.tmpl", "locales/en/" + table + ".yaml"},
 	}
+	if framework != "" {
+		files = slices.DeleteFunc(files, func(f [2]string) bool { return f[0] == "views.templ.tmpl" })
+		for _, page := range []string{"Index", "Show", "Form"} {
+			files = append(files, [2]string{framework + "/" + page + ".tsx.tmpl", "frontend/src/pages/" + d.Plural + "/" + page + ".tsx"})
+		}
+	}
 	if res.API {
 		files = [][2]string{
 			{"model.go.tmpl", "app/models/" + snake + ".go"},
@@ -520,6 +545,11 @@ func MakeCrud(root, name string, args []string, now time.Time) (CrudResult, erro
 		names["app/handlers"] = append(names["app/handlers"], model+"Response", d.Helper+"Response", d.Helper+"Sorts")
 		delete(names, "views")
 	}
+	if framework != "" {
+		names["app/handlers"] = append(names["app/handlers"], model+"Item", d.Helper+"Item", d.Plural+"IndexProps", model+"Props", model+"FormProps",
+			d.Helper+"IndexPage", d.Helper+"ShowPage", d.Helper+"FormPage")
+		delete(names, "views")
+	}
 	for dir, ns := range names {
 		taken, err := declared(filepath.Join(root, filepath.FromSlash(dir)))
 		if err != nil {
@@ -543,7 +573,7 @@ func MakeCrud(root, name string, args []string, now time.Time) (CrudResult, erro
 		}
 		return CrudResult{}, fmt.Errorf("%w (the files written were removed)", err)
 	}
-	if !res.API && !HasUI(root) {
+	if !res.API && framework == "" && !HasUI(root) {
 		return res, ErrNoUI
 	}
 	for i, f := range files {
@@ -559,8 +589,45 @@ func MakeCrud(root, name string, args []string, now time.Time) (CrudResult, erro
 	if res.Routed, err = addRoutesCall(filepath.Join(root, "routes", "web.go"), d.Plural, "pages"); err != nil {
 		return res, err
 	}
+	if framework != "" {
+		res.Linked, err = addNavLinkTo(filepath.Join(root, "frontend", "src", "Layout.tsx"), d.Path+".index", d.Key+".title")
+		return res, err
+	}
 	res.Linked, err = addNavLink(filepath.Join(root, "views", "layout.templ"), d.Path+".index", d.Key+".title")
 	return res, err
+}
+
+// navLinkLine is a NavLink of an Inertia project's Layout, as anetos new
+// writes them.
+var navLinkLine = regexp.MustCompile(`(?m)^([ \t]*)<NavLink route="[^"]*" label=\{t\('[^']*'\)\} />[ \t]*\r?\n`)
+
+// addNavLinkTo adds <NavLink route=… label={t(key)} /> to an Inertia
+// project's Layout (frontend/src/Layout.tsx), after its header's last
+// NavLink, and reports whether the header has the link.
+func addNavLinkTo(layout, route, key string) (bool, error) {
+	src, err := os.ReadFile(layout)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	link := fmt.Sprintf("<NavLink route=%q label={t('%s')} />", route, key)
+	if bytes.Contains(src, []byte(link)) {
+		return true, nil
+	}
+	header, _, ok := bytes.Cut(src, []byte("</nav>"))
+	if !ok {
+		return false, nil
+	}
+	all := navLinkLine.FindAllSubmatchIndex(header, -1)
+	if len(all) == 0 {
+		return false, nil
+	}
+	last := all[len(all)-1]
+	line := append(append(append([]byte(nil), src[last[2]:last[3]]...), link...), newline(src)...)
+	patched := append(append(append([]byte(nil), src[:last[1]]...), line...), src[last[1]:]...)
+	return true, os.WriteFile(layout, patched, 0o644)
 }
 
 // addRoutesCall adds plural(group) at the end of Register in file

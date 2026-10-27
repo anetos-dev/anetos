@@ -1,8 +1,15 @@
 /*
  * The app's styles: Anetos's starter theme, yours to change or replace.
+[[- if .Inertia]]
+ * The frontend's entry (src/app.[[if eq .Framework "react"]]tsx[[else]]ts[[end]]) imports it: Vite updates the open
+ * pages as you edit it. Plain HTML looks right as it is (forms, buttons,
+ * tables); a few classes do the rest, which the components in
+ * src/components write for the pages:
+[[- else]]
  * No build step: edit this file and reload. Plain HTML looks right as it
  * is (forms, buttons, tables); a few classes do the rest, which the
  * components of views/ui write for the pages:
+[[- end]]
  *
  *   Layout   .container .topbar .brand .nav .nav-end .site-footer
  *   Pages    .page-header .narrow .stack .cluster .grid .muted .empty

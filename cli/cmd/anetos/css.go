@@ -120,7 +120,9 @@ It refuses when a file it wrote for the old framework changed since (a
 component you edited, your colors in app.css), naming them: --force
 overwrites them; commit first, so git shows what changed. With the
 framework the project has, it updates its files to this anetos's
-version. Without <framework>, it prints the project's.
+version. Without <framework>, it prints the project's. A project of an
+Inertia stack (anetos new --stack=react) has the starter theme, in
+frontend/src/theme.css, for now.
 `
 
 func cssUse(ctx context.Context, args []string, stdout, stderr io.Writer) int {
@@ -148,6 +150,13 @@ func cssUse(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	}
 	if _, err := os.Stat(filepath.Join(root, "views")); err != nil {
 		return fail(errors.New("the project has no views/: an api project has no pages to style"))
+	}
+	if fw := scaffold.InertiaFramework(root); fw != "" {
+		if len(pos) == 0 || pos[0] == "anetos" {
+			fmt.Fprintln(stdout, "anetos (the starter theme: frontend/src/theme.css, yours to change)")
+			return 0
+		}
+		return fail(fmt.Errorf("a %s project's pages use the starter theme (frontend/src/theme.css) for now; other CSS frameworks come in v0.7", fw))
 	}
 	rec, recErr := scaffold.ReadKitRecord(root)
 	if len(pos) == 0 {

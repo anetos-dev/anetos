@@ -1,0 +1,93 @@
+import { Head, Link } from '@inertiajs/react'
+import { ActionsCell, [[if .HasBool]]Badge, [[end]]Empty, LinkButton, PageHeader, Pagination, SROnly, Table } from '../../components/ui'
+import { useFormat, useT } from '../../i18n'
+import type { PageProps } from '../../types/pages'
+import { route } from '../../types/routes'
+
+// [[.Plural]]/Index lists a page of [[.PluralW]] (anetos make:crud): yours to
+// change. Its text is in locales/en/[[.Key]].yaml.
+export default function Index({ page }: PageProps<'[[.Plural]]/Index'>) {
+  const t = useT()
+  const f = useFormat()
+  const at = (n: number) => (n >= 1 && n <= page.last_page ? route('[[.Path]].index', {}, { page: n }) : undefined)
+  return (
+    <>
+      <Head title={t('[[.Key]].title')} />
+      <PageHeader title={t('[[.Key]].title')}>
+        <LinkButton href={route('[[.Path]].new')}>{t('[[.Key]].new')}</LinkButton>
+      </PageHeader>
+      {page.total === 0 ? (
+        <Empty text={t('[[.Key]].empty')} />
+      ) : (
+        <>
+          <Table>
+            <thead>
+              <tr>
+[[- if not .TitleF]]
+                <th>#</th>
+[[- end]]
+[[- range .ListFields]]
+                <th>{t('[[$.Key]].fields.[[.Name]]')}</th>
+[[- end]]
+                <th>
+                  <SROnly text={t('[[.Key]].actions')} />
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {page.data.map((row) => (
+                <tr key={row.id}>
+[[- if not .TitleF]]
+                  <td>
+                    <Link href={route('[[.Path]].show', { id: row.id })}>{row.id}</Link>
+                  </td>
+[[- end]]
+[[- range .ListFields]]
+[[- if and $.TitleF (eq .Name $.TitleF.Name)]]
+                  <td>
+                    <Link href={route('[[$.Path]].show', { id: row.id })}>{row.[[.Name]]}</Link>
+                  </td>
+[[- else if eq .Kind "bool"]]
+                  <td>
+                    <YesNo yes={row.[[.Name]]} />
+                  </td>
+[[- else if or (eq .Kind "int") (eq .Kind "float")]]
+                  <td>{f.number(row.[[.Name]])}</td>
+[[- else if eq .Kind "date"]]
+                  <td>{row.[[.Name]] && f.date(row.[[.Name]])}</td>
+[[- else]]
+                  <td>{row.[[.Name]]}</td>
+[[- end]]
+[[- end]]
+                  <ActionsCell>
+                    <LinkButton href={route('[[.Path]].edit', { id: row.id })} variant="secondary" small>
+                      {t('[[.Key]].edit')}
+                    </LinkButton>
+                  </ActionsCell>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+          {page.last_page > 1 && (
+            <Pagination
+              label={t('[[.Key]].pages')}
+              prev={at(page.current_page - 1)}
+              prevLabel={t('[[.Key]].previous')}
+              status={t('[[.Key]].page', { page: page.current_page, pages: page.last_page })}
+              next={at(page.current_page + 1)}
+              nextLabel={t('[[.Key]].next')}
+            />
+          )}
+        </>
+      )}
+    </>
+  )
+}
+[[- if .HasBool]]
+
+// YesNo shows a yes-or-no field.
+function YesNo({ yes }: { yes: boolean }) {
+  const t = useT()
+  return yes ? <Badge tone="success">{t('[[.Key]].answer_yes')}</Badge> : <Badge>{t('[[.Key]].answer_no')}</Badge>
+}
+[[- end]]

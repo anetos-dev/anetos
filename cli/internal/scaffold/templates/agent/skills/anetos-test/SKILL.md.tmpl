@@ -11,13 +11,13 @@ and leaves no rows behind:
 ```go
 func TestArticles(t *testing.T) {
 	app := anetostest.New(t, setup)
-	[[if .API]]app.Get("/api/v1/articles").AssertOK()[[else]]app.Get("/articles").AssertOK().AssertSee("Articles")[[end]]
+	[[if .API]]app.Get("/api/v1/articles").AssertOK()[[else if .Inertia]]app.Get("/articles").AssertInertia("Articles/Index").AssertInertiaProp("page.total", 0)[[else]]app.Get("/articles").AssertOK().AssertSee("Articles")[[end]]
 }
 ```
 
 - **Requests:** [[if .API]]`app.PostJSON(url, body)`, `.AssertStatus(201)`,
   `.AssertJSON(…)`[[else]]`app.PostForm(url, values)` (the CSRF token is sent for you),
-  `.AssertRedirect(…)`, `.AssertSee(…)`[[end]]. A logged-in user:
+  `.AssertRedirect(…)`, [[if .Inertia]]`.AssertInertia(component)`, `.AssertInertiaProp("item.title", "Hi")`[[else]]`.AssertSee(…)`[[end]][[end]]. A logged-in user:
   `anetostest.ActingAs(app, user)`.
 - **Rows:** factories in `database/factories/`
   (`post := anetostest.Create(app, factories.Posts)`), and

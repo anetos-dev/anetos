@@ -28,6 +28,8 @@ Package `web/typescript` and the files it writes. How to use it:
 | `Dir` | `frontend/src/types` | Where the files go, relative to the working directory |
 | `Prefix` | no client | The API's routes (`/api/v1`): `api.ts`'s client has a function for each typed handler at or below it |
 | `Inertia` | no `pages.ts` | The app's Inertia: its listed pages and shared props |
+| `Routes` | `false` | Also write `routes.ts`, the named routes for the frontend's links (since v0.6) |
+| `ExcludeRoutes` | none | Prefixes of route names `routes.ts` leaves out (`"admin."`): routes the frontend doesn't link to, whose paths would otherwise be in its bundle (since v0.6) |
 
 ## api.ts
 
@@ -74,3 +76,22 @@ Package `web/typescript` and the files it writes. How to use it:
   `PageProps<C>` (a page's props, the shared ones and `errors`).
 - The augmentation of `@inertiajs/core`'s `InertiaConfig`
   (`sharedPageProps`), which types `usePage()`.
+
+## routes.ts
+
+With `Routes`, the router's named routes (not those of a host, a
+subdomain's, nor those `ExcludeRoutes` leaves out); a pattern's `{$}`
+is no parameter, and no part of the path:
+
+- `RouteParams`: each route's name and its path's parameters, each a
+  `string | number` (`'posts.show': { id: string | number }`);
+  `RouteName`, the names, and `PlainRouteName`, those without
+  parameters.
+- `route(name, params, query)`: the route's path with its parameters
+  encoded (a rest parameter, `{path...}`, keeps its slashes), and the
+  query (`Query`: strings, numbers or booleans, a list of them repeating
+  the name; `null` and `undefined` leave the name out). `params` is required when the route
+  has parameters, so a missing one, or a renamed route, fails the type
+  check.
+- `setRoutePrefix(prefix)`: a path put before every path `route` makes,
+  such as the locale's (`/bn`) with `APP_LOCALE_STRATEGY=prefix`.

@@ -3,13 +3,17 @@
 package scaffold
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"go/token"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -50,6 +54,46 @@ func IsAPI(root string) bool {
 	}
 	_, err := os.Stat(filepath.Join(root, "routes", "web.go"))
 	return errors.Is(err, fs.ErrNotExist)
+}
+
+// inertiaAdapters are the Inertia client adapters of the Inertia stacks,
+// by framework.
+var inertiaAdapters = map[string]string{"react": "@inertiajs/react"}
+
+// InertiaFramework returns the framework of a project of an Inertia stack
+// ("react"; design D375): the one whose Inertia adapter
+// frontend/package.json depends on (in dependencies or devDependencies:
+// the build bundles both), in a project whose app/handlers/pages.go
+// declares the stack's page function. It returns "" for other projects:
+// an API project's SPA, and a web project with Inertia added by hand,
+// whose pages make:crud and make:auth can't write.
+func InertiaFramework(root string) string {
+	if IsAPI(root) {
+		return ""
+	}
+	if pages, err := os.ReadFile(filepath.Join(root, "app", "handlers", "pages.go")); err != nil || !bytes.Contains(pages, []byte("\nfunc page[")) {
+		return ""
+	}
+	b, err := os.ReadFile(filepath.Join(root, "frontend", "package.json"))
+	if err != nil {
+		return ""
+	}
+	var pkg struct {
+		Dependencies    map[string]string `json:"dependencies"`
+		DevDependencies map[string]string `json:"devDependencies"`
+	}
+	if json.Unmarshal(b, &pkg) != nil {
+		return ""
+	}
+	for _, name := range slices.Sorted(maps.Keys(inertiaAdapters)) {
+		adapter := inertiaAdapters[name]
+		_, dep := pkg.Dependencies[adapter]
+		_, dev := pkg.DevDependencies[adapter]
+		if dep || dev {
+			return name
+		}
+	}
+	return ""
 }
 
 // ServesSPA reports whether the project in root is an API project that

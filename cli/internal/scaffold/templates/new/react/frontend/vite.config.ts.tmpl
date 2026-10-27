@@ -1,0 +1,32 @@
+import react from '@vitejs/plugin-react'
+import { defineConfig } from 'vite'
+
+// The frontend of [[.Title]]: its pages are React components that
+// Inertia's client renders. `vite build` writes it into public/build,
+// which the app embeds and serves under /build/, with the manifest
+// (build/manifest.json) that @vite.Tags reads in views/app.templ.
+// anetos dev runs Vite's development server (on a port of its own) and
+// forwards /build/ to it.
+
+// Go's //go:embed leaves out files whose names start with _ or .: the
+// build's files are named without them.
+const embeddable = (name: string) => name.replace(/^[_.]+/, '') || 'chunk'
+
+export default defineConfig({
+  base: '/build/',
+  plugins: [react()],
+  build: {
+    outDir: '../public/build',
+    emptyOutDir: true,
+    manifest: 'manifest.json',
+    rolldownOptions: {
+      // The entry, which views/app.templ loads.
+      input: ['src/app.tsx'],
+      output: {
+        entryFileNames: (chunk) => `assets/${embeddable(chunk.name)}-[hash].js`,
+        chunkFileNames: (chunk) => `assets/${embeddable(chunk.name)}-[hash].js`,
+        assetFileNames: (asset) => `assets/${embeddable(asset.names[0] ?? 'asset').replace(/\.[^.]*$/, '')}-[hash][extname]`,
+      },
+    },
+  },
+})

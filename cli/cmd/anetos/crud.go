@@ -26,6 +26,11 @@ views (made of views/ui's components), the routes, their English text
 and a test. It adds the routes to routes/web.go's pages group and a
 link to the layout's nav. The code is yours to change.
 
+In a project of an Inertia stack (anetos new --stack=react), the pages
+are the framework's components (frontend/src/pages/<Plural>), rendered
+by the same handlers, and the link goes in frontend/src/Layout.tsx; it
+then updates the frontend's types (go run . types).
+
 In an API project (anetos new --stack=api), it writes JSON endpoints
 under /api/v1 instead: the model, the migration, the handlers (the list
 with pages, sorting and filters; show, create, replace and delete),
@@ -76,12 +81,18 @@ func makeCrud(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 		fmt.Fprintf(stdout, "updated %s: Register calls %s(%s)\n", file, res.Plural, group)
 	}
 	if res.Linked {
-		fmt.Fprintf(stdout, "updated views/layout.templ: the nav links to %s\n", res.Path)
+		layout := "views/layout.templ"
+		if scaffold.InertiaFramework(root) != "" {
+			layout = "frontend/src/Layout.tsx"
+		}
+		fmt.Fprintf(stdout, "updated %s: the nav links to %s\n", layout, res.Path)
 	}
 	finish := func(err error) int {
 		steps := "go tool anetos generate && go tool templ generate && go build ./..."
 		if res.API {
 			steps = "go tool anetos generate && go build ./..."
+		} else if frontend.UsesTypes(root) {
+			steps += " && go run . types" // the new pages' props and routes
 		}
 		fmt.Fprintf(stderr, "anetos make:crud: %v\nThe files are written; once fixed, finish with:\n\t%s\n", err, steps)
 		return 1
@@ -105,6 +116,9 @@ func makeCrud(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	}
 	if err := runGo(ctx, root, stderr, "build", "./..."); err != nil {
 		return finish(fmt.Errorf("the project doesn't build: %w", err))
+	}
+	if !res.API {
+		updateTypes(ctx, root, stdout, stderr) // an Inertia stack's pages
 	}
 	if res.API {
 		updateOpenAPI(ctx, root, stdout, stderr)
@@ -181,12 +195,21 @@ func updateOpenAPI(ctx context.Context, root string, stdout, stderr io.Writer) {
 		return
 	}
 	fmt.Fprintln(stdout, "Updated openapi.json, the API's description.")
-	if frontend.UsesTypes(root) {
-		out.Reset()
-		if err := runGoOut(ctx, root, &out, &out, "run", ".", "types"); err != nil {
-			fmt.Fprintf(stderr, "Updating the frontend's types failed (%v):\n%s\nRun `go run . types` once it's fixed.\n", err, out.String())
-			return
-		}
-		fmt.Fprintln(stdout, "Updated the frontend's types (go run . types).")
+	updateTypes(ctx, root, stdout, stderr)
+}
+
+// updateTypes rewrites the frontend's TypeScript types with the
+// project's types command, in a project whose main package registers it
+// (typescript.Register: an Inertia stack's, an API project's SPA). A
+// failure is reported, not fatal: the code is written.
+func updateTypes(ctx context.Context, root string, stdout, stderr io.Writer) {
+	if !frontend.UsesTypes(root) {
+		return
 	}
+	var out bytes.Buffer
+	if err := runGoOut(ctx, root, &out, &out, "run", ".", "types"); err != nil {
+		fmt.Fprintf(stderr, "Updating the frontend's types failed (%v):\n%s\nRun `go run . types` once it's fixed.\n", err, out.String())
+		return
+	}
+	fmt.Fprintln(stdout, "Updated the frontend's types (go run . types).")
 }

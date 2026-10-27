@@ -136,6 +136,10 @@ func newFixture(t *testing.T, opts ...inertia.Option) *fixture {
 				ExpiresIn(time.Hour),
 		})
 	})
+	// A typed handler's page: Page.Responder.
+	g.Get("/typed", web.H(func(c *web.Ctx, _ struct{}) (web.Responder, error) {
+		return postsIndex.Responder(PostsIndex{Posts: []Post{{ID: 7, Title: "Typed"}}}), nil
+	}))
 	g.Get("/fail", func(c *web.Ctx) error {
 		return inertia.Render(c, "Fail", inertia.Props{
 			"x": inertia.Func(func(context.Context) (int, error) { return 0, errors.New("boom") }),
@@ -300,6 +304,9 @@ func TestFirstVisitAndVisit(t *testing.T) {
 	res = f.visit(t, http.MethodGet, "/posts", "X-Inertia-Except-Once-Props", "plans,other")
 	if p := page(t, res); p.Props["plans"] != nil || p.OnceProps["plans"].Prop != "plans" {
 		t.Errorf("held once prop: %s", res.body)
+	}
+	if p := page(t, f.visit(t, http.MethodGet, "/typed")); p.Component != "Posts/Index" || prop[[]Post](t, p, "posts")[0].Title != "Typed" {
+		t.Errorf("Responder: %+v", p)
 	}
 	// A failing prop, and failing shared props, fail the response.
 	if res := f.visit(t, http.MethodGet, "/fail"); res.status != 500 {

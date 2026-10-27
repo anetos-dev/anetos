@@ -1,0 +1,24 @@
+// The frontend's entry, which views/app.templ loads: Inertia's client
+// renders the page the server names (Home is pages/Home.tsx), inside the
+// Layout, which stays as pages change.
+import { createInertiaApp } from '@inertiajs/react'
+import type { ComponentType } from 'react'
+import { createRoot } from 'react-dom/client'
+import Layout from './Layout'
+import './theme.css'
+import './app.css'
+
+const pages = import.meta.glob<{ default: ComponentType }>('./pages/**/*.tsx')
+
+createInertiaApp({
+  resolve: (name) => {
+    const page = pages[`./pages/${name}.tsx`]
+    if (!page) throw new Error(`no page ${name} (frontend/src/pages/${name}.tsx)`)
+    return page().then((m) => m.default)
+  },
+  layout: () => Layout,
+  title: (title) => (title ? `${title} · [[.Title]]` : '[[.Title]]'),
+  setup({ el, App, props }) {
+    if (el) createRoot(el).render(<App {...props} />)
+  },
+})

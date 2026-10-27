@@ -1,0 +1,45 @@
+import { Form, Head, Link } from '@inertiajs/react'
+import SocialButtons from '../../components/SocialButtons'
+import { Actions, AuthCard, Button, Checkbox, Field, Input, Note } from '../../components/ui'
+import { useT } from '../../i18n'
+import type { PageProps } from '../../types/pages'
+import { route } from '../../types/routes'
+
+// Auth/Login is the login form (anetos make:auth): yours to change.
+export default function Login({ social, errors: pageErrors }: PageProps<'Auth/Login'>) {
+  const t = useT()
+  return (
+    <AuthCard title={t('auth.login.title')}>
+      <Head title={t('auth.login.title')} />
+      <Form
+        action={route('login')}
+        method="post"
+        resetOnError={['password']}
+        // A checkbox sends "1": the handler's input wants true or false.
+        transform={(data) => ({ ...data, remember: data.remember === '1' })}
+      >
+        {({ errors, processing }) => (
+          <>
+            <Field name="email" label={t('auth.fields.email')} error={errors.email}>
+              <Input type="email" autoComplete="email" />
+            </Field>
+            <Field name="password" label={t('auth.fields.password')} error={errors.password}>
+              <Input type="password" autoComplete="current-password" />
+            </Field>
+            <Field name="remember">
+              <Checkbox label={t('auth.login.remember')} />
+            </Field>
+            <Actions>
+              <Button disabled={processing}>{t('auth.login.submit')}</Button>
+              <Link href={route('password.request')}>{t('auth.forgot.title')}</Link>
+            </Actions>
+          </>
+        )}
+      </Form>
+      <SocialButtons social={social} error={typeof pageErrors.social === 'string' ? pageErrors.social : undefined} />
+      <Note>
+        {t('auth.login.no_account')} <Link href={route('register')}>{t('auth.register.title')}</Link>
+      </Note>
+    </AuthCard>
+  )
+}

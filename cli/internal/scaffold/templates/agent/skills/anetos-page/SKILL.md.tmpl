@@ -1,7 +1,52 @@
 ---
 name: anetos-page
-description: Add or change a page, a form or a component in this Anetos web app - templ views[[if .HasUI]] built from the views/ui components[[end]], forms with validation and CSRF, htmx updates. Use for any change to what users see in the browser.
+description: Add or change a page, a form or a component in this Anetos web app - [[if .Inertia]][[.FrameworkName]] components rendered by Inertia, with typed props, forms with validation and CSRF[[else]]templ views[[if .HasUI]] built from the views/ui components[[end]], forms with validation and CSRF, htmx updates[[end]]. Use for any change to what users see in the browser.
 ---
+[[- if .Inertia]]
+
+# Pages, forms and components
+
+1. **The page and its props** (`app/handlers`): a struct of the props,
+   and the page, declared once with its component:
+
+   ```go
+   type ReportProps struct {
+   	Rows []ReportRow `json:"rows"`
+   }
+
+   var reportPage = page[ReportProps]("Reports/Show") // frontend/src/pages/Reports/Show[[.Ext]]
+   ```
+
+   The handler renders it: `return reportPage.Render(c, ReportProps{…})`,
+   or, in a typed handler (`web.H`), `return reportPage.Responder(props), nil`.
+2. **The types:** `go run . types` (which `go tool anetos dev` runs)
+   writes `frontend/src/types/pages.ts`, with `PageProps<'Reports/Show'>`,
+   and `routes.ts`, with `route(name, params)`. Never write those types
+   by hand.
+3. **The component** (`frontend/src/pages/Reports/Show[[.Ext]]`): built
+   from the components of `src/components/ui[[.Ext]]` (`PageHeader`,
+   `Card`, `Field`, `Input`, `Button`, `Table`…), **no CSS classes in
+   pages**: to change the look, change a component there or
+   `src/theme.css`. The layout (`src/Layout[[.Ext]]`) wraps every page.
+   Text comes from `locales/en/*.yaml` through `useT()`
+   (`t('reports.title')`), numbers and dates through `useFormat()`; links
+   are Inertia's `Link` to `route('reports.show', { id })`.
+4. **The route** in `routes/web.go` (or the resource's file):
+   `pages.Get("/reports", h.Index).Name("reports.index")`, in the page
+   group, which has sessions, CSRF protection and Inertia's middleware.
+5. **A form:** Inertia's `<Form action={route('reports.create')} method="post">`;
+   the CSRF token goes in a header by itself. The handler takes an input
+   struct with `validate` tags; on a validation error Inertia goes back to
+   the form, whose `errors` hold the messages by field. JSON binding is
+   strict: turn checkboxes and numbers into booleans and numbers in the
+   form's `transform`.
+6. Test with `app.Get("/reports").AssertInertia("Reports/Show")` and
+   `.AssertInertiaProp("rows.0.title", "…")`. Then `go tool anetos check`,
+   and `go tool anetos build`, which type-checks the frontend.
+
+Docs: `go tool anetos docs guides/inertia`, `go tool anetos docs guides/typescript`,
+`go tool anetos docs guides/forms`.
+[[- else]]
 
 # Pages, forms and components
 
@@ -33,3 +78,4 @@ description: Add or change a page, a form or a component in this Anetos web app 
 Docs: `go tool anetos docs guides/views`, `go tool anetos docs guides/forms`,
 `go tool anetos docs reference/ui` (every component),
 `go tool anetos docs guides/styling`.
+[[- end]]

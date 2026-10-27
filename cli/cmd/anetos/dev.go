@@ -27,10 +27,12 @@ Runs the app with live reload. On every change to Go files, templ files,
 anetos generate and, in a project that uses Tailwind CSS, anetos
 css:build, rebuilds, restarts the app and reloads the open
 pages. Build errors show in the browser. In a project with a frontend
-(frontend/, see vite:install), it also runs Vite's development server,
-installing the packages first if they need it (Node.js 20.19 or 22.12 or
-later), and forwards /build/ to it: the pages load the sources from
-Vite (VITE_DEV_URL=/build/), which updates them as they change. An API
+(frontend/: see vite:install; a react project's pages), it also runs
+Vite's development server, installing the packages first if they need it
+(Node.js 20.19 or 22.12 or later), and forwards /build/ to it: the pages
+load the sources from Vite (VITE_DEV_URL=/build/), which updates them as
+they change. An app that writes the frontend's TypeScript types
+(typescript.Register) rewrites them on every rebuild. An API
 project's single-page app (vite:install there) is Vite's address
 instead, http://localhost:5173 (its vite.config's), which forwards /api
 to the app. Browse the address given by --addr (default: HTTP_ADDR from .env, or

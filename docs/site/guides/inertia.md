@@ -16,8 +16,50 @@ data.
 
 Package `web/inertia` is the server side of Inertia's protocol (v3). The
 client is Inertia's own: `@inertiajs/react`, `@inertiajs/vue3` or
-`@inertiajs/svelte`. This guide sets it up in a web project with React;
-the Go side is the same for the three.
+`@inertiajs/svelte`. A new project can have it set up from the start;
+the steps below set it up by hand in a web project, with React. The Go
+side is the same for the three.
+
+## Start a project with it
+
+```sh
+anetos new shop --stack=react
+cd shop
+go tool anetos dev
+```
+
+The react stack is the web stack's Go side (routes, handlers, sessions,
+CSRF protection, validation, translations) with pages that are React
+components in TypeScript, styled by the starter theme:
+
+- `app/handlers/pages.go` declares the pages, `page[P](component)`, and
+  the props every page gets (`Shared`): the app's name, the locale, the
+  flashed `status`, the logged-in `user` and the page text.
+- `frontend/src/pages/` holds the components, `Home.tsx` and `Error.tsx`
+  at first, made of the components in `src/components/ui.tsx`
+  (`PageHeader`, `Card`, `Field`, `Input`, `Button`, `Table`…) inside
+  `src/Layout.tsx`, the header, nav and footer.
+- The text comes from `locales/`, with the web stack's keys: `useT()`
+  from `src/i18n.ts` translates with the catalogs the server sends once
+  per locale (`i18n.Messages`), placeholders and plurals included, and
+  `useFormat()` writes numbers and dates the locale's way.
+- Links name their routes: `route('posts.show', { id: post.id })` from
+  `src/types/routes.ts`, which `go run . types` writes with the pages'
+  props (`src/types/pages.ts`). Renaming a route, or leaving out a
+  parameter, fails the type check that `go tool anetos build` runs.
+
+`go tool anetos make:auth` and `make:crud` write React pages too, rendered
+by the same handlers as the web stack's, and update the types:
+
+```sh
+go tool anetos make:auth
+go tool anetos make:crud Post title:string body:text published:bool
+go run . migrate
+```
+
+The [CLI reference](../reference/cli.md#the-inertia-stack) lists the
+files. The rest of this guide is how the parts work, and how to add
+Inertia to a project made without it.
 
 ## Before you start
 

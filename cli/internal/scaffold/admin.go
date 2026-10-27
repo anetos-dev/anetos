@@ -44,7 +44,7 @@ type AdminResult struct {
 	// SessionKey (make:auth since AD1b): disabling and logging out
 	// everywhere work.
 	Disabled, SessionKey bool
-	// Banner says the app's layout (views/layout.templ) now shows
+	// Banner says the app's layout ([LayoutFile]) now shows
 	// admin.Banner.
 	Banner bool
 	// Audit and AI say the app keeps an audit log (audit.New) and
@@ -177,7 +177,7 @@ func MakeAdmin(root string) (AdminResult, error) {
 			return res, err
 		}
 	}
-	layout := filepath.Join(root, "views", "layout.templ")
+	layout := filepath.Join(root, filepath.FromSlash(LayoutFile(root)))
 	layoutBefore, layoutErr := os.ReadFile(layout)
 	undo := func(err error) (AdminResult, error) {
 		if res.Banner {
@@ -233,6 +233,15 @@ func MakeAdmin(root string) (AdminResult, error) {
 		return undo(err)
 	}
 	return res, nil
+}
+
+// LayoutFile is the templ file with the <body> of the project's pages:
+// views/layout.templ, or an Inertia stack's root view, views/app.templ.
+func LayoutFile(root string) string {
+	if InertiaFramework(root) != "" {
+		return "views/app.templ"
+	}
+	return "views/layout.templ"
 }
 
 // bodyTag is the <body> line of an anetos new project's layout.
