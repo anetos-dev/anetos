@@ -108,13 +108,35 @@ jobs:
 
   # The cli tests that build frontends with Node and npm (anetos new
   # --vite, an API project's SPA, the react, vue and svelte stacks with
-  # make:auth and make:crud; design D345, D376, D379), on the latest Go:
-  # a job of their own, without the race detector, so the cli part stays
-  # within its budget.
+  # make:auth and make:crud, one of them on PostgreSQL and MySQL too;
+  # design D345, D376, D379, D382), and the examples' frontends, built
+  # and type-checked, on the latest Go: a job of their own, without the
+  # race detector, so the cli part stays within its budget.
   frontend:
     name: test (latest Go, frontend)
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    # An Inertia stack's project is tested on these servers too.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: secret
+          POSTGRES_DB: anetos_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: secret
+          MYSQL_DATABASE: anetos_test
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd "mysqladmin ping -psecret" --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      ANETOS_TEST_STACK_POSTGRES_URL: postgres://postgres:secret@127.0.0.1:5432/anetos_test
+      ANETOS_TEST_STACK_MYSQL_URL: root:secret@tcp(127.0.0.1:3306)/anetos_test
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

@@ -107,7 +107,7 @@ body) and return the response.
 | `AssertSessionMissing(key)` | It doesn't |
 | `AssertInertia(component)` | An Inertia page of component: a visit's JSON, or a first visit's HTML holding the page object (since v0.6) |
 | `AssertInertiaProp(name, v)` | The Inertia page's prop equals v, compared as JSON (`"errors"` for the validation errors); a path reaches inside one (`"page.data.0.title"`, since v0.6) |
-| `InertiaPage()` | The Inertia page object (`*inertia.PageObject`: component, props, URL, version, and the protocol's lists); fails the test without one |
+| `InertiaPage()` | The Inertia page object (`*inertia.PageObject`): `Component`, `Props` (each as JSON), `URL`, `Version`, `Flash`; the history flags (`EncryptHistory`, `ClearHistory`, `PreserveFragment`); and the protocol's lists: `MergeProps`, `PrependProps`, `DeepMergeProps`, `MatchPropsOn`, `DeferredProps` (by group), `RescuedProps`, `SharedProps`, `OnceProps` (by key: `Prop`, `ExpiresAt`). Fails the test without one |
 | `JSON(&v)` | Decodes the body; fails the test if it can't |
 | `Text()` | The body as a string |
 

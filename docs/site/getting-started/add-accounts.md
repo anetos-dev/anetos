@@ -45,7 +45,8 @@ The setting wins over the default, so each deployment can choose.
 ## Pages for logged-in users only
 
 `routes/auth.go` has a `loggedIn` group: guests who open its pages go to
-the login page and come back after logging in. Put your own routes
+the login page and come back after logging in (a guest's form post,
+put or delete gets `401` instead: the redirect is for pages). Put your own routes
 there, such as `make:crud`'s (`Posts(loggedIn)`), and read the user in a
 handler with `auth.User[*models.User](c)`. Their tests then log a user
 in first, with the factory `make:auth` wrote:

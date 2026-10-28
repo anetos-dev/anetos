@@ -40,14 +40,17 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"runtime/debug"
 	"slices"
 	"strings"
@@ -304,6 +307,49 @@ func generateTypes(dir string, check bool, stdout, stderr io.Writer) int {
 		return 1
 	}
 	return 0
+}
+
+// writeTypes runs the app's types command (`go run . types`) when the
+// app has it (typescript.Register), as anetos dev does after each build:
+// the frontend's build then type-checks against the Go code as it is.
+// Without an APP_KEY (in .env or the environment) the app can't run its
+// commands: the types are left as they are, and w says so.
+func writeTypes(ctx context.Context, root string, w io.Writer) error {
+	if !frontend.UsesTypes(root) {
+		return nil
+	}
+	if !hasAppKey(root) {
+		fmt.Fprintln(w, "note: frontend/src/types not updated: the app's types command needs its settings (no APP_KEY in .env or the environment)")
+		return nil
+	}
+	// The command runs here, whatever GOOS and GOARCH the build is for.
+	c := exec.CommandContext(ctx, "go", "run", ".", "types")
+	c.Dir = root
+	c.Env = append(os.Environ(), "GOOS="+runtime.GOOS, "GOARCH="+runtime.GOARCH)
+	var out bytes.Buffer
+	c.Stdout, c.Stderr = &out, &out
+	if err := c.Run(); err != nil {
+		return fmt.Errorf("go run . types: %w\n%s", err, bytes.TrimSpace(out.Bytes()))
+	}
+	return nil
+}
+
+// hasAppKey reports whether the app in root has an APP_KEY: in the
+// environment, or not empty in its .env.
+func hasAppKey(root string) bool {
+	if os.Getenv("APP_KEY") != "" {
+		return true
+	}
+	b, err := os.ReadFile(filepath.Join(root, ".env"))
+	if err != nil {
+		return false
+	}
+	for line := range strings.Lines(string(b)) {
+		if v, ok := strings.CutPrefix(strings.TrimSpace(line), "APP_KEY="); ok {
+			return strings.Trim(strings.TrimSpace(v), `"'`) != ""
+		}
+	}
+	return false
 }
 
 func rel(dir, path string) string {

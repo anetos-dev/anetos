@@ -166,6 +166,25 @@ array indexes separated by dots); `AssertJSON(v)` the whole body; and
 problem's `errors` for an API client, and the session's errors after a
 form's redirect.
 
+Pages of a react, svelte or vue project (Inertia's) are checked by
+their component and props, without Node or a build:
+
+```go
+// illustrative
+app.Get("/posts").AssertOK().AssertInertia("Posts/Index").AssertInertiaProp("page.total", 2)
+app.AsInertia() // later requests are the client's visits: the page as JSON
+page := app.Get("/posts").InertiaPage()
+var list struct {
+	Data []map[string]any `json:"data"`
+}
+_ = json.Unmarshal(page.Props["page"], &list) // a prop, decoded: its length, a field that mustn't be there…
+```
+
+`AssertInertiaProp` reaches into a prop by its path (`"page.data.0.title"`);
+`InertiaPage()` returns the whole page object, its `Props` as JSON. A
+form's errors are the page's `errors` prop after the redirect back
+([Pages with Inertia](inertia.md#testing-it)).
+
 ### 4. Make rows with factories
 
 A factory (package `anetos.dev/anetos/db/factory`; a project keeps them

@@ -186,9 +186,11 @@ environment, else `.env`) or localhost; `--allow-host=HOST` adds one
 machine has `APP_URL=http://localhost:8080`: set the production
 `APP_URL` in the environment for the command, or add the host with
 `--allow-host`. In a project, the
-other checks run too; `--live-only`, or a folder outside a project, runs
-the site's checks alone, without `.env` or a build, as a CI job after a
-deploy:
+other checks run too, so it takes as long as the whole check (a minute
+or more: the build and govulncheck), and the site's findings are in the
+one report; `--live-only`, or a folder outside a project, runs the
+site's checks alone, in seconds, without `.env` or a build, as a CI job
+after a deploy:
 
 ```yaml
 # illustrative: a step after the deploy

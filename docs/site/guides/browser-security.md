@@ -264,8 +264,10 @@ app := anetostest.New(t, setup)
 app.Get("/").AssertOK().AssertHeader("Content-Security-Policy", contentSecurityPolicy)
 ```
 
-The test client sends the session's token by itself; to check that a
-route is protected, send another one:
+The test client sends the session's token by itself, in the
+`X-CSRF-Token` header, which `web.CSRF` reads first; to check that a
+route is protected, send another one there, whatever the stack (a
+forged `X-XSRF-TOKEN` would be ignored for the client's own):
 
 ```go
 // illustrative
@@ -283,6 +285,7 @@ headers and cookies ([Check the running site](security-check.md#6-check-the-runn
 | Problem | Cause | Fix |
 |---|---|---|
 | `403` "Cross-origin request rejected." | The request came from a page on another origin | List your SPA in `HTTP_SPA_ORIGINS`, or another origin of yours with `web.WithTrustedOrigins` |
+| `401` for an API's request from another origin, with the session cookie | An API project's routes take sessions only for `HTTP_SPA_ORIGINS`: another origin's request is a guest's, or a token client's | List the origin, if it's your SPA's |
 | `403` "The page has expired. Reload it and try again." | No token, or not the session's: a page opened before a login in another tab, an expired session, a `fetch` without the header | Reload the page; send the `X-CSRF-Token` (templ pages) or `X-XSRF-TOKEN` (cookie) header from your scripts |
 | The console says a script, style or image was refused | The policy doesn't allow its host | Add the host to the policy's directive the console names |
 | The console reports a CORS error | The page's origin isn't listed, or the request sends cookies to an origin listed without credentials | List it in `HTTP_CORS_ORIGINS`; for your own SPA with cookies, in `HTTP_SPA_ORIGINS` |

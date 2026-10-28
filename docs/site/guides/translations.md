@@ -205,6 +205,49 @@ routes). Following one remembers the choice. A settings form can call
 session; `c.ForgetLocale()` drops them, back to the user's preference or
 the browser's language.
 
+In a react, svelte or vue project, the server gives the pages the links
+as a shared prop, in `app/handlers/pages.go`:
+
+```go
+// illustrative: app/handlers/pages.go
+// In Shared: the current page in each supported language.
+Languages []LocaleLink `json:"languages"`
+
+// LocaleLink is the current page in a language.
+type LocaleLink struct {
+	Locale string `json:"locale"`
+	Name   string `json:"name"`
+	URL    string `json:"url"`
+}
+
+// localeLinks are the current page in each supported language, named
+// in itself ("বাংলা"): SharedProps sets Languages: localeLinks(c).
+func localeLinks(c *web.Ctx) []LocaleLink {
+	var links []LocaleLink
+	for _, l := range i18n.From(c).Supported() {
+		links = append(links, LocaleLink{Locale: l, Name: i18n.LanguageName(c, l), URL: web.LocaleURL(c, l)})
+	}
+	return links
+}
+```
+
+and the layout links to them:
+
+```tsx
+// illustrative: frontend/src/Layout.tsx (React)
+const { languages, locale } = usePage().props
+// …
+{languages.filter((l) => l.locale !== locale).map((l) => (
+  <Link key={l.locale} href={l.url} hrefLang={l.locale}>{l.name}</Link>
+))}
+```
+
+In Svelte, wrap each link in `{#key l.url}`: its `Link` keeps the href
+it was made with. Name the prop so no page has a prop of that name
+(`Auth/Settings` has `locales`): a page's prop takes the place of a
+shared one. The pages' catalogs follow the locale: the client gets the
+new language's text on the visit.
+
 A locale matches itself or its nearest supported parent (`bn-BD` →
 `bn`), else a close regional variant (`fr-CH` → `fr-CA`).
 
@@ -364,6 +407,20 @@ func TestLanguages(t *testing.T) {
 
 `i18n.WithLocale(ctx, "bn")` puts any other code in a locale, and the
 translator's `Check` method runs `locale:check`'s checks in a test.
+
+Tests don't read `.env`: with `APP_LOCALE_STRATEGY=prefix`, set it for
+the test too, and request the prefixed URLs:
+
+```go
+// illustrative
+app := anetostest.New(t, setup, anetostest.Env(map[string]string{"APP_LOCALE_STRATEGY": "prefix"}))
+app.Get("/bn/books").AssertOK()
+```
+
+Set it where the app is deployed as well (`deploy/production.env.example`
+doesn't have it). With `prefix`, a visitor who chose a language is sent
+back to it from unprefixed URLs (the cookie): the default language's
+own prefix (`/en/books`) switches back, and remembers it.
 
 ## Troubleshooting
 

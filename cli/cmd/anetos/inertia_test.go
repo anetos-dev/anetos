@@ -142,3 +142,52 @@ func testNewProjectInertia(t *testing.T, stack string) {
 		t.Errorf("build with a renamed route: %d\n%s", code, errOut)
 	}
 }
+
+// With Node and the databases of ANETOS_TEST_STACK_POSTGRES_URL and
+// ANETOS_TEST_STACK_MYSQL_URL (CI's frontend job has them), which it
+// empties (not the drivers' tests' ANETOS_TEST_*_URL), a react project
+// with make:auth and make:crud passes its tests on PostgreSQL and MySQL:
+// the generated code is the same for the three Inertia stacks.
+func TestNewProjectInertiaServerDatabases(t *testing.T) {
+	if testing.Short() {
+		t.Skip("creates and builds projects")
+	}
+	if os.Getenv("ANETOS_TEST_NODE") != "1" {
+		t.Skip("set ANETOS_TEST_NODE=1 to install the frontend's packages with npm")
+	}
+	repo, err := filepath.Abs("../../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range []struct{ name, env string }{{"postgres", "ANETOS_TEST_STACK_POSTGRES_URL"}, {"mysql", "ANETOS_TEST_STACK_MYSQL_URL"}} {
+		t.Run(d.name, func(t *testing.T) {
+			url := os.Getenv(d.env)
+			if url == "" {
+				t.Skip("set " + d.env + " to a database of its own, which the test empties")
+			}
+			dir := filepath.Join(t.TempDir(), "shop")
+			if code, out, errOut := runCmd(t, "new", dir, "--stack=react", "--db="+d.name, "--replace", repo); code != 0 {
+				t.Fatalf("new: %d\n%s\n%s", code, out, errOut)
+			}
+			t.Chdir(dir)
+			if code, out, errOut := runCmd(t, "make:auth"); code != 0 {
+				t.Fatalf("make:auth: %d\n%s\n%s", code, out, errOut)
+			}
+			if code, out, errOut := runCmd(t, "make:crud", "Product", "name:string:unique", "price:float", "stock:int",
+				"on_sale:bool", "launch_on:date:optional", "notes:text:optional"); code != 0 {
+				t.Fatalf("make:crud: %d\n%s\n%s", code, out, errOut)
+			}
+			// The database is the test's: emptied first (a run before this
+			// one left its tables, with other migrations' names). The
+			// environment's DB_URL wins over .env and .env.testing.
+			for _, args := range [][]string{{"run", ".", "migrate:fresh"}, {"test", "-count=1", "./..."}} {
+				cmd := exec.Command("go", args...)
+				cmd.Dir = dir
+				cmd.Env = append(os.Environ(), "DB_URL="+url)
+				if out, err := cmd.CombinedOutput(); err != nil {
+					t.Fatalf("go %s on %s: %v\n%s", strings.Join(args, " "), d.name, err, out)
+				}
+			}
+		})
+	}
+}

@@ -1279,6 +1279,7 @@ pkg anetos.dev/anetos/db, method (*Vector) Scan(any) error
 pkg anetos.dev/anetos/db, method (Column[T]) Asc() Order
 pkg anetos.dev/anetos/db, method (Column[T]) Between(T, T) Expr
 pkg anetos.dev/anetos/db, method (Column[T]) Contains(string) Expr
+pkg anetos.dev/anetos/db, method (Column[T]) ContainsFold(string) Expr
 pkg anetos.dev/anetos/db, method (Column[T]) Desc() Order
 pkg anetos.dev/anetos/db, method (Column[T]) Eq(T) Expr
 pkg anetos.dev/anetos/db, method (Column[T]) Gt(T) Expr
@@ -1297,6 +1298,7 @@ pkg anetos.dev/anetos/db, method (Column[T]) Of(string) Column[T]
 pkg anetos.dev/anetos/db, method (Column[T]) Set(T) Assignment
 pkg anetos.dev/anetos/db, method (Column[T]) SetRaw(string, ...any) Assignment
 pkg anetos.dev/anetos/db, method (Column[T]) StartsWith(string) Expr
+pkg anetos.dev/anetos/db, method (Column[T]) StartsWithFold(string) Expr
 pkg anetos.dev/anetos/db, method (Config) GoString() string
 pkg anetos.dev/anetos/db, method (Config) LogValue() slog.Value
 pkg anetos.dev/anetos/db, method (Config) String() string

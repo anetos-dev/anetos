@@ -13,12 +13,12 @@ import (
 	"[[.Module]]/app/models"
 )
 
-// [[.Plural]] serves the [[.PluralW]] API (anetos make:crud): the list, a
+// [[.Plural]] serves the [[.PluralW]] API (anetos make:crud): the list, [[.A]]
 // [[.Words]], and creating, replacing and deleting one. Yours to change;
 // routes/[[.Table]].go routes them.
 type [[.Plural]] struct{}
 
-// [[.Model]]Response is how the API shows a [[.Words]]: the fields chosen
+// [[.Model]]Response is how the API shows [[.AWords]]: the fields chosen
 // here, so a new column of the [[.Table]] table never shows by accident.
 type [[.Model]]Response struct {
 	ID int64 `json:"id"`
@@ -76,7 +76,7 @@ type [[.Model]]ID struct {
 	ID int64 `path:"id"`
 }
 
-// [[.Model]]Input is a [[.Words]] sent to the API, as JSON. Its validate
+// [[.Model]]Input is [[.AWords]] sent to the API, as JSON. Its validate
 // tags are checked before the handler runs: an invalid one is a 422 with
 // the fields' errors.
 type [[.Model]]Input struct {
@@ -121,7 +121,7 @@ func ([[.Plural]]) Index(c *web.Ctx, in [[.Model]]List) (db.Page[ [[.Model]]Resp
 	return db.MapPage(page, [[.Helper]]Response), nil
 }
 
-// Show answers a [[.Words]]; one that doesn't exist is a 404
+// Show answers [[.AWords]]; one that doesn't exist is a 404
 // (db.ErrNotFound).
 func ([[.Plural]]) Show(c *web.Ctx, in [[.Model]]ID) ([[.Model]]Response, error) {
 	row, err := db.Find[models.[[.Model]]](c, in.ID)
@@ -145,7 +145,7 @@ func ([[.Plural]]) Create(c *web.Ctx, in [[.Model]]Input) ([[.Model]]Response, e
 	return [[.Helper]]Response(row), nil
 }
 
-// Update replaces a [[.Words]] with the input: every field.
+// Update replaces [[.AWords]] with the input: every field.
 func ([[.Plural]]) Update(c *web.Ctx, in [[.Model]]Input) ([[.Model]]Response, error) {
 	row, err := db.Find[models.[[.Model]]](c, in.ID)
 	if err != nil {
@@ -158,7 +158,7 @@ func ([[.Plural]]) Update(c *web.Ctx, in [[.Model]]Input) ([[.Model]]Response, e
 	return [[.Helper]]Response(row), nil
 }
 
-// Delete deletes a [[.Words]]: 204.
+// Delete deletes [[.AWords]]: 204.
 func ([[.Plural]]) Delete(c *web.Ctx, in [[.Model]]ID) (web.Empty, error) {
 	row, err := db.Find[models.[[.Model]]](c, in.ID)
 	if err != nil {

@@ -30,7 +30,9 @@ Checks that the project works, in one command, for you or a coding agent
 before calling a change done. In order, stopping at the first failure:
 
   generate  templ's views, the models' typed columns (anetos generate),
-            and a Tailwind CSS project's stylesheet (downloading the
+            the frontend's TypeScript types (go run . types, when the
+            app has it; without a .env, a note), and a Tailwind CSS
+            project's stylesheet (downloading the
             tailwindcss binary on first use; offline, a note)
   frontend  in a project with frontend/: its packages' install if they
             need it, and its build script (TypeScript's checks, vite
@@ -191,11 +193,15 @@ func checkSecurity(ctx context.Context, root string, out io.Writer) error {
 }
 
 // checkGenerate brings the generated code up to date, as anetos dev
-// does: templ, the typed columns, and a Tailwind CSS project's
+// does: templ, the typed columns, the frontend's TypeScript types, and a
+// Tailwind CSS project's
 // stylesheet (when the tailwindcss binary is at hand; without it, the
 // stylesheet is left as it is and the output says so).
 func checkGenerate(ctx context.Context, root string, out io.Writer) error {
 	if err := devserver.Generate(ctx, root); err != nil {
+		return err
+	}
+	if err := writeTypes(ctx, root, out); err != nil {
 		return err
 	}
 	if !tailwind.Uses(root) {

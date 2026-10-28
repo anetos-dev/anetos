@@ -37,9 +37,20 @@ test: ## Tests with the race detector (set ANETOS_TEST_POSTGRES_URL / ANETOS_TES
 # and --stack=react|vue|svelte, an API project's SPA): CI's frontend job,
 # apart from the other tests, without the race detector, which would
 # slow their npm installs and builds past the other tests' budget.
-FRONTEND_TESTS = ^(TestNewProjectVite|TestNewAPIProjectSPA|TestNewProjectInertia)$$
-test-frontend: ## The cli tests that build frontends (Node.js 20.19 or 22.12 or later, npm)
+# With ANETOS_TEST_STACK_POSTGRES_URL and ANETOS_TEST_STACK_MYSQL_URL,
+# an Inertia stack's project is tested in those databases too, which it
+# empties first (give it databases of its own, not the drivers' tests'). Then the examples'
+# frontends: installed, type-checked and built, and their examples'
+# tests run with the build in place.
+FRONTEND_TESTS = ^(TestNewProjectVite|TestNewAPIProjectSPA|TestNewProjectInertia|TestNewProjectInertiaServerDatabases)$$
+FRONTEND_EXAMPLES = inertia spa
+test-frontend: ## The cli tests that build frontends, and the examples' frontends (Node.js 20.19 or 22.12 or later, npm)
 	cd cli && ANETOS_TEST_NODE=1 $(GO) test -count=1 -timeout=30m -run '$(FRONTEND_TESTS)' ./cmd/anetos
+	@for e in $(FRONTEND_EXAMPLES); do \
+		echo "== examples/$$e/frontend"; \
+		(cd examples/$$e/frontend && npm ci --no-audit --no-fund && npm run build) || exit 1; \
+		(cd examples/$$e && $(GO) test -count=1 ./...) || exit 1; \
+	done
 
 test-short: ## Fast tests, no race detector
 	@$(EACH) $(GO) test -short -count=1 -timeout=5m ./... $(DONE)

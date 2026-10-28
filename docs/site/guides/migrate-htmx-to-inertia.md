@@ -106,7 +106,8 @@ if err != nil {
 
 `main.go` imports `anetos.dev/anetos/web/inertia`,
 `anetos.dev/anetos/web/typescript`, and your `app/handlers` and `views`
-packages. Before `return srv, nil`, the command that writes the
+packages. After the routes (before `ext.Load(plugins())`), the
+command that writes the
 frontend's types:
 
 ```go
@@ -152,12 +153,19 @@ return postIndexPage.Responder(PostsIndexProps{Page: db.MapPage(page, postItem)}
 ```
 
 with the page and its props declared beside it
-(`postIndexPage = page[PostsIndexProps]("Posts/Index")`). For a page a
-generator wrote, the reference project has the code: copy the
-handlers' file and the components (`frontend/src/pages/Posts/`), and
-its test, which checks the component and the props. For a page of your
-own, see [Build pages in React](react.md). Delete the templ view, run
-`go tool templ generate` and `go run . types`.
+(`postIndexPage = page[PostsIndexProps]("Posts/Index")`). For pages a
+generator wrote, the reference project has the code, a file for a
+model's pages: `make:crud`'s list, page and form move together. Copy
+the handlers' file, the components (`frontend/src/pages/Posts/`) and
+the test, which checks the component and the props; delete the templ
+file (`views/posts.templ`); run `go tool templ generate` and
+`go run . types`. Then make your own changes to those pages again, in
+the components and their text in `locales/` (a column you added, a
+cell the list shows differently). For a page of your own, see [Build
+pages in React](react.md). The home page (`app/handlers/home.go`,
+`views/home.templ`) moves the same way, with the reference project's
+`frontend/src/pages/Home.tsx`, `main_test.go` and `home.edit` text in
+`locales/en/app.yaml`.
 
 The two kinds of pages link to each other as they are. A link in a
 component to a page not moved yet works: Inertia's middleware answers
@@ -174,7 +182,9 @@ One by one, with the app working after each. The text stays in
 `locales/`, which the components read with `useT()`. The tests check
 props rather than HTML (`AssertInertia`, `AssertInertiaProp`). Once
 `app/handlers/pages.go` and `frontend/package.json` are in, the tool
-takes the project for a react one: `make:crud` writes React pages, and
+takes the project for a react one: `make:crud` writes React pages and
+adds its link to `frontend/src/Layout.tsx` (add one to
+`views/layout.templ` by hand while templ pages remain), and
 `go tool anetos agent:update` updates the coding agents' files.
 
 ### 6. Move the accounts' pages together
@@ -189,7 +199,7 @@ changed `make:auth`'s handlers, make the same changes in the copies.
 
 ### 7. Remove what's left of templ's pages
 
-When no page renders a templ view:
+When no page renders a templ view (the home page included):
 
 - Delete `views/` but `app.templ` and `auth_mail.templ` (the emails
   stay templ), `views/ui/`, and `public/static/`.
@@ -202,7 +212,9 @@ When no page renders a templ view:
 ## Complete example
 
 A project of the web stack with `make:auth` and `make:crud`, moved this
-way, ends with the same files as the reference project.
+way, ends with the reference project's code, but for comments, the
+order of `setup`'s lines, the README (which still describes the web
+stack: take the reference project's) and the text you changed.
 
 ## How it works
 

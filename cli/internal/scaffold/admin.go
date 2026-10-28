@@ -392,9 +392,7 @@ func MakeAdminResource(root, name string) ([]string, error) {
 		Module: mod, Type: t, Words: strings.ReplaceAll(naming.Snake(t), "_", " "), A: "a",
 		Func: identifier(plural), Name: strings.ReplaceAll(plural, "_", "-"),
 	}
-	if strings.ContainsRune("aeio", rune(d.Words[0])) { // an issue, an order; a user, a unit
-		d.A = "an"
-	}
+	d.A = article(d.Words) // an issue, an order; a user, a unit
 	rel := "app/admin/" + plural + ".go"
 	if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(rel))); err == nil {
 		return nil, fmt.Errorf("%s exists: make:admin-resource writes nothing over the app's files", rel)

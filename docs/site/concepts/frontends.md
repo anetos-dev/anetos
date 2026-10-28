@@ -96,8 +96,9 @@ SPA](../guides/migrate-htmx-to-spa.md)).
   `node_modules`.
 - **The types follow the Go code.** Renaming a prop, a field of an API's
   result or a route changes the generated TypeScript, and the
-  frontend's type check fails where it's used, before the browser
-  runs it.
+  frontend's type check (in `anetos check` and `anetos build`) fails
+  where it's used. In development, Vite serves the change without a
+  type check: run `check` before calling a change done.
 - **A first-party SPA's cookie needs one site.** The SPA and the API
   must be on the same site (one domain, or subdomains of one) for the
   session cookie; elsewhere, the SPA logs in with a token

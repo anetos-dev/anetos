@@ -139,3 +139,28 @@ func TestWarningLines(t *testing.T) {
 		t.Errorf("warningLines:\n%s\nwant:\n%s", got, want)
 	}
 }
+
+// The types command runs only with an APP_KEY: an empty one, as a copied
+// .env.example has, is none.
+func TestHasAppKey(t *testing.T) {
+	t.Setenv("APP_KEY", "")
+	for env, want := range map[string]bool{
+		"":                                false,
+		"APP_NAME=x\nAPP_KEY=\n":          false,
+		"APP_KEY=\"\"\n":                  false,
+		"APP_KEY=base64:AAAA\n":           true,
+		"# APP_KEY=x\nAPP_KEY=base64:B\n": true,
+	} {
+		dir := t.TempDir()
+		if env != "" {
+			writeFiles(t, dir, map[string]string{".env": env})
+		}
+		if got := hasAppKey(dir); got != want {
+			t.Errorf("%q: %v, want %v", env, got, want)
+		}
+	}
+	t.Setenv("APP_KEY", "base64:AAAA")
+	if !hasAppKey(t.TempDir()) {
+		t.Error("APP_KEY in the environment")
+	}
+}

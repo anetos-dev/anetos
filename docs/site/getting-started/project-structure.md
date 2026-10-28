@@ -46,6 +46,16 @@ of `routes/web.go`, `app/handlers/welcome.go` (the answer to
 `locales/en/app.yaml` holds its messages, and `main_test.go` tests the
 welcome and a 404's JSON.
 
+A react, svelte or vue project (`--stack=react`…) has the web
+project's Go side, and its pages in `frontend/`: `src/pages/` (`Home`,
+`Error`), `src/Layout`, `src/components/ui`, `src/i18n.ts` and
+`src/types/` (written by `go run . types`). Instead of `views/layout.templ`,
+`home.templ`, `errors.templ` and `ui/`, `views/` has `app.templ`, the
+root view; `app/handlers/pages.go` declares the pages and the props
+every page shares, and `public/` has `favicon.svg` and the build in
+`public/build`. See [Build pages in React](../guides/react.md), [in
+Svelte](../guides/svelte.md) or [in Vue](../guides/vue.md).
+
 A web project made with `--vite` (or `go tool anetos vite:install`) also
 has `frontend/`: the scripts and styles Vite builds into `public/build`,
 which the layout loads with `@vite.Tags`. See [Bundle JavaScript and CSS

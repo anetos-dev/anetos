@@ -79,7 +79,7 @@ templ [[.Plural]]Page(page db.Page[models.[[.Model]]]) {
 	}
 }
 
-// [[.Model]]Page shows a [[.Words]], with the buttons to edit and delete it.
+// [[.Model]]Page shows [[.AWords]], with the buttons to edit and delete it.
 templ [[.Model]]Page(row models.[[.Model]]) {
 [[- if .TitleF]]
 	@Layout(row.[[.TitleF.Go]]) {
@@ -128,7 +128,7 @@ templ [[.Model]]Page(row models.[[.Model]]) {
 	}
 }
 
-// [[.Model]]Form creates a [[.Words]], or edits one when its ID is set. After a
+// [[.Model]]Form creates [[.AWords]], or edits one when its ID is set. After a
 // failed post, view.Old refills the fields and view.Errors has the
 // messages.
 templ [[.Model]]Form(row models.[[.Model]]) {

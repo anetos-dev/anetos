@@ -458,7 +458,7 @@ func TestNotes(t *testing.T) {
 | The client shows a dialog with an HTML page | The response isn't Inertia's: a route outside the group with `inertia.Middleware`, or an error without `inertia.ErrorPages` | Put the page's route in the group, and set the error pages |
 | Every visit reloads the whole page | The asset version changes on each request, or the client sends another one | Leave the version to Vite's build (the default), or give `inertia.WithVersion` a value that changes only with the assets |
 | `inertia: NewPage("…"): … the prop name errors is Inertia's` | A prop named `errors` | Rename it: the page gets the validation errors there |
-| A shared prop has another value on one page (the layout's text, `<html lang>`) | A prop of the page has its name: the page's props take the place of the shared ones | Rename one of them (the stacks' shared flash message is `notice`, not `status`, which the error page has) |
+| A shared prop has another value on one page (the layout's text, `<html lang>`) | A prop of the page has its name: the page's props take the place of the shared ones, without a warning | Rename one of them (the stacks' shared flash message is `notice`, not `status`, which the error page has). The generated pages' props: `page`, `item` (`make:crud`'s); `status`, `title`, `detail`, `requestId` (`Error`); `social`, `token`, `tokens`, `newToken`, `oldEmail`, `newEmail`, `on`, `started`, `secret`, `qr`, `recoveryCodes`, `recoveryCodesLeft`, and the settings page's `name`, `email`, `emailVerified`, `emailUrl`, `pendingEmail`, `hasPassword`, `locales`, `timeZones`, `localePreference`, `timeZonePreference`, `twoFactor`, `twoFactorOn`, `deleteUrl` (`make:auth`'s) |
 
 ## Next steps
 

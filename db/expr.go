@@ -171,12 +171,28 @@ func (c Column[T]) NotLike(pattern string) Expr { return cmpExpr{c.name, "NOT LI
 
 // Contains is column LIKE '%s%' with s taken literally: its % and _
 // match themselves, so text from a search box can't widen the match.
-// Case sensitivity follows the database, as for [Column.Like].
-func (c Column[T]) Contains(s string) Expr { return likeExpr{c.name, "%" + EscapeLike(s) + "%"} }
+// Case sensitivity follows the database, as for [Column.Like]:
+// [Column.ContainsFold] ignores case everywhere.
+func (c Column[T]) Contains(s string) Expr { return likeExpr{c.name, "%" + EscapeLike(s) + "%", false} }
 
 // StartsWith is column LIKE 's%' with s taken literally (see
 // [Column.Contains]).
-func (c Column[T]) StartsWith(s string) Expr { return likeExpr{c.name, EscapeLike(s) + "%"} }
+func (c Column[T]) StartsWith(s string) Expr { return likeExpr{c.name, EscapeLike(s) + "%", false} }
+
+// ContainsFold is [Column.Contains] ignoring case on every database:
+// LOWER(column) LIKE LOWER('%s%'), what a search box usually wants.
+// PostgreSQL (by the database's locale; a C-locale database lowers
+// ASCII only) and MySQL (but on binary strings) lower every letter;
+// SQLite lowers ASCII letters only. An index on the column isn't used.
+func (c Column[T]) ContainsFold(s string) Expr {
+	return likeExpr{c.name, "%" + EscapeLike(s) + "%", true}
+}
+
+// StartsWithFold is [Column.StartsWith] ignoring case on every database
+// (see [Column.ContainsFold]).
+func (c Column[T]) StartsWithFold(s string) Expr {
+	return likeExpr{c.name, EscapeLike(s) + "%", true}
+}
 
 // EscapeLike escapes LIKE's wildcards (% and _) and its escape character
 // (!) in s, for a pattern used with ESCAPE '!':
@@ -230,16 +246,25 @@ func (c Column[T]) vals(vs []T) []any {
 type jsonValue struct{ v any }
 
 // likeExpr is column LIKE pattern ESCAPE '!', the pattern escaped with
-// EscapeLike.
+// EscapeLike; fold lowers both sides.
 type likeExpr struct {
 	col, pattern string
+	fold         bool
 }
 
 func (e likeExpr) build(b *sqlBuilder) {
+	if !e.fold {
+		b.name(e.col)
+		b.write(" LIKE ")
+		b.arg(e.pattern)
+		b.write(" ESCAPE '!'")
+		return
+	}
+	b.write("LOWER(")
 	b.name(e.col)
-	b.write(" LIKE ")
+	b.write(") LIKE LOWER(")
 	b.arg(e.pattern)
-	b.write(" ESCAPE '!'")
+	b.write(") ESCAPE '!'")
 }
 
 type cmpExpr struct {

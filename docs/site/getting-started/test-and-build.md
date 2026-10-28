@@ -31,6 +31,10 @@ pages; add one for each page and form you write. [Test your
 app](../guides/testing.md) shows forms, logged-in users, emails and
 queue jobs.
 
+`go tool anetos check` runs it all before you call a change done: the
+generators, the frontend's build (with a `frontend/`), `go build`,
+`go vet`, the tests, `doctor` and the security check's basic rules.
+
 ## Build
 
 ```sh
@@ -39,8 +43,9 @@ go tool anetos build   # bin/blog
 ./bin/blog             # the web server, the queue's workers and the scheduler
 ```
 
-`anetos build` compiles the views and the models' columns, then builds
-one static binary that holds the migrations, the views and the files
+`anetos build` compiles the views and the models' columns (and, with a
+`frontend/`, writes its TypeScript types and builds it, with Node.js),
+then builds one static binary that holds the migrations, the views and the files
 of `public/` and `locales/`. A server needs only the binary and its
 settings (the environment, or a file: `deploy/production.env.example`
 lists them).

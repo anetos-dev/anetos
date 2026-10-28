@@ -64,12 +64,23 @@ go run . migrate   # Nothing to migrate.
 
 The new project's models can stay as `make:crud` and `make:auth` wrote
 them: a column the API's model doesn't name (the web stack's
-`remember_token`, the user's `locale`) is left as it is.
+`remember_token`, the user's `locale`) is left as it is. The migrations
+table keeps the rows of the old app's other migrations (sessions,
+social accounts), which the API doesn't have: `doctor` notes them, and
+`migrate:rollback` refuses a batch that holds one; leave them, or
+delete their rows once the old app is gone.
+
+Users who signed up with Google or GitHub (the web stack's social
+login) have no password: the API's accounts have no social login, so
+they set one with the password reset before they can log in.
 
 ### 3. Move your code into the endpoints
 
-The generated endpoints do what `make:crud`'s pages did. Move what you
-added to the old handlers: validation rules, permission checks,
+The generated endpoints do what `make:crud`'s pages did, open to every
+client: call them from `routes/auth.go` with its `loggedIn` group, so
+they take the SPA's session and need a login, and make each record its
+user's if it was ([Build an API](../getting-started/build-an-api.md)
+shows both). Then move what you added to the old handlers: validation rules, permission checks,
 queries, events and jobs, emails. A handler of the API returns its
 result instead of a page:
 

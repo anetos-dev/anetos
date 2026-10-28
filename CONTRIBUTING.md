@@ -40,7 +40,10 @@ The race detector needs cgo (a C compiler) on Linux and Windows, and
 the Makefile a Unix shell: on Windows, use WSL. `make test-frontend`
 needs Node.js 20.19 or 22.12 or later: it creates projects with
 `--vite` and of the react, vue and svelte stacks, and builds their
-frontends (CI runs it in a job of its own). CI also runs
+frontends and the examples' (CI runs it in a job of its own). With
+`ANETOS_TEST_STACK_POSTGRES_URL` and `ANETOS_TEST_STACK_MYSQL_URL`, it
+also tests a react project in those databases, which it empties first:
+give it databases of its own. CI also runs
 `make vuln` (govulncheck) and, on the main branch, `make cover`, which
 sends the published modules' merged test coverage to
 [Codecov](https://app.codecov.io/gh/anetos-dev/anetos).

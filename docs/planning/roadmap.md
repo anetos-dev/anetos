@@ -605,6 +605,7 @@ Node-free (D337).
 | V1 | Vite | A view helper that reads Vite's manifest (or the dev server's hot file) and writes the tags; the build output embedded in the binary; `anetos dev` runs Vite beside the app, `anetos build` and the Dockerfile run `vite build`; a check for dev mode left on in production; usable from the web stack too |
 | V2 | Inertia adapter | The server side of Inertia v3's protocol: pages, asset versioning, partial reloads, shared, optional, deferred and merged props, the validation-error bag through the session, 303 and external redirects, CSRF by cookie and header (SSR later) |
 | TS1 | TypeScript types | `.ts` types from the typed handlers' inputs and results and from Inertia props, generated in Go; a typed fetch client; `--check` (D336) |
+| DOC1 | Cloud platforms | Added 2026-10-26 from Samiul's docs feedback: the guide "Deploy to a cloud platform" (D357–D360) |
 | SP1 | Login for SPAs | Session cookies on the API stack for listed first-party origins, CSRF by cookie and header, CORS credentials for them; tokens unchanged (D334) |
 | SP2 | Serving an SPA | The built SPA embedded and served by the binary with the client-route fallback; development through Vite's address, which forwards `/api` (D368); the React example frontend with login, registration and reset pages; the guide, also for a separate repository, a CDN, Next.js, Nuxt and SvelteKit (D335) |
 | V3 | Inertia stacks | `anetos new --stack=vue\|react\|svelte`: layout and pages, `make:auth`'s and `make:crud`'s pages per framework, the coding agents' files and skills |
@@ -613,7 +614,7 @@ Node-free (D337).
 | AX1c-2 | Coding agents: lessons from real apps | From v0.5 (2026-10-25): as Samiul builds his apps with coding agents (a dogfooding log as a project doc), the fixes they call for, in v0.5.x patches or here |
 
 **Order** (agreed 2026-10-25): DR1, then the shared and API pieces
-before the stacks: V1, V2, TS1, SP1, SP2, V3, SD1, V4; AX1c-2 when Samiul's
+before the stacks: V1, V2, TS1 (then DOC1), SP1, SP2, V3, SD1, V4; AX1c-2 when Samiul's
 apps start. Estimate: 5–7 weeks part-time; V3 (three frameworks' pages,
 each tested by building a generated project with `npm install` in CI)
 is the largest and least predictable.
@@ -644,8 +645,45 @@ is the largest and least predictable.
 | V3b Inertia stack: Vue | ✅ Done 2026-10-28 (design §12.2, D377–D378): `anetos new --stack=vue` (Vue single-file components: `Layout.vue`, `NavLink.vue`, `components/ui/` a component a file with an `index.ts`, Home and Error; `vue-tsc` on TypeScript 6, which TypeScript 7 can't run); `make:auth`'s and `make:crud`'s Vue pages; the stacks' differences in one table (`inertiaStacks`); the CLI's messages, the agent files and the docs for both. `TestNewProjectInertia` builds a project of each stack. Browser-tested by hand as V3a. |
 | V3c Inertia stack: Svelte | ✅ Done 2026-10-28 (design §12.2, D379–D380): `anetos new --stack=svelte` (Svelte 5 components with runes: `Layout.svelte`, `NavLink.svelte`, `components/ui/` with `Title`, `routes.ts` following the page's locale prefix; `svelte-check` on TypeScript 6); `make:auth`'s and `make:crud`'s Svelte pages; CI's frontend job (`make test-frontend`), apart from the cli part, which had reached 14 of its 15 minutes. Browser-tested by hand as V3a and V3b |
 | SD1 Security docs | ✅ Done 2026-10-28: "Secure your app" rewritten as the hub (what Anetos protects, by stack; the tools: `check`, `doctor`, `security:check`, its live checks, the agents' MCP tool and skill; the checklist before going live); new guide "Protect your app in the browser" (CSRF per stack, the SPA's session cookie, CORS, a Content-Security-Policy that fits every stack's pages, escaping, the session cookie); links from the security check's rules and the frontend guides; the `anetos-security` skill points to both. The policy was tried in the browser on generated web (starter theme, Bootstrap, Pico), React, Vue and Svelte projects and `examples/spa`. Review90's findings fixed, among them the `systemd-run` command of step 1, which now runs as the service's user (not tried on a systemd host). A `web.CSP` helper with nonces is in the backlog |
-| V4 Docs and exit check | **V4a** (2026-10-28): "Build pages in React", "in Svelte", "in Vue"; "Move htmx pages to Inertia" and "Move htmx pages to an API and an SPA"; the concept page "Frontends" (Samiul's choices: the guides' code illustrative, checked once in generated projects with a browser; both moves as guides; one concept page; four docs-only readers in V4b). Tried while writing: the drafts page in each stack, a web project moved to React page by page then whole, an API project on a web project's database. `inertia.Middleware` loads non-Inertia pages whole for the client's visits (D381); `make:crud`'s formatting fixed. **V4b**: four docs-only walkthroughs (React, Svelte, Vue, API with an SPA) and an audit |
+| V4 Docs and exit check | **V4a** (2026-10-28): "Build pages in React", "in Svelte", "in Vue"; "Move htmx pages to Inertia" and "Move htmx pages to an API and an SPA"; the concept page "Frontends" (Samiul's choices: the guides' code illustrative, checked once in generated projects with a browser; both moves as guides; one concept page; four docs-only readers in V4b). Tried while writing: the drafts page in each stack, a web project moved to React page by page then whole, an API project on a web project's database. `inertia.Middleware` loads non-Inertia pages whole for the client's visits (D381); `make:crud`'s formatting fixed. **V4b** (2026-10-28): four docs-only readers (a React shop, a Svelte library in two languages, a web project moved to Vue, an API with a Svelte SPA), each on SQLite, PostgreSQL and MySQL and a production binary, and an audit of the API and the docs; what they found is fixed (below) |
 
+
+**Exit criteria check (2026-10-28)**
+
+Four readers who used only `docs/site`, the examples and `go doc` built
+a shop with the react stack (accounts, products, a page of their own
+with a shared prop, guests reading and users writing, a
+Content-Security-Policy), a library with the svelte stack in English
+and Bengali with the locale in the URL, an events app moved from the
+web stack to Vue page by page with "Move htmx pages to Inertia", and a
+notes API with a Svelte SPA logged in by its session cookie and a curl
+client with a token; each switched to PostgreSQL and MySQL, ran its
+tests there, and ran its built binary with production settings, checked
+in a browser. An audit checked the release's API against v0.5.0
+(`api/*.txt`), the upgrade guide, the CHANGELOG, the references and the
+exit criteria. What they found is fixed: `anetos check` and `build`
+type-checked the frontend against stale types (D384); the guides' search
+box matched case-sensitively on PostgreSQL only (`ContainsFold`, D383);
+CI had no evidence for the Inertia stacks on PostgreSQL and MySQL, nor
+for the examples' frontends (D382); `make:crud`'s comments said "a
+event"; and the docs gained guests-read-users-write routes, a locale
+switcher for the Inertia stacks, Inertia in the testing guide, the
+stacks in the getting-started pages, MySQL `DB_URL`s, and the moves'
+missing steps (a model's pages move together, the home page, your own
+changes, social-login users, the API's routes behind the login).
+
+| Criterion | Result |
+|---|---|
+| `anetos new --stack=vue\|react\|svelte`, `make:auth`, `make:crud`: a tested app of components, on SQLite, PostgreSQL and MySQL, in one binary | ✅ CI's frontend job: each stack built, type-checked, tested and embedded (`TestNewProjectInertia`), and a react project's tests on PostgreSQL and MySQL (`TestNewProjectInertiaServerDatabases`, D382); the readers' apps on all three databases, built and run |
+| An API project and the React example frontend log in with a cookie and share generated types, from one binary | ✅ `examples/spa`'s tests (the session login, the XSRF cookie, two-factor codes, another origin refused; `typescript.Check`), its frontend built and type-checked in CI with the tests run on the build (D382); a reader's API with its own SPA, in a browser against the binary |
+| No known P0/P1 bugs; every public API documented | ✅ none known; `make api-docs`, the configuration and CLI references complete (the audit), the upgrade guide covering every removed name |
+
+Not run: macOS and Windows, pnpm, yarn and bun, the Docker image's Node
+stage (no Docker daemon here); the dev proxy's address stays
+`127.0.0.1:8080` unless `vite.config.ts` is changed (documented).
+Left for later, from the readers: a fixed port for Vite under `anetos
+dev`, warning when a page's prop takes a shared prop's name, a locale
+switcher written by the stacks, a decimal type in `make:crud`.
 ---
 
 ### Backlog (after v0.6, unordered)

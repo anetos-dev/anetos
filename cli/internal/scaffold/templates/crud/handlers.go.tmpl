@@ -19,7 +19,7 @@ import (
 [[- end]]
 )
 
-// [[.Plural]] serves the [[.PluralW]] pages (anetos make:crud): the list, a
+// [[.Plural]] serves the [[.PluralW]] pages (anetos make:crud): the list, [[.A]]
 // [[.Words]]'s page, and the forms to create, edit and delete one. Yours to
 // change; routes/[[.Table]].go routes them.
 type [[.Plural]] struct{}
@@ -52,7 +52,7 @@ var (
 	[[.Helper]]FormPage  = page[[print "["]][[.Model]]FormProps]("[[.Plural]]/Form")
 )
 
-// [[.Model]]Item is a [[.Words]] as the pages get it: the fields chosen here, so
+// [[.Model]]Item is [[.AWords]] as the pages get it: the fields chosen here, so
 // a new column of the [[.Table]] table never shows by accident.
 type [[.Model]]Item struct {
 	ID int64 `json:"id"`
@@ -85,7 +85,7 @@ type [[.Plural]]IndexProps struct {
 	Page db.Page[[print "["]][[.Model]]Item] `json:"page"`
 }
 
-// [[.Model]]Props are a [[.Words]]'s page's.
+// [[.Model]]Props are [[.AWords]]'s page's.
 type [[.Model]]Props struct {
 	Item [[.Model]]Item `json:"item"`
 }
@@ -116,7 +116,7 @@ func ([[.Plural]]) Index(c *web.Ctx, in [[.Model]]List) (web.Responder, error) {
 [[- end]]
 }
 
-// Show shows a [[.Words]]; one that doesn't exist is a 404 (db.ErrNotFound).
+// Show shows [[.AWords]]; one that doesn't exist is a 404 (db.ErrNotFound).
 func ([[.Plural]]) Show(c *web.Ctx, in [[.Model]]ID) (web.Responder, error) {
 	row, err := db.Find[models.[[.Model]]](c, in.ID)
 	if err != nil {
@@ -149,7 +149,7 @@ func ([[.Plural]]) Create(c *web.Ctx, in [[.Model]]Input) (web.Responder, error)
 	return web.RedirectRoute("[[.Path]].show", row.ID), nil
 }
 
-// Edit shows the form to edit a [[.Words]].
+// Edit shows the form to edit [[.AWords]].
 func ([[.Plural]]) Edit(c *web.Ctx, in [[.Model]]ID) (web.Responder, error) {
 	row, err := db.Find[models.[[.Model]]](c, in.ID)
 	if err != nil {
@@ -163,7 +163,7 @@ func ([[.Plural]]) Edit(c *web.Ctx, in [[.Model]]ID) (web.Responder, error) {
 [[- end]]
 }
 
-// Update saves the changes to a [[.Words]].
+// Update saves the changes to [[.AWords]].
 func ([[.Plural]]) Update(c *web.Ctx, in [[.Model]]Input) (web.Responder, error) {
 	row, err := db.Find[models.[[.Model]]](c, in.ID)
 	if err != nil {
@@ -177,7 +177,7 @@ func ([[.Plural]]) Update(c *web.Ctx, in [[.Model]]Input) (web.Responder, error)
 	return web.RedirectRoute("[[.Path]].show", row.ID), nil
 }
 
-// Delete deletes a [[.Words]].
+// Delete deletes [[.AWords]].
 func ([[.Plural]]) Delete(c *web.Ctx, in [[.Model]]ID) (web.Responder, error) {
 	row, err := db.Find[models.[[.Model]]](c, in.ID)
 	if err != nil {

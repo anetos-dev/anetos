@@ -46,6 +46,11 @@ have either, so `make:crud` refuses them; add such an index by hand.)
 go tool anetos make:crud Customer name:string email:email:unique notes:text:optional since:date
 ```
 
+Numbers get no rule beyond their type: a negative stock is accepted
+until you add one (`validate:"min:0"` on the input's field). There's no
+decimal type: keep money in an `int` of cents, which adds up exactly,
+rather than a `float`.
+
 ## What it writes
 
 For `Post`:
@@ -55,14 +60,14 @@ For `Post`:
 | `app/models/post.go` | `Post`, with a field per column; `anetos generate` adds `PostCols` to `models_gen.go` |
 | `database/migrations/…_create_posts_table.go` | The `posts` table |
 | `app/handlers/posts.go` | `Posts`: `Index` (20 a page, newest first), `Show`, `New`, `Create`, `Edit`, `Update`, `Delete`; `PostInput`, the form, with its `validate` tags |
-| `views/posts.templ` | The list, a post's page, and the form for new and existing posts |
+| `views/posts.templ` | The list, a post's page, and the form for new and existing posts. In a react, svelte or vue project: the components `frontend/src/pages/Posts/Index`, `Show` and `Form` (`.tsx`, `.svelte`, `.vue`), and the handlers render them with props |
 | `routes/posts.go` | `routes.Posts`: the seven routes, named `posts.index`, `posts.show`… |
 | `locales/en/posts.yaml` | The pages' text: titles, buttons, the fields' labels, the messages |
 | `posts_test.go` | A test that creates, shows, edits and deletes a post through the pages |
 
 It also adds `Posts(pages)` to `routes/web.go` (the page group, with
 sessions and CSRF protection) and a link to the list in the layout's
-header. It never overwrites a file: if one exists, it writes nothing.
+header (`views/layout.templ`, or the frontend's `src/Layout`). It never overwrites a file: if one exists, it writes nothing.
 
 | Route | URL | Does |
 |---|---|---|
@@ -92,7 +97,8 @@ The code is plain Anetos code: change it as you would your own.
 - **Only for logged-in users.** After [`make:auth`](add-accounts.md),
   move the `Posts(pages)` call from `routes/web.go` to the `loggedIn`
   group of `routes/auth.go` (`Posts(loggedIn)`): guests then go to the
-  login page. Log a user in at the start of `TestPosts`, as its comment
+  login page (a guest's form post gets `401`: the redirect is for
+  pages). Log a user in at the start of `TestPosts`, as its comment
   shows (`make:auth` wrote `factories.Users`), and show the header's
   link to logged-in users only, in `views/layout.templ` (importing
   `anetos.dev/anetos/auth` and the app's `app/models`):
@@ -103,6 +109,16 @@ The code is plain Anetos code: change it as you would your own.
   	@navLink("posts.index", i18n.T(ctx, "posts.title"))
   }
   ```
+
+  In a react, svelte or vue project, the components read the shared
+  `user` prop (`usePage().props.user`, null for a guest).
+- **Guests read, users write.** Split `routes/posts.go` in two: one
+  function with the list and a post's page, which `routes/web.go` keeps
+  calling, and one with the form's routes, create, edit, update and
+  delete, which `routes/auth.go` calls with `loggedIn`. Hide the
+  buttons that change posts from guests as above ([Build pages in
+  React](../guides/react.md#6-let-only-logged-in-users-in) shows it for
+  the components).
 - **Another column.** Add a migration (`go tool anetos make:migration
   add_slug_to_posts_table`), the field to `Post` and `PostInput`, a
   line to `fill`, and the input to `postFields` in the view.

@@ -232,3 +232,15 @@ func TestCrudNames(t *testing.T) {
 		}
 	}
 }
+
+func TestArticle(t *testing.T) {
+	for words, want := range map[string]string{
+		"post": "a", "event": "an", "image": "an", "order": "an", "item": "an", "user": "a", "unit": "a",
+		"update": "an", "umbrella": "an", "hour": "an", "euro": "a", "one time code": "a", "API key": "an",
+		"URL": "a", "HTML page": "an", "SMS": "an", "blog post": "a", "unused key": "an", "union": "a", "uniform": "a",
+	} {
+		if got := article(words); got != want {
+			t.Errorf("article(%q) = %q, want %q", words, got, want)
+		}
+	}
+}

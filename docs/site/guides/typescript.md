@@ -108,9 +108,13 @@ writes `frontend/src/types/api.ts` and, with Inertia,
 `frontend/src/types/pages.ts`; with `Routes: true` in the `Config`,
 `frontend/src/types/routes.ts` too, the named routes for links
 (`route('posts.show', { id })`; since v0.6). Commit them. `go tool anetos generate`
-runs the command, and `go tool anetos dev` runs it after each build, so
-the files follow the Go code as you edit; a file whose content didn't
-change isn't written again.
+runs the command, `go tool anetos dev` runs it after each build, and
+`go tool anetos check` and `build` run it before the frontend's build,
+so the files follow the Go code as you edit, and the type check sees
+them as they are; a file whose content didn't change isn't written
+again. (In development the browser runs what Vite serves without a
+type check: the check is the build's, `npm run build`, which `check`
+and `build` run.)
 
 ### 4. Use the types
 
@@ -147,7 +151,9 @@ const form = useForm<NoteInput>({ title: '', body: '' })
 `Config.Prefix`, named after the route's name (`posts.show` is
 `api.posts.show`); an unnamed route's is its handler's method or
 function (`Posts.Index` is `api.posts.index`), else its method and path
-(`getApiV1Posts`), so name the routes the frontend calls:
+(`getApiV1Posts`), so name the routes the frontend calls. An API
+project's routes are named `api.…` (`api.posts.show`), so its functions
+are under `api`: `createApi().api.posts.show(…)`.
 
 ```ts
 // illustrative
@@ -227,6 +233,18 @@ func TestTypes(t *testing.T) {
 ```
 
 (Copied from [`examples/inertia/main_test.go`](../../../examples/inertia/main_test.go), region `types-test`.)
+
+In an API project, with the `Config` that `main.go` registers:
+
+```go
+// illustrative
+func TestTypes(t *testing.T) {
+	app := anetostest.New(t, setup)
+	if err := typescript.Check(app.Router(), typescript.Config{Prefix: routes.OpenAPI.Prefix}); err != nil {
+		t.Fatal(err)
+	}
+}
+```
 
 `go run . types --check` does the same, without a test.
 

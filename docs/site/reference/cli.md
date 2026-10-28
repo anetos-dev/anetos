@@ -121,7 +121,7 @@ web stack's views, the react stack writes:
 | `frontend/src/pages/Home.tsx`, `src/pages/Error.tsx` | The home page, and the error pages' component |
 | `frontend/src/components/ui.tsx`, `src/theme.css`, `src/app.css` | The components the pages are made of (`PageHeader`, `Card`, `Field`, `Input`, `Button`, `PostButton`, `Table`, `Pagination`…), writing the starter theme's markup; the starter theme; the app's own styles |
 | `frontend/src/i18n.ts` | `useT()`, which translates with the `messages` prop (placeholders and plurals), and `useFormat()`: the locale's numbers and dates |
-| `frontend/src/types/` | `pages.ts` (the pages' props) and `routes.ts` (`route(name, params, query)` over the named routes), written by `go run . types` |
+| `frontend/src/types/` | `pages.ts` (the pages' props), `routes.ts` (`route(name, params, query)` over the named routes) and `api.ts` (the typed handlers' types and client), written by `go run . types` |
 
 The vue stack writes the same with Vue's files: `vite.New(app,
 public.Files)` in `main.go`; `@inertiajs/vue3`, Vue, Vite, TypeScript 6
@@ -528,7 +528,7 @@ name in `cmd.Command.Former`, which runs it with a warning.
 | `serve` | `web.NewServer` | `run --only=web` |
 | `route:list [--json]` | `web.NewServer` | Method, path and name of every route. `--json`: `{"middleware": […], "routes": [{"method", "host", "path", "name", "handler", "input", "output", "status", "file", "line", "public", "middleware": […]}]}`, the global middleware first; `file` and `line` are where the route was registered (relative to the module's folder), `public` the reason given to `Public` (both omitted when empty); each middleware is `{"name", "detail", "security", "scopes", "responses"}`, named as Go code names it (`web.CSRF`, `session.Manager.Middleware`, `auth.Auth.Require`, `rbac.Require` with its permissions as `detail`, `ratelimit.Middleware` with its limit's name), what it said with `web.Documented` (`web.MiddlewareDoc`), outermost first. `security` is what an API description shows: `auth.Auth.Require` says `bearer` on pages too, where the user comes from the session. Login attempts are limited inside `auth`'s login (`AUTH_THROTTLE`), not by a middleware, so `POST /login` lists none |
 | `openapi [--check] [--out=FILE]` | `openapi.Register` | Writes the API's OpenAPI 3.1 description to `openapi.json` (`Config.File`; `--out=-`: the standard output), warning about routes it leaves out; `--check` exits 1 if the file differs. Doesn't boot the app. See [Describe an API with OpenAPI](../guides/openapi.md) |
-| `types [--check]` | `typescript.Register` | Writes the frontend's TypeScript types (`frontend/src/types/api.ts` and `pages.ts`; `Config.Dir`), only the files that changed; `--check` exits 1 if one differs. Doesn't boot the app, but needs its settings (`APP_KEY`). Since v0.6. See [Generate TypeScript types for the frontend](../guides/typescript.md) |
+| `types [--check]` | `typescript.Register` | Writes the frontend's TypeScript types (in `frontend/src/types`, `Config.Dir`: `api.ts` always, `pages.ts` with `Config.Inertia`, `routes.ts` with `Config.Routes`), only the files that changed; `--check` exits 1 if one differs. Doesn't boot the app, but needs its settings (`APP_KEY`). Since v0.6. See [Generate TypeScript types for the frontend](../guides/typescript.md) |
 | `health:check [--live] [--timeout=5s]` | `web.NewServer` | Asks the server running on `HTTP_ADDR` (on `127.0.0.1` when its host is empty, `0.0.0.0` or `[::]`) for `/health/ready` (`--live`: `/health/live`), for container health checks: prints `ok`, or exits 1. An error with `HTTP_HEALTH_ROUTES=false` |
 | `migrate`, `migrate:rollback`, `migrate:reset`, `migrate:fresh`, `migrate:status [--json]`, `db:seed`, `db:schema [--json] [table…]` | `migrate.New` | See the [migrations reference](migrations.md#commands); `db:schema` describes the tables: columns, indexes, foreign keys |
 | `search:reindex [table…]` | `migrate.New` | Rebuilds the search indexes (all, or the tables') for `DB_SEARCH_LANGUAGE` and `DB_SEARCH_RANKING`. See [Search](../guides/search.md) |
@@ -598,6 +598,7 @@ Checking blog (APP_ENV=production).
 | `mail` | `mailer.New` | `MAIL_DRIVER` `log` or `memory` in production or staging (warning); no `MAIL_FROM_ADDRESS` for a driver that sends (warning); `tls=none` in `MAIL_SMTP_URL` for a server other than this machine (warning); in production and staging, an example's domain (`example.com`, `.test`) as `MAIL_SMTP_URL`'s server or `MAIL_FROM_ADDRESS`'s (warning) |
 | `cache` | `cache.New` | `CACHE_DRIVER=memory` in production or staging (note) |
 | `queue` | `queue.New` | In production and staging: `QUEUE_DRIVER=memory` (warning), `sync` (note) |
+| `vite` | `vite.New` | In development, `public/build/manifest.json` missing and `VITE_DEV_URL` not set: the pages load no scripts or styles of the frontend (warning; since v0.6) |
 | `spa` | `vite.SPA` | In production and staging with `APP_URL`: `HTTP_SPA_ORIGINS` not listing `APP_URL`'s origin, where the app serves its SPA (warning: the SPA's login would answer a token). Since v0.6 |
 
 | API | Does |

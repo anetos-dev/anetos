@@ -28,8 +28,9 @@ const buildUsage = `Usage: anetos build [-o file] [--target=os/arch] [--version=
 Builds the app for production: one binary with everything in it (the
 migrations, the templ views, the files in public/ and locales/). It runs
 templ generate and anetos generate first (and, in a project that uses
-Tailwind CSS, anetos css:build; in a project with a frontend/, its
-packages' install if they need it and its build script, vite build,
+Tailwind CSS, anetos css:build; in a project with a frontend/, the
+app's types command (go run . types, when it has one), its packages'
+install if they need it and its build script, vite build,
 into public/build, or an API project's SPA into public/spa: Node.js is
 needed, unless --no-frontend says the build is there already), then go build with -trimpath and
 -ldflags=-s -w, and CGO_ENABLED=0 (a static binary; SQLite works without
@@ -174,6 +175,10 @@ func (b *appBuild) run(ctx context.Context, stderr io.Writer) (string, error) {
 		}
 	}
 	if frontend.Uses(b.root) && !b.noFrontend {
+		// The frontend type-checks against the Go code as it is.
+		if err := writeTypes(ctx, b.root, stderr); err != nil {
+			return "", err
+		}
 		if err := frontend.Build(ctx, filepath.Join(b.root, frontend.Dir), stderr); err != nil {
 			return "", err
 		}

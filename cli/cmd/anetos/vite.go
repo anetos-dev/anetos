@@ -34,8 +34,8 @@ In an API project, it is a single-page app without a framework
 (index.html, and a login page once make:auth has run): the app serves
 it at / (vite.SPA in main.go, public/public.go), and writes its API
 client (typescript.Register; then it runs go run . types);
-HTTP_SPA_ORIGINS lists Vite's address in .env, and APP_URL in
-deploy/production.env.example; .gitignore, .dockerignore and the
+HTTP_SPA_ORIGINS lists Vite's address and APP_URL's origin in .env
+and .env.example, and APP_URL in deploy/production.env.example; .gitignore, .dockerignore and the
 Dockerfile as above. anetos dev runs Vite at http://localhost:5173,
 which forwards /api to the app; anetos build builds the SPA into
 public/spa.

@@ -185,6 +185,8 @@ type crudData struct {
 	Key      string // posts: the locale's top key and its file's name
 	Path     string // posts: the URL path and the routes' names
 	Words    string // post: in sentences
+	AWords   string // a post, an event: with its article
+	A        string // a, an: Words' article
 	PluralW  string // posts: in sentences
 	OneW     string // Post: starting a sentence
 	TitleW   string // Posts: the list's title
@@ -407,6 +409,39 @@ var reservedTables = map[string]bool{
 	"ai_messages": true, "ai_usage": true, "postmark_suppressions": true,
 }
 
+// article is the indefinite article of words, by its first letters ("a
+// post", "an event", "a user", "an hour"; initialisms such as API by
+// their letters' names: "an API key").
+func article(words string) string {
+	w := strings.ToLower(words)
+	switch {
+	case w == "":
+		return "a"
+	case len(words) > 1 && words[0] >= 'A' && words[0] <= 'Z' && words[1] >= 'A' && words[1] <= 'Z':
+		if strings.ContainsRune("AEFHILMNORSX", rune(words[0])) {
+			return "an" // an API key, an SMS, an HTML page
+		}
+		return "a"
+	case strings.HasPrefix(w, "hour") || strings.HasPrefix(w, "honest") || strings.HasPrefix(w, "honor"):
+		return "an"
+	case strings.HasPrefix(w, "eu") || strings.HasPrefix(w, "one"):
+		return "a"
+	case strings.HasPrefix(w, "uni"):
+		return "a" // a unit, a union
+	case strings.HasPrefix(w, "un"):
+		return "an" // an unused, an unassigned
+	case w[0] == 'u':
+		// a user, a utility; an update, an umbrella
+		if len(w) > 2 && !strings.ContainsRune("aeiou", rune(w[1])) && strings.ContainsRune("aeiou", rune(w[2])) {
+			return "a"
+		}
+		return "an"
+	case strings.ContainsRune("aeio", rune(w[0])):
+		return "an"
+	}
+	return "a"
+}
+
 // words turns a name into words for sentences: api_key → API key,
 // blog_post → blog post.
 func words(name string) string {
@@ -483,7 +518,7 @@ func MakeCrud(root, name string, args []string, now time.Time) (CrudResult, erro
 	d := crudData{
 		Module: mod, Model: model, Helper: lowerCamel(snake), Plural: goName(table),
 		Table: table, Key: table, Path: strings.ReplaceAll(table, "_", "-"),
-		Words: words(snake), PluralW: words(table), OneW: label(snake), TitleW: label(table),
+		Words: words(snake), AWords: article(words(snake)) + " " + words(snake), A: article(words(snake)), PluralW: words(table), OneW: label(snake), TitleW: label(table),
 		ID: ts.Format(idLayout) + "_create_" + table + "_table", Fields: fields,
 		Inertia: framework != "", Framework: framework, Ext: inertiaStacks[framework].ext,
 	}

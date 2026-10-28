@@ -45,7 +45,18 @@ or a loopback address); `DB_TLS_CA` names a PEM file of your provider's
 certificate authority when the system doesn't know it, and
 `DB_TLS=none` turns TLS off for a private network you trust. Put other
 driver options in `DB_URL`, which replaces the individual settings
-(TLS included). Every key is in the
+(TLS included), in the driver's format:
+
+```sh
+DB_URL=postgres://blog:secret@db.example.com:5432/blog?sslmode=verify-full
+DB_URL=blog:secret@tcp(db.example.com:3306)/blog?tls=true   # MySQL
+```
+
+systemd's `EnvironmentFile` and Docker's `--env-file` read the value as
+it is, quotes included, so leave it unquoted there; in a file a shell
+reads (`set -a; . ./production.env`), quote a MySQL URL
+(`DB_URL='blog:secret@tcp(…)/blog'`): its parentheses are the shell's.
+Every key is in the
 [configuration reference](../reference/configuration.md#database).
 
 ### 2. Connect at startup
@@ -133,6 +144,8 @@ A project made with `anetos new` uses SQLite unless you passed
    `DB_NAME`; the README's "nothing to set up" is SQLite's too. A
    project made with `--db postgres` shows the server versions of these
    files.
+6. `go tool anetos agent:update`: the coding agents' files name the
+   database too.
 
 Migrations written with the schema builder run on every database; raw
 SQL in migrations may need changes.
@@ -190,6 +203,7 @@ loop) blocks. A file in `t.TempDir()` behaves like production instead.
 | `connect to postgres: … connection refused` at startup | Wrong host or port, or the server isn't running | Check `DB_HOST`/`DB_PORT`; the error comes from the ping in `Connect` |
 | `… certificate signed by unknown authority`, `server does not support SSL`, `TLS requested but server does not support TLS` | A remote `DB_HOST` gets verified TLS by default | Set `DB_TLS_CA` to your provider's CA file, or `DB_TLS=none` on a private network (a Compose service, say) |
 | `database is locked` on SQLite | A write took longer than the 5s busy timeout | Keep transactions short; SQLite allows one writer at a time |
+| Tests fail on rows they didn't make (`redirect to /register, want /dashboard`: the user exists) | `.env.testing` names the app's own database, which has your rows | Give the tests a database of their own |
 
 ## Next steps
 

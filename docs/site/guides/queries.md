@@ -240,7 +240,7 @@ Create the rows a query should (and shouldn't) find with
 | `Update and Delete only support Where conditions` | `Join`, `OrderBy`, `Limit` and friends don't work the same on every database | Filter with `Where`, or write the statement for your database with `db.Exec` |
 | `ambiguous column` after a `Join` | Both tables have the column | Qualify it: `db.C("posts.id")` |
 | `First` returns a different row each time | No `OrderBy` | Add one |
-| `LIKE` matches differently between databases | PostgreSQL is case-sensitive | Use `db.SQL("lower(title) LIKE ?", …)` or a database-specific operator |
+| `LIKE` matches differently between databases | PostgreSQL is case-sensitive | For a search box, `ContainsFold` or `StartsWithFold`, case-insensitive everywhere |
 
 ## Next steps
 

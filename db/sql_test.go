@@ -136,6 +136,12 @@ func TestSelectSQL(t *testing.T) {
 		t.Errorf("mysql: %s", my)
 	}
 
+	fold, foldArgs := sqlOf(Query[Post](ctx).WithTrashed().Where(title.ContainsFold("Go_1"), title.StartsWithFold("a")), Postgres())
+	if !strings.Contains(fold, `WHERE ((LOWER("title") LIKE LOWER($1) ESCAPE '!') AND (LOWER("title") LIKE LOWER($2) ESCAPE '!'))`) ||
+		len(foldArgs) != 2 || foldArgs[0] != "%Go!_1%" || foldArgs[1] != "a%" {
+		t.Errorf("fold: %s %v", fold, foldArgs)
+	}
+
 	off, _ := sqlOf(Query[Post](ctx).WithTrashed().Offset(5), MySQL())
 	if !strings.HasSuffix(off, "FROM `posts` LIMIT 18446744073709551615 OFFSET 5") {
 		t.Errorf("mysql offset: %s", off)

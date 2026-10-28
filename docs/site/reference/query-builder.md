@@ -41,7 +41,8 @@ Each method returns a new query; the original is unchanged.
 | `col.In(vs...)`, `col.NotIn(vs...)` | `IN (…)`; an empty `In` matches nothing, an empty `NotIn` everything |
 | `col.Between(lo, hi)` | `BETWEEN lo AND hi` |
 | `col.Like(p)`, `col.NotLike(p)` | `LIKE` (case sensitivity depends on the database); `p` is a pattern: `%` and `_` in text from users widen it |
-| `col.Contains(s)`, `col.StartsWith(s)` | `LIKE` with `s` taken literally (`%`, `_` and `!` escaped, `ESCAPE '!'`): for search boxes. `db.EscapeLike(s)` escapes for a raw `LIKE ? ESCAPE '!'` |
+| `col.Contains(s)`, `col.StartsWith(s)` | `LIKE` with `s` taken literally (`%`, `_` and `!` escaped, `ESCAPE '!'`); case sensitivity as for `Like`. `db.EscapeLike(s)` escapes for a raw `LIKE ? ESCAPE '!'` |
+| `col.ContainsFold(s)`, `col.StartsWithFold(s)` | `LOWER(col) LIKE LOWER(…)`, `s` taken literally: case-insensitive on every database, for search boxes (PostgreSQL, by the database's locale, and MySQL lower every letter; SQLite and a C-locale PostgreSQL database lower ASCII letters only; an index on the column isn't used). Since v0.6 |
 | `col.IsNull()`, `col.NotNull()` | `IS NULL`, `IS NOT NULL` |
 | `db.And(...)`, `db.Or(...)`, `db.Not(c)` | Grouped with parentheses; `And()` is true, `Or()` is false |
 | `db.SQL(sql, args...)` | Any SQL, with `?` or `:name` placeholders |

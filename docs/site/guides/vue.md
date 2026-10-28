@@ -32,7 +32,9 @@ go tool anetos dev   # http://localhost:8080
 ```
 
 `anetos dev` runs the app and Vite, rebuilds the app when Go code
-changes, and updates the frontend's types (`go run . types`).
+changes, and updates the frontend's types (`go run . types`). Open the
+app's address: Vite runs on a free port of its own, which the app's
+pages load their scripts from.
 
 ## Steps
 
@@ -85,7 +87,7 @@ func (Posts) Drafts(c *web.Ctx, in DraftsQuery) (web.Responder, error) {
 	q := db.Query[models.Post](c).Where(models.PostCols.Published.Eq(false)).
 		OrderBy(models.PostCols.ID.Desc()).Limit(50)
 	if in.Q != "" {
-		q = q.Where(models.PostCols.Title.Contains(in.Q))
+		q = q.Where(models.PostCols.Title.ContainsFold(in.Q))
 	}
 	rows, err := q.Get()
 	if err != nil {
@@ -155,7 +157,12 @@ const t = useT()
 
 - **The filter** is Inertia's `<Form>` with `method="get"`: it visits
   `/drafts?q=…` without a page load, and `preserveState` keeps what was
-  typed. The handler reads `q` from the URL (`DraftsQuery`).
+  typed. The handler reads `q` from the URL (`DraftsQuery`), and
+  `ContainsFold` matches it in any case on every database (`Contains`
+  follows the database: PostgreSQL's is case-sensitive).
+- **The path** is `/drafts`, not `/posts/drafts`: the layout's
+  `NavLink` marks a link as the current page on the paths under it too,
+  so under `/posts/` the Posts link would be marked as well.
 - **Links** name their routes: `route('posts.show', { id: post.id })`.
   A route renamed in Go, or a parameter left out, fails the type check.
   `Link` visits the page without reloading the app.
@@ -207,6 +214,9 @@ every page: keep shared props cheap. A component reads them with
 ```
 
 The layout stays mounted as pages change; the count follows each visit.
+A number in a message that isn't a plural one is written as given
+(`{count}` in a plural message is formatted for the locale): pass
+`useFormat().number(n)` for the locale's digits.
 
 ### 5. Take input with a form
 
@@ -256,8 +266,46 @@ logged-in users, move their routes into its `loggedIn` group: remove
 Posts(loggedIn) // the posts, for logged-in users only
 ```
 
-Hiding a link from guests isn't enough: the route's group is what keeps
-them out.
+To let guests read the posts and only logged-in users change them,
+split `routes/posts.go` in two, and call the second from
+`routes/auth.go` with `loggedIn`:
+
+```go
+// illustrative: routes/posts.go
+// Posts adds the pages anyone may see: routes/web.go calls it.
+func Posts(r *web.Router) {
+	var h handlers.Posts
+	r.Get("/posts", web.H(h.Index)).Name("posts.index")
+	r.Get("/drafts", web.H(h.Drafts)).Name("posts.drafts")
+	r.Get("/posts/{id}", web.H(h.Show)).Name("posts.show")
+}
+
+// PostChanges adds the pages that change posts: routes/auth.go calls it
+// with its loggedIn group.
+func PostChanges(r *web.Router) {
+	var h handlers.Posts
+	r.Get("/posts/new", h.New).Name("posts.new")
+	r.Post("/posts", web.H(h.Create)).Name("posts.create")
+	r.Get("/posts/{id}/edit", web.H(h.Edit)).Name("posts.edit")
+	r.Put("/posts/{id}", web.H(h.Update)).Name("posts.update")
+	r.Delete("/posts/{id}", web.H(h.Delete)).Name("posts.delete")
+}
+```
+
+A guest who opens `/posts/new` goes to the login page; a guest's post,
+put or delete gets `401`: the login redirect is for pages. Hide the
+buttons from guests with the shared `user`:
+
+```vue
+<!-- illustrative: frontend/src/pages/Posts/Index.vue, with const shared = usePage() -->
+<LinkButton v-if="shared.props.user" :href="route('posts.new')">{{ t('posts.new') }}</LinkButton>
+```
+
+(The list's own prop is named `page`: name `usePage()`'s result
+otherwise.)
+
+Hiding a button isn't enough: the route's group is what keeps guests
+out.
 
 ### 7. Test it
 

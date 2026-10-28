@@ -24,7 +24,7 @@ compiles its views. Its flags:
 | Flag | Default | Meaning |
 |---|---|---|
 | `--db` | `sqlite` | `postgres` or `mysql` for a server database ([Choose a database](databases.md)) |
-| `--stack` | `web` | `api` for an app that serves JSON only ([below](#an-api-instead)) |
+| `--stack` | `web` | `api` for an app that serves JSON only ([below](#an-api-instead)); `react`, `svelte` or `vue` for pages written as components ([below](#pages-in-react-vue-or-svelte)) |
 | `--css` | `anetos` | The CSS framework: `anetos`, the starter theme; `none`, components without classes and an almost empty stylesheet, for your own CSS; `pico`, `bootstrap` or `bulma`, components in that framework's markup, with its files; `tailwind`, components with Tailwind CSS's classes, compiled by `anetos dev` ([Style your app](../guides/styling.md#7-or-start-with-a-css-framework)) |
 | `--module` | the folder's name | The Go module path, such as `github.com/you/blog` |
 

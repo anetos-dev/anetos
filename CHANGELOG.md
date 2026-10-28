@@ -7,6 +7,10 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- `db`: `col.ContainsFold(s)` and `col.StartsWithFold(s)`, the
+  case-insensitive `Contains` and `StartsWith`, alike on every database
+  (`LOWER(col) LIKE LOWER(…)`): for search boxes, where `Contains`
+  followed the database (case-sensitive on PostgreSQL) (V4, D383).
 - Guides for v0.6's frontends (V4): "Build pages in React", "in
   Svelte" and "in Vue" (a page of your own, step by step: its props in
   Go, the component, a filter, a shared prop, forms, logins, tests,
@@ -31,7 +35,9 @@ All notable changes to this project are documented here. The format follows
   in `npm run build`; `make:auth` and `make:crud` write Svelte pages in
   such a project. `make test-frontend` runs the cli tests that build
   frontends with Node, which CI runs in a job of its own,
-  `test (latest Go, frontend)`.
+  `test (latest Go, frontend)`; it also tests a react project on
+  PostgreSQL and MySQL, and builds and type-checks the examples'
+  frontends (V4, D382).
 - The vue stack (V3b, D377–D378): `anetos new --stack=vue`, the react
   stack's Go side with pages that are Vue single-file components in
   TypeScript (`src/Layout.vue`, `src/components/ui/`, a component a
@@ -128,10 +134,14 @@ All notable changes to this project are documented here. The format follows
   `inertia.WithPages` lists, the shared props, `PageProps<C>`, and the
   augmentation that types `usePage()`); `--check` and
   `typescript.Check` for tests. `go tool anetos generate` and `anetos
-  dev` run the command. `inertia.WithPages`: in development and tests,
+  dev` run the command, and so do `anetos check` and `anetos build`
+  before the frontend's build, which type-checks against the types as
+  they are (V4, D384). `inertia.WithPages`: in development and tests,
   rendering a page the app doesn't list is an error.
 - Pages in Vue, React or Svelte with Inertia (V2, D346–D351): new package
-  `web/inertia`, the server side of Inertia's protocol (v3). Pages are
+  `web/inertia`, the server side of Inertia's protocol (v3):
+  `inertia.New(app, root, …)` with the root view (`inertia.App()` writes
+  the page into it), `NewWithRoot` without an app. Pages are
   declared with their props' Go type (`inertia.NewPage[P]("Posts/Index")`)
   and rendered by handlers (`page.Render(c, props)`): the root view's
   HTML on a first visit, the page object as JSON for the client's
@@ -141,8 +151,13 @@ All notable changes to this project are documented here. The format follows
   validation errors of the redirect back in the `errors` prop, with
   error bags; flash data, history encryption, `inertia.Location`;
   `inertia.Middleware` for asset versions (409 after a new build), 303
-  after PUT, PATCH and DELETE and redirects to fragments;
-  `inertia.ErrorPages` for error pages in the frontend. `web.CSRF`
+  after PUT, PATCH and DELETE, redirects to fragments, and a visit to
+  a page that isn't Inertia's (a templ page in its group), which the
+  client loads whole, keeping what was flashed, so a web project's
+  pages can move to Inertia one at a time (V4, D381);
+  `inertia.ErrorPages` for error pages in the frontend. With
+  `APP_LOCALE_STRATEGY=prefix`, a page's URL and the reload after a new
+  build keep the locale's prefix. `web.CSRF`
   accepts `X-XSRF-TOKEN`, and `web.WithXSRFCookie()` sets the
   `XSRF-TOKEN` cookie Inertia's client reads; `session.ManagerFrom` and
   `Manager.NewCookie`. An error page component that is a `web.Responder`
@@ -173,22 +188,19 @@ All notable changes to this project are documented here. The format follows
   (DR1, D339).
 
 ### Changed
-- `web/inertia`: `inertia.Middleware` answers a visit of Inertia's
-  client to a page that isn't Inertia's (a templ page in its group)
-  with 409 and `X-Inertia-Location`, keeping what was flashed, so the
-  client loads it whole instead of showing it in its error dialog: a
-  web project's pages can move to Inertia one at a time (V4, D381).
-- `anetos vite:install` and `anetos new --vite` no longer refuse an API
-  project: they add its single-page app (SP2). An API project's
-  `frontend/` without `vite.SPA` in `main.go` is still left alone by
-  `anetos dev`, `build` and `check`.
 - `make:auth` (API): `POST /api/v1/login/two-factor`'s `challenge` is
   no longer required by validation (the SPA's login has none); a token
   client without one gets the "log in again" error (SP1).
-- In a web project with `frontend/package.json`, `anetos dev` now runs
-  its Vite, and `anetos build` and `anetos check` install its packages
-  and run its `build` script (V1, D342, D343). A web project with a
-  `frontend/` of another kind: see the upgrade guide.
+- **BREAKING:** in a web project with `frontend/package.json`, `anetos
+  dev` now runs its Vite, and `anetos build` and `anetos check` install
+  its packages and run its `build` script (V1, D342, D343). A web
+  project with a `frontend/` of another kind: see the upgrade guide.
+
+  ```sh
+  # a frontend/ that isn't Vite's (another app's sources, say), before
+  # upgrading the tool: rename it, or anetos build runs its build script
+  mv frontend web-client
+  ```
 - An Anetos built from this source reports `v0.6.0-dev`, and
   `plugins/postmark` works with Anetos v0.6 too (`Requires`:
   `>= v0.2.0, < v0.7.0`) (after v0.5.0).
@@ -198,23 +210,17 @@ All notable changes to this project are documented here. The format follows
   and sends it to Codecov, and the README shows its badge (M9b, D332).
 
 ### Fixed
-- `web/inertia`: with `APP_LOCALE_STRATEGY=prefix`, the reload after a
-  deploy (an old asset version) went to the page's URL without the
-  locale's prefix (`/posts` for `/bn/posts`); it keeps it (V4).
 - `make:crud`: in a web project, the handlers' `fill` method followed
   the input struct's closing brace on its line; a second model's
-  `routes/web.go` call wasn't aligned as gofmt aligns it; the routes'
-  file is now gofmt'd after the call is added (V4).
+  `routes/web.go` call wasn't aligned as gofmt aligns it (the routes'
+  file is now gofmt'd after the call is added); its comments said "a
+  event" for a model whose name starts with a vowel (V4).
 - Docs (SD1): "Secure your app"'s `systemd-run` command, which runs
   `doctor` as the service does, gives it the service's user (`-p
   User=blog`): without it, the command got a dynamic user of its own,
   and systemd could hand it the state directory of the running
   service. `Check.Security`'s godoc named the report's rule
-  `setting.<Name>`; it is `check.<Name>`. The doctor reference's `http`
-  row lists the `HTTP_CLIENT_IP_HEADER` and `HTTP_SPA_ORIGINS` findings.
-- `web/inertia`: with `APP_LOCALE_STRATEGY=prefix`, a page's URL keeps
-  the locale's prefix (`/bn/posts`), which the client shows in the
-  address bar (V3b).
+  `setting.<Name>`; it is `check.<Name>`.
 - `web/openapi`: a result's fields promoted through an embedded pointer
   to an unexported struct, which `encoding/json` writes, are in its
   schema (TS1).
@@ -243,7 +249,14 @@ All notable changes to this project are documented here. The format follows
   `CACHE_STORE`, `SESSION_LIFETIME`, `MIGRATE_ON_RUN`…) are no longer
   read: a service whose former setting is set, without the new one,
   refuses to start, naming the new one, instead of using a default
-  (DR1, D339).
+  (DR1, D339):
+
+  ```sh
+  # v0.5 (a former name, still read)
+  DB_CONNECTION=postgres
+  # v0.6
+  DB_DRIVER=postgres
+  ```
 - **BREAKING:** the command names before v0.5 (`routes:list`,
   `plugins:list`, `plugins:env`, `lang:check`, the tool's `lang:add`,
   `add lang` and `make:admin:resource`), `schedule:run <task>`, the
@@ -252,11 +265,28 @@ All notable changes to this project are documented here. The format follows
   with `Listen` but not `Listeners` and a storage backend with
   `SignedURL` but not `TemporaryURL` are refused too, and a user's
   `CommunicationLocale` is ignored with an error logged once (use
-  `PreferredMailLocale`) (DR1, D340).
+  `PreferredMailLocale`) (DR1, D340):
+
+  ```sh
+  # v0.5
+  ./blog routes:list
+  ./blog run --only=http,workers
+  # v0.6
+  ./blog route:list
+  ./blog run --only=web,worker
+  ```
 - **BREAKING:** the tool no longer writes `views/ui` into a web project
   without one (`make:crud` and `make:auth` stop, naming `css:use
   --force`), nor reads `views/ui/kit.json` or the generated files'
-  header before v0.5 (DR1, D338).
+  header before v0.5 (DR1, D338):
+
+  ```sh
+  # v0.5: make:crud wrote views/ui into a web project without one
+  go tool anetos make:crud Post title:string
+  # v0.6: it stops; write views/ui first
+  go tool anetos css:use anetos --force
+  go tool anetos make:crud Post title:string
+  ```
 
 ## [0.5.0] - 2026-10-25
 

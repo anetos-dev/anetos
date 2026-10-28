@@ -39,9 +39,10 @@ In an API project, after `make:auth` if it has accounts:
 go tool anetos vite:install             # TypeScript; --js for JavaScript
 ```
 
-The SPA's page is written for the routes there are: run `make:auth`
-first, and the page logs in; after it, the page shows the API's welcome
-and stays so (write the login yourself, as `examples/spa` does). A new
+The SPA's page is written for the routes there are when you run it:
+after `make:auth`, the page logs in; before it, the page shows the
+API's welcome, and running `make:auth` later doesn't change it (write
+the login yourself then, as `examples/spa` does). A new
 project without accounts can have it from the start:
 
 ```sh
@@ -87,7 +88,9 @@ server: {
 (Copied from [`examples/spa/frontend/vite.config.ts`](../../../examples/spa/frontend/vite.config.ts), region `server`.)
 
 The page and the API are one origin for the browser (Vite's), as they
-are in production (the app's).
+are in production (the app's). With another `HTTP_ADDR`, or another
+port for Vite, change them here, with `HTTP_SPA_ORIGINS` and
+`AUTH_CLIENT_URL` in `.env`: the tool writes the defaults.
 
 ### 3. Write the SPA
 
@@ -105,7 +108,10 @@ then add `react()` to `plugins` in `vite.config.ts`, `"jsx":
 `src/main.tsx`. Svelte (`@sveltejs/vite-plugin-svelte`) and Vue
 (`@vitejs/plugin-vue`) take their plugin the same way; their components
 need their own type checker in the build script (`svelte-check`,
-`vue-tsc --noEmit`) in place of `tsc --noEmit`. [`examples/spa`](../../../examples/spa)
+`vue-tsc --noEmit`) in place of `tsc --noEmit`, and both run on
+TypeScript 6, not the 7 `vite:install` writes: `npm install -D
+typescript@^6 svelte-check` (or `vue-tsc`), and add the `.svelte` (or
+`.vue`) files to `tsconfig.json`'s `include`. [`examples/spa`](../../../examples/spa)
 is a React SPA made like this: its pages are routes of the browser's
 path, which the app answers with `index.html` (step 4):
 
@@ -161,7 +167,15 @@ export function errorMessages(err: unknown): Record<string, string> {
 The client sends the session cookie and the `XSRF-TOKEN` cookie back in
 the `X-XSRF-TOKEN` header: the login is the session's, as [Log in from
 your SPA](spa-login.md) describes. When the SPA starts, `api.me()` says
-who is logged in (or 401). The account emails link to the SPA's
+who is logged in (or 401; the browser's console notes a 401 or 422
+answer as a failed request, which is the browser's, not an error of
+the page).
+
+`make:crud`'s endpoints go in `routes/api.go`'s group, open to every
+client and without sessions: for the SPA's logged-in user to reach
+them, call them from `routes/auth.go` with its `loggedIn` group, as the
+generated comment says, and make each record its user's as [Build an
+API](../getting-started/build-an-api.md) does. The account emails link to the SPA's
 `/verify-email` and `/reset-password` pages (`AUTH_CLIENT_URL`), which
 send the link's token to the API.
 

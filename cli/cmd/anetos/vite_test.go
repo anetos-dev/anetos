@@ -3,6 +3,9 @@
 package main
 
 import (
+	"context"
+	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -148,6 +151,28 @@ func TestNewAPIProjectSPA(t *testing.T) {
 	}
 	writeFiles(t, filepath.Join(dir, "public"), map[string]string{"embed_test.go": spaEmbedTest})
 	goIn(dir, "test", "./public")
+	// build and check write the client from the Go code as it is, before
+	// the frontend's build type-checks against it.
+	stale := filepath.Join(dir, "frontend", "src", "types", "api.ts")
+	for _, step := range []func() error{
+		func() error {
+			if code, out, errOut := runCmd(t, "build", "-o", "bin/shop"); code != 0 {
+				return fmt.Errorf("build: %d\n%s\n%s", code, out, errOut)
+			}
+			return nil
+		},
+		func() error { return checkGenerate(context.Background(), dir, io.Discard) },
+	} {
+		if err := os.WriteFile(stale, []byte("// stale\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := step(); err != nil {
+			t.Fatal(err)
+		}
+		if api := read(t, stale); !strings.Contains(api, "welcome: (") {
+			t.Errorf("api.ts not rewritten:\n%s", api)
+		}
+	}
 
 	// vite:install after make:auth: the login page.
 	authDir := filepath.Join(t.TempDir(), "accounts")
