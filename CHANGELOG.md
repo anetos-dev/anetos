@@ -7,6 +7,13 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Guides for v0.6's frontends (V4): "Build pages in React", "in
+  Svelte" and "in Vue" (a page of your own, step by step: its props in
+  Go, the component, a filter, a shared prop, forms, logins, tests,
+  the build); "Move htmx pages to Inertia" (a web project's pages, one
+  at a time); "Move htmx pages to an API and an SPA" (a new API project
+  beside the old app, on its database); and the concept page
+  "Frontends" (the three ways, what each keeps in Go, how to choose).
 - Security docs (SD1): the guide "Secure your app" starts with what
   Anetos protects in each stack and the tools that check the rest
   (`check`, `doctor`, `security:check` and its live checks, the coding
@@ -166,6 +173,11 @@ All notable changes to this project are documented here. The format follows
   (DR1, D339).
 
 ### Changed
+- `web/inertia`: `inertia.Middleware` answers a visit of Inertia's
+  client to a page that isn't Inertia's (a templ page in its group)
+  with 409 and `X-Inertia-Location`, keeping what was flashed, so the
+  client loads it whole instead of showing it in its error dialog: a
+  web project's pages can move to Inertia one at a time (V4, D381).
 - `anetos vite:install` and `anetos new --vite` no longer refuse an API
   project: they add its single-page app (SP2). An API project's
   `frontend/` without `vite.SPA` in `main.go` is still left alone by
@@ -186,6 +198,13 @@ All notable changes to this project are documented here. The format follows
   and sends it to Codecov, and the README shows its badge (M9b, D332).
 
 ### Fixed
+- `web/inertia`: with `APP_LOCALE_STRATEGY=prefix`, the reload after a
+  deploy (an old asset version) went to the page's URL without the
+  locale's prefix (`/posts` for `/bn/posts`); it keeps it (V4).
+- `make:crud`: in a web project, the handlers' `fill` method followed
+  the input struct's closing brace on its line; a second model's
+  `routes/web.go` call wasn't aligned as gofmt aligns it; the routes'
+  file is now gofmt'd after the call is added (V4).
 - Docs (SD1): "Secure your app"'s `systemd-run` command, which runs
   `doctor` as the service does, gives it the service's user (`-p
   User=blog`): without it, the command got a dynamic user of its own,

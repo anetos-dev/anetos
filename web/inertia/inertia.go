@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"mime"
 	"net/http"
 	"reflect"
 	"strings"
@@ -252,7 +253,16 @@ func isInertia(r *http.Request) bool { return r.Header.Get("X-Inertia") == "true
 //   - turns a redirect to a URL with a fragment (#comments) into 409 with
 //     X-Inertia-Redirect, which the client follows keeping the fragment;
 //   - keeps the error bag a form names (X-Inertia-Error-Bag) for the
-//     page the failed post redirects back to.
+//     page the failed post redirects back to;
+//   - answers a GET whose handler writes an HTML page that isn't
+//     Inertia's (a templ page) with 409 and X-Inertia-Location, keeping
+//     the session's flashed data: the client loads the page whole
+//     instead of showing it in its error dialog. The handler runs again
+//     for that load, so what it removes from the session other than
+//     flashed data (Pull, Delete) is gone by then. A project moving its
+//     templ pages to Inertia keeps both in one group this way. Routes
+//     outside the group (the admin's) and prefetches aren't changed:
+//     link to them with a plain <a>.
 //
 // It adds "Vary: X-Inertia" to every response, and keeps what [Flash],
 // [ClearHistory] and [PreserveFragment] leave for the next page. The
@@ -271,7 +281,7 @@ func Middleware(next http.Handler) http.Handler {
 				if s := session.From(r.Context()); s != nil {
 					s.Reflash()
 				}
-				w.Header().Set("X-Inertia-Location", r.URL.RequestURI())
+				w.Header().Set("X-Inertia-Location", requestURI(r))
 				w.Header().Set("X-Inertia-Version", in.version)
 				w.WriteHeader(http.StatusConflict)
 				return
@@ -317,12 +327,50 @@ func (w *writer) WriteHeader(code int) {
 				code, w.discard = http.StatusConflict, true
 			}
 		}
+		if code >= 200 && code < 300 && w.plainPage() {
+			// A page that isn't Inertia's (a templ page): the client loads
+			// it whole, as a link to it would; what was flashed for it is
+			// kept for that load.
+			if s := session.From(w.r.Context()); s != nil {
+				s.Reflash()
+			}
+			h := w.Header()
+			for _, k := range []string{"Content-Type", "Content-Length", "Content-Encoding", "ETag", "Last-Modified"} {
+				h.Del(k)
+			}
+			h.Set("X-Inertia-Location", requestURI(w.r))
+			code, w.discard = http.StatusConflict, true
+		}
 	}
 	w.ResponseWriter.WriteHeader(code)
 }
 
+// requestURI is the URL r was sent to, as the browser asked for it: the
+// request line's, before middleware rewrote the path (a locale's prefix,
+// with APP_LOCALE_STRATEGY=prefix).
+func requestURI(r *http.Request) string {
+	if r.RequestURI != "" && strings.HasPrefix(r.RequestURI, "/") {
+		return r.RequestURI
+	}
+	return r.URL.RequestURI()
+}
+
+// plainPage reports whether the response being written is an HTML page
+// that isn't Inertia's, for a GET visit of the client (not a prefetch).
+func (w *writer) plainPage() bool {
+	h := w.Header()
+	if w.r.Method != http.MethodGet || w.r.Header.Get("Purpose") == "prefetch" || h.Get("X-Inertia") != "" {
+		return false
+	}
+	mt, _, _ := mime.ParseMediaType(h.Get("Content-Type"))
+	return mt == "text/html" || mt == "application/xhtml+xml"
+}
+
 func (w *writer) Write(b []byte) (int, error) {
 	if !w.wroteHeader {
+		if h := w.Header(); h["Content-Type"] == nil && h.Get("Transfer-Encoding") == "" && h.Get("Content-Encoding") == "" && len(b) > 0 {
+			h.Set("Content-Type", http.DetectContentType(b)) // as net/http would: plainPage reads it
+		}
 		w.WriteHeader(http.StatusOK)
 	}
 	if w.discard {

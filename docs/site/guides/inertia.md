@@ -88,8 +88,11 @@ go run . migrate
 ```
 
 The [CLI reference](../reference/cli.md#the-inertia-stacks) lists the
-files. The rest of this guide is how the parts work, and how to add
-Inertia to a project made without it.
+files, and [Build pages in React](react.md), [in Svelte](svelte.md)
+and [in Vue](vue.md) add a page step by step. The rest of this guide is
+how the parts work, and how to add Inertia to a project made without
+it; a web project's templ pages can move to it one at a time ([Move
+htmx pages to Inertia](migrate-htmx-to-inertia.md)).
 
 ## Before you start
 
@@ -387,6 +390,13 @@ page object as JSON, and the client swaps the component in place.
   hash of Vite's manifest). After a deploy, a client with the old one
   gets a 409, and loads the page whole with the new scripts; flashed
   messages and errors are kept for that load.
+- **Pages that aren't Inertia's:** a link in a component to a templ
+  page in the group gets an ordinary HTML page, which the client would
+  show in its error dialog. `inertia.Middleware` answers such a visit
+  with 409 and `X-Inertia-Location` instead, keeping what was flashed,
+  and the client loads the page whole; the handler runs twice for that
+  link. Routes outside the group (the admin's) and prefetching links
+  (`prefetch`) aren't covered: link to those pages with a plain `<a>`.
 - **CSRF:** the `XSRF-TOKEN` cookie holds the session's token, which the
   client sends back in `X-XSRF-TOKEN`. `web.CSRF` checks it as it checks
   a form's `_token`.
@@ -461,3 +471,5 @@ func TestNotes(t *testing.T) {
 - [Protect your app in the browser](browser-security.md): the
   XSRF-TOKEN cookie, a Content-Security-Policy for the pages, and
   what not to write unescaped.
+- [Build pages in React](react.md), [in Svelte](svelte.md), [in
+  Vue](vue.md).

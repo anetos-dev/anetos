@@ -4,6 +4,7 @@ package scaffold
 
 import (
 	"errors"
+	"go/format"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -54,8 +55,18 @@ func TestMakeCrud(t *testing.T) {
 	if _, err := MakeCrud(dir, "Tag", []string{"name:string"}, now); err != nil {
 		t.Fatal(err)
 	}
-	if got := read(t, filepath.Join(dir, "routes", "web.go")); !strings.Contains(got, "\tBlogPosts(pages) // anetos make:crud\n\tTags(pages) // anetos make:crud\n}") {
+	// gofmt aligns the calls' comments.
+	if got := read(t, filepath.Join(dir, "routes", "web.go")); !strings.Contains(got, "\tBlogPosts(pages) // anetos make:crud\n\tTags(pages)      // anetos make:crud\n}") {
 		t.Errorf("routes/web.go:\n%s", got)
+	}
+	for _, file := range []string{"routes/web.go", "app/handlers/blog_posts.go", "app/handlers/tags.go"} {
+		src := read(t, filepath.Join(dir, filepath.FromSlash(file)))
+		if out, err := format.Source([]byte(src)); err != nil || string(out) != src {
+			t.Errorf("%s isn't gofmt's (%v):\n%s", file, err, src)
+		}
+		if strings.HasPrefix(file, "app/") && !strings.Contains(src, "}\n\n// fill copies the form to the row.\nfunc") {
+			t.Errorf("%s: fill isn't a declaration of its own:\n%s", file, src)
+		}
 	}
 	if got := read(t, filepath.Join(dir, "views", "layout.templ")); !strings.Contains(got, "\"blog_posts.title\"))\n\t\t\t\t\t@navLink(\"tags.index\", i18n.T(ctx, \"tags.title\"))\n\t\t\t\t}\n") {
 		t.Errorf("layout:\n%s", got)

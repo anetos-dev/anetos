@@ -319,3 +319,5 @@ against `anetos dev` or the built binary.
 - [Deploy](deployment.md).
 - [Protect your app in the browser](browser-security.md): CORS and a
   Content-Security-Policy for the SPA.
+- [Move htmx pages to an API and an SPA](migrate-htmx-to-spa.md),
+  for a web project.

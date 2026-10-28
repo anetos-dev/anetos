@@ -41,7 +41,9 @@ func TestPageURLLocalePrefix(t *testing.T) {
 		t.Fatal(err)
 	}
 	r := srv.Router()
-	r.Group("", inertia.Middleware).Get("/posts", func(c *web.Ctx) error { return inertia.Render(c, "Posts", nil) })
+	g := r.Group("", inertia.Middleware)
+	g.Get("/posts", func(c *web.Ctx) error { return inertia.Render(c, "Posts", nil) })
+	g.Get("/plain", func(c *web.Ctx) error { return c.HTML(http.StatusOK, "<p>templ</p>") })
 	if err := app.Boot(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -65,6 +67,21 @@ func TestPageURLLocalePrefix(t *testing.T) {
 		}
 		if err := json.Unmarshal(b, &pg); err != nil || pg.URL != want {
 			t.Errorf("%s: url %q (%v), want %q:\n%s", path, pg.URL, err, want, b)
+		}
+	}
+	// The pages the client loads whole keep the prefix too: an old asset
+	// version, a page that isn't Inertia's.
+	for path, version := range map[string]string{"/bn/posts?page=2": "v0", "/bn/plain?x=1": "v1"} {
+		req, _ := http.NewRequest(http.MethodGet, hs.URL+path, nil)
+		req.Header.Set("X-Inertia", "true")
+		req.Header.Set("X-Inertia-Version", version)
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res.Body.Close()
+		if res.StatusCode != http.StatusConflict || res.Header.Get("X-Inertia-Location") != path {
+			t.Errorf("%s: %d %q", path, res.StatusCode, res.Header.Get("X-Inertia-Location"))
 		}
 	}
 }

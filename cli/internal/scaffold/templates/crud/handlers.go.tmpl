@@ -43,8 +43,7 @@ type [[.Model]]Input struct {
 	[[.Go]] [[.GoType]] `json:"[[.Name]]"[[with .Rules $.Table]] validate:"[[.]]"[[end]]`
 [[- end]]
 }
-
-[[- if .Inertia]]
+[[if .Inertia]]
 // The [[.PluralW]] pages (frontend/src/pages/[[.Plural]]: yours to change), and
 // their props. Their text is in locales/en/[[.Key]].yaml.
 var (
@@ -96,8 +95,7 @@ type [[.Model]]Props struct {
 type [[.Model]]FormProps struct {
 	Item *[[.Model]]Item `json:"item"`
 }
-
-[[ end -]]
+[[end]]
 // fill copies the form to the row.
 func (in [[.Model]]Input) fill(row *models.[[.Model]]) {
 [[- range .Fields]]

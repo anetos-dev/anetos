@@ -83,7 +83,7 @@ func TestNewProject(t *testing.T) {
 			t.Fatalf("%v: %d\n%s\n%s", args, code, out, errOut)
 		}
 	}
-	if b := read(t, filepath.Join(dir, "routes", "web.go")); !strings.Contains(b, "\tArticles(pages) // anetos make:crud\n\tAPIKeys(pages) // anetos make:crud\n\tViews(pages) // anetos make:crud\n}") {
+	if b := read(t, filepath.Join(dir, "routes", "web.go")); !strings.Contains(b, "\tArticles(pages) // anetos make:crud\n\tAPIKeys(pages)  // anetos make:crud\n\tViews(pages)    // anetos make:crud\n}") {
 		t.Errorf("routes/web.go:\n%s", b)
 	}
 	// The nav marks the list's link on all its pages.

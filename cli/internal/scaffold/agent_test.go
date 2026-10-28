@@ -104,7 +104,8 @@ func TestRenderAgentFiles(t *testing.T) {
 	for _, f := range files {
 		switch f.Rel {
 		case ".claude/skills/anetos-page/SKILL.md":
-			if c := string(f.Content); !strings.Contains(c, "frontend/src/pages/Reports/Show.tsx") || !strings.Contains(c, "transform") {
+			if c := string(f.Content); !strings.Contains(c, "frontend/src/pages/Reports/Show.tsx") || !strings.Contains(c, "transform") ||
+				!strings.Contains(c, "docs guides/react") {
 				t.Errorf("react's page skill:\n%s", c)
 			}
 		case ".claude/skills/anetos-crud/SKILL.md":
@@ -128,7 +129,7 @@ func TestRenderAgentFiles(t *testing.T) {
 		}
 		for rel, wants := range map[string][]string{
 			"AGENTS.md":                               {"Svelte components", "src/components/ui/", "Layout.svelte"},
-			".claude/skills/anetos-page/SKILL.md":     {"$props()", "src/routes.ts", "Show.svelte"},
+			".claude/skills/anetos-page/SKILL.md":     {"$props()", "src/routes.ts", "Show.svelte", "docs guides/svelte"},
 			".claude/skills/anetos-security/SKILL.md": {"`{@html}`"},
 		} {
 			for _, w := range wants {
@@ -152,7 +153,7 @@ func TestRenderAgentFiles(t *testing.T) {
 		}
 		for rel, wants := range map[string][]string{
 			"AGENTS.md":                               {"Vue components", "src/components/ui/", "Layout.vue"},
-			".claude/skills/anetos-page/SKILL.md":     {"defineProps<ReportProps>()", `:action="route('reports.create')"`, "Show.vue"},
+			".claude/skills/anetos-page/SKILL.md":     {"defineProps<ReportProps>()", `:action="route('reports.create')"`, "Show.vue", "docs guides/vue"},
 			".claude/skills/anetos-security/SKILL.md": {"`v-html`", "{{ value }}"},
 		} {
 			for _, w := range wants {

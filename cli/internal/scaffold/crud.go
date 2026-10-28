@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"go/ast"
+	"go/format"
 	"go/parser"
 	"go/token"
 	"net/url"
@@ -699,6 +700,12 @@ func addRoutesCall(file, plural, group string) (bool, error) {
 	}
 	call := "\t" + plural + "(" + group + ") // anetos make:crud\n"
 	patched := append(append(append([]byte(nil), src[:line]...), call...), src[line:]...)
+	// gofmt aligns the call's comment with its neighbors' (it formats
+	// the whole file, as gofmt would; a file with CRLF line ends is left
+	// as it is: gofmt would change them all).
+	if out, err := format.Source(patched); err == nil && !bytes.Contains(src, []byte("\r\n")) {
+		patched = out
+	}
 	return true, os.WriteFile(file, patched, 0o644)
 }
 

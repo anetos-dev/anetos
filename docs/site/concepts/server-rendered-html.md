@@ -148,7 +148,9 @@ page; the client's visits after it get the page as JSON and swap the
 component, without reloading. Sessions, CSRF, the redirect back with
 errors and the flash work as they do for templ pages; the errors reach
 the component in its `errors` prop. See
-[Pages in Vue, React or Svelte with Inertia](../guides/inertia.md).
+[Pages in Vue, React or Svelte with Inertia](../guides/inertia.md), and
+[Frontends](frontends.md) for the ways to serve a frontend and how to
+choose.
 
 ## Guarantees and trade-offs
 
@@ -176,5 +178,6 @@ the component in its `errors` prop. See
 - [Render HTML with templ](../guides/views.md)
 - [Bundle JavaScript and CSS with Vite](../guides/vite.md), [Pages in Vue, React or Svelte with Inertia](../guides/inertia.md)
 - [Sessions and flash messages](../guides/sessions.md), [Handle HTML forms](../guides/forms.md)
+- [Frontends](frontends.md)
 - [HTTP request lifecycle](http-request-lifecycle.md)
 - [Views, sessions and forms reference](../reference/views.md), [Session settings](../reference/configuration.md#sessions)

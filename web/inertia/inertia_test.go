@@ -164,6 +164,33 @@ func newFixture(t *testing.T, opts ...inertia.Option) *fixture {
 	})
 	g.Put("/move", func(c *web.Ctx) error { return c.Redirect(http.StatusFound, c.Query("to")) })
 	g.Get("/away", func(c *web.Ctx) error { return inertia.Location(c, "https://example.com/pay") })
+	// Pages that aren't Inertia's: a templ page not moved yet, a file.
+	g.Get("/plain", func(c *web.Ctx) error {
+		return c.HTML(http.StatusOK, "<p>"+c.Session().GetString("status")+"</p>")
+	})
+	g.Post("/plain", func(c *web.Ctx) error {
+		c.Session().Flash("status", "Moved")
+		return c.Redirect(http.StatusSeeOther, "/plain?x=1")
+	})
+	g.Post("/plain-page", func(c *web.Ctx) error { return c.HTML(http.StatusOK, "<p>posted</p>") })
+	g.Get("/file.txt", func(c *web.Ctx) error { return c.Text(http.StatusOK, "text") })
+	g.Get("/sniffed", func(c *web.Ctx) error {
+		_, err := c.Writer().Write([]byte("<!doctype html><p>no type</p>"))
+		return err
+	})
+	g.Get("/headers", func(c *web.Ctx) error {
+		h := c.Writer().Header()
+		h.Set("ETag", `"1"`)
+		h.Set("Content-Length", "21")
+		h.Set("Content-Type", "application/xhtml+xml")
+		return c.HTML(http.StatusOK, "<p>xhtml, with etag</p>")
+	})
+	g.Get("/streamed", func(c *web.Ctx) error {
+		c.Writer().Header().Set("Content-Type", "text/html")
+		_ = http.NewResponseController(c.Writer()).Flush()
+		_, err := c.Writer().Write([]byte("<p>streamed</p>"))
+		return err
+	})
 	g.Get("/teapot", func(*web.Ctx) error {
 		return &web.HTTPError{Status: http.StatusTeapot, Message: "Short and stout.", Fields: map[string]string{"tea": "Too hot."}}
 	})
@@ -454,6 +481,56 @@ func TestRedirects(t *testing.T) {
 	}
 	if res := f.do(t, http.MethodGet, "/away", nil); res.status != http.StatusSeeOther || res.header.Get("Location") != "https://example.com/pay" {
 		t.Errorf("Location for a browser: %d %v", res.status, res.header)
+	}
+}
+
+// A visit to a page that isn't Inertia's loads it whole (409 with
+// X-Inertia-Location), keeping what was flashed for it; other answers,
+// and requests that aren't the client's visits, are left as they are.
+func TestPlainPages(t *testing.T) {
+	f := newFixture(t)
+	f.do(t, http.MethodGet, "/form", nil)
+	if res := f.visit(t, http.MethodPost, "/plain"); res.status != http.StatusSeeOther {
+		t.Fatalf("post: %d", res.status)
+	}
+	res := f.visit(t, http.MethodGet, "/plain?x=1")
+	if res.status != http.StatusConflict || res.header.Get("X-Inertia-Location") != "/plain?x=1" || res.body != "" ||
+		res.header.Get("Content-Type") != "" || res.header.Get("X-Inertia") != "" {
+		t.Fatalf("visit: %d %v %q", res.status, res.header, res.body)
+	}
+	if res := f.do(t, http.MethodGet, "/plain?x=1", nil); res.status != http.StatusOK || res.body != "<p>Moved</p>" {
+		t.Errorf("the load after it: %d %q", res.status, res.body)
+	}
+	if res := f.do(t, http.MethodGet, "/plain", nil); res.body != "<p></p>" {
+		t.Errorf("flashed twice: %q", res.body)
+	}
+	if res := f.visit(t, http.MethodGet, "/plain", "Purpose", "prefetch"); res.status != http.StatusOK {
+		t.Errorf("prefetch: %d", res.status)
+	}
+	if res := f.visit(t, http.MethodPost, "/plain-page"); res.status != http.StatusOK || res.body != "<p>posted</p>" {
+		t.Errorf("POST: %d %q", res.status, res.body)
+	}
+	if res := f.visit(t, http.MethodGet, "/file.txt"); res.status != http.StatusOK || res.body != "text" {
+		t.Errorf("text: %d %q", res.status, res.body)
+	}
+	if res := f.visit(t, http.MethodGet, "/posts"); res.status != http.StatusOK || res.header.Get("X-Inertia") != "true" {
+		t.Errorf("Inertia's page: %d %v", res.status, res.header)
+	}
+	if res := f.visit(t, http.MethodGet, "/teapot"); res.status != http.StatusTeapot {
+		t.Errorf("error page: %d", res.status)
+	}
+	// HTML without a Content-Type (net/http sniffs it), XHTML, a page
+	// flushed before it writes: the same; validators and lengths go.
+	for _, path := range []string{"/sniffed", "/headers", "/streamed"} {
+		res := f.visit(t, http.MethodGet, path)
+		if res.status != http.StatusConflict || res.header.Get("X-Inertia-Location") != path || res.body != "" ||
+			res.header.Get("ETag") != "" || res.header.Get("Content-Length") == "21" {
+			t.Errorf("%s: %d %v %q", path, res.status, res.header, res.body)
+		}
+	}
+	// An old asset version answers first, as for Inertia's pages.
+	if res := f.visit(t, http.MethodGet, "/plain", "X-Inertia-Version", "v0"); res.status != http.StatusConflict || res.header.Get("X-Inertia-Version") != "v1" {
+		t.Errorf("old version: %d %v", res.status, res.header)
 	}
 }
 

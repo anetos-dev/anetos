@@ -108,6 +108,9 @@ go tool anetos dev   # http://localhost:8080
 ```
 
 The components are in `frontend/src/pages`; `make:auth` and `make:crud`
-write theirs there too.
+write theirs there too. [Build pages in React](../guides/react.md),
+[in Svelte](../guides/svelte.md) and [in Vue](../guides/vue.md) add a
+page of your own; [Frontends](../concepts/frontends.md) compares the
+stacks.
 
 Next: [Project structure](project-structure.md).

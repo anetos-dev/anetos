@@ -1820,6 +1820,13 @@ in V3c):
   component (`<svelte:head>`), and import `route()` from `src/routes.ts`,
   which reads the page's `routePrefix` (D379). CI builds the stacks'
   projects, and the other frontends, in a job of its own (D380).
+- **Moving from templ** (V4, D381): a web project's pages move to an
+  Inertia stack one at a time, both kinds in one group. A visit of the
+  client to a page that isn't Inertia's (a templ page in its group)
+  gets 409 with `X-Inertia-Location` from `inertia.Middleware`, and the
+  client loads it whole; the guides "Move htmx pages to Inertia" and
+  "Move htmx pages to an API and an SPA" (a new API project beside the
+  old app, on its database) are the two ways.
 
 ### 12.3 Admin interface (v0.3: AD1, AD2)
 
@@ -3763,6 +3770,7 @@ unless new information arrives), **Open**, **Superseded**.
 | D378 | A Vue page declares its own props with their named type from `pages.ts` (`defineProps<TasksIndexProps>()`) and reads the shared props with `usePage()` | Accepted | Vue's compiler can't resolve `PageProps<C>`'s indexed type into runtime props (the build fails); Inertia's Vue adapter turns off attribute fallthrough for pages, so the props a page doesn't declare don't land on its root element |
 | D379 | The svelte stack: Svelte 5 with TypeScript 6 and `svelte-check` (as D377); a page's title by a `Title` component (`<svelte:head>`), and `route()` from `src/routes.ts`, which sets the prefix from the page's `routePrefix` at each call; the links that stay mounted across visits (the layout's, `NavLink`, `LinkButton`, `Pagination`) are keyed by their href | Accepted | Svelte updates the parts of the markup whose state changed, not the whole page: a link's `route()` has to read the reactive prop to follow a change of locale (React's and Vue's pages render again with the page). Inertia's Svelte client has no `Head`, and its `Link` keeps the href an `<a>` was made with for the visit (review89: after a change of locale, the header's links went to the old locale's pages) |
 | D380 | The cli tests that build frontends with Node (`--vite`, an API project's SPA, the three Inertia stacks) run in a CI job of their own, `test (latest Go, frontend)`, without the race detector (`make test-frontend`); the required checks wait for it | Accepted | Samiul's choice (2026-10-28): with two stacks the latest-Go cli part took 14 of its 15 minutes; a third would pass it. The race detector adds nothing to npm installs and builds |
+| D381 | `inertia.Middleware` answers a GET visit of Inertia's client (not a prefetch) whose handler starts a 2xx response that isn't Inertia's (no `X-Inertia` header) and is HTML (its `Content-Type`, or what net/http would sniff when it has none) with 409 and `X-Inertia-Location` (the URL as the browser asked for it, `r.RequestURI`, so a locale's prefix stays; the old asset version's reload too), dropping the body and keeping the session's flashed data, as for an old asset version; other methods, statuses, content types and prefetches are left as they are, and so are routes outside the middleware's group (the admin's) | Accepted | Trying the move of a web project to the react stack (V4): the copied layout's `Link`s to templ pages not moved yet, the account menu's included, opened the client's error dialog with the HTML. Samiul's choice (2026-10-28) over a guide asking to rewrite those links: a page by page move needs no link edits. The handler runs twice for such a link, once for nothing (what it takes from the session other than flashed data is gone for the second run); errors keep their status, so a templ error page during the move should be `inertia.ErrorPages`' |
 
 ---
 
@@ -3890,3 +3898,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-27 | V3a (React) built: §12.2 updated (the components, `make:admin`, `css:use`, the agent files) |
 | 2026-10-28 | V3b (Vue) built: §12.2 updated; D377–D378 added |
 | 2026-10-28 | V3c (Svelte) built, and CI's frontend job: §12.2 updated; D379–D380 added |
+| 2026-10-28 | V4a (the stacks' guides, the moves from templ, the concept page): §12.2 updated; D381 added |
