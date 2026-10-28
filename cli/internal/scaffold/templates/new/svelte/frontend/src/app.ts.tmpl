@@ -1,0 +1,19 @@
+// The frontend's entry, which views/app.templ loads: Inertia's client
+// renders the page the server names (Home is pages/Home.svelte), inside
+// the Layout, which stays as pages change.
+import { createInertiaApp } from '@inertiajs/svelte'
+import type { Component } from 'svelte'
+import Layout from './Layout.svelte'
+import './theme.css'
+import './app.css'
+
+const pages = import.meta.glob<{ default: Component }>('./pages/**/*.svelte')
+
+createInertiaApp({
+  resolve: (name) => {
+    const page = pages[`./pages/${name}.svelte`]
+    if (!page) throw new Error(`no page ${name} (frontend/src/pages/${name}.svelte)`)
+    return page()
+  },
+  layout: () => Layout,
+})

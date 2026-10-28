@@ -1,0 +1,14 @@
+<script lang="ts">
+  // Checkbox is a checkbox with its label, sending "1" when checked; the
+  // attributes given go on the box (defaultChecked…).
+  import type { HTMLInputAttributes } from 'svelte/elements'
+  import { control } from './look'
+
+  let { label, ...props }: HTMLInputAttributes & { label: string } = $props()
+  const c = control()
+</script>
+
+<label class="check">
+  <input type="checkbox" value="1" {...c.attrs} {...props} />
+  {label}
+</label>

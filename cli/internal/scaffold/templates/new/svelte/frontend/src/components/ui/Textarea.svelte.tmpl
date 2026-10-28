@@ -1,0 +1,10 @@
+<script lang="ts">
+  // Textarea is a field of several lines.
+  import type { HTMLTextareaAttributes } from 'svelte/elements'
+  import { control } from './look'
+
+  let props: HTMLTextareaAttributes = $props()
+  const c = control()
+</script>
+
+<textarea {...c.attrs} {...props}></textarea>

@@ -1801,7 +1801,7 @@ in V3c):
   adapter and `app/handlers/pages.go`'s `page`. Social login's links are full page visits (they leave the
   site). `make:admin` puts its banner in the root view, `css:use`
   refuses, and the agent files describe the stack's pages and skills.
-- **Checks** (D376): CI's Node job creates a project of each stack with
+- **Checks** (D376, D380): CI's frontend job creates a project of each stack with
   `make:auth` and `make:crud`, installs, type-checks and builds the
   frontend, and runs the Go tests; browser tests run before each commit,
   not in CI.
@@ -1814,6 +1814,12 @@ in V3c):
   What differs between the stacks' generators (extensions, the entry,
   the layout's lines that `make:auth` and `make:crud` patch) is one
   table, `inertiaStacks`.
+- **Svelte** (V3c, D379–D380): Svelte 5's components (runes), laid out as
+  the vue stack's, with TypeScript 6 and `svelte-check`; Inertia's Svelte
+  client has no `Head`, so the pages set their titles with a `Title`
+  component (`<svelte:head>`), and import `route()` from `src/routes.ts`,
+  which reads the page's `routePrefix` (D379). CI builds the stacks'
+  projects, and the other frontends, in a job of its own (D380).
 
 ### 12.3 Admin interface (v0.3: AD1, AD2)
 
@@ -3721,7 +3727,7 @@ unless new information arrives), **Open**, **Superseded**.
 | D342 | The frontend lives in `frontend/` (package.json, vite.config, src/, node_modules) and builds into `public/build/`, embedded by the web root's existing `//go:embed` (the build names no file with a leading `_` or `.`, which it would leave out); `frontend/go.mod` keeps the go command out of `node_modules`; in an API project, `frontend/` is the separate app's (D335), which the tool leaves to SP2 | Accepted | Samiul's choice (2026-10-26): the name D335 uses for a separate SPA; Node's files stay out of the Go root; some npm packages ship Go files, which `go build ./...` and `go vet ./...` would otherwise compile |
 | D343 | In development the pages load Vite's modules through `anetos dev`'s proxy: Vite on a free port, `/build/` forwarded to it (the hot reload's WebSocket too), `VITE_DEV_URL=/build/` for the app | Accepted | Samiul's choice (2026-10-26): one origin, so no CORS, no Vite address in the page, cookies as in production; Vite on 127.0.0.1 by flag, since `localhost` may be `::1`; without `anetos dev`, `VITE_DEV_URL` set to Vite's own address works with `server.origin` set in `vite.config` |
 | D344 | `VITE_DEV_URL` and a missing manifest stop the app where it's deployed (production, staging); elsewhere a missing manifest renders an HTML comment, and doctor warns in development | Accepted | A deployed page must not load scripts from a development server or none at all, and failing at startup says so at once; tests and CI shouldn't need Node to run the Go tests |
-| D345 | `anetos new --vite[=ts\|js]` and `anetos vite:install [--js]` write the frontend and wire the app with one function (`scaffold.AddVite`), leaving a file it can't patch safely to the developer with what to add; npm installs the packages (Node.js 20.19 or 22.12 or later, Vite 8's minimum); `anetos build` builds the frontend first (`--no-frontend` for the Dockerfile's Node stage), and `anetos check` has a `frontend` step; CI's latest Go cli part runs the end-to-end test with Node (`ANETOS_TEST_NODE=1`) | Accepted | Samiul's choices (2026-10-26): both ways in, and the language a flag (TypeScript by default, which TS1's generated types will need); one function keeps `new` and `install` identical. Node only where a frontend is, as D337 decided |
+| D345 | `anetos new --vite[=ts\|js]` and `anetos vite:install [--js]` write the frontend and wire the app with one function (`scaffold.AddVite`), leaving a file it can't patch safely to the developer with what to add; npm installs the packages (Node.js 20.19 or 22.12 or later, Vite 8's minimum); `anetos build` builds the frontend first (`--no-frontend` for the Dockerfile's Node stage), and `anetos check` has a `frontend` step; CI's latest Go cli part runs the end-to-end test with Node (the frontend job since D380) (`ANETOS_TEST_NODE=1`) | Accepted | Samiul's choices (2026-10-26): both ways in, and the language a flag (TypeScript by default, which TS1's generated types will need); one function keeps `new` and `install` identical. Node only where a frontend is, as D337 decided |
 | D346 | Inertia's pages are typed: `inertia.NewPage[P](component)`, declared once at package level, reads the props struct's fields into a plan; special props are `inertia.Prop[T]` fields; `inertia.Render` with `inertia.Props` is the untyped escape hatch. The package is `web/inertia`, in the core | Accepted | Samiul's choice (2026-10-26): a struct per page lets TS1 generate the frontend's types from Go (D336), and the plan keeps type inspection at startup (principle 4). Panicking in `NewPage` is for a mistake in the program, as a duplicate route name is |
 | D347 | V2 covers the roadmap's protocol pieces and v3's core additions: always and once props, prepend and deep merge with `matchOn`, rescued deferred props, flash data, history encryption and clearing, fragment redirects; server-side rendering, infinite scroll and Precognition are left for later | Accepted | Samiul's choice (2026-10-26): what Inertia's clients rely on for ordinary pages, without the pieces that need a Node server (SSR) or new server features (Precognition's validation-only requests, pagination cursors) |
 | D348 | `web.WithXSRFCookie()` gives scripts the session's masked CSRF token in an `XSRF-TOKEN` cookie (the session cookie's attributes, not HttpOnly, set when the request's doesn't verify), and `web.CSRF` accepts `X-XSRF-TOKEN` | Accepted | Samiul's choice (2026-10-26): Inertia's client, Axios and Angular use these names without setup; SP1's SPA login reuses them. The token is the one forms already carry, masked per response |
@@ -3755,6 +3761,8 @@ unless new information arrives), **Open**, **Superseded**.
 | D376 | CI builds a generated project of each Inertia stack (with `make:auth` and `make:crud`): npm install, type check, `vite build`, Go tests; browser tests are run by hand before each commit | Accepted | Samiul's choice (2026-10-27): templates of three frameworks break silently without a build; a browser in CI costs minutes on every run |
 | D377 | The vue stack's frontend has TypeScript 6 (`~6.0.3`) and `vue-tsc`, whose `npm run build` type-checks the `.vue` files, templates included | Accepted | Samiul's choice (2026-10-28): `vue-tsc` 3.3 needs TypeScript's JavaScript API, which TypeScript 7 (the react stack's) doesn't have (it fails to start); checking only the `.ts` files would leave the pages' routes and props unchecked, which D374 promises |
 | D378 | A Vue page declares its own props with their named type from `pages.ts` (`defineProps<TasksIndexProps>()`) and reads the shared props with `usePage()` | Accepted | Vue's compiler can't resolve `PageProps<C>`'s indexed type into runtime props (the build fails); Inertia's Vue adapter turns off attribute fallthrough for pages, so the props a page doesn't declare don't land on its root element |
+| D379 | The svelte stack: Svelte 5 with TypeScript 6 and `svelte-check` (as D377); a page's title by a `Title` component (`<svelte:head>`), and `route()` from `src/routes.ts`, which sets the prefix from the page's `routePrefix` at each call; the links that stay mounted across visits (the layout's, `NavLink`, `LinkButton`, `Pagination`) are keyed by their href | Accepted | Svelte updates the parts of the markup whose state changed, not the whole page: a link's `route()` has to read the reactive prop to follow a change of locale (React's and Vue's pages render again with the page). Inertia's Svelte client has no `Head`, and its `Link` keeps the href an `<a>` was made with for the visit (review89: after a change of locale, the header's links went to the old locale's pages) |
+| D380 | The cli tests that build frontends with Node (`--vite`, an API project's SPA, the three Inertia stacks) run in a CI job of their own, `test (latest Go, frontend)`, without the race detector (`make test-frontend`); the required checks wait for it | Accepted | Samiul's choice (2026-10-28): with two stacks the latest-Go cli part took 14 of its 15 minutes; a third would pass it. The race detector adds nothing to npm installs and builds |
 
 ---
 
@@ -3881,3 +3889,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-27 | V3 (Inertia stacks) designed: §12.2 updated; D370–D376 added |
 | 2026-10-27 | V3a (React) built: §12.2 updated (the components, `make:admin`, `css:use`, the agent files) |
 | 2026-10-28 | V3b (Vue) built: §12.2 updated; D377–D378 added |
+| 2026-10-28 | V3c (Svelte) built, and CI's frontend job: §12.2 updated; D379–D380 added |

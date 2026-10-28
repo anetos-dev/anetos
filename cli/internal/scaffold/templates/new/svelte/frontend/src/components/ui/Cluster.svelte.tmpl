@@ -1,0 +1,8 @@
+<script lang="ts">
+  // Cluster puts its content side by side, wrapping.
+  import type { Snippet } from 'svelte'
+
+  let { children }: { children?: Snippet } = $props()
+</script>
+
+<div class="cluster">{@render children?.()}</div>

@@ -50,6 +50,7 @@ make check     # everything CI runs: gofmt, SPDX headers, doc snippets, generate
 make docs-check  # doc code blocks match examples/ regions; pages have a sidebar group and weight
 make api-docs  # every exported identifier (fields, interface methods too) has a doc comment
 make test      # go test -race ./...
+make test-frontend  # the cli tests that build frontends with Node (CI's frontend job; needs Node.js and npm)
 make lint      # golangci-lint (v2 config in .golangci.yml)
 make cover     # the published modules' coverage, merged (coverage.out; CI sends it to Codecov)
 make bench     # benchmarks (bench/ compares with net/http, chi, Gin, Echo; results in docs/benchmarks/)

@@ -1,0 +1,8 @@
+<script lang="ts">
+  // Narrow keeps its content to a readable width, for forms and text.
+  import type { Snippet } from 'svelte'
+
+  let { children }: { children?: Snippet } = $props()
+</script>
+
+<div class="narrow">{@render children?.()}</div>

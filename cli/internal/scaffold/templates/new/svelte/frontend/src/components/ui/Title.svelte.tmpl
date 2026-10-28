@@ -1,0 +1,12 @@
+<script lang="ts">
+  // Title is the page's title, in the browser's tab and history: "Posts ·
+  // App", or the app's name alone without text.
+  import { usePage } from '@inertiajs/svelte'
+
+  let { text }: { text?: string } = $props()
+  const page = usePage()
+</script>
+
+<svelte:head>
+  <title>{text ? `${text} · ${page.props.appName}` : page.props.appName}</title>
+</svelte:head>

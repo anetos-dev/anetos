@@ -114,6 +114,31 @@ func TestRenderAgentFiles(t *testing.T) {
 		}
 	}
 
+	// The svelte stack's.
+	svelte := AgentProject{Name: "shop", Stack: "svelte", DB: "sqlite", Kit: "anetos", Frontend: true, Framework: "svelte"}
+	files, err = RenderAgentFiles(svelte, []string{"claude"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range files {
+		c := string(f.Content)
+		if strings.Contains(c, "[[") || strings.Contains(c, "<no value>") || strings.Contains(c, ".tsx") || strings.Contains(c, ".vue") ||
+			strings.Contains(c, "dangerouslySetInnerHTML") || strings.Contains(c, "defineProps") {
+			t.Errorf("svelte's %s:\n%s", f.Rel, c)
+		}
+		for rel, wants := range map[string][]string{
+			"AGENTS.md":                               {"Svelte components", "src/components/ui/", "Layout.svelte"},
+			".claude/skills/anetos-page/SKILL.md":     {"$props()", "src/routes.ts", "Show.svelte"},
+			".claude/skills/anetos-security/SKILL.md": {"`{@html}`"},
+		} {
+			for _, w := range wants {
+				if f.Rel == rel && !strings.Contains(c, w) {
+					t.Errorf("svelte's %s lacks %q:\n%s", rel, w, c)
+				}
+			}
+		}
+	}
+
 	// The vue stack's: its components, its files and its syntax.
 	vue := AgentProject{Name: "shop", Stack: "vue", DB: "sqlite", Kit: "anetos", Frontend: true, Framework: "vue"}
 	files, err = RenderAgentFiles(vue, []string{"claude"})
@@ -150,7 +175,8 @@ func TestAgentDocsCommands(t *testing.T) {
 	seen := map[string]bool{}
 	for _, p := range []AgentProject{{Name: "a", Stack: "web", DB: "sqlite", Kit: "anetos"}, {Name: "b", Stack: "api", DB: "mysql"},
 		{Name: "c", Stack: "react", DB: "sqlite", Kit: "anetos", Frontend: true, Framework: "react"},
-		{Name: "d", Stack: "vue", DB: "sqlite", Kit: "anetos", Frontend: true, Framework: "vue"}} {
+		{Name: "d", Stack: "vue", DB: "sqlite", Kit: "anetos", Frontend: true, Framework: "vue"},
+		{Name: "e", Stack: "svelte", DB: "sqlite", Kit: "anetos", Frontend: true, Framework: "svelte"}} {
 		files, err := RenderAgentFiles(p, Agents)
 		if err != nil {
 			t.Fatal(err)

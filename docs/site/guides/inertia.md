@@ -23,14 +23,15 @@ side is the same for the three.
 ## Start a project with it
 
 ```sh
-anetos new shop --stack=react   # or --stack=vue
+anetos new shop --stack=react   # or --stack=vue, --stack=svelte
 cd shop
 go tool anetos dev
 ```
 
-The react and vue stacks are the web stack's Go side (routes, handlers,
-sessions, CSRF protection, validation, translations) with pages that
-are React or Vue components in TypeScript, styled by the starter theme.
+The react, vue and svelte stacks are the web stack's Go side (routes,
+handlers, sessions, CSRF protection, validation, translations) with
+pages that are React, Vue or Svelte components in TypeScript, styled by
+the starter theme.
 In the react stack:
 
 - `app/handlers/pages.go` declares the pages, `page[P](component)`, and
@@ -68,6 +69,14 @@ const shared = usePage() // shared.props.user, read where it's used
 Its build type-checks the templates too, with `vue-tsc` on TypeScript 6
 (`vue-tsc` needs TypeScript's JavaScript API, which TypeScript 7
 doesn't have).
+
+The svelte stack has `.svelte` files (Svelte 5, with runes): a page
+takes its props with their type (`let { page }: PostsIndexProps =
+$props()`), its title with `<Title text={…} />` (from
+`src/components/ui`), and builds its links with `route()` from
+`src/routes.ts`, which reads the locale's prefix from the page, so a
+link follows a change of locale. `svelte-check`, on TypeScript 6 too,
+type-checks the components in the build.
 
 `go tool anetos make:auth` and `make:crud` write the stack's pages too, rendered
 by the same handlers as the web stack's, and update the types:

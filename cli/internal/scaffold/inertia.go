@@ -18,8 +18,8 @@ type inertiaStack struct {
 	ui      string // src/components/ui.tsx: the pages' components (a file, or a folder of them)
 	// The layout (frontend/src/Layout.tsx): the comment make:auth puts
 	// <AccountMenu /> in place of, the import it adds AccountMenu's
-	// before (uiImport), and a NavLink line, which make:crud adds one
-	// after.
+	// before (uiImport; both without the indentation a line has), and a
+	// NavLink line, which make:crud adds one after.
 	accountMarker *regexp.Regexp
 	accountImport string
 	uiImport      string
@@ -54,6 +54,17 @@ var inertiaStacks = map[string]inertiaStack{
 			return fmt.Sprintf("<NavLink route=%q :label=\"t('%s')\" />", route, key)
 		},
 		rawHTML: "v-html",
+	},
+	"svelte": {
+		name: "Svelte", adapter: "@inertiajs/svelte", ext: ".svelte", entry: "src/app.ts", ui: "src/components/ui/",
+		accountMarker: regexp.MustCompile(`(?m)^([ \t]*)<!-- The account's links \(go tool anetos make:auth adds them\)\. -->[ \t]*(\r?)$`),
+		accountImport: "import AccountMenu from './components/AccountMenu.svelte'",
+		uiImport:      "import { Flash } from './components/ui'",
+		navLinkLine:   regexp.MustCompile(`(?m)^([ \t]*)<NavLink route="[^"]*" label=\{t\('[^']*'\)\} />[ \t]*\r?\n`),
+		navLink: func(route, key string) string {
+			return fmt.Sprintf("<NavLink route=%q label={t('%s')} />", route, key)
+		},
+		rawHTML: "{@html}",
 	},
 }
 

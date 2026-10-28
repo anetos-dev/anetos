@@ -1,0 +1,20 @@
+<script lang="ts">
+  // NavLink links to a named route, marked as the current page when the
+  // page's path (its URL without the query) is the route's or under it.
+  import { Link, usePage } from '@inertiajs/svelte'
+  import { route, type PlainRouteName } from '../routes'
+
+  let { route: name, label }: { route: PlainRouteName; label: string } = $props()
+  const page = usePage()
+  const href = $derived(route(name))
+  const current = $derived.by(() => {
+    const path = page.url.split('?')[0]
+    return path === href || (href !== '/' && path.startsWith(href + '/'))
+  })
+</script>
+
+<!-- Made again when href changes (a change of locale): Inertia's Link
+     keeps the href it was made with for an <a>'s visit. -->
+{#key href}
+  <Link {href} aria-current={current ? 'page' : undefined}>{label}</Link>
+{/key}

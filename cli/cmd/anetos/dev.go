@@ -27,7 +27,7 @@ Runs the app with live reload. On every change to Go files, templ files,
 anetos generate and, in a project that uses Tailwind CSS, anetos
 css:build, rebuilds, restarts the app and reloads the open
 pages. Build errors show in the browser. In a project with a frontend
-(frontend/: see vite:install; a react or vue project's pages), it also runs
+(frontend/: see vite:install; an Inertia stack's pages), it also runs
 Vite's development server, installing the packages first if they need it
 (Node.js 20.19 or 22.12 or later), and forwards /build/ to it: the pages
 load the sources from Vite (VITE_DEV_URL=/build/), which updates them as

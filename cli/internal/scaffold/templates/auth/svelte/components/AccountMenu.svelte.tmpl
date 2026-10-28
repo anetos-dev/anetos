@@ -1,0 +1,22 @@
+<script lang="ts">
+  // AccountMenu is the header's account links (anetos make:auth): the
+  // logged-in user's dashboard, settings and logout, or log in and
+  // register. The user is a shared prop (handlers.SharedProps).
+  import { usePage } from '@inertiajs/svelte'
+  import { useT } from '../i18n'
+  import { route } from '../routes'
+  import NavLink from './NavLink.svelte'
+  import { LinkButton, PostButton } from './ui'
+
+  const page = usePage()
+  const t = useT()
+</script>
+
+{#if page.props.user}
+  <NavLink route="dashboard" label={page.props.user.name} />
+  <NavLink route="settings" label={t('auth.settings.title')} />
+  <PostButton href={route('logout')} variant="ghost">{t('auth.dashboard.logout')}</PostButton>
+{:else}
+  <NavLink route="login" label={t('auth.login.title')} />
+  <LinkButton href={route('register')} small>{t('auth.register.title')}</LinkButton>
+{/if}

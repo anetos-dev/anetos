@@ -1,0 +1,14 @@
+<script lang="ts">
+  // PageHeader is a page's title, with a line under it, and its actions (children).
+  import type { Snippet } from 'svelte'
+
+  let { title, lead, children }: { title: string; lead?: string; children?: Snippet } = $props()
+</script>
+
+<div class="page-header">
+  <div>
+    <h1>{title}</h1>
+    {#if lead}<p class="muted">{lead}</p>{/if}
+  </div>
+  {@render children?.()}
+</div>

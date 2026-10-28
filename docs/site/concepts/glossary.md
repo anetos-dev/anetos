@@ -44,7 +44,7 @@ a new idea, and is listed here.
 | **Responder** | A value that writes its own response (`web.Responder`): `web.Created(v)`, `web.Redirect(url)`, `web.Render(page)` | A response object (Django's `HttpResponse`, Laravel's `Responsable`) |
 | **Route name** | `.Name("notes.show")`, used to build URLs (`web.URL`, `web.RedirectRoute`) | Named routes: Django's `name=`, Laravel's `->name()`, Rails' `as:` |
 | **CRUD actions** | `index`, `new`, `create`, `show`, `edit`, `update`, `delete`. The route name and the handler match: `notes.create` is `Create`, which saves the form that `New` shows | Rails' and Phoenix's names, except Rails' `destroy`; Laravel says `create` for the form, `store` and `destroy` |
-| **Stack** | What `anetos new` writes: `web` (pages, sessions, CSRF; the default), `api` (JSON only), `react` or `vue` (the web stack's Go with React or Vue pages that Inertia renders; since v0.6). See [`anetos new`](../reference/cli.md#anetos-new-directory) | Laravel's starter kits' stacks; Rails' `--api` |
+| **Stack** | What `anetos new` writes: `web` (pages, sessions, CSRF; the default), `api` (JSON only), `react`, `vue` or `svelte` (the web stack's Go with React, Vue or Svelte pages that Inertia renders; since v0.6). See [`anetos new`](../reference/cli.md#anetos-new-directory) | Laravel's starter kits' stacks; Rails' `--api` |
 | **Middleware** | `func(http.Handler) http.Handler`, on a router or a group | The same idea in Django, Laravel and Rails |
 | **Rule** | A named check in a `validate` tag (`validate:"required\|max:200"`); your own are added with `validate.Register`. See the [validation rules reference](../reference/validation-rules.md) | Validators (Django), validation rules (Laravel), validations (Rails) |
 

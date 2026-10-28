@@ -86,27 +86,30 @@ var KitVersions = map[string]string{
 
 // Stacks are the values of [Project.Stack]: web, api, and the Inertia
 // stacks ([InertiaStacks]).
-var Stacks = []string{"web", "api", "react", "vue"}
+var Stacks = []string{"web", "api", "react", "vue", "svelte"}
 
 // InertiaStacks are the stacks whose pages are a JavaScript framework's
 // components, which Inertia's client renders (design D370): the web
 // stack's Go side, with a frontend.
-var InertiaStacks = []string{"react", "vue"}
+var InertiaStacks = []string{"react", "vue", "svelte"}
 
 // Framework versions new Inertia projects' package.json asks for (at
 // least; the lockfile npm writes pins them).
 const (
-	InertiaVersion     = "3.9.1"
-	ReactVersion       = "19.3.1"
-	ReactTypesVersion  = "19.3.0"
-	ReactPluginVersion = "6.1.2"
-	VueVersion         = "3.5.44"
-	VuePluginVersion   = "6.0.10"
-	VueTscVersion      = "3.3.13"
-	// VueTypeScriptVersion is the vue stack's TypeScript: vue-tsc, which
-	// type-checks the .vue files, needs TypeScript's JavaScript API,
-	// which TypeScript 7 doesn't have.
-	VueTypeScriptVersion = "6.0.3"
+	InertiaVersion      = "3.9.1"
+	ReactVersion        = "19.3.1"
+	ReactTypesVersion   = "19.3.0"
+	ReactPluginVersion  = "6.1.2"
+	VueVersion          = "3.5.44"
+	VuePluginVersion    = "6.0.10"
+	VueTscVersion       = "3.3.13"
+	SvelteVersion       = "5.57.2"
+	SveltePluginVersion = "7.3.1"
+	SvelteCheckVersion  = "4.7.6"
+	// TypeScript6Version is the vue and svelte stacks' TypeScript:
+	// vue-tsc and svelte-check, which type-check the components, need
+	// TypeScript's JavaScript API, which TypeScript 7 doesn't have.
+	TypeScript6Version = "6.0.3"
 )
 
 // stackLayers are the template layers (directories of templates/new) of
@@ -114,10 +117,11 @@ const (
 // (TestStackLayersDisjoint); base files that differ between stacks do so
 // through projectData's Web and API.
 var stackLayers = map[string][]string{
-	"web":   {"base", "web"},
-	"api":   {"base", "api"},
-	"react": {"base", "inertia", "react"},
-	"vue":   {"base", "inertia", "vue"},
+	"web":    {"base", "web"},
+	"api":    {"base", "api"},
+	"react":  {"base", "inertia", "react"},
+	"vue":    {"base", "inertia", "vue"},
+	"svelte": {"base", "inertia", "svelte"},
 }
 
 // projectData is what the templates see.
@@ -132,13 +136,14 @@ type projectData struct {
 	Web, API, Inertia                    bool
 	Framework, FrameworkName, Ext, Entry string
 	// The frontend's packages' versions, for package.json.
-	ViteVersion, TypeScriptVersion, InertiaVersion                    string
-	ReactVersion, ReactTypesVersion, ReactPluginVersion               string
-	VueVersion, VuePluginVersion, VueTscVersion, VueTypeScriptVersion string
-	Kit                                                               string // the design kit, for the web stack
-	KitVersion                                                        string // its CSS framework's (KitVersions)
-	Bin                                                               string // anetos build's binary (BinaryName)
-	Image                                                             string // the name in lower case, for Docker and platforms
+	ViteVersion, TypeScriptVersion, InertiaVersion                  string
+	ReactVersion, ReactTypesVersion, ReactPluginVersion             string
+	VueVersion, VuePluginVersion, VueTscVersion, TypeScript6Version string
+	SvelteVersion, SveltePluginVersion, SvelteCheckVersion          string
+	Kit                                                             string // the design kit, for the web stack
+	KitVersion                                                      string // its CSS framework's (KitVersions)
+	Bin                                                             string // anetos build's binary (BinaryName)
+	Image                                                           string // the name in lower case, for Docker and platforms
 	// GoMinor is the Go release of go.mod's go line ("1.26"), for the
 	// Dockerfile's golang image.
 	GoMinor string
@@ -289,7 +294,8 @@ func Create(p Project) ([]string, error) {
 		Inertia: inertia, ViteVersion: ViteVersion, TypeScriptVersion: TypeScriptVersion,
 		InertiaVersion: InertiaVersion, ReactVersion: ReactVersion, ReactTypesVersion: ReactTypesVersion,
 		ReactPluginVersion: ReactPluginVersion, VueVersion: VueVersion, VuePluginVersion: VuePluginVersion,
-		VueTscVersion: VueTscVersion, VueTypeScriptVersion: VueTypeScriptVersion,
+		VueTscVersion: VueTscVersion, TypeScript6Version: TypeScript6Version, SvelteVersion: SvelteVersion,
+		SveltePluginVersion: SveltePluginVersion, SvelteCheckVersion: SvelteCheckVersion,
 	}
 	if inertia {
 		s := inertiaStacks[p.Stack]

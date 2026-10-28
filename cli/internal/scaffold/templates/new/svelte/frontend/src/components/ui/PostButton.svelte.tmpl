@@ -1,0 +1,26 @@
+<script lang="ts">
+  // PostButton is a button that sends a request of its own (POST, unless
+  // given another method) to href with Inertia, as a form of one button
+  // would: to log out, delete a row, resend an email.
+  import { Link } from '@inertiajs/svelte'
+  import type { Snippet } from 'svelte'
+  import { buttonClass, type Variant } from './look'
+
+  let {
+    href,
+    method = 'post',
+    variant,
+    small,
+    full,
+    children,
+  }: {
+    href: string
+    method?: 'post' | 'put' | 'patch' | 'delete'
+    variant?: Variant
+    small?: boolean
+    full?: boolean
+    children?: Snippet
+  } = $props()
+</script>
+
+<Link {href} {method} as="button" class={buttonClass(variant, false, small, full)}>{@render children?.()}</Link>

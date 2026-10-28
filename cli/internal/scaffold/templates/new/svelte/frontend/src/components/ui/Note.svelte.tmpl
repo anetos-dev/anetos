@@ -1,0 +1,8 @@
+<script lang="ts">
+  // Note is a paragraph of secondary text.
+  import type { Snippet } from 'svelte'
+
+  let { children }: { children?: Snippet } = $props()
+</script>
+
+<p class="muted">{@render children?.()}</p>

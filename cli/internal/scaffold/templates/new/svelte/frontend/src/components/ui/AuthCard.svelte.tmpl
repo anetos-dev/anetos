@@ -1,0 +1,11 @@
+<script lang="ts">
+  // AuthCard is a page made of one small card under its title, as the login pages are.
+  import type { Snippet } from 'svelte'
+
+  let { title, children }: { title: string; children?: Snippet } = $props()
+</script>
+
+<div class="card auth-card">
+  <h1>{title}</h1>
+  {@render children?.()}
+</div>

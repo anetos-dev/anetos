@@ -1,0 +1,112 @@
+<script lang="ts">
+  // Auth/Settings is the account settings page (anetos make:auth): yours
+  // to change, and to add your own fields to (and to
+  // app/handlers/settings.go). Its text is in locales/en/auth.yaml.
+  import { Form } from '@inertiajs/svelte'
+  import { Badge, Button, Card, Field, Input, LinkButton, Narrow, Note, PageHeader, PostButton, Select, Title } from '../../components/ui'
+  import { useT } from '../../i18n'
+  import { route } from '../../routes'
+  import type { SettingsProps } from '../../types/pages'
+
+  let p: SettingsProps = $props()
+  const t = useT()
+  const locales = $derived([
+    { value: '', label: t('auth.settings.language_auto') },
+    ...p.locales.map((l) => ({ value: l.value, label: l.title })),
+  ])
+  const zones = $derived([{ value: '', label: t('auth.settings.time_zone_app') }, ...p.timeZones.map((z) => ({ value: z, label: z }))])
+</script>
+
+<Narrow>
+  <Title text={t('auth.settings.title')} />
+  <PageHeader title={t('auth.settings.title')}>
+    <LinkButton href={route('dashboard')} variant="secondary">{t('auth.dashboard.title')}</LinkButton>
+  </PageHeader>
+
+  <Card title={t('auth.settings.profile')}>
+    <Form action={route('settings.profile')} method="post">
+      {#snippet children({ errors, processing })}
+        <Field name="name" label={t('auth.fields.name')} error={errors.name}>
+          <Input autocomplete="name" defaultValue={p.name} />
+        </Field>
+        <Button disabled={processing}>{t('auth.settings.save')}</Button>
+      {/snippet}
+    </Form>
+  </Card>
+
+  <Card title={t('auth.fields.email')}>
+    <p>
+      {p.email}
+      {#if !p.emailVerified}<Badge tone="warning">{t('auth.settings.unverified')}</Badge>{/if}
+    </p>
+    {#if p.emailUrl}
+      {#if p.pendingEmail}
+        <p>{t('auth.settings.email_pending', { email: p.pendingEmail })}</p>
+        <PostButton href={route('settings.email.cancel')} variant="secondary">{t('auth.settings.email_cancel')}</PostButton>
+      {/if}
+      <Form action={p.emailUrl} method="post" resetOnSuccess>
+        {#snippet children({ errors, processing })}
+          <Field name="email" label={t('auth.settings.new_email')} error={errors.email}>
+            <Input type="email" autocomplete="email" />
+          </Field>
+          <Button disabled={processing}>{t('auth.settings.email_change')}</Button>
+        {/snippet}
+      </Form>
+    {/if}
+  </Card>
+
+  <Card title={t('auth.fields.password')}>
+    <Form action={route('settings.password')} method="post" resetOnSuccess resetOnError>
+      {#snippet children({ errors, processing })}
+        {#if p.hasPassword}
+          <Field name="current_password" label={t('auth.fields.current_password')} error={errors.current_password}>
+            <Input type="password" autocomplete="current-password" />
+          </Field>
+        {:else}
+          <Note>{t('auth.settings.no_password')}</Note>
+        {/if}
+        <Field name="password" label={t('auth.fields.new_password')} error={errors.password}>
+          <Input type="password" autocomplete="new-password" />
+        </Field>
+        <Field name="password_confirmation" label={t('auth.fields.password_confirmation')} error={errors.password_confirmation}>
+          <Input type="password" autocomplete="new-password" />
+        </Field>
+        <Button disabled={processing}>{t('auth.settings.password_change')}</Button>
+      {/snippet}
+    </Form>
+  </Card>
+
+  <Card title={t('auth.settings.preferences')}>
+    <Form action={route('settings.preferences')} method="post">
+      {#snippet children({ errors, processing })}
+        <Field name="locale" label={t('auth.settings.language')} error={errors.locale}>
+          <Select options={locales} selected={p.localePreference} />
+        </Field>
+        <Field name="time_zone" label={t('auth.settings.time_zone')} error={errors.time_zone}>
+          <Select options={zones} selected={p.timeZonePreference} />
+        </Field>
+        <Button disabled={processing}>{t('auth.settings.save')}</Button>
+      {/snippet}
+    </Form>
+  </Card>
+
+  {#if p.twoFactor}
+    <Card title={t('auth.two_factor.title')}>
+      <p>
+        {#if p.twoFactorOn}
+          <Badge tone="success">{t('auth.settings.two_factor_on')}</Badge>
+        {:else}
+          <Badge>{t('auth.settings.two_factor_off')}</Badge>
+        {/if}
+      </p>
+      <LinkButton href={route('two-factor')} variant="secondary">{t('auth.settings.two_factor_manage')}</LinkButton>
+    </Card>
+  {/if}
+
+  {#if p.deleteUrl}
+    <Card title={t('auth.settings.delete')}>
+      <Note>{t('auth.settings.delete_intro')}</Note>
+      <PostButton href={p.deleteUrl} variant="danger">{t('auth.settings.delete_button')}</PostButton>
+    </Card>
+  {/if}
+</Narrow>

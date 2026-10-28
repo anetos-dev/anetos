@@ -1,0 +1,35 @@
+<script lang="ts">
+  // Error is the page of an error, such as a 404 (routes.Register sets it
+  // with inertia.ErrorPages). Debug mode (APP_DEBUG) shows a server error's
+  // details on the framework's page instead.
+  import { Card, LinkButton, Narrow, Note, PageHeader, Stack, Title } from '../components/ui'
+  import { useT } from '../i18n'
+  import { route } from '../routes'
+  import type { ErrorProps, Errors } from '../types/pages'
+
+  let { title, detail, requestId, errors }: ErrorProps & { errors?: Errors } = $props()
+  const t = useT()
+  const errorList = $derived(Object.entries(errors ?? {}).sort())
+</script>
+
+<Narrow>
+  <Title text={title} />
+  <Stack>
+    <PageHeader {title} lead={detail} />
+    {#if errorList.length > 0}
+      <Card>
+        <ul>
+          {#each errorList as [field, message] (field)}
+            <li><strong>{field}</strong>: {String(message)}</li>
+          {/each}
+        </ul>
+      </Card>
+    {/if}
+    <p>
+      <LinkButton href={route('home')}>{t('errors.home')}</LinkButton>
+    </p>
+    {#if requestId}
+      <Note><small>{t('errors.request_id', { id: requestId })}</small></Note>
+    {/if}
+  </Stack>
+</Narrow>

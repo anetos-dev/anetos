@@ -1,0 +1,8 @@
+<script lang="ts">
+  // ActionsCell is a table row's cell of buttons and links (Edit…), at its end.
+  import type { Snippet } from 'svelte'
+
+  let { children }: { children?: Snippet } = $props()
+</script>
+
+<td class="actions">{@render children?.()}</td>

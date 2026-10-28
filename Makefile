@@ -9,7 +9,7 @@ MODULES  ?= $(patsubst %/go.mod,%,$(shell find . -name go.mod -not -path './.git
 EACH      = for m in $(MODULES); do echo "== $$m"; (cd $$m &&
 DONE      = ) || exit 1; done
 
-.PHONY: all check fmt fmt-check vet lint test test-short cover bench bench-check bench-compare vuln spdx docs-check api-docs api-check api-update gen-check tidy release release-rehearsal help
+.PHONY: all check fmt fmt-check vet lint test test-frontend test-short cover bench bench-check bench-compare vuln spdx docs-check api-docs api-check api-update gen-check tidy release release-rehearsal help
 
 all: check ## Run every check CI runs
 
@@ -32,6 +32,14 @@ lint: ## golangci-lint (install: https://golangci-lint.run)
 # they need more than go test's usual budget.
 test: ## Tests with the race detector (set ANETOS_TEST_POSTGRES_URL / ANETOS_TEST_MYSQL_URL / ANETOS_TEST_REDIS_URL for those drivers)
 	@$(EACH) $(GO) test -race -count=1 -timeout=15m ./... $(DONE)
+
+# The cli tests that build frontends with Node and npm (anetos new --vite
+# and --stack=react|vue|svelte, an API project's SPA): CI's frontend job,
+# apart from the other tests, without the race detector, which would
+# slow their npm installs and builds past the other tests' budget.
+FRONTEND_TESTS = ^(TestNewProjectVite|TestNewAPIProjectSPA|TestNewProjectInertia)$$
+test-frontend: ## The cli tests that build frontends (Node.js 20.19 or 22.12 or later, npm)
+	cd cli && ANETOS_TEST_NODE=1 $(GO) test -count=1 -timeout=30m -run '$(FRONTEND_TESTS)' ./cmd/anetos
 
 test-short: ## Fast tests, no race detector
 	@$(EACH) $(GO) test -short -count=1 -timeout=5m ./... $(DONE)

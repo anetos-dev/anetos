@@ -1,0 +1,43 @@
+<script lang="ts">
+  // Auth/Login is the login form (anetos make:auth): yours to change.
+  import { Form, Link } from '@inertiajs/svelte'
+  import SocialButtons from '../../components/SocialButtons.svelte'
+  import { Actions, AuthCard, Button, Checkbox, Field, Input, Note, Title } from '../../components/ui'
+  import { useT } from '../../i18n'
+  import { route } from '../../routes'
+  import type { Errors, SocialProps } from '../../types/pages'
+
+  let { social, errors: pageErrors }: SocialProps & { errors: Errors } = $props()
+  const t = useT()
+</script>
+
+<AuthCard title={t('auth.login.title')}>
+  <Title text={t('auth.login.title')} />
+  <!-- A checkbox sends "1": the handler's input wants true or false. -->
+  <Form
+    action={route('login')}
+    method="post"
+    resetOnError={['password']}
+    transform={(data) => ({ ...data, remember: data.remember === '1' })}
+  >
+    {#snippet children({ errors, processing })}
+      <Field name="email" label={t('auth.fields.email')} error={errors.email}>
+        <Input type="email" autocomplete="email" />
+      </Field>
+      <Field name="password" label={t('auth.fields.password')} error={errors.password}>
+        <Input type="password" autocomplete="current-password" />
+      </Field>
+      <Field name="remember">
+        <Checkbox label={t('auth.login.remember')} />
+      </Field>
+      <Actions>
+        <Button disabled={processing}>{t('auth.login.submit')}</Button>
+        <Link href={route('password.request')}>{t('auth.forgot.title')}</Link>
+      </Actions>
+    {/snippet}
+  </Form>
+  <SocialButtons {social} error={typeof pageErrors.social === 'string' ? pageErrors.social : undefined} />
+  <Note>
+    {t('auth.login.no_account')} <Link href={route('register')}>{t('auth.register.title')}</Link>
+  </Note>
+</AuthCard>

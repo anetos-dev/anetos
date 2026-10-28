@@ -1,0 +1,8 @@
+<script lang="ts">
+  // Actions is a form's buttons and links, after its fields.
+  import type { Snippet } from 'svelte'
+
+  let { children }: { children?: Snippet } = $props()
+</script>
+
+<div class="form-actions">{@render children?.()}</div>

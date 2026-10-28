@@ -1,0 +1,51 @@
+<script lang="ts">
+  // [[.Plural]]/Show shows a [[.Words]], with the buttons to edit and delete it
+  // (anetos make:crud).
+  import { Link } from '@inertiajs/svelte'
+  import { [[if .HasBool]]Badge, [[end]]Card, Cluster, Detail, Details, LinkButton, [[if .HasText]]Multiline, [[end]]PageHeader, PostButton, Title } from '../../components/ui'
+  import { useFormat, useT } from '../../i18n'
+  import { route } from '../../routes'
+  import type { [[.Model]]Props } from '../../types/pages'
+
+  let { item }: [[.Model]]Props = $props()
+  const t = useT()
+  const f = useFormat()
+[[- if .TitleF]]
+  const title = $derived(item.[[.TitleF.Name]])
+[[- else]]
+  const title = $derived(t('[[.Key]].one', { id: item.id }))
+[[- end]]
+</script>
+
+<Title text={title} />
+<PageHeader {title}>
+  <Cluster>
+    <LinkButton href={route('[[.Path]].edit', { id: item.id })} variant="secondary">{t('[[.Key]].edit')}</LinkButton>
+    <PostButton href={route('[[.Path]].delete', { id: item.id })} method="delete" variant="danger">{t('[[.Key]].delete')}</PostButton>
+  </Cluster>
+</PageHeader>
+<Card>
+  <Details>
+[[- range .Fields]]
+    <Detail term={t('[[$.Key]].fields.[[.Name]]')}>
+[[- if eq .Kind "text"]]
+      <Multiline text={item.[[.Name]]} />
+[[- else if eq .Kind "email"]]
+      <a href={'mailto:' + item.[[.Name]]}>{item.[[.Name]]}</a>
+[[- else if eq .Kind "bool"]]
+      {#if item.[[.Name]]}<Badge tone="success">{t('[[$.Key]].answer_yes')}</Badge>{:else}<Badge>{t('[[$.Key]].answer_no')}</Badge>{/if}
+[[- else if or (eq .Kind "int") (eq .Kind "float")]]
+      {f.number(item.[[.Name]])}
+[[- else if eq .Kind "date"]]
+      {item.[[.Name]] && f.date(item.[[.Name]])}
+[[- else]]
+      {item.[[.Name]]}
+[[- end]]
+    </Detail>
+[[- end]]
+    <Detail term={t('[[.Key]].created_at')}>{f.dateTime(item.created_at)}</Detail>
+  </Details>
+</Card>
+<p>
+  <Link href={route('[[.Path]].index')}>{t('[[.Key]].back')}</Link>
+</p>

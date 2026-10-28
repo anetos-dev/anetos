@@ -1,0 +1,21 @@
+<script lang="ts">
+  // Pagination links to the pages before and after a list's page.
+  import { Link } from '@inertiajs/svelte'
+
+  let {
+    label,
+    prev,
+    prevLabel,
+    status,
+    next,
+    nextLabel,
+  }: { label: string; prev?: string; prevLabel: string; status?: string; next?: string; nextLabel: string } = $props()
+</script>
+
+<nav class="pagination" aria-label={label}>
+  <!-- Keyed by href: Inertia's Link keeps the href it was made with for
+       an <a>'s visit. -->
+  {#if prev}{#key prev}<Link href={prev} rel="prev">{prevLabel}</Link>{/key}{/if}
+  {#if status}<span>{status}</span>{/if}
+  {#if next}{#key next}<Link href={next} rel="next">{nextLabel}</Link>{/key}{/if}
+</nav>

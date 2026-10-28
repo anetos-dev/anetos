@@ -1,0 +1,11 @@
+<script lang="ts">
+  // CardHeader is a card's heading with actions (children) beside it.
+  import type { Snippet } from 'svelte'
+
+  let { title, children }: { title: string; children?: Snippet } = $props()
+</script>
+
+<div class="card-header">
+  <h2>{title}</h2>
+  {@render children?.()}
+</div>

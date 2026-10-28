@@ -1,0 +1,56 @@
+<script lang="ts">
+  // Auth/Dashboard shows the account and its API tokens (anetos make:auth);
+  // newToken is a token just created, shown once.
+  import { Form, usePage } from '@inertiajs/svelte'
+  import { ActionsCell, Button, Card, Field, Flash, Input, LinkButton, Narrow, Note, PageHeader, PostButton, Table, Title } from '../../components/ui'
+  import { useT } from '../../i18n'
+  import { route } from '../../routes'
+  import type { DashboardProps } from '../../types/pages'
+
+  let { tokens, newToken }: DashboardProps = $props()
+  const t = useT()
+  const page = usePage()
+  const user = $derived(page.props.user!)
+</script>
+
+<Narrow>
+  <Title text={t('auth.dashboard.title')} />
+  <PageHeader title={t('auth.dashboard.hello', { name: user.name })}>
+    <LinkButton href={route('settings')} variant="secondary">{t('auth.settings.title')}</LinkButton>
+  </PageHeader>
+  {#if !user.emailVerified}
+    <Flash tone="warning">
+      <span>{t('auth.dashboard.verify')}</span>
+      <PostButton href={route('verification.send')} variant="secondary" small>{t('auth.dashboard.resend')}</PostButton>
+    </Flash>
+  {/if}
+  <Card title={t('auth.tokens.title')}>
+    <Note>{t('auth.tokens.intro')}</Note>
+    {#if newToken}
+      <p>{t('auth.tokens.new')}</p>
+      <pre><code>{newToken}</code></pre>
+    {/if}
+    {#if tokens.length > 0}
+      <Table>
+        <tbody>
+          {#each tokens as token (token.id)}
+            <tr>
+              <td>{token.name}</td>
+              <ActionsCell>
+                <PostButton href={route('tokens.delete', { id: token.id })} variant="secondary" small>{t('auth.tokens.revoke')}</PostButton>
+              </ActionsCell>
+            </tr>
+          {/each}
+        </tbody>
+      </Table>
+    {/if}
+    <Form action={route('tokens.create')} method="post" resetOnSuccess>
+      {#snippet children({ errors, processing })}
+        <Field name="name" label={t('auth.tokens.name')} error={errors.name}>
+          <Input />
+        </Field>
+        <Button disabled={processing}>{t('auth.tokens.create')}</Button>
+      {/snippet}
+    </Form>
+  </Card>
+</Narrow>

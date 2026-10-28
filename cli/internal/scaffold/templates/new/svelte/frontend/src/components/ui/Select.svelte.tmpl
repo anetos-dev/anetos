@@ -1,0 +1,19 @@
+<script lang="ts">
+  // Select is a choice among options; selected is the one chosen at first.
+  // The other attributes given go on the <select>.
+  import type { HTMLSelectAttributes } from 'svelte/elements'
+  import { control } from './look'
+
+  let {
+    options,
+    selected,
+    ...props
+  }: HTMLSelectAttributes & { options: { value: string; label: string }[]; selected?: string } = $props()
+  const c = control()
+</script>
+
+<select {...c.attrs} {...props}>
+  {#each options as o (o.value)}
+    <option value={o.value} selected={o.value === selected}>{o.label}</option>
+  {/each}
+</select>

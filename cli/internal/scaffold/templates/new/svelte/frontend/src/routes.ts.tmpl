@@ -1,0 +1,14 @@
+// route() for the pages: types/routes.ts's (written by go run . types),
+// with the locale's prefix of the current page first (the routePrefix
+// prop). Reading the prop makes a link's href follow it when the locale
+// changes (the links that stay, the layout's, are keyed by their href:
+// Inertia's Link keeps the href it was made with).
+import { usePage } from '@inertiajs/svelte'
+import { route as path, setRoutePrefix } from './types/routes'
+
+export type { PlainRouteName, RouteName } from './types/routes'
+
+export const route = ((...args: Parameters<typeof path>) => {
+  setRoutePrefix(usePage().props.routePrefix ?? '') // none before the app mounts
+  return path(...args)
+}) as typeof path

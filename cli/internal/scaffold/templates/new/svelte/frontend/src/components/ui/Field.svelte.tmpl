@@ -1,0 +1,26 @@
+<script lang="ts">
+  // Field is a form's field: its label, the control (children: an Input,
+  // Textarea or Select, which take its name), a hint, and its error from
+  // the server (the form's errors[name]). A Checkbox carries its own
+  // label: give Field none.
+  import type { Snippet } from 'svelte'
+  import { setField } from './look'
+
+  let { name, label, hint, error, children }: { name: string; label?: string; hint?: string; error?: string; children?: Snippet } =
+    $props()
+  setField({
+    get name() {
+      return name
+    },
+    get error() {
+      return error
+    },
+  })
+</script>
+
+<div class="field">
+  {#if label}<label for={name}>{label}</label>{/if}
+  {@render children?.()}
+  {#if hint}<p class="hint">{hint}</p>{/if}
+  {#if error}<p class="error" id={name + '-error'}>{error}</p>{/if}
+</div>

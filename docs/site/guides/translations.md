@@ -166,7 +166,7 @@ are under `prefix`, without it, or all of them for `""`. A plural
 message is an object of its forms (`{"one": "{count} post", "other":
 "{count} posts"}`), for the frontend to pick by the language's plural
 rules; the framework's own messages and lists are left out (since
-v0.6). The react and vue stacks send them once per language, as a shared prop.
+v0.6). The react, vue and svelte stacks send them once per language, as a shared prop.
 
 ### 4. Choose how visitors get their language
 

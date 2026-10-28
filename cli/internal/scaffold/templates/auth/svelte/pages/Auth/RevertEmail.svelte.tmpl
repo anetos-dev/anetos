@@ -1,0 +1,24 @@
+<script lang="ts">
+  // Auth/RevertEmail asks the owner of an account's old address, from the
+  // link emailed to it, to confirm undoing a change of address (anetos
+  // make:auth).
+  import { Form } from '@inertiajs/svelte'
+  import { AuthCard, Button, Title } from '../../components/ui'
+  import { useT } from '../../i18n'
+  import { route } from '../../routes'
+  import type { RevertEmailProps } from '../../types/pages'
+
+  let { token, oldEmail, newEmail }: RevertEmailProps = $props()
+  const t = useT()
+</script>
+
+<AuthCard title={t('auth.revert.title')}>
+  <Title text={t('auth.revert.title')} />
+  <p>{t('auth.revert.intro', { old: oldEmail, new: newEmail })}</p>
+  <Form action={route('settings.email.revert')} method="post">
+    {#snippet children({ processing })}
+      <input type="hidden" name="token" value={token} />
+      <Button variant="danger" disabled={processing}>{t('auth.revert.submit')}</Button>
+    {/snippet}
+  </Form>
+</AuthCard>

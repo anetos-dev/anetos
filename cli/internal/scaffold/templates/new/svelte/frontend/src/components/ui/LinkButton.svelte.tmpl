@@ -1,0 +1,20 @@
+<script lang="ts">
+  // LinkButton is a link of the app that looks like a button.
+  import { Link } from '@inertiajs/svelte'
+  import type { Snippet } from 'svelte'
+  import { buttonClass, type Variant } from './look'
+
+  let {
+    href,
+    variant,
+    small,
+    full,
+    children,
+  }: { href: string; variant?: Variant; small?: boolean; full?: boolean; children?: Snippet } = $props()
+</script>
+
+<!-- Made again when href changes: Inertia's Link keeps the href it was
+     made with for an <a>'s visit. -->
+{#key href}
+  <Link class={buttonClass(variant, true, small, full)} {href}>{@render children?.()}</Link>
+{/key}

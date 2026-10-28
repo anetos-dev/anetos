@@ -26,10 +26,10 @@ views (made of views/ui's components), the routes, their English text
 and a test. It adds the routes to routes/web.go's pages group and a
 link to the layout's nav. The code is yours to change.
 
-In a project of an Inertia stack (anetos new --stack=react or vue), the
+In a project of an Inertia stack (anetos new --stack=react, vue or svelte), the
 pages are the framework's components (frontend/src/pages/<Plural>),
 rendered by the same handlers, and the link goes in the frontend's
-layout (frontend/src/Layout.tsx or .vue); it then updates the frontend's
+layout (frontend/src/Layout.tsx, .vue or .svelte); it then updates the frontend's
 types (go run . types).
 
 In an API project (anetos new --stack=api), it writes JSON endpoints

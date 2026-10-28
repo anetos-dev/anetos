@@ -1,0 +1,53 @@
+<script lang="ts">
+  // Auth/TwoFactor turns two-factor authentication on and off (anetos
+  // make:auth): off, being set up (the QR code to scan), or on; and the
+  // recovery codes once, just after they're made.
+  import { Form } from '@inertiajs/svelte'
+  import { Button, Card, Cluster, Field, Input, LinkButton, Narrow, PageHeader, PostButton, Title } from '../../components/ui'
+  import { useT } from '../../i18n'
+  import { route } from '../../routes'
+  import type { TwoFactorProps } from '../../types/pages'
+
+  let { on, started, recoveryCodesLeft, secret, qr, recoveryCodes }: TwoFactorProps = $props()
+  const t = useT()
+</script>
+
+<Narrow>
+  <Title text={t('auth.two_factor.title')} />
+  <PageHeader title={t('auth.two_factor.title')}>
+    <LinkButton href={route('settings')} variant="secondary">{t('auth.settings.title')}</LinkButton>
+  </PageHeader>
+  <Card>
+    {#if recoveryCodes.length > 0}
+      <p>{t('auth.two_factor.codes')}</p>
+      <ul>
+        {#each recoveryCodes as c (c)}
+          <li><code>{c}</code></li>
+        {/each}
+      </ul>
+    {/if}
+    {#if on}
+      <p>{t('auth.two_factor.on', { count: recoveryCodesLeft })}</p>
+      <Cluster>
+        <PostButton href={route('two-factor.recovery-codes')} variant="secondary">{t('auth.two_factor.new_codes')}</PostButton>
+        <PostButton href={route('two-factor.disable')} variant="danger">{t('auth.two_factor.disable')}</PostButton>
+      </Cluster>
+    {:else if started}
+      <p>{t('auth.two_factor.scan')}</p>
+      <!-- The server's SVG of the QR code (package qr). -->
+      <p>{@html qr}</p>
+      <p>{t('auth.two_factor.key')} <code>{secret}</code></p>
+      <Form action={route('two-factor.confirm')} method="post" resetOnError>
+        {#snippet children({ errors, processing })}
+          <Field name="code" label={t('auth.fields.code')} error={errors.code}>
+            <Input autocomplete="one-time-code" inputmode="numeric" />
+          </Field>
+          <Button disabled={processing}>{t('auth.two_factor.confirm')}</Button>
+        {/snippet}
+      </Form>
+    {:else}
+      <p>{t('auth.two_factor.off')}</p>
+      <PostButton href={route('two-factor.start')}>{t('auth.two_factor.enable')}</PostButton>
+    {/if}
+  </Card>
+</Narrow>

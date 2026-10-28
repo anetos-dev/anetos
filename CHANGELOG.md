@@ -7,6 +7,15 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- The svelte stack (V3c, D379–D380): `anetos new --stack=svelte`, the
+  react and vue stacks' Go side with pages that are Svelte 5 components
+  in TypeScript (`src/Layout.svelte`, `src/components/ui/` with `Title`
+  for the pages' titles, `src/routes.ts`, whose `route()` follows the
+  page's locale prefix), type-checked by `svelte-check` on TypeScript 6
+  in `npm run build`; `make:auth` and `make:crud` write Svelte pages in
+  such a project. `make test-frontend` runs the cli tests that build
+  frontends with Node, which CI runs in a job of its own,
+  `test (latest Go, frontend)`.
 - The vue stack (V3b, D377–D378): `anetos new --stack=vue`, the react
   stack's Go side with pages that are Vue single-file components in
   TypeScript (`src/Layout.vue`, `src/components/ui/`, a component a

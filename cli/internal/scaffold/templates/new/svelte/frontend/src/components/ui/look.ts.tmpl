@@ -1,0 +1,41 @@
+// What the components share: the classes of a button's variant and size
+// and of a tone, and a control's link to its Field.
+import { getContext, setContext } from 'svelte'
+
+/** A button's look: primary (the default), secondary, danger or ghost. */
+export type Variant = 'primary' | 'secondary' | 'danger' | 'ghost'
+/** A badge's or a message's color. */
+export type Tone = 'neutral' | 'success' | 'warning' | 'error' | 'info'
+
+export function buttonClass(variant: Variant = 'primary', link = false, small = false, full = false): string | undefined {
+  const c = [link && 'button', variant !== 'primary' && variant, small && 'small', full && 'full'].filter(Boolean)
+  return c.length ? c.join(' ') : undefined
+}
+
+export function toneClass(tone: Tone, flash = false): string {
+  if (tone === 'neutral') return ''
+  if (tone === 'error') return flash ? ' error' : ' danger'
+  return ' ' + tone
+}
+
+/** The field a control belongs to (Field sets it): its name (and id), and its error. */
+type FieldInfo = { readonly name: string; readonly error?: string }
+
+const fieldKey = Symbol('field')
+
+/** setField makes field the one of the controls inside the calling component. */
+export function setField(field: FieldInfo) {
+  setContext(fieldKey, field)
+}
+
+/** control is a control's name, id and invalid state (attrs), from its Field. */
+export function control() {
+  const field = getContext<FieldInfo | undefined>(fieldKey)
+  return {
+    get attrs() {
+      const name = field?.name ?? ''
+      const error = field?.error
+      return { id: name, name, 'aria-invalid': error ? true : undefined, 'aria-describedby': error ? name + '-error' : undefined }
+    },
+  }
+}

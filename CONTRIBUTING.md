@@ -31,12 +31,16 @@ git clone https://github.com/anetos-dev/anetos && cd anetos
 make test-short  # the fast tests
 make test        # the tests, with the race detector
 make check       # formatting, the docs and API checks, lint, the tests
+make test-frontend  # the tests that build frontends with Node.js and npm
 make help        # the other targets
 ```
 
 `make check` also needs [golangci-lint](https://golangci-lint.run) v2.
 The race detector needs cgo (a C compiler) on Linux and Windows, and
-the Makefile a Unix shell: on Windows, use WSL. CI also runs
+the Makefile a Unix shell: on Windows, use WSL. `make test-frontend`
+needs Node.js 20.19 or 22.12 or later: it creates projects with
+`--vite` and of the react, vue and svelte stacks, and builds their
+frontends (CI runs it in a job of its own). CI also runs
 `make vuln` (govulncheck) and, on the main branch, `make cover`, which
 sends the published modules' merged test coverage to
 [Codecov](https://app.codecov.io/gh/anetos-dev/anetos).

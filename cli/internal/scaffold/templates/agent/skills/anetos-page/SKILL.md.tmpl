@@ -22,9 +22,12 @@ description: Add or change a page, a form or a component in this Anetos web app 
 2. **The types:** `go run . types` (which `go tool anetos dev` runs)
    writes `frontend/src/types/pages.ts`, with [[if eq .Framework "vue"]]the props' type (`ReportProps`,
    which the component takes with `defineProps<ReportProps>()`; the
-   shared props come from `usePage().props`)[[else]]`PageProps<'Reports/Show'>`[[end]],
-   and `routes.ts`, with `route(name, params)`. Never write those types
-   by hand.
+   shared props come from `usePage().props`)[[else if eq .Framework "svelte"]]the props' type (`ReportProps`,
+   which the component takes with `let { rows }: ReportProps = $props()`;
+   the shared props come from `usePage().props`)[[else]]`PageProps<'Reports/Show'>`[[end]],
+   and `routes.ts`, with `route(name, params)`[[if eq .Framework "svelte"]] (the pages import
+   it from `src/routes.ts`, which puts the locale's prefix first)[[end]]. Never write those
+   types by hand.
 3. **The component** (`frontend/src/pages/Reports/Show[[.Ext]]`): built
    from the components of `[[.UI]]` (`PageHeader`,
    `Card`, `Field`, `Input`, `Button`, `Table`…), **no CSS classes in

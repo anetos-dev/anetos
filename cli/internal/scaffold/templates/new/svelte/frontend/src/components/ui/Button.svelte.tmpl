@@ -1,0 +1,16 @@
+<script lang="ts">
+  // Button is a button (type submit unless given another).
+  import type { HTMLButtonAttributes } from 'svelte/elements'
+  import { buttonClass, type Variant } from './look'
+
+  let {
+    variant,
+    small,
+    full,
+    type = 'submit',
+    children,
+    ...props
+  }: HTMLButtonAttributes & { variant?: Variant; small?: boolean; full?: boolean } = $props()
+</script>
+
+<button {type} class={buttonClass(variant, false, small, full)} {...props}>{@render children?.()}</button>

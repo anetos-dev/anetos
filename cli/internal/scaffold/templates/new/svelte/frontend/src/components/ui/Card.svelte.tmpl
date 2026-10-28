@@ -1,0 +1,11 @@
+<script lang="ts">
+  // Card is a box of related content, under a heading when it has a title.
+  import type { Snippet } from 'svelte'
+
+  let { title, children }: { title?: string; children?: Snippet } = $props()
+</script>
+
+<section class="card">
+  {#if title}<h2>{title}</h2>{/if}
+  {@render children?.()}
+</section>

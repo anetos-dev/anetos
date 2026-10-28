@@ -1,0 +1,9 @@
+<script lang="ts">
+  // Detail is a term and its value (children).
+  import type { Snippet } from 'svelte'
+
+  let { term, children }: { term: string; children?: Snippet } = $props()
+</script>
+
+<dt>{term}</dt>
+<dd>{@render children?.()}</dd>

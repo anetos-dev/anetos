@@ -360,8 +360,8 @@ func TestNewAPIProject(t *testing.T) {
 	if code, _, errOut := runCmd(t, "new", filepath.Join(t.TempDir(), "x"), "--stack=api", "--css=none", "--skip-install"); code != 1 || !strings.Contains(errOut, "--css is for the web stack") {
 		t.Errorf("--stack=api --css=none: %d %s", code, errOut)
 	}
-	if code, _, errOut := runCmd(t, "new", filepath.Join(t.TempDir(), "x"), "--stack=svelte", "--skip-install"); code != 1 || !strings.Contains(errOut, "--stack must be one of web, api") {
-		t.Errorf("--stack=svelte: %d %s", code, errOut)
+	if code, _, errOut := runCmd(t, "new", filepath.Join(t.TempDir(), "x"), "--stack=solid", "--skip-install"); code != 1 || !strings.Contains(errOut, "--stack must be one of web, api") {
+		t.Errorf("--stack=solid: %d %s", code, errOut)
 	}
 	dir := filepath.Join(t.TempDir(), "shop")
 	code, out, errOut := runCmd(t, "new", dir, "--module", "example.com/shop", "--stack=api", "--replace", repo)

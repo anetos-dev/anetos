@@ -22,6 +22,7 @@ type inertiaCase struct {
 	pkg                     []string // in frontend/package.json
 	marker                  string   // the layout's line for the account's links
 	accountImport           string   // the line importing AccountMenu
+	uiImport                string   // the line importing Flash, which it goes before
 	navLink                 string   // the layout's line linking to (route, key): fmt with route, key
 	navIndent               string   // its indentation
 }
@@ -34,18 +35,28 @@ var inertiaCases = []inertiaCase{
 			`"@types/react": "^` + ReactTypesVersion + `"`, `"@vitejs/plugin-react": "^` + ReactPluginVersion + `"`,
 			`"vite": "^` + ViteVersion + `"`, `"typescript": "^` + TypeScriptVersion + `"`, `"build": "tsc --noEmit && vite build"`},
 		marker:        "{/* The account's links (go tool anetos make:auth adds them). */}",
-		accountImport: "import AccountMenu from './components/AccountMenu'",
-		navLink:       `<NavLink route="%s" label={t('%s')} />`, navIndent: "            ",
+		accountImport: "import AccountMenu from './components/AccountMenu'", uiImport: "import { Flash } from './components/ui'",
+		navLink: `<NavLink route="%s" label={t('%s')} />`, navIndent: "            ",
 	},
 	{
 		stack: "vue", name: "Vue", ext: ".vue", entry: "src/app.ts", ui: "src/components/ui/index.ts",
 		main: `vite.New(app, public.Files)`,
 		pkg: []string{`"@inertiajs/vue3": "^` + InertiaVersion + `"`, `"vue": "^` + VueVersion + `"`,
 			`"@vitejs/plugin-vue": "^` + VuePluginVersion + `"`, `"vue-tsc": "^` + VueTscVersion + `"`,
-			`"vite": "^` + ViteVersion + `"`, `"typescript": "~` + VueTypeScriptVersion + `"`, `"build": "vue-tsc --noEmit && vite build"`},
+			`"vite": "^` + ViteVersion + `"`, `"typescript": "~` + TypeScript6Version + `"`, `"build": "vue-tsc --noEmit && vite build"`},
 		marker:        "<!-- The account's links (go tool anetos make:auth adds them). -->",
-		accountImport: "import AccountMenu from './components/AccountMenu.vue'",
-		navLink:       `<NavLink route="%s" :label="t('%s')" />`, navIndent: "        ",
+		accountImport: "import AccountMenu from './components/AccountMenu.vue'", uiImport: "import { Flash } from './components/ui'",
+		navLink: `<NavLink route="%s" :label="t('%s')" />`, navIndent: "        ",
+	},
+	{
+		stack: "svelte", name: "Svelte", ext: ".svelte", entry: "src/app.ts", ui: "src/components/ui/index.ts",
+		main: `vite.New(app, public.Files)`,
+		pkg: []string{`"@inertiajs/svelte": "^` + InertiaVersion + `"`, `"svelte": "^` + SvelteVersion + `"`,
+			`"@sveltejs/vite-plugin-svelte": "^` + SveltePluginVersion + `"`, `"svelte-check": "^` + SvelteCheckVersion + `"`,
+			`"vite": "^` + ViteVersion + `"`, `"typescript": "~` + TypeScript6Version + `"`, `"build": "svelte-check --tsconfig ./tsconfig.json && vite build"`},
+		marker:        "<!-- The account's links (go tool anetos make:auth adds them). -->",
+		accountImport: "  import AccountMenu from './components/AccountMenu.svelte'", uiImport: "  import { Flash } from './components/ui'", // as indented in <script>
+		navLink: `<NavLink route="%s" label={t('%s')} />`, navIndent: "      ",
 	},
 }
 
@@ -96,7 +107,7 @@ func classlessPages(t *testing.T, root string) {
 	}
 }
 
-// --stack=react and vue: the web stack's Go side, with pages that are
+// --stack=react, vue and svelte: the web stack's Go side, with pages that are
 // the framework's components, which Inertia's client renders (design
 // D370–D376).
 func TestCreateInertia(t *testing.T) {
@@ -212,7 +223,7 @@ func TestInertiaFramework(t *testing.T) {
 	}
 }
 
-// make:auth in a react or vue project: the web stack's Go, with
+// make:auth in a react, vue or svelte project: the web stack's Go, with
 // Inertia's renders, and the framework's pages; every page gets the
 // user, and the layout's header the account's links.
 func TestMakeAuthInertia(t *testing.T) {
@@ -241,7 +252,7 @@ func TestMakeAuthInertia(t *testing.T) {
 			t.Errorf("pages.go:\n%s", p)
 		}
 		layout := read(t, filepath.Join(dir, filepath.FromSlash(c.layout())))
-		if !strings.Contains(layout, c.accountImport+"\nimport { Flash } from './components/ui'") ||
+		if !strings.Contains(layout, c.accountImport+"\n"+c.uiImport) ||
 			!strings.Contains(layout, "<AccountMenu />") || strings.Contains(layout, "make:auth adds them") {
 			t.Errorf("%s:\n%s", c.layout(), layout)
 		}
@@ -280,7 +291,7 @@ func TestMakeAuthInertia(t *testing.T) {
 		pagesFile := filepath.Join(mention, "app", "handlers", "pages.go")
 		writeFile(t, mention, "app/handlers/pages.go", read(t, pagesFile)+"\n// later: return authUser(c)\n")
 		layoutFile = filepath.Join(mention, filepath.FromSlash(c.layout()))
-		writeFile(t, mention, c.layout(), strings.Replace(read(t, layoutFile), "import { Flash }", c.accountImport+"\nimport { Flash }", 1))
+		writeFile(t, mention, c.layout(), strings.Replace(read(t, layoutFile), c.uiImport, c.accountImport+"\n"+c.uiImport, 1))
 		if res, err := MakeAuth(mention, now); err != nil || !res.Shared || !res.Menu {
 			t.Fatalf("mention: %+v %v", res, err)
 		}
@@ -289,6 +300,21 @@ func TestMakeAuthInertia(t *testing.T) {
 		}
 		if l := read(t, layoutFile); strings.Count(l, "import AccountMenu") != 1 || !strings.Contains(l, "<AccountMenu />") {
 			t.Errorf("%s:\n%s", c.layout(), l)
+		}
+		// Imports indented otherwise (tabs, in a Svelte layout's <script>):
+		// AccountMenu's gets the Flash import's indentation.
+		tabs := c.newProject(t, "tabs")
+		layoutFile = filepath.Join(tabs, filepath.FromSlash(c.layout()))
+		writeFile(t, tabs, c.layout(), strings.ReplaceAll(read(t, layoutFile), "\n  import ", "\n\timport "))
+		if res, err := MakeAuth(tabs, now); err != nil || !res.Menu {
+			t.Fatalf("tabs: %+v %v", res, err)
+		}
+		indent := "" // React's and Vue's imports aren't indented
+		if strings.HasPrefix(c.uiImport, " ") {
+			indent = "\t"
+		}
+		if l := read(t, layoutFile); !strings.Contains(l, "\n"+indent+strings.TrimSpace(c.accountImport)+"\n"+indent+strings.TrimSpace(c.uiImport)) || strings.Count(l, "import AccountMenu") != 1 {
+			t.Errorf("tabs: %s:\n%s", c.layout(), l)
 		}
 		// CRLF line endings are kept.
 		crlf := c.newProject(t, "crlf")
@@ -306,7 +332,7 @@ func TestMakeAuthInertia(t *testing.T) {
 	})
 }
 
-// make:crud in a react or vue project: the handlers render the pages
+// make:crud in a react, vue or svelte project: the handlers render the pages
 // (frontend/src/pages/<Plural>), and the layout's nav links to the list.
 func TestMakeCrudInertia(t *testing.T) {
 	now := time.Date(2030, 1, 2, 3, 4, 5, 0, time.UTC)
@@ -374,7 +400,7 @@ func TestMakeCrudInertia(t *testing.T) {
 	})
 }
 
-// make:admin in a react or vue project: the impersonation banner goes in
+// make:admin in a react, vue or svelte project: the impersonation banner goes in
 // the root view, which every page's first visit renders.
 func TestMakeAdminInertia(t *testing.T) {
 	eachStack(t, func(t *testing.T, c inertiaCase) {

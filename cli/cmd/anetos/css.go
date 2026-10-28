@@ -121,8 +121,8 @@ component you edited, your colors in app.css), naming them: --force
 overwrites them; commit first, so git shows what changed. With the
 framework the project has, it updates its files to this anetos's
 version. Without <framework>, it prints the project's. A project of an
-Inertia stack (anetos new --stack=react or vue) has the starter theme, in
-frontend/src/theme.css, for now.
+Inertia stack (anetos new --stack=react, vue or svelte) has the starter
+theme, in frontend/src/theme.css, for now.
 `
 
 func cssUse(ctx context.Context, args []string, stdout, stderr io.Writer) int {

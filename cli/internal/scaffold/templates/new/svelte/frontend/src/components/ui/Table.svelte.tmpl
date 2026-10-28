@@ -1,0 +1,10 @@
+<script lang="ts">
+  // Table is a table in a box that scrolls sideways when it's too wide.
+  import type { Snippet } from 'svelte'
+
+  let { children }: { children?: Snippet } = $props()
+</script>
+
+<div class="table-wrap">
+  <table>{@render children?.()}</table>
+</div>

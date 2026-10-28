@@ -1,0 +1,48 @@
+<script lang="ts">
+  // Layout is every page's frame (createInertiaApp's layout in app.ts): the
+  // header with the app's links, the message a handler flashed, then the
+  // page (children). Its markup is components/ui's, styled by theme.css.
+  import { Link, usePage } from '@inertiajs/svelte'
+  import type { Snippet } from 'svelte'
+  import NavLink from './components/NavLink.svelte'
+  import { Flash } from './components/ui'
+  import { useT } from './i18n'
+  import { route } from './routes'
+
+  let { children }: { children?: Snippet } = $props()
+  const page = usePage()
+  const t = useT()
+  $effect(() => {
+    // The root view set them for the first visit; a visit may change the
+    // locale (the settings, a login).
+    document.documentElement.lang = page.props.locale
+    document.documentElement.dir = page.props.dir
+  })
+</script>
+
+<header class="topbar">
+  <div class="container">
+    <!-- Keyed by its href, which follows the locale: Inertia's Link keeps
+         the href it was made with for an <a>'s visit. -->
+    {#key route('home')}
+      <Link class="brand" href={route('home')}>{page.props.appName}</Link>
+    {/key}
+    <nav class="nav" aria-label={t('nav.label')}>
+      <NavLink route="home" label={t('nav.home')} />
+    </nav>
+    <div class="nav-end">
+      <!-- The account's links (go tool anetos make:auth adds them). -->
+    </div>
+  </div>
+</header>
+<main class="container">
+  {#if page.props.notice}
+    <Flash>{page.props.notice}</Flash>
+  {/if}
+  {@render children?.()}
+</main>
+<footer class="site-footer">
+  <div class="container">
+    <p>{page.props.appName}</p>
+  </div>
+</footer>

@@ -6,11 +6,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"slices"
 	"strings"
 	"testing"
 )
 
-// With Node (ANETOS_TEST_NODE=1, as CI's latest Go cli part has): anetos
+// With Node (ANETOS_TEST_NODE=1, as make test-frontend and CI's frontend job set): anetos
 // new --vite installs the frontend's packages, the project builds and
 // passes its tests without a frontend build, anetos build builds it into
 // public/build and the binary, which embeds every file of the build;
@@ -234,3 +236,40 @@ func TestEmbedsBuild(t *testing.T) {
 	}
 }
 `
+
+// Every test that needs Node (ANETOS_TEST_NODE) is one the Makefile's
+// test-frontend runs (FRONTEND_TESTS, CI's frontend job), which skips the
+// others: one it didn't list would run nowhere (design D380).
+func TestFrontendTestsListed(t *testing.T) {
+	makefile := read(t, filepath.Join("..", "..", "..", "Makefile"))
+	m := regexp.MustCompile(`(?m)^FRONTEND_TESTS = \^\(([^)]*)\)\$\$$`).FindStringSubmatch(makefile)
+	if m == nil {
+		t.Fatal("the Makefile has no FRONTEND_TESTS = ^(…)$$ line")
+	}
+	listed := strings.Split(m[1], "|")
+	files, err := filepath.Glob("*_test.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var needNode []string
+	decl := regexp.MustCompile(`(?m)^func (Test\w+)\(`)
+	for _, f := range files {
+		src := read(t, f)
+		funcs := decl.FindAllStringSubmatchIndex(src, -1)
+		for i, fn := range funcs {
+			end := len(src)
+			if i+1 < len(funcs) {
+				end = funcs[i+1][0]
+			}
+			// A test's code reaches to the next test: its helpers too.
+			if name := src[fn[2]:fn[3]]; name != "TestFrontendTestsListed" && strings.Contains(src[fn[0]:end], `os.Getenv("ANETOS_TEST_NODE")`) {
+				needNode = append(needNode, name)
+			}
+		}
+	}
+	slices.Sort(listed)
+	slices.Sort(needNode)
+	if !slices.Equal(listed, needNode) {
+		t.Errorf("FRONTEND_TESTS lists %v; the tests that need Node are %v", listed, needNode)
+	}
+}

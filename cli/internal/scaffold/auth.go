@@ -336,18 +336,22 @@ func addAccountMenuTo(layout string, stack inertiaStack) (bool, error) {
 	if bytes.Contains(src, []byte("<AccountMenu")) {
 		return true, nil
 	}
-	accountImport := []byte(stack.accountImport)
 	m := stack.accountMarker.FindSubmatchIndex(src)
-	imp := []byte(stack.uiImport)
-	if m == nil || !bytes.Contains(src, imp) {
+	// The import of Flash, with its indentation (a Svelte layout's
+	// imports are indented in <script>), which AccountMenu's goes before.
+	imp := regexp.MustCompile(`(?m)^([ \t]*)` + regexp.QuoteMeta(stack.uiImport) + `[ \t]*\r?$`).FindSubmatchIndex(src)
+	if m == nil || imp == nil {
 		return false, nil
 	}
-	nl := newline(src)
-	out := append(append(append([]byte(nil), src[:m[0]]...), src[m[2]:m[3]]...), "<AccountMenu />"...)
-	out = append(append(out, src[m[4]:m[5]]...), src[m[1]:]...) // the line's \r, if any
-	if !bytes.Contains(out, accountImport) {
-		out = bytes.Replace(out, imp, append(append(accountImport, nl...), imp...), 1)
+	imported := regexp.MustCompile(`(?m)^[ \t]*` + regexp.QuoteMeta(stack.accountImport)).Match(src)
+	var out []byte
+	if !imported {
+		line := string(src[imp[2]:imp[3]]) + stack.accountImport + string(newline(src))
+		src = append(append(append([]byte(nil), src[:imp[0]]...), line...), src[imp[0]:]...)
+		m = stack.accountMarker.FindSubmatchIndex(src) // after the import: moved
 	}
+	out = append(append(append(out, src[:m[0]]...), src[m[2]:m[3]]...), "<AccountMenu />"...)
+	out = append(append(out, src[m[4]:m[5]]...), src[m[1]:]...) // the line's \r, if any
 	return true, os.WriteFile(layout, out, 0o644)
 }
 

@@ -1,0 +1,18 @@
+<script lang="ts">
+  // Input is an <input> of its Field: the attributes given go on it
+  // (type, autocomplete, defaultValue…). With autofocus, it takes the
+  // focus when it shows, whatever has it: the pages after the first are
+  // Inertia's visits.
+  import { onMount } from 'svelte'
+  import type { HTMLInputAttributes } from 'svelte/elements'
+  import { control } from './look'
+
+  let props: HTMLInputAttributes = $props()
+  const c = control()
+  let input: HTMLInputElement | undefined = $state()
+  onMount(() => {
+    if (props.autofocus) input?.focus()
+  })
+</script>
+
+<input bind:this={input} {...c.attrs} {...props} />

@@ -1,0 +1,75 @@
+<script lang="ts">
+  // [[.Plural]]/Index lists a page of [[.PluralW]] (anetos make:crud): yours to
+  // change. Its text is in locales/en/[[.Key]].yaml.
+  import { Link } from '@inertiajs/svelte'
+  import { ActionsCell, [[if .HasBool]]Badge, [[end]]Empty, LinkButton, PageHeader, Pagination, SROnly, Table, Title } from '../../components/ui'
+  import { [[if .HasListFormat]]useFormat, [[end]]useT } from '../../i18n'
+  import { route } from '../../routes'
+  import type { [[.Plural]]IndexProps } from '../../types/pages'
+
+  let { page }: [[.Plural]]IndexProps = $props()
+  const t = useT()
+[[- if .HasListFormat]]
+  const f = useFormat()
+[[- end]]
+  const at = (n: number) => (n >= 1 && n <= page.last_page ? route('[[.Path]].index', {}, { page: n }) : undefined)
+</script>
+
+<Title text={t('[[.Key]].title')} />
+<PageHeader title={t('[[.Key]].title')}>
+  <LinkButton href={route('[[.Path]].new')}>{t('[[.Key]].new')}</LinkButton>
+</PageHeader>
+{#if page.total === 0}
+  <Empty text={t('[[.Key]].empty')} />
+{:else}
+  <Table>
+    <thead>
+      <tr>
+[[- if not .TitleF]]
+        <th>#</th>
+[[- end]]
+[[- range .ListFields]]
+        <th>{t('[[$.Key]].fields.[[.Name]]')}</th>
+[[- end]]
+        <th><SROnly text={t('[[.Key]].actions')} /></th>
+      </tr>
+    </thead>
+    <tbody>
+      {#each page.data as row (row.id)}
+        <tr>
+[[- if not .TitleF]]
+          <td><Link href={route('[[.Path]].show', { id: row.id })}>{row.id}</Link></td>
+[[- end]]
+[[- range .ListFields]]
+[[- if and $.TitleF (eq .Name $.TitleF.Name)]]
+          <td><Link href={route('[[$.Path]].show', { id: row.id })}>{row.[[.Name]]}</Link></td>
+[[- else if eq .Kind "bool"]]
+          <td>
+            {#if row.[[.Name]]}<Badge tone="success">{t('[[$.Key]].answer_yes')}</Badge>{:else}<Badge>{t('[[$.Key]].answer_no')}</Badge>{/if}
+          </td>
+[[- else if or (eq .Kind "int") (eq .Kind "float")]]
+          <td>{f.number(row.[[.Name]])}</td>
+[[- else if eq .Kind "date"]]
+          <td>{row.[[.Name]] && f.date(row.[[.Name]])}</td>
+[[- else]]
+          <td>{row.[[.Name]]}</td>
+[[- end]]
+[[- end]]
+          <ActionsCell>
+            <LinkButton href={route('[[.Path]].edit', { id: row.id })} variant="secondary" small>{t('[[.Key]].edit')}</LinkButton>
+          </ActionsCell>
+        </tr>
+      {/each}
+    </tbody>
+  </Table>
+  {#if page.last_page > 1}
+    <Pagination
+      label={t('[[.Key]].pages')}
+      prev={at(page.current_page - 1)}
+      prevLabel={t('[[.Key]].previous')}
+      status={t('[[.Key]].page', { page: page.current_page, pages: page.last_page })}
+      next={at(page.current_page + 1)}
+      nextLabel={t('[[.Key]].next')}
+    />
+  {/if}
+{/if}

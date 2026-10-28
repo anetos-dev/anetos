@@ -1,0 +1,9 @@
+<script lang="ts">
+  // Flash is a message about what just happened, with any buttons beside it.
+  import type { Snippet } from 'svelte'
+  import { toneClass, type Tone } from './look'
+
+  let { tone = 'success', children }: { tone?: Tone; children?: Snippet } = $props()
+</script>
+
+<div class={'flash cluster' + toneClass(tone, true)} role="status">{@render children?.()}</div>

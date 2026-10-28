@@ -1,0 +1,25 @@
+<script lang="ts">
+  // Auth/TwoFactorChallenge asks for the two-factor code, after the
+  // password (anetos make:auth).
+  import { Form } from '@inertiajs/svelte'
+  import { Actions, AuthCard, Button, Field, Input, Note, Title } from '../../components/ui'
+  import { useT } from '../../i18n'
+  import { route } from '../../routes'
+
+  const t = useT()
+</script>
+
+<AuthCard title={t('auth.challenge.title')}>
+  <Title text={t('auth.challenge.title')} />
+  <Note>{t('auth.challenge.intro')}</Note>
+  <Form action={route('two-factor.challenge')} method="post" resetOnError>
+    {#snippet children({ errors, processing })}
+      <Field name="code" label={t('auth.fields.code')} error={errors.code}>
+        <Input autocomplete="one-time-code" autofocus />
+      </Field>
+      <Actions>
+        <Button disabled={processing}>{t('auth.challenge.submit')}</Button>
+      </Actions>
+    {/snippet}
+  </Form>
+</AuthCard>

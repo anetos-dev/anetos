@@ -77,20 +77,13 @@ jobs:
             modules) modules=$(find . -name go.mod -not -path './.git/*' -not -path '*/node_modules/*' -not -path './examples/*/frontend/*' | sed 's|/go.mod$||' | grep -vx -e . -e ./cli | sort | tr '\n' ' ') ;;
           esac
           echo "MODULES=$modules" >>"$GITHUB_ENV"
-      # Latest Go's cli part builds a frontend with Vite too (anetos new
-      # --vite, vite:install, anetos build; design D345): Node.js and npm.
-      - if: matrix.part == 'cli' && matrix.go.name == 'latest Go'
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: 22
       # Latest Go's cli part also downloads Tailwind CSS's standalone CLI
       # (checking its pinned digest) and compiles the tailwind kit with it
-      # (design D301), and installs a frontend's packages from npm; the
-      # other parts don't need them.
+      # (design D301); the other parts don't need it. The tests that build
+      # frontends with Node are the frontend job's.
       - run: make vet test
         env:
           ANETOS_TEST_TAILWIND: ${{ matrix.part == 'cli' && matrix.go.name == 'latest Go' && '1' || '' }}
-          ANETOS_TEST_NODE: ${{ matrix.part == 'cli' && matrix.go.name == 'latest Go' && '1' || '' }}
       # A release as users will get it (design D319): the committed tree,
       # every published module at a made-up version in a module proxy on
       # disk, go install of the tool, anetos new (web and api) without
@@ -113,13 +106,34 @@ jobs:
       - if: matrix.part == 'core'
         run: make bench-check
 
+  # The cli tests that build frontends with Node and npm (anetos new
+  # --vite, an API project's SPA, the react, vue and svelte stacks with
+  # make:auth and make:crud; design D345, D376, D379), on the latest Go:
+  # a job of their own, without the race detector, so the cli part stays
+  # within its budget.
+  frontend:
+    name: test (latest Go, frontend)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - run: make test-frontend
+
   # The checks the main branch's ruleset requires, one per Go release,
   # under their names from before the split: green when every part of
-  # the tests is (a failing part fails both).
+  # the tests is, the frontend job's too (a failing part fails both).
   test:
     name: test (${{ matrix.name }})
     if: always()
-    needs: test-part
+    needs: [test-part, frontend]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     strategy:
@@ -128,9 +142,10 @@ jobs:
     steps:
       - env:
           RESULT: ${{ needs.test-part.result }}
+          FRONTEND: ${{ needs.frontend.result }}
         run: |
-          echo "The tests' parts: $RESULT"
-          test "$RESULT" = success
+          echo "The tests' parts: $RESULT; the frontend job: $FRONTEND"
+          test "$RESULT" = success && test "$FRONTEND" = success
 
   # The published modules' test coverage, merged (make cover, design
   # D332), uploaded to Codecov for the README's badge. On main only, and

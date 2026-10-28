@@ -1,0 +1,24 @@
+<script lang="ts">
+  // SocialButtons are the "Log in with …" buttons, and why such a login
+  // failed (the social error). They are links, not Inertia visits: they
+  // leave the site for the provider's page.
+  import { useT } from '../i18n'
+  import { route } from '../routes'
+  import type { SocialButton } from '../types/api'
+  import { Note, Stack } from './ui'
+
+  let { social, error }: { social: SocialButton[]; error?: string } = $props()
+  const t = useT()
+</script>
+
+{#if social.length > 0}
+  <Note>{t('auth.social.or')}</Note>
+  <Stack>
+    {#each social as b (b.name)}
+      <a class="button secondary full" href={route('social.redirect', { provider: b.name })}>
+        {t('auth.social.login_with', { provider: b.title })}
+      </a>
+    {/each}
+  </Stack>
+{/if}
+{#if error}<p class="error">{error}</p>{/if}

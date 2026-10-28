@@ -13,7 +13,7 @@ import (
 	"anetos.dev/anetos/cli/internal/scaffold"
 )
 
-// A react or vue project keeps the starter theme: css:use names it, and
+// A react, vue or svelte project keeps the starter theme: css:use names it, and
 // refuses another framework (design D370).
 func TestCSSUseInertia(t *testing.T) {
 	for _, stack := range scaffold.InertiaStacks {
@@ -50,8 +50,8 @@ func TestInstallStepsInertia(t *testing.T) {
 	}
 }
 
-// With Node (ANETOS_TEST_NODE=1, as CI's latest Go cli part has), for
-// each Inertia stack: anetos new --stack=react (or vue) installs the frontend's packages and writes its
+// With Node (ANETOS_TEST_NODE=1, as make test-frontend and CI's frontend job set), for
+// each Inertia stack: anetos new --stack=react (vue, svelte) installs the frontend's packages and writes its
 // types; make:auth and make:crud add their pages and update the types;
 // the project passes its tests, and anetos build type-checks the pages
 // and builds them into public/build, which the binary embeds. A renamed
@@ -122,7 +122,7 @@ func testNewProjectInertia(t *testing.T, stack string) {
 	if code, out, errOut := runCmd(t, "build", "-o", "bin/shop"); code != 0 { // tsc (vue-tsc) checks every page
 		t.Fatalf("build: %d\n%s\n%s", code, out, errOut)
 	}
-	entry := map[string]string{".tsx": "src/app.tsx", ".vue": "src/app.ts"}[ext]
+	entry := map[string]string{".tsx": "src/app.tsx", ".vue": "src/app.ts", ".svelte": "src/app.ts"}[ext]
 	if manifest := read(t, filepath.Join(dir, "public", "build", "manifest.json")); !strings.Contains(manifest, `"`+entry+`"`) ||
 		!strings.Contains(manifest, `"src/pages/Tasks/Index`+ext+`"`) {
 		t.Errorf("manifest:\n%s", manifest)

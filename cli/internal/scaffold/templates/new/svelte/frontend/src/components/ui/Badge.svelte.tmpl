@@ -1,0 +1,9 @@
+<script lang="ts">
+  // Badge is a short label in a tone's color.
+  import type { Snippet } from 'svelte'
+  import { toneClass, type Tone } from './look'
+
+  let { tone = 'neutral', children }: { tone?: Tone; children?: Snippet } = $props()
+</script>
+
+<span class={'badge' + toneClass(tone)}>{@render children?.()}</span>

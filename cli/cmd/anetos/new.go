@@ -21,7 +21,7 @@ import (
 	"golang.org/x/mod/semver"
 )
 
-const newUsage = `Usage: anetos new <directory> [--module=path] [--db=sqlite|postgres|mysql] [--stack=web|api|react|vue] [--css=anetos|none|pico|bootstrap|bulma|tailwind] [--vite[=ts|js]]
+const newUsage = `Usage: anetos new <directory> [--module=path] [--db=sqlite|postgres|mysql] [--stack=web|api|react|vue|svelte] [--css=anetos|none|pico|bootstrap|bulma|tailwind] [--vite[=ts|js]]
 
 Creates an Anetos project: routes, handlers, migrations, a test, the
 files to deploy it, and a .env with a fresh APP_KEY. The web stack (the
@@ -39,12 +39,13 @@ frontend that Vite builds (frontend/, in TypeScript, or JavaScript with
 --vite=js): the web stack's layout loads it; the api stack serves it as
 a single-page app at / (in development, Vite's address,
 http://localhost:5173). It needs Node.js 20.19 or 22.12 or later (see
-anetos vite:install). The react and vue stacks (--stack=react,
---stack=vue) are the web stack's Go side with pages that are React or
-Vue components, which Inertia's client renders (frontend/, TypeScript,
-the starter theme; Node.js needed). Then it downloads the dependencies
-and generates the views (web, react, vue), openapi.json (api) or the
-frontend's types (react, vue), and
+anetos vite:install). The react, vue and svelte stacks (--stack=react,
+--stack=vue, --stack=svelte) are the web stack's Go side with pages that
+are React, Vue or Svelte components, which Inertia's client renders
+(frontend/, TypeScript, the starter theme; Node.js needed). Then it
+downloads the dependencies and generates the views (web and the
+Inertia stacks), openapi.json (api) or the frontend's types (the
+Inertia stacks), and
 installs the frontend's packages; skip with --skip-install. It also writes the files
 coding agents read (AGENTS.md, CLAUDE.md, GEMINI.md, and the skills in
 .agents/skills and .claude/skills; see anetos agent:install), unless
@@ -56,7 +57,7 @@ func newProject(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	module := fs.String("module", "", "Go module path (default: the directory's name)")
 	dbName := fs.String("db", "sqlite", "database: sqlite, postgres or mysql")
 	css := fs.String("css", "", "web stack's CSS framework (views/ui and its stylesheet): anetos (the starter theme; the default), none (plain HTML, no styles), pico, bootstrap, bulma or tailwind")
-	stack := fs.String("stack", "web", "kind of app: web (pages, sessions), api (JSON only), react or vue (pages in React or Vue, with Inertia)")
+	stack := fs.String("stack", "web", "kind of app: web (pages, sessions), api (JSON only), react, vue or svelte (pages in React, Vue or Svelte, with Inertia)")
 	replace := fs.String("replace", "", "use a local Anetos checkout at this path (for framework development)")
 	skip := fs.Bool("skip-install", false, "don't download dependencies or generate code")
 	noAgent := fs.Bool("no-agent", false, "don't write the files coding agents read (AGENTS.md, CLAUDE.md, GEMINI.md, the skills)")
