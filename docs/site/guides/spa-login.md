@@ -225,3 +225,5 @@ app.WithHeader("Origin", authClient) // as the SPA's browser sends it
 - [Bundle JavaScript and CSS with Vite](vite.md).
 - [Settings reference](../reference/configuration.md): `HTTP_SPA_ORIGINS`
   and the `SESSION_*` settings.
+- [Protect your app in the browser](browser-security.md): CSRF, CORS
+  and a Content-Security-Policy, in every stack.

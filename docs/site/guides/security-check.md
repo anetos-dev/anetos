@@ -2,7 +2,7 @@
 title: Check your app's security
 since: v0.5.0
 group: "Production"
-weight: 804
+weight: 805
 ---
 
 # Check your app's security
@@ -115,7 +115,7 @@ go tool anetos security:check --level=advanced
 
 Your machine has development settings, where most of the settings'
 rules don't apply. Run the binary's command where the production
-settings are, as you run [doctor](security.md#1-run-the-doctor). It
+settings are, as you run [doctor](security.md#1-run-the-checks-with-productions-settings). It
 checks the settings and the routes; the code and the dependencies are
 the tool's, in the project:
 
@@ -139,7 +139,7 @@ security:
     - uses: actions/checkout@v7
     - uses: actions/setup-go@v7
       with:
-        go-version: stable # the Go you build with: govulncheck checks its standard library
+        go-version: 1.26.x # the Go you build with, at its latest patch: govulncheck checks its standard library
     # The app boots with development settings: the route rules apply.
     - run: cp .env.example .env && go tool anetos key:generate
     - run: go tool anetos security:check --format=sarif --out=security.sarif
@@ -287,12 +287,16 @@ the proxy is the only way in. Note; A02:2025.
 
 `HTTP_SPA_ORIGINS` lists an `http://` or `localhost` origin where the
 app is deployed (a development value copied over): a page there gets
-the SPA's session login and CORS with credentials. Warning; A02:2025.
+the SPA's session login and CORS with credentials. **Fix:** list
+production's origins only ([Log your SPA in with a cookie](browser-security.md#2-log-your-spa-in-with-a-cookie-not-a-token)).
+Warning; A02:2025.
 
 ### `setting.cors`
 
-`HTTP_CORS_ORIGINS="*"`: scripts on any site may call the app. Warning;
-A02:2025.
+`HTTP_CORS_ORIGINS="*"`: scripts on any site may call the app.
+**Fix:** list the sites whose scripts call it
+([CORS](browser-security.md#3-allow-other-sites-scripts-only-where-you-mean-to-cors)).
+Warning; A02:2025.
 
 ### `setting.body-limit`
 
@@ -463,7 +467,7 @@ nosniff` or protection from framing (`X-Frame-Options`, or a CSP's
 `frame-ancestors`), warnings; without `Referrer-Policy` or a
 `Content-Security-Policy`, notes. `web.SecureHeaders` sends all but the
 CSP: a header missing usually means a proxy or another server answers.
-**Fix:** send them ([Secure your app](security.md#5-add-a-content-security-policy) for a CSP). A02:2025.
+**Fix:** send them ([Add a Content-Security-Policy](browser-security.md#4-add-a-content-security-policy) for a CSP). A02:2025.
 
 ### `live.cookie`
 
@@ -607,5 +611,6 @@ and review.
 
 ## Next steps
 
-- [Secure your app](security.md): the checklist before you go live.
+- [Secure your app](security.md): what Anetos protects, and the checklist before you go live.
+- [Protect your app in the browser](browser-security.md): CSRF, CORS, a Content-Security-Policy.
 - [Rate limiting](rate-limiting.md), [Roles and permissions](roles-and-permissions.md).

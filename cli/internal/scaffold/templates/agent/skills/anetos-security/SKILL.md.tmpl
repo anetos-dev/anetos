@@ -58,5 +58,7 @@ place), `reason` (required) and `expires` (a date); no other key. Never
 ignore a problem to make the check pass: fix it, or ask the user.
 
 **Before a release:** walk through `go tool anetos docs guides/security`
-(HTTPS, secrets, the database's TLS, a Content-Security-Policy, accounts,
-updates). Docs: `go tool anetos docs guides/security-check`.
+(the checks with production's settings, secrets, HTTPS, the database's
+TLS, accounts, updates) and `go tool anetos docs guides/browser-security`
+(CSRF, CORS, a Content-Security-Policy). Docs: `go tool anetos docs
+guides/security-check`.

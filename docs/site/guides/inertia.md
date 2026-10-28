@@ -458,3 +458,6 @@ func TestNotes(t *testing.T) {
   props' types, kept in step with the Go code.
 - [Views, sessions and forms reference](../reference/views.md#inertia-pages-webinertia):
   every function of `web/inertia`.
+- [Protect your app in the browser](browser-security.md): the
+  XSRF-TOKEN cookie, a Content-Security-Policy for the pages, and
+  what not to write unescaped.

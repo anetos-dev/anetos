@@ -7,6 +7,15 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Security docs (SD1): the guide "Secure your app" starts with what
+  Anetos protects in each stack and the tools that check the rest
+  (`check`, `doctor`, `security:check` and its live checks, the coding
+  agents' `security_check` tool and `anetos-security` skill), then the
+  checklist before going live. A new guide, "Protect your app in the
+  browser": CSRF protection in each stack, the SPA's session cookie,
+  CORS, a Content-Security-Policy that fits the pages of every stack,
+  escaping, and the session cookie's settings. The `anetos-security`
+  skill points to both.
 - The svelte stack (V3c, D379–D380): `anetos new --stack=svelte`, the
   react and vue stacks' Go side with pages that are Svelte 5 components
   in TypeScript (`src/Layout.svelte`, `src/components/ui/` with `Title`
@@ -177,6 +186,13 @@ All notable changes to this project are documented here. The format follows
   and sends it to Codecov, and the README shows its badge (M9b, D332).
 
 ### Fixed
+- Docs (SD1): "Secure your app"'s `systemd-run` command, which runs
+  `doctor` as the service does, gives it the service's user (`-p
+  User=blog`): without it, the command got a dynamic user of its own,
+  and systemd could hand it the state directory of the running
+  service. `Check.Security`'s godoc named the report's rule
+  `setting.<Name>`; it is `check.<Name>`. The doctor reference's `http`
+  row lists the `HTTP_CLIENT_IP_HEADER` and `HTTP_SPA_ORIGINS` findings.
 - `web/inertia`: with `APP_LOCALE_STRATEGY=prefix`, a page's URL keeps
   the locale's prefix (`/bn/posts`), which the client shows in the
   address bar (V3b).

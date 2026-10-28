@@ -93,7 +93,7 @@ type Check struct {
 	Run func(ctx context.Context) []Finding
 	// Security says every finding of the check is about security: the
 	// security:check command reports them too, as rule
-	// "setting.<Name>" unless a finding has a Rule of its own.
+	// "check.<Name>" unless a finding has a Rule of its own.
 	Security bool
 }
 

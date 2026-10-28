@@ -608,11 +608,12 @@ Node-free (D337).
 | SP1 | Login for SPAs | Session cookies on the API stack for listed first-party origins, CSRF by cookie and header, CORS credentials for them; tokens unchanged (D334) |
 | SP2 | Serving an SPA | The built SPA embedded and served by the binary with the client-route fallback; development through Vite's address, which forwards `/api` (D368); the React example frontend with login, registration and reset pages; the guide, also for a separate repository, a CDN, Next.js, Nuxt and SvelteKit (D335) |
 | V3 | Inertia stacks | `anetos new --stack=vue\|react\|svelte`: layout and pages, `make:auth`'s and `make:crud`'s pages per framework, the coding agents' files and skills |
+| SD1 | Security docs | Added 2026-10-28 (Samiul: "Secure your app" said nothing of the security check's system or v0.6's): the guide as the hub (what Anetos protects in each stack, the tools, the checklist); a new guide, "Protect your app in the browser" (CSRF per stack, the SPA's cookie, CORS, a Content-Security-Policy per stack, escaping). Docs only; its own commit before V4 |
 | V4 | Docs and exit check | A guide per stack, the htmx-to-SPA migration guide, the concept page; a docs-only walkthrough and an audit |
 | AX1c-2 | Coding agents: lessons from real apps | From v0.5 (2026-10-25): as Samiul builds his apps with coding agents (a dogfooding log as a project doc), the fixes they call for, in v0.5.x patches or here |
 
 **Order** (agreed 2026-10-25): DR1, then the shared and API pieces
-before the stacks: V1, V2, TS1, SP1, SP2, V3, V4; AX1c-2 when Samiul's
+before the stacks: V1, V2, TS1, SP1, SP2, V3, SD1, V4; AX1c-2 when Samiul's
 apps start. Estimate: 5–7 weeks part-time; V3 (three frameworks' pages,
 each tested by building a generated project with `npm install` in CI)
 is the largest and least predictable.
@@ -642,12 +643,13 @@ is the largest and least predictable.
 | V3a Inertia stack: React | ✅ Done 2026-10-27 (design §12.2, D370–D376): `anetos new --stack=react` (the web stack's Go with React pages in TypeScript and the starter theme: `app/handlers/pages.go`, `views/app.templ`, `frontend/` with the layout, `components/ui.tsx`, `i18n.ts`, Home and Error); `make:auth`'s and `make:crud`'s React pages, the layout's account menu and nav links, the shared user; `make:admin`'s banner in the root view; `css:use` refuses; agent files and skills for the stack; `i18n.Messages`, `typescript.Config.Routes` (`routes.ts`), `Page.Responder`, paths in `AssertInertiaProp`. CI builds a generated project with `make:auth` and `make:crud` (`TestNewProjectInertia`); browser-tested by hand (home, errors, the accounts' flows, CRUD with every field type, pagination, `anetos dev` with React refresh). |
 | V3b Inertia stack: Vue | ✅ Done 2026-10-28 (design §12.2, D377–D378): `anetos new --stack=vue` (Vue single-file components: `Layout.vue`, `NavLink.vue`, `components/ui/` a component a file with an `index.ts`, Home and Error; `vue-tsc` on TypeScript 6, which TypeScript 7 can't run); `make:auth`'s and `make:crud`'s Vue pages; the stacks' differences in one table (`inertiaStacks`); the CLI's messages, the agent files and the docs for both. `TestNewProjectInertia` builds a project of each stack. Browser-tested by hand as V3a. |
 | V3c Inertia stack: Svelte | ✅ Done 2026-10-28 (design §12.2, D379–D380): `anetos new --stack=svelte` (Svelte 5 components with runes: `Layout.svelte`, `NavLink.svelte`, `components/ui/` with `Title`, `routes.ts` following the page's locale prefix; `svelte-check` on TypeScript 6); `make:auth`'s and `make:crud`'s Svelte pages; CI's frontend job (`make test-frontend`), apart from the cli part, which had reached 14 of its 15 minutes. Browser-tested by hand as V3a and V3b |
+| SD1 Security docs | ✅ Done 2026-10-28: "Secure your app" rewritten as the hub (what Anetos protects, by stack; the tools: `check`, `doctor`, `security:check`, its live checks, the agents' MCP tool and skill; the checklist before going live); new guide "Protect your app in the browser" (CSRF per stack, the SPA's session cookie, CORS, a Content-Security-Policy that fits every stack's pages, escaping, the session cookie); links from the security check's rules and the frontend guides; the `anetos-security` skill points to both. The policy was tried in the browser on generated web (starter theme, Bootstrap, Pico), React, Vue and Svelte projects and `examples/spa`. Review90's findings fixed, among them the `systemd-run` command of step 1, which now runs as the service's user (not tried on a systemd host). A `web.CSP` helper with nonces is in the backlog |
 
 ---
 
 ### Backlog (after v0.6, unordered)
 
-separate frontends: `anetos new --frontend=vue\|react\|svelte` scaffolds (v0.7, D333) · OpenAPI client code generation for languages other than TypeScript · WebSockets/broadcasting · debug dashboard (requests, queries, jobs and mail of a running app) · notifications (mail, SMS, Slack channels) · multi-tenancy · feature
+separate frontends: `anetos new --frontend=vue\|react\|svelte` scaffolds (v0.7, D333) · a Content-Security-Policy helper (`web.CSP`, with nonces for inline scripts; `anetos new` setting a policy per stack; SD1 documents one by hand) · OpenAPI client code generation for languages other than TypeScript · WebSockets/broadcasting · debug dashboard (requests, queries, jobs and mail of a running app) · notifications (mail, SMS, Slack channels) · multi-tenancy · feature
 flags · search engine drivers behind `Search` (Meilisearch, Typesense, OpenSearch) · Inertia SSR, infinite scroll and Precognition · read/write DB splitting ·
 roles and permissions: scope hierarchies, roles a team defines for itself, `make:auth` with roles ·
 teams (a teams module extending auth, managed in the admin) · content review workflow (drafts, reviewers, a review queue in the admin) · soft deletes that cascade to related rows · audit log: tamper evidence (hash chain), database triggers for raw SQL on PostgreSQL, pivot writes ·
@@ -826,3 +828,4 @@ something, and we fix the API rather than add the hook.
 | 2026-10-27 | V3a (Inertia stack: React) done (design D370–D376) |
 | 2026-10-28 | V3b (Inertia stack: Vue) done (design D377–D378) |
 | 2026-10-28 | V3c (Inertia stack: Svelte) done, and CI's frontend job (design D379–D380) |
+| 2026-10-28 | SD1 (security docs) added and done, before V4 |

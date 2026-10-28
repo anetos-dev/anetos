@@ -249,3 +249,5 @@ before the Go build, so a type error in `frontend/src` fails it.
   written in a JavaScript framework.
 - [Generate TypeScript types for the frontend](typescript.md): the Go
   types, in the frontend.
+- [Protect your app in the browser](browser-security.md): a
+  Content-Security-Policy that fits the build.

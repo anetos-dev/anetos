@@ -317,3 +317,5 @@ against `anetos dev` or the built binary.
 - [Bundle JavaScript and CSS with Vite](vite.md): a web project's
   frontend, for its pages.
 - [Deploy](deployment.md).
+- [Protect your app in the browser](browser-security.md): CORS and a
+  Content-Security-Policy for the SPA.
