@@ -52,6 +52,14 @@ there is no `.env` (it holds secrets, so it isn't committed): `check`
 then checks the project's files without the app's settings, and the
 app's own commands (`go run . …`) refuse to start. Make one first with
 `cp .env.example .env && go tool anetos key:generate`.
+[[- if .Frontend]]
+
+`check` also writes the frontend's TypeScript types (`go run . types`)
+and type-checks and builds `frontend/` against them. In development,
+Vite serves a change without a type check: only `check` (or
+`anetos build`) catches a prop, field or route the frontend still uses
+after the Go side renamed or removed it.
+[[- end]]
 
 ## Commands
 
@@ -65,7 +73,7 @@ app's own commands (`go run . …`) refuse to start. Make one first with
 | `go run . openapi` | Updates `openapi.json`, the API's description, after changing a route or its types (a test checks it) |
 [[- end]]
 [[- if .Inertia]]
-| `go run . types` | The frontend's TypeScript types (`frontend/src/types/`: the pages' props, the routes), after changing a page's props or a route (`go tool anetos dev` runs it) |
+| `go run . types` | The frontend's TypeScript types (`frontend/src/types/`: the pages' props, the routes), after changing a page's props or a route (`go tool anetos dev`, `check` and `build` run it) |
 [[- end]]
 [[- if .Web]]
 | `go tool templ generate` | The views' Go code (`*_templ.go`), after changing a `.templ` file |

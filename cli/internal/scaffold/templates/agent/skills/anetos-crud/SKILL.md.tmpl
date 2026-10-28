@@ -25,9 +25,25 @@ description: Add a resource to this Anetos app - a model, its table, and [[if .A
 3. Adjust what it wrote: validation rules in the input struct's
    `validate` tags (`required|max:200`), [[if .API]]the response struct, the
    list's filters and sorts[[else]]the form's fields, the list's columns[[end]], queries with the typed columns
-   (`models.ArticleCols.Title`). After changing a model: `go tool anetos generate`.
+   (`models.ArticleCols.Title`; for a search box, `ContainsFold`, which
+   ignores case on every database, not `Contains`). After changing a
+   model: `go tool anetos generate`.
 4. To limit it to logged-in users, register its routes in a group with
-   the login check (after `make:auth`; see `go tool anetos docs [[if .API]]api-accounts[[else]]accounts[[end]]`).
+   the login check (after `make:auth`; see `go tool anetos docs [[if .API]]api-accounts[[else]]accounts[[end]]`):
+   move the `<Plural>([[if .API]]api[[else]]pages[[end]])` call to `routes/auth.go`'s `loggedIn` group.
+[[- if .API]]
+   An SPA logged in with its session (`HTTP_SPA_ORIGINS`) reaches only
+   the routes in `routes/auth.go`'s groups. To make each record its
+   user's, add a user ID column and scope the queries
+   (`go tool anetos docs build-an-api`).
+[[- else]]
+   For guests to read and only users to write, split `routes/<table>.go`
+   in two: the list and the show page stay in `pages`, the form's routes
+   (new, create, edit, update, delete) go to `loggedIn`. Hide the buttons
+   from guests with [[if .Inertia]]the shared `user` prop (`usePage().props.user`)[[else]]`auth.User[*models.User](ctx)` in the view[[end]].
+   A guest's GET of a login-only page goes to the login page; a POST,
+   PUT or DELETE gets 401.
+[[- end]]
 5. `go tool anetos check`
 
 It refuses when a file or the migration exists: pick another name, or

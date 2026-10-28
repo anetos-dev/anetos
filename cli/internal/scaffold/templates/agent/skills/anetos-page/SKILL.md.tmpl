@@ -45,9 +45,23 @@ description: Add or change a page, a form or a component in this Anetos web app 
    the form, whose `errors` hold the messages by field. JSON binding is
    strict: turn checkboxes and numbers into booleans and numbers in the
    form's `transform`.
-6. Test with `app.Get("/reports").AssertInertia("Reports/Show")` and
+6. **Shared props** (every page's: `Shared` and `SharedProps` in
+   `app/handlers/pages.go`, read with `usePage().props`): a page's prop of
+   the same name takes its place without a warning, so pick a name no
+   page uses (the generated pages use `page`, `item`, `status`, `title`,
+   `detail`, `requestId`, `name`, `email`, `locales`, `timeZones`…; the
+   full list is in `go tool anetos docs guides/inertia`), and never
+   `errors`. They run on every page: keep them cheap. A language switcher
+   is one (`languages`): `web.LocaleURL(c, l)` for each of
+   `i18n.From(c).Supported()`, named with `i18n.LanguageName(c, l)`
+   (`go tool anetos docs guides/translations`).
+7. **Search boxes:** `models.ReportCols.Title.ContainsFold(q)`, which
+   ignores case on every database (`Contains` is case-sensitive on
+   PostgreSQL).
+8. Test with `app.Get("/reports").AssertInertia("Reports/Show")` and
    `.AssertInertiaProp("rows.0.title", "…")`. Then `go tool anetos check`,
-   and `go tool anetos build`, which type-checks the frontend.
+   which writes the types and type-checks the frontend, and so does
+   `go tool anetos build`.
 
 Docs: `go tool anetos docs guides/[[.Framework]]` (a page step by step),
 `go tool anetos docs guides/inertia`, `go tool anetos docs guides/typescript`,

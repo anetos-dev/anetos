@@ -17,8 +17,13 @@ func TestArticles(t *testing.T) {
 
 - **Requests:** [[if .API]]`app.PostJSON(url, body)`, `.AssertStatus(201)`,
   `.AssertJSON(…)`[[else]]`app.PostForm(url, values)` (the CSRF token is sent for you),
-  `.AssertRedirect(…)`, [[if .Inertia]]`.AssertInertia(component)`, `.AssertInertiaProp("item.title", "Hi")`[[else]]`.AssertSee(…)`[[end]][[end]]. A logged-in user:
-  `anetostest.ActingAs(app, user)`.
+  `.AssertRedirect(…)`, [[if .Inertia]]`.AssertInertia(component)`, `.AssertInertiaProp("item.title", "Hi")`
+  (`.InertiaPage().Props` for a prop's whole JSON)[[else]]`.AssertSee(…)`[[end]][[end]]. A logged-in user:
+  `anetostest.ActingAs(app, user)`; [[if .API]]a guest gets 401 from a login-only
+  endpoint[[else]]a guest's write to a login-only route gets 401 (a page's
+  GET redirects to the login)[[end]]. Tests don't read
+  `.env`: a setting a test needs goes in `anetostest.Env(map[string]string{…})`
+  (`APP_LOCALE_STRATEGY`, say).
 - **Rows:** factories in `database/factories/`
   (`post := anetostest.Create(app, factories.Posts)`), and
   `anetostest.AssertDatabaseHas[models.Post](app, models.PostCols.Title.Eq("Hi"))`.

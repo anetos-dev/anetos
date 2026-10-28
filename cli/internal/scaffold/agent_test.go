@@ -47,6 +47,13 @@ func TestRenderAgentFiles(t *testing.T) {
 		if strings.Contains(string(f.Content), "<no value>") || strings.Contains(string(f.Content), "[[") {
 			t.Errorf("%s has a template leftover", f.Rel)
 		}
+		if f.Rel == ".agents/skills/anetos-crud/SKILL.md" {
+			for _, want := range []string{"routes/auth.go", "`loggedIn`", "`auth.User[*models.User](ctx)` in the view", "gets 401", "ContainsFold"} {
+				if !strings.Contains(string(f.Content), want) {
+					t.Errorf("the web's crud skill lacks %q", want)
+				}
+			}
+		}
 		if strings.HasSuffix(f.Rel, "SKILL.md") {
 			name := filepath.Base(filepath.Dir(f.Rel))
 			if !strings.HasPrefix(string(f.Content), "---\nname: "+name+"\ndescription: ") {
@@ -70,8 +77,27 @@ func TestRenderAgentFiles(t *testing.T) {
 		!slices.Contains(got, ".agents/skills/anetos-api/SKILL.md") || slices.Contains(got, ".agents/skills/anetos-page/SKILL.md") {
 		t.Errorf("codex, api: %v", got)
 	}
-	if a := string(files[0].Content); !strings.Contains(a, "/api/v1") || strings.Contains(a, "views/ui") || strings.Contains(a, "make:admin") {
+	if a := string(files[0].Content); !strings.Contains(a, "/api/v1") || strings.Contains(a, "views/ui") || strings.Contains(a, "make:admin") ||
+		strings.Contains(a, "type-checks") {
 		t.Errorf("the API's AGENTS.md:\n%s", a)
+	}
+	for _, f := range files {
+		if c := string(f.Content); f.Rel == ".agents/skills/anetos-api/SKILL.md" &&
+			(!strings.Contains(c, "HTTP_SPA_ORIGINS") || !strings.Contains(c, "ContainsFold") || strings.Contains(c, "createApi")) {
+			t.Errorf("the API's skill:\n%s", c)
+		}
+	}
+	// With an SPA: its client.
+	spa := AgentProject{Name: "shop", Stack: "api", DB: "sqlite", Frontend: true}
+	files, err = RenderAgentFiles(spa, []string{"codex"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range files {
+		if c := string(f.Content); (f.Rel == "AGENTS.md" && !strings.Contains(c, "type-checks")) ||
+			(f.Rel == ".agents/skills/anetos-api/SKILL.md" && !strings.Contains(c, "createApi().api.notes.create")) {
+			t.Errorf("the SPA's %s:\n%s", f.Rel, c)
+		}
 	}
 	if _, err := RenderAgentFiles(api, []string{"vim"}); err == nil {
 		t.Error("an unknown agent: no error")
@@ -95,7 +121,7 @@ func TestRenderAgentFiles(t *testing.T) {
 		}
 	}
 	a := string(files[0].Content)
-	for _, want := range []string{"React components", "`frontend/src/theme.css`", "src/components/ui.tsx", "go run . types",
+	for _, want := range []string{"React components", "`frontend/src/theme.css`", "src/components/ui.tsx", "go run . types", "type-checks",
 		"views/app.templ", `page[HomeProps]("Home")`, `AssertInertia("Home")`, "make:admin"} {
 		if !strings.Contains(a, want) {
 			t.Errorf("react's AGENTS.md lacks %q:\n%s", want, a)
@@ -105,11 +131,16 @@ func TestRenderAgentFiles(t *testing.T) {
 		switch f.Rel {
 		case ".claude/skills/anetos-page/SKILL.md":
 			if c := string(f.Content); !strings.Contains(c, "frontend/src/pages/Reports/Show.tsx") || !strings.Contains(c, "transform") ||
-				!strings.Contains(c, "docs guides/react") {
+				!strings.Contains(c, "docs guides/react") || !strings.Contains(c, "**Shared props**") || !strings.Contains(c, "ContainsFold") ||
+				!strings.Contains(c, "web.LocaleURL") {
 				t.Errorf("react's page skill:\n%s", c)
 			}
+		case ".claude/skills/anetos-test/SKILL.md":
+			if c := string(f.Content); !strings.Contains(c, ".InertiaPage().Props") || !strings.Contains(c, "anetostest.Env") {
+				t.Errorf("react's test skill:\n%s", c)
+			}
 		case ".claude/skills/anetos-crud/SKILL.md":
-			if c := string(f.Content); !strings.Contains(c, "frontend/src/pages/<Models>/") {
+			if c := string(f.Content); !strings.Contains(c, "frontend/src/pages/<Models>/") || !strings.Contains(c, "usePage().props.user") {
 				t.Errorf("react's crud skill:\n%s", c)
 			}
 		}

@@ -18,6 +18,15 @@ All notable changes to this project are documented here. The format follows
   at a time); "Move htmx pages to an API and an SPA" (a new API project
   beside the old app, on its database); and the concept page
   "Frontends" (the three ways, what each keeps in Go, how to choose).
+- The coding agents' files (V4c): `AGENTS.md` says that `check` writes
+  the frontend's types and type-checks it, which development doesn't;
+  the `anetos-crud` skill splits a resource for guests to read and
+  users to write, and moves an API's endpoints to the `loggedIn` group
+  for the SPA's session; `anetos-page` covers shared props' names, a
+  language switcher and `ContainsFold` for search boxes; `anetos-api`
+  the SPA's client and per-user records; `anetos-test` `anetostest.Env`
+  and a guest's 401. Existing projects get them with
+  `go tool anetos agent:update`.
 - Security docs (SD1): the guide "Secure your app" starts with what
   Anetos protects in each stack and the tools that check the rest
   (`check`, `doctor`, `security:check` and its live checks, the coding

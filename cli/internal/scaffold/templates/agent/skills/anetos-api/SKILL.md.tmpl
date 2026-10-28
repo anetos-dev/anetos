@@ -17,9 +17,18 @@ description: Add or change a JSON endpoint in this Anetos API - typed handlers, 
 3. **Lists** return `db.Page[NoteResponse]` (`?page=`, `?per_page=`):
    `db.MapPage(page, toResponse)`.
 4. **The description:** `go run . openapi` updates `openapi.json`; a
-   test fails when it's out of date.
-5. Protect endpoints with API tokens after `make:auth`
-   (`go tool anetos docs api-accounts`).
+   test fails when it's out of date.[[if .Frontend]] The SPA's client
+   (`frontend/src/types/api.ts`): `go run . types`, which `go tool anetos
+   dev`, `check` and `build` run; its functions are under `api`
+   (`createApi().api.notes.create(…)`).[[end]]
+5. Protect endpoints after `make:auth`: register them in
+   `routes/auth.go`'s `loggedIn` group, which takes API tokens and, for
+   the origins in `HTTP_SPA_ORIGINS`, the SPA's session
+   (`go tool anetos docs api-accounts`); `routes/api.go`'s group is open
+   to everyone and has no sessions. A record that is a user's: a user ID
+   column, set from `auth.User` and in every query
+   (`go tool anetos docs build-an-api`).
+   Search filters: `ContainsFold`, which ignores case on every database.
 6. `go tool anetos check`
 
 For a whole resource, `go tool anetos make:crud` writes all of this.
