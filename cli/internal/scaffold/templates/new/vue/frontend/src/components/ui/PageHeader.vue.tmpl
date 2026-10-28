@@ -1,0 +1,14 @@
+<script setup lang="ts">
+// PageHeader is a page's title, with a line under it, and its actions (the slot).
+defineProps<{ title: string; lead?: string }>()
+</script>
+
+<template>
+  <div class="page-header">
+    <div>
+      <h1>{{ title }}</h1>
+      <p v-if="lead" class="muted">{{ lead }}</p>
+    </div>
+    <slot />
+  </div>
+</template>

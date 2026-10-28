@@ -17,7 +17,7 @@ description: Add a resource to this Anetos app - a model, its table, and [[if .A
    (`app/handlers/<table>.go`, with the input struct and its `validate`
    tags), [[if .API]]the routes under `/api/v1` (`routes/<table>.go`, added to
    `routes/api.go`), a test, and updates `openapi.json`[[else]]the pages ([[if .Inertia]]`frontend/src/pages/<Models>/`: `Index`, `Show`
-   and `Form`, built from `src/components/ui[[.Ext]]`'s components[[else]]`views/<table>.templ`[[if .HasUI]], built from `views/ui`'s
+   and `Form`, built from `[[.UI]]`'s components[[else]]`views/<table>.templ`[[if .HasUI]], built from `views/ui`'s
    components[[end]][[end]]), the routes (`routes/<table>.go`, added to `routes/web.go`),
    a link in the layout's nav, the pages' text (`locales/en/<table>.yaml`)
    and a test[[end]].

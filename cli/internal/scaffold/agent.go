@@ -87,11 +87,14 @@ type agentData struct {
 	Title, Name, Bin, Image, DB, DBLabel, KitSentence string
 	Web, API, HasUI, Frontend                         bool
 	// Inertia is set for an Inertia stack, whose Framework (react) is
-	// FrameworkName (React) and whose components are TSX (".tsx").
-	Inertia                       bool
-	Framework, FrameworkName, Ext string
-	Skills                        []skill
-	SkillDirs                     []string
+	// FrameworkName (React), whose components are files ending with Ext
+	// (".tsx"), and whose pages' components are UI's
+	// ("src/components/ui.tsx"); RawHTML is how its components write HTML
+	// unescaped (dangerouslySetInnerHTML).
+	Inertia                                    bool
+	Framework, FrameworkName, Ext, UI, RawHTML string
+	Skills                                     []skill
+	SkillDirs                                  []string
 }
 
 var kitSentences = map[string]string{
@@ -110,13 +113,6 @@ const unknownKitSentence = "The pages call the components in `views/ui`."
 // noUISentence is a web project's without views/ui.
 const noUISentence = "The pages are templ views with their own markup and `public/static/app.css`."
 
-// frameworkNames are the Inertia stacks' frameworks' names for people,
-// and frameworkExts their components' file extensions.
-var (
-	frameworkNames = map[string]string{"react": "React", "vue": "Vue", "svelte": "Svelte"}
-	frameworkExts  = map[string]string{"react": ".tsx", "vue": ".vue", "svelte": ".svelte"}
-)
-
 var dbLabels = map[string]string{"sqlite": "SQLite", "postgres": "PostgreSQL", "mysql": "MySQL"}
 
 func (p AgentProject) data(agents []string) agentData {
@@ -128,9 +124,10 @@ func (p AgentProject) data(agents []string) agentData {
 	}
 	switch {
 	case p.Framework != "" && d.Web:
-		d.Inertia, d.Framework, d.FrameworkName = true, p.Framework, frameworkNames[p.Framework]
-		d.Ext, d.HasUI, d.Frontend = frameworkExts[p.Framework], false, true
-		d.KitSentence = "The pages use the starter theme (`frontend/src/theme.css`), through the components in `frontend/src/components/ui" + d.Ext + "`."
+		s := inertiaStacks[p.Framework]
+		d.Inertia, d.Framework, d.FrameworkName = true, p.Framework, s.name
+		d.Ext, d.UI, d.RawHTML, d.HasUI, d.Frontend = s.ext, s.ui, s.rawHTML, false, true
+		d.KitSentence = "The pages use the starter theme (`frontend/src/theme.css`), through the components in `frontend/" + s.ui + "`."
 	case d.Web && !d.HasUI:
 		d.KitSentence = noUISentence
 	case d.Web && d.KitSentence == "":

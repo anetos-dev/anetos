@@ -108,7 +108,7 @@ app's own commands (`go run . …`) refuse to start. Make one first with
 | `public/`, `public/static/` | The web root, and static files served under `/assets` |
 [[- end]]
 [[- if .Inertia]]
-| `frontend/` | The pages, which Vite builds: [[.FrameworkName]] components in `src/pages` (`Home[[.Ext]]` is the `Home` page), built from `src/components/ui[[.Ext]]`, in `src/Layout[[.Ext]]`; `src/types/` (written by `go run . types`): the pages' props and the routes (`route('posts.show', { id })`). `go tool anetos dev` runs Vite; `go tool anetos build` builds it into `public/build` (Node.js needed) |
+| `frontend/` | The pages, which Vite builds: [[.FrameworkName]] components in `src/pages` (`Home[[.Ext]]` is the `Home` page), built from `[[.UI]]`, in `src/Layout[[.Ext]]`; `src/types/` (written by `go run . types`): the pages' props and the routes (`route('posts.show', { id })`). `go tool anetos dev` runs Vite; `go tool anetos build` builds it into `public/build` (Node.js needed) |
 [[- else if and .Frontend .API]]
 | `frontend/` | The single-page app Vite builds: `package.json`, `vite.config`, `index.html`, `src/` (`src/types/api.ts` is the API's client, written by `go run . types`). `go tool anetos dev` runs Vite, whose address (http://localhost:5173) serves it and forwards `/api` to the app; `go tool anetos build` builds it into `public/spa`, which the app serves at `/` (Node.js needed) |
 [[- else if .Frontend]]
@@ -139,7 +139,7 @@ app's own commands (`go run . …`) refuse to start. Make one first with
   `delete`, for route names and handler methods alike.
 [[- if .Inertia]]
 - **Pages** are [[.FrameworkName]] components in `frontend/src/pages`, built
-  from `src/components/ui[[.Ext]]`'s components (no CSS classes in pages).
+  from `[[.UI]]`'s components (no CSS classes in pages).
   A handler renders one with its typed page (`homePage = page[HomeProps]("Home")`
   in `app/handlers`, then `homePage.Render(c, props)`): its props are a Go
   struct, typed in TypeScript by `go run . types`. Text comes from

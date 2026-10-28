@@ -1,0 +1,11 @@
+<script setup lang="ts">
+// CardHeader is a card's heading with actions (the slot) beside it.
+defineProps<{ title: string }>()
+</script>
+
+<template>
+  <div class="card-header">
+    <h2>{{ title }}</h2>
+    <slot />
+  </div>
+</template>

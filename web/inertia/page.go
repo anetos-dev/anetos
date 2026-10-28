@@ -337,7 +337,9 @@ func render(c *web.Ctx, status int, component string, pl *plan, props reflect.Va
 		st = newState(c)
 	}
 	v := readVisit(r, component)
-	pg := &page{Component: component, Props: map[string]any{}, URL: r.URL.RequestURI(), Version: in.version}
+	// The page's URL as the browser has it: with the locale's prefix
+	// (APP_LOCALE_STRATEGY=prefix), which routing took off the request's.
+	pg := &page{Component: component, Props: map[string]any{}, URL: web.LocalePath(c, r.URL.RequestURI()), Version: in.version}
 
 	resolve := func(name string, val any, s *spec) error {
 		if s == nil {

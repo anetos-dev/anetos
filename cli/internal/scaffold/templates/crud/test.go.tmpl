@@ -36,7 +36,7 @@ func Test[[.Plural]](t *testing.T) {
 [[- end]]
 	}
 [[- if .Inertia]]
-	app.PostForm("/[[.Path]]", form).Follow().AssertOK().AssertInertia("[[.Plural]]/Show").AssertInertiaProp("status", "[[.OneW]] created.")
+	app.PostForm("/[[.Path]]", form).Follow().AssertOK().AssertInertia("[[.Plural]]/Show").AssertInertiaProp("notice", "[[.OneW]] created.")
 [[- else]]
 	app.PostForm("/[[.Path]]", form).Follow().AssertOK().AssertSee("[[.OneW]] created."[[with .SeeSample]], [[.]][[end]])
 [[- end]]

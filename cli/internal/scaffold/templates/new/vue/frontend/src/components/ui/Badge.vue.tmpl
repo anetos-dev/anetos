@@ -1,0 +1,10 @@
+<script setup lang="ts">
+// Badge is a short label in a tone's color.
+import { toneClass, type Tone } from './look'
+
+const { tone = 'neutral' } = defineProps<{ tone?: Tone }>()
+</script>
+
+<template>
+  <span :class="'badge' + toneClass(tone)"><slot /></span>
+</template>

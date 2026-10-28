@@ -1,0 +1,78 @@
+<script setup lang="ts">
+// [[.Plural]]/Index lists a page of [[.PluralW]] (anetos make:crud): yours to
+// change. Its text is in locales/en/[[.Key]].yaml.
+import { Head, Link } from '@inertiajs/vue3'
+import { ActionsCell, [[if .HasBool]]Badge, [[end]]Empty, LinkButton, PageHeader, Pagination, SROnly, Table } from '../../components/ui'
+import { [[if .HasListFormat]]useFormat, [[end]]useT } from '../../i18n'
+import type { [[.Plural]]IndexProps } from '../../types/pages'
+import { route } from '../../types/routes'
+
+const { page } = defineProps<[[.Plural]]IndexProps>()
+const t = useT()
+[[- if .HasListFormat]]
+const f = useFormat()
+[[- end]]
+const at = (n: number) => (n >= 1 && n <= page.last_page ? route('[[.Path]].index', {}, { page: n }) : undefined)
+</script>
+
+<template>
+  <Head :title="t('[[.Key]].title')" />
+  <PageHeader :title="t('[[.Key]].title')">
+    <LinkButton :href="route('[[.Path]].new')">{{ t('[[.Key]].new') }}</LinkButton>
+  </PageHeader>
+  <Empty v-if="page.total === 0" :text="t('[[.Key]].empty')" />
+  <template v-else>
+    <Table>
+      <thead>
+        <tr>
+[[- if not .TitleF]]
+          <th>#</th>
+[[- end]]
+[[- range .ListFields]]
+          <th>{{ t('[[$.Key]].fields.[[.Name]]') }}</th>
+[[- end]]
+          <th><SROnly :text="t('[[.Key]].actions')" /></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="row in page.data" :key="row.id">
+[[- if not .TitleF]]
+          <td>
+            <Link :href="route('[[.Path]].show', { id: row.id })">{{ row.id }}</Link>
+          </td>
+[[- end]]
+[[- range .ListFields]]
+[[- if and $.TitleF (eq .Name $.TitleF.Name)]]
+          <td>
+            <Link :href="route('[[$.Path]].show', { id: row.id })">{{ row.[[.Name]] }}</Link>
+          </td>
+[[- else if eq .Kind "bool"]]
+          <td>
+            <Badge v-if="row.[[.Name]]" tone="success">{{ t('[[$.Key]].answer_yes') }}</Badge>
+            <Badge v-else>{{ t('[[$.Key]].answer_no') }}</Badge>
+          </td>
+[[- else if or (eq .Kind "int") (eq .Kind "float")]]
+          <td>{{ f.number(row.[[.Name]]) }}</td>
+[[- else if eq .Kind "date"]]
+          <td>{{ row.[[.Name]] && f.date(row.[[.Name]]) }}</td>
+[[- else]]
+          <td>{{ row.[[.Name]] }}</td>
+[[- end]]
+[[- end]]
+          <ActionsCell>
+            <LinkButton :href="route('[[.Path]].edit', { id: row.id })" variant="secondary" small>{{ t('[[.Key]].edit') }}</LinkButton>
+          </ActionsCell>
+        </tr>
+      </tbody>
+    </Table>
+    <Pagination
+      v-if="page.last_page > 1"
+      :label="t('[[.Key]].pages')"
+      :prev="at(page.current_page - 1)"
+      :prev-label="t('[[.Key]].previous')"
+      :status="t('[[.Key]].page', { page: page.current_page, pages: page.last_page })"
+      :next="at(page.current_page + 1)"
+      :next-label="t('[[.Key]].next')"
+    />
+  </template>
+</template>

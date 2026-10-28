@@ -1,0 +1,10 @@
+<script setup lang="ts">
+// Textarea is a field of several lines.
+import { useControl } from './look'
+
+const control = useControl()
+</script>
+
+<template>
+  <textarea v-bind="control" />
+</template>

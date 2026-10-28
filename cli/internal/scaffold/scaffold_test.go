@@ -513,7 +513,7 @@ func TestCreateErrors(t *testing.T) {
 		{Dir: filepath.Join(t.TempDir(), "embed"), DB: "sqlite"},
 		{Dir: filepath.Join(t.TempDir(), "a"), DB: "sqlite", Replace: t.TempDir()},
 		{Dir: filepath.Join(t.TempDir(), "a"), DB: "sqlite", CSS: "nope"},
-		{Dir: filepath.Join(t.TempDir(), "a"), DB: "sqlite", Stack: "vue"}, // not yet
+		{Dir: filepath.Join(t.TempDir(), "a"), DB: "sqlite", Stack: "svelte"}, // not yet
 		{Dir: filepath.Join(t.TempDir(), "a"), DB: "sqlite", Stack: "api", CSS: "none"},
 		{Dir: filepath.Join(t.TempDir(), "a"), DB: "sqlite", Stack: "api", CSS: "anetos"},
 	} {

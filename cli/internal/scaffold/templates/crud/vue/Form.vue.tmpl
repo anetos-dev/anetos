@@ -1,0 +1,77 @@
+<script setup lang="ts">
+// [[.Plural]]/Form creates a [[.Words]], or edits item when it isn't null (anetos
+// make:crud). A failed post comes back with its errors, and keeps what
+// was typed.
+import { Form as InertiaForm, Head, Link } from '@inertiajs/vue3'
+import { computed } from 'vue'
+import { Actions, Button, Card, [[if .HasBool]]Checkbox, [[end]]Field, [[if .HasInput]]Input, [[end]]Narrow[[if .HasText]], Textarea[[end]] } from '../../components/ui'
+import { useT } from '../../i18n'
+import type { [[.Model]]FormProps } from '../../types/pages'
+import { route } from '../../types/routes'
+
+const { item } = defineProps<[[.Model]]FormProps>()
+const t = useT()
+const title = computed(() => t(item ? '[[.Key]].editing' : '[[.Key]].new'))
+</script>
+
+<template>
+  <Narrow>
+    <Head :title="title" />
+    <h1>{{ title }}</h1>
+    <Card>
+[[- if .HasTransform]]
+      <!-- The form's values are text: the handler's input wants numbers
+           and true or false. -->
+[[- end]]
+      <InertiaForm
+        v-slot="{ errors, processing }"
+        :action="item ? route('[[.Path]].update', { id: item.id }) : route('[[.Path]].create')"
+        :method="item ? 'put' : 'post'"
+[[- if .HasTransform]]
+        :transform="
+          (data) => ({
+            ...data,
+[[- range .Fields]]
+[[- if eq .Kind "bool"]]
+            [[.Name]]: data.[[.Name]] === '1',
+[[- else if or (eq .Kind "int") (eq .Kind "float")]]
+            [[.Name]]: data.[[.Name]] === '' ? 0 : Number(data.[[.Name]]),
+[[- else if .OptionalDate]]
+            [[.Name]]: data.[[.Name]] || null,
+[[- end]]
+[[- end]]
+          })
+        "
+[[- end]]
+      >
+[[- range .Fields]]
+[[- if eq .Kind "bool"]]
+        <Field name="[[.Name]]" :error="errors.[[.Name]]">
+          <Checkbox :label="t('[[$.Key]].fields.[[.Name]]')" :defaultChecked="item?.[[.Name]]" />
+        </Field>
+[[- else]]
+        <Field name="[[.Name]]" :label="t('[[$.Key]].fields.[[.Name]]')" :error="errors.[[.Name]]">
+[[- if eq .Kind "text"]]
+          <Textarea rows="6" :defaultValue="item?.[[.Name]]" />
+[[- else if eq .Kind "email"]]
+          <Input type="email" :defaultValue="item?.[[.Name]]" />
+[[- else if eq .Kind "int"]]
+          <Input type="number" step="1" :defaultValue="item?.[[.Name]]" />
+[[- else if eq .Kind "float"]]
+          <Input type="number" step="any" :defaultValue="item?.[[.Name]]" />
+[[- else if eq .Kind "date"]]
+          <Input type="date" :defaultValue="item?.[[.Name]] ?? ''" />
+[[- else]]
+          <Input :defaultValue="item?.[[.Name]]" />
+[[- end]]
+        </Field>
+[[- end]]
+[[- end]]
+        <Actions>
+          <Button :disabled="processing">{{ t('[[.Key]].save') }}</Button>
+          <Link :href="item ? route('[[.Path]].show', { id: item.id }) : route('[[.Path]].index')">{{ t('[[.Key]].cancel') }}</Link>
+        </Actions>
+      </InertiaForm>
+    </Card>
+  </Narrow>
+</template>

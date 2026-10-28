@@ -95,10 +95,10 @@ export default function Settings(p: PageProps<'Auth/Settings'>) {
           {({ errors, processing }) => (
             <>
               <Field name="locale" label={t('auth.settings.language')} error={errors.locale}>
-                <Select options={locales} defaultValue={p.locale} />
+                <Select options={locales} defaultValue={p.localePreference} />
               </Field>
               <Field name="time_zone" label={t('auth.settings.time_zone')} error={errors.time_zone}>
-                <Select options={zones} defaultValue={p.timeZone} />
+                <Select options={zones} defaultValue={p.timeZonePreference} />
               </Field>
               <Button disabled={processing}>{t('auth.settings.save')}</Button>
             </>

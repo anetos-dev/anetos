@@ -1,0 +1,32 @@
+// What the components share: the classes of a button's variant and size
+// and of a tone, and a control's link to its Field.
+import { computed, inject, type InjectionKey, type Ref } from 'vue'
+
+/** A button's look: primary (the default), secondary, danger or ghost. */
+export type Variant = 'primary' | 'secondary' | 'danger' | 'ghost'
+/** A badge's or a message's color. */
+export type Tone = 'neutral' | 'success' | 'warning' | 'error' | 'info'
+
+export function buttonClass(variant: Variant = 'primary', link = false, small = false, full = false): string | undefined {
+  const c = [link && 'button', variant !== 'primary' && variant, small && 'small', full && 'full'].filter(Boolean)
+  return c.length ? c.join(' ') : undefined
+}
+
+export function toneClass(tone: Tone, flash = false): string {
+  if (tone === 'neutral') return ''
+  if (tone === 'error') return flash ? ' error' : ' danger'
+  return ' ' + tone
+}
+
+/** The field a control belongs to (Field provides it): its name (and id), and its error. */
+export const fieldKey: InjectionKey<{ name: Ref<string>; error: Ref<string | undefined> }> = Symbol('field')
+
+/** useControl is a control's name, id and invalid state, from its Field. */
+export function useControl() {
+  const field = inject(fieldKey, undefined)
+  return computed(() => {
+    const name = field?.name.value ?? ''
+    const error = field?.error.value
+    return { id: name, name, 'aria-invalid': error ? true : undefined, 'aria-describedby': error ? name + '-error' : undefined }
+  })
+}

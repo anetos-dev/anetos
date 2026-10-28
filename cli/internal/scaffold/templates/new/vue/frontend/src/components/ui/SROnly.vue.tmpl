@@ -1,0 +1,8 @@
+<script setup lang="ts">
+// SROnly is text for screen readers only: a column of buttons' header.
+defineProps<{ text: string }>()
+</script>
+
+<template>
+  <span class="sr-only">{{ text }}</span>
+</template>

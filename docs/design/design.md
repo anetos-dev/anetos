@@ -1778,7 +1778,9 @@ in V3c):
   redirects and the session's flash messages are unchanged): only the
   renders differ, so one template serves both stacks.
 - **Shared props** (D372): `handlers.Shared` gives every page the app's
-  name, the session's `status` flash, the logged-in user (`null` until
+  name, the session's `status` flash (as `notice`: a page's props take
+  the place of shared ones of their names, and the error page has a
+  `status`), the logged-in user (`null` until
   `make:auth` patches `currentUser`), the locale and its direction, and
   the page text (below), the last as a once prop.
 - **Page text** (D373): the pages' strings stay in the app's catalogs
@@ -1803,6 +1805,15 @@ in V3c):
   `make:auth` and `make:crud`, installs, type-checks and builds the
   frontend, and runs the Go tests; browser tests run before each commit,
   not in CI.
+- **Vue** (V3b, D377–D378): the same Go and the same layer of files,
+  with Vue's single-file components: `components/ui/` holds one per
+  component (an `index.ts` exports them, so pages import them as React's
+  do from `ui.tsx`), `Layout.vue` and `NavLink.vue`. The frontend pins
+  TypeScript 6 for `vue-tsc`, which checks the templates too (D377); a
+  page declares its props with their named type from `pages.ts` (D378).
+  What differs between the stacks' generators (extensions, the entry,
+  the layout's lines that `make:auth` and `make:crud` patch) is one
+  table, `inertiaStacks`.
 
 ### 12.3 Admin interface (v0.3: AD1, AD2)
 
@@ -3737,11 +3748,13 @@ unless new information arrives), **Open**, **Superseded**.
 | D369 | `vite:install` in an API project (and `anetos new --stack=api --vite`) writes a plain TypeScript or JavaScript SPA (a login page with `make:auth`'s routes), its serving and its settings; the tool treats an API project's `frontend/` as the SPA only when the main package calls `vite.SPA` | Accepted | Samiul's choice (2026-10-27): a working, framework-free start; React, Vue and Svelte scaffolds are v0.7's (D333). A `frontend/` without `vite.SPA` may be an app of its own (V1's rule), which the tool still leaves alone |
 | D370 | `anetos new --stack=react\|vue\|svelte`: the web stack's Go side with Inertia in place of templ pages (a root view, `inertia.New`, `inertia.Middleware` and the XSRF cookie on the page groups, the frontend's error page), `frontend/` with the framework's pages and components; TypeScript only, the starter theme only, no SSR; delivered as V3a (React), V3b (Vue), V3c (Svelte) | Accepted | Samiul's choices (2026-10-27): one language (the pages are typed from TS1's `pages.ts`), one look (every kit would multiply the pages by three per framework), three reviewed commits. SSR would need a Node server beside the binary |
 | D371 | Pages are declared beside their handlers with `page[P](component)`, which adds them to `handlers.Pages` for `inertia.WithPages`; the generated handlers are the web stack's, with renders as pages | Accepted | Generators add pages without touching `main.go`; one handler template for both stacks keeps the logic (validation, redirects, flashes, rate limits) in one place |
-| D372 | `handlers.Shared`: the app's name, the session's `status` flash, the user (`currentUser`, which `make:auth` patches), the locale and direction, and the page text as a once prop | Accepted | The layout needs them on every page; the handlers' flashes stay the session's, so the web and Inertia stacks share them |
+| D372 | `handlers.Shared`: the app's name, the session's `status` flash (`notice`; review88: a page prop of a shared prop's name replaces it, and the error page has `status`, as the settings page had `locale`, now `localePreference`), the user (`currentUser`, which `make:auth` patches), the locale and direction, and the page text as a once prop | Accepted | The layout needs them on every page; the handlers' flashes stay the session's, so the web and Inertia stacks share them |
 | D373 | The pages' strings are the app's catalog entries, with the web stack's keys; `i18n.Messages(ctx, prefix)` sends a locale's (all of the app's for "") to the frontend, whose `t()` fills placeholders and plurals | Accepted | Samiul's choice (2026-10-27): one translation workflow for both stacks (`locales/*.yaml`, `locale:check`), no frontend i18n library to pick; the same keys let `make:auth` and `make:crud` write one catalog for both stacks. A `ui.` namespace was dropped for that: the server's keys (errors, emails) ride along, a few kilobytes once per visit |
 | D374 | `typescript.Config.Routes` writes `routes.ts`: `route(name, params, query)` over the named routes, typed | Accepted | Samiul's choice (2026-10-27): a renamed route or a missing parameter fails the type check, where a path in a component would fail in production |
 | D375 | `make:auth` and `make:crud` write Inertia pages in a project whose `frontend/package.json` has an Inertia adapter (`@inertiajs/react`, `-vue3`, `-svelte`) and whose `app/handlers/pages.go` declares `page` | Accepted | The project's own files say what it is, as `IsAPI` reads the routes; no record file to keep. The second file (review87) keeps a web project with Inertia added by hand, which has none of the stack's files, on the web stack's generators |
 | D376 | CI builds a generated project of each Inertia stack (with `make:auth` and `make:crud`): npm install, type check, `vite build`, Go tests; browser tests are run by hand before each commit | Accepted | Samiul's choice (2026-10-27): templates of three frameworks break silently without a build; a browser in CI costs minutes on every run |
+| D377 | The vue stack's frontend has TypeScript 6 (`~6.0.3`) and `vue-tsc`, whose `npm run build` type-checks the `.vue` files, templates included | Accepted | Samiul's choice (2026-10-28): `vue-tsc` 3.3 needs TypeScript's JavaScript API, which TypeScript 7 (the react stack's) doesn't have (it fails to start); checking only the `.ts` files would leave the pages' routes and props unchecked, which D374 promises |
+| D378 | A Vue page declares its own props with their named type from `pages.ts` (`defineProps<TasksIndexProps>()`) and reads the shared props with `usePage()` | Accepted | Vue's compiler can't resolve `PageProps<C>`'s indexed type into runtime props (the build fails); Inertia's Vue adapter turns off attribute fallthrough for pages, so the props a page doesn't declare don't land on its root element |
 
 ---
 
@@ -3867,3 +3880,4 @@ unless new information arrives), **Open**, **Superseded**.
 | 2026-10-27 | SP2 (single-page apps in the project): §12.2 updated; D365–D369 added |
 | 2026-10-27 | V3 (Inertia stacks) designed: §12.2 updated; D370–D376 added |
 | 2026-10-27 | V3a (React) built: §12.2 updated (the components, `make:admin`, `css:use`, the agent files) |
+| 2026-10-28 | V3b (Vue) built: §12.2 updated; D377–D378 added |

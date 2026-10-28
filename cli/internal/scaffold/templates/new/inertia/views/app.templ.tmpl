@@ -7,7 +7,7 @@ import (
 )
 
 // App is the root view: the HTML of a first visit, which loads the
-// frontend (frontend/src/app.tsx, built by Vite) and holds the page that
+// frontend (frontend/[[.Entry]], built by Vite) and holds the page that
 // Inertia's client renders. Every page after it comes as JSON.
 templ App() {
 	<!DOCTYPE html>
@@ -17,7 +17,7 @@ templ App() {
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<title>[[.Title]]</title>
 			<link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
-			@vite.Tags("src/app.tsx")
+			@vite.Tags("[[.Entry]]")
 		</head>
 		<body>
 			@inertia.App()

@@ -1,0 +1,37 @@
+<script setup lang="ts">
+// Error is the page of an error, such as a 404 (routes.Register sets it
+// with inertia.ErrorPages). Debug mode (APP_DEBUG) shows a server error's
+// details on the framework's page instead.
+import { Head } from '@inertiajs/vue3'
+import { computed } from 'vue'
+import { Card, LinkButton, Narrow, Note, PageHeader, Stack } from '../components/ui'
+import { useT } from '../i18n'
+import type { ErrorProps, Errors } from '../types/pages'
+import { route } from '../types/routes'
+
+const props = defineProps<ErrorProps & { errors?: Errors }>()
+const t = useT()
+const errorList = computed(() => Object.entries(props.errors ?? {}).sort())
+</script>
+
+<template>
+  <Narrow>
+    <Head :title="title" />
+    <Stack>
+      <PageHeader :title="title" :lead="detail" />
+      <Card v-if="errorList.length > 0">
+        <ul>
+          <li v-for="[field, message] in errorList" :key="field">
+            <strong>{{ field }}</strong>: {{ String(message) }}
+          </li>
+        </ul>
+      </Card>
+      <p>
+        <LinkButton :href="route('home')">{{ t('errors.home') }}</LinkButton>
+      </p>
+      <Note v-if="requestId">
+        <small>{{ t('errors.request_id', { id: requestId }) }}</small>
+      </Note>
+    </Stack>
+  </Narrow>
+</template>

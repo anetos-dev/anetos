@@ -20,11 +20,13 @@ description: Add or change a page, a form or a component in this Anetos web app 
    The handler renders it: `return reportPage.Render(c, ReportProps{…})`,
    or, in a typed handler (`web.H`), `return reportPage.Responder(props), nil`.
 2. **The types:** `go run . types` (which `go tool anetos dev` runs)
-   writes `frontend/src/types/pages.ts`, with `PageProps<'Reports/Show'>`,
+   writes `frontend/src/types/pages.ts`, with [[if eq .Framework "vue"]]the props' type (`ReportProps`,
+   which the component takes with `defineProps<ReportProps>()`; the
+   shared props come from `usePage().props`)[[else]]`PageProps<'Reports/Show'>`[[end]],
    and `routes.ts`, with `route(name, params)`. Never write those types
    by hand.
 3. **The component** (`frontend/src/pages/Reports/Show[[.Ext]]`): built
-   from the components of `src/components/ui[[.Ext]]` (`PageHeader`,
+   from the components of `[[.UI]]` (`PageHeader`,
    `Card`, `Field`, `Input`, `Button`, `Table`…), **no CSS classes in
    pages**: to change the look, change a component there or
    `src/theme.css`. The layout (`src/Layout[[.Ext]]`) wraps every page.
@@ -34,7 +36,7 @@ description: Add or change a page, a form or a component in this Anetos web app 
 4. **The route** in `routes/web.go` (or the resource's file):
    `pages.Get("/reports", h.Index).Name("reports.index")`, in the page
    group, which has sessions, CSRF protection and Inertia's middleware.
-5. **A form:** Inertia's `<Form action={route('reports.create')} method="post">`;
+5. **A form:** Inertia's [[if eq .Framework "vue"]]`<Form :action="route('reports.create')" method="post">`[[else]]`<Form action={route('reports.create')} method="post">`[[end]];
    the CSRF token goes in a header by itself. The handler takes an input
    struct with `validate` tags; on a validation error Inertia goes back to
    the form, whose `errors` hold the messages by field. JSON binding is

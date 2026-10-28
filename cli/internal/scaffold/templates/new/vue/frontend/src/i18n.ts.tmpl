@@ -1,0 +1,54 @@
+// The pages' text: the app's catalogs (locales/<locale>/*.yaml), which
+// the server sends in the messages prop, in the request's locale.
+import { usePage } from '@inertiajs/vue3'
+
+type Message = string | Partial<Record<Intl.LDMLPluralRule, string>>
+type Args = Record<string, string | number>
+
+/**
+ * useT returns t, which gives the text of a key (t('home.title'), as
+ * i18n.T in Go), its {placeholders} filled from args. A plural
+ * message picks its form by args.count, in the page's locale. A key the
+ * catalogs lack gives the key itself.
+ */
+export function useT(): (key: string, args?: Args) => string {
+  const page = usePage() // reactive: t reads the current page's props
+  return (key, args) => translate((page.props.messages ?? {}) as Record<string, Message>, page.props.locale, key, args)
+}
+
+export function translate(messages: Record<string, Message>, locale: string, key: string, args: Args = {}): string {
+  const m = messages[key]
+  if (m === undefined) return key
+  let text: string
+  if (typeof m === 'string') {
+    text = m
+  } else {
+    if (args.count === undefined) {
+      text = m.other ?? key // no count: the general form, as i18n.T gives
+    } else {
+      const n = Number(args.count)
+      text = m[new Intl.PluralRules(locale).select(n)] ?? m.other ?? key
+      args = { ...args, count: new Intl.NumberFormat(locale).format(n) }
+    }
+  }
+  return text.replace(/\{([^{}]+)\}/g, (all, name: string) => (name in args ? String(args[name]) : all))
+}
+
+/**
+ * useFormat formats numbers, dates and times in the page's locale, as
+ * i18n.Number, i18n.Date and i18n.DateTime do in Go: number(1234.5),
+ * date('2026-10-06') (a date without a time), dateTime(createdAt), in
+ * the user's time zone (the timeZone prop; the browser's without one).
+ */
+export function useFormat() {
+  const page = usePage()
+  return {
+    number: (n: number) => new Intl.NumberFormat(page.props.locale).format(n),
+    date: (d: string) =>
+      new Intl.DateTimeFormat(page.props.locale, { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(d + 'T00:00:00Z')),
+    dateTime: (t: string) =>
+      new Intl.DateTimeFormat(page.props.locale, { dateStyle: 'medium', timeStyle: 'short', timeZone: page.props.timeZone || undefined }).format(
+        new Date(t),
+      ),
+  }
+}

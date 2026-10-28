@@ -1,0 +1,11 @@
+<script setup lang="ts">
+// LinkButton is a link of the app that looks like a button.
+import { Link } from '@inertiajs/vue3'
+import { buttonClass, type Variant } from './look'
+
+defineProps<{ href: string; variant?: Variant; small?: boolean; full?: boolean }>()
+</script>
+
+<template>
+  <Link :class="buttonClass(variant, true, small, full)" :href="href"><slot /></Link>
+</template>

@@ -8,7 +8,7 @@ import { route, setRoutePrefix, type PlainRouteName } from './types/routes'
 // the header with the app's links, the message a handler flashed, then
 // the page. Its markup is components/ui's, styled by theme.css.
 export default function Layout({ children }: { children: ReactNode }) {
-  const { appName, routePrefix, status, locale, dir } = usePage().props
+  const { appName, routePrefix, notice, locale, dir } = usePage().props
   const t = useT()
   setRoutePrefix(routePrefix) // the locale's, for every route() below
   useEffect(() => {
@@ -31,7 +31,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         </div>
       </header>
       <main className="container">
-        {status && <Flash>{status}</Flash>}
+        {notice && <Flash>{notice}</Flash>}
         {children}
       </main>
       <footer className="site-footer">

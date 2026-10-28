@@ -1,0 +1,8 @@
+<script setup lang="ts">
+// Multiline is text whose line breaks show, as a textarea's.
+defineProps<{ text: string }>()
+</script>
+
+<template>
+  <span class="prewrap">{{ text }}</span>
+</template>

@@ -1,0 +1,23 @@
+// The frontend's entry, which views/app.templ loads: Inertia's client
+// renders the page the server names (Home is pages/Home.vue), inside the
+// Layout, which stays as pages change.
+import { createInertiaApp } from '@inertiajs/vue3'
+import { createApp, h, type DefineComponent } from 'vue'
+import Layout from './Layout.vue'
+import './theme.css'
+import './app.css'
+
+const pages = import.meta.glob<{ default: DefineComponent }>('./pages/**/*.vue')
+
+createInertiaApp({
+  resolve: (name) => {
+    const page = pages[`./pages/${name}.vue`]
+    if (!page) throw new Error(`no page ${name} (frontend/src/pages/${name}.vue)`)
+    return page().then((m) => m.default)
+  },
+  layout: () => Layout,
+  title: (title) => (title ? `${title} · [[.Title]]` : '[[.Title]]'),
+  setup({ el, App, props, plugin }) {
+    if (el) createApp({ render: () => h(App, props) }).use(plugin).mount(el)
+  },
+})

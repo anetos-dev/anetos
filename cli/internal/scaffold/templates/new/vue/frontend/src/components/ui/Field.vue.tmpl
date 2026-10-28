@@ -1,0 +1,20 @@
+<script setup lang="ts">
+// Field is a form's field: its label, the control (the slot: an Input,
+// Textarea or Select, which take its name), a hint, and its error from
+// the server (the form's errors[name]). A Checkbox carries its own
+// label: give Field none.
+import { provide, toRef } from 'vue'
+import { fieldKey } from './look'
+
+const props = defineProps<{ name: string; label?: string; hint?: string; error?: string }>()
+provide(fieldKey, { name: toRef(props, 'name'), error: toRef(props, 'error') })
+</script>
+
+<template>
+  <div class="field">
+    <label v-if="label" :for="name">{{ label }}</label>
+    <slot />
+    <p v-if="hint" class="hint">{{ hint }}</p>
+    <p v-if="error" :id="name + '-error'" class="error">{{ error }}</p>
+  </div>
+</template>

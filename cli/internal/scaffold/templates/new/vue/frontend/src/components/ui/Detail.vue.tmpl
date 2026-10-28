@@ -1,0 +1,9 @@
+<script setup lang="ts">
+// Detail is a term and its value (the slot).
+defineProps<{ term: string }>()
+</script>
+
+<template>
+  <dt>{{ term }}</dt>
+  <dd><slot /></dd>
+</template>

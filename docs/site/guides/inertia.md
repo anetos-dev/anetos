@@ -23,18 +23,19 @@ side is the same for the three.
 ## Start a project with it
 
 ```sh
-anetos new shop --stack=react
+anetos new shop --stack=react   # or --stack=vue
 cd shop
 go tool anetos dev
 ```
 
-The react stack is the web stack's Go side (routes, handlers, sessions,
-CSRF protection, validation, translations) with pages that are React
-components in TypeScript, styled by the starter theme:
+The react and vue stacks are the web stack's Go side (routes, handlers,
+sessions, CSRF protection, validation, translations) with pages that
+are React or Vue components in TypeScript, styled by the starter theme.
+In the react stack:
 
 - `app/handlers/pages.go` declares the pages, `page[P](component)`, and
   the props every page gets (`Shared`): the app's name, the locale, the
-  flashed `status`, the logged-in `user` and the page text.
+  flashed message (`notice`), the logged-in `user` and the page text.
 - `frontend/src/pages/` holds the components, `Home.tsx` and `Error.tsx`
   at first, made of the components in `src/components/ui.tsx`
   (`PageHeader`, `Card`, `Field`, `Input`, `Button`, `Table`…) inside
@@ -48,7 +49,27 @@ components in TypeScript, styled by the starter theme:
   props (`src/types/pages.ts`). Renaming a route, or leaving out a
   parameter, fails the type check that `go tool anetos build` runs.
 
-`go tool anetos make:auth` and `make:crud` write React pages too, rendered
+The vue stack has the same with `.vue` files: `src/Layout.vue`, the
+components in `src/components/ui/`, `src/pages/Home.vue`. A page takes
+its own props with their type from `pages.ts`, and the shared ones from
+`usePage()`:
+
+```vue
+<!-- illustrative: frontend/src/pages/Posts/Index.vue -->
+<script setup lang="ts">
+import { usePage } from '@inertiajs/vue3'
+import type { PostsIndexProps } from '../../types/pages'
+
+defineProps<PostsIndexProps>() // posts, in the template
+const shared = usePage() // shared.props.user, read where it's used
+</script>
+```
+
+Its build type-checks the templates too, with `vue-tsc` on TypeScript 6
+(`vue-tsc` needs TypeScript's JavaScript API, which TypeScript 7
+doesn't have).
+
+`go tool anetos make:auth` and `make:crud` write the stack's pages too, rendered
 by the same handlers as the web stack's, and update the types:
 
 ```sh
@@ -57,7 +78,7 @@ go tool anetos make:crud Post title:string body:text published:bool
 go run . migrate
 ```
 
-The [CLI reference](../reference/cli.md#the-inertia-stack) lists the
+The [CLI reference](../reference/cli.md#the-inertia-stacks) lists the
 files. The rest of this guide is how the parts work, and how to add
 Inertia to a project made without it.
 
@@ -418,6 +439,7 @@ func TestNotes(t *testing.T) {
 | The client shows a dialog with an HTML page | The response isn't Inertia's: a route outside the group with `inertia.Middleware`, or an error without `inertia.ErrorPages` | Put the page's route in the group, and set the error pages |
 | Every visit reloads the whole page | The asset version changes on each request, or the client sends another one | Leave the version to Vite's build (the default), or give `inertia.WithVersion` a value that changes only with the assets |
 | `inertia: NewPage("…"): … the prop name errors is Inertia's` | A prop named `errors` | Rename it: the page gets the validation errors there |
+| A shared prop has another value on one page (the layout's text, `<html lang>`) | A prop of the page has its name: the page's props take the place of the shared ones | Rename one of them (the stacks' shared flash message is `notice`, not `status`, which the error page has) |
 
 ## Next steps
 

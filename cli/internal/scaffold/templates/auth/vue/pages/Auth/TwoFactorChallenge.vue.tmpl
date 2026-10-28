@@ -1,0 +1,25 @@
+<script setup lang="ts">
+// Auth/TwoFactorChallenge asks for the two-factor code, after the
+// password (anetos make:auth).
+import { Form, Head } from '@inertiajs/vue3'
+import { Actions, AuthCard, Button, Field, Input, Note } from '../../components/ui'
+import { useT } from '../../i18n'
+import { route } from '../../types/routes'
+
+const t = useT()
+</script>
+
+<template>
+  <AuthCard :title="t('auth.challenge.title')">
+    <Head :title="t('auth.challenge.title')" />
+    <Note>{{ t('auth.challenge.intro') }}</Note>
+    <Form v-slot="{ errors, processing }" :action="route('two-factor.challenge')" method="post" reset-on-error>
+      <Field name="code" :label="t('auth.fields.code')" :error="errors.code">
+        <Input autocomplete="one-time-code" autofocus />
+      </Field>
+      <Actions>
+        <Button :disabled="processing">{{ t('auth.challenge.submit') }}</Button>
+      </Actions>
+    </Form>
+  </AuthCard>
+</template>

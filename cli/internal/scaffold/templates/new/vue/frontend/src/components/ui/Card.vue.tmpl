@@ -1,0 +1,11 @@
+<script setup lang="ts">
+// Card is a box of related content, under a heading when it has a title.
+defineProps<{ title?: string }>()
+</script>
+
+<template>
+  <section class="card">
+    <h2 v-if="title">{{ title }}</h2>
+    <slot />
+  </section>
+</template>

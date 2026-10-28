@@ -51,13 +51,14 @@ var authInertiaFiles = [][2]string{
 	{"factory.go.tmpl", "database/factories/users.go"},
 }
 
-// authPages are the React pages make:auth writes, under
-// templates/auth/react and the project's frontend/src.
+// authPages are the pages and components make:auth writes in a project
+// of an Inertia stack, under templates/auth/<framework> and the
+// project's frontend/src, without the framework's extension.
 var authPages = []string{
-	"components/AccountMenu.tsx", "components/SocialButtons.tsx",
-	"pages/Auth/Register.tsx", "pages/Auth/Login.tsx", "pages/Auth/ForgotPassword.tsx", "pages/Auth/ResetPassword.tsx",
-	"pages/Auth/TwoFactorChallenge.tsx", "pages/Auth/ConfirmPassword.tsx", "pages/Auth/TwoFactor.tsx",
-	"pages/Auth/Dashboard.tsx", "pages/Auth/Settings.tsx", "pages/Auth/RevertEmail.tsx",
+	"components/AccountMenu", "components/SocialButtons",
+	"pages/Auth/Register", "pages/Auth/Login", "pages/Auth/ForgotPassword", "pages/Auth/ResetPassword",
+	"pages/Auth/TwoFactorChallenge", "pages/Auth/ConfirmPassword", "pages/Auth/TwoFactor",
+	"pages/Auth/Dashboard", "pages/Auth/Settings", "pages/Auth/RevertEmail",
 }
 
 // authAPIFiles are the files make:auth writes in an API project
@@ -153,8 +154,9 @@ func MakeAuth(root string, now time.Time) (AuthResult, error) {
 		migration = "api/migration.go.tmpl"
 	case framework != "":
 		dirs, files, names = append(dirs, "frontend/src"), authInertiaFiles, authInertiaNames
+		ext := inertiaStacks[framework].ext
 		for _, p := range authPages {
-			files = append(files, [2]string{framework + "/" + p + ".tmpl", "frontend/src/" + p})
+			files = append(files, [2]string{framework + "/" + p + ext + ".tmpl", "frontend/src/" + p + ext})
 		}
 	}
 	for _, dir := range dirs {
@@ -204,9 +206,9 @@ func MakeAuth(root string, now time.Time) (AuthResult, error) {
 	}
 
 	data := struct {
-		Module, ID, Framework string
-		Inertia               bool
-	}{mod, id, framework, framework != ""}
+		Module, ID, Framework, Ext string
+		Inertia                    bool
+	}{mod, id, framework, inertiaStacks[framework].ext, framework != ""}
 	out := make([][]byte, len(files))
 	for i, f := range files {
 		if out[i], err = render("templates/auth/"+f[0], "", data); err != nil {
@@ -280,7 +282,8 @@ func MakeAuth(root string, now time.Time) (AuthResult, error) {
 		if res.Shared, err = shareUser(filepath.Join(root, "app", "handlers", "pages.go")); err != nil {
 			return res, err
 		}
-		res.Menu, err = addAccountMenuTo(filepath.Join(root, "frontend", "src", "Layout.tsx"))
+		stack := inertiaStacks[framework]
+		res.Menu, err = addAccountMenuTo(filepath.Join(root, filepath.FromSlash(stack.layout())), stack)
 		return res, err
 	}
 	res.Menu, err = addAccountMenu(filepath.Join(root, "views", "layout.templ"))
@@ -319,14 +322,10 @@ func shareUser(pages string) (bool, error) {
 	return true, os.WriteFile(pages, patched, 0o644)
 }
 
-// accountMenuMarker is the line of an Inertia project's Layout that
-// make:auth replaces with <AccountMenu />.
-var accountMenuMarker = regexp.MustCompile(`(?m)^([ \t]*)\{/\* The account's links \(go tool anetos make:auth adds them\)\. \*/\}[ \t]*(\r?)$`)
-
 // addAccountMenuTo puts <AccountMenu /> in an Inertia project's Layout
 // (frontend/src/Layout.tsx), where anetos new left a comment for it, and
 // imports it; it reports whether the layout shows it.
-func addAccountMenuTo(layout string) (bool, error) {
+func addAccountMenuTo(layout string, stack inertiaStack) (bool, error) {
 	src, err := os.ReadFile(layout)
 	if errors.Is(err, os.ErrNotExist) {
 		return false, nil
@@ -337,9 +336,9 @@ func addAccountMenuTo(layout string) (bool, error) {
 	if bytes.Contains(src, []byte("<AccountMenu")) {
 		return true, nil
 	}
-	accountImport := []byte("import AccountMenu from './components/AccountMenu'")
-	m := accountMenuMarker.FindSubmatchIndex(src)
-	imp := []byte("import { Flash } from './components/ui'")
+	accountImport := []byte(stack.accountImport)
+	m := stack.accountMarker.FindSubmatchIndex(src)
+	imp := []byte(stack.uiImport)
 	if m == nil || !bytes.Contains(src, imp) {
 		return false, nil
 	}

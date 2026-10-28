@@ -1,0 +1,13 @@
+<script setup lang="ts">
+// Select is a choice among options; selected is the one chosen at first.
+import { useControl } from './look'
+
+defineProps<{ options: { value: string; label: string }[]; selected?: string }>()
+const control = useControl()
+</script>
+
+<template>
+  <select v-bind="control">
+    <option v-for="o in options" :key="o.value" :value="o.value" :selected="o.value === selected">{{ o.label }}</option>
+  </select>
+</template>

@@ -18,7 +18,7 @@ import (
 // that isn't listed fails in development and tests.
 var Pages []inertia.AnyPage
 
-// page declares a page: its component (frontend/src/pages/<component>.tsx)
+// page declares a page: its component (frontend/src/pages/<component>[[.Ext]])
 // and its props' type, added to Pages.
 func page[P any](component string) *inertia.Page[P] {
 	p := inertia.NewPage[P](component)
@@ -41,8 +41,10 @@ type Shared struct {
 	// RoutePrefix goes before the paths route() makes: the locale's with
 	// APP_LOCALE_STRATEGY=prefix ("/bn"), else "".
 	RoutePrefix string `json:"routePrefix"`
-	// Status is the message a handler flashed (c.Session().Flash("status", …)).
-	Status string `json:"status"`
+	// Notice is the message a handler flashed (c.Session().Flash("status",
+	// …)). (Not status: a page's props take the place of shared props of
+	// their names, and the error page has a status.)
+	Notice string `json:"notice"`
 	// User is the logged-in user, or null.
 	User *SharedUser `json:"user"`
 	// Messages are the pages' text: the app's catalogs
@@ -72,7 +74,7 @@ func SharedProps(c *web.Ctx) (Shared, error) {
 		Dir:         i18n.Dir(c),
 		TimeZone:    timeZone(c),
 		RoutePrefix: strings.TrimSuffix(web.LocalePath(c, "/"), "/"),
-		Status:      view.Flash(c, "status"),
+		Notice:      view.Flash(c, "status"),
 		User:        u,
 		Messages: inertia.Once(func(ctx context.Context) (map[string]any, error) {
 			return i18n.Messages(ctx, ""), nil

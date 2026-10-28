@@ -212,7 +212,7 @@ func TestSettings(t *testing.T) {
 [[- end]]
 	app.PostForm("/settings/profile", url.Values{"name": {"  Ada \n Lovelace "}}).AssertRedirect("/settings")
 [[- if .Inertia]]
-	app.Get("/settings").AssertInertiaProp("name", "Ada Lovelace").AssertInertiaProp("status", "Saved.")
+	app.Get("/settings").AssertInertiaProp("name", "Ada Lovelace").AssertInertiaProp("notice", "Saved.")
 [[- else]]
 	app.Get("/settings").AssertSee(`value="Ada Lovelace"`, "Saved.")
 [[- end]]
@@ -264,7 +264,7 @@ func TestChangeEmail(t *testing.T) {
 		t.Fatalf("before the link: %+v, %v", u, err)
 	}
 [[- if .Inertia]]
-	app.Get(authLink(t, sent[0].URL)).AssertRedirect("/settings").Follow().AssertInertiaProp("status", "Your email address is now new@example.com.")
+	app.Get(authLink(t, sent[0].URL)).AssertRedirect("/settings").Follow().AssertInertiaProp("notice", "Your email address is now new@example.com.")
 [[- else]]
 	app.Get(authLink(t, sent[0].URL)).AssertRedirect("/settings").Follow().AssertSee("Your email address is now new@example.com.")
 [[- end]]

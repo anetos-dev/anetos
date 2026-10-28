@@ -1,0 +1,22 @@
+<script setup lang="ts">
+// Home is the home page (handlers.Home). Its text is in
+// locales/en/app.yaml, under home.
+import { Head, usePage } from '@inertiajs/vue3'
+import { Card, PageHeader } from '../components/ui'
+import { useT } from '../i18n'
+
+const t = useT()
+const page = usePage()
+</script>
+
+<template>
+  <Head :title="t('home.title')" />
+  <PageHeader :title="t('home.welcome', { app: page.props.appName })" :lead="t('home.edit')" />
+  <Card :title="t('home.next')">
+    <ul>
+      <li><code>go tool anetos make:crud Post title:string body:text</code> {{ t('home.crud') }}</li>
+      <li><code>go tool anetos make:auth</code> {{ t('home.auth') }}</li>
+      <li><code>go run . migrate</code> {{ t('home.migrate') }}</li>
+    </ul>
+  </Card>
+</template>

@@ -1,0 +1,10 @@
+<script setup lang="ts">
+// Button is a button (type submit unless given another).
+import { buttonClass, type Variant } from './look'
+
+const { type = 'submit' } = defineProps<{ variant?: Variant; small?: boolean; full?: boolean; type?: 'submit' | 'button' | 'reset' }>()
+</script>
+
+<template>
+  <button :type="type" :class="buttonClass(variant, false, small, full)"><slot /></button>
+</template>

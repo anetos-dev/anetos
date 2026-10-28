@@ -1,0 +1,97 @@
+<script setup lang="ts">
+// Auth/Settings is the account settings page (anetos make:auth): yours
+// to change, and to add your own fields to (and to
+// app/handlers/settings.go). Its text is in locales/en/auth.yaml.
+import { Form, Head } from '@inertiajs/vue3'
+import { computed } from 'vue'
+import { Badge, Button, Card, Field, Input, LinkButton, Narrow, Note, PageHeader, PostButton, Select } from '../../components/ui'
+import { useT } from '../../i18n'
+import type { SettingsProps } from '../../types/pages'
+import { route } from '../../types/routes'
+
+const p = defineProps<SettingsProps>()
+const t = useT()
+const locales = computed(() => [
+  { value: '', label: t('auth.settings.language_auto') },
+  ...p.locales.map((l) => ({ value: l.value, label: l.title })),
+])
+const zones = computed(() => [{ value: '', label: t('auth.settings.time_zone_app') }, ...p.timeZones.map((z) => ({ value: z, label: z }))])
+</script>
+
+<template>
+  <Narrow>
+    <Head :title="t('auth.settings.title')" />
+    <PageHeader :title="t('auth.settings.title')">
+      <LinkButton :href="route('dashboard')" variant="secondary">{{ t('auth.dashboard.title') }}</LinkButton>
+    </PageHeader>
+
+    <Card :title="t('auth.settings.profile')">
+      <Form v-slot="{ errors, processing }" :action="route('settings.profile')" method="post">
+        <Field name="name" :label="t('auth.fields.name')" :error="errors.name">
+          <Input autocomplete="name" :defaultValue="p.name" />
+        </Field>
+        <Button :disabled="processing">{{ t('auth.settings.save') }}</Button>
+      </Form>
+    </Card>
+
+    <Card :title="t('auth.fields.email')">
+      <p>
+        {{ p.email }}
+        <Badge v-if="!p.emailVerified" tone="warning">{{ t('auth.settings.unverified') }}</Badge>
+      </p>
+      <template v-if="p.emailUrl">
+        <template v-if="p.pendingEmail">
+          <p>{{ t('auth.settings.email_pending', { email: p.pendingEmail }) }}</p>
+          <PostButton :href="route('settings.email.cancel')" variant="secondary">{{ t('auth.settings.email_cancel') }}</PostButton>
+        </template>
+        <Form v-slot="{ errors, processing }" :action="p.emailUrl" method="post" reset-on-success>
+          <Field name="email" :label="t('auth.settings.new_email')" :error="errors.email">
+            <Input type="email" autocomplete="email" />
+          </Field>
+          <Button :disabled="processing">{{ t('auth.settings.email_change') }}</Button>
+        </Form>
+      </template>
+    </Card>
+
+    <Card :title="t('auth.fields.password')">
+      <Form v-slot="{ errors, processing }" :action="route('settings.password')" method="post" reset-on-success reset-on-error>
+        <Field v-if="p.hasPassword" name="current_password" :label="t('auth.fields.current_password')" :error="errors.current_password">
+          <Input type="password" autocomplete="current-password" />
+        </Field>
+        <Note v-else>{{ t('auth.settings.no_password') }}</Note>
+        <Field name="password" :label="t('auth.fields.new_password')" :error="errors.password">
+          <Input type="password" autocomplete="new-password" />
+        </Field>
+        <Field name="password_confirmation" :label="t('auth.fields.password_confirmation')" :error="errors.password_confirmation">
+          <Input type="password" autocomplete="new-password" />
+        </Field>
+        <Button :disabled="processing">{{ t('auth.settings.password_change') }}</Button>
+      </Form>
+    </Card>
+
+    <Card :title="t('auth.settings.preferences')">
+      <Form v-slot="{ errors, processing }" :action="route('settings.preferences')" method="post">
+        <Field name="locale" :label="t('auth.settings.language')" :error="errors.locale">
+          <Select :options="locales" :selected="p.localePreference" />
+        </Field>
+        <Field name="time_zone" :label="t('auth.settings.time_zone')" :error="errors.time_zone">
+          <Select :options="zones" :selected="p.timeZonePreference" />
+        </Field>
+        <Button :disabled="processing">{{ t('auth.settings.save') }}</Button>
+      </Form>
+    </Card>
+
+    <Card v-if="p.twoFactor" :title="t('auth.two_factor.title')">
+      <p>
+        <Badge v-if="p.twoFactorOn" tone="success">{{ t('auth.settings.two_factor_on') }}</Badge>
+        <Badge v-else>{{ t('auth.settings.two_factor_off') }}</Badge>
+      </p>
+      <LinkButton :href="route('two-factor')" variant="secondary">{{ t('auth.settings.two_factor_manage') }}</LinkButton>
+    </Card>
+
+    <Card v-if="p.deleteUrl" :title="t('auth.settings.delete')">
+      <Note>{{ t('auth.settings.delete_intro') }}</Note>
+      <PostButton :href="p.deleteUrl" variant="danger">{{ t('auth.settings.delete_button') }}</PostButton>
+    </Card>
+  </Narrow>
+</template>

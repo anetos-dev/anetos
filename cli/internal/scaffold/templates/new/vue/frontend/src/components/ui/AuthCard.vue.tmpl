@@ -1,0 +1,11 @@
+<script setup lang="ts">
+// AuthCard is a page made of one small card under its title, as the login pages are.
+defineProps<{ title: string }>()
+</script>
+
+<template>
+  <div class="card auth-card">
+    <h1>{{ title }}</h1>
+    <slot />
+  </div>
+</template>

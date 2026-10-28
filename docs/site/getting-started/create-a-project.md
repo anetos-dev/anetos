@@ -92,16 +92,16 @@ and the app serves it at `/api/v1/openapi.json`. `make:auth` and
 run `go run . openapi`: a test in `main_test.go` fails until you do
 ([Describe an API with OpenAPI](../guides/openapi.md)).
 
-## Pages in React
+## Pages in React or Vue
 
-`--stack=react` keeps the web stack's Go side (routes, handlers,
-sessions, validation) and writes the pages as React components in
-TypeScript, which [Inertia](../guides/inertia.md#start-a-project-with-it)
+`--stack=react` and `--stack=vue` keep the web stack's Go side (routes,
+handlers, sessions, validation) and write the pages as React or Vue
+components in TypeScript, which [Inertia](../guides/inertia.md#start-a-project-with-it)
 renders in the browser with the props the handlers send. It needs
 Node.js 20.19 or 22.12 or later, for the frontend's packages and build:
 
 ```sh
-anetos new shop --stack=react
+anetos new shop --stack=react   # or --stack=vue
 cd shop
 go run . migrate
 go tool anetos dev   # http://localhost:8080

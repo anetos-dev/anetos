@@ -86,12 +86,12 @@ var KitVersions = map[string]string{
 
 // Stacks are the values of [Project.Stack]: web, api, and the Inertia
 // stacks ([InertiaStacks]).
-var Stacks = []string{"web", "api", "react"}
+var Stacks = []string{"web", "api", "react", "vue"}
 
 // InertiaStacks are the stacks whose pages are a JavaScript framework's
 // components, which Inertia's client renders (design D370): the web
 // stack's Go side, with a frontend.
-var InertiaStacks = []string{"react"}
+var InertiaStacks = []string{"react", "vue"}
 
 // Framework versions new Inertia projects' package.json asks for (at
 // least; the lockfile npm writes pins them).
@@ -100,6 +100,13 @@ const (
 	ReactVersion       = "19.3.1"
 	ReactTypesVersion  = "19.3.0"
 	ReactPluginVersion = "6.1.2"
+	VueVersion         = "3.5.44"
+	VuePluginVersion   = "6.0.10"
+	VueTscVersion      = "3.3.13"
+	// VueTypeScriptVersion is the vue stack's TypeScript: vue-tsc, which
+	// type-checks the .vue files, needs TypeScript's JavaScript API,
+	// which TypeScript 7 doesn't have.
+	VueTypeScriptVersion = "6.0.3"
 )
 
 // stackLayers are the template layers (directories of templates/new) of
@@ -110,6 +117,7 @@ var stackLayers = map[string][]string{
 	"web":   {"base", "web"},
 	"api":   {"base", "api"},
 	"react": {"base", "inertia", "react"},
+	"vue":   {"base", "inertia", "vue"},
 }
 
 // projectData is what the templates see.
@@ -118,16 +126,19 @@ type projectData struct {
 	Stack                                         string // web, api, react…
 	// Web is set for the web stack and the Inertia stacks (sessions, the
 	// web handlers), API for the api stack, Inertia for the Inertia
-	// stacks, whose Framework is react (FrameworkName React).
-	Web, API, Inertia        bool
-	Framework, FrameworkName string
+	// stacks, whose Framework is react (FrameworkName React), with
+	// components ending with Ext (.tsx) and the frontend's entry Entry
+	// (src/app.tsx).
+	Web, API, Inertia                    bool
+	Framework, FrameworkName, Ext, Entry string
 	// The frontend's packages' versions, for package.json.
-	ViteVersion, TypeScriptVersion, InertiaVersion      string
-	ReactVersion, ReactTypesVersion, ReactPluginVersion string
-	Kit                                                 string // the design kit, for the web stack
-	KitVersion                                          string // its CSS framework's (KitVersions)
-	Bin                                                 string // anetos build's binary (BinaryName)
-	Image                                               string // the name in lower case, for Docker and platforms
+	ViteVersion, TypeScriptVersion, InertiaVersion                    string
+	ReactVersion, ReactTypesVersion, ReactPluginVersion               string
+	VueVersion, VuePluginVersion, VueTscVersion, VueTypeScriptVersion string
+	Kit                                                               string // the design kit, for the web stack
+	KitVersion                                                        string // its CSS framework's (KitVersions)
+	Bin                                                               string // anetos build's binary (BinaryName)
+	Image                                                             string // the name in lower case, for Docker and platforms
 	// GoMinor is the Go release of go.mod's go line ("1.26"), for the
 	// Dockerfile's golang image.
 	GoMinor string
@@ -277,11 +288,12 @@ func Create(p Project) ([]string, error) {
 		Stack: p.Stack, Web: p.Stack == "web" || inertia, API: p.Stack == "api", Kit: p.CSS,
 		Inertia: inertia, ViteVersion: ViteVersion, TypeScriptVersion: TypeScriptVersion,
 		InertiaVersion: InertiaVersion, ReactVersion: ReactVersion, ReactTypesVersion: ReactTypesVersion,
-		ReactPluginVersion: ReactPluginVersion,
+		ReactPluginVersion: ReactPluginVersion, VueVersion: VueVersion, VuePluginVersion: VuePluginVersion,
+		VueTscVersion: VueTscVersion, VueTypeScriptVersion: VueTypeScriptVersion,
 	}
 	if inertia {
-		data.Framework = p.Stack
-		data.FrameworkName = frameworkNames[p.Stack]
+		s := inertiaStacks[p.Stack]
+		data.Framework, data.FrameworkName, data.Ext, data.Entry = p.Stack, s.name, s.ext, s.entry
 	}
 	if p.Replace != "" {
 		data.ReplaceCore = modfile.AutoQuote(p.Replace)

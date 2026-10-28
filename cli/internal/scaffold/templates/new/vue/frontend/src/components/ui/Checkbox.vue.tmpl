@@ -1,0 +1,16 @@
+<script setup lang="ts">
+// Checkbox is a checkbox with its label, sending "1" when checked; the
+// attributes given go on the box (:defaultChecked…).
+import { useControl } from './look'
+
+defineOptions({ inheritAttrs: false })
+defineProps<{ label: string }>()
+const control = useControl()
+</script>
+
+<template>
+  <label class="check">
+    <input type="checkbox" value="1" v-bind="{ ...control, ...$attrs }" />
+    {{ label }}
+  </label>
+</template>

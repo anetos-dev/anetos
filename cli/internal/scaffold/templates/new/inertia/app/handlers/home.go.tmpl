@@ -10,7 +10,7 @@ type HomeProps struct{}
 
 var homePage = page[HomeProps]("Home")
 
-// Show renders the home page (frontend/src/pages/Home.tsx).
+// Show renders the home page (frontend/src/pages/Home[[.Ext]]).
 func (Home) Show(c *web.Ctx) error {
 	return homePage.Render(c, HomeProps{})
 }

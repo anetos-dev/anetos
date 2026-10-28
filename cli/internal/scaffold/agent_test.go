@@ -113,6 +113,30 @@ func TestRenderAgentFiles(t *testing.T) {
 			}
 		}
 	}
+
+	// The vue stack's: its components, its files and its syntax.
+	vue := AgentProject{Name: "shop", Stack: "vue", DB: "sqlite", Kit: "anetos", Frontend: true, Framework: "vue"}
+	files, err = RenderAgentFiles(vue, []string{"claude"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range files {
+		c := string(f.Content)
+		if strings.Contains(c, "[[") || strings.Contains(c, "<no value>") || strings.Contains(c, ".tsx") || strings.Contains(c, "dangerouslySetInnerHTML") {
+			t.Errorf("vue's %s:\n%s", f.Rel, c)
+		}
+		for rel, wants := range map[string][]string{
+			"AGENTS.md":                               {"Vue components", "src/components/ui/", "Layout.vue"},
+			".claude/skills/anetos-page/SKILL.md":     {"defineProps<ReportProps>()", `:action="route('reports.create')"`, "Show.vue"},
+			".claude/skills/anetos-security/SKILL.md": {"`v-html`", "{{ value }}"},
+		} {
+			for _, w := range wants {
+				if f.Rel == rel && !strings.Contains(c, w) {
+					t.Errorf("vue's %s lacks %q:\n%s", rel, w, c)
+				}
+			}
+		}
+	}
 }
 
 // TestAgentDocsCommands checks that each `go tool anetos docs <page>` the
@@ -125,7 +149,8 @@ func TestAgentDocsCommands(t *testing.T) {
 	re := regexp.MustCompile("go tool anetos docs ([a-z0-9][a-z0-9/_-]*)")
 	seen := map[string]bool{}
 	for _, p := range []AgentProject{{Name: "a", Stack: "web", DB: "sqlite", Kit: "anetos"}, {Name: "b", Stack: "api", DB: "mysql"},
-		{Name: "c", Stack: "react", DB: "sqlite", Kit: "anetos", Frontend: true, Framework: "react"}} {
+		{Name: "c", Stack: "react", DB: "sqlite", Kit: "anetos", Frontend: true, Framework: "react"},
+		{Name: "d", Stack: "vue", DB: "sqlite", Kit: "anetos", Frontend: true, Framework: "vue"}} {
 		files, err := RenderAgentFiles(p, Agents)
 		if err != nil {
 			t.Fatal(err)

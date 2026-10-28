@@ -1,0 +1,51 @@
+<script setup lang="ts">
+// Auth/Dashboard shows the account and its API tokens (anetos make:auth);
+// newToken is a token just created, shown once.
+import { Form, Head, usePage } from '@inertiajs/vue3'
+import { computed } from 'vue'
+import { ActionsCell, Button, Card, Field, Flash, Input, LinkButton, Narrow, Note, PageHeader, PostButton, Table } from '../../components/ui'
+import { useT } from '../../i18n'
+import type { DashboardProps } from '../../types/pages'
+import { route } from '../../types/routes'
+
+defineProps<DashboardProps>()
+const t = useT()
+const page = usePage()
+const user = computed(() => page.props.user!)
+</script>
+
+<template>
+  <Narrow>
+    <Head :title="t('auth.dashboard.title')" />
+    <PageHeader :title="t('auth.dashboard.hello', { name: user.name })">
+      <LinkButton :href="route('settings')" variant="secondary">{{ t('auth.settings.title') }}</LinkButton>
+    </PageHeader>
+    <Flash v-if="!user.emailVerified" tone="warning">
+      <span>{{ t('auth.dashboard.verify') }}</span>
+      <PostButton :href="route('verification.send')" variant="secondary" small>{{ t('auth.dashboard.resend') }}</PostButton>
+    </Flash>
+    <Card :title="t('auth.tokens.title')">
+      <Note>{{ t('auth.tokens.intro') }}</Note>
+      <template v-if="newToken">
+        <p>{{ t('auth.tokens.new') }}</p>
+        <pre><code>{{ newToken }}</code></pre>
+      </template>
+      <Table v-if="tokens.length > 0">
+        <tbody>
+          <tr v-for="token in tokens" :key="token.id">
+            <td>{{ token.name }}</td>
+            <ActionsCell>
+              <PostButton :href="route('tokens.delete', { id: token.id })" variant="secondary" small>{{ t('auth.tokens.revoke') }}</PostButton>
+            </ActionsCell>
+          </tr>
+        </tbody>
+      </Table>
+      <Form v-slot="{ errors, processing }" :action="route('tokens.create')" method="post" reset-on-success>
+        <Field name="name" :label="t('auth.tokens.name')" :error="errors.name">
+          <Input />
+        </Field>
+        <Button :disabled="processing">{{ t('auth.tokens.create') }}</Button>
+      </Form>
+    </Card>
+  </Narrow>
+</template>

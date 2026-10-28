@@ -1,0 +1,24 @@
+<script setup lang="ts">
+// NavLink links to a named route, marked as the current page when the
+// page's path (its URL without the query) is the route's or under it.
+import { Link, usePage } from '@inertiajs/vue3'
+import { computed } from 'vue'
+import { route, type PlainRouteName } from '../types/routes'
+
+const props = defineProps<{ route: PlainRouteName; label: string }>()
+const page = usePage()
+const href = computed(() => {
+  // route() puts the locale's prefix first, which the Layout sets from
+  // the page: depending on it here makes the link again when it changes.
+  void page.props.routePrefix
+  return route(props.route)
+})
+const current = computed(() => {
+  const path = page.url.split('?')[0]
+  return path === href.value || (href.value !== '/' && path.startsWith(href.value + '/'))
+})
+</script>
+
+<template>
+  <Link :href="href" :aria-current="current ? 'page' : undefined">{{ label }}</Link>
+</template>

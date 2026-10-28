@@ -1,0 +1,44 @@
+<script setup lang="ts">
+// Layout is every page's frame (createInertiaApp's layout in app.ts): the
+// header with the app's links, the message a handler flashed, then the
+// page (the slot). Its markup is components/ui's, styled by theme.css.
+import { Link, usePage } from '@inertiajs/vue3'
+import { watchEffect } from 'vue'
+import NavLink from './components/NavLink.vue'
+import { Flash } from './components/ui'
+import { useT } from './i18n'
+import { route, setRoutePrefix } from './types/routes'
+
+const page = usePage()
+const t = useT()
+watchEffect(() => {
+  setRoutePrefix(page.props.routePrefix) // the locale's, for every route()
+  // The root view set them for the first visit; a visit may change the
+  // locale (the settings, a login).
+  document.documentElement.lang = page.props.locale
+  document.documentElement.dir = page.props.dir
+})
+</script>
+
+<template>
+  <header class="topbar">
+    <div class="container">
+      <Link class="brand" :href="route('home')">{{ page.props.appName }}</Link>
+      <nav class="nav" :aria-label="t('nav.label')">
+        <NavLink route="home" :label="t('nav.home')" />
+      </nav>
+      <div class="nav-end">
+        <!-- The account's links (go tool anetos make:auth adds them). -->
+      </div>
+    </div>
+  </header>
+  <main class="container">
+    <Flash v-if="page.props.notice">{{ page.props.notice }}</Flash>
+    <slot />
+  </main>
+  <footer class="site-footer">
+    <div class="container">
+      <p>{{ page.props.appName }}</p>
+    </div>
+  </footer>
+</template>

@@ -195,9 +195,9 @@ type crudData struct {
 	HasEmail bool
 	HasBool  bool // bool fields: the views' YesNo helper
 	// Inertia is set in a project of an Inertia stack, whose pages are
-	// Framework's ("react") components.
-	Inertia   bool
-	Framework string
+	// Framework's ("react") components, in files ending with Ext (".tsx").
+	Inertia        bool
+	Framework, Ext string
 }
 
 // HasText reports whether a field is a text (a textarea in the form).
@@ -211,6 +211,20 @@ func (d crudData) HasTransform() bool {
 	return slices.ContainsFunc(d.Fields, func(f crudField) bool {
 		return f.Kind == "int" || f.Kind == "float" || f.Kind == "bool" || f.OptionalDate()
 	})
+}
+
+// HasListFormat reports whether the list (an Inertia page's) formats a
+// column: a number or a date, which useFormat writes.
+func (d crudData) HasListFormat() bool {
+	return slices.ContainsFunc(d.ListFields(), func(f crudField) bool {
+		return f.Kind == "int" || f.Kind == "float" || f.Kind == "date"
+	})
+}
+
+// HasInput reports whether the form (an Inertia page's) has an Input: a
+// field that is neither a text nor a bool.
+func (d crudData) HasInput() bool {
+	return slices.ContainsFunc(d.Fields, func(f crudField) bool { return f.Kind != "text" && f.Kind != "bool" })
 }
 
 // Required are the quoted names of the fields the form requires, for the
@@ -470,7 +484,7 @@ func MakeCrud(root, name string, args []string, now time.Time) (CrudResult, erro
 		Table: table, Key: table, Path: strings.ReplaceAll(table, "_", "-"),
 		Words: words(snake), PluralW: words(table), OneW: label(snake), TitleW: label(table),
 		ID: ts.Format(idLayout) + "_create_" + table + "_table", Fields: fields,
-		Inertia: framework != "", Framework: framework,
+		Inertia: framework != "", Framework: framework, Ext: inertiaStacks[framework].ext,
 	}
 	if d.Plural == model {
 		return res, fmt.Errorf("%s's plural is %s too: give a name whose plural differs, such as %sItem", model, d.Plural, model)
@@ -516,8 +530,9 @@ func MakeCrud(root, name string, args []string, now time.Time) (CrudResult, erro
 	}
 	if framework != "" {
 		files = slices.DeleteFunc(files, func(f [2]string) bool { return f[0] == "views.templ.tmpl" })
+		ext := inertiaStacks[framework].ext
 		for _, page := range []string{"Index", "Show", "Form"} {
-			files = append(files, [2]string{framework + "/" + page + ".tsx.tmpl", "frontend/src/pages/" + d.Plural + "/" + page + ".tsx"})
+			files = append(files, [2]string{framework + "/" + page + ext + ".tmpl", "frontend/src/pages/" + d.Plural + "/" + page + ext})
 		}
 	}
 	if res.API {
@@ -590,21 +605,19 @@ func MakeCrud(root, name string, args []string, now time.Time) (CrudResult, erro
 		return res, err
 	}
 	if framework != "" {
-		res.Linked, err = addNavLinkTo(filepath.Join(root, "frontend", "src", "Layout.tsx"), d.Path+".index", d.Key+".title")
+		stack := inertiaStacks[framework]
+		res.Linked, err = addNavLinkTo(filepath.Join(root, filepath.FromSlash(stack.layout())), stack, d.Path+".index", d.Key+".title")
 		return res, err
 	}
 	res.Linked, err = addNavLink(filepath.Join(root, "views", "layout.templ"), d.Path+".index", d.Key+".title")
 	return res, err
 }
 
-// navLinkLine is a NavLink of an Inertia project's Layout, as anetos new
-// writes them.
-var navLinkLine = regexp.MustCompile(`(?m)^([ \t]*)<NavLink route="[^"]*" label=\{t\('[^']*'\)\} />[ \t]*\r?\n`)
-
-// addNavLinkTo adds <NavLink route=… label={t(key)} /> to an Inertia
-// project's Layout (frontend/src/Layout.tsx), after its header's last
-// NavLink, and reports whether the header has the link.
-func addNavLinkTo(layout, route, key string) (bool, error) {
+// addNavLinkTo adds <NavLink route=… label={t(key)} /> (as the stack
+// writes it) to an Inertia project's Layout (frontend/src/Layout.tsx),
+// after its header's last NavLink, and reports whether the header has
+// the link.
+func addNavLinkTo(layout string, stack inertiaStack, route, key string) (bool, error) {
 	src, err := os.ReadFile(layout)
 	if errors.Is(err, os.ErrNotExist) {
 		return false, nil
@@ -612,7 +625,7 @@ func addNavLinkTo(layout, route, key string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	link := fmt.Sprintf("<NavLink route=%q label={t('%s')} />", route, key)
+	link := stack.navLink(route, key)
 	if bytes.Contains(src, []byte(link)) {
 		return true, nil
 	}
@@ -620,7 +633,7 @@ func addNavLinkTo(layout, route, key string) (bool, error) {
 	if !ok {
 		return false, nil
 	}
-	all := navLinkLine.FindAllSubmatchIndex(header, -1)
+	all := stack.navLinkLine.FindAllSubmatchIndex(header, -1)
 	if len(all) == 0 {
 		return false, nil
 	}

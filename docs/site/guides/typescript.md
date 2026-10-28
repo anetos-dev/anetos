@@ -206,7 +206,7 @@ starting it: it needs the app's settings (`APP_KEY`), not its database.
 So does `go tool anetos generate --check` in CI, which runs it.
 
 `pages.ts` imports types from `@inertiajs/core`, which the Inertia
-adapter (`@inertiajs/react`, `-vue` or `-svelte`) installs; with pnpm,
+adapter (`@inertiajs/react`, `-vue3` or `-svelte`) installs; with pnpm,
 whose packages see only their own dependencies, add `@inertiajs/core`
 to the frontend's.
 

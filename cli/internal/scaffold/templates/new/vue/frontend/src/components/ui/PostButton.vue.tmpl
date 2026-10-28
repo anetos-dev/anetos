@@ -1,0 +1,19 @@
+<script setup lang="ts">
+// PostButton is a button that sends a request of its own (POST, unless
+// given another method) to href with Inertia, as a form of one button
+// would: to log out, delete a row, resend an email.
+import { Link } from '@inertiajs/vue3'
+import { buttonClass, type Variant } from './look'
+
+const { method = 'post' } = defineProps<{
+  href: string
+  method?: 'post' | 'put' | 'patch' | 'delete'
+  variant?: Variant
+  small?: boolean
+  full?: boolean
+}>()
+</script>
+
+<template>
+  <Link :href="href" :method="method" as="button" :class="buttonClass(variant, false, small, full)"><slot /></Link>
+</template>

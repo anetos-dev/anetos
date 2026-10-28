@@ -1,0 +1,19 @@
+<script setup lang="ts">
+// Input is an <input> of its Field: the attributes given go on it
+// (type, autocomplete, :defaultValue…). With autofocus, it takes the
+// focus when it shows: the browser does so only on a document's first
+// page, and the pages after it are Inertia's visits.
+import { onMounted, useAttrs, useTemplateRef } from 'vue'
+import { useControl } from './look'
+
+const control = useControl()
+const attrs = useAttrs()
+const input = useTemplateRef<HTMLInputElement>('input')
+onMounted(() => {
+  if (attrs.autofocus !== undefined && attrs.autofocus !== false) input.value?.focus()
+})
+</script>
+
+<template>
+  <input ref="input" v-bind="control" />
+</template>

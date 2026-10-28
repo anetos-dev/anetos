@@ -29,7 +29,7 @@ import (
 
 // The account settings (anetos make:auth): the user's name, email
 // address, password, language and time zone, two-factor authentication, and
-// deleting the account. Add your own fields here, in [[if .Inertia]]frontend/src/pages/Auth/Settings.tsx[[else]]views/settings.templ[[end]]
+// deleting the account. Add your own fields here, in [[if .Inertia]]frontend/src/pages/Auth/Settings[[.Ext]][[else]]views/settings.templ[[end]]
 // and in routes/auth.go.
 
 // ProfileInput is the profile form.
@@ -70,10 +70,14 @@ type SettingsProps struct {
 	EmailVerified bool     `json:"emailVerified"`
 	PendingEmail  string   `json:"pendingEmail"`
 	HasPassword   bool     `json:"hasPassword"` // false for users who log in with Google, say
-	Locale        string   `json:"locale"`      // "" for the browser's
-	TimeZone      string   `json:"timeZone"`    // "" for the app's
-	Locales       []Choice `json:"locales"`     // the app's languages
-	TimeZones     []string `json:"timeZones"`   // i18n.TimeZones
+	// LocalePreference and TimeZonePreference are the user's choices:
+	// "" for the browser's language and the app's time zone. (Not locale
+	// and timeZone: a page's props take the place of shared props of
+	// their names.)
+	LocalePreference   string   `json:"localePreference"`
+	TimeZonePreference string   `json:"timeZonePreference"`
+	Locales            []Choice `json:"locales"`   // the app's languages
+	TimeZones          []string `json:"timeZones"` // i18n.TimeZones
 	// EmailURL and DeleteURL are where the forms to change the address
 	// and to delete the account post: "" when users may not
 	// (AllowEmailChange, AllowAccountDeletion in routes/auth.go).
@@ -107,7 +111,7 @@ func (h Accounts) Settings(c *web.Ctx) error {
 	}
 [[- if .Inertia]]
 	page := SettingsProps{Name: u.Name, Email: u.Email, EmailVerified: u.EmailVerifiedAt != nil, PendingEmail: u.PendingEmail,
-		HasPassword: u.Password != "", Locale: u.Locale, TimeZone: u.TimeZone, Locales: []Choice{},
+		HasPassword: u.Password != "", LocalePreference: u.Locale, TimeZonePreference: u.TimeZone, Locales: []Choice{},
 		TimeZones: i18n.TimeZones(), TwoFactor: h.Auth.SupportsTwoFactor()}
 	if h.AllowEmailChange {
 		page.EmailURL = web.MustURL(c, "settings.email")

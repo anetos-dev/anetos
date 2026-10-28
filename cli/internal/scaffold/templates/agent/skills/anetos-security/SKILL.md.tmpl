@@ -32,7 +32,7 @@ the guide's section for the rule. Read the section before fixing:
 - `source.xss`: let templ escape (`{ value }`), never `templ.Raw` of
   request data; sanitize HTML you must keep.
 [[- if .Inertia]] In the pages, let [[.FrameworkName]] escape
-  (`{value}`), never [[if eq .Framework "react"]]`dangerouslySetInnerHTML`[[else]]raw HTML[[end]] with request or user data.
+  (`[[if eq .Framework "vue"]]{{ value }}[[else]]{value}[[end]]`), never `[[.RawHTML]]` with request or user data.
 [[- end]]
 - `source.redirect`: redirect to your own paths (starts with `/`, not
   `//`) or to a route by name (`web.RedirectRoute`).

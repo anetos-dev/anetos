@@ -77,10 +77,11 @@ func makeAuth(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	if res.Wired {
 		fmt.Fprintln(stdout, "updated main.go: setup calls setupAuth")
 	}
-	inertiaStack := scaffold.InertiaFramework(root) != ""
+	framework := scaffold.InertiaFramework(root)
+	inertiaStack := framework != ""
 	switch {
 	case res.Menu && inertiaStack:
-		fmt.Fprintln(stdout, "updated frontend/src/Layout.tsx: the header shows AccountMenu")
+		fmt.Fprintf(stdout, "updated %s: the header shows AccountMenu\n", scaffold.InertiaLayout(framework))
 	case res.Menu:
 		fmt.Fprintln(stdout, "updated views/layout.templ: the header shows AccountMenu")
 	}
@@ -175,13 +176,13 @@ the logged-in user, for every page, with authUser (app/handlers/auth.go):
 		fallthrough
 	case inertiaStack && !res.Menu:
 		if !res.Menu {
-			fmt.Fprint(stdout, `
-frontend/src/Layout.tsx has no place for the account's links, as a new
-project's: add them where you want them (import AccountMenu from
-'./components/AccountMenu'):
+			fmt.Fprintf(stdout, `
+%s has no place for the account's links, as a new
+project's: add them where you want them, with its import:
 
+	%s
 	<AccountMenu />
-`)
+`, scaffold.InertiaLayout(framework), scaffold.InertiaAccountImport(framework))
 		}
 	case !res.Menu:
 		fmt.Fprint(stdout, `

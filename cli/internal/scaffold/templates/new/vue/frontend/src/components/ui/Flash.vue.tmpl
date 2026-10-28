@@ -1,0 +1,10 @@
+<script setup lang="ts">
+// Flash is a message about what just happened, with any buttons beside it.
+import { toneClass, type Tone } from './look'
+
+const { tone = 'success' } = defineProps<{ tone?: Tone }>()
+</script>
+
+<template>
+  <div :class="'flash cluster' + toneClass(tone, true)" role="status"><slot /></div>
+</template>

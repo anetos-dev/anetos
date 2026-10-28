@@ -26,10 +26,11 @@ views (made of views/ui's components), the routes, their English text
 and a test. It adds the routes to routes/web.go's pages group and a
 link to the layout's nav. The code is yours to change.
 
-In a project of an Inertia stack (anetos new --stack=react), the pages
-are the framework's components (frontend/src/pages/<Plural>), rendered
-by the same handlers, and the link goes in frontend/src/Layout.tsx; it
-then updates the frontend's types (go run . types).
+In a project of an Inertia stack (anetos new --stack=react or vue), the
+pages are the framework's components (frontend/src/pages/<Plural>),
+rendered by the same handlers, and the link goes in the frontend's
+layout (frontend/src/Layout.tsx or .vue); it then updates the frontend's
+types (go run . types).
 
 In an API project (anetos new --stack=api), it writes JSON endpoints
 under /api/v1 instead: the model, the migration, the handlers (the list
@@ -82,8 +83,8 @@ func makeCrud(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	}
 	if res.Linked {
 		layout := "views/layout.templ"
-		if scaffold.InertiaFramework(root) != "" {
-			layout = "frontend/src/Layout.tsx"
+		if fw := scaffold.InertiaFramework(root); fw != "" {
+			layout = scaffold.InertiaLayout(fw)
 		}
 		fmt.Fprintf(stdout, "updated %s: the nav links to %s\n", layout, res.Path)
 	}

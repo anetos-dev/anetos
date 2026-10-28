@@ -7,6 +7,18 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- The vue stack (V3b, D377–D378): `anetos new --stack=vue`, the react
+  stack's Go side with pages that are Vue single-file components in
+  TypeScript (`src/Layout.vue`, `src/components/ui/`, a component a
+  file, `src/i18n.ts`'s `useT()` and `useFormat()`), type-checked by
+  `vue-tsc` on TypeScript 6 in `npm run build`; `make:auth` and
+  `make:crud` write Vue pages in such a project, and patch
+  `src/Layout.vue`. In both stacks: the CRUD pages of a model without
+  numbers or dates (or with only texts and booleans) import only what
+  they use, so the type check passes; the shared flash message is
+  `notice` (an error page's `status` took its place), and the settings
+  page's `localePreference` and `timeZonePreference` no longer replace
+  the shared `locale` and `timeZone`.
 - The react stack (V3a, D370–D376): `anetos new --stack=react` writes
   the web stack's Go side (routes, handlers, sessions, CSRF protection,
   validation, translations) with pages that are React components in
@@ -156,6 +168,9 @@ All notable changes to this project are documented here. The format follows
   and sends it to Codecov, and the README shows its badge (M9b, D332).
 
 ### Fixed
+- `web/inertia`: with `APP_LOCALE_STRATEGY=prefix`, a page's URL keeps
+  the locale's prefix (`/bn/posts`), which the client shows in the
+  address bar (V3b).
 - `web/openapi`: a result's fields promoted through an embedded pointer
   to an unexported struct, which `encoding/json` writes, are in its
   schema (TS1).

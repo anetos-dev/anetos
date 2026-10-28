@@ -1,0 +1,41 @@
+<script setup lang="ts">
+// Auth/Register is the registration form (anetos make:auth): yours to
+// change. Its text is in locales/en/auth.yaml.
+import { Form, Head, Link } from '@inertiajs/vue3'
+import SocialButtons from '../../components/SocialButtons.vue'
+import { Actions, AuthCard, Button, Field, Input, Note } from '../../components/ui'
+import { useT } from '../../i18n'
+import type { Errors, SocialProps } from '../../types/pages'
+import { route } from '../../types/routes'
+
+const props = defineProps<SocialProps & { errors: Errors }>()
+const t = useT()
+const socialError = () => (typeof props.errors.social === 'string' ? props.errors.social : undefined)
+</script>
+
+<template>
+  <AuthCard :title="t('auth.register.title')">
+    <Head :title="t('auth.register.title')" />
+    <Form v-slot="{ errors, processing }" :action="route('register')" method="post" :reset-on-error="['password', 'password_confirmation']">
+      <Field name="name" :label="t('auth.fields.name')" :error="errors.name">
+        <Input autocomplete="name" />
+      </Field>
+      <Field name="email" :label="t('auth.fields.email')" :error="errors.email">
+        <Input type="email" autocomplete="email" />
+      </Field>
+      <Field name="password" :label="t('auth.fields.password')" :error="errors.password">
+        <Input type="password" autocomplete="new-password" />
+      </Field>
+      <Field name="password_confirmation" :label="t('auth.fields.password_confirmation')" :error="errors.password_confirmation">
+        <Input type="password" autocomplete="new-password" />
+      </Field>
+      <Actions>
+        <Button :disabled="processing">{{ t('auth.register.submit') }}</Button>
+      </Actions>
+    </Form>
+    <SocialButtons :social="social" :error="socialError()" />
+    <Note>
+      {{ t('auth.register.have_account') }} <Link :href="route('login')">{{ t('auth.login.title') }}</Link>
+    </Note>
+  </AuthCard>
+</template>

@@ -1,0 +1,55 @@
+<script setup lang="ts">
+// Auth/TwoFactor turns two-factor authentication on and off (anetos
+// make:auth): off, being set up (the QR code to scan), or on; and the
+// recovery codes once, just after they're made.
+import { Form, Head } from '@inertiajs/vue3'
+import { Button, Card, Cluster, Field, Input, LinkButton, Narrow, PageHeader, PostButton } from '../../components/ui'
+import { useT } from '../../i18n'
+import type { TwoFactorProps } from '../../types/pages'
+import { route } from '../../types/routes'
+
+defineProps<TwoFactorProps>()
+const t = useT()
+</script>
+
+<template>
+  <Narrow>
+    <Head :title="t('auth.two_factor.title')" />
+    <PageHeader :title="t('auth.two_factor.title')">
+      <LinkButton :href="route('settings')" variant="secondary">{{ t('auth.settings.title') }}</LinkButton>
+    </PageHeader>
+    <Card>
+      <template v-if="recoveryCodes.length > 0">
+        <p>{{ t('auth.two_factor.codes') }}</p>
+        <ul>
+          <li v-for="c in recoveryCodes" :key="c"><code>{{ c }}</code></li>
+        </ul>
+      </template>
+      <template v-if="on">
+        <p>{{ t('auth.two_factor.on', { count: recoveryCodesLeft }) }}</p>
+        <Cluster>
+          <PostButton :href="route('two-factor.recovery-codes')" variant="secondary">{{ t('auth.two_factor.new_codes') }}</PostButton>
+          <PostButton :href="route('two-factor.disable')" variant="danger">{{ t('auth.two_factor.disable') }}</PostButton>
+        </Cluster>
+      </template>
+      <template v-else-if="started">
+        <p>{{ t('auth.two_factor.scan') }}</p>
+        <!-- The server's SVG of the QR code (package qr). -->
+        <p v-html="qr" />
+        <p>
+          {{ t('auth.two_factor.key') }} <code>{{ secret }}</code>
+        </p>
+        <Form v-slot="{ errors, processing }" :action="route('two-factor.confirm')" method="post" reset-on-error>
+          <Field name="code" :label="t('auth.fields.code')" :error="errors.code">
+            <Input autocomplete="one-time-code" inputmode="numeric" />
+          </Field>
+          <Button :disabled="processing">{{ t('auth.two_factor.confirm') }}</Button>
+        </Form>
+      </template>
+      <template v-else>
+        <p>{{ t('auth.two_factor.off') }}</p>
+        <PostButton :href="route('two-factor.start')">{{ t('auth.two_factor.enable') }}</PostButton>
+      </template>
+    </Card>
+  </Narrow>
+</template>
